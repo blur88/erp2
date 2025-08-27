@@ -1,0 +1,639 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between } from 'typeorm';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
+import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
+import { Customer, CustomerStatus } from '../../../database/entities/customer.entity';
+import { Product } from '../../../database/entities/product.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import {
+  SalesAnalyticsQueryDto,
+  SalesAnalyticsResponseDto,
+  SalesMetricsDto,
+  PeriodMetricDto,
+  TopCustomerDto,
+  TopProductDto,
+  DateRange,
+  SalesPipelineQueryDto,
+  SalesPipelineResponseDto,
+  PipelineStageDto,
+  CustomerAnalyticsQueryDto,
+  CustomerMetricsDto,
+  RevenueReportQueryDto,
+  RevenueReportResponseDto,
+  RevenueDataDto,
+} from '../dto/sales-analytics.dto';
+
+@Injectable()
+export class SalesAnalyticsService {
+  constructor(
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepository: Repository<SalesOrder>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Customer)
+    private readonly customerRepository: Repository<Customer>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+    @InjectRepository(SalesOrderItem)
+    private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+  ) {}
+
+  async getSalesAnalytics(query: SalesAnalyticsQueryDto): Promise<SalesAnalyticsResponseDto> {
+    const { startDate, endDate } = this.parseDateRange(query.dateRange, query.startDate, query.endDate);
+
+    // Get metrics in parallel
+    const [
+      metrics,
+      periodData,
+      topCustomers,
+      topProducts,
+    ] = await Promise.all([
+      this.calculateSalesMetrics(startDate, endDate, query),
+      this.getPeriodData(startDate, endDate, query.groupBy || 'month'),
+      this.getTopCustomers(startDate, endDate, 10),
+      this.getTopProducts(startDate, endDate, 10),
+    ]);
+
+    return {
+      metrics,
+      periodData,
+      topCustomers,
+      topProducts,
+      periodStart: startDate,
+      periodEnd: endDate,
+    };
+  }
+
+  async getSalesPipeline(query: SalesPipelineQueryDto): Promise<SalesPipelineResponseDto> {
+    const { startDate, endDate } = this.parseDateRange(query.dateRange, query.startDate, query.endDate);
+
+    let queryBuilder = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (query.customerId) {
+      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+    }
+
+    if (query.salesRepId) {
+      queryBuilder = queryBuilder.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+    }
+
+    // Get pipeline stages
+    const stagesData = await queryBuilder
+      .select([
+        'order.status',
+        'COUNT(*) as orderCount',
+        'COALESCE(SUM(order.totalAmount), 0) as totalValue',
+        'COALESCE(AVG(order.totalAmount), 0) as averageValue',
+      ])
+      .groupBy('order.status')
+      .getRawMany();
+
+    const totalOrders = stagesData.reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
+    const totalValue = stagesData.reduce((sum, stage) => sum + parseFloat(stage.totalValue), 0);
+
+    const stages: PipelineStageDto[] = stagesData.map(stage => ({
+      status: stage.order_status,
+      statusLabel: this.formatStatusLabel(stage.order_status),
+      orderCount: parseInt(stage.orderCount),
+      totalValue: parseFloat(stage.totalValue),
+      averageValue: parseFloat(stage.averageValue),
+      percentage: totalOrders > 0 ? (parseInt(stage.orderCount) / totalOrders) * 100 : 0,
+    }));
+
+    // Calculate conversion rate (completed orders / total orders)
+    const completedOrders = stagesData
+      .filter(stage => [SalesOrderStatus.COMPLETED, SalesOrderStatus.DELIVERED].includes(stage.order_status))
+      .reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
+
+    const conversionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+
+    return {
+      stages,
+      totalOrders,
+      totalValue,
+      averageOrderValue: totalOrders > 0 ? totalValue / totalOrders : 0,
+      conversionRate,
+      periodStart: startDate,
+      periodEnd: endDate,
+    };
+  }
+
+  async getCustomerAnalytics(query: CustomerAnalyticsQueryDto): Promise<CustomerMetricsDto> {
+    if (!query.customerId) {
+      throw new Error('Customer ID is required');
+    }
+
+    const { startDate, endDate } = this.parseDateRange(query.dateRange, query.startDate, query.endDate);
+
+    const customer = await this.customerRepository.findOne({
+      where: { id: query.customerId },
+    });
+
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    // Get customer orders within period
+    const ordersQuery = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.customerId = :customerId', { customerId: query.customerId })
+      .andWhere('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    const [orderStats, paymentStats] = await Promise.all([
+      ordersQuery
+        .select([
+          'COUNT(*) as totalOrders',
+          'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
+          'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
+          'MIN(order.orderDate) as firstOrderDate',
+          'MAX(order.orderDate) as lastOrderDate',
+        ])
+        .getRawOne(),
+      
+      this.paymentRepository
+        .createQueryBuilder('payment')
+        .where('payment.customerId = :customerId', { customerId: query.customerId })
+        .andWhere('payment.paymentDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('payment.status = :status', { status: PaymentStatus.COMPLETED })
+        .select('COALESCE(AVG(EXTRACT(DAY FROM (payment.paymentDate - invoice.invoiceDate))), 0)', 'avgPaymentDays')
+        .leftJoin('payment.invoice', 'invoice')
+        .getRawOne(),
+    ]);
+
+    const daysSinceLastOrder = customer.lastPurchaseDate 
+      ? Math.floor((Date.now() - customer.lastPurchaseDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    // Calculate payment score based on payment history
+    const avgPaymentDays = parseFloat(paymentStats.avgPaymentDays) || 30;
+    let paymentScore = 100;
+    if (avgPaymentDays > customer.paymentTermsDays) {
+      paymentScore = Math.max(0, 100 - ((avgPaymentDays - customer.paymentTermsDays) * 2));
+    }
+
+    return {
+      customerId: query.customerId,
+      customerName: customer.name,
+      totalRevenue: parseFloat(orderStats.totalRevenue) || 0,
+      totalOrders: parseInt(orderStats.totalOrders) || 0,
+      averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
+      currentBalance: Number(customer.currentBalance),
+      creditLimit: Number(customer.creditLimit),
+      availableCredit: customer.availableCredit,
+      lastOrderDate: orderStats.lastOrderDate || customer.lastPurchaseDate,
+      firstOrderDate: orderStats.firstOrderDate || customer.firstPurchaseDate,
+      paymentScore,
+      daysSinceLastOrder,
+    };
+  }
+
+  async getRevenueReport(query: RevenueReportQueryDto): Promise<RevenueReportResponseDto> {
+    const { startDate, endDate } = this.parseDateRange(query.period, query.startDate, query.endDate);
+    const groupBy = query.groupBy || 'month';
+
+    // Get current period data
+    const currentPeriodData = await this.getRevenueDataByPeriod(startDate, endDate, groupBy);
+
+    let previousPeriodData: RevenueDataDto[] = [];
+    let previousPeriodTotals = { totalRevenue: 0, totalOrders: 0 };
+
+    if (query.includeComparison) {
+      const periodDuration = endDate.getTime() - startDate.getTime();
+      const previousStartDate = new Date(startDate.getTime() - periodDuration);
+      const previousEndDate = new Date(startDate.getTime() - 1);
+
+      previousPeriodData = await this.getRevenueDataByPeriod(previousStartDate, previousEndDate, groupBy);
+      
+      const previousStats = await this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', {
+          startDate: previousStartDate,
+          endDate: previousEndDate,
+        })
+        .andWhere('invoice.status != :cancelled', { cancelled: InvoiceStatus.CANCELLED })
+        .select([
+          'COALESCE(SUM(invoice.paidAmount), 0) as totalRevenue',
+          'COUNT(*) as totalOrders',
+        ])
+        .getRawOne();
+
+      previousPeriodTotals = {
+        totalRevenue: parseFloat(previousStats.totalRevenue) || 0,
+        totalOrders: parseInt(previousStats.totalOrders) || 0,
+      };
+    }
+
+    // Calculate current period totals
+    const currentPeriodTotals = currentPeriodData.reduce(
+      (acc, item) => ({
+        totalRevenue: acc.totalRevenue + item.revenue,
+        totalOrders: acc.totalOrders + item.orders,
+      }),
+      { totalRevenue: 0, totalOrders: 0 },
+    );
+
+    // Add comparison data to current period data
+    const dataWithComparison = currentPeriodData.map((current, index) => {
+      const previous = previousPeriodData[index];
+      return {
+        ...current,
+        previousPeriodRevenue: previous?.revenue,
+        growthPercentage: previous?.revenue 
+          ? ((current.revenue - previous.revenue) / previous.revenue) * 100 
+          : undefined,
+      };
+    });
+
+    const growthPercentage = previousPeriodTotals.totalRevenue > 0
+      ? ((currentPeriodTotals.totalRevenue - previousPeriodTotals.totalRevenue) / previousPeriodTotals.totalRevenue) * 100
+      : 0;
+
+    return {
+      data: dataWithComparison,
+      totalRevenue: currentPeriodTotals.totalRevenue,
+      totalOrders: currentPeriodTotals.totalOrders,
+      averageOrderValue: currentPeriodTotals.totalOrders > 0 
+        ? currentPeriodTotals.totalRevenue / currentPeriodTotals.totalOrders 
+        : 0,
+      previousPeriodRevenue: previousPeriodTotals.totalRevenue,
+      growthPercentage,
+      periodStart: startDate,
+      periodEnd: endDate,
+    };
+  }
+
+  async getDashboardMetrics(): Promise<{
+    today: SalesMetricsDto;
+    thisMonth: SalesMetricsDto;
+    thisYear: SalesMetricsDto;
+  }> {
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    const endOfYear = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+    const [todayMetrics, thisMonthMetrics, thisYearMetrics] = await Promise.all([
+      this.calculateSalesMetrics(startOfDay, endOfDay),
+      this.calculateSalesMetrics(startOfMonth, endOfMonth),
+      this.calculateSalesMetrics(startOfYear, endOfYear),
+    ]);
+
+    return {
+      today: todayMetrics,
+      thisMonth: thisMonthMetrics,
+      thisYear: thisYearMetrics,
+    };
+  }
+
+  // Private helper methods
+
+  private async calculateSalesMetrics(
+    startDate: Date,
+    endDate: Date,
+    query?: SalesAnalyticsQueryDto,
+  ): Promise<SalesMetricsDto> {
+    let orderQuery = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    let invoiceQuery = this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (query?.customerId) {
+      orderQuery = orderQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+      invoiceQuery = invoiceQuery.andWhere('invoice.customerId = :customerId', { customerId: query.customerId });
+    }
+
+    if (query?.salesRepId) {
+      orderQuery = orderQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+    }
+
+    const [orderStats, invoiceStats, customerStats, paymentStats] = await Promise.all([
+      // Order statistics
+      orderQuery
+        .select([
+          'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
+          'COUNT(*) as totalOrders',
+          'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
+          'COUNT(CASE WHEN order.status = :completed THEN 1 END) as completedOrders',
+          'COUNT(CASE WHEN order.status = :pending THEN 1 END) as pendingOrders',
+          'COUNT(CASE WHEN order.status = :shipped THEN 1 END) as shippedOrders',
+        ])
+        .setParameters({
+          completed: SalesOrderStatus.COMPLETED,
+          pending: SalesOrderStatus.PENDING,
+          shipped: SalesOrderStatus.SHIPPED,
+        })
+        .getRawOne(),
+
+      // Invoice statistics
+      invoiceQuery
+        .select([
+          'COALESCE(SUM(CASE WHEN invoice.status = :paid THEN invoice.totalAmount ELSE 0 END), 0) as paidInvoicesAmount',
+          'COALESCE(SUM(CASE WHEN invoice.status IN (:...pending) THEN invoice.balanceDue ELSE 0 END), 0) as pendingInvoicesAmount',
+          'COALESCE(SUM(CASE WHEN invoice.dueDate < :today AND invoice.balanceDue > 0 THEN invoice.balanceDue ELSE 0 END), 0) as overdueInvoicesAmount',
+        ])
+        .setParameters({
+          paid: InvoiceStatus.PAID,
+          pending: [InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID],
+          today: new Date(),
+        })
+        .getRawOne(),
+
+      // New customers in period
+      this.customerRepository
+        .createQueryBuilder('customer')
+        .where('customer.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .getCount(),
+
+      // Payment statistics for conversion rate
+      this.paymentRepository
+        .createQueryBuilder('payment')
+        .where('payment.paymentDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('payment.status = :completed', { completed: PaymentStatus.COMPLETED })
+        .getCount(),
+    ]);
+
+    // Calculate conversion rate based on completed orders vs total orders
+    const conversionRate = parseInt(orderStats.totalOrders) > 0 
+      ? (parseInt(orderStats.completedOrders) / parseInt(orderStats.totalOrders)) * 100 
+      : 0;
+
+    return {
+      totalRevenue: parseFloat(orderStats.totalRevenue) || 0,
+      totalOrders: parseInt(orderStats.totalOrders) || 0,
+      newCustomers: customerStats || 0,
+      averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
+      conversionRate,
+      paidInvoicesAmount: parseFloat(invoiceStats.paidInvoicesAmount) || 0,
+      pendingInvoicesAmount: parseFloat(invoiceStats.pendingInvoicesAmount) || 0,
+      overdueInvoicesAmount: parseFloat(invoiceStats.overdueInvoicesAmount) || 0,
+      completedOrders: parseInt(orderStats.completedOrders) || 0,
+      pendingOrders: parseInt(orderStats.pendingOrders) || 0,
+      shippedOrders: parseInt(orderStats.shippedOrders) || 0,
+    };
+  }
+
+  private async getPeriodData(startDate: Date, endDate: Date, groupBy: string): Promise<PeriodMetricDto[]> {
+    let dateFormat: string;
+    let dateInterval: string;
+
+    switch (groupBy) {
+      case 'day':
+        dateFormat = '%Y-%m-%d';
+        dateInterval = '1 day';
+        break;
+      case 'week':
+        dateFormat = '%Y-%u';
+        dateInterval = '1 week';
+        break;
+      case 'quarter':
+        dateFormat = '%Y-Q%q';
+        dateInterval = '3 months';
+        break;
+      case 'year':
+        dateFormat = '%Y';
+        dateInterval = '1 year';
+        break;
+      default: // month
+        dateFormat = '%Y-%m';
+        dateInterval = '1 month';
+        break;
+    }
+
+    const data = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .select([
+        `DATE_FORMAT(order.orderDate, '${dateFormat}') as period`,
+        'COUNT(*) as orders',
+        'COALESCE(SUM(order.totalAmount), 0) as revenue',
+        'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
+      ])
+      .groupBy('period')
+      .orderBy('period', 'ASC')
+      .getRawMany();
+
+    // Also get new customers for each period
+    const customerData = await this.customerRepository
+      .createQueryBuilder('customer')
+      .where('customer.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .select([
+        `DATE_FORMAT(customer.createdAt, '${dateFormat}') as period`,
+        'COUNT(*) as newCustomers',
+      ])
+      .groupBy('period')
+      .orderBy('period', 'ASC')
+      .getRawMany();
+
+    const customerMap = new Map(customerData.map(item => [item.period, parseInt(item.newCustomers)]));
+
+    return data.map(item => ({
+      period: item.period,
+      revenue: parseFloat(item.revenue) || 0,
+      orders: parseInt(item.orders) || 0,
+      newCustomers: customerMap.get(item.period) || 0,
+      averageOrderValue: parseFloat(item.averageOrderValue) || 0,
+    }));
+  }
+
+  private async getTopCustomers(startDate: Date, endDate: Date, limit: number): Promise<TopCustomerDto[]> {
+    const data = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .select([
+        'customer.id as customerId',
+        'customer.name as customerName',
+        'customer.email as customerEmail',
+        'COUNT(*) as totalOrders',
+        'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
+        'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
+        'MAX(order.orderDate) as lastOrderDate',
+      ])
+      .groupBy('customer.id')
+      .orderBy('totalRevenue', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return data.map(item => ({
+      customerId: item.customerId,
+      customerName: item.customerName,
+      customerEmail: item.customerEmail,
+      totalRevenue: parseFloat(item.totalRevenue) || 0,
+      totalOrders: parseInt(item.totalOrders) || 0,
+      averageOrderValue: parseFloat(item.averageOrderValue) || 0,
+      lastOrderDate: item.lastOrderDate,
+    }));
+  }
+
+  private async getTopProducts(startDate: Date, endDate: Date, limit: number): Promise<TopProductDto[]> {
+    const data = await this.salesOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoinAndSelect('item.product', 'product')
+      .leftJoinAndSelect('item.salesOrder', 'order')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .select([
+        'product.id as productId',
+        'product.sku as productSku',
+        'product.name as productName',
+        'SUM(item.quantity) as quantitySold',
+        'COALESCE(SUM(item.totalAmount), 0) as totalRevenue',
+        'COALESCE(AVG(item.unitPrice), 0) as averagePrice',
+        'COUNT(DISTINCT order.id) as orderCount',
+      ])
+      .groupBy('product.id')
+      .orderBy('quantitySold', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return data.map(item => ({
+      productId: item.productId,
+      productSku: item.productSku,
+      productName: item.productName,
+      quantitySold: parseInt(item.quantitySold) || 0,
+      totalRevenue: parseFloat(item.totalRevenue) || 0,
+      averagePrice: parseFloat(item.averagePrice) || 0,
+      orderCount: parseInt(item.orderCount) || 0,
+    }));
+  }
+
+  private async getRevenueDataByPeriod(
+    startDate: Date,
+    endDate: Date,
+    groupBy: string,
+  ): Promise<RevenueDataDto[]> {
+    let dateFormat: string;
+
+    switch (groupBy) {
+      case 'day':
+        dateFormat = '%Y-%m-%d';
+        break;
+      case 'week':
+        dateFormat = '%Y-%u';
+        break;
+      default: // month
+        dateFormat = '%Y-%m';
+        break;
+    }
+
+    const data = await this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('invoice.status != :cancelled', { cancelled: InvoiceStatus.CANCELLED })
+      .select([
+        `DATE_FORMAT(invoice.invoiceDate, '${dateFormat}') as period`,
+        'COALESCE(SUM(invoice.paidAmount), 0) as revenue',
+        'COUNT(*) as orders',
+        'COALESCE(AVG(invoice.totalAmount), 0) as averageOrderValue',
+      ])
+      .groupBy('period')
+      .orderBy('period', 'ASC')
+      .getRawMany();
+
+    return data.map(item => ({
+      period: item.period,
+      revenue: parseFloat(item.revenue) || 0,
+      orders: parseInt(item.orders) || 0,
+      averageOrderValue: parseFloat(item.averageOrderValue) || 0,
+    }));
+  }
+
+  private parseDateRange(
+    dateRange?: DateRange,
+    customStartDate?: Date,
+    customEndDate?: Date,
+  ): { startDate: Date; endDate: Date } {
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = new Date(now.setHours(23, 59, 59, 999));
+
+    if (dateRange === DateRange.CUSTOM && customStartDate && customEndDate) {
+      return {
+        startDate: new Date(customStartDate),
+        endDate: new Date(customEndDate),
+      };
+    }
+
+    switch (dateRange) {
+      case DateRange.TODAY:
+        startDate = new Date(now.setHours(0, 0, 0, 0));
+        break;
+      case DateRange.THIS_WEEK:
+        startDate = new Date(now.setDate(now.getDate() - now.getDay()));
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case DateRange.THIS_MONTH:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case DateRange.THIS_QUARTER:
+        const quarter = Math.floor(now.getMonth() / 3);
+        startDate = new Date(now.getFullYear(), quarter * 3, 1);
+        break;
+      case DateRange.THIS_YEAR:
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      case DateRange.LAST_WEEK:
+        startDate = new Date(now.setDate(now.getDate() - now.getDay() - 7));
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now.setDate(now.getDate() - now.getDay() - 1));
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case DateRange.LAST_MONTH:
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        break;
+      case DateRange.LAST_QUARTER:
+        const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
+        const year = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
+        const quarterStart = lastQuarter < 0 ? 3 : lastQuarter;
+        startDate = new Date(year, quarterStart * 3, 1);
+        endDate = new Date(year, quarterStart * 3 + 3, 0, 23, 59, 59, 999);
+        break;
+      case DateRange.LAST_YEAR:
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+        endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+        break;
+      default: // THIS_MONTH
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+    }
+
+    return { startDate, endDate };
+  }
+
+  private formatStatusLabel(status: SalesOrderStatus): string {
+    switch (status) {
+      case SalesOrderStatus.DRAFT:
+        return 'Draft';
+      case SalesOrderStatus.PENDING:
+        return 'Pending';
+      case SalesOrderStatus.CONFIRMED:
+        return 'Confirmed';
+      case SalesOrderStatus.IN_PROGRESS:
+        return 'In Progress';
+      case SalesOrderStatus.SHIPPED:
+        return 'Shipped';
+      case SalesOrderStatus.DELIVERED:
+        return 'Delivered';
+      case SalesOrderStatus.COMPLETED:
+        return 'Completed';
+      case SalesOrderStatus.CANCELLED:
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+}

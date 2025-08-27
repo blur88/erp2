@@ -1,0 +1,469 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Product } from '../../../database/entities/product.entity';
+import { StockMovement, StockMovementType, StockMovementStatus } from '../../../database/entities/stock-movement.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+
+export interface StockItem {
+  productId: string;
+  quantity: number;
+  salesOrderId?: string;
+}
+
+export interface AvailabilityCheck {
+  available: boolean;
+  message: string;
+  items: {
+    productId: string;
+    productSku: string;
+    productName: string;
+    requested: number;
+    available: number;
+    reserved: number;
+    shortfall: number;
+  }[];
+}
+
+export interface OrderFulfillmentStatus {
+  orderId: string;
+  totalItems: number;
+  fulfilledItems: number;
+  reservedItems: number;
+  pendingItems: number;
+  items: {
+    productId: string;
+    productSku: string;
+    productName: string;
+    ordered: number;
+    reserved: number;
+    fulfilled: number;
+    pending: number;
+    status: 'available' | 'reserved' | 'fulfilled' | 'backordered';
+  }[];
+}
+
+@Injectable()
+export class InventoryIntegrationService {
+  // In-memory reservations map (in production, this would be in database)
+  private readonly reservations: Map<string, Map<string, number>> = new Map();
+
+  constructor(
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+    @InjectRepository(StockMovement)
+    private readonly stockMovementRepository: Repository<StockMovement>,
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepository: Repository<SalesOrder>,
+    @InjectRepository(SalesOrderItem)
+    private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+  ) {}
+
+  async checkAvailability(items: StockItem[]): Promise<AvailabilityCheck> {
+    let allAvailable = true;
+    const availabilityItems = [];
+
+    for (const item of items) {
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+      });
+
+      if (!product) {
+        throw new NotFoundException(`Product ${item.productId} not found`);
+      }
+
+      const availableQuantity = Number(product.stockQuantity);
+      const reservedQuantity = this.getReservedQuantity(item.productId);
+      const effectiveAvailable = Math.max(0, availableQuantity - reservedQuantity);
+      const shortfall = Math.max(0, item.quantity - effectiveAvailable);
+
+      if (shortfall > 0) {
+        allAvailable = false;
+      }
+
+      availabilityItems.push({
+        productId: item.productId,
+        productSku: product.sku,
+        productName: product.name,
+        requested: item.quantity,
+        available: availableQuantity,
+        reserved: reservedQuantity,
+        shortfall,
+      });
+    }
+
+    return {
+      available: allAvailable,
+      message: allAvailable 
+        ? 'All items are available' 
+        : 'Some items have insufficient stock',
+      items: availabilityItems,
+    };
+  }
+
+  async reserveStock(items: StockItem[]): Promise<void> {
+    // Check availability first
+    const availabilityCheck = await this.checkAvailability(items);
+    if (!availabilityCheck.available) {
+      throw new BadRequestException('Insufficient stock for reservation');
+    }
+
+    // Reserve stock for each item
+    for (const item of items) {
+      if (!item.salesOrderId) {
+        throw new BadRequestException('Sales order ID is required for stock reservation');
+      }
+
+      // Get or create order reservations
+      let orderReservations = this.reservations.get(item.salesOrderId);
+      if (!orderReservations) {
+        orderReservations = new Map();
+        this.reservations.set(item.salesOrderId, orderReservations);
+      }
+
+      // Add to reservation
+      const currentReservation = orderReservations.get(item.productId) || 0;
+      orderReservations.set(item.productId, currentReservation + item.quantity);
+
+      // Create stock movement record
+      await this.createStockMovement(
+        item.productId,
+        item.quantity,
+        StockMovementType.RESERVATION,
+        `Reserved for sales order ${item.salesOrderId}`,
+        item.salesOrderId,
+      );
+    }
+  }
+
+  async releaseReservation(salesOrderId: string): Promise<void> {
+    const orderReservations = this.reservations.get(salesOrderId);
+    if (!orderReservations) {
+      return; // No reservations to release
+    }
+
+    // Release all reservations for this order
+    for (const [productId, quantity] of orderReservations.entries()) {
+      await this.createStockMovement(
+        productId,
+        quantity,
+        StockMovementType.RESERVATION_RELEASE,
+        `Released reservation for sales order ${salesOrderId}`,
+        salesOrderId,
+      );
+    }
+
+    // Remove from reservations map
+    this.reservations.delete(salesOrderId);
+  }
+
+  async fulfillOrder(salesOrderId: string, userId?: string): Promise<void> {
+    const order = await this.salesOrderRepository.findOne({
+      where: { id: salesOrderId },
+      relations: ['items'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    const orderReservations = this.reservations.get(salesOrderId);
+    if (!orderReservations) {
+      throw new BadRequestException('No reservations found for this order');
+    }
+
+    // Fulfill each item
+    for (const item of order.items) {
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+      });
+
+      if (!product) {
+        throw new NotFoundException(`Product ${item.productId} not found`);
+      }
+
+      // Check if we have enough reserved stock
+      const reservedQuantity = orderReservations.get(item.productId) || 0;
+      if (reservedQuantity < item.quantity) {
+        throw new BadRequestException(
+          `Insufficient reserved stock for product ${product.sku}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`
+        );
+      }
+
+      // Update product stock
+      product.stockQuantity = Number(product.stockQuantity) - item.quantity;
+      await this.productRepository.save(product);
+
+      // Create stock movement for fulfillment
+      await this.createStockMovement(
+        item.productId,
+        item.quantity,
+        StockMovementType.SALE,
+        `Fulfilled for sales order ${order.orderNumber}`,
+        salesOrderId,
+        userId,
+      );
+
+      // Remove from reservations
+      orderReservations.set(item.productId, reservedQuantity - item.quantity);
+    }
+
+    // Clean up empty reservations
+    for (const [productId, quantity] of orderReservations.entries()) {
+      if (quantity <= 0) {
+        orderReservations.delete(productId);
+      }
+    }
+
+    if (orderReservations.size === 0) {
+      this.reservations.delete(salesOrderId);
+    }
+  }
+
+  async getOrderFulfillmentStatus(salesOrderId: string): Promise<OrderFulfillmentStatus> {
+    const order = await this.salesOrderRepository.findOne({
+      where: { id: salesOrderId },
+      relations: ['items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    const orderReservations = this.reservations.get(salesOrderId) || new Map();
+    const fulfillmentItems = [];
+    let fulfilledItems = 0;
+    let reservedItems = 0;
+    let pendingItems = 0;
+
+    for (const item of order.items) {
+      const product = item.product;
+      if (!product) continue;
+
+      const reserved = orderReservations.get(item.productId) || 0;
+      
+      // Determine fulfilled quantity based on stock movements
+      const fulfilledQuantity = await this.getFulfilledQuantity(salesOrderId, item.productId);
+      const pending = Math.max(0, item.quantity - reserved - fulfilledQuantity);
+
+      let status: 'available' | 'reserved' | 'fulfilled' | 'backordered' = 'available';
+      if (fulfilledQuantity >= item.quantity) {
+        status = 'fulfilled';
+        fulfilledItems++;
+      } else if (reserved > 0) {
+        status = 'reserved';
+        reservedItems++;
+      } else if (Number(product.stockQuantity) < item.quantity) {
+        status = 'backordered';
+        pendingItems++;
+      } else {
+        pendingItems++;
+      }
+
+      fulfillmentItems.push({
+        productId: item.productId,
+        productSku: product.sku,
+        productName: product.name,
+        ordered: item.quantity,
+        reserved,
+        fulfilled: fulfilledQuantity,
+        pending,
+        status,
+      });
+    }
+
+    return {
+      orderId: salesOrderId,
+      totalItems: order.items.length,
+      fulfilledItems,
+      reservedItems,
+      pendingItems,
+      items: fulfillmentItems,
+    };
+  }
+
+  async getProductReservations(productId: string): Promise<{
+    totalReserved: number;
+    reservations: {
+      salesOrderId: string;
+      orderNumber?: string;
+      quantity: number;
+      createdDate: Date;
+    }[];
+  }> {
+    let totalReserved = 0;
+    const reservations = [];
+
+    // Scan all reservations for this product
+    for (const [salesOrderId, orderReservations] of this.reservations.entries()) {
+      const reserved = orderReservations.get(productId);
+      if (reserved && reserved > 0) {
+        totalReserved += reserved;
+
+        // Get order details
+        const order = await this.salesOrderRepository.findOne({
+          where: { id: salesOrderId },
+          select: ['orderNumber', 'createdAt'],
+        });
+
+        reservations.push({
+          salesOrderId,
+          orderNumber: order?.orderNumber,
+          quantity: reserved,
+          createdDate: order?.createdAt || new Date(),
+        });
+      }
+    }
+
+    return {
+      totalReserved,
+      reservations: reservations.sort((a, b) => b.createdDate.getTime() - a.createdDate.getTime()),
+    };
+  }
+
+  async adjustReservation(
+    salesOrderId: string,
+    productId: string,
+    newQuantity: number,
+  ): Promise<void> {
+    const orderReservations = this.reservations.get(salesOrderId);
+    if (!orderReservations) {
+      throw new NotFoundException('No reservations found for this order');
+    }
+
+    const currentReservation = orderReservations.get(productId) || 0;
+    const difference = newQuantity - currentReservation;
+
+    if (difference === 0) {
+      return; // No change needed
+    }
+
+    // Check availability if increasing reservation
+    if (difference > 0) {
+      const availabilityCheck = await this.checkAvailability([{
+        productId,
+        quantity: difference,
+        salesOrderId,
+      }]);
+
+      if (!availabilityCheck.available) {
+        throw new BadRequestException('Insufficient stock for increased reservation');
+      }
+    }
+
+    // Update reservation
+    if (newQuantity <= 0) {
+      orderReservations.delete(productId);
+    } else {
+      orderReservations.set(productId, newQuantity);
+    }
+
+    // Create stock movement record
+    const movementType = difference > 0 
+      ? StockMovementType.RESERVATION 
+      : StockMovementType.RESERVATION_RELEASE;
+
+    await this.createStockMovement(
+      productId,
+      Math.abs(difference),
+      movementType,
+      `Reservation ${difference > 0 ? 'increase' : 'decrease'} for sales order ${salesOrderId}`,
+      salesOrderId,
+    );
+  }
+
+  async getInventorySummary(): Promise<{
+    totalProducts: number;
+    totalStockValue: number;
+    lowStockProducts: number;
+    totalReservations: number;
+    reservationValue: number;
+  }> {
+    const products = await this.productRepository.find({
+      where: { isActive: true },
+    });
+
+    let totalStockValue = 0;
+    let lowStockProducts = 0;
+    let totalReservations = 0;
+    let reservationValue = 0;
+
+    for (const product of products) {
+      const stockValue = Number(product.stockQuantity) * Number(product.costPrice || 0);
+      totalStockValue += stockValue;
+
+      // Check if low stock
+      if (Number(product.stockQuantity) <= Number(product.reorderLevel || 0)) {
+        lowStockProducts++;
+      }
+
+      // Calculate reservations for this product
+      const reservations = await this.getProductReservations(product.id);
+      totalReservations += reservations.totalReserved;
+      reservationValue += reservations.totalReserved * Number(product.costPrice || 0);
+    }
+
+    return {
+      totalProducts: products.length,
+      totalStockValue,
+      lowStockProducts,
+      totalReservations,
+      reservationValue,
+    };
+  }
+
+  // Private helper methods
+
+  private getReservedQuantity(productId: string): number {
+    let totalReserved = 0;
+    
+    for (const orderReservations of this.reservations.values()) {
+      const reserved = orderReservations.get(productId) || 0;
+      totalReserved += reserved;
+    }
+    
+    return totalReserved;
+  }
+
+  private async getFulfilledQuantity(salesOrderId: string, productId: string): Promise<number> {
+    const movements = await this.stockMovementRepository.find({
+      where: {
+        productId,
+        movementType: StockMovementType.SALE,
+        referenceId: salesOrderId,
+        status: StockMovementStatus.COMPLETED,
+      },
+    });
+
+    return movements.reduce((total, movement) => {
+      return total + (movement.movementType === StockMovementType.SALE ? movement.quantity : 0);
+    }, 0);
+  }
+
+  private async createStockMovement(
+    productId: string,
+    quantity: number,
+    movementType: StockMovementType,
+    reason: string,
+    referenceId?: string,
+    userId?: string,
+  ): Promise<StockMovement> {
+    const movement = this.stockMovementRepository.create({
+      productId,
+      quantity,
+      movementType,
+      reason,
+      referenceId,
+      movedByUserId: userId,
+      movementDate: new Date(),
+      status: StockMovementStatus.COMPLETED,
+    });
+
+    return await this.stockMovementRepository.save(movement);
+  }
+}

@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: erp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: erp_db
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - erp_network
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: erp_redis
+    restart: unless-stopped
+    command: redis-server --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - erp_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: erp_backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=erp_db
+      - DATABASE_USER=erp_user
+      - DATABASE_PASSWORD=erp_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password
+      - JWT_SECRET=your_jwt_secret_key_change_in_production
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - erp_network
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: erp_frontend
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001/api
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - erp_network
+
+  # NGINX Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: erp_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - erp_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  erp_network:
+    driver: bridge

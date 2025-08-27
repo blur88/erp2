@@ -1,0 +1,394 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
+  Res,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
+import { Response } from 'express';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/auth.decorator';
+import { UserRole } from '../../../database/entities/user.entity';
+import { InvoiceService } from '../services/invoice.service';
+import {
+  CreateInvoiceDto,
+  UpdateInvoiceDto,
+  QueryInvoicesDto,
+  InvoiceResponseDto,
+  InvoiceSummaryDto,
+  SendInvoiceDto,
+  InvoicePaymentAllocationDto,
+  VoidInvoiceDto,
+  CreditNoteDto,
+} from '../dto/invoice.dto';
+
+@ApiTags('Invoices')
+@ApiBearerAuth()
+@Controller('api/v1/invoices')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class InvoiceController {
+  constructor(private readonly invoiceService: InvoiceService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new invoice' })
+  @ApiResponse({
+    status: 201,
+    description: 'Invoice created successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 404, description: 'Customer or sales order not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
+  async createInvoice(@Body() createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
+    return this.invoiceService.create(createInvoiceDto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all invoices with filtering and pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of invoices retrieved successfully',
+    type: [InvoiceResponseDto],
+  })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by invoice number or customer name' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'salesOrderId', required: false, description: 'Filter by sales order ID' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by invoice status' })
+  @ApiQuery({ name: 'type', required: false, description: 'Filter by invoice type' })
+  @ApiQuery({ name: 'fromDate', required: false, description: 'Filter invoices from date' })
+  @ApiQuery({ name: 'toDate', required: false, description: 'Filter invoices to date' })
+  @ApiQuery({ name: 'overdue', required: false, type: Boolean, description: 'Filter overdue invoices' })
+  @ApiQuery({ name: 'unpaid', required: false, type: Boolean, description: 'Filter unpaid invoices' })
+  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getAllInvoices(@Query() query: QueryInvoicesDto) {
+    return this.invoiceService.findAll(query);
+  }
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Get invoices summary list' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice summaries retrieved successfully',
+    type: [InvoiceSummaryDto],
+  })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getInvoiceSummaries(): Promise<InvoiceSummaryDto[]> {
+    return this.invoiceService.findSummaries();
+  }
+
+  @Get('dashboard-stats')
+  @ApiOperation({ summary: 'Get invoice dashboard statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Dashboard statistics retrieved successfully',
+  })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getDashboardStats() {
+    return this.invoiceService.getDashboardStats();
+  }
+
+  @Get('overdue')
+  @ApiOperation({ summary: 'Get overdue invoices' })
+  @ApiResponse({
+    status: 200,
+    description: 'Overdue invoices retrieved successfully',
+    type: [InvoiceSummaryDto],
+  })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getOverdueInvoices() {
+    return this.invoiceService.getOverdueInvoices();
+  }
+
+  @Get('aging-report')
+  @ApiOperation({ summary: 'Get invoice aging report' })
+  @ApiResponse({
+    status: 200,
+    description: 'Aging report retrieved successfully',
+  })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getAgingReport() {
+    return this.invoiceService.getAgingReport();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get invoice by ID' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice retrieved successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getInvoiceById(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
+    return this.invoiceService.findById(id);
+  }
+
+  @Get('number/:invoiceNumber')
+  @ApiOperation({ summary: 'Get invoice by invoice number' })
+  @ApiParam({ name: 'invoiceNumber', description: 'Invoice number', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice retrieved successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getInvoiceByNumber(@Param('invoiceNumber') invoiceNumber: string): Promise<InvoiceResponseDto> {
+    return this.invoiceService.findByInvoiceNumber(invoiceNumber);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice updated successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 409, description: 'Cannot update invoice in current status' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
+  async updateInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateInvoiceDto: UpdateInvoiceDto,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.update(id, updateInvoiceDto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete invoice (soft delete)' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({ status: 204, description: 'Invoice deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @ApiResponse({ status: 409, description: 'Cannot delete invoice in current status' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
+  async deleteInvoice(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.invoiceService.delete(id);
+  }
+
+  @Post(':id/send')
+  @ApiOperation({ summary: 'Send invoice to customer' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice sent successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @ApiResponse({ status: 409, description: 'Cannot send invoice in current status' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
+  async sendInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() sendInvoiceDto: SendInvoiceDto,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.sendInvoice(id, sendInvoiceDto);
+  }
+
+  @Put(':id/mark-sent')
+  @ApiOperation({ summary: 'Mark invoice as sent' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice marked as sent successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
+  async markAsSent(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
+    return this.invoiceService.markAsSent(id);
+  }
+
+  @Post(':id/allocate-payment')
+  @ApiOperation({ summary: 'Allocate payment to invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment allocated successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice or payment not found' })
+  @ApiResponse({ status: 409, description: 'Payment amount exceeds balance due' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
+  async allocatePayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() allocationDto: InvoicePaymentAllocationDto,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.allocatePayment(id, allocationDto);
+  }
+
+  @Put(':id/void')
+  @ApiOperation({ summary: 'Void invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice voided successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @ApiResponse({ status: 409, description: 'Cannot void invoice in current status' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
+  async voidInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() voidInvoiceDto: VoidInvoiceDto,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.voidInvoice(id, voidInvoiceDto.reason);
+  }
+
+  @Post(':id/credit-note')
+  @ApiOperation({ summary: 'Create credit note for invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 201,
+    description: 'Credit note created successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @ApiResponse({ status: 409, description: 'Cannot create credit note for invoice' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
+  async createCreditNote(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() creditNoteDto: CreditNoteDto,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.createCreditNote(id, creditNoteDto);
+  }
+
+  @Post(':id/duplicate')
+  @ApiOperation({ summary: 'Duplicate invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice ID to duplicate', type: 'string' })
+  @ApiResponse({
+    status: 201,
+    description: 'Invoice duplicated successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
+  async duplicateInvoice(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
+    return this.invoiceService.duplicateInvoice(id);
+  }
+
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'Generate and download invoice PDF' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF generated successfully',
+    headers: {
+      'Content-Type': {
+        description: 'application/pdf',
+      },
+      'Content-Disposition': {
+        description: 'attachment; filename="invoice.pdf"',
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async downloadInvoicePdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const pdfBuffer = await this.invoiceService.generatePdf(id);
+    const invoice = await this.invoiceService.findById(id);
+    
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+    
+    res.send(pdfBuffer);
+  }
+
+  @Get(':id/payments')
+  @ApiOperation({ summary: 'Get payments for invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice payments retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getInvoicePayments(@Param('id', ParseUUIDPipe) id: string) {
+    return this.invoiceService.getInvoicePayments(id);
+  }
+
+  @Get('customer/:customerId')
+  @ApiOperation({ summary: 'Get invoices for a specific customer' })
+  @ApiParam({ name: 'customerId', description: 'Customer ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer invoices retrieved successfully',
+    type: [InvoiceSummaryDto],
+  })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getInvoicesByCustomer(
+    @Param('customerId', ParseUUIDPipe) customerId: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.invoiceService.findInvoicesByCustomer(customerId, limit);
+  }
+
+  @Get(':id/history')
+  @ApiOperation({ summary: 'Get invoice history and activity log' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice history retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getInvoiceHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.invoiceService.getInvoiceHistory(id);
+  }
+
+  @Post('batch-send')
+  @ApiOperation({ summary: 'Send multiple invoices in batch' })
+  @ApiResponse({
+    status: 200,
+    description: 'Batch send completed',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid invoice IDs provided' })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
+  async batchSendInvoices(@Body('invoiceIds') invoiceIds: string[]) {
+    return this.invoiceService.batchSendInvoices(invoiceIds);
+  }
+
+  @Get('stats/revenue')
+  @ApiOperation({ summary: 'Get revenue statistics from invoices' })
+  @ApiResponse({
+    status: 200,
+    description: 'Revenue statistics retrieved successfully',
+  })
+  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  async getRevenueStats(
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return this.invoiceService.getRevenueStatistics(fromDate, toDate);
+  }
+}

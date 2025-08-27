@@ -1,0 +1,682 @@
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  MaxLength,
+  IsDecimal,
+  IsDateString,
+  Min,
+  IsArray,
+  ValidateNested,
+  IsInt,
+  IsBoolean,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
+import { 
+  SalesOrderStatus, 
+  SalesOrderPriority 
+} from '../../../database/entities/sales-order.entity';
+
+export class SalesOrderItemDto {
+  @ApiProperty({
+    description: 'Product ID',
+    example: 'uuid-string',
+  })
+  @IsUUID()
+  productId: string;
+
+  @ApiProperty({
+    description: 'Quantity ordered',
+    example: 10,
+  })
+  @IsInt()
+  @Min(1)
+  quantity: number;
+
+  @ApiPropertyOptional({
+    description: 'Unit price (if different from product price)',
+    example: 25.50,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : undefined)
+  unitPrice?: number;
+
+  @ApiPropertyOptional({
+    description: 'Discount percentage for this item',
+    example: 5.0,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  discountPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Item notes',
+    example: 'Special packaging required',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class CreateSalesOrderDto {
+  @ApiProperty({
+    description: 'Customer ID',
+    example: 'uuid-string',
+  })
+  @IsUUID()
+  customerId: string;
+
+  @ApiProperty({
+    description: 'Order priority',
+    enum: SalesOrderPriority,
+    example: SalesOrderPriority.NORMAL,
+  })
+  @IsEnum(SalesOrderPriority)
+  priority: SalesOrderPriority;
+
+  @ApiPropertyOptional({
+    description: 'Required/expected delivery date',
+    example: '2024-01-15',
+  })
+  @IsOptional()
+  @IsDateString()
+  requiredDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Order discount percentage',
+    example: 10.0,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  discountPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Tax percentage',
+    example: 8.5,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  taxPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Shipping/delivery charges',
+    example: 15.00,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  shippingAmount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Shipping address',
+    example: '456 Oak Avenue',
+  })
+  @IsOptional()
+  @IsString()
+  shippingAddress?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping city',
+    maxLength: 100,
+    example: 'Los Angeles',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCity?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping state/province',
+    maxLength: 100,
+    example: 'CA',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingState?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping postal code',
+    maxLength: 20,
+    example: '90210',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  shippingPostalCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping country',
+    maxLength: 100,
+    example: 'United States',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCountry?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping method',
+    maxLength: 100,
+    example: 'Standard Delivery',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingMethod?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer purchase order number',
+    example: 'PO-2024-001',
+  })
+  @IsOptional()
+  @IsString()
+  customerPoNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Special instructions or notes',
+    example: 'Fragile items, handle with care',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Internal notes',
+    example: 'Customer is VIP, expedite processing',
+  })
+  @IsOptional()
+  @IsString()
+  internalNotes?: string;
+
+  @ApiProperty({
+    description: 'Order items',
+    type: [SalesOrderItemDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SalesOrderItemDto)
+  items: SalesOrderItemDto[];
+}
+
+export class UpdateSalesOrderDto {
+  @ApiPropertyOptional({
+    description: 'Order status',
+    enum: SalesOrderStatus,
+    example: SalesOrderStatus.CONFIRMED,
+  })
+  @IsOptional()
+  @IsEnum(SalesOrderStatus)
+  status?: SalesOrderStatus;
+
+  @ApiPropertyOptional({
+    description: 'Order priority',
+    enum: SalesOrderPriority,
+    example: SalesOrderPriority.HIGH,
+  })
+  @IsOptional()
+  @IsEnum(SalesOrderPriority)
+  priority?: SalesOrderPriority;
+
+  @ApiPropertyOptional({
+    description: 'Required/expected delivery date',
+    example: '2024-01-20',
+  })
+  @IsOptional()
+  @IsDateString()
+  requiredDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Order discount percentage',
+    example: 15.0,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : undefined)
+  discountPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Tax percentage',
+    example: 8.5,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : undefined)
+  taxPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Shipping/delivery charges',
+    example: 20.00,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : undefined)
+  shippingAmount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Shipping address',
+    example: '789 Pine Street',
+  })
+  @IsOptional()
+  @IsString()
+  shippingAddress?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping city',
+    maxLength: 100,
+    example: 'San Francisco',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCity?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping state/province',
+    maxLength: 100,
+    example: 'CA',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingState?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping postal code',
+    maxLength: 20,
+    example: '94105',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  shippingPostalCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping country',
+    maxLength: 100,
+    example: 'United States',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCountry?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping method',
+    maxLength: 100,
+    example: 'Express Delivery',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingMethod?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tracking number',
+    maxLength: 50,
+    example: 'TRK123456789',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  trackingNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer purchase order number',
+    example: 'PO-2024-002',
+  })
+  @IsOptional()
+  @IsString()
+  customerPoNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Special instructions or notes',
+    example: 'Updated delivery instructions',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Internal notes',
+    example: 'Priority customer, expedite shipping',
+  })
+  @IsOptional()
+  @IsString()
+  internalNotes?: string;
+}
+
+export class QuerySalesOrdersDto {
+  @ApiPropertyOptional({
+    description: 'Search term for order number or customer name',
+    example: 'SO-2024',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by customer ID',
+    example: 'uuid-string',
+  })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by order status',
+    enum: SalesOrderStatus,
+    example: SalesOrderStatus.CONFIRMED,
+  })
+  @IsOptional()
+  @IsEnum(SalesOrderStatus)
+  status?: SalesOrderStatus;
+
+  @ApiPropertyOptional({
+    description: 'Filter by order priority',
+    enum: SalesOrderPriority,
+    example: SalesOrderPriority.HIGH,
+  })
+  @IsOptional()
+  @IsEnum(SalesOrderPriority)
+  priority?: SalesOrderPriority;
+
+  @ApiPropertyOptional({
+    description: 'Filter orders from date',
+    example: '2024-01-01',
+  })
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter orders to date',
+    example: '2024-12-31',
+  })
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by overdue orders',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  overdue?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    example: 'orderDate',
+  })
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort order',
+    enum: ['ASC', 'DESC'],
+    example: 'DESC',
+  })
+  @IsOptional()
+  @IsEnum(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
+
+  @ApiPropertyOptional({
+    description: 'Page number',
+    example: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Transform(({ value }) => parseInt(value))
+  page?: number;
+
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    example: 20,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Transform(({ value }) => parseInt(value))
+  limit?: number;
+}
+
+export class SalesOrderItemResponseDto {
+  @ApiProperty({ example: 'uuid-string' })
+  id: string;
+
+  @ApiProperty({ example: 'uuid-string' })
+  productId: string;
+
+  @ApiProperty({ example: 'PROD001' })
+  productSku: string;
+
+  @ApiProperty({ example: 'Wireless Mouse' })
+  productName: string;
+
+  @ApiProperty({ example: 10 })
+  quantity: number;
+
+  @ApiProperty({ example: 25.50 })
+  unitPrice: number;
+
+  @ApiProperty({ example: 5.0 })
+  discountPercent: number;
+
+  @ApiProperty({ example: 12.75 })
+  discountAmount: number;
+
+  @ApiProperty({ example: 242.25 })
+  totalAmount: number;
+
+  @ApiProperty({ example: 'Special packaging required', nullable: true })
+  notes?: string;
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  createdAt: Date;
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  updatedAt: Date;
+}
+
+export class SalesOrderResponseDto {
+  @ApiProperty({ example: 'uuid-string' })
+  id: string;
+
+  @ApiProperty({ example: 'SO-2024-001' })
+  orderNumber: string;
+
+  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.CONFIRMED })
+  status: SalesOrderStatus;
+
+  @ApiProperty({ enum: SalesOrderPriority, example: SalesOrderPriority.NORMAL })
+  priority: SalesOrderPriority;
+
+  @ApiProperty({ example: '2024-01-01' })
+  orderDate: Date;
+
+  @ApiProperty({ example: '2024-01-15', nullable: true })
+  requiredDate?: Date;
+
+  @ApiProperty({ example: '2024-01-14', nullable: true })
+  shippedDate?: Date;
+
+  @ApiProperty({ example: '2024-01-16', nullable: true })
+  deliveredDate?: Date;
+
+  @ApiProperty({ example: 1000.00 })
+  subtotal: number;
+
+  @ApiProperty({ example: 10.0 })
+  discountPercent: number;
+
+  @ApiProperty({ example: 100.00 })
+  discountAmount: number;
+
+  @ApiProperty({ example: 8.5 })
+  taxPercent: number;
+
+  @ApiProperty({ example: 76.50 })
+  taxAmount: number;
+
+  @ApiProperty({ example: 15.00 })
+  shippingAmount: number;
+
+  @ApiProperty({ example: 991.50 })
+  totalAmount: number;
+
+  @ApiProperty({ example: '456 Oak Avenue', nullable: true })
+  shippingAddress?: string;
+
+  @ApiProperty({ example: 'Los Angeles', nullable: true })
+  shippingCity?: string;
+
+  @ApiProperty({ example: 'CA', nullable: true })
+  shippingState?: string;
+
+  @ApiProperty({ example: '90210', nullable: true })
+  shippingPostalCode?: string;
+
+  @ApiProperty({ example: 'United States', nullable: true })
+  shippingCountry?: string;
+
+  @ApiProperty({ example: 'Standard Delivery', nullable: true })
+  shippingMethod?: string;
+
+  @ApiProperty({ example: 'TRK123456789', nullable: true })
+  trackingNumber?: string;
+
+  @ApiProperty({ example: 'PO-2024-001', nullable: true })
+  customerPoNumber?: string;
+
+  @ApiProperty({ example: 'Fragile items, handle with care', nullable: true })
+  notes?: string;
+
+  @ApiProperty({ example: 'Customer is VIP, expedite processing', nullable: true })
+  internalNotes?: string;
+
+  @ApiProperty({ example: 'uuid-string' })
+  customerId: string;
+
+  @ApiProperty({ example: 'uuid-string' })
+  createdByUserId: string;
+
+  @ApiProperty()
+  customer: {
+    id: string;
+    customerCode: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  };
+
+  @ApiProperty()
+  createdByUser: {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+  };
+
+  @ApiProperty({ type: [SalesOrderItemResponseDto] })
+  items: SalesOrderItemResponseDto[];
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  createdAt: Date;
+
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
+  updatedAt: Date;
+
+  // Computed properties
+  @ApiProperty({ example: '456 Oak Avenue, Los Angeles, CA, 90210, United States' })
+  fullShippingAddress: string;
+
+  @ApiProperty({ example: false })
+  isOverdue: boolean;
+
+  @ApiProperty({ example: true })
+  isShippable: boolean;
+
+  @ApiProperty({ example: false })
+  isCompleted: boolean;
+}
+
+export class SalesOrderSummaryDto {
+  @ApiProperty({ example: 'uuid-string' })
+  id: string;
+
+  @ApiProperty({ example: 'SO-2024-001' })
+  orderNumber: string;
+
+  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.CONFIRMED })
+  status: SalesOrderStatus;
+
+  @ApiProperty({ example: '2024-01-01' })
+  orderDate: Date;
+
+  @ApiProperty({ example: 'Acme Corporation' })
+  customerName: string;
+
+  @ApiProperty({ example: 991.50 })
+  totalAmount: number;
+
+  @ApiProperty({ example: false })
+  isOverdue: boolean;
+
+  @ApiProperty({ example: 3 })
+  itemsCount: number;
+}
+
+export class ShipOrderDto {
+  @ApiPropertyOptional({
+    description: 'Tracking number',
+    example: 'TRK123456789',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  trackingNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping method',
+    example: 'Express Delivery',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingMethod?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping notes',
+    example: 'Shipped via FedEx Express',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class CancelOrderDto {
+  @ApiProperty({
+    description: 'Cancellation reason',
+    example: 'Customer requested cancellation',
+  })
+  @IsString()
+  reason: string;
+}

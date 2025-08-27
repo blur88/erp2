@@ -1,0 +1,28 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { CacheModule } from '@nestjs/cache-manager';
+
+import { UsersService } from './users.service';
+import { UsersController } from './users.controller';
+import { User } from '../../database/entities/user.entity';
+
+/**
+ * Users Module
+ * Handles user management functionality
+ */
+@Module({
+  imports: [
+    // TypeORM for User entity
+    TypeOrmModule.forFeature([User]),
+    
+    // Cache module for session management
+    CacheModule.register(),
+  ],
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [
+    UsersService,
+    TypeOrmModule, // Export TypeORM module for use in other modules
+  ],
+})
+export class UsersModule {}

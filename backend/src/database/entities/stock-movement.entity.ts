@@ -1,0 +1,462 @@
+import {
+  Entity,
+  Column,
+  Index,
+  ManyToOne,
+  JoinColumn,
+  BeforeInsert,
+} from 'typeorm';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  MaxLength,
+  IsDecimal,
+  Min,
+  IsUUID,
+} from 'class-validator';
+import { BaseEntity } from './base.entity';
+import { Product } from './product.entity';
+import { User } from './user.entity';
+
+export enum StockMovementType {
+  // Inward movements (increase stock)
+  PURCHASE_RECEIPT = 'purchase_receipt',
+  SALES_RETURN = 'sales_return',
+  PRODUCTION_RECEIPT = 'production_receipt',
+  TRANSFER_IN = 'transfer_in',
+  ADJUSTMENT_INCREASE = 'adjustment_increase',
+  INITIAL_STOCK = 'initial_stock',
+
+  // Outward movements (decrease stock)
+  SALE = 'sale',
+  PURCHASE_RETURN = 'purchase_return',
+  PRODUCTION_CONSUMPTION = 'production_consumption',
+  TRANSFER_OUT = 'transfer_out',
+  ADJUSTMENT_DECREASE = 'adjustment_decrease',
+  DAMAGE = 'damage',
+  EXPIRY = 'expiry',
+  THEFT = 'theft',
+  LOSS = 'loss',
+}
+
+export enum StockMovementStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  REVERSED = 'reversed',
+}
+
+/**
+ * Stock Movement entity for tracking all inventory movements
+ * Provides comprehensive audit trail for stock changes
+ */
+@Entity('stock_movements')
+@Index(['productId'])
+@Index(['movementType'])
+@Index(['status'])
+@Index(['movementDate'])
+@Index(['referenceType', 'referenceId'])
+@Index(['movedByUserId'])
+@Index(['quantity'])
+export class StockMovement extends BaseEntity {
+  @Column({
+    type: 'enum',
+    enum: StockMovementType,
+    comment: 'Type of stock movement',
+  })
+  @IsEnum(StockMovementType)
+  movementType: StockMovementType;
+
+  @Column({
+    type: 'enum',
+    enum: StockMovementStatus,
+    default: StockMovementStatus.COMPLETED,
+    comment: 'Movement status',
+  })
+  @IsEnum(StockMovementStatus)
+  status: StockMovementStatus;
+
+  @Column({
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+    comment: 'Date and time of movement',
+  })
+  movementDate: Date;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    comment: 'Quantity moved (positive for inward, negative for outward)',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  quantity: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    comment: 'Stock quantity before this movement',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  previousBalance: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    comment: 'Stock quantity after this movement',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  newBalance: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    nullable: true,
+    comment: 'Unit cost/price at time of movement',
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  unitValue?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    nullable: true,
+    comment: 'Total value of this movement',
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,4' })
+  totalValue?: number;
+
+  // Reference Information
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    comment: 'Type of source document (sales_order, purchase_order, etc.)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  referenceType?: string;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'ID of the source document',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  referenceId?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'Reference number (order number, adjustment number, etc.)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  referenceNumber?: string;
+
+  // Location Information (for multi-warehouse future extension)
+  @Column({
+    type: 'varchar',
+    length: 50,
+    default: 'MAIN',
+    comment: 'Warehouse/location code',
+  })
+  @IsString()
+  @MaxLength(50)
+  locationCode: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'Bin/shelf location within warehouse',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  binLocation?: string;
+
+  // Batch/Lot Tracking
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    comment: 'Batch or lot number',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  batchNumber?: string;
+
+  @Column({
+    type: 'date',
+    nullable: true,
+    comment: 'Expiry date for batch/lot',
+  })
+  @IsOptional()
+  expiryDate?: Date;
+
+  // Additional Information
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'Reason or notes for this movement',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'Additional notes',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @Column({
+    type: 'json',
+    nullable: true,
+    comment: 'Additional metadata for the movement',
+  })
+  @IsOptional()
+  metadata?: Record<string, any>;
+
+  // Foreign Keys
+  @Column({
+    type: 'uuid',
+    comment: 'Product ID',
+  })
+  productId: string;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'User who initiated this movement',
+  })
+  @IsOptional()
+  movedByUserId?: string;
+
+  // Relationships
+  @ManyToOne(() => Product, (product) => product.stockMovements, {
+    onDelete: 'RESTRICT',
+    eager: true,
+  })
+  @JoinColumn({ name: 'productId' })
+  product: Product;
+
+  @ManyToOne(() => User, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'movedByUserId' })
+  movedByUser?: User;
+
+  // Computed properties
+  get isInward(): boolean {
+    return [
+      StockMovementType.PURCHASE_RECEIPT,
+      StockMovementType.SALES_RETURN,
+      StockMovementType.PRODUCTION_RECEIPT,
+      StockMovementType.TRANSFER_IN,
+      StockMovementType.ADJUSTMENT_INCREASE,
+      StockMovementType.INITIAL_STOCK,
+    ].includes(this.movementType);
+  }
+
+  get isOutward(): boolean {
+    return [
+      StockMovementType.SALE,
+      StockMovementType.PURCHASE_RETURN,
+      StockMovementType.PRODUCTION_CONSUMPTION,
+      StockMovementType.TRANSFER_OUT,
+      StockMovementType.ADJUSTMENT_DECREASE,
+      StockMovementType.DAMAGE,
+      StockMovementType.EXPIRY,
+      StockMovementType.THEFT,
+      StockMovementType.LOSS,
+    ].includes(this.movementType);
+  }
+
+  get isAdjustment(): boolean {
+    return [
+      StockMovementType.ADJUSTMENT_INCREASE,
+      StockMovementType.ADJUSTMENT_DECREASE,
+    ].includes(this.movementType);
+  }
+
+  get absoluteQuantity(): number {
+    return Math.abs(Number(this.quantity));
+  }
+
+  // Hooks
+  @BeforeInsert()
+  calculateTotalValue() {
+    if (this.unitValue && this.quantity) {
+      this.totalValue = Math.abs(Number(this.quantity)) * Number(this.unitValue);
+    }
+  }
+
+  // Helper methods
+  reverse(reason: string, reversedByUserId: string): StockMovement {
+    if (this.status !== StockMovementStatus.COMPLETED) {
+      throw new Error('Can only reverse completed movements');
+    }
+
+    const reversal = new StockMovement();
+    reversal.movementType = this.getReversalType();
+    reversal.status = StockMovementStatus.COMPLETED;
+    reversal.movementDate = new Date();
+    reversal.quantity = -Number(this.quantity);
+    reversal.previousBalance = Number(this.newBalance);
+    reversal.newBalance = Number(this.previousBalance);
+    reversal.unitValue = this.unitValue;
+    reversal.totalValue = this.totalValue;
+    reversal.locationCode = this.locationCode;
+    reversal.binLocation = this.binLocation;
+    reversal.batchNumber = this.batchNumber;
+    reversal.expiryDate = this.expiryDate;
+    reversal.reason = `Reversal of movement ${this.id}: ${reason}`;
+    reversal.referenceType = 'stock_movement_reversal';
+    reversal.referenceId = this.id;
+    reversal.productId = this.productId;
+    reversal.movedByUserId = reversedByUserId;
+
+    // Mark original as reversed
+    this.status = StockMovementStatus.REVERSED;
+
+    return reversal;
+  }
+
+  private getReversalType(): StockMovementType {
+    const reversalMap: Record<StockMovementType, StockMovementType> = {
+      [StockMovementType.PURCHASE_RECEIPT]: StockMovementType.PURCHASE_RETURN,
+      [StockMovementType.SALES_RETURN]: StockMovementType.SALE,
+      [StockMovementType.PRODUCTION_RECEIPT]: StockMovementType.PRODUCTION_CONSUMPTION,
+      [StockMovementType.TRANSFER_IN]: StockMovementType.TRANSFER_OUT,
+      [StockMovementType.ADJUSTMENT_INCREASE]: StockMovementType.ADJUSTMENT_DECREASE,
+      [StockMovementType.INITIAL_STOCK]: StockMovementType.ADJUSTMENT_DECREASE,
+      [StockMovementType.SALE]: StockMovementType.SALES_RETURN,
+      [StockMovementType.PURCHASE_RETURN]: StockMovementType.PURCHASE_RECEIPT,
+      [StockMovementType.PRODUCTION_CONSUMPTION]: StockMovementType.PRODUCTION_RECEIPT,
+      [StockMovementType.TRANSFER_OUT]: StockMovementType.TRANSFER_IN,
+      [StockMovementType.ADJUSTMENT_DECREASE]: StockMovementType.ADJUSTMENT_INCREASE,
+      [StockMovementType.DAMAGE]: StockMovementType.ADJUSTMENT_INCREASE,
+      [StockMovementType.EXPIRY]: StockMovementType.ADJUSTMENT_INCREASE,
+      [StockMovementType.THEFT]: StockMovementType.ADJUSTMENT_INCREASE,
+      [StockMovementType.LOSS]: StockMovementType.ADJUSTMENT_INCREASE,
+    };
+
+    return reversalMap[this.movementType] || StockMovementType.ADJUSTMENT_INCREASE;
+  }
+
+  // Static factory methods
+  static createSaleMovement(
+    productId: string,
+    quantity: number,
+    unitPrice: number,
+    referenceId: string,
+    referenceNumber: string,
+    movedByUserId?: string
+  ): Partial<StockMovement> {
+    return {
+      productId,
+      movementType: StockMovementType.SALE,
+      quantity: -Math.abs(quantity), // Negative for outward
+      unitValue: unitPrice,
+      referenceType: 'sales_order',
+      referenceId,
+      referenceNumber,
+      movedByUserId,
+    };
+  }
+
+  static createPurchaseReceiptMovement(
+    productId: string,
+    quantity: number,
+    unitCost: number,
+    referenceId: string,
+    referenceNumber: string,
+    movedByUserId?: string
+  ): Partial<StockMovement> {
+    return {
+      productId,
+      movementType: StockMovementType.PURCHASE_RECEIPT,
+      quantity: Math.abs(quantity), // Positive for inward
+      unitValue: unitCost,
+      referenceType: 'purchase_order',
+      referenceId,
+      referenceNumber,
+      movedByUserId,
+    };
+  }
+
+  static createAdjustmentMovement(
+    productId: string,
+    quantityAdjustment: number,
+    reason: string,
+    adjustmentId: string,
+    movedByUserId?: string
+  ): Partial<StockMovement> {
+    const movementType = quantityAdjustment >= 0 
+      ? StockMovementType.ADJUSTMENT_INCREASE 
+      : StockMovementType.ADJUSTMENT_DECREASE;
+
+    return {
+      productId,
+      movementType,
+      quantity: quantityAdjustment,
+      reason,
+      referenceType: 'stock_adjustment',
+      referenceId: adjustmentId,
+      movedByUserId,
+    };
+  }
+
+  // Validation methods
+  canReverse(): boolean {
+    return this.status === StockMovementStatus.COMPLETED;
+  }
+
+  canCancel(): boolean {
+    return this.status === StockMovementStatus.PENDING;
+  }
+
+  // Get movement description for reporting
+  getDescription(): string {
+    const typeDescriptions: Record<StockMovementType, string> = {
+      [StockMovementType.PURCHASE_RECEIPT]: 'Purchase Receipt',
+      [StockMovementType.SALES_RETURN]: 'Sales Return',
+      [StockMovementType.PRODUCTION_RECEIPT]: 'Production Receipt',
+      [StockMovementType.TRANSFER_IN]: 'Transfer In',
+      [StockMovementType.ADJUSTMENT_INCREASE]: 'Stock Increase',
+      [StockMovementType.INITIAL_STOCK]: 'Initial Stock',
+      [StockMovementType.SALE]: 'Sale',
+      [StockMovementType.PURCHASE_RETURN]: 'Purchase Return',
+      [StockMovementType.PRODUCTION_CONSUMPTION]: 'Production Use',
+      [StockMovementType.TRANSFER_OUT]: 'Transfer Out',
+      [StockMovementType.ADJUSTMENT_DECREASE]: 'Stock Decrease',
+      [StockMovementType.DAMAGE]: 'Damage',
+      [StockMovementType.EXPIRY]: 'Expiry',
+      [StockMovementType.THEFT]: 'Theft',
+      [StockMovementType.LOSS]: 'Loss',
+    };
+
+    return typeDescriptions[this.movementType] || 'Unknown Movement';
+  }
+}

@@ -1,0 +1,607 @@
+import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
+import { 
+  Supplier, 
+  SupplierStatus, 
+  SupplierType, 
+  SupplierRating 
+} from '../../../database/entities';
+import {
+  CreateSupplierDto,
+  UpdateSupplierDto,
+  SupplierQueryDto,
+  SupplierResponseDto,
+  SupplierListResponseDto,
+  SupplierPerformanceDto,
+  UpdateSupplierBalanceDto,
+  SupplierPerformanceMetricsDto,
+} from '../dto';
+
+@Injectable()
+export class SupplierService {
+  private readonly logger = new Logger(SupplierService.name);
+
+  constructor(
+    @InjectRepository(Supplier)
+    private readonly supplierRepository: Repository<Supplier>,
+  ) {}
+
+  /**
+   * Create a new supplier
+   */
+  async create(createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
+    this.logger.log(`Creating supplier: ${createSupplierDto.companyName}`);
+
+    // Check for duplicate supplier code
+    const existingByCode = await this.supplierRepository.findOne({
+      where: { supplierCode: createSupplierDto.supplierCode },
+    });
+
+    if (existingByCode) {
+      throw new ConflictException(`Supplier with code ${createSupplierDto.supplierCode} already exists`);
+    }
+
+    // Check for duplicate email if provided
+    if (createSupplierDto.email) {
+      const existingByEmail = await this.supplierRepository.findOne({
+        where: { email: createSupplierDto.email },
+      });
+
+      if (existingByEmail) {
+        throw new ConflictException(`Supplier with email ${createSupplierDto.email} already exists`);
+      }
+    }
+
+    try {
+      const supplier = this.supplierRepository.create({
+        ...createSupplierDto,
+        status: createSupplierDto.status || SupplierStatus.ACTIVE,
+        isActive: true,
+        rating: SupplierRating.UNRATED,
+        paymentTermsDays: createSupplierDto.paymentTermsDays || 30,
+        currency: createSupplierDto.currency || 'USD',
+        creditLimit: createSupplierDto.creditLimit || 0,
+        currentBalance: 0,
+        totalPurchases: 0,
+        totalOrders: 0,
+        averageDeliveryTime: 0,
+        onTimeDeliveryRate: 100,
+        qualityRate: 100,
+      });
+
+      const savedSupplier = await this.supplierRepository.save(supplier);
+      this.logger.log(`Supplier created successfully: ${savedSupplier.id}`);
+
+      return this.mapToResponseDto(savedSupplier);
+    } catch (error) {
+      this.logger.error(`Error creating supplier: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to create supplier');
+    }
+  }
+
+  /**
+   * Get all suppliers with filtering and pagination
+   */
+  async findAll(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
+    this.logger.log(`Finding suppliers with query: ${JSON.stringify(query)}`);
+
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      type,
+      status,
+      rating,
+      isActive,
+      sortBy = 'companyName',
+      sortOrder = 'ASC',
+    } = query;
+
+    const skip = (page - 1) * limit;
+    const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
+
+    // Apply search filter
+    if (search) {
+      queryBuilder.andWhere(
+        '(supplier.companyName ILIKE :search OR supplier.supplierCode ILIKE :search OR supplier.contactPerson ILIKE :search OR supplier.email ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Apply filters
+    if (type) {
+      queryBuilder.andWhere('supplier.type = :type', { type });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('supplier.status = :status', { status });
+    }
+
+    if (rating) {
+      queryBuilder.andWhere('supplier.rating = :rating', { rating });
+    }
+
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('supplier.isActive = :isActive', { isActive });
+    }
+
+    // Apply sorting
+    const validSortFields = [
+      'companyName', 'supplierCode', 'type', 'status', 'rating',
+      'totalPurchases', 'totalOrders', 'onTimeDeliveryRate', 'qualityRate',
+      'createdAt', 'lastPurchaseDate'
+    ];
+
+    if (validSortFields.includes(sortBy)) {
+      queryBuilder.orderBy(`supplier.${sortBy}`, sortOrder);
+    } else {
+      queryBuilder.orderBy('supplier.companyName', 'ASC');
+    }
+
+    // Add secondary sort by companyName if not primary sort
+    if (sortBy !== 'companyName') {
+      queryBuilder.addOrderBy('supplier.companyName', 'ASC');
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination
+    queryBuilder.skip(skip).take(limit);
+
+    const suppliers = await queryBuilder.getMany();
+
+    const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
+
+    return {
+      suppliers: supplierDtos,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1,
+    };
+  }
+
+  /**
+   * Get supplier by ID
+   */
+  async findOne(id: string): Promise<SupplierResponseDto> {
+    this.logger.log(`Finding supplier by ID: ${id}`);
+
+    const supplier = await this.supplierRepository.findOne({
+      where: { id },
+      relations: ['purchaseOrders', 'goodsReceivedNotes'],
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    return this.mapToResponseDto(supplier);
+  }
+
+  /**
+   * Update supplier
+   */
+  async update(id: string, updateSupplierDto: UpdateSupplierDto): Promise<SupplierResponseDto> {
+    this.logger.log(`Updating supplier: ${id}`);
+
+    const supplier = await this.supplierRepository.findOne({ where: { id } });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    // Check for duplicate supplier code if changed
+    if (updateSupplierDto.supplierCode && updateSupplierDto.supplierCode !== supplier.supplierCode) {
+      const existingByCode = await this.supplierRepository.findOne({
+        where: { supplierCode: updateSupplierDto.supplierCode },
+      });
+
+      if (existingByCode) {
+        throw new ConflictException(`Supplier with code ${updateSupplierDto.supplierCode} already exists`);
+      }
+    }
+
+    // Check for duplicate email if changed
+    if (updateSupplierDto.email && updateSupplierDto.email !== supplier.email) {
+      const existingByEmail = await this.supplierRepository.findOne({
+        where: { email: updateSupplierDto.email },
+      });
+
+      if (existingByEmail) {
+        throw new ConflictException(`Supplier with email ${updateSupplierDto.email} already exists`);
+      }
+    }
+
+    try {
+      Object.assign(supplier, updateSupplierDto);
+      const updatedSupplier = await this.supplierRepository.save(supplier);
+
+      this.logger.log(`Supplier updated successfully: ${updatedSupplier.id}`);
+      return this.mapToResponseDto(updatedSupplier);
+    } catch (error) {
+      this.logger.error(`Error updating supplier: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to update supplier');
+    }
+  }
+
+  /**
+   * Soft delete supplier (deactivate)
+   */
+  async remove(id: string): Promise<void> {
+    this.logger.log(`Deactivating supplier: ${id}`);
+
+    const supplier = await this.supplierRepository.findOne({ where: { id } });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    // Check if supplier has active purchase orders
+    const activePurchaseOrdersCount = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .leftJoinAndSelect('supplier.purchaseOrders', 'po')
+      .where('supplier.id = :id', { id })
+      .andWhere('po.status NOT IN (:...statuses)', { 
+        statuses: ['completed', 'cancelled'] 
+      })
+      .getCount();
+
+    if (activePurchaseOrdersCount > 0) {
+      throw new BadRequestException('Cannot deactivate supplier with active purchase orders');
+    }
+
+    try {
+      supplier.isActive = false;
+      supplier.status = SupplierStatus.INACTIVE;
+      await this.supplierRepository.save(supplier);
+
+      this.logger.log(`Supplier deactivated successfully: ${id}`);
+    } catch (error) {
+      this.logger.error(`Error deactivating supplier: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to deactivate supplier');
+    }
+  }
+
+  /**
+   * Update supplier performance metrics
+   */
+  async updatePerformanceMetrics(
+    supplierId: string, 
+    performanceData: SupplierPerformanceDto
+  ): Promise<void> {
+    this.logger.log(`Updating performance metrics for supplier: ${supplierId}`);
+
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+    }
+
+    try {
+      supplier.updatePerformanceMetrics(
+        performanceData.deliveryTime,
+        performanceData.wasOnTime,
+        performanceData.wasQualityAccepted
+      );
+
+      await this.supplierRepository.save(supplier);
+      this.logger.log(`Performance metrics updated for supplier: ${supplierId}`);
+    } catch (error) {
+      this.logger.error(`Error updating performance metrics: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to update performance metrics');
+    }
+  }
+
+  /**
+   * Update supplier purchase metrics
+   */
+  async updatePurchaseMetrics(
+    supplierId: string, 
+    orderAmount: number, 
+    isFirstOrder: boolean = false
+  ): Promise<void> {
+    this.logger.log(`Updating purchase metrics for supplier: ${supplierId}`);
+
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+    }
+
+    try {
+      supplier.updatePurchaseMetrics(orderAmount, isFirstOrder);
+      await this.supplierRepository.save(supplier);
+
+      this.logger.log(`Purchase metrics updated for supplier: ${supplierId}`);
+    } catch (error) {
+      this.logger.error(`Error updating purchase metrics: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to update purchase metrics');
+    }
+  }
+
+  /**
+   * Update supplier balance
+   */
+  async updateBalance(
+    supplierId: string, 
+    balanceDto: UpdateSupplierBalanceDto
+  ): Promise<SupplierResponseDto> {
+    this.logger.log(`Updating balance for supplier: ${supplierId}`);
+
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+    }
+
+    try {
+      supplier.updateBalance(balanceDto.amount, balanceDto.type);
+      const updatedSupplier = await this.supplierRepository.save(supplier);
+
+      this.logger.log(`Balance updated for supplier: ${supplierId}`);
+      return this.mapToResponseDto(updatedSupplier);
+    } catch (error) {
+      this.logger.error(`Error updating supplier balance: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to update supplier balance');
+    }
+  }
+
+  /**
+   * Get supplier performance metrics
+   */
+  async getPerformanceMetrics(
+    supplierIds?: string[],
+    includeInactive: boolean = false
+  ): Promise<SupplierPerformanceMetricsDto[]> {
+    this.logger.log('Getting supplier performance metrics');
+
+    const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
+
+    if (supplierIds && supplierIds.length > 0) {
+      queryBuilder.andWhere('supplier.id IN (:...supplierIds)', { supplierIds });
+    }
+
+    if (!includeInactive) {
+      queryBuilder.andWhere('supplier.isActive = true');
+    }
+
+    queryBuilder
+      .andWhere('supplier.totalOrders > 0')
+      .orderBy('supplier.totalPurchases', 'DESC');
+
+    const suppliers = await queryBuilder.getMany();
+
+    // Calculate total spend for percentage calculations
+    const totalSpend = suppliers.reduce((sum, s) => sum + Number(s.totalPurchases), 0);
+
+    return suppliers.map(supplier => ({
+      supplierId: supplier.id,
+      companyName: supplier.companyName,
+      rating: supplier.rating,
+      totalOrders: supplier.totalOrders,
+      totalPurchases: Number(supplier.totalPurchases),
+      averageDeliveryTime: Number(supplier.averageDeliveryTime),
+      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
+      qualityRate: Number(supplier.qualityRate),
+      performanceScore: supplier.overallPerformanceScore,
+      spendPercentage: totalSpend > 0 ? (Number(supplier.totalPurchases) / totalSpend) * 100 : 0,
+    }));
+  }
+
+  /**
+   * Check if supplier can make purchase
+   */
+  async canPurchase(supplierId: string, amount: number): Promise<boolean> {
+    this.logger.log(`Checking purchase eligibility for supplier: ${supplierId}`);
+
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+    }
+
+    return supplier.canPurchase(amount);
+  }
+
+  /**
+   * Search suppliers by name or code
+   */
+  async searchSuppliers(query: string, limit: number = 10): Promise<SupplierResponseDto[]> {
+    this.logger.log(`Searching suppliers with query: ${query}`);
+
+    const suppliers = await this.supplierRepository.find({
+      where: [
+        { companyName: Like(`%${query}%`) },
+        { supplierCode: Like(`%${query}%`) },
+        { contactPerson: Like(`%${query}%`) },
+      ],
+      take: limit,
+      order: { companyName: 'ASC' },
+    });
+
+    return suppliers.map(supplier => this.mapToResponseDto(supplier));
+  }
+
+  /**
+   * Get suppliers by type
+   */
+  async findByType(type: SupplierType): Promise<SupplierResponseDto[]> {
+    this.logger.log(`Finding suppliers by type: ${type}`);
+
+    const suppliers = await this.supplierRepository.find({
+      where: { type, isActive: true },
+      order: { companyName: 'ASC' },
+    });
+
+    return suppliers.map(supplier => this.mapToResponseDto(supplier));
+  }
+
+  /**
+   * Get suppliers by rating
+   */
+  async findByRating(rating: SupplierRating): Promise<SupplierResponseDto[]> {
+    this.logger.log(`Finding suppliers by rating: ${rating}`);
+
+    const suppliers = await this.supplierRepository.find({
+      where: { rating, isActive: true },
+      order: { companyName: 'ASC' },
+    });
+
+    return suppliers.map(supplier => this.mapToResponseDto(supplier));
+  }
+
+  /**
+   * Get suppliers over credit limit
+   */
+  async findOverCreditLimit(): Promise<SupplierResponseDto[]> {
+    this.logger.log('Finding suppliers over credit limit');
+
+    const suppliers = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('supplier.currentBalance > supplier.creditLimit')
+      .andWhere('supplier.isActive = true')
+      .orderBy('supplier.companyName', 'ASC')
+      .getMany();
+
+    return suppliers.map(supplier => this.mapToResponseDto(supplier));
+  }
+
+  /**
+   * Get top suppliers by purchase volume
+   */
+  async getTopSuppliers(limit: number = 10): Promise<SupplierPerformanceMetricsDto[]> {
+    this.logger.log(`Getting top ${limit} suppliers by purchase volume`);
+
+    const suppliers = await this.supplierRepository.find({
+      where: { isActive: true },
+      order: { totalPurchases: 'DESC' },
+      take: limit,
+    });
+
+    const totalSpend = suppliers.reduce((sum, s) => sum + Number(s.totalPurchases), 0);
+
+    return suppliers.map(supplier => ({
+      supplierId: supplier.id,
+      companyName: supplier.companyName,
+      rating: supplier.rating,
+      totalOrders: supplier.totalOrders,
+      totalPurchases: Number(supplier.totalPurchases),
+      averageDeliveryTime: Number(supplier.averageDeliveryTime),
+      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
+      qualityRate: Number(supplier.qualityRate),
+      performanceScore: supplier.overallPerformanceScore,
+      spendPercentage: totalSpend > 0 ? (Number(supplier.totalPurchases) / totalSpend) * 100 : 0,
+    }));
+  }
+
+  /**
+   * Activate supplier
+   */
+  async activate(supplierId: string): Promise<SupplierResponseDto> {
+    this.logger.log(`Activating supplier: ${supplierId}`);
+
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+    }
+
+    try {
+      supplier.isActive = true;
+      supplier.status = SupplierStatus.ACTIVE;
+      const updatedSupplier = await this.supplierRepository.save(supplier);
+
+      this.logger.log(`Supplier activated successfully: ${supplierId}`);
+      return this.mapToResponseDto(updatedSupplier);
+    } catch (error) {
+      this.logger.error(`Error activating supplier: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to activate supplier');
+    }
+  }
+
+  /**
+   * Suspend supplier
+   */
+  async suspend(supplierId: string, reason: string): Promise<SupplierResponseDto> {
+    this.logger.log(`Suspending supplier: ${supplierId}`);
+
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+    }
+
+    try {
+      supplier.status = SupplierStatus.SUSPENDED;
+      supplier.notes = (supplier.notes || '') + `\nSuspended: ${reason}`;
+      const updatedSupplier = await this.supplierRepository.save(supplier);
+
+      this.logger.log(`Supplier suspended successfully: ${supplierId}`);
+      return this.mapToResponseDto(updatedSupplier);
+    } catch (error) {
+      this.logger.error(`Error suspending supplier: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to suspend supplier');
+    }
+  }
+
+  /**
+   * Map supplier entity to response DTO
+   */
+  private mapToResponseDto(supplier: Supplier): SupplierResponseDto {
+    return {
+      id: supplier.id,
+      supplierCode: supplier.supplierCode,
+      type: supplier.type,
+      companyName: supplier.companyName,
+      contactPerson: supplier.contactPerson,
+      contactTitle: supplier.contactTitle,
+      email: supplier.email,
+      phone: supplier.phone,
+      alternativePhone: supplier.alternativePhone,
+      fax: supplier.fax,
+      website: supplier.website,
+      taxId: supplier.taxId,
+      fullAddress: supplier.fullAddress,
+      status: supplier.status,
+      isActive: supplier.isActive,
+      rating: supplier.rating,
+      paymentTermsDays: supplier.paymentTermsDays,
+      currency: supplier.currency,
+      creditLimit: Number(supplier.creditLimit),
+      availableCredit: supplier.availableCredit,
+      currentBalance: Number(supplier.currentBalance),
+      isOverCreditLimit: supplier.isOverCreditLimit,
+      totalPurchases: Number(supplier.totalPurchases),
+      totalOrders: supplier.totalOrders,
+      averageOrderValue: supplier.averageOrderValue,
+      lastPurchaseDate: supplier.lastPurchaseDate,
+      firstPurchaseDate: supplier.firstPurchaseDate,
+      averageDeliveryTime: Number(supplier.averageDeliveryTime),
+      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
+      qualityRate: Number(supplier.qualityRate),
+      overallPerformanceScore: supplier.overallPerformanceScore,
+      categories: supplier.categories,
+      certifications: supplier.certifications,
+      notes: supplier.notes,
+      createdAt: supplier.createdAt,
+      updatedAt: supplier.updatedAt,
+    };
+  }
+}
