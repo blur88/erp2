@@ -22,10 +22,10 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
-import { PurchasingModule } from './modules/purchasing/purchasing.module';
-import { DashboardModule } from './modules/dashboard/dashboard.module';
-import { ReportsModule } from './modules/reports/reports.module';
-import { PluginsModule } from './modules/plugins/plugins.module';
+// import { PurchasingModule } from './modules/purchasing/purchasing.module';
+// import { DashboardModule } from './modules/dashboard/dashboard-module';
+// import { ReportsModule } from './modules/reports/reports.module';
+// import { PluginsModule } from './modules/plugins/plugins.module';
 
 // Controllers
 import { AppController } from './app.controller';
@@ -87,12 +87,12 @@ import { AppService } from './app.service';
     // Business Modules
     InventoryModule,
     SalesModule,
-    PurchasingModule,
-    DashboardModule,
-    ReportsModule,
+    // PurchasingModule,
+    // DashboardModule,
+    // ReportsModule,
 
     // Plugin System
-    PluginsModule,
+    // PluginsModule,
   ],
   controllers: [AppController],
   providers: [
