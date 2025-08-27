@@ -1,10 +1,14 @@
 /**
- * Plugin security context
+ * Plugin security context for runtime execution
  */
 export interface IPluginSecurityContext {
   pluginId: string;
-  permissions: IPluginSecurityPermissions;
-  restrictions: IPluginSecurityRestrictions;
+  permissions: IPluginPermissions;
+  resourceLimits: IPluginResourceLimits;
+  sandboxed: boolean;
+  allowedOperations: string[];
+  securityLevel: 'low' | 'medium' | 'high' | 'critical';
+  createdAt: Date;
   userId?: string;
   sessionId?: string;
   ipAddress?: string;
@@ -12,7 +16,8 @@ export interface IPluginSecurityContext {
 }
 
 /**
- * Plugin security permissions
+ * Plugin security permissions - Legacy interface for backward compatibility
+ * Use IPluginPermissions from plugin.interface.ts for new implementations
  */
 export interface IPluginSecurityPermissions {
   // Database permissions
@@ -231,6 +236,57 @@ export interface IPluginSecurityManager {
   scanPlugin(pluginPath: string): Promise<IPluginSecurityScanResult>;
 
   /**
+   * Validate plugin permissions against policy
+   */
+  validatePermissions(
+    pluginId: string,
+    requestedPermissions: any,
+  ): Promise<{
+    valid: boolean;
+    violations: string[];
+    allowedPermissions: any;
+  }>;
+
+  /**
+   * Create security context for plugin execution
+   */
+  createSecurityContext(
+    pluginId: string,
+    permissions: any,
+  ): Promise<IPluginSecurityContext>;
+
+  /**
+   * Monitor plugin resource usage
+   */
+  monitorResources(pluginId: string): Promise<{
+    cpu: number;
+    memory: number;
+    disk: number;
+    network: number;
+    violations: IPluginSecurityViolation[];
+  }>;
+
+  /**
+   * Set security policy for plugin
+   */
+  setSecurityPolicy(pluginId: string, policy: IPluginSecurityPolicy): Promise<void>;
+
+  /**
+   * Get security audit trail for plugin
+   */
+  getSecurityAudit(pluginId: string, limit?: number): Promise<IPluginSecurityAudit[]>;
+
+  /**
+   * Quarantine a plugin due to security violations
+   */
+  quarantinePlugin(pluginId: string, reason: string): Promise<void>;
+
+  /**
+   * Release plugin from quarantine
+   */
+  releaseFromQuarantine(pluginId: string): Promise<void>;
+
+  /**
    * Generate security report for plugin
    */
   generateSecurityReport(pluginId: string): Promise<IPluginSecurityReport>;
@@ -240,27 +296,58 @@ export interface IPluginSecurityManager {
  * Plugin security scan result
  */
 export interface IPluginSecurityScanResult {
-  pluginId: string;
-  scanDate: Date;
-  vulnerabilities: IPluginVulnerability[];
-  riskScore: number;
-  recommendations: string[];
+  scanId: string;
   passed: boolean;
+  vulnerabilities: IPluginSecurityVulnerability[];
+  warnings: IPluginSecurityWarning[];
+  recommendations: string[];
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  scanDuration: number;
+  scannedAt: Date;
+  pluginId?: string;
+  scanDate?: Date;
+  riskScore?: number;
 }
 
 /**
- * Plugin vulnerability
+ * Security vulnerability found in plugin
  */
-export interface IPluginVulnerability {
-  type: 'code' | 'dependency' | 'permission' | 'configuration';
+export interface IPluginSecurityVulnerability {
+  type: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   title: string;
   description: string;
-  impact: string;
-  recommendation: string;
+  file?: string;
+  line?: number;
+  cve?: string;
+  fixAvailable?: boolean;
+  impact?: string;
+  recommendation?: string;
   cwe?: string; // Common Weakness Enumeration ID
   cvss?: number; // Common Vulnerability Scoring System score
   references?: string[];
+}
+
+/**
+ * Legacy plugin vulnerability interface for backward compatibility
+ */
+export interface IPluginVulnerability extends IPluginSecurityVulnerability {
+  type: 'code' | 'dependency' | 'permission' | 'configuration';
+  impact: string;
+  recommendation: string;
+}
+
+/**
+ * Security warning for plugin
+ */
+export interface IPluginSecurityWarning {
+  type: string;
+  severity: 'low' | 'medium' | 'high';
+  title: string;
+  description: string;
+  file?: string;
+  line?: number;
+  recommendation?: string;
 }
 
 /**
@@ -288,6 +375,97 @@ export interface IPluginSecurityReport {
 }
 
 /**
+ * Plugin security policy
+ */
+export interface IPluginSecurityPolicy {
+  securityLevel: 'low' | 'medium' | 'high' | 'critical';
+  allowDatabaseRead: boolean;
+  allowDatabaseWrite: boolean;
+  allowSchemaChanges: boolean;
+  allowExternalApi: boolean;
+  allowWebhooks: boolean;
+  allowFilesystemWrite: boolean;
+  allowOutboundNetwork: boolean;
+  enableSandbox: boolean;
+  enableResourceMonitoring: boolean;
+  allowedPaths: string[];
+  allowedDomains: string[];
+  maxConcurrentOperations: number;
+  customRules?: IPluginSecurityRule[];
+}
+
+/**
+ * Custom security rule
+ */
+export interface IPluginSecurityRule {
+  name: string;
+  description: string;
+  type: 'code_pattern' | 'file_pattern' | 'permission' | 'resource';
+  pattern: string | RegExp;
+  action: 'allow' | 'deny' | 'warn' | 'log';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+/**
+ * Resource limits for plugin execution
+ */
+export interface IPluginResourceLimits {
+  maxMemoryMB: number;
+  maxCpuPercent: number;
+  maxDiskMB: number;
+  maxNetworkKbps: number;
+  maxExecutionTime: number;
+  maxConcurrentConnections: number;
+  maxFileDescriptors?: number;
+  maxProcesses?: number;
+}
+
+/**
+ * Security violation detected during plugin execution
+ */
+export interface IPluginSecurityViolation {
+  type: 'permission_denied' | 'resource_limit_exceeded' | 'suspicious_activity' | 'policy_violation';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  resource?: string;
+  current?: number;
+  limit?: number;
+  description?: string;
+  timestamp: Date;
+}
+
+/**
+ * Security audit entry - Enhanced version
+ */
+export interface IPluginSecurityAudit {
+  id: string;
+  pluginId?: string;
+  pluginPath?: string;
+  action: string;
+  result: 'success' | 'failure' | 'denied' | 'allowed' | 'quarantined' | 'released' | 'violation' | 'unknown';
+  details: Record<string, any>;
+  userId?: string;
+  ip?: string;
+  userAgent?: string;
+  timestamp: Date;
+}
+
+/**
+ * Plugin sandbox configuration
+ */
+export interface IPluginSandboxConfig {
+  enabled: boolean;
+  isolationLevel: 'none' | 'process' | 'container' | 'vm';
+  allowedModules: string[];
+  blockedModules: string[];
+  allowedGlobals: string[];
+  allowedRequire: boolean;
+  allowedEval: boolean;
+  allowedProcess: boolean;
+  timeoutMs: number;
+  memoryLimitMB: number;
+}
+
+/**
  * Plugin security events
  */
 export enum PluginSecurityEvents {
@@ -297,4 +475,8 @@ export enum PluginSecurityEvents {
   SECURITY_SCAN_COMPLETED = 'plugin.security.scan.completed',
   AUDIT_LOG_CREATED = 'plugin.security.audit.created',
   SECURITY_VIOLATION = 'plugin.security.violation',
+  SCAN_STARTED = 'plugin.security.scan.started',
+  SCAN_FAILED = 'plugin.security.scan.failed',
+  QUARANTINED = 'plugin.security.quarantined',
+  RELEASED = 'plugin.security.released',
 }
