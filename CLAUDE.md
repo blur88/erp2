@@ -84,8 +84,15 @@ npm run type-check             # TypeScript check without build
 ```bash
 # Plugin development (from backend directory)
 erp-plugin create my-plugin --type business
-erp-plugin build --production
-erp-plugin validate
+erp-plugin dev                             # Development server with hot reload
+erp-plugin validate                        # Validate plugin structure and dependencies
+erp-plugin build --production              # Build for production
+erp-plugin package                         # Create installable plugin package
+
+# Plugin marketplace operations
+erp-plugin marketplace search <keyword>    # Search plugin marketplace
+erp-plugin marketplace publish             # Publish plugin to marketplace
+erp-plugin marketplace install <plugin>    # Install from marketplace
 
 # Install plugin via API
 curl -X POST http://localhost:3001/api/plugins/install -F "file=@plugin.zip"
@@ -109,6 +116,24 @@ docker compose up -d       # Start all services in detached mode
 docker compose ps          # Check container status
 docker compose logs backend # Check specific service logs
 ```
+
+### Docker Configuration Details
+
+#### Frontend Container
+- Uses multi-stage build: Node.js build stage + NGINX production stage
+- Runtime environment variable replacement via `docker-entrypoint.sh`
+- Vite build with optimized chunk splitting and asset bundling
+- NGINX configuration with gzip, security headers, and health checks
+
+#### Backend Container
+- Webpack-based production build for optimized Node.js bundle
+- Supports both development (`npm run start:dev`) and production modes
+- Volume mounts for uploads and logs persistence
+
+#### NGINX Configurations
+- **Main proxy** (`nginx/nginx.conf`): Reverse proxy for production deployment
+- **Frontend container** (`frontend/nginx.conf`): Serves built React application
+- Features: gzip compression, security headers, health checks, API routing
 
 ## Architecture Overview
 
@@ -146,6 +171,27 @@ Multi-layered security approach:
 - **Security headers**: CORS, CSP, HSTS via Helmet
 - **Audit logging**: Complete audit trail with user attribution
 
+## Path Aliases and Import Structure
+
+### Backend Path Aliases (TypeScript)
+- `@/*` → `src/*` (general source files)
+- `@modules/*` → `src/modules/*` (business modules)
+- `@common/*` → `src/common/*` (shared utilities)
+- `@config/*` → `src/config/*` (configuration files)
+- `@database/*` → `src/database/*` (database entities and migrations)
+
+### Frontend Path Aliases (Vite + TypeScript)
+- `@/*` → `src/*` (general source files)
+- `@/components/*` → `src/components/*` (React components)
+- `@/pages/*` → `src/pages/*` (page components)
+- `@/hooks/*` → `src/hooks/*` (React hooks)
+- `@/services/*` → `src/services/*` (API services)
+- `@/store/*` → `src/store/*` (Redux store and slices)
+- `@/utils/*` → `src/utils/*` (utility functions)
+- `@/types/*` → `src/types/*` (TypeScript type definitions)
+- `@/styles/*` → `src/styles/*` (styling files)
+- `@/assets/*` → `src/assets/*` (static assets)
+
 ## Development Patterns
 
 ### Adding New Modules
@@ -167,8 +213,15 @@ All entities extend `BaseEntity` which provides:
 - All controllers use Swagger decorators for API documentation
 - DTOs use class-validator for validation
 - Services handle business logic, controllers handle HTTP concerns
-- Use @Public() decorator to bypass JWT authentication
-- Use @Roles() decorator for role-based authorization
+
+### Authentication Decorators
+- `@Public()` - bypass JWT authentication entirely
+- `@OptionalAuth()` - optional authentication (user context available if logged in)
+- `@Auth(...roles)` - role-based authentication with specific roles
+- `@AuthWithPermissions(...permissions)` - permission-based authorization
+- `@AdminOnly()` - convenience decorator for admin-only endpoints
+- `@ManagerOrAdmin()` - convenience decorator for manager or admin access
+- `@Roles(Role.ADMIN, Role.MANAGER)` - traditional role-based authorization
 
 ### Redux State Management Patterns
 Each Redux slice follows a consistent pattern:
@@ -190,11 +243,21 @@ Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Ho
 ## Environment Configuration
 
 Copy `.env.example` to `.env` and configure:
-- **Database**: PostgreSQL connection settings
-- **Redis**: Cache and session storage
-- **JWT**: Secret keys and expiration times
-- **Email**: SMTP settings for notifications
-- **Upload**: File storage paths and limits
+
+### Backend Variables
+- **Database**: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`
+- **Redis**: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
+- **JWT**: `JWT_SECRET`, `JWT_EXPIRATION`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRATION`
+- **Email**: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+- **Upload**: `UPLOAD_PATH`, `MAX_FILE_SIZE`
+- **External Services**: `STRIPE_SECRET_KEY`, `PAYPAL_CLIENT_ID`, `AWS_ACCESS_KEY`
+
+### Frontend Variables (VITE_*)
+- **API Configuration**: `VITE_API_BASE_URL`, `VITE_SOCKET_URL`
+- **App Settings**: `VITE_APP_VERSION`, `VITE_APP_NAME`
+- **Development**: `VITE_ENABLE_MOCK_DATA`, `VITE_ENABLE_DEBUG`
+- **Theming**: `VITE_DEFAULT_THEME`, `VITE_PRIMARY_COLOR`, `VITE_SECONDARY_COLOR`
+- **External Services**: `VITE_STRIPE_PUBLISHABLE_KEY`, `VITE_GOOGLE_MAPS_API_KEY`
 
 ## Access Information
 
@@ -211,8 +274,10 @@ Copy `.env.example` to `.env` and configure:
 ## Known Issues & Troubleshooting
 
 ### TypeScript Configuration
-- **Frontend**: Strict TypeScript settings can cause build failures. Redux slices may need null checks for `action.payload`
-- **Backend**: Build may fail with compilation errors. For development testing, the backend runs with `start:dev` instead of built production code
+- **Frontend**: Uses relaxed TypeScript settings (`"strict": false`) to avoid build failures. Redux slices may need null checks for `action.payload`
+- **Backend**: Uses relaxed TypeScript settings for faster development. Build may fail with compilation errors in strict mode
+- **Path aliases**: Both frontend and backend use extensive path alias configurations for clean imports
+- **Development**: Run `npm run type-check` in frontend for TypeScript checking without building
 
 ### Docker Build Issues
 - **Frontend**: May need `@rollup/rollup-linux-x64-musl` package for Alpine Linux builds
@@ -240,6 +305,9 @@ npm run start:dev
 - Backend must be healthy before frontend can authenticate
 - NGINX configuration requires proper gzip directives (avoid "must-revalidate" in gzip_proxied)
 
+### Docker Container Issues
+- **Frontend blank page**: ~~This issue has been permanently fixed. The Docker build now properly copies the production-built index.html with correct asset references instead of the development version.~~ (RESOLVED)
+
 ## Key Files to Know
 
 - `backend/src/app.module.ts` - Main NestJS module with global providers
@@ -250,3 +318,8 @@ npm run start:dev
 - `docker-compose.yml` - Complete service orchestration
 - `deploy.sh` - Production deployment automation
 - `frontend/nginx.conf` - NGINX configuration for frontend container
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
