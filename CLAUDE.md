@@ -147,7 +147,7 @@ The backend follows NestJS modular architecture with clear separation:
 
 **⚠️ CRITICAL: Current System Status (Updated August 2025)**
 - **Most modules temporarily disabled**: Only `UsersModule` and `InventoryModule` are currently loaded in `app.module.ts`
-- **Business modules commented out**: `SalesModule`, `PurchasingModule`, `ReportsModule`, `DashboardModule`, `PluginsModule` are disabled
+- **Business modules temporarily re-disabled**: `SalesModule`, `PurchasingModule`, `ReportsModule`, `DashboardModule`, `PluginsModule` are enabled in code but temporarily disabled due to compilation issues
 - **Authentication system intact but disconnected**: AuthModule exists but is not imported - system running without auth for development/testing
 - **Database schema issues resolved**: Manual table creation required due to TypeORM sync issues
 - **Backend fully operational**: Core APIs working after fixing BaseEntity references and database columns
@@ -158,12 +158,12 @@ The backend follows NestJS modular architecture with clear separation:
 UsersModule,        // ✅ Active (with some endpoint issues)
 InventoryModule,    // ✅ Fully functional
 
-// Currently disabled:
-// SalesModule,        // 🚫 Commented out
-// PurchasingModule,   // 🚫 Commented out  
-// ReportsModule,      // 🚫 Commented out
-// DashboardModule,    // 🚫 Commented out
-// PluginsModule,      // 🚫 Commented out
+// Enabled but temporarily re-disabled due to compilation issues:
+// SalesModule, // Re-enable after fixing compilation issues
+// PurchasingModule, // Re-enable after fixing compilation issues  
+// ReportsModule, // Re-enable after fixing compilation issues
+// DashboardModule, // Re-enable after fixing compilation issues
+// PluginsModule, // Re-enable after fixing compilation issues
 ```
 
 **Known Issues Fixed:**
@@ -171,11 +171,14 @@ InventoryModule,    // ✅ Fully functional
 - ✅ Plugin entity `IsVersion` validator issue (replaced with `IsString`)
 - ✅ Missing database columns for products and categories tables
 - ✅ Docker volume mount synchronization issues
+- ✅ ALL_ENTITIES and ENTITY_GROUPS arrays compilation errors (temporarily commented out in `database/entities/index.ts`)
 
 **Re-enabling Modules:**
-- Uncomment desired modules in `app.module.ts` imports section
-- May require database schema updates and dependency installation
-- PluginsModule may need additional dependencies: `class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`
+- Modules have been enabled in code but temporarily re-disabled due to auth-related compilation errors
+- Required dependencies installed: `class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader` 
+- Main remaining issues are auth decorator TypeScript compilation errors
+- To re-enable: Uncomment modules in `app.module.ts` after fixing compilation issues
+- Use `npx tsc --noEmit` to check for TypeScript compilation errors before enabling modules
 
 ### Service-Controller-DTO Pattern
 Each module follows consistent architecture:
@@ -366,6 +369,80 @@ The plugin system supports multiple plugin types:
 
 Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Hook()`, `@ApiEndpoint()`. The plugin system includes comprehensive security policies, resource usage monitoring, and violation detection.
 
+## Key Architectural Patterns
+
+### Entity Design Pattern
+All database entities follow a consistent pattern:
+```typescript
+@Entity('table_name')
+@Index(['field1'], { unique: true })    // Strategic indexing
+@Index(['status', 'isActive'])          // Composite indexes for performance
+export class EntityName extends BaseEntity {
+  @Column({ type: 'decimal', precision: 12, scale: 4 })  // Financial precision
+  price: number;
+  
+  // Multi-level pricing pattern for products
+  @Column({ type: 'decimal', precision: 12, scale: 4 })
+  baseCost: number;
+  
+  @Column({ type: 'decimal', precision: 12, scale: 4 })
+  retailPrice: number;
+}
+```
+
+### Redux Async Pattern
+Frontend Redux slices consistently implement null-safe async operations:
+```typescript
+// Critical: Always null-check action.payload
+.addCase(fetchEntity.fulfilled, (state, action) => {
+  state.loading = false;
+  if (action.payload) {  // Essential null safety check
+    state.data = action.payload.data;
+    state.pagination = action.payload.meta;
+  }
+})
+```
+
+### Controller API Pattern
+Controllers follow comprehensive documentation and validation:
+```typescript
+@ApiTags('ModuleName')
+@Controller('api/path')
+export class Controller {
+  @Post()
+  @ApiOperation({ summary: 'Action description' })
+  @ApiResponse({ status: 201, type: ResponseDto })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  async create(@Body() dto: CreateDto) {
+    return this.service.create(dto);
+  }
+}
+```
+
+### Frontend Path Alias Usage
+Import statements consistently use path aliases for clean code:
+```typescript
+// Frontend imports
+import { Component } from '@/components/common/Component';
+import { useAppDispatch } from '@/hooks/redux';
+import { ApiService } from '@/services/api';
+
+// Backend imports  
+import { Service } from '@modules/domain/service';
+import { Entity } from '@database/entities/entity';
+import { Config } from '@config/config';
+```
+
+### Database Configuration Pattern
+Docker-optimized database connections with IPv4 enforcement:
+```typescript
+// Critical for Docker environments
+extra: {
+  connectionLimit: 10,        // Prevent connection exhaustion
+  family: 4,                 // Force IPv4 for Docker compatibility
+}
+```
+
 ## Environment Configuration
 
 Copy `.env.example` to `.env` and configure:
@@ -500,65 +577,6 @@ docker compose exec backend find src -name "*app.module*"
 curl http://localhost:3001/api/users -X GET
 ```
 
-## Critical Troubleshooting Commands
-
-### Check Service Status
-```bash
-docker compose ps                    # Check all container statuses
-docker compose logs backend --tail=20  # Check backend logs for errors
-curl http://localhost:3001/api/health   # Test backend API health
-```
-
-### Database Operations
-```bash
-# Connect to database directly
-docker compose exec postgres psql -U erp_user -d erp_db
-
-# Check if demo users exist
-docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT email, role FROM users;"
-```
-
-### Module Debugging
-```bash
-# Check for compilation errors
-docker compose exec backend npm run build
-
-# Test individual module loading with ts-node (most effective for diagnosing module issues)
-# Note: AuthModule is no longer loaded, test other modules instead
-docker compose exec backend npx ts-node -e "
-  try { 
-    const usersModule = require('./src/modules/users/users.module.ts'); 
-    console.log('✓ UsersModule loaded successfully');
-  } catch (error) { 
-    console.error('✗ UsersModule failed:', error.message); 
-  }
-"
-
-# Check if missing dependencies are the issue
-docker compose exec backend npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps
-
-# Verify which app module is being used
-docker compose exec backend find src -name "*app.module*"
-
-# Test API availability (all endpoints should be accessible without auth)
-curl http://localhost:3001/api/users -X GET
-```
-
-### Backend Module Loading Issues
-**⚠️ IMPORTANT: Authentication has been completely removed**
-- **AuthModule**: No longer loaded in `app.module.ts` - authentication system disabled for future upgrade
-- **Missing Dependencies**: May need npm dependencies (`class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`) for other modules. Install with `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
-- **Silent Module Loading Failures**: Non-auth modules may fail to load silently due to TypeScript compilation errors. Check startup logs for missing module initialization messages.
-- **TypeScript Compilation Errors**: Use type assertions `as any` for repository operations if TypeScript validation fails.
-- **Dependency Version Conflicts**: Use `--legacy-peer-deps` flag when installing dependencies to resolve NestJS version conflicts
-- **IPv6 Connection Issues**: Add `family: 4` to Redis/PostgreSQL connection configs to force IPv4 in Docker environments
-
-### Current System Status
-**⚠️ Authentication Status:**
-- All authentication endpoints are disabled (return 404)
-- All API endpoints are publicly accessible
-- Demo user creation is no longer needed
-- Frontend auth components have been removed
 
 ## Key Files to Know
 

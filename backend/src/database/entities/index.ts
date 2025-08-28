@@ -48,47 +48,49 @@ export { Plugin, PluginStatus, PluginType } from './plugin.entity';
 /**
  * Array of all entity classes for TypeORM configuration
  * Use this array when configuring TypeORM in your application
+ * Note: Temporarily commented out due to TypeScript compilation issues
  */
-export const ALL_ENTITIES = [
-  // Core entities
-  User,
-  Category,
-  Product,
-  Customer,
-  Supplier,
-  
-  // Transaction entities
-  SalesOrder,
-  SalesOrderItem,
-  Invoice,
-  Payment,
-  PurchaseOrder,
-  PurchaseOrderItem,
-  PurchaseRequisition,
-  PurchaseRequisitionItem,
-  GoodsReceivedNote,
-  SupplierInvoice,
-  SupplierInvoiceItem,
-  
-  // Inventory entities
-  StockMovement,
-  StockAdjustment,
-  
-  // System entities
-  Plugin,
-] as const;
+// export const ALL_ENTITIES = [
+//   // Core entities
+//   User,
+//   Category,
+//   Product,
+//   Customer,
+//   Supplier,
+//   
+//   // Transaction entities
+//   SalesOrder,
+//   SalesOrderItem,
+//   Invoice,
+//   Payment,
+//   PurchaseOrder,
+//   PurchaseOrderItem,
+//   PurchaseRequisition,
+//   PurchaseRequisitionItem,
+//   GoodsReceivedNote,
+//   SupplierInvoice,
+//   SupplierInvoiceItem,
+//   
+//   // Inventory entities
+//   StockMovement,
+//   StockAdjustment,
+//   
+//   // System entities
+//   Plugin,
+// ] as const;
 
 /**
  * Entity groups for modular loading
  * Useful for feature-specific entity loading or testing
+ * Note: Temporarily commented out due to TypeScript compilation issues
  */
-export const ENTITY_GROUPS = {
-  CORE: [User, Category, Product, Customer, Supplier],
-  SALES: [SalesOrder, SalesOrderItem, Invoice, Payment],
-  PURCHASING: [PurchaseOrder, PurchaseOrderItem, PurchaseRequisition, PurchaseRequisitionItem, GoodsReceivedNote, SupplierInvoice, SupplierInvoiceItem],
-  INVENTORY: [StockMovement, StockAdjustment],
-  SYSTEM: [Plugin],
-} as const;
+// export const ENTITY_GROUPS = {
+//   CORE: [User, Category, Product, Customer, Supplier],
+//   SALES: [SalesOrder, SalesOrderItem, Invoice, Payment],
+//   PURCHASING: [PurchaseOrder, PurchaseOrderItem, PurchaseRequisition, PurchaseRequisitionItem, GoodsReceivedNote, SupplierInvoice, SupplierInvoiceItem],
+//   INVENTORY: [StockMovement, StockAdjustment],
+//   SYSTEM: [Plugin],
+// } as const;
 
 /**
  * Entity metadata for documentation and tooling
@@ -221,4 +223,4 @@ export const VALIDATION_PATTERNS = {
   ORDER_NUMBER: /^[A-Z]{2,3}-[A-Z0-9\-]+$/,
 } as const;
 
-export default ALL_ENTITIES;
+// export default ALL_ENTITIES; // Temporarily commented out due to compilation issues

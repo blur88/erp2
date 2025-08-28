@@ -13,11 +13,11 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 // Modules
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
-// import { SalesModule } from './modules/sales/sales.module';
-// import { PurchasingModule } from './modules/purchasing/purchasing.module';
-// import { ReportsModule } from './modules/reports/reports.module';
-// import { DashboardModule } from './modules/dashboard/dashboard-module';
-// import { PluginsModule } from './modules/plugins/plugins.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { PurchasingModule } from './modules/purchasing/purchasing.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { DashboardModule } from './modules/dashboard/dashboard-module';
+import { PluginsModule } from './modules/plugins/plugins.module';
 
 // Controllers
 import { AppController } from './app.controller';
@@ -39,11 +39,11 @@ import { AppService } from './app.service';
     // Core Modules
     UsersModule,
     InventoryModule,
-    // SalesModule,
-    // PurchasingModule,
-    // ReportsModule,
-    // DashboardModule,
-    // PluginsModule,
+    // SalesModule, // Re-enable after fixing compilation issues
+    // PurchasingModule, // Re-enable after fixing compilation issues  
+    // ReportsModule, // Re-enable after fixing compilation issues
+    // DashboardModule, // Re-enable after fixing compilation issues
+    // PluginsModule, // Re-enable after fixing compilation issues
   ],
   controllers: [AppController],
   providers: [
