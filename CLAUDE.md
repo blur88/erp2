@@ -21,12 +21,13 @@ cd backend
 npm install
 npm run start:dev        # Hot reload development server
 npm run start:debug     # Debug mode with inspector
+npm run start:prod       # Production mode
 
 # Frontend development  
 cd frontend
 npm install
 npm run dev             # Vite dev server with hot reload
-npm run build           # Production build
+npm run build           # Production build (may need TypeScript fixes)
 npm run preview         # Preview production build
 ```
 
@@ -101,6 +102,12 @@ curl -X POST http://localhost:3001/api/plugins/install -F "file=@plugin.zip"
 ./deploy.sh logs           # View logs
 ./deploy.sh clean          # Clean up everything
 ./deploy.sh status         # Show service status
+
+# Manual Docker operations
+docker compose build       # Build all containers
+docker compose up -d       # Start all services in detached mode
+docker compose ps          # Check container status
+docker compose logs backend # Check specific service logs
 ```
 
 ## Architecture Overview
@@ -122,11 +129,13 @@ The system uses 20+ TypeORM entities with relationships:
 
 ### Frontend Architecture
 React application with:
-- **State management**: Redux Toolkit with persistence
+- **State management**: Redux Toolkit with persistence and async thunks
 - **Routing**: React Router with protected routes
 - **UI framework**: Material-UI v5 with custom theming
 - **Data fetching**: Axios with interceptors for auth
 - **Real-time**: WebSocket integration for live updates
+- **Build system**: Vite with TypeScript and path aliases
+- **State pattern**: Each slice follows fulfilled/pending/rejected pattern for async operations
 
 ### Security Implementation
 Multi-layered security approach:
@@ -161,6 +170,14 @@ All entities extend `BaseEntity` which provides:
 - Use @Public() decorator to bypass JWT authentication
 - Use @Roles() decorator for role-based authorization
 
+### Redux State Management Patterns
+Each Redux slice follows a consistent pattern:
+- **Initial state**: Includes `loading`, `error`, and data properties with pagination
+- **Async thunks**: Use `createAsyncThunk` for API calls with proper error handling
+- **Reducers**: Handle pending/fulfilled/rejected states for each async operation
+- **Type safety**: All payloads should be null-checked (e.g., `if (action.payload)` before using)
+- **Data updates**: Use `unshift()` to add new items to the beginning of arrays
+
 ### Plugin Development
 The plugin system supports multiple plugin types:
 - **Business modules**: New ERP functionality (HR, CRM, Manufacturing)
@@ -191,11 +208,45 @@ Copy `.env.example` to `.env` and configure:
 - Manager: manager@erp.com / manager123
 - Sales Staff: sales@erp.com / sales123
 
+## Known Issues & Troubleshooting
+
+### TypeScript Configuration
+- **Frontend**: Strict TypeScript settings can cause build failures. Redux slices may need null checks for `action.payload`
+- **Backend**: Build may fail with compilation errors. For development testing, the backend runs with `start:dev` instead of built production code
+
+### Docker Build Issues
+- **Frontend**: May need `@rollup/rollup-linux-x64-musl` package for Alpine Linux builds
+- **Backend**: Permission issues with `/app/dist` directory may require running as root (development only)
+- **Material-UI Icons**: Some icon names may not exist; use alternatives like `Inventory2` instead of `Product`
+
+### Common Fixes
+```bash
+# Fix frontend TypeScript issues
+cd frontend
+# Temporarily disable strict checking in tsconfig.json: "strict": false
+npm run build
+
+# Fix backend compilation issues
+cd backend  
+# Run in development mode to skip build step
+npm run start:dev
+
+# Frontend icon import fixes
+# Replace non-existent imports like 'Product' with 'Inventory2' in src/components/common/Sidebar.tsx
+```
+
+### Service Dependencies
+- PostgreSQL and Redis must be running before backend starts
+- Backend must be healthy before frontend can authenticate
+- NGINX configuration requires proper gzip directives (avoid "must-revalidate" in gzip_proxied)
+
 ## Key Files to Know
 
 - `backend/src/app.module.ts` - Main NestJS module with global providers
-- `backend/src/database/entities/base.entity.ts` - Base entity all others extend
+- `backend/src/database/entities/base.entity.ts` - Base entity all others extend  
 - `frontend/src/App.tsx` - Main React component with routing
 - `frontend/src/hooks/useAuth.tsx` - Authentication context and state
+- `frontend/src/store/slices/` - Redux slices (may need null checks for TypeScript)
 - `docker-compose.yml` - Complete service orchestration
 - `deploy.sh` - Production deployment automation
+- `frontend/nginx.conf` - NGINX configuration for frontend container

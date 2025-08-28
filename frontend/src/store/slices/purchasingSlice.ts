@@ -156,8 +156,10 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchSuppliers.fulfilled, (state, action) => {
         state.loading.suppliers = false
-        state.suppliers = action.payload.data
-        state.pagination.suppliers = action.payload.meta
+        if (action.payload) {
+          state.suppliers = action.payload.data
+          state.pagination.suppliers = action.payload.meta
+        }
       })
       .addCase(fetchSuppliers.rejected, (state, action) => {
         state.loading.suppliers = false
@@ -172,8 +174,10 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchPurchaseOrders.fulfilled, (state, action) => {
         state.loading.purchaseOrders = false
-        state.purchaseOrders = action.payload.data
-        state.pagination.purchaseOrders = action.payload.meta
+        if (action.payload) {
+          state.purchaseOrders = action.payload.data
+          state.pagination.purchaseOrders = action.payload.meta
+        }
       })
       .addCase(fetchPurchaseOrders.rejected, (state, action) => {
         state.loading.purchaseOrders = false
@@ -188,8 +192,10 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchGoodsReceivedNotes.fulfilled, (state, action) => {
         state.loading.goodsReceivedNotes = false
-        state.goodsReceivedNotes = action.payload.data
-        state.pagination.goodsReceivedNotes = action.payload.meta
+        if (action.payload) {
+          state.goodsReceivedNotes = action.payload.data
+          state.pagination.goodsReceivedNotes = action.payload.meta
+        }
       })
       .addCase(fetchGoodsReceivedNotes.rejected, (state, action) => {
         state.loading.goodsReceivedNotes = false
@@ -199,19 +205,25 @@ const purchasingSlice = createSlice({
     // Create Supplier
     builder
       .addCase(createSupplier.fulfilled, (state, action) => {
-        state.suppliers.unshift(action.payload)
+        if (action.payload) {
+          state.suppliers.unshift(action.payload)
+        }
       })
 
     // Create Purchase Order
     builder
       .addCase(createPurchaseOrder.fulfilled, (state, action) => {
-        state.purchaseOrders.unshift(action.payload)
+        if (action.payload) {
+          state.purchaseOrders.unshift(action.payload)
+        }
       })
 
     // Create GRN
     builder
       .addCase(createGoodsReceivedNote.fulfilled, (state, action) => {
-        state.goodsReceivedNotes.unshift(action.payload)
+        if (action.payload) {
+          state.goodsReceivedNotes.unshift(action.payload)
+        }
       })
   },
 })

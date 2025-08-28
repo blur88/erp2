@@ -23,7 +23,7 @@ import {
   ExpandLess,
   ExpandMore,
   Category as CategoryIcon,
-  Product as ProductIcon,
+  Inventory2 as ProductIcon,
   People as CustomersIcon,
   Receipt as OrdersIcon,
   ReceiptLong as InvoiceIcon,

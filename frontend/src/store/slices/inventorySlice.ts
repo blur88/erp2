@@ -230,8 +230,10 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchStockMovements.fulfilled, (state, action) => {
         state.loading.stockMovements = false
-        state.stockMovements = action.payload.data
-        state.pagination.stockMovements = action.payload.meta
+        if (action.payload) {
+          state.stockMovements = action.payload.data
+          state.pagination.stockMovements = action.payload.meta
+        }
       })
       .addCase(fetchStockMovements.rejected, (state, action) => {
         state.loading.stockMovements = false
