@@ -33,7 +33,6 @@ import {
 
 // Other modules
 import { InventoryModule } from '../inventory/inventory.module';
-import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -57,7 +56,6 @@ import { AuthModule } from '../auth/auth.module';
     
     // Import related modules
     forwardRef(() => InventoryModule),
-    forwardRef(() => AuthModule),
   ],
   
   controllers: [

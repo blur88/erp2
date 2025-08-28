@@ -13,7 +13,6 @@ import {
   MaxLength,
   IsJSON,
   IsUrl,
-  IsVersion,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 
@@ -84,7 +83,7 @@ export class Plugin extends BaseEntity {
     length: 20,
     comment: 'Plugin version',
   })
-  @IsVersion()
+  @IsString()
   @MaxLength(20)
   version: string;
 
