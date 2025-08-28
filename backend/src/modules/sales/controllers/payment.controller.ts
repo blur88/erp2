@@ -6,7 +6,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -15,15 +14,9 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { CurrentUser } from '../../../common/decorators/user.decorator';
-import { UserRole, User } from '../../../database/entities/user.entity';
 import { PaymentService } from '../services/payment.service';
 import {
   CreatePaymentDto,
@@ -36,9 +29,7 @@ import {
 } from '../dto/payment.dto';
 
 @ApiTags('Payments')
-@ApiBearerAuth()
 @Controller('api/v1/payments')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
@@ -51,12 +42,10 @@ export class PaymentController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Customer or invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async recordPayment(
     @Body() createPaymentDto: CreatePaymentDto,
-    @CurrentUser() user: User,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.create(createPaymentDto, user.id);
+    return this.paymentService.create(createPaymentDto);
   }
 
   @Get()
@@ -78,7 +67,6 @@ export class PaymentController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getAllPayments(@Query() query: QueryPaymentsDto) {
     return this.paymentService.findAll(query);
   }
@@ -92,7 +80,6 @@ export class PaymentController {
     type: PaymentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getPaymentById(@Param('id', ParseUUIDPipe) id: string): Promise<PaymentResponseDto> {
     return this.paymentService.findById(id);
   }
@@ -107,7 +94,6 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 400, description: 'Invalid input data or status transition' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async updatePayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
@@ -125,7 +111,6 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 400, description: 'Payment cannot be completed' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async completePayment(@Param('id', ParseUUIDPipe) id: string): Promise<PaymentResponseDto> {
     return this.paymentService.complete(id);
   }
@@ -140,7 +125,6 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 400, description: 'Payment cannot be marked as failed' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async failPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
@@ -158,7 +142,6 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 400, description: 'Payment cannot be cancelled' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async cancelPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
@@ -175,12 +158,10 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 400, description: 'Payment cannot be refunded or invalid amount' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async refundPayment(
     @Body() refundDto: RefundPaymentDto,
-    @CurrentUser() user: User,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.refund(refundDto, user.id);
+    return this.paymentService.refund(refundDto);
   }
 
   @Post('allocate')
@@ -192,7 +173,6 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment or invoice not found' })
   @ApiResponse({ status: 400, description: 'Invalid allocation amounts' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async allocatePayment(@Body() allocationDto: AllocatePaymentDto): Promise<PaymentResponseDto> {
     return this.paymentService.allocatePayment(allocationDto);
   }
@@ -206,7 +186,6 @@ export class PaymentController {
     description: 'Customer payments retrieved successfully',
     type: [PaymentSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getPaymentsByCustomer(
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Query('limit') limit?: number,
@@ -222,7 +201,6 @@ export class PaymentController {
     description: 'Invoice payments retrieved successfully',
     type: [PaymentSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getPaymentsByInvoice(
     @Param('invoiceId', ParseUUIDPipe) invoiceId: string,
   ): Promise<PaymentSummaryDto[]> {
@@ -238,7 +216,6 @@ export class PaymentController {
     status: 200,
     description: 'Payment statistics retrieved successfully',
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getPaymentStatistics(
     @Query('customerId') customerId?: string,
     @Query('fromDate') fromDate?: string,

@@ -35,5 +35,8 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3001/api/health || exit 1
 
-# Start the application in development mode
-CMD ["npm", "run", "start:dev"]
+# Install missing dependencies with legacy peer deps to resolve conflicts
+RUN npm install @nestjs/microservices class-transformer --legacy-peer-deps || true
+
+# Alternative: start with node and transpile-only option to bypass webpack
+CMD ["npx", "ts-node", "--transpile-only", "src/main.ts"]

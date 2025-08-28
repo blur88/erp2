@@ -336,7 +336,7 @@ export class SupplierInvoiceItem extends BaseEntity {
   matchWithPOItem(poItem: PurchaseOrderItem): void {
     this.purchaseOrderItemId = poItem.id;
     this.poQuantity = Number(poItem.quantity);
-    this.poUnitPrice = Number(poItem.unitPrice);
+    this.poUnitPrice = Number(poItem.unitCost);
     
     // Calculate variances
     this.priceVariance = Number(this.unitPrice) - Number(this.poUnitPrice);

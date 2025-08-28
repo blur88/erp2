@@ -20,13 +20,10 @@ import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
-  Logout as LogoutIcon,
-  Person as PersonIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
 } from '@mui/icons-material'
 
-import { useAuth } from '@/hooks/useAuth'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { toggleTheme, selectThemeMode } from '@/store/slices/themeSlice'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
@@ -43,26 +40,17 @@ const DRAWER_WIDTH = 280
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'))
-  const { user, logout } = useAuth()
   const dispatch = useAppDispatch()
   const themeMode = useAppSelector(selectThemeMode)
   const unreadCount = useAppSelector(selectUnreadCount)
 
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [profileAnchorEl, setProfileAnchorEl] = useState<null | HTMLElement>(null)
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null)
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
   }
 
-  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setProfileAnchorEl(event.currentTarget)
-  }
-
-  const handleProfileMenuClose = () => {
-    setProfileAnchorEl(null)
-  }
 
   const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => {
     setNotificationAnchorEl(event.currentTarget)
@@ -76,10 +64,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     dispatch(toggleTheme())
   }
 
-  const handleLogout = async () => {
-    await logout()
-    handleProfileMenuClose()
-  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -136,18 +120,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </IconButton>
             </Tooltip>
 
-            {/* Profile */}
-            <Tooltip title="Profile">
-              <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0.5 }}>
-                <Avatar
-                  sx={{ width: 32, height: 32 }}
-                  alt={user?.name || 'User'}
-                  src="/static/images/avatar/1.jpg"
-                >
-                  {user?.name?.charAt(0).toUpperCase()}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
           </Box>
         </Toolbar>
       </AppBar>
@@ -205,70 +177,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         {children}
       </Box>
 
-      {/* Profile Menu */}
-      <Menu
-        anchorEl={profileAnchorEl}
-        open={Boolean(profileAnchorEl)}
-        onClose={handleProfileMenuClose}
-        onClick={handleProfileMenuClose}
-        PaperProps={{
-          elevation: 0,
-          sx: {
-            overflow: 'visible',
-            filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.08))',
-            mt: 1.5,
-            '& .MuiAvatar-root': {
-              width: 32,
-              height: 32,
-              ml: -0.5,
-              mr: 1,
-            },
-            '&:before': {
-              content: '""',
-              display: 'block',
-              position: 'absolute',
-              top: 0,
-              right: 14,
-              width: 10,
-              height: 10,
-              bgcolor: 'background.paper',
-              transform: 'translateY(-50%) rotate(45deg)',
-              zIndex: 0,
-            },
-          },
-        }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-      >
-        <Box sx={{ px: 2, py: 1 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            {user?.name}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {user?.email}
-          </Typography>
-        </Box>
-        <Divider />
-        <MenuItem onClick={handleProfileMenuClose}>
-          <ListItemIcon>
-            <PersonIcon fontSize="small" />
-          </ListItemIcon>
-          Profile
-        </MenuItem>
-        <MenuItem onClick={handleProfileMenuClose}>
-          <ListItemIcon>
-            <SettingsIcon fontSize="small" />
-          </ListItemIcon>
-          Settings
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleLogout}>
-          <ListItemIcon>
-            <LogoutIcon fontSize="small" />
-          </ListItemIcon>
-          Logout
-        </MenuItem>
-      </Menu>
 
       {/* Notification Panel */}
       <NotificationPanel

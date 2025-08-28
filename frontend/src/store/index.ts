@@ -4,7 +4,6 @@ import storage from 'redux-persist/lib/storage'
 import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
-import authSlice from './slices/authSlice'
 import themeSlice from './slices/themeSlice'
 import notificationSlice from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
@@ -13,7 +12,6 @@ import purchasingSlice from './slices/purchasingSlice'
 import dashboardSlice from './slices/dashboardSlice'
 
 const rootReducer = combineReducers({
-  auth: authSlice,
   theme: themeSlice,
   notifications: notificationSlice,
   inventory: inventorySlice,
@@ -26,7 +24,7 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: 'erp-app',
   storage,
-  whitelist: ['auth', 'theme'], // Only persist auth and theme
+  whitelist: ['theme'], // Only persist theme
   version: 1,
 }
 
@@ -41,7 +39,7 @@ export const store = configureStore({
         ignoredPaths: ['register'],
       },
     }),
-  devTools: import.meta.env.DEV,
+  devTools: process.env.NODE_ENV !== 'production',
 })
 
 export const persistor = persistStore(store)

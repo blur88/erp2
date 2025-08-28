@@ -7,7 +7,6 @@ import {
   Param,
   Delete,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
@@ -18,14 +17,8 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { User } from '../../../common/decorators/user.decorator';
 import { StockMovementService } from '../services/stock-movement.service';
 import { StockAdjustmentService } from '../services/stock-adjustment.service';
 import {
@@ -45,9 +38,7 @@ import {
 } from '../dto/stock.dto';
 
 @ApiTags('Stock Management')
-@ApiBearerAuth()
 @Controller('inventory/stock')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class StockController {
   constructor(
     private readonly stockMovementService: StockMovementService,
@@ -56,7 +47,6 @@ export class StockController {
 
   // Stock Movements
   @Post('movements')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Create a stock movement' })
   @ApiResponse({
     status: 201,
@@ -68,13 +58,11 @@ export class StockController {
   @ApiBody({ type: CreateStockMovementDto })
   async createMovement(
     @Body() createMovementDto: CreateStockMovementDto,
-    @User('id') userId: string,
   ): Promise<StockMovementResponseDto> {
-    return this.stockMovementService.create(createMovementDto, userId);
+    return this.stockMovementService.create(createMovementDto);
   }
 
   @Get('movements')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager')
   @ApiOperation({ summary: 'Get all stock movements with filtering and pagination' })
   @ApiResponse({
     status: 200,
@@ -93,7 +81,6 @@ export class StockController {
   }
 
   @Get('movements/:id')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager')
   @ApiOperation({ summary: 'Get a stock movement by ID' })
   @ApiResponse({
     status: 200,
@@ -107,7 +94,6 @@ export class StockController {
   }
 
   @Post('movements/:id/reverse')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Reverse a stock movement' })
   @ApiResponse({
     status: 201,
@@ -120,13 +106,11 @@ export class StockController {
   async reverseMovement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { reason: string },
-    @User('id') userId: string,
   ): Promise<StockMovementResponseDto> {
-    return this.stockMovementService.reverseMovement(id, body.reason, userId);
+    return this.stockMovementService.reverseMovement(id, body.reason);
   }
 
   @Post('transfer')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Transfer stock between locations' })
   @ApiResponse({
     status: 201,
@@ -137,14 +121,12 @@ export class StockController {
   @ApiBody({ type: StockTransferDto })
   async transferStock(
     @Body() transferDto: StockTransferDto,
-    @User('id') userId: string,
   ) {
-    return this.stockMovementService.transferStock(transferDto, userId);
+    return this.stockMovementService.transferStock(transferDto);
   }
 
   // Stock Adjustments
   @Post('adjustments')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Create a stock adjustment' })
   @ApiResponse({
     status: 201,
@@ -156,13 +138,11 @@ export class StockController {
   @ApiBody({ type: CreateStockAdjustmentDto })
   async createAdjustment(
     @Body() createAdjustmentDto: CreateStockAdjustmentDto,
-    @User('id') userId: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.create(createAdjustmentDto, userId);
+    return this.stockAdjustmentService.create(createAdjustmentDto);
   }
 
   @Get('adjustments')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Get all stock adjustments with filtering and pagination' })
   @ApiResponse({
     status: 200,
@@ -180,7 +160,6 @@ export class StockController {
   }
 
   @Get('adjustments/pending-approvals')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Get adjustments pending approval' })
   @ApiResponse({
     status: 200,
@@ -191,7 +170,6 @@ export class StockController {
   }
 
   @Get('adjustments/pending-count')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Get count of adjustments pending approval' })
   @ApiResponse({
     status: 200,
@@ -203,7 +181,6 @@ export class StockController {
   }
 
   @Get('adjustments/:id')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Get a stock adjustment by ID' })
   @ApiResponse({
     status: 200,
@@ -217,7 +194,6 @@ export class StockController {
   }
 
   @Patch('adjustments/:id')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Update a stock adjustment (only if pending)' })
   @ApiResponse({
     status: 200,
@@ -232,13 +208,11 @@ export class StockController {
   async updateAdjustment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateAdjustmentDto: UpdateStockAdjustmentDto,
-    @User('id') userId: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.update(id, updateAdjustmentDto, userId);
+    return this.stockAdjustmentService.update(id, updateAdjustmentDto);
   }
 
   @Post('adjustments/:id/approve')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Approve a stock adjustment' })
   @ApiResponse({
     status: 200,
@@ -253,13 +227,11 @@ export class StockController {
   async approveAdjustment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() actionDto: StockAdjustmentActionDto,
-    @User('id') userId: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.approve(id, actionDto, userId);
+    return this.stockAdjustmentService.approve(id, actionDto);
   }
 
   @Post('adjustments/:id/reject')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Reject a stock adjustment' })
   @ApiResponse({
     status: 200,
@@ -274,13 +246,11 @@ export class StockController {
   async rejectAdjustment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() actionDto: StockAdjustmentActionDto,
-    @User('id') userId: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.reject(id, actionDto, userId);
+    return this.stockAdjustmentService.reject(id, actionDto);
   }
 
   @Post('adjustments/:id/cancel')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Cancel a stock adjustment (only if pending)' })
   @ApiResponse({
     status: 200,
@@ -295,13 +265,11 @@ export class StockController {
   async cancelAdjustment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { reason: string },
-    @User('id') userId: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.cancel(id, body.reason, userId);
+    return this.stockAdjustmentService.cancel(id, body.reason);
   }
 
   @Post('adjustments/bulk')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Create bulk stock adjustments' })
   @ApiResponse({
     status: 201,
@@ -311,14 +279,12 @@ export class StockController {
   @ApiBody({ type: BulkStockAdjustmentDto })
   async createBulkAdjustments(
     @Body() bulkAdjustmentDto: BulkStockAdjustmentDto,
-    @User('id') userId: string,
   ): Promise<StockAdjustmentResponseDto[]> {
-    return this.stockAdjustmentService.createBulk(bulkAdjustmentDto, userId);
+    return this.stockAdjustmentService.createBulk(bulkAdjustmentDto);
   }
 
   // Stock Summary and Reports
   @Get('summary/:productId')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager')
   @ApiOperation({ summary: 'Get stock summary for a product' })
   @ApiResponse({
     status: 200,
@@ -340,7 +306,6 @@ export class StockController {
   }
 
   @Get('alerts/low-stock')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Get low stock alerts' })
   @ApiResponse({
     status: 200,
@@ -353,7 +318,6 @@ export class StockController {
 
   // Utility endpoints
   @Post('initial/:productId')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Record initial stock for a product' })
   @ApiResponse({
     status: 201,
@@ -365,18 +329,15 @@ export class StockController {
   async recordInitialStock(
     @Param('productId', ParseUUIDPipe) productId: string,
     @Body() body: { quantity: number; unitCost?: number },
-    @User('id') userId: string,
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.recordInitialStock(
       productId,
       body.quantity,
       body.unitCost,
-      userId,
     );
   }
 
   @Post('sale/:productId')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_staff')
   @ApiOperation({ summary: 'Record stock movement for a sale' })
   @ApiResponse({
     status: 201,
@@ -394,7 +355,6 @@ export class StockController {
       referenceId: string;
       referenceNumber: string;
     },
-    @User('id') userId: string,
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.recordSale(
       productId,
@@ -402,12 +362,10 @@ export class StockController {
       body.unitPrice,
       body.referenceId,
       body.referenceNumber,
-      userId,
     );
   }
 
   @Post('purchase/:productId')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Record stock movement for a purchase receipt' })
   @ApiResponse({
     status: 201,
@@ -424,7 +382,6 @@ export class StockController {
       referenceId: string;
       referenceNumber: string;
     },
-    @User('id') userId: string,
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.recordPurchaseReceipt(
       productId,
@@ -432,7 +389,6 @@ export class StockController {
       body.unitCost,
       body.referenceId,
       body.referenceNumber,
-      userId,
     );
   }
 }

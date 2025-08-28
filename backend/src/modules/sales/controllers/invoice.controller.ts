@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -17,15 +16,10 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { UserRole } from '../../../database/entities/user.entity';
 import { InvoiceService } from '../services/invoice.service';
 import {
   CreateInvoiceDto,
@@ -40,9 +34,7 @@ import {
 } from '../dto/invoice.dto';
 
 @ApiTags('Invoices')
-@ApiBearerAuth()
 @Controller('api/v1/invoices')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
 
@@ -55,7 +47,6 @@ export class InvoiceController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Customer or sales order not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
   async createInvoice(@Body() createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
     return this.invoiceService.create(createInvoiceDto);
   }
@@ -80,7 +71,6 @@ export class InvoiceController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getAllInvoices(@Query() query: QueryInvoicesDto) {
     return this.invoiceService.findAll(query);
   }
@@ -92,7 +82,6 @@ export class InvoiceController {
     description: 'Invoice summaries retrieved successfully',
     type: [InvoiceSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getInvoiceSummaries(): Promise<InvoiceSummaryDto[]> {
     return this.invoiceService.findSummaries();
   }
@@ -103,7 +92,6 @@ export class InvoiceController {
     status: 200,
     description: 'Dashboard statistics retrieved successfully',
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getDashboardStats() {
     return this.invoiceService.getDashboardStats();
   }
@@ -115,7 +103,6 @@ export class InvoiceController {
     description: 'Overdue invoices retrieved successfully',
     type: [InvoiceSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getOverdueInvoices() {
     return this.invoiceService.getOverdueInvoices();
   }
@@ -126,7 +113,6 @@ export class InvoiceController {
     status: 200,
     description: 'Aging report retrieved successfully',
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getAgingReport() {
     return this.invoiceService.getAgingReport();
   }
@@ -140,7 +126,6 @@ export class InvoiceController {
     type: InvoiceResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getInvoiceById(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
     return this.invoiceService.findById(id);
   }
@@ -154,7 +139,6 @@ export class InvoiceController {
     type: InvoiceResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getInvoiceByNumber(@Param('invoiceNumber') invoiceNumber: string): Promise<InvoiceResponseDto> {
     return this.invoiceService.findByInvoiceNumber(invoiceNumber);
   }
@@ -170,7 +154,6 @@ export class InvoiceController {
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 409, description: 'Cannot update invoice in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
   async updateInvoice(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateInvoiceDto: UpdateInvoiceDto,
@@ -185,7 +168,6 @@ export class InvoiceController {
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 409, description: 'Cannot delete invoice in current status' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async deleteInvoice(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.invoiceService.delete(id);
   }
@@ -200,7 +182,6 @@ export class InvoiceController {
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 409, description: 'Cannot send invoice in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
   async sendInvoice(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() sendInvoiceDto: SendInvoiceDto,
@@ -217,7 +198,6 @@ export class InvoiceController {
     type: InvoiceResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
   async markAsSent(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
     return this.invoiceService.markAsSent(id);
   }
@@ -232,7 +212,6 @@ export class InvoiceController {
   })
   @ApiResponse({ status: 404, description: 'Invoice or payment not found' })
   @ApiResponse({ status: 409, description: 'Payment amount exceeds balance due' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
   async allocatePayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() allocationDto: InvoicePaymentAllocationDto,
@@ -250,7 +229,6 @@ export class InvoiceController {
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 409, description: 'Cannot void invoice in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async voidInvoice(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() voidInvoiceDto: VoidInvoiceDto,
@@ -268,7 +246,6 @@ export class InvoiceController {
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 409, description: 'Cannot create credit note for invoice' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
   async createCreditNote(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() creditNoteDto: CreditNoteDto,
@@ -285,7 +262,6 @@ export class InvoiceController {
     type: InvoiceResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT)
   async duplicateInvoice(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
     return this.invoiceService.duplicateInvoice(id);
   }
@@ -306,7 +282,6 @@ export class InvoiceController {
     },
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async downloadInvoicePdf(
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
@@ -331,7 +306,6 @@ export class InvoiceController {
     description: 'Invoice payments retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getInvoicePayments(@Param('id', ParseUUIDPipe) id: string) {
     return this.invoiceService.getInvoicePayments(id);
   }
@@ -345,7 +319,6 @@ export class InvoiceController {
     type: [InvoiceSummaryDto],
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getInvoicesByCustomer(
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Query('limit') limit?: number,
@@ -361,7 +334,6 @@ export class InvoiceController {
     description: 'Invoice history retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getInvoiceHistory(@Param('id', ParseUUIDPipe) id: string) {
     return this.invoiceService.getInvoiceHistory(id);
   }
@@ -373,7 +345,6 @@ export class InvoiceController {
     description: 'Batch send completed',
   })
   @ApiResponse({ status: 400, description: 'Invalid invoice IDs provided' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT)
   async batchSendInvoices(@Body('invoiceIds') invoiceIds: string[]) {
     return this.invoiceService.batchSendInvoices(invoiceIds);
   }
@@ -384,7 +355,6 @@ export class InvoiceController {
     status: 200,
     description: 'Revenue statistics retrieved successfully',
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.ACCOUNTANT, UserRole.VIEWER)
   async getRevenueStats(
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,

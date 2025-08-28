@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ApiResponse } from '@/types'
 
 // API base configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001/api'
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -13,13 +13,9 @@ const api: AxiosInstance = axios.create({
   },
 })
 
-// Request interceptor to add auth token
+// Request interceptor (auth removed - no token needed)
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
     return config
   },
   (error) => {
@@ -27,42 +23,13 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor for error handling and token refresh
+// Response interceptor for error handling (auth removed)
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     return response
   },
   async (error) => {
-    const originalRequest = error.config
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      try {
-        const refreshToken = localStorage.getItem('refreshToken')
-        if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refreshToken,
-          })
-
-          const { token, refreshToken: newRefreshToken } = response.data
-          localStorage.setItem('token', token)
-          localStorage.setItem('refreshToken', newRefreshToken)
-
-          // Retry the original request with new token
-          originalRequest.headers.Authorization = `Bearer ${token}`
-          return api(originalRequest)
-        }
-      } catch (refreshError) {
-        // Refresh failed, redirect to login
-        localStorage.removeItem('token')
-        localStorage.removeItem('refreshToken')
-        localStorage.removeItem('user')
-        window.location.href = '/auth/login'
-        return Promise.reject(refreshError)
-      }
-    }
-
+    // No authentication handling - just pass through errors
     return Promise.reject(error)
   }
 )

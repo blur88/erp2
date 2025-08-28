@@ -12,7 +12,6 @@ import {
   UseInterceptors,
   HttpStatus,
   HttpException,
-  UseGuards,
   Request,
   Logger,
 } from '@nestjs/common';
@@ -25,12 +24,7 @@ import {
   ApiQuery,
   ApiBody,
   ApiConsumes,
-  ApiBearerAuth,
-  ApiSecurity,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { Auth } from '../../../common/decorators/auth.decorator';
 import { PluginLifecycleService } from '../services/plugin-lifecycle.service';
 import { PluginRegistryService } from '../services/plugin-registry.service';
 import { PluginConfigurationService } from '../services/plugin-configuration.service';
@@ -60,10 +54,7 @@ import { IPlugin, PluginStatus } from '../interfaces';
  * - Plugin development tools and debugging
  */
 @ApiTags('Plugin Management')
-@ApiBearerAuth()
-@ApiSecurity('api-key')
 @Controller('api/plugins')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PluginManagementController {
   private readonly logger = new Logger(PluginManagementController.name);
 
@@ -79,7 +70,6 @@ export class PluginManagementController {
   // Plugin Lifecycle Operations
 
   @Get()
-  @Auth('plugin:read')
   @ApiOperation({ summary: 'Get all plugins' })
   @ApiResponse({ status: 200, description: 'List of all plugins' })
   @ApiQuery({ name: 'status', required: false, enum: PluginStatus })
@@ -134,7 +124,6 @@ export class PluginManagementController {
   }
 
   @Get(':pluginId')
-  @Auth('plugin:read')
   @ApiOperation({ summary: 'Get plugin details' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin details' })
@@ -181,7 +170,6 @@ export class PluginManagementController {
   }
 
   @Post('install')
-  @Auth('plugin:install')
   @ApiOperation({ summary: 'Install a plugin' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: InstallPluginDto })
@@ -191,7 +179,6 @@ export class PluginManagementController {
   async installPlugin(
     @UploadedFile() file: Express.Multer.File,
     @Body() installDto: InstallPluginDto,
-    @Request() req: any,
   ) {
     try {
       const result = await this.pluginLifecycle.install(
@@ -199,7 +186,6 @@ export class PluginManagementController {
         {
           force: installDto.force,
           skipValidation: installDto.skipValidation,
-          userId: req.user.id,
         }
       );
 
@@ -220,7 +206,6 @@ export class PluginManagementController {
   }
 
   @Delete(':pluginId')
-  @Auth('plugin:uninstall')
   @ApiOperation({ summary: 'Uninstall a plugin' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiQuery({ name: 'keepData', required: false, type: Boolean })
@@ -231,13 +216,11 @@ export class PluginManagementController {
     @Param('pluginId') pluginId: string,
     @Query('keepData') keepData: boolean = false,
     @Query('force') force: boolean = false,
-    @Request() req: any,
   ) {
     try {
       const result = await this.pluginLifecycle.uninstall(pluginId, {
         keepData,
         force,
-        userId: req.user.id,
       });
 
       return { ...result, timestamp: new Date() };
@@ -256,18 +239,14 @@ export class PluginManagementController {
   }
 
   @Post(':pluginId/activate')
-  @Auth('plugin:activate')
   @ApiOperation({ summary: 'Activate a plugin' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin activated successfully' })
   async activatePlugin(
     @Param('pluginId') pluginId: string,
-    @Request() req: any,
   ) {
     try {
-      const result = await this.pluginLifecycle.activate(pluginId, {
-        userId: req.user.id,
-      });
+      const result = await this.pluginLifecycle.activate(pluginId, {});
 
       return { ...result, timestamp: new Date() };
 
@@ -285,18 +264,14 @@ export class PluginManagementController {
   }
 
   @Post(':pluginId/deactivate')
-  @Auth('plugin:deactivate')
   @ApiOperation({ summary: 'Deactivate a plugin' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin deactivated successfully' })
   async deactivatePlugin(
     @Param('pluginId') pluginId: string,
-    @Request() req: any,
   ) {
     try {
-      const result = await this.pluginLifecycle.deactivate(pluginId, {
-        userId: req.user.id,
-      });
+      const result = await this.pluginLifecycle.deactivate(pluginId, {});
 
       return { ...result, timestamp: new Date() };
 
@@ -314,7 +289,6 @@ export class PluginManagementController {
   }
 
   @Put(':pluginId/update')
-  @Auth('plugin:update')
   @ApiOperation({ summary: 'Update a plugin' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiBody({ type: UpdatePluginDto })
@@ -322,7 +296,6 @@ export class PluginManagementController {
   async updatePlugin(
     @Param('pluginId') pluginId: string,
     @Body() updateDto: UpdatePluginDto,
-    @Request() req: any,
   ) {
     try {
       const result = await this.pluginLifecycle.update(
@@ -331,7 +304,6 @@ export class PluginManagementController {
         {
           force: updateDto.force,
           backup: updateDto.backup,
-          userId: req.user.id,
         }
       );
 
@@ -351,18 +323,14 @@ export class PluginManagementController {
   }
 
   @Post(':pluginId/restart')
-  @Auth('plugin:restart')
   @ApiOperation({ summary: 'Restart a plugin' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin restarted successfully' })
   async restartPlugin(
     @Param('pluginId') pluginId: string,
-    @Request() req: any,
   ) {
     try {
-      const result = await this.pluginLifecycle.restart(pluginId, {
-        userId: req.user.id,
-      });
+      const result = await this.pluginLifecycle.restart(pluginId, {});
 
       return { ...result, timestamp: new Date() };
 
@@ -382,7 +350,6 @@ export class PluginManagementController {
   // Configuration Management
 
   @Get(':pluginId/config')
-  @Auth('plugin:configure')
   @ApiOperation({ summary: 'Get plugin configuration' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin configuration' })
@@ -413,7 +380,6 @@ export class PluginManagementController {
   }
 
   @Put(':pluginId/config')
-  @Auth('plugin:configure')
   @ApiOperation({ summary: 'Update plugin configuration' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiBody({ type: ConfigurePluginDto })
@@ -421,7 +387,6 @@ export class PluginManagementController {
   async updatePluginConfig(
     @Param('pluginId') pluginId: string,
     @Body() configDto: ConfigurePluginDto,
-    @Request() req: any,
   ) {
     try {
       const result = await this.pluginLifecycle.configure(
@@ -430,7 +395,6 @@ export class PluginManagementController {
         {
           validate: configDto.validate,
           merge: configDto.merge,
-          userId: req.user.id,
         }
       );
 
@@ -450,7 +414,6 @@ export class PluginManagementController {
   }
 
   @Post(':pluginId/config/reset')
-  @Auth('plugin:configure')
   @ApiOperation({ summary: 'Reset plugin configuration to defaults' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiQuery({ name: 'keys', required: false, type: [String] })
@@ -478,7 +441,6 @@ export class PluginManagementController {
   }
 
   @Get(':pluginId/config/history')
-  @Auth('plugin:configure')
   @ApiOperation({ summary: 'Get plugin configuration history' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -507,7 +469,6 @@ export class PluginManagementController {
   // Security and Permissions
 
   @Get(':pluginId/security/scan')
-  @Auth('plugin:security')
   @ApiOperation({ summary: 'Run security scan on plugin' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Security scan results' })
@@ -540,7 +501,6 @@ export class PluginManagementController {
   }
 
   @Get(':pluginId/permissions')
-  @Auth('plugin:security')
   @ApiOperation({ summary: 'Get plugin permissions' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin permissions' })
@@ -574,7 +534,6 @@ export class PluginManagementController {
   }
 
   @Put(':pluginId/permissions')
-  @Auth('plugin:security')
   @ApiOperation({ summary: 'Update plugin permissions' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiBody({ type: PluginPermissionDto })
@@ -582,7 +541,6 @@ export class PluginManagementController {
   async updatePluginPermissions(
     @Param('pluginId') pluginId: string,
     @Body() permissionDto: PluginPermissionDto,
-    @Request() req: any,
   ) {
     try {
       const validationResult = await this.pluginSecurity.validatePermissions(
@@ -618,7 +576,6 @@ export class PluginManagementController {
   }
 
   @Get(':pluginId/security/policy')
-  @Auth('plugin:security')
   @ApiOperation({ summary: 'Get plugin security policy' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Security policy' })
@@ -641,7 +598,6 @@ export class PluginManagementController {
   }
 
   @Put(':pluginId/security/policy')
-  @Auth('plugin:security:admin')
   @ApiOperation({ summary: 'Update plugin security policy' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiBody({ type: PluginSecurityPolicyDto })
@@ -671,7 +627,6 @@ export class PluginManagementController {
   // Monitoring and Health
 
   @Get(':pluginId/health')
-  @Auth('plugin:read')
   @ApiOperation({ summary: 'Get plugin health status' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin health status' })
@@ -710,7 +665,6 @@ export class PluginManagementController {
   }
 
   @Get(':pluginId/metrics')
-  @Auth('plugin:read')
   @ApiOperation({ summary: 'Get plugin performance metrics' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin performance metrics' })
@@ -747,7 +701,6 @@ export class PluginManagementController {
   // Plugin Development and Debugging
 
   @Post(':pluginId/execute')
-  @Auth('plugin:execute')
   @ApiOperation({ summary: 'Execute plugin method for debugging' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiBody({ schema: { properties: { method: { type: 'string' }, params: { type: 'object' } } } })
@@ -783,7 +736,6 @@ export class PluginManagementController {
   }
 
   @Get(':pluginId/hooks')
-  @Auth('plugin:read')
   @ApiOperation({ summary: 'Get plugin hooks' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin hooks' })
@@ -806,7 +758,6 @@ export class PluginManagementController {
   }
 
   @Get(':pluginId/entities')
-  @Auth('plugin:read')
   @ApiOperation({ summary: 'Get plugin database entities' })
   @ApiParam({ name: 'pluginId', description: 'Plugin identifier' })
   @ApiResponse({ status: 200, description: 'Plugin database entities' })
@@ -831,7 +782,6 @@ export class PluginManagementController {
   // System-level Operations
 
   @Get('system/stats')
-  @Auth('plugin:admin')
   @ApiOperation({ summary: 'Get plugin system statistics' })
   @ApiResponse({ status: 200, description: 'System statistics' })
   async getSystemStats() {
@@ -861,7 +811,6 @@ export class PluginManagementController {
   }
 
   @Post('system/reload')
-  @Auth('plugin:admin')
   @ApiOperation({ summary: 'Reload all plugins' })
   @ApiResponse({ status: 200, description: 'Plugins reloaded successfully' })
   async reloadAllPlugins() {

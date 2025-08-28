@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -17,14 +16,9 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { UserRole } from '../../../database/entities/user.entity';
 import { SalesOrderService } from '../services/sales-order.service';
 import {
   CreateSalesOrderDto,
@@ -37,9 +31,7 @@ import {
 } from '../dto/sales-order.dto';
 
 @ApiTags('Sales Orders')
-@ApiBearerAuth()
 @Controller('api/v1/sales-orders')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class SalesOrderController {
   constructor(private readonly salesOrderService: SalesOrderService) {}
 
@@ -52,12 +44,10 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 409, description: 'Insufficient inventory or credit limit exceeded' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP)
   async createSalesOrder(
     @Body() createSalesOrderDto: CreateSalesOrderDto,
-    @Request() req,
   ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.create(createSalesOrderDto, req.user.id);
+    return this.salesOrderService.create(createSalesOrderDto);
   }
 
   @Get()
@@ -78,7 +68,6 @@ export class SalesOrderController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getAllSalesOrders(@Query() query: QuerySalesOrdersDto) {
     return this.salesOrderService.findAll(query);
   }
@@ -90,7 +79,6 @@ export class SalesOrderController {
     description: 'Sales order summaries retrieved successfully',
     type: [SalesOrderSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getSalesOrderSummaries(): Promise<SalesOrderSummaryDto[]> {
     return this.salesOrderService.findSummaries();
   }
@@ -101,7 +89,6 @@ export class SalesOrderController {
     status: 200,
     description: 'Dashboard statistics retrieved successfully',
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getDashboardStats() {
     return this.salesOrderService.getDashboardStats();
   }
@@ -115,7 +102,6 @@ export class SalesOrderController {
     type: SalesOrderResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getSalesOrderById(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
     return this.salesOrderService.findById(id);
   }
@@ -129,7 +115,6 @@ export class SalesOrderController {
     type: SalesOrderResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getSalesOrderByNumber(@Param('orderNumber') orderNumber: string): Promise<SalesOrderResponseDto> {
     return this.salesOrderService.findByOrderNumber(orderNumber);
   }
@@ -144,7 +129,6 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP)
   async updateSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateSalesOrderDto: UpdateSalesOrderDto,
@@ -159,7 +143,6 @@ export class SalesOrderController {
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot delete order in current status' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async deleteSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.salesOrderService.delete(id);
   }
@@ -174,7 +157,6 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot confirm order in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async confirmOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
     return this.salesOrderService.confirmOrder(id);
   }
@@ -189,7 +171,6 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot ship order in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.WAREHOUSE_MANAGER)
   async shipOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() shipOrderDto: ShipOrderDto,
@@ -207,7 +188,6 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot deliver order in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.WAREHOUSE_MANAGER)
   async deliverOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
     return this.salesOrderService.deliverOrder(id);
   }
@@ -222,7 +202,6 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot complete order in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async completeOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
     return this.salesOrderService.completeOrder(id);
   }
@@ -237,7 +216,6 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot cancel order in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async cancelOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() cancelOrderDto: CancelOrderDto,
@@ -254,12 +232,10 @@ export class SalesOrderController {
     type: SalesOrderResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP)
   async duplicateOrder(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req,
   ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.duplicateOrder(id, req.user.id);
+    return this.salesOrderService.duplicateOrder(id);
   }
 
   @Get(':id/fulfillment-status')
@@ -270,7 +246,6 @@ export class SalesOrderController {
     description: 'Fulfillment status retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getFulfillmentStatus(@Param('id', ParseUUIDPipe) id: string) {
     return this.salesOrderService.getFulfillmentStatus(id);
   }
@@ -284,7 +259,6 @@ export class SalesOrderController {
     type: [SalesOrderSummaryDto],
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getOrdersByCustomer(
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Query('limit') limit?: number,
@@ -300,7 +274,6 @@ export class SalesOrderController {
     description: 'Related invoices retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getOrderInvoices(@Param('id', ParseUUIDPipe) id: string) {
     return this.salesOrderService.getOrderInvoices(id);
   }
@@ -314,7 +287,6 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot create invoice for order in current status' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP)
   async createInvoiceFromOrder(@Param('id', ParseUUIDPipe) id: string) {
     return this.salesOrderService.createInvoiceFromOrder(id);
   }

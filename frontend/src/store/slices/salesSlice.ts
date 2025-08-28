@@ -297,15 +297,15 @@ export const {
 } = salesSlice.actions
 
 // Selectors
-export const selectCustomers = (state: { sales: SalesState }) => state.sales.customers
-export const selectOrders = (state: { sales: SalesState }) => state.sales.orders
-export const selectInvoices = (state: { sales: SalesState }) => state.sales.invoices
-export const selectPayments = (state: { sales: SalesState }) => state.sales.payments
-export const selectSelectedCustomer = (state: { sales: SalesState }) => state.sales.selectedCustomer
-export const selectSelectedOrder = (state: { sales: SalesState }) => state.sales.selectedOrder
-export const selectSelectedInvoice = (state: { sales: SalesState }) => state.sales.selectedInvoice
-export const selectSalesLoading = (state: { sales: SalesState }) => state.sales.loading
-export const selectSalesError = (state: { sales: SalesState }) => state.sales.error
-export const selectSalesPagination = (state: { sales: SalesState }) => state.sales.pagination
+export const selectCustomers = (state: any) => state.sales?.customers
+export const selectOrders = (state: any) => state.sales?.orders
+export const selectInvoices = (state: any) => state.sales?.invoices
+export const selectPayments = (state: any) => state.sales?.payments
+export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
+export const selectSelectedOrder = (state: any) => state.sales?.selectedOrder
+export const selectSelectedInvoice = (state: any) => state.sales?.selectedInvoice
+export const selectSalesLoading = (state: any) => state.sales?.loading
+export const selectSalesError = (state: any) => state.sales?.error
+export const selectSalesPagination = (state: any) => state.sales?.pagination
 
 export default salesSlice.reducer

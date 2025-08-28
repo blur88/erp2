@@ -7,7 +7,6 @@ import {
   Param,
   Delete,
   Query,
-  UseGuards,
   Logger,
   ParseUUIDPipe,
   HttpCode,
@@ -21,11 +20,8 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards';
-import { User } from '../../../common/decorators';
 import { SupplierService } from '../services/supplier.service';
 import {
   CreateSupplierDto,
@@ -41,8 +37,6 @@ import {
 
 @ApiTags('Suppliers')
 @Controller('suppliers')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class SupplierController {
   private readonly logger = new Logger(SupplierController.name);

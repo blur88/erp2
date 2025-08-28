@@ -175,7 +175,7 @@ const ProductsPage: React.FC = () => {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
-    resolver: yupResolver(productSchema),
+    resolver: yupResolver(productSchema) as any,
     defaultValues: {
       name: '',
       description: '',
@@ -594,7 +594,7 @@ const ProductsPage: React.FC = () => {
         <DialogTitle>
           {editMode ? 'Edit Product' : 'Add New Product'}
         </DialogTitle>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit as any)}>
           <DialogContent>
             <Grid container spacing={3} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>

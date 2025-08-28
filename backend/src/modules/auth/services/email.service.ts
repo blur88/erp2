@@ -29,7 +29,7 @@ export class EmailService {
       },
     };
 
-    this.transporter = nodemailer.createTransporter(emailConfig);
+    this.transporter = nodemailer.createTransport(emailConfig);
 
     // Verify connection on startup
     this.transporter.verify((error) => {

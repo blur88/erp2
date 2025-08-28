@@ -25,6 +25,33 @@ export const CurrentUser = createParamDecorator(
 );
 
 /**
+ * Generic User decorator - extracts specific property from authenticated user
+ * Usage: @User('id') userId: string, @User('role') role: UserRole
+ */
+export const User = createParamDecorator(
+  (property: keyof AuthenticatedUser | undefined, ctx: ExecutionContext): any => {
+    const request = ctx.switchToHttp().getRequest();
+    const user = request.user as AuthenticatedUser;
+
+    if (!user) {
+      return null;
+    }
+
+    // Return specific property if requested
+    if (property) {
+      // Map common properties
+      if (property === 'id') {
+        return user.userId;
+      }
+      return user[property];
+    }
+
+    // Return full user object
+    return user;
+  },
+);
+
+/**
  * User ID decorator - extracts user ID from authenticated request
  * Usage: @UserId() userId: string
  */

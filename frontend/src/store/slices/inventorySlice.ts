@@ -172,8 +172,10 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading.products = false
-        state.products = action.payload.data
-        state.pagination.products = action.payload.meta
+        if (action.payload) {
+          state.products = action.payload.data
+          state.pagination.products = action.payload.meta
+        }
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading.products = false
@@ -188,7 +190,9 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading.categories = false
-        state.categories = action.payload
+        if (action.payload) {
+          state.categories = action.payload
+        }
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.loading.categories = false
@@ -198,27 +202,33 @@ const inventorySlice = createSlice({
     // Create Product
     builder
       .addCase(createProduct.fulfilled, (state, action) => {
-        state.products.unshift(action.payload)
+        if (action.payload) {
+          state.products.unshift(action.payload)
+        }
       })
 
     // Update Product
     builder
       .addCase(updateProduct.fulfilled, (state, action) => {
-        const index = state.products.findIndex(p => p.id === action.payload.id)
-        if (index >= 0) {
-          state.products[index] = action.payload
-        }
-        if (state.selectedProduct?.id === action.payload.id) {
-          state.selectedProduct = action.payload
+        if (action.payload) {
+          const index = state.products.findIndex(p => p.id === action.payload.id)
+          if (index >= 0) {
+            state.products[index] = action.payload
+          }
+          if (state.selectedProduct?.id === action.payload.id) {
+            state.selectedProduct = action.payload
+          }
         }
       })
 
     // Delete Product
     builder
       .addCase(deleteProduct.fulfilled, (state, action) => {
-        state.products = state.products.filter(p => p.id !== action.payload)
-        if (state.selectedProduct?.id === action.payload) {
-          state.selectedProduct = null
+        if (action.payload) {
+          state.products = state.products.filter(p => p.id !== action.payload)
+          if (state.selectedProduct?.id === action.payload) {
+            state.selectedProduct = null
+          }
         }
       })
 
@@ -251,14 +261,14 @@ export const {
 } = inventorySlice.actions
 
 // Selectors
-export const selectProducts = (state: { inventory: InventoryState }) => state.inventory.products
-export const selectCategories = (state: { inventory: InventoryState }) => state.inventory.categories
-export const selectStockMovements = (state: { inventory: InventoryState }) => state.inventory.stockMovements
-export const selectSelectedProduct = (state: { inventory: InventoryState }) => state.inventory.selectedProduct
-export const selectSelectedCategory = (state: { inventory: InventoryState }) => state.inventory.selectedCategory
-export const selectInventoryLoading = (state: { inventory: InventoryState }) => state.inventory.loading
-export const selectInventoryError = (state: { inventory: InventoryState }) => state.inventory.error
-export const selectInventoryPagination = (state: { inventory: InventoryState }) => state.inventory.pagination
-export const selectInventoryFilters = (state: { inventory: InventoryState }) => state.inventory.filters
+export const selectProducts = (state: any) => state.inventory?.products
+export const selectCategories = (state: any) => state.inventory?.categories
+export const selectStockMovements = (state: any) => state.inventory?.stockMovements
+export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
+export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
+export const selectInventoryLoading = (state: any) => state.inventory?.loading
+export const selectInventoryError = (state: any) => state.inventory?.error
+export const selectInventoryPagination = (state: any) => state.inventory?.pagination
+export const selectInventoryFilters = (state: any) => state.inventory?.filters
 
 export default inventorySlice.reducer

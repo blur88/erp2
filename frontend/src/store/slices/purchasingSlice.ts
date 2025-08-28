@@ -236,14 +236,14 @@ export const {
 } = purchasingSlice.actions
 
 // Selectors
-export const selectSuppliers = (state: { purchasing: PurchasingState }) => state.purchasing.suppliers
-export const selectPurchaseOrders = (state: { purchasing: PurchasingState }) => state.purchasing.purchaseOrders
-export const selectGoodsReceivedNotes = (state: { purchasing: PurchasingState }) => state.purchasing.goodsReceivedNotes
-export const selectSelectedSupplier = (state: { purchasing: PurchasingState }) => state.purchasing.selectedSupplier
-export const selectSelectedPurchaseOrder = (state: { purchasing: PurchasingState }) => state.purchasing.selectedPurchaseOrder
-export const selectSelectedGRN = (state: { purchasing: PurchasingState }) => state.purchasing.selectedGRN
-export const selectPurchasingLoading = (state: { purchasing: PurchasingState }) => state.purchasing.loading
-export const selectPurchasingError = (state: { purchasing: PurchasingState }) => state.purchasing.error
-export const selectPurchasingPagination = (state: { purchasing: PurchasingState }) => state.purchasing.pagination
+export const selectSuppliers = (state: any) => state.purchasing?.suppliers
+export const selectPurchaseOrders = (state: any) => state.purchasing?.purchaseOrders
+export const selectGoodsReceivedNotes = (state: any) => state.purchasing?.goodsReceivedNotes
+export const selectSelectedSupplier = (state: any) => state.purchasing?.selectedSupplier
+export const selectSelectedPurchaseOrder = (state: any) => state.purchasing?.selectedPurchaseOrder
+export const selectSelectedGRN = (state: any) => state.purchasing?.selectedGRN
+export const selectPurchasingLoading = (state: any) => state.purchasing?.loading
+export const selectPurchasingError = (state: any) => state.purchasing?.error
+export const selectPurchasingPagination = (state: any) => state.purchasing?.pagination
 
 export default purchasingSlice.reducer

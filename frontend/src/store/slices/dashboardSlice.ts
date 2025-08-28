@@ -154,7 +154,9 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchDashboardStats.fulfilled, (state, action) => {
         state.loading.stats = false
-        state.stats = action.payload
+        if (action.payload) {
+          state.stats = action.payload
+        }
         state.lastUpdated = new Date()
       })
       .addCase(fetchDashboardStats.rejected, (state, action) => {
@@ -169,7 +171,9 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchSalesChart.fulfilled, (state, action) => {
         state.loading.charts = false
-        state.salesChart = action.payload
+        if (action.payload) {
+          state.salesChart = action.payload
+        }
       })
       .addCase(fetchSalesChart.rejected, (state, action) => {
         state.loading.charts = false
@@ -179,13 +183,17 @@ const dashboardSlice = createSlice({
     // Fetch Revenue Chart
     builder
       .addCase(fetchRevenueChart.fulfilled, (state, action) => {
-        state.revenueChart = action.payload
+        if (action.payload) {
+          state.revenueChart = action.payload
+        }
       })
 
     // Fetch Top Products
     builder
       .addCase(fetchTopProducts.fulfilled, (state, action) => {
-        state.topProducts = action.payload
+        if (action.payload) {
+          state.topProducts = action.payload
+        }
       })
 
     // Fetch Recent Activities
@@ -195,7 +203,9 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchRecentActivities.fulfilled, (state, action) => {
         state.loading.activities = false
-        state.recentActivities = action.payload
+        if (action.payload) {
+          state.recentActivities = action.payload
+        }
       })
       .addCase(fetchRecentActivities.rejected, (state, action) => {
         state.loading.activities = false
@@ -205,7 +215,9 @@ const dashboardSlice = createSlice({
     // Fetch Alerts
     builder
       .addCase(fetchAlerts.fulfilled, (state, action) => {
-        state.alerts = action.payload
+        if (action.payload) {
+          state.alerts = action.payload
+        }
       })
   },
 })
@@ -218,14 +230,14 @@ export const {
 } = dashboardSlice.actions
 
 // Selectors
-export const selectDashboardStats = (state: { dashboard: DashboardState }) => state.dashboard.stats
-export const selectSalesChart = (state: { dashboard: DashboardState }) => state.dashboard.salesChart
-export const selectRevenueChart = (state: { dashboard: DashboardState }) => state.dashboard.revenueChart
-export const selectTopProducts = (state: { dashboard: DashboardState }) => state.dashboard.topProducts
-export const selectRecentActivities = (state: { dashboard: DashboardState }) => state.dashboard.recentActivities
-export const selectDashboardAlerts = (state: { dashboard: DashboardState }) => state.dashboard.alerts
-export const selectDashboardLoading = (state: { dashboard: DashboardState }) => state.dashboard.loading
-export const selectDashboardError = (state: { dashboard: DashboardState }) => state.dashboard.error
-export const selectLastUpdated = (state: { dashboard: DashboardState }) => state.dashboard.lastUpdated
+export const selectDashboardStats = (state: any) => state.dashboard?.stats
+export const selectSalesChart = (state: any) => state.dashboard?.salesChart
+export const selectRevenueChart = (state: any) => state.dashboard?.revenueChart
+export const selectTopProducts = (state: any) => state.dashboard?.topProducts
+export const selectRecentActivities = (state: any) => state.dashboard?.recentActivities
+export const selectDashboardAlerts = (state: any) => state.dashboard?.alerts
+export const selectDashboardLoading = (state: any) => state.dashboard?.loading
+export const selectDashboardError = (state: any) => state.dashboard?.error
+export const selectLastUpdated = (state: any) => state.dashboard?.lastUpdated
 
 export default dashboardSlice.reducer

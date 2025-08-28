@@ -7,7 +7,6 @@ import {
   Param,
   Delete,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
@@ -18,14 +17,8 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { User } from '../../../common/decorators/user.decorator';
 import { CategoryService } from '../services/category.service';
 import { PricingService } from '../services/pricing.service';
 import {
@@ -42,9 +35,7 @@ import {
 } from '../dto/category.dto';
 
 @ApiTags('Categories')
-@ApiBearerAuth()
 @Controller('inventory/categories')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class CategoryController {
   constructor(
     private readonly categoryService: CategoryService,
@@ -52,7 +43,6 @@ export class CategoryController {
   ) {}
 
   @Post()
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Create a new category' })
   @ApiResponse({
     status: 201,
@@ -64,13 +54,11 @@ export class CategoryController {
   @ApiBody({ type: CreateCategoryDto })
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
-    @User('id') userId: string,
   ): Promise<CategoryResponseDto> {
-    return this.categoryService.create(createCategoryDto, userId);
+    return this.categoryService.create(createCategoryDto);
   }
 
   @Get()
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get all categories with filtering and pagination' })
   @ApiResponse({
     status: 200,
@@ -91,7 +79,6 @@ export class CategoryController {
   }
 
   @Get('tree')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get complete category tree structure' })
   @ApiResponse({
     status: 200,
@@ -106,7 +93,6 @@ export class CategoryController {
   }
 
   @Get('roots')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get root level categories only' })
   @ApiResponse({
     status: 200,
@@ -124,7 +110,6 @@ export class CategoryController {
   }
 
   @Get(':id')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get a category by ID' })
   @ApiResponse({
     status: 200,
@@ -144,7 +129,6 @@ export class CategoryController {
   }
 
   @Get(':id/ancestors')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get category ancestors (breadcrumb path)' })
   @ApiResponse({
     status: 200,
@@ -158,7 +142,6 @@ export class CategoryController {
   }
 
   @Get(':id/children')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get direct child categories' })
   @ApiResponse({
     status: 200,
@@ -179,7 +162,6 @@ export class CategoryController {
   }
 
   @Get(':id/stats')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Get category statistics' })
   @ApiResponse({
     status: 200,
@@ -193,7 +175,6 @@ export class CategoryController {
   }
 
   @Get(':id/pricing-recommendations')
-  @Roles('admin', 'inventory_manager', 'sales_manager')
   @ApiOperation({ summary: 'Get pricing recommendations for products in category' })
   @ApiResponse({
     status: 200,
@@ -205,7 +186,6 @@ export class CategoryController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Update a category' })
   @ApiResponse({
     status: 200,
@@ -220,13 +200,11 @@ export class CategoryController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
-    @User('id') userId: string,
   ): Promise<CategoryResponseDto> {
-    return this.categoryService.update(id, updateCategoryDto, userId);
+    return this.categoryService.update(id, updateCategoryDto);
   }
 
   @Patch(':id/move')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Move category to a new parent' })
   @ApiResponse({
     status: 200,
@@ -240,13 +218,11 @@ export class CategoryController {
   async moveCategory(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() moveCategoryDto: MoveCategoryDto,
-    @User('id') userId: string,
   ): Promise<CategoryResponseDto> {
-    return this.categoryService.moveCategory(id, moveCategoryDto, userId);
+    return this.categoryService.moveCategory(id, moveCategoryDto);
   }
 
   @Post('bulk-update')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Bulk update categories' })
   @ApiResponse({
     status: 200,
@@ -258,14 +234,12 @@ export class CategoryController {
   @HttpCode(HttpStatus.OK)
   async bulkUpdate(
     @Body() bulkUpdateDto: BulkUpdateCategoriesDto,
-    @User('id') userId: string,
   ): Promise<{ message: string }> {
-    await this.categoryService.bulkUpdate(bulkUpdateDto, userId);
+    await this.categoryService.bulkUpdate(bulkUpdateDto);
     return { message: `Successfully updated ${bulkUpdateDto.categories.length} categories` };
   }
 
   @Delete(':id')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Delete a category' })
   @ApiResponse({
     status: 204,
@@ -280,8 +254,7 @@ export class CategoryController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
-    @User('id') userId: string,
   ): Promise<void> {
-    await this.categoryService.remove(id, userId);
+    await this.categoryService.remove(id);
   }
 }

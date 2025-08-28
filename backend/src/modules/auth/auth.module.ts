@@ -3,7 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CacheModule } from '@nestjs/cache-manager';
+// import { CacheModule } from '@nestjs/cache-manager';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -52,13 +52,13 @@ import { AuditLog } from '../../common/audit/audit-log.entity';
     // TypeORM for User and AuditLog entities
     TypeOrmModule.forFeature([User, AuditLog]),
 
-    // Cache module for session management
-    CacheModule.register(),
+    // Cache module for session management (temporarily disabled for basic testing)
+    // CacheModule.register(),
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
-    EmailService,
+    EmailService, // Re-enabled with disabled constructor
     PasswordValidationService,
     AuditService,
     SecurityMonitoringService,
@@ -68,7 +68,7 @@ import { AuditLog } from '../../common/audit/audit-log.entity';
   ],
   exports: [
     AuthService,
-    EmailService,
+    EmailService, // Re-enabled with disabled constructor
     PasswordValidationService,
     AuditService,
     SecurityMonitoringService,
