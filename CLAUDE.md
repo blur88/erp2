@@ -125,9 +125,10 @@ docker compose logs backend # Check specific service logs
 - **Important**: Use `VITE_` prefixed environment variables (not `REACT_APP_`)
 
 #### Backend Container
-- Webpack-based production build for optimized Node.js bundle
+- Development-focused build using `ts-node --transpile-only` for faster iteration
 - Supports both development (`npm run start:dev`) and production modes
 - Volume mounts for uploads and logs persistence
+- **Important**: Use `ts-node --transpile-only` bypasses TypeScript compilation but errors can still cause silent module loading failures
 
 #### NGINX Configurations
 - **Main proxy** (`nginx/nginx.conf`): Reverse proxy for production deployment
@@ -145,9 +146,9 @@ The backend follows NestJS modular architecture with clear separation:
 - **Auth module**: `auth/` - Available but disconnected from main app
 
 **Current Module Loading Status:**
-The main `app.module.ts` currently only imports UsersModule. AuthModule has been removed for future upgrade. Available modules that can be added:
-- InventoryModule, SalesModule, PurchasingModule, ReportsModule, DashboardModule, PluginsModule
-- Use `app.module.minimal.ts` for minimal setup if needed
+The main `app.module.ts` currently imports: UsersModule, InventoryModule, SalesModule, PurchasingModule, ReportsModule, DashboardModule. AuthModule has been removed for future upgrade. PluginsModule is available but may require dependency fixes.
+- Use selective module loading in `app.module.ts` based on deployment needs
+- PluginsModule may need additional dependencies: `class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`
 
 **⚠️ IMPORTANT: Authentication Status**
 - **Authentication has been completely removed** from the system for future upgrade
@@ -228,9 +229,12 @@ Products support comprehensive pricing structure:
 
 ### Database Connection Management  
 - **Connection Pooling**: Limited to 10 connections to prevent resource exhaustion
-- **IPv4 Enforcement**: `family: 4` config for Docker container compatibility
+- **IPv4 Enforcement**: `family: 4` config for Docker container compatibility in `extra` config
+- **SSL Configuration**: Disabled (`ssl: false`) for Docker PostgreSQL compatibility
 - **Environment-based Sync**: Database sync only enabled in development mode
 - **Migration Strategy**: Separate migration files with rollback support
+- **Docker Service Names**: Use `postgres` and `redis` as hosts, not `localhost` in Docker environment
+- **Credential Matching**: Ensure `.env` credentials match `docker-compose.yml` service passwords
 
 ### Dual NGINX Architecture
 - **Development Proxy** (`nginx/nginx.conf`): Production reverse proxy configuration
@@ -243,6 +247,14 @@ Products support comprehensive pricing structure:
 - **Caching Strategy**: Bull queues for background job processing
 - **Rate Limiting**: Distributed rate limiting across multiple service instances
 - **WebSocket State**: Real-time connection state management
+
+### Dynamic Module Loading Architecture
+- **Frontend Sidebar**: Dynamic module detection via `/api/info` endpoint
+- **Backend Health Checks**: Real-time backend availability detection
+- **Graceful Degradation**: Shows only available modules when backend is offline/limited
+- **Auto-refresh**: 30-second interval checks for backend status changes
+- **Module Service**: `frontend/src/services/moduleApi.ts` handles backend communication
+- **Status Indicators**: Visual feedback when backend is offline or modules unavailable
 
 ## Path Aliases and Import Structure
 
@@ -312,6 +324,8 @@ Each Redux slice follows a consistent pattern:
 - **Reducers**: Handle pending/fulfilled/rejected states for each async operation
 - **Type safety**: All payloads are null-checked (e.g., `if (action.payload)` before using) to prevent runtime errors
 - **Data updates**: Use `unshift()` to add new items to the beginning of arrays
+- **API Integration**: Pages should use Redux + API calls instead of local state for persistence
+- **Available Slices**: `inventorySlice`, `salesSlice`, `purchasingSlice`, `dashboardSlice`, `notificationSlice`, `themeSlice`
 
 ### Plugin Development
 The plugin system supports multiple plugin types:
@@ -321,14 +335,16 @@ The plugin system supports multiple plugin types:
 - **Workflows**: Process automation and approvals
 
 **Plugin Architecture**:
-- **BasePlugin Class**: Lifecycle management (initialize → start → stop → destroy)
-- **Configuration Schema**: Validation with Joi/class-validator
-- **Event System**: Inter-plugin communication via event emitters  
-- **Hot Reload**: Development mode plugin reloading
-- **Health Checks**: Plugin monitoring and status reporting
-- **Dependency Injection**: Access to NestJS services and repositories
+- **BasePlugin Class**: Complete lifecycle management (initialize → start → stop → destroy)
+- **Plugin Types**: Business, Integration, Reporting, UI Extension, Workflow, Authentication
+- **Security System**: Multi-level security policies per plugin type with resource monitoring
+- **Hook System**: Event-driven architecture with 20+ system hooks for integration
+- **Database Integration**: Dynamic entity support and plugin-specific connections
+- **Development Tools**: CLI for plugin creation, validation, and building
+- **Production Features**: Health monitoring, auto-restart, security audit trails
+- **Hot Reload**: Development mode plugin reloading with dependency injection
 
-Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Hook()`, `@ApiEndpoint()`.
+Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Hook()`, `@ApiEndpoint()`. The plugin system includes comprehensive security policies, resource usage monitoring, and violation detection.
 
 ## Environment Configuration
 
@@ -472,7 +488,8 @@ curl http://localhost:3001/api/users -X GET
 - `backend/src/common/decorators/user.decorator.ts` - User context extractors (DISABLED)
 - `backend/create-users.js` - Demo user creation script (no longer needed)
 - `frontend/src/App.tsx` - Main React component with routing (auth routes removed)
-- `frontend/src/hooks/useAuth.tsx` - Authentication context and state (DISABLED)
+- `frontend/src/components/common/Sidebar.tsx` - Dynamic sidebar with module detection
+- `frontend/src/services/moduleApi.ts` - Backend module availability detection service
 - `frontend/src/store/slices/` - Redux slices (include proper null checks for TypeScript)
 - `docker-compose.yml` - Complete service orchestration
 - `deploy.sh` - Production deployment automation

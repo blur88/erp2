@@ -44,87 +44,21 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
+import { useDispatch, useSelector } from 'react-redux'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { useNotification } from '@/hooks/useNotification'
 import type { Product, Category } from '@/types'
+import {
+  fetchProducts,
+  fetchCategories,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  selectProducts,
+  selectCategories,
+  selectInventoryLoading,
+} from '@/store/slices/inventorySlice'
 
-// Mock data - in real app, this would come from API
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Laptop Dell XPS 13',
-    description: 'High-performance ultrabook with Intel i7 processor',
-    sku: 'DELL-XPS13-001',
-    price: 1299.99,
-    cost: 899.99,
-    stock: 25,
-    minStock: 10,
-    maxStock: 100,
-    unit: 'pcs',
-    isActive: true,
-    category: {
-      id: '1',
-      name: 'Electronics',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    images: ['/api/uploads/laptop-dell-xps13.jpg'],
-    createdAt: new Date('2023-01-15'),
-    updatedAt: new Date('2023-12-01'),
-  },
-  {
-    id: '2',
-    name: 'Office Chair Ergonomic',
-    description: 'Comfortable ergonomic office chair with lumbar support',
-    sku: 'CHAIR-ERG-001',
-    price: 299.99,
-    cost: 149.99,
-    stock: 5,
-    minStock: 10,
-    maxStock: 50,
-    unit: 'pcs',
-    isActive: true,
-    category: {
-      id: '2',
-      name: 'Furniture',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    createdAt: new Date('2023-02-10'),
-    updatedAt: new Date('2023-11-15'),
-  },
-  {
-    id: '3',
-    name: 'Wireless Mouse',
-    description: 'Bluetooth wireless mouse with precision tracking',
-    sku: 'MOUSE-BT-001',
-    price: 49.99,
-    cost: 24.99,
-    stock: 150,
-    minStock: 20,
-    maxStock: 200,
-    unit: 'pcs',
-    isActive: true,
-    category: {
-      id: '3',
-      name: 'Accessories',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    createdAt: new Date('2023-03-01'),
-    updatedAt: new Date('2023-12-10'),
-  },
-]
-
-const mockCategories: Category[] = [
-  { id: '1', name: 'Electronics', isActive: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '2', name: 'Furniture', isActive: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '3', name: 'Accessories', isActive: true, createdAt: new Date(), updatedAt: new Date() },
-  { id: '4', name: 'Software', isActive: true, createdAt: new Date(), updatedAt: new Date() },
-]
 
 interface ProductFormData {
   name: string
@@ -155,10 +89,11 @@ const productSchema = yup.object({
 })
 
 const ProductsPage: React.FC = () => {
+  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
-  const [products, setProducts] = useState<Product[]>(mockProducts)
-  const [categories] = useState<Category[]>(mockCategories)
-  const [loading, setLoading] = useState(false)
+  const products = useSelector(selectProducts) || []
+  const categories = useSelector(selectCategories) || []
+  const loading = useSelector(selectInventoryLoading)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
@@ -168,6 +103,11 @@ const ProductsPage: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
+
+  useEffect(() => {
+    dispatch(fetchProducts({}))
+    dispatch(fetchCategories())
+  }, [dispatch])
 
   const {
     control,
@@ -240,47 +180,27 @@ const ProductsPage: React.FC = () => {
     handleMenuClose()
   }
 
-  const handleDeleteProduct = (product: Product) => {
+  const handleDeleteProduct = async (product: Product) => {
     if (window.confirm(`Are you sure you want to delete ${product.name}?`)) {
-      setProducts(prev => prev.filter(p => p.id !== product.id))
-      showSuccess(`Product ${product.name} deleted successfully`)
+      try {
+        await dispatch(deleteProduct(product.id))
+        showSuccess(`Product ${product.name} deleted successfully`)
+      } catch (error) {
+        showError('Failed to delete product. Please try again.')
+      }
     }
     handleMenuClose()
   }
 
   const onSubmit = async (data: ProductFormData) => {
     try {
-      setLoading(true)
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const category = categories.find(c => c.id === data.categoryId)
-      
       if (editMode && selectedProduct) {
         // Update existing product
-        setProducts(prev => prev.map(p => 
-          p.id === selectedProduct.id 
-            ? {
-                ...p,
-                ...data,
-                category,
-                updatedAt: new Date(),
-              }
-            : p
-        ))
+        await dispatch(updateProduct({ id: selectedProduct.id, data }))
         showSuccess('Product updated successfully')
       } else {
         // Add new product
-        const newProduct: Product = {
-          id: Date.now().toString(),
-          ...data,
-          category,
-          images: [],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-        setProducts(prev => [newProduct, ...prev])
+        await dispatch(createProduct(data))
         showSuccess('Product added successfully')
       }
       
@@ -288,8 +208,6 @@ const ProductsPage: React.FC = () => {
       reset()
     } catch (error) {
       showError('Failed to save product. Please try again.')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -442,7 +360,7 @@ const ProductsPage: React.FC = () => {
       </Paper>
 
       {/* Products Display */}
-      {loading ? (
+      {loading?.products ? (
         <LoadingSpinner message="Loading products..." />
       ) : (
         <>

@@ -43,7 +43,7 @@ export { StockMovement, StockMovementType, StockMovementStatus } from './stock-m
 export { StockAdjustment, StockAdjustmentType, StockAdjustmentStatus } from './stock-adjustment.entity';
 
 // System Management
-export { Plugin, PluginStatus, PluginType } from './plugin.entity';
+// export { Plugin, PluginStatus, PluginType } from './plugin.entity';
 
 /**
  * Array of all entity classes for TypeORM configuration

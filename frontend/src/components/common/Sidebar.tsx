@@ -1,8 +1,7 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Box,
-  Drawer,
   List,
   ListItem,
   ListItemButton,
@@ -33,6 +32,7 @@ import {
   Person as UsersIcon,
   Tune as SystemSettingsIcon,
 } from '@mui/icons-material'
+import { moduleApi } from '@/services/moduleApi'
 
 interface SidebarProps {
   onItemClick?: () => void
@@ -209,6 +209,73 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const [expandedItems, setExpandedItems] = React.useState<string[]>(['inventory', 'sales', 'purchasing'])
+  const [availableModules, setAvailableModules] = React.useState<string[]>([])
+  const [backendAvailable, setBackendAvailable] = React.useState<boolean>(true)
+
+  useEffect(() => {
+    const checkModuleAvailability = async () => {
+      try {
+        const modules = await moduleApi.getAvailableModules()
+        const isHealthy = await moduleApi.checkHealth()
+        setAvailableModules(modules)
+        setBackendAvailable(isHealthy)
+      } catch (error) {
+        console.error('Failed to check module availability:', error)
+        setAvailableModules([])
+        setBackendAvailable(false)
+      }
+    }
+
+    checkModuleAvailability()
+    
+    // Check every 30 seconds
+    const interval = setInterval(checkModuleAvailability, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Filter menu sections based on available modules
+  const getFilteredMenuSections = () => {
+    if (!backendAvailable || availableModules.length === 0) {
+      // If backend is not available, only show dashboard and users
+      return menuSections.map(section => {
+        if (section.id === 'main') {
+          return section // Always show main (dashboard)
+        } else if (section.id === 'system') {
+          return {
+            ...section,
+            items: section.items.filter(item => 
+              item.id === 'settings' // Only show settings (which includes users)
+            )
+          }
+        } else {
+          return { ...section, items: [] } // Hide all other sections
+        }
+      }).filter(section => section.items.length > 0)
+    }
+
+    // Filter based on available modules
+    return menuSections.map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        switch (item.id) {
+          case 'dashboard':
+            return availableModules.includes('dashboard')
+          case 'inventory':
+            return availableModules.includes('inventory')
+          case 'sales':
+            return availableModules.includes('sales')
+          case 'purchasing':
+            return availableModules.includes('purchasing')
+          case 'reports':
+            return availableModules.includes('reports')
+          case 'settings':
+            return true // Always show settings if backend is available
+          default:
+            return true
+        }
+      })
+    })).filter(section => section.items.length > 0)
+  }
 
   const handleItemClick = (item: MenuItem) => {
     if (item.path) {
@@ -344,14 +411,21 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
         >
           ERP
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          ERP System
-        </Typography>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            ERP System
+          </Typography>
+          {!backendAvailable && (
+            <Typography variant="caption" sx={{ color: 'warning.main', display: 'block' }}>
+              Backend Offline
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       {/* Navigation */}
       <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
-        {menuSections.map((section, index) => (
+        {getFilteredMenuSections().map((section, index) => (
           <React.Fragment key={section.id}>
             {index > 0 && <Divider sx={{ my: 1 }} />}
             
