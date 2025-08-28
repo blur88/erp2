@@ -145,17 +145,37 @@ The backend follows NestJS modular architecture with clear separation:
 - **System modules**: `plugins/` - Extensibility framework
 - **Auth module**: `auth/` - Available but disconnected from main app
 
-**Current Module Loading Status:**
-The main `app.module.ts` currently imports: UsersModule, InventoryModule, SalesModule, PurchasingModule, ReportsModule, DashboardModule. AuthModule has been removed for future upgrade. PluginsModule is available but may require dependency fixes.
-- Use selective module loading in `app.module.ts` based on deployment needs
-- PluginsModule may need additional dependencies: `class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`
+**⚠️ CRITICAL: Current System Status (Updated August 2025)**
+- **Most modules temporarily disabled**: Only `UsersModule` and `InventoryModule` are currently loaded in `app.module.ts`
+- **Business modules commented out**: `SalesModule`, `PurchasingModule`, `ReportsModule`, `DashboardModule`, `PluginsModule` are disabled
+- **Authentication system intact but disconnected**: AuthModule exists but is not imported - system running without auth for development/testing
+- **Database schema issues resolved**: Manual table creation required due to TypeORM sync issues
+- **Backend fully operational**: Core APIs working after fixing BaseEntity references and database columns
 
-**⚠️ IMPORTANT: Authentication Status**
-- **Authentication has been completely removed** from the system for future upgrade
-- All API endpoints are publicly accessible without authentication
-- All authentication guards, decorators, and middleware have been disabled
-- Frontend authentication components and routing have been removed
-- Auth module files still exist but are disconnected from the main application
+**Module Loading Status (app.module.ts:40-46):**
+```typescript
+// Currently active:
+UsersModule,        // ✅ Active (with some endpoint issues)
+InventoryModule,    // ✅ Fully functional
+
+// Currently disabled:
+// SalesModule,        // 🚫 Commented out
+// PurchasingModule,   // 🚫 Commented out  
+// ReportsModule,      // 🚫 Commented out
+// DashboardModule,    // 🚫 Commented out
+// PluginsModule,      // 🚫 Commented out
+```
+
+**Known Issues Fixed:**
+- ✅ BaseEntity reference error in `entities/index.ts` (BaseEntity removed from ALL_ENTITIES array)
+- ✅ Plugin entity `IsVersion` validator issue (replaced with `IsString`)
+- ✅ Missing database columns for products and categories tables
+- ✅ Docker volume mount synchronization issues
+
+**Re-enabling Modules:**
+- Uncomment desired modules in `app.module.ts` imports section
+- May require database schema updates and dependency installation
+- PluginsModule may need additional dependencies: `class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`
 
 ### Service-Controller-DTO Pattern
 Each module follows consistent architecture:
@@ -480,14 +500,74 @@ docker compose exec backend find src -name "*app.module*"
 curl http://localhost:3001/api/users -X GET
 ```
 
+## Critical Troubleshooting Commands
+
+### Check Service Status
+```bash
+docker compose ps                    # Check all container statuses
+docker compose logs backend --tail=20  # Check backend logs for errors
+curl http://localhost:3001/api/health   # Test backend API health
+```
+
+### Database Operations
+```bash
+# Connect to database directly
+docker compose exec postgres psql -U erp_user -d erp_db
+
+# Check if demo users exist
+docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT email, role FROM users;"
+```
+
+### Module Debugging
+```bash
+# Check for compilation errors
+docker compose exec backend npm run build
+
+# Test individual module loading with ts-node (most effective for diagnosing module issues)
+# Note: AuthModule is no longer loaded, test other modules instead
+docker compose exec backend npx ts-node -e "
+  try { 
+    const usersModule = require('./src/modules/users/users.module.ts'); 
+    console.log('✓ UsersModule loaded successfully');
+  } catch (error) { 
+    console.error('✗ UsersModule failed:', error.message); 
+  }
+"
+
+# Check if missing dependencies are the issue
+docker compose exec backend npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps
+
+# Verify which app module is being used
+docker compose exec backend find src -name "*app.module*"
+
+# Test API availability (all endpoints should be accessible without auth)
+curl http://localhost:3001/api/users -X GET
+```
+
+### Backend Module Loading Issues
+**⚠️ IMPORTANT: Authentication has been completely removed**
+- **AuthModule**: No longer loaded in `app.module.ts` - authentication system disabled for future upgrade
+- **Missing Dependencies**: May need npm dependencies (`class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`) for other modules. Install with `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
+- **Silent Module Loading Failures**: Non-auth modules may fail to load silently due to TypeScript compilation errors. Check startup logs for missing module initialization messages.
+- **TypeScript Compilation Errors**: Use type assertions `as any` for repository operations if TypeScript validation fails.
+- **Dependency Version Conflicts**: Use `--legacy-peer-deps` flag when installing dependencies to resolve NestJS version conflicts
+- **IPv6 Connection Issues**: Add `family: 4` to Redis/PostgreSQL connection configs to force IPv4 in Docker environments
+
+### Current System Status
+**⚠️ Authentication Status:**
+- All authentication endpoints are disabled (return 404)
+- All API endpoints are publicly accessible
+- Demo user creation is no longer needed
+- Frontend auth components have been removed
+
 ## Key Files to Know
 
-- `backend/src/app.module.ts` - Main NestJS module with global providers (AuthModule removed)
+- `backend/src/app.module.ts` - Main NestJS module with global providers (most modules currently disabled)
 - `backend/src/database/entities/base.entity.ts` - Base entity all others extend  
-- `backend/src/common/decorators/auth.decorator.ts` - Authentication decorators (DISABLED)
-- `backend/src/common/decorators/user.decorator.ts` - User context extractors (DISABLED)
-- `backend/create-users.js` - Demo user creation script (no longer needed)
-- `frontend/src/App.tsx` - Main React component with routing (auth routes removed)
+- `backend/src/database/entities/index.ts` - Entity exports (BaseEntity removed from ALL_ENTITIES array)
+- `backend/src/common/decorators/auth.decorator.ts` - Authentication decorators (exist but not functional)
+- `backend/src/common/decorators/user.decorator.ts` - User context extractors (exist but not functional)
+- `frontend/src/App.tsx` - Main React component with routing
 - `frontend/src/components/common/Sidebar.tsx` - Dynamic sidebar with module detection
 - `frontend/src/services/moduleApi.ts` - Backend module availability detection service
 - `frontend/src/store/slices/` - Redux slices (include proper null checks for TypeScript)
@@ -495,16 +575,24 @@ curl http://localhost:3001/api/users -X GET
 - `deploy.sh` - Production deployment automation
 - `frontend/nginx.conf` - NGINX configuration for frontend container
 
-### Authentication-Related Files (REMOVED)
-These files have been completely removed from the frontend:
-- `frontend/src/pages/auth/` - Login/register pages (REMOVED)
-- `frontend/src/components/common/AuthLayout.tsx` - Auth layout component (REMOVED)
-- `frontend/src/hooks/useAuth.tsx` - Authentication context and hooks (REMOVED)
-- `frontend/src/store/slices/authSlice.ts` - Authentication Redux slice (REMOVED)
-- `frontend/src/services/authApi.ts` - Authentication API service (REMOVED)
+### Critical Files for Module Loading Issues
+- `backend/src/database/entities/plugin.entity.ts` - Plugin entity (IsVersion fixed to IsString)
+- `backend/src/modules/purchasing/purchasing.module.ts` - PurchasingModule (AuthModule import removed)
+- `backend/src/config/database.config.ts` - Database configuration with sync settings
 
-Backend auth files still exist but are disconnected:
-- `backend/src/modules/auth/` - Complete auth module (not imported in app.module.ts)
+### Authentication System Files (INTACT BUT DISCONNECTED)
+The authentication system exists but is temporarily disconnected:
+
+**Backend Auth Files (Available):**
+- `backend/src/modules/auth/` - Complete auth module with JWT, guards, strategies
+- `backend/src/common/guards/` - Authentication and authorization guards
+- `backend/src/common/strategies/` - Passport strategies for JWT and local auth
+
+**Frontend Auth Files (Status Unknown):**
+- Frontend auth components may exist but are not currently imported/used
+- System currently runs without authentication for development purposes
+
+**Note**: The authentication system is architecturally complete but disabled for the current development phase. It can be re-enabled by uncommenting AuthModule in app.module.ts and resolving any dependency issues.
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
