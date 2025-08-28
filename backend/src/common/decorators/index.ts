@@ -1,2 +1,1 @@
-export * from './auth.decorator';
-export * from './user.decorator';
+// Auth decorators removed - authentication system disabled

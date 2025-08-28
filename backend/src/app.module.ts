@@ -39,7 +39,7 @@ import { AppService } from './app.service';
     // Core Modules
     UsersModule,
     InventoryModule,
-    // SalesModule, // Re-enable after fixing compilation issues
+    // SalesModule, // Still has compilation issues - needs auth dependencies fixed
     // PurchasingModule, // Re-enable after fixing compilation issues  
     // ReportsModule, // Re-enable after fixing compilation issues
     // DashboardModule, // Re-enable after fixing compilation issues
