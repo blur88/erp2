@@ -81,7 +81,7 @@ const CategoriesPage: React.FC = () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await inventoryApi.getCategories()
+      const response = await inventoryApi.getCategories({ includeProductCount: true })
       // Handle API response format: { data: Category[], meta: {...} }
       const categoriesData = response.data || []
       setCategories(Array.isArray(categoriesData) ? categoriesData : [])
@@ -123,13 +123,19 @@ const CategoriesPage: React.FC = () => {
   }
 
   const handleDeleteCategory = async (category: Category) => {
-    if (window.confirm(`Are you sure you want to delete the category "${category.name}"?`)) {
+    const productCount = category.productCount ?? 0
+    const confirmMessage = productCount > 0 
+      ? `Category "${category.name}" contains ${productCount} product${productCount === 1 ? '' : 's'}. You must move or delete these products before deleting the category. Continue?`
+      : `Are you sure you want to delete the category "${category.name}"?`
+      
+    if (window.confirm(confirmMessage)) {
       try {
         await inventoryApi.deleteCategory(category.id)
         showSuccess(`Category "${category.name}" deleted successfully`)
         fetchCategories()
       } catch (error: any) {
-        showError(error.response?.data?.message || 'Failed to delete category')
+        const errorMessage = error.response?.data?.message || 'Failed to delete category'
+        showError(errorMessage)
       }
     }
   }
@@ -258,6 +264,7 @@ const CategoriesPage: React.FC = () => {
                   <TableCell><strong>Description</strong></TableCell>
                   <TableCell><strong>Status</strong></TableCell>
                   <TableCell><strong>Level</strong></TableCell>
+                  <TableCell><strong>Products</strong></TableCell>
                   <TableCell><strong>Created</strong></TableCell>
                   <TableCell align="right"><strong>Actions</strong></TableCell>
                 </TableRow>
@@ -296,6 +303,14 @@ const CategoriesPage: React.FC = () => {
                       <Typography variant="body2">
                         Level {category.level}
                       </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={category.productCount ?? 0}
+                        size="small"
+                        color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
+                        variant="outlined"
+                      />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">

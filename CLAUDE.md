@@ -195,6 +195,7 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
   - ✅ **Sample Data Added**: Database now includes 8 sample products across 4 categories (Electronics, Office Supplies, Furniture, test) with complete multi-level pricing and stock quantities
 - ✅ **Category Code Unique Constraint Fix** (August 2025): Fixed PostgreSQL unique constraint violation on category `code` field by converting empty strings to `NULL` values in service layer
 - ✅ **API Endpoint Method Mismatch Fix** (August 2025): Fixed category and product update operations failing with 404 errors by changing frontend API calls from `PUT` to `PATCH` to match backend controller decorators (`@Patch(':id)'`)
+- ✅ **Category Deletion UX Enhancement** (August 2025): Fixed misleading category deletion errors by adding product count display in categories table and improved error messaging for categories containing products
 
 **Remaining Tasks for Other Modules:**
 - Other business modules may still have auth-related compilation errors
@@ -433,8 +434,10 @@ Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Ho
 **Files Fixed**:
 - `frontend/src/pages/inventory/InventoryPage.tsx` - Fixed API response data extraction and added debugging
 - `frontend/src/pages/inventory/ProductsPage.tsx` - Added deletion persistence with backend refresh  
-- `frontend/src/pages/inventory/CategoriesPage.tsx` - Enhanced duplicate validation and error handling
+- `frontend/src/pages/inventory/CategoriesPage.tsx` - Enhanced duplicate validation, error handling, and product count display
 - `frontend/src/store/slices/inventorySlice.ts` - Fixed Redux state management consistency
+- `frontend/src/services/inventoryApi.ts` - Added support for `includeProductCount` parameter in categories API
+- `frontend/src/types/index.ts` - Added `productCount` field to Category interface
 
 **Pattern for Future Module Fixes**:
 ```typescript
@@ -473,6 +476,22 @@ ApiService.put(`/api/resource/${id}`, data)  // Backend uses @Patch(':id')
 
 // ✅ Correct API method matching backend decorator
 ApiService.patch(`/api/resource/${id}`, data)  // Matches @Patch(':id')
+
+// ❌ Missing UX information for dependent data
+// User tries to delete category but gets confusing error message
+
+// ✅ Enhanced UX with dependency information
+// Display related data counts and clear error messaging
+const handleDelete = async (item) => {
+  const dependentCount = item.relatedCount ?? 0
+  const confirmMessage = dependentCount > 0 
+    ? `Item contains ${dependentCount} dependent records. Remove dependents first. Continue?`
+    : `Are you sure you want to delete "${item.name}"?`
+    
+  if (window.confirm(confirmMessage)) {
+    // Proceed with deletion and show specific backend errors
+  }
+}
 ```
 
 ### Authentication System Removal (August 2025)
@@ -729,7 +748,8 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 
 **✅ Known Working Features (August 2025):**
 - **Backend APIs**: All inventory and sales endpoints fully operational
-- **Inventory Frontend**: **COMPLETELY FIXED** - Overview shows real data, products persist after deletion, categories prevent duplicates
+- **Inventory Frontend**: **COMPLETELY FIXED** - Overview shows real data, products persist after deletion, categories prevent duplicates and show product counts
+- **Category Management**: **ENHANCED** - Categories table displays product counts, deletion warnings show dependent data, and clear error messages prevent user confusion
 - **Database Operations**: PostgreSQL with proper schema and sample data (8 products, 4 categories confirmed)
 - **Docker Environment**: All containers running correctly with proper networking
 - **API Structure**: Confirmed `{data: T[], meta: PaginationMeta}` response format working properly

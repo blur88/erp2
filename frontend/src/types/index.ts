@@ -90,6 +90,7 @@ export interface Category {
   fullPath: string;
   isRoot: boolean;
   children?: Category[];
+  productCount?: number;  // Number of products in this category
   createdAt: Date | string;
   updatedAt: Date | string;
 }
