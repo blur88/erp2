@@ -16,7 +16,7 @@ export const inventoryApi = {
   },
 
   async updateProduct(id: string, productData: Partial<Product>) {
-    return ApiService.put<Product>(`/inventory/products/${id}`, productData)
+    return ApiService.patch<Product>(`/inventory/products/${id}`, productData)
   },
 
   async deleteProduct(id: string) {
@@ -57,7 +57,7 @@ export const inventoryApi = {
   },
 
   async updateCategory(id: string, categoryData: Partial<Category>) {
-    return ApiService.put<Category>(`/inventory/categories/${id}`, categoryData)
+    return ApiService.patch<Category>(`/inventory/categories/${id}`, categoryData)
   },
 
   async deleteCategory(id: string) {

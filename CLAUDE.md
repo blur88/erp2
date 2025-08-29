@@ -194,6 +194,7 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
   - ✅ Product creation API fixed (userId parameter issue resolved)
   - ✅ **Sample Data Added**: Database now includes 8 sample products across 4 categories (Electronics, Office Supplies, Furniture, test) with complete multi-level pricing and stock quantities
 - ✅ **Category Code Unique Constraint Fix** (August 2025): Fixed PostgreSQL unique constraint violation on category `code` field by converting empty strings to `NULL` values in service layer
+- ✅ **API Endpoint Method Mismatch Fix** (August 2025): Fixed category and product update operations failing with 404 errors by changing frontend API calls from `PUT` to `PATCH` to match backend controller decorators (`@Patch(':id)'`)
 
 **Remaining Tasks for Other Modules:**
 - Other business modules may still have auth-related compilation errors
@@ -466,6 +467,12 @@ catch (error) {
     showError(`Failed to save: ${error?.message}`);
   }
 }
+
+// ❌ API method mismatch causing 404 errors
+ApiService.put(`/api/resource/${id}`, data)  // Backend uses @Patch(':id')
+
+// ✅ Correct API method matching backend decorator
+ApiService.patch(`/api/resource/${id}`, data)  // Matches @Patch(':id')
 ```
 
 ### Authentication System Removal (August 2025)
@@ -655,6 +662,28 @@ npm run start:dev
 # Frontend icon import fixes
 # Replace non-existent imports like 'Product' with 'Inventory2' in src/components/common/Sidebar.tsx
 ```
+
+### API Method Mismatch Issues
+**Problem**: Frontend API calls fail with 404 errors despite backend endpoints existing
+**Common Cause**: Mismatch between frontend HTTP method and backend controller decorator
+
+**Debugging Steps**:
+```bash
+# 1. Check backend logs for 404 errors with method details
+docker compose logs backend --tail=50 | grep "Cannot PUT\|Cannot GET\|Cannot POST\|Cannot PATCH"
+
+# 2. Verify backend controller decorators
+grep -r "@Patch\|@Put\|@Post\|@Get" backend/src/modules/*/controllers/
+
+# 3. Check frontend API service methods
+grep -r "ApiService\." frontend/src/services/
+```
+
+**Solution Pattern**:
+- Backend `@Patch(':id')` → Frontend `ApiService.patch()`
+- Backend `@Put(':id')` → Frontend `ApiService.put()`  
+- Backend `@Post()` → Frontend `ApiService.post()`
+- Backend `@Get()` → Frontend `ApiService.get()`
 
 ### Docker Development Workflow
 ```bash
