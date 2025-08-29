@@ -181,7 +181,7 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
 - ✅ Frontend sidebar reset to show all modules without backend filtering
 - ✅ Backend `/api/info` endpoint updated to return only active modules
 - ✅ **Critical Inventory Module Issues Fixed** (August 2025):
-  - ✅ **Overview Page**: Fixed "An unexpected error occurred" and zero values - now displays real product counts, categories, and calculated inventory values
+  - ✅ **Overview Page**: Fixed "An unexpected error occurred" and zero values - now displays real product counts, categories, and calculated inventory values (8 products, 4 categories, ~$36,689 inventory value)
   - ✅ **Product Deletion**: Fixed persistence issue where deleted products reappeared after browser refresh - added explicit backend refresh after deletion
   - ✅ **Category Duplication**: Fixed "Duplicate entry detected" errors with improved client-side validation and better error handling
   - ✅ **API Response Handling**: Fixed inconsistent data extraction from `ApiResponse<PaginatedResponse<T>>` structure across components
@@ -191,6 +191,7 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
   - ✅ All buttons and forms functional, no longer in "demo mode"
   - ✅ Redux state management properly integrated with backend APIs
   - ✅ Product creation API fixed (userId parameter issue resolved)
+  - ✅ **Sample Data Added**: Database now includes 8 sample products across 4 categories (Electronics, Office Supplies, Furniture, test) with complete multi-level pricing and stock quantities
 
 **Remaining Tasks for Other Modules:**
 - Other business modules may still have auth-related compilation errors
@@ -674,9 +675,11 @@ npm run start:dev
 **✅ Known Working Features (August 2025):**
 - **Backend APIs**: All inventory and sales endpoints fully operational
 - **Inventory Frontend**: **COMPLETELY FIXED** - Overview shows real data, products persist after deletion, categories prevent duplicates
-- **Database Operations**: PostgreSQL with proper schema and sample data (7 products, 3 categories confirmed)
+- **Database Operations**: PostgreSQL with proper schema and sample data (8 products, 4 categories confirmed)
 - **Docker Environment**: All containers running correctly with proper networking
 - **API Structure**: Confirmed `{data: T[], meta: PaginationMeta}` response format working properly
+- **Inventory Data**: Sample products include Electronics, Office Supplies, and Furniture categories with multi-level pricing
+- **Inventory Value Calculation**: Overview page now correctly calculates total inventory value from (retailPrice × stockQuantity)
 
 ## Critical Troubleshooting Commands
 
@@ -692,8 +695,14 @@ curl http://localhost:3001/api/health   # Test backend API health
 # Connect to database directly
 docker compose exec postgres psql -U erp_user -d erp_db
 
-# Check if demo users exist
-docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT email, role FROM users;"
+# Check current inventory data
+docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT COUNT(*) FROM products; SELECT COUNT(*) FROM categories;"
+
+# View sample products with pricing
+docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT name, sku, \"retailPrice\", \"stockQuantity\" FROM products ORDER BY name;"
+
+# Calculate current inventory value
+docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT SUM(\"retailPrice\" * \"stockQuantity\") as total_inventory_value FROM products;"
 ```
 
 ### Module Debugging

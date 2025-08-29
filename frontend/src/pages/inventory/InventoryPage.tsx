@@ -78,7 +78,7 @@ const InventoryPage: React.FC = () => {
         statusText: err?.response?.statusText
       })
       const errorMessage = err?.response?.data?.message || err?.message || 'Failed to load inventory statistics'
-      setError(`An unexpected error occurred. Please try again.`)
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
