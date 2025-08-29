@@ -129,6 +129,7 @@ docker compose logs backend # Check specific service logs
 - Supports both development (`npm run start:dev`) and production modes
 - Volume mounts for uploads and logs persistence
 - **Important**: Use `ts-node --transpile-only` bypasses TypeScript compilation but errors can still cause silent module loading failures
+- **Critical**: No source code volume mount in docker-compose.yml - backend uses code copied during build. Source changes require `docker compose build backend` and restart to apply
 
 #### NGINX Configurations
 - **Main proxy** (`nginx/nginx.conf`): Reverse proxy for production deployment
@@ -192,6 +193,7 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
   - ✅ Redux state management properly integrated with backend APIs
   - ✅ Product creation API fixed (userId parameter issue resolved)
   - ✅ **Sample Data Added**: Database now includes 8 sample products across 4 categories (Electronics, Office Supplies, Furniture, test) with complete multi-level pricing and stock quantities
+- ✅ **Category Code Unique Constraint Fix** (August 2025): Fixed PostgreSQL unique constraint violation on category `code` field by converting empty strings to `NULL` values in service layer
 
 **Remaining Tasks for Other Modules:**
 - Other business modules may still have auth-related compilation errors
@@ -370,6 +372,17 @@ service.create(dto, 'system') // Use 'system' as default userId
 - Remove auth imports and update interface references
 - Update property names: `sellingPrice` → `retailPrice`, `costPrice` → `baseCost`
 - Replace missing enum values: `RESERVATION` → `ADJUSTMENT_DECREASE`
+
+**Database Unique Constraint Fixes:**
+- **Empty String vs NULL**: PostgreSQL unique constraints allow multiple `NULL` values but not multiple empty strings `""`
+- **Service Layer Pattern**: Convert empty strings to `NULL` in service methods before database operations:
+  ```typescript
+  const code = dto.code?.trim() || null; // Convert empty string to null
+  ```
+- **Database Cleanup**: Update existing empty string values to `NULL`:
+  ```sql
+  UPDATE table_name SET field_name = NULL WHERE field_name = '';
+  ```
 
 ### Redux State Management Patterns
 Each Redux slice follows a consistent pattern:
@@ -641,6 +654,19 @@ npm run start:dev
 
 # Frontend icon import fixes
 # Replace non-existent imports like 'Product' with 'Inventory2' in src/components/common/Sidebar.tsx
+```
+
+### Docker Development Workflow
+```bash
+# IMPORTANT: Backend source changes require rebuild (no volume mount for source code)
+docker compose build backend   # Rebuild backend after source changes
+docker compose up -d backend   # Restart with new build
+
+# Alternative: Build and restart in one command
+docker compose build backend && docker compose up -d backend
+
+# Check if backend changes were applied
+docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/file.ts
 ```
 
 ### Service Dependencies

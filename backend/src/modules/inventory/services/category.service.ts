@@ -52,9 +52,12 @@ export class CategoryService {
     // Check if name already exists at the same level
     await this.validateCategoryName(createCategoryDto.name, createCategoryDto.parentId);
 
+    // Convert empty string code to null to prevent unique constraint violations
+    const code = createCategoryDto.code?.trim() || null;
+
     // Check if code already exists (if provided)
-    if (createCategoryDto.code) {
-      await this.validateCategoryCode(createCategoryDto.code);
+    if (code) {
+      await this.validateCategoryCode(code);
     }
 
     // Validate parent category if provided
@@ -75,6 +78,7 @@ export class CategoryService {
     // Create category
     const category = this.categoryRepository.create({
       ...createCategoryDto,
+      code,
       level,
       parent,
       isActive: createCategoryDto.isActive ?? true,
@@ -295,9 +299,13 @@ export class CategoryService {
       await this.validateCategoryName(updateCategoryDto.name, category.parentId, id);
     }
 
-    // Check for code conflicts if code is being changed
-    if (updateCategoryDto.code && updateCategoryDto.code !== category.code) {
-      await this.validateCategoryCode(updateCategoryDto.code, id);
+    // Convert empty string code to null and check for code conflicts if code is being changed
+    const code = updateCategoryDto.code !== undefined ? (updateCategoryDto.code?.trim() || null) : undefined;
+    if (code !== undefined && code !== category.code) {
+      if (code) {
+        await this.validateCategoryCode(code, id);
+      }
+      updateCategoryDto.code = code;
     }
 
     // Track changes for audit
@@ -453,6 +461,11 @@ export class CategoryService {
       // Validate name conflicts if name is changing
       if (categoryUpdate.name && categoryUpdate.name !== category.name) {
         await this.validateCategoryName(categoryUpdate.name, category.parentId, category.id);
+      }
+
+      // Convert empty string code to null
+      if (categoryUpdate.code !== undefined) {
+        categoryUpdate.code = categoryUpdate.code?.trim() || null;
       }
 
       // Track changes
