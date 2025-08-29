@@ -174,9 +174,11 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading.products = false
-        if (action.payload) {
-          state.products = action.payload.data
-          state.pagination.products = action.payload.meta
+        if (action.payload && action.payload.data) {
+          state.products = action.payload.data.data || []
+          state.pagination.products = action.payload.data.meta || {
+            page: 1, limit: 20, total: 0, totalPages: 0
+          }
         }
       })
       .addCase(fetchProducts.rejected, (state, action) => {
@@ -192,9 +194,9 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading.categories = false
-        if (action.payload) {
-          // Handle API response format: { data: Category[], meta: {...} }
-          state.categories = action.payload.data || []
+        if (action.payload && action.payload.data) {
+          // Handle API response format: ApiResponse<PaginatedResponse<Category>>
+          state.categories = action.payload.data.data || []
         }
       })
       .addCase(fetchCategories.rejected, (state, action) => {

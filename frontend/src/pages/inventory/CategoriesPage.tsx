@@ -60,6 +60,7 @@ const CategoriesPage: React.FC = () => {
   const [editMode, setEditMode] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [nameValidationError, setNameValidationError] = useState<string | null>(null)
 
   const {
     control,
@@ -104,6 +105,7 @@ const CategoriesPage: React.FC = () => {
     reset()
     setEditMode(false)
     setSelectedCategory(null)
+    setNameValidationError(null)
     setDialogOpen(true)
   }
 
@@ -116,6 +118,7 @@ const CategoriesPage: React.FC = () => {
     })
     setEditMode(true)
     setSelectedCategory(category)
+    setNameValidationError(null)
     setDialogOpen(true)
   }
 
@@ -135,6 +138,17 @@ const CategoriesPage: React.FC = () => {
     try {
       setSubmitting(true)
       
+      // Client-side validation to check for duplicates
+      const existingCategory = categories.find(cat => 
+        cat.name.toLowerCase() === data.name.toLowerCase() && 
+        (!editMode || cat.id !== selectedCategory?.id)
+      )
+      
+      if (existingCategory) {
+        showError(`A category named "${data.name}" already exists. Please choose a different name.`)
+        return
+      }
+      
       if (editMode && selectedCategory) {
         await inventoryApi.updateCategory(selectedCategory.id, data)
         showSuccess('Category updated successfully')
@@ -147,7 +161,18 @@ const CategoriesPage: React.FC = () => {
       reset()
       fetchCategories()
     } catch (error: any) {
-      showError(error.response?.data?.message || 'Failed to save category')
+      console.error('Category save error:', error)
+      
+      // Handle specific error types
+      if (error?.response?.status === 409) {
+        showError(`Duplicate entry detected: A category named "${data.name}" already exists. Please choose a different name.`)
+      } else if (error?.response?.status === 400) {
+        const message = error?.response?.data?.message || 'Invalid category data'
+        showError(`Validation error: ${message}`)
+      } else {
+        const message = error?.response?.data?.message || error?.message || 'Failed to save category'
+        showError(`Failed to save category: ${message}`)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -155,6 +180,23 @@ const CategoriesPage: React.FC = () => {
 
   const getLevelIndicator = (level: number) => {
     return '  '.repeat(level) + (level > 0 ? '└─ ' : '')
+  }
+
+  const validateCategoryName = (name: string) => {
+    if (!name || name.length < 2) {
+      return null // Let yup handle basic validation
+    }
+    
+    const existingCategory = categories.find(cat => 
+      cat.name.toLowerCase() === name.toLowerCase() && 
+      (!editMode || cat.id !== selectedCategory?.id)
+    )
+    
+    if (existingCategory) {
+      return `A category named "${name}" already exists`
+    }
+    
+    return null
   }
 
   return (
@@ -302,15 +344,26 @@ const CategoriesPage: React.FC = () => {
                 <Controller
                   name="name"
                   control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Category Name"
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
-                    />
-                  )}
+                  render={({ field }) => {
+                    const validationError = validateCategoryName(field.value)
+                    const hasValidationError = !!errors.name || !!validationError
+                    const helperText = errors.name?.message || validationError || ''
+                    
+                    return (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="Category Name"
+                        error={hasValidationError}
+                        helperText={helperText}
+                        onChange={(e) => {
+                          field.onChange(e)
+                          const error = validateCategoryName(e.target.value)
+                          setNameValidationError(error)
+                        }}
+                      />
+                    )
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>

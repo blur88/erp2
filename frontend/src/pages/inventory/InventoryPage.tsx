@@ -44,9 +44,18 @@ const InventoryPage: React.FC = () => {
       // Get full product list to calculate inventory value
       const allProductsResponse = await inventoryApi.getProducts({ limit: 1000 })
       
-      // Safely extract data with null checks
-      const products = Array.isArray(allProductsResponse?.data) ? allProductsResponse.data : []
-      const categories = Array.isArray(categoriesResponse?.data) ? categoriesResponse.data : []
+      // Safely extract data with null checks - structure is ApiResponse<PaginatedResponse<T>>
+      const products = Array.isArray(allProductsResponse?.data?.data) ? allProductsResponse.data.data : []
+      const categories = Array.isArray(categoriesResponse?.data?.data) ? categoriesResponse.data.data : []
+      
+      // Additional validation to ensure we have proper data
+      console.log('API Responses:', {
+        productsResponse: productsResponse,
+        categoriesResponse: categoriesResponse,
+        allProductsResponse: allProductsResponse,
+        extractedProducts: products.length,
+        extractedCategories: categories.length
+      })
       
       const inventoryValue = products.reduce((total: number, product: any) => {
         const price = product?.retailPrice || 0
@@ -55,14 +64,21 @@ const InventoryPage: React.FC = () => {
       }, 0)
 
       setStats({
-        totalProducts: productsResponse?.meta?.total || products.length || 0,
-        totalCategories: categories.length || 0,
+        totalProducts: productsResponse?.data?.meta?.total || allProductsResponse?.data?.meta?.total || products.length || 0,
+        totalCategories: categoriesResponse?.data?.meta?.total || categories.length || 0,
         inventoryValue: Number(inventoryValue.toFixed(2)),
       })
     } catch (err: any) {
       console.error('Error fetching inventory stats:', err)
+      // More detailed error logging
+      console.error('Full error object:', {
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+        statusText: err?.response?.statusText
+      })
       const errorMessage = err?.response?.data?.message || err?.message || 'Failed to load inventory statistics'
-      setError(`${errorMessage}. Please try again.`)
+      setError(`An unexpected error occurred. Please try again.`)
     } finally {
       setLoading(false)
     }

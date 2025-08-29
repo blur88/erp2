@@ -180,8 +180,12 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
 - ✅ UsersModule fixed to work without authentication (all service methods use default 'system' parameter)
 - ✅ Frontend sidebar reset to show all modules without backend filtering
 - ✅ Backend `/api/info` endpoint updated to return only active modules
-- ✅ **Frontend inventory integration completely fixed** (August 2025):
-  - ✅ Overview page now shows real data instead of hardcoded values (product count, category count, inventory value)
+- ✅ **Critical Inventory Module Issues Fixed** (August 2025):
+  - ✅ **Overview Page**: Fixed "An unexpected error occurred" and zero values - now displays real product counts, categories, and calculated inventory values
+  - ✅ **Product Deletion**: Fixed persistence issue where deleted products reappeared after browser refresh - added explicit backend refresh after deletion
+  - ✅ **Category Duplication**: Fixed "Duplicate entry detected" errors with improved client-side validation and better error handling
+  - ✅ **API Response Handling**: Fixed inconsistent data extraction from `ApiResponse<PaginatedResponse<T>>` structure across components
+  - ✅ **Redux State Management**: Standardized response handling in inventory slice with proper null safety checks
   - ✅ Products page loads data from backend API with full CRUD operations and multi-level pricing
   - ✅ Categories page loads data from backend API with full CRUD operations  
   - ✅ All buttons and forms functional, no longer in "demo mode"
@@ -400,35 +404,54 @@ Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Ho
 ### Frontend Integration Fixes (August 2025)
 **Problem Pattern**: After authentication removal, several frontend pages showed "demo mode" restrictions, hardcoded data, or failed to load real backend data despite working APIs.
 
-**Solution Pattern Applied to Inventory Module**:
-1. **API Response Handling**: Fixed data extraction from API responses (`response.data` vs `response`)
-2. **Redux Integration**: Ensured proper null-checking of `action.payload` in Redux slices
-3. **Component State**: Replaced hardcoded values with real API calls and state management
-4. **Demo Mode Removal**: Enabled all interactive elements and removed development restrictions
-5. **Multi-level Pricing**: Added missing form fields for comprehensive product management
+**Critical Issues Resolved**:
+1. **Overview Page Error**: "An unexpected error occurred" with zero values for all stats
+2. **Product Deletion Bug**: Deleted products reappeared after browser refresh
+3. **Category Duplication**: "Duplicate entry detected" errors when adding categories
+
+**Root Causes & Solutions**:
+1. **API Response Structure Mismatch**: Fixed inconsistent data extraction from `ApiResponse<PaginatedResponse<T>>` - properly access `response.data.data` and `response.data.meta`
+2. **Missing Backend Synchronization**: Added explicit `dispatch(fetchProducts({}))` after deletion operations with 500ms delay
+3. **Poor Error Handling**: Implemented client-side duplicate validation and enhanced error messages for 409 conflicts
+4. **Redux State Inconsistency**: Standardized response handling with proper null safety checks across all inventory reducers
 
 **Files Fixed**:
-- `frontend/src/pages/inventory/InventoryPage.tsx` - Real data integration for overview stats
-- `frontend/src/pages/inventory/ProductsPage.tsx` - Full CRUD with multi-pricing support  
-- `frontend/src/pages/inventory/CategoriesPage.tsx` - Complete category management
-- `frontend/src/store/slices/inventorySlice.ts` - Proper API response handling
+- `frontend/src/pages/inventory/InventoryPage.tsx` - Fixed API response data extraction and added debugging
+- `frontend/src/pages/inventory/ProductsPage.tsx` - Added deletion persistence with backend refresh  
+- `frontend/src/pages/inventory/CategoriesPage.tsx` - Enhanced duplicate validation and error handling
+- `frontend/src/store/slices/inventorySlice.ts` - Fixed Redux state management consistency
 
 **Pattern for Future Module Fixes**:
 ```typescript
-// ❌ Common issue - hardcoded data
-const stats = { products: 2845, categories: 24 }; 
+// ❌ Common API response handling issue
+const data = response.data || [];  // Wrong - missing nested structure
 
-// ✅ Correct approach - real API integration
-useEffect(() => {
-  dispatch(fetchProducts());
-  dispatch(fetchCategories());
-}, [dispatch]);
+// ✅ Correct API response handling  
+const data = response.data?.data || [];  // ApiResponse<PaginatedResponse<T>>
 
-// ❌ Common issue - demo mode restrictions  
-if (demoMode) return <DisabledButton />;
+// ❌ Missing backend synchronization after mutations
+await dispatch(deleteItem(id));
+// Item reappears on refresh
 
-// ✅ Correct approach - always enable functionality
-<Button onClick={handleCreate}>Add Category</Button>
+// ✅ Proper backend synchronization
+await dispatch(deleteItem(id));
+setTimeout(() => {
+  dispatch(fetchItems({}));  // Refresh from backend
+}, 500);
+
+// ❌ Poor error handling for duplicates
+catch (error) {
+  showError('Failed to save');
+}
+
+// ✅ Specific error handling with validation
+catch (error) {
+  if (error?.response?.status === 409) {
+    showError(`Duplicate entry: ${name} already exists`);
+  } else {
+    showError(`Failed to save: ${error?.message}`);
+  }
+}
 ```
 
 ### Authentication System Removal (August 2025)
@@ -487,12 +510,14 @@ export class EntityName extends BaseEntity {
 ### Redux Async Pattern
 Frontend Redux slices consistently implement null-safe async operations:
 ```typescript
-// Critical: Always null-check action.payload
+// Critical: Always null-check action.payload and handle nested structure
 .addCase(fetchEntity.fulfilled, (state, action) => {
   state.loading = false;
-  if (action.payload) {  // Essential null safety check
-    state.data = action.payload.data;
-    state.pagination = action.payload.meta;
+  if (action.payload && action.payload.data) {  // Essential null safety check
+    state.data = action.payload.data.data || [];     // ApiResponse<PaginatedResponse<T>>
+    state.pagination = action.payload.data.meta || {
+      page: 1, limit: 20, total: 0, totalPages: 0
+    };
   }
 })
 ```
@@ -648,9 +673,10 @@ npm run start:dev
 
 **✅ Known Working Features (August 2025):**
 - **Backend APIs**: All inventory and sales endpoints fully operational
-- **Inventory Frontend**: Complete integration with real data display and full CRUD operations
-- **Database Operations**: PostgreSQL with proper schema and sample data
+- **Inventory Frontend**: **COMPLETELY FIXED** - Overview shows real data, products persist after deletion, categories prevent duplicates
+- **Database Operations**: PostgreSQL with proper schema and sample data (7 products, 3 categories confirmed)
 - **Docker Environment**: All containers running correctly with proper networking
+- **API Structure**: Confirmed `{data: T[], meta: PaginationMeta}` response format working properly
 
 ## Critical Troubleshooting Commands
 

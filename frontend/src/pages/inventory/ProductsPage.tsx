@@ -198,6 +198,10 @@ const ProductsPage: React.FC = () => {
       try {
         await dispatch(deleteProduct(product.id))
         showSuccess(`Product ${product.name} deleted successfully`)
+        // Explicitly refresh the products list to ensure backend state is synchronized
+        setTimeout(() => {
+          dispatch(fetchProducts({}))
+        }, 500)
       } catch (error) {
         showError('Failed to delete product. Please try again.')
       }
