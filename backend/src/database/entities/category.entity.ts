@@ -27,7 +27,7 @@ import { Product } from './product.entity';
  */
 @Entity('categories')
 // @Tree('materialized-path') // Temporarily disabled due to TypeORM materialized path issues
-@Index(['name'], { unique: true })
+@Index(['name', 'parentId'], { unique: true }) // Categories must be unique within same parent
 @Index(['code'], { unique: true, where: 'code IS NOT NULL' })
 @Index(['isActive'])
 @Index(['parentId'])
@@ -36,7 +36,6 @@ export class Category extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
-    unique: true,
     comment: 'Category name',
   })
   @IsString()

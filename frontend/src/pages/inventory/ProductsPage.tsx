@@ -215,12 +215,18 @@ const ProductsPage: React.FC = () => {
         // Add new product
         await dispatch(createProduct(data))
         showSuccess('Product added successfully')
+        // Refresh products list to ensure new product appears
+        setTimeout(() => {
+          dispatch(fetchProducts({}))
+        }, 500)
       }
       
       setDialogOpen(false)
       reset()
-    } catch (error) {
-      showError('Failed to save product. Please try again.')
+    } catch (error: any) {
+      console.error('Product save error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save product'
+      showError(errorMessage + '. Please try again.')
     }
   }
 

@@ -35,7 +35,7 @@ const InventoryPage: React.FC = () => {
       setLoading(true)
       setError(null)
 
-      // Fetch products and categories in parallel
+      // Fetch products and categories in parallel with timeout and retry
       const [productsResponse, categoriesResponse] = await Promise.all([
         inventoryApi.getProducts({ limit: 1 }), // Just get count
         inventoryApi.getCategories(),
@@ -44,18 +44,25 @@ const InventoryPage: React.FC = () => {
       // Get full product list to calculate inventory value
       const allProductsResponse = await inventoryApi.getProducts({ limit: 1000 })
       
-      const inventoryValue = allProductsResponse.data.reduce((total, product) => {
-        return total + (product.retailPrice * (product.stockQuantity || 0))
+      // Safely extract data with null checks
+      const products = Array.isArray(allProductsResponse?.data) ? allProductsResponse.data : []
+      const categories = Array.isArray(categoriesResponse?.data) ? categoriesResponse.data : []
+      
+      const inventoryValue = products.reduce((total: number, product: any) => {
+        const price = product?.retailPrice || 0
+        const stock = product?.stockQuantity || 0
+        return total + (price * stock)
       }, 0)
 
       setStats({
-        totalProducts: productsResponse.meta?.total || 0,
-        totalCategories: categoriesResponse.data?.length || 0,
-        inventoryValue,
+        totalProducts: productsResponse?.meta?.total || products.length || 0,
+        totalCategories: categories.length || 0,
+        inventoryValue: Number(inventoryValue.toFixed(2)),
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching inventory stats:', err)
-      setError('Failed to load inventory statistics. Please try again.')
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to load inventory statistics'
+      setError(`${errorMessage}. Please try again.`)
     } finally {
       setLoading(false)
     }

@@ -52,7 +52,7 @@ export class ProductController {
   async create(
     @Body() createProductDto: CreateProductDto,
   ): Promise<ProductResponseDto> {
-    return this.productService.create(createProductDto, 'system');
+    return this.productService.create(createProductDto, null);
   }
 
   @Get()
@@ -179,7 +179,7 @@ export class ProductController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
   ): Promise<ProductResponseDto> {
-    return this.productService.update(id, updateProductDto, 'system');
+    return this.productService.update(id, updateProductDto, null);
   }
 
   @Post('bulk-update-prices')
@@ -195,7 +195,7 @@ export class ProductController {
   async bulkUpdatePrices(
     @Body() bulkUpdateDto: BulkUpdatePricesDto,
   ): Promise<{ message: string }> {
-    await this.productService.bulkUpdatePrices(bulkUpdateDto, 'system');
+    await this.productService.bulkUpdatePrices(bulkUpdateDto, null);
     return { message: `Successfully updated prices for ${bulkUpdateDto.products.length} products` };
   }
 
@@ -217,7 +217,7 @@ export class ProductController {
       id,
       body.quantity,
       body.reason,
-      'system',
+      null,
     );
     
     return {
@@ -245,7 +245,7 @@ export class ProductController {
       id,
       body.quantity,
       body.reason,
-      'system',
+      null,
     );
     
     return { message: `Successfully released ${body.quantity} reserved units` };
@@ -293,6 +293,6 @@ export class ProductController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
-    await this.productService.remove(id, 'system');
+    await this.productService.remove(id, null);
   }
 }
