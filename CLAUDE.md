@@ -396,6 +396,17 @@ Each Redux slice follows a consistent pattern:
 - **API Integration**: Pages should use Redux + API calls instead of local state for persistence
 - **Available Slices**: `inventorySlice`, `salesSlice`, `purchasingSlice`, `dashboardSlice`, `notificationSlice`, `themeSlice`
 
+**Critical API Response Pattern (Fixed August 2025):**
+Backend returns `PaginatedResponse<T>` directly: `{data: T[], meta: {...}}`, not wrapped in `ApiResponse`. Redux reducers should use:
+```typescript
+.addCase(fetchEntity.fulfilled, (state, action) => {
+  if (action.payload) {
+    state.entities = (action.payload as any).data || []
+    state.pagination = (action.payload as any).meta || defaultMeta
+  }
+})
+```
+
 ### Plugin Development
 The plugin system supports multiple plugin types:
 - **Business modules**: New ERP functionality (HR, CRM, Manufacturing)
