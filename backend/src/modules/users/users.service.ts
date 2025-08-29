@@ -37,7 +37,7 @@ export class UsersService {
    */
   async create(
     createUserDto: CreateUserDto,
-    createdBy: AuthenticatedUser,
+    createdBy = 'system',
   ): Promise<UserResponseDto> {
     try {
       // Check if username already exists
@@ -57,8 +57,8 @@ export class UsersService {
         }
       }
 
-      // Validate role assignment permissions
-      this.validateRoleAssignment(createdBy.role, createUserDto.role);
+      // Validate role assignment permissions - allow all roles since auth is removed
+      // this.validateRoleAssignment(createdBy.role, createUserDto.role);
 
       // Create new user
       const user = this.userRepository.create({
@@ -71,7 +71,7 @@ export class UsersService {
       const savedUser = await this.userRepository.save(user);
 
       this.logger.log(
-        `User created: ${savedUser.username} by ${createdBy.username}`,
+        `User created: ${savedUser.username} by ${createdBy}`,
       );
 
       return this.mapToResponseDto(savedUser);
@@ -86,7 +86,7 @@ export class UsersService {
    */
   async findAll(
     queryDto: QueryUsersDto,
-    requestingUser: AuthenticatedUser,
+    requestingUser = 'system',
   ): Promise<PaginatedUsersResponseDto> {
     try {
       const { page, limit, search, role, status, isActive, isLocked, sortBy, sortOrder } = queryDto;
@@ -125,8 +125,8 @@ export class UsersService {
         }
       }
 
-      // Apply role-based filtering
-      this.applyRoleBasedFiltering(queryBuilder, requestingUser.role);
+      // Apply role-based filtering - disabled since auth is removed
+      // this.applyRoleBasedFiltering(queryBuilder, requestingUser.role);
 
       // Apply sorting
       queryBuilder.orderBy(`user.${sortBy}`, sortOrder);
@@ -143,7 +143,7 @@ export class UsersService {
       const totalPages = Math.ceil(total / limit);
 
       this.logger.log(
-        `Retrieved ${users.length} users (page ${page}/${totalPages}) by ${requestingUser.username}`,
+        `Retrieved ${users.length} users (page ${page}/${totalPages}) by ${requestingUser}`,
       );
 
       return {
@@ -166,7 +166,7 @@ export class UsersService {
    */
   async findOne(
     id: string,
-    requestingUser: AuthenticatedUser,
+    requestingUser = 'system',
   ): Promise<UserResponseDto> {
     try {
       const user = await this.userRepository.findOne({
@@ -177,10 +177,10 @@ export class UsersService {
         throw new NotFoundException('User not found');
       }
 
-      // Check if user can view this profile
-      this.validateUserAccess(user, requestingUser);
+      // Check if user can view this profile - disabled since auth is removed
+      // this.validateUserAccess(user, requestingUser);
 
-      this.logger.log(`User profile retrieved: ${user.username} by ${requestingUser.username}`);
+      this.logger.log(`User profile retrieved: ${user.username} by ${requestingUser}`);
 
       return this.mapToResponseDto(user);
     } catch (error) {
@@ -195,7 +195,7 @@ export class UsersService {
   async update(
     id: string,
     updateUserDto: UpdateUserDto,
-    requestingUser: AuthenticatedUser,
+    requestingUser = 'system',
   ): Promise<UserResponseDto> {
     try {
       const user = await this.userRepository.findOne({
@@ -206,8 +206,8 @@ export class UsersService {
         throw new NotFoundException('User not found');
       }
 
-      // Check permissions
-      this.validateUpdatePermissions(user, requestingUser, updateUserDto);
+      // Check permissions - disabled since auth is removed
+      // this.validateUpdatePermissions(user, requestingUser, updateUserDto);
 
       // Check for duplicate username/email if being updated
       if (updateUserDto.username || updateUserDto.email) {
@@ -228,10 +228,10 @@ export class UsersService {
         }
       }
 
-      // Validate role change permissions
-      if (updateUserDto.role && updateUserDto.role !== user.role) {
-        this.validateRoleAssignment(requestingUser.role, updateUserDto.role);
-      }
+      // Validate role change permissions - disabled since auth is removed
+      // if (updateUserDto.role && updateUserDto.role !== user.role) {
+      //   this.validateRoleAssignment(requestingUser.role, updateUserDto.role);
+      // }
 
       // Apply updates
       Object.assign(user, updateUserDto);
@@ -253,7 +253,7 @@ export class UsersService {
       const savedUser = await this.userRepository.save(user);
 
       this.logger.log(
-        `User updated: ${savedUser.username} by ${requestingUser.username}`,
+        `User updated: ${savedUser.username} by ${requestingUser}`,
       );
 
       return this.mapToResponseDto(savedUser);
@@ -268,7 +268,7 @@ export class UsersService {
    */
   async remove(
     id: string,
-    requestingUser: AuthenticatedUser,
+    requestingUser = 'system',
   ): Promise<{ message: string; deletedAt: Date }> {
     try {
       const user = await this.userRepository.findOne({
@@ -279,15 +279,15 @@ export class UsersService {
         throw new NotFoundException('User not found');
       }
 
-      // Prevent self-deletion
-      if (user.id === requestingUser.userId) {
-        throw new BadRequestException('Cannot delete your own account');
-      }
+      // Prevent self-deletion - disabled since auth is removed
+      // if (user.id === requestingUser.userId) {
+      //   throw new BadRequestException('Cannot delete your own account');
+      // }
 
-      // Check permissions
-      if (requestingUser.role !== UserRole.ADMIN) {
-        throw new ForbiddenException('Only administrators can delete users');
-      }
+      // Check permissions - disabled since auth is removed
+      // if (requestingUser.role !== UserRole.ADMIN) {
+      //   throw new ForbiddenException('Only administrators can delete users');
+      // }
 
       // Soft delete by deactivating
       user.isActive = false;
@@ -295,7 +295,7 @@ export class UsersService {
       await this.userRepository.save(user);
 
       this.logger.log(
-        `User deactivated: ${user.username} by ${requestingUser.username}`,
+        `User deactivated: ${user.username} by ${requestingUser}`,
       );
 
       return {
@@ -311,11 +311,12 @@ export class UsersService {
   /**
    * Get user statistics
    */
-  async getStatistics(requestingUser: AuthenticatedUser) {
+  async getStatistics(requestingUser = 'system') {
     try {
-      if (requestingUser.role !== UserRole.ADMIN && requestingUser.role !== UserRole.MANAGER) {
-        throw new ForbiddenException('Insufficient permissions to view statistics');
-      }
+      // Permission check disabled since auth is removed
+      // if (requestingUser.role !== UserRole.ADMIN && requestingUser.role !== UserRole.MANAGER) {
+      //   throw new ForbiddenException('Insufficient permissions to view statistics');
+      // }
 
       const [
         totalUsers,
@@ -357,7 +358,7 @@ export class UsersService {
         activePercentage: totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0,
       };
 
-      this.logger.log(`User statistics retrieved by ${requestingUser.username}`);
+      this.logger.log(`User statistics retrieved by ${requestingUser}`);
 
       return statistics;
     } catch (error) {

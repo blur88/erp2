@@ -48,7 +48,7 @@ export class AuditService {
       const auditLog = this.auditLogRepository.create({
         entityType: 'Product',
         entityId: productId,
-        action: eventType,
+        action: eventType as any,
         description,
         userId,
         metadata: {
@@ -56,8 +56,8 @@ export class AuditService {
           subModule: 'product',
           ...metadata,
         },
-        timestamp: new Date(),
-      });
+        createdAt: new Date(),
+      } as any);
 
       await this.auditLogRepository.save(auditLog);
       
@@ -81,7 +81,7 @@ export class AuditService {
       const auditLog = this.auditLogRepository.create({
         entityType: 'Category',
         entityId: categoryId,
-        action: eventType,
+        action: eventType as any,
         description,
         userId,
         metadata: {
@@ -89,8 +89,8 @@ export class AuditService {
           subModule: 'category',
           ...metadata,
         },
-        timestamp: new Date(),
-      });
+        createdAt: new Date(),
+      } as any);
 
       await this.auditLogRepository.save(auditLog);
       
@@ -114,7 +114,7 @@ export class AuditService {
       const auditLog = this.auditLogRepository.create({
         entityType: 'Stock',
         entityId: productId,
-        action: eventType,
+        action: eventType as any,
         description,
         userId,
         metadata: {
@@ -122,8 +122,8 @@ export class AuditService {
           subModule: 'stock',
           ...metadata,
         },
-        timestamp: new Date(),
-      });
+        createdAt: new Date(),
+      } as any);
 
       await this.auditLogRepository.save(auditLog);
       
@@ -143,11 +143,11 @@ export class AuditService {
   ): Promise<AuditLog[]> {
     return this.auditLogRepository.find({
       where: {
-        entityType,
+        entityType: entityType as any,
         entityId,
-      },
+      } as any,
       order: {
-        timestamp: 'DESC',
+        createdAt: 'DESC',
       },
       take: limit,
     });
@@ -164,7 +164,7 @@ export class AuditService {
     const queryBuilder = this.auditLogRepository
       .createQueryBuilder('audit')
       .where("audit.metadata->>'module' = 'inventory'")
-      .orderBy('audit.timestamp', 'DESC')
+      .orderBy('audit.createdAt', 'DESC')
       .limit(limit);
 
     if (userId) {
@@ -193,7 +193,7 @@ export class AuditService {
     const activities = await this.auditLogRepository
       .createQueryBuilder('audit')
       .where("audit.metadata->>'module' = 'inventory'")
-      .andWhere('audit.timestamp BETWEEN :fromDate AND :toDate', { fromDate, toDate })
+      .andWhere('audit.createdAt BETWEEN :fromDate AND :toDate', { fromDate, toDate })
       .getMany();
 
     const summary = {
@@ -213,7 +213,8 @@ export class AuditService {
       }
 
       // Count by entity type
-      summary.activitiesByEntity[activity.entityType] = (summary.activitiesByEntity[activity.entityType] || 0) + 1;
+      const entityType = (activity.metadata as any)?.entityType || 'Unknown';
+      summary.activitiesByEntity[entityType] = (summary.activitiesByEntity[entityType] || 0) + 1;
     });
 
     return summary;
@@ -230,15 +231,15 @@ export class AuditService {
     const queryBuilder = this.auditLogRepository
       .createQueryBuilder('audit')
       .where('audit.entityId = :productId', { productId })
-      .andWhere('audit.entityType = :entityType', { entityType: 'Stock' })
-      .orderBy('audit.timestamp', 'DESC');
+      .andWhere("audit.metadata->>'entityType' = :entityType", { entityType: 'Stock' })
+      .orderBy('audit.createdAt', 'DESC');
 
     if (fromDate) {
-      queryBuilder.andWhere('audit.timestamp >= :fromDate', { fromDate });
+      queryBuilder.andWhere('audit.createdAt >= :fromDate', { fromDate });
     }
 
     if (toDate) {
-      queryBuilder.andWhere('audit.timestamp <= :toDate', { toDate });
+      queryBuilder.andWhere('audit.createdAt <= :toDate', { toDate });
     }
 
     return queryBuilder.getMany();
@@ -251,18 +252,18 @@ export class AuditService {
     return this.auditLogRepository.find({
       where: [
         {
-          entityType: 'Product',
+          entityType: 'Product' as any,
           entityId: productId,
-          action: 'PRODUCT_PRICE_UPDATED',
+          action: 'PRODUCT_PRICE_UPDATED' as any,
         },
         {
-          entityType: 'Product',
+          entityType: 'Product' as any,
           entityId: productId,
-          action: 'PRODUCT_UPDATED',
+          action: 'PRODUCT_UPDATED' as any,
         },
-      ],
+      ] as any,
       order: {
-        timestamp: 'DESC',
+        createdAt: 'DESC',
       },
     });
   }
@@ -280,15 +281,15 @@ export class AuditService {
       .createQueryBuilder('audit')
       .where('audit.userId = :userId', { userId })
       .andWhere("audit.metadata->>'module' = 'inventory'")
-      .orderBy('audit.timestamp', 'DESC')
+      .orderBy('audit.createdAt', 'DESC')
       .limit(limit);
 
     if (fromDate) {
-      queryBuilder.andWhere('audit.timestamp >= :fromDate', { fromDate });
+      queryBuilder.andWhere('audit.createdAt >= :fromDate', { fromDate });
     }
 
     if (toDate) {
-      queryBuilder.andWhere('audit.timestamp <= :toDate', { toDate });
+      queryBuilder.andWhere('audit.createdAt <= :toDate', { toDate });
     }
 
     return queryBuilder.getMany();
@@ -329,7 +330,7 @@ export class AuditService {
       const bulkAuditLog = this.auditLogRepository.create({
         entityType: 'BulkOperation',
         entityId: null,
-        action: `BULK_${operation.toUpperCase()}` as InventoryEventType,
+        action: `BULK_${operation.toUpperCase()}` as any,
         description,
         userId,
         metadata: {
@@ -340,8 +341,8 @@ export class AuditService {
           entityCount: entityIds.length,
           ...metadata,
         },
-        timestamp: new Date(),
-      });
+        createdAt: new Date(),
+      } as any);
 
       await this.auditLogRepository.save(bulkAuditLog);
       
@@ -363,11 +364,11 @@ export class AuditService {
     const queryBuilder = this.auditLogRepository
       .createQueryBuilder('audit')
       .where("audit.metadata->>'module' = 'inventory'")
-      .andWhere('audit.timestamp BETWEEN :fromDate AND :toDate', { fromDate, toDate })
-      .orderBy('audit.timestamp', 'DESC');
+      .andWhere('audit.createdAt BETWEEN :fromDate AND :toDate', { fromDate, toDate })
+      .orderBy('audit.createdAt', 'DESC');
 
     if (entityType) {
-      queryBuilder.andWhere('audit.entityType = :entityType', { entityType });
+      queryBuilder.andWhere("audit.metadata->>'entityType' = :entityType", { entityType });
     }
 
     if (userId) {

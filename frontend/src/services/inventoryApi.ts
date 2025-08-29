@@ -45,7 +45,7 @@ export const inventoryApi = {
 
   // Categories
   async getCategories() {
-    return ApiService.get<Category[]>('/inventory/categories')
+    return ApiService.get<PaginatedResponse<Category>>('/inventory/categories')
   },
 
   async getCategory(id: string) {

@@ -5,9 +5,9 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
-  Tree,
-  TreeParent,
-  TreeChildren,
+  // Tree,        // Temporarily disabled
+  // TreeParent,  // Temporarily disabled
+  // TreeChildren,// Temporarily disabled
 } from 'typeorm';
 import {
   IsString,
@@ -26,7 +26,7 @@ import { Product } from './product.entity';
  * Optimized with path materialization for better query performance
  */
 @Entity('categories')
-@Tree('materialized-path')
+// @Tree('materialized-path') // Temporarily disabled due to TypeORM materialized path issues
 @Index(['name'], { unique: true })
 @Index(['code'], { unique: true, where: 'code IS NOT NULL' })
 @Index(['isActive'])
@@ -119,15 +119,15 @@ export class Category extends BaseEntity {
   @IsOptional()
   parentId?: string;
 
-  // Tree relationships
-  @TreeParent()
+  // Tree relationships (temporarily disabled due to TypeORM tree issues)
+  // @TreeParent()
   @ManyToOne(() => Category, (category) => category.children, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'parentId' })
   parent?: Category;
 
-  @TreeChildren()
+  // @TreeChildren()
   @OneToMany(() => Category, (category) => category.parent)
   children: Category[];
 

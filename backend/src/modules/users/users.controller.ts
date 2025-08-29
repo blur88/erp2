@@ -58,15 +58,14 @@ export class UsersController {
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 attempts per minute
   @ApiOperation({
     summary: 'Create new user',
-    description: 'Create a new user account (Manager/Admin only)',
+    description: 'Create a new user account (publicly accessible)',
   })
   @ApiResponse({
     status: 201,
     description: 'User created successfully',
     type: UserResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  // Authentication responses removed - endpoints are publicly accessible
   @ApiBadRequestResponse({ description: 'Invalid input data' })
   @ApiConflictResponse({ description: 'Username or email already exists' })
   async create(
@@ -74,7 +73,7 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     try {
       this.logger.log(`Creating new user: ${createUserDto.username}`);
-      return await this.usersService.create(createUserDto);
+      return await this.usersService.create(createUserDto, 'system');
     } catch (error) {
       this.logger.error(`User creation failed: ${error.message}`, error.stack);
       throw error;
@@ -94,14 +93,14 @@ export class UsersController {
     description: 'Users retrieved successfully',
     type: PaginatedUsersResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  // Authentication responses removed - endpoints are publicly accessible
   @ApiQuery({ type: QueryUsersDto })
   async findAll(
     @Query(ValidationPipe) queryDto: QueryUsersDto,
   ): Promise<PaginatedUsersResponseDto> {
     try {
       this.logger.log(`Retrieving users with query: ${JSON.stringify(queryDto)}`);
-      return await this.usersService.findAll(queryDto);
+      return await this.usersService.findAll(queryDto, 'system');
     } catch (error) {
       this.logger.error(`User retrieval failed: ${error.message}`, error.stack);
       throw error;
@@ -114,7 +113,7 @@ export class UsersController {
   @Get('statistics')
   @ApiOperation({
     summary: 'Get user statistics',
-    description: 'Retrieve user statistics and metrics (Manager/Admin only)',
+    description: 'Retrieve user statistics and metrics (publicly accessible)',
   })
   @ApiResponse({
     status: 200,
@@ -138,12 +137,11 @@ export class UsersController {
       },
     },
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  // Authentication responses removed - endpoints are publicly accessible
   async getStatistics() {
     try {
       this.logger.log(`Retrieving user statistics`);
-      return await this.usersService.getStatistics();
+      return await this.usersService.getStatistics('system');
     } catch (error) {
       this.logger.error(`Statistics retrieval failed: ${error.message}`, error.stack);
       throw error;
@@ -156,18 +154,18 @@ export class UsersController {
   @Get('me')
   @ApiOperation({
     summary: 'Get current user profile',
-    description: 'Retrieve the authenticated user\'s own profile',
+    description: 'Retrieve a system user profile (publicly accessible)',
   })
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
     type: UserResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  // Authentication responses removed - endpoints are publicly accessible
   async getCurrentUserProfile(): Promise<UserResponseDto> {
     try {
       this.logger.log(`Profile requested`);
-      return await this.usersService.findOne('current-user-id');
+      return await this.usersService.findOne('current-user-id', 'system');
     } catch (error) {
       this.logger.error(`Profile retrieval failed: ${error.message}`, error.stack);
       throw error;
@@ -180,21 +178,21 @@ export class UsersController {
   @Patch('me')
   @ApiOperation({
     summary: 'Update current user profile',
-    description: 'Update the authenticated user\'s own profile (limited fields)',
+    description: 'Update a system user profile (publicly accessible)',
   })
   @ApiResponse({
     status: 200,
     description: 'Profile updated successfully',
     type: UserResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  // Authentication responses removed - endpoints are publicly accessible
   @ApiBadRequestResponse({ description: 'Invalid input data' })
   async updateCurrentUserProfile(
     @Body(ValidationPipe) updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     try {
       this.logger.log(`Profile update requested`);
-      return await this.usersService.update('current-user-id', updateUserDto);
+      return await this.usersService.update('current-user-id', updateUserDto, 'system');
     } catch (error) {
       this.logger.error(`Profile update failed: ${error.message}`, error.stack);
       throw error;
@@ -220,15 +218,14 @@ export class UsersController {
     description: 'User retrieved successfully',
     type: UserResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  // Authentication responses removed - endpoints are publicly accessible
   @ApiNotFoundResponse({ description: 'User not found' })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<UserResponseDto> {
     try {
       this.logger.log(`User retrieval requested for ID: ${id}`);
-      return await this.usersService.findOne(id);
+      return await this.usersService.findOne(id, 'system');
     } catch (error) {
       this.logger.error(`User retrieval failed: ${error.message}`, error.stack);
       throw error;
@@ -241,7 +238,7 @@ export class UsersController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update user by ID',
-    description: 'Update a user by ID (Manager/Admin only)',
+    description: 'Update a user by ID (publicly accessible)',
   })
   @ApiParam({
     name: 'id',
@@ -254,8 +251,7 @@ export class UsersController {
     description: 'User updated successfully',
     type: UserResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  // Authentication responses removed - endpoints are publicly accessible
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiBadRequestResponse({ description: 'Invalid input data' })
   @ApiConflictResponse({ description: 'Username or email already exists' })
@@ -265,7 +261,7 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     try {
       this.logger.log(`User update requested for ID: ${id}`);
-      return await this.usersService.update(id, updateUserDto);
+      return await this.usersService.update(id, updateUserDto, 'system');
     } catch (error) {
       this.logger.error(`User update failed: ${error.message}`, error.stack);
       throw error;
@@ -278,7 +274,7 @@ export class UsersController {
   @Patch(':id/admin')
   @ApiOperation({
     summary: 'Admin update user by ID',
-    description: 'Update a user with admin privileges (Admin only)',
+    description: 'Update a user with admin privileges (publicly accessible)',
   })
   @ApiParam({
     name: 'id',
@@ -291,8 +287,7 @@ export class UsersController {
     description: 'User updated successfully',
     type: UserResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  // Authentication responses removed - endpoints are publicly accessible
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiBadRequestResponse({ description: 'Invalid input data' })
   async adminUpdate(
@@ -301,7 +296,7 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     try {
       this.logger.log(`Admin user update requested for ID: ${id}`);
-      return await this.usersService.update(id, adminUpdateDto);
+      return await this.usersService.update(id, adminUpdateDto, 'system');
     } catch (error) {
       this.logger.error(`Admin user update failed: ${error.message}`, error.stack);
       throw error;
@@ -315,7 +310,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Deactivate user',
-    description: 'Deactivate a user account (Admin only)',
+    description: 'Deactivate a user account (publicly accessible)',
   })
   @ApiParam({
     name: 'id',
@@ -334,8 +329,7 @@ export class UsersController {
       },
     },
   })
-  @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  // Authentication responses removed - endpoints are publicly accessible
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiBadRequestResponse({ description: 'Cannot delete your own account' })
   async remove(
@@ -343,7 +337,7 @@ export class UsersController {
   ) {
     try {
       this.logger.log(`User deactivation requested for ID: ${id}`);
-      return await this.usersService.remove(id);
+      return await this.usersService.remove(id, 'system');
     } catch (error) {
       this.logger.error(`User deactivation failed: ${error.message}`, error.stack);
       throw error;

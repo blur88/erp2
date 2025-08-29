@@ -88,6 +88,9 @@ export class ProductService {
 
     const savedProduct = await this.productRepository.save(product);
 
+    // Set the category relationship for the response DTO
+    savedProduct.category = category;
+
     // Create initial stock movement if initial stock provided
     if (createProductDto.initialStockQuantity && createProductDto.initialStockQuantity > 0) {
       await this.stockMovementService.recordInitialStock(

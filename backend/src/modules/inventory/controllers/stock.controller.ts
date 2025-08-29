@@ -139,7 +139,7 @@ export class StockController {
   async createAdjustment(
     @Body() createAdjustmentDto: CreateStockAdjustmentDto,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.create(createAdjustmentDto);
+    return this.stockAdjustmentService.create(createAdjustmentDto, 'system');
   }
 
   @Get('adjustments')
@@ -209,7 +209,7 @@ export class StockController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateAdjustmentDto: UpdateStockAdjustmentDto,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.update(id, updateAdjustmentDto);
+    return this.stockAdjustmentService.update(id, updateAdjustmentDto, 'system');
   }
 
   @Post('adjustments/:id/approve')
@@ -228,7 +228,7 @@ export class StockController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() actionDto: StockAdjustmentActionDto,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.approve(id, actionDto);
+    return this.stockAdjustmentService.approve(id, actionDto, 'system');
   }
 
   @Post('adjustments/:id/reject')
@@ -247,7 +247,7 @@ export class StockController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() actionDto: StockAdjustmentActionDto,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.reject(id, actionDto);
+    return this.stockAdjustmentService.reject(id, actionDto, 'system');
   }
 
   @Post('adjustments/:id/cancel')
@@ -266,7 +266,7 @@ export class StockController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { reason: string },
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.cancel(id, body.reason);
+    return this.stockAdjustmentService.cancel(id, body.reason, 'system');
   }
 
   @Post('adjustments/bulk')
@@ -280,7 +280,7 @@ export class StockController {
   async createBulkAdjustments(
     @Body() bulkAdjustmentDto: BulkStockAdjustmentDto,
   ): Promise<StockAdjustmentResponseDto[]> {
-    return this.stockAdjustmentService.createBulk(bulkAdjustmentDto);
+    return this.stockAdjustmentService.createBulk(bulkAdjustmentDto, 'system');
   }
 
   // Stock Summary and Reports

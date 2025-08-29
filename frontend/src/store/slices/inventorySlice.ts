@@ -75,8 +75,9 @@ export const fetchProducts = createAsyncThunk(
   async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getProducts(params)
-      return response.data
+      return response
     } catch (error: any) {
+      console.error('Failed to fetch products:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch products')
     }
   }
@@ -87,8 +88,9 @@ export const fetchCategories = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getCategories()
-      return response.data
+      return response
     } catch (error: any) {
+      console.error('Failed to fetch categories:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch categories')
     }
   }
@@ -191,7 +193,8 @@ const inventorySlice = createSlice({
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading.categories = false
         if (action.payload) {
-          state.categories = action.payload
+          // Handle API response format: { data: Category[], meta: {...} }
+          state.categories = action.payload.data || []
         }
       })
       .addCase(fetchCategories.rejected, (state, action) => {

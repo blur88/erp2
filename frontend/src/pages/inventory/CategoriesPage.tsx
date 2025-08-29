@@ -1,17 +1,162 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
   Paper,
   Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Chip,
+  IconButton,
+  CircularProgress,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControlLabel,
+  Switch,
+  Grid,
 } from '@mui/material'
 import {
   Add as AddIcon,
-  Category as CategoryIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material'
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import * as yup from 'yup'
+import { inventoryApi } from '@/services/inventoryApi'
+import { useNotification } from '@/hooks/useNotification'
+import type { Category } from '@/types'
+
+
+interface CategoryFormData {
+  name: string
+  code?: string
+  description?: string
+  isActive: boolean
+}
+
+const categorySchema = yup.object({
+  name: yup.string().required('Category name is required').min(2, 'Name must be at least 2 characters'),
+  code: yup.string().optional(),
+  description: yup.string().optional(),
+  isActive: yup.boolean(),
+})
 
 const CategoriesPage: React.FC = () => {
+  const { showSuccess, showError } = useNotification()
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CategoryFormData>({
+    resolver: yupResolver(categorySchema) as any,
+    defaultValues: {
+      name: '',
+      code: '',
+      description: '',
+      isActive: true,
+    },
+  })
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await inventoryApi.getCategories()
+      // Handle API response format: { data: Category[], meta: {...} }
+      const categoriesData = response.data || []
+      setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+    } catch (err) {
+      console.error('Error fetching categories:', err)
+      setError('Failed to load categories. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  const handleRefresh = () => {
+    fetchCategories()
+  }
+
+  const handleAddCategory = () => {
+    reset()
+    setEditMode(false)
+    setSelectedCategory(null)
+    setDialogOpen(true)
+  }
+
+  const handleEditCategory = (category: Category) => {
+    reset({
+      name: category.name,
+      code: category.code || '',
+      description: category.description || '',
+      isActive: category.isActive,
+    })
+    setEditMode(true)
+    setSelectedCategory(category)
+    setDialogOpen(true)
+  }
+
+  const handleDeleteCategory = async (category: Category) => {
+    if (window.confirm(`Are you sure you want to delete the category "${category.name}"?`)) {
+      try {
+        await inventoryApi.deleteCategory(category.id)
+        showSuccess(`Category "${category.name}" deleted successfully`)
+        fetchCategories()
+      } catch (error: any) {
+        showError(error.response?.data?.message || 'Failed to delete category')
+      }
+    }
+  }
+
+  const onSubmit = async (data: CategoryFormData) => {
+    try {
+      setSubmitting(true)
+      
+      if (editMode && selectedCategory) {
+        await inventoryApi.updateCategory(selectedCategory.id, data)
+        showSuccess('Category updated successfully')
+      } else {
+        await inventoryApi.createCategory(data)
+        showSuccess('Category created successfully')
+      }
+      
+      setDialogOpen(false)
+      reset()
+      fetchCategories()
+    } catch (error: any) {
+      showError(error.response?.data?.message || 'Failed to save category')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const getLevelIndicator = (level: number) => {
+    return '  '.repeat(level) + (level > 0 ? '└─ ' : '')
+  }
+
   return (
     <Box>
       {/* Header */}
@@ -21,30 +166,218 @@ const CategoriesPage: React.FC = () => {
             Categories
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Organize your products with categories
+            Organize your products with categories ({categories.length} total)
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          size="large"
-        >
-          Add Category
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            size="large"
+            onClick={handleAddCategory}
+          >
+            Add Category
+          </Button>
+        </Box>
       </Box>
 
-      {/* Coming Soon */}
-      <Paper sx={{ p: 6, textAlign: 'center' }}>
-        <CategoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-        <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-          Category Management Coming Soon
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Hierarchical category management with drag-and-drop organization
-          and bulk product assignment features will be available soon.
-        </Typography>
-        <Chip label="In Development" color="primary" variant="outlined" />
+      {/* Categories Table */}
+      <Paper>
+        {error && (
+          <Alert severity="error" sx={{ m: 2 }}>
+            {error}
+          </Alert>
+        )}
+        
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : categories.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              No categories found. Create your first category to get started.
+            </Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Name</strong></TableCell>
+                  <TableCell><strong>Code</strong></TableCell>
+                  <TableCell><strong>Description</strong></TableCell>
+                  <TableCell><strong>Status</strong></TableCell>
+                  <TableCell><strong>Level</strong></TableCell>
+                  <TableCell><strong>Created</strong></TableCell>
+                  <TableCell align="right"><strong>Actions</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {categories.map((category) => (
+                  <TableRow key={category.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                        {getLevelIndicator(category.level)}
+                      </Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {category.name}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {category.code ? (
+                        <Chip label={category.code} size="small" variant="outlined" />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">—</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {category.description || '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={category.isActive ? 'Active' : 'Inactive'}
+                        color={category.isActive ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        Level {category.level}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {new Date(category.createdAt).toLocaleDateString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <IconButton 
+                        size="small" 
+                        title="Edit Category"
+                        onClick={() => handleEditCategory(category)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        title="Delete Category" 
+                        onClick={() => handleDeleteCategory(category)}
+                        color="error"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
+
+      {/* Category Form Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {editMode ? 'Edit Category' : 'Add New Category'}
+        </DialogTitle>
+        <form onSubmit={handleSubmit(onSubmit as any)}>
+          <DialogContent>
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Controller
+                  name="name"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Category Name"
+                      error={!!errors.name}
+                      helperText={errors.name?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Controller
+                  name="code"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Category Code (Optional)"
+                      error={!!errors.code}
+                      helperText={errors.code?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Controller
+                  name="description"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Description (Optional)"
+                      multiline
+                      rows={3}
+                      error={!!errors.description}
+                      helperText={errors.description?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Controller
+                  name="isActive"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={field.value}
+                          onChange={field.onChange}
+                        />
+                      }
+                      label="Active Category"
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDialogOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : editMode ? 'Update' : 'Create'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Box>
   )
 }

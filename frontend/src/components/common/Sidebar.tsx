@@ -233,48 +233,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     return () => clearInterval(interval)
   }, [])
 
-  // Filter menu sections based on available modules
+  // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
-    if (!backendAvailable || availableModules.length === 0) {
-      // If backend is not available, only show dashboard and users
-      return menuSections.map(section => {
-        if (section.id === 'main') {
-          return section // Always show main (dashboard)
-        } else if (section.id === 'system') {
-          return {
-            ...section,
-            items: section.items.filter(item => 
-              item.id === 'settings' // Only show settings (which includes users)
-            )
-          }
-        } else {
-          return { ...section, items: [] } // Hide all other sections
-        }
-      }).filter(section => section.items.length > 0)
-    }
-
-    // Filter based on available modules
-    return menuSections.map(section => ({
-      ...section,
-      items: section.items.filter(item => {
-        switch (item.id) {
-          case 'dashboard':
-            return availableModules.includes('dashboard')
-          case 'inventory':
-            return availableModules.includes('inventory')
-          case 'sales':
-            return availableModules.includes('sales')
-          case 'purchasing':
-            return availableModules.includes('purchasing')
-          case 'reports':
-            return availableModules.includes('reports')
-          case 'settings':
-            return true // Always show settings if backend is available
-          default:
-            return true
-        }
-      })
-    })).filter(section => section.items.length > 0)
+    return menuSections // Return all menu sections without filtering
   }
 
   const handleItemClick = (item: MenuItem) => {

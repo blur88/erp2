@@ -65,11 +65,14 @@ interface ProductFormData {
   description: string
   sku: string
   categoryId: string
-  price: number
-  cost: number
-  stock: number
-  minStock: number
-  maxStock: number
+  type: 'goods' | 'service'
+  baseCost: number
+  retailPrice: number
+  wholesalePrice: number
+  specialPrice: number
+  initialStockQuantity: number
+  reorderLevel: number
+  optimalStockLevel: number
   unit: string
   isActive: boolean
 }
@@ -79,11 +82,14 @@ const productSchema = yup.object({
   description: yup.string(),
   sku: yup.string().required('SKU is required').min(3, 'SKU must be at least 3 characters'),
   categoryId: yup.string().required('Category is required'),
-  price: yup.number().required('Price is required').min(0, 'Price must be positive'),
-  cost: yup.number().required('Cost is required').min(0, 'Cost must be positive'),
-  stock: yup.number().required('Stock is required').min(0, 'Stock must be non-negative'),
-  minStock: yup.number().required('Minimum stock is required').min(0, 'Minimum stock must be non-negative'),
-  maxStock: yup.number().required('Maximum stock is required').min(0, 'Maximum stock must be non-negative'),
+  type: yup.string().oneOf(['goods', 'service'], 'Product type is required').required(),
+  baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
+  retailPrice: yup.number().required('Retail price is required').min(0, 'Price must be positive'),
+  wholesalePrice: yup.number().required('Wholesale price is required').min(0, 'Price must be positive'),
+  specialPrice: yup.number().required('Special price is required').min(0, 'Price must be positive'),
+  initialStockQuantity: yup.number().required('Stock is required').min(0, 'Stock must be non-negative'),
+  reorderLevel: yup.number().required('Reorder level is required').min(0, 'Reorder level must be non-negative'),
+  optimalStockLevel: yup.number().required('Optimal stock is required').min(0, 'Optimal stock must be non-negative'),
   unit: yup.string().required('Unit is required'),
   isActive: yup.boolean(),
 })
@@ -94,6 +100,7 @@ const ProductsPage: React.FC = () => {
   const products = useSelector(selectProducts) || []
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
+  
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
@@ -121,20 +128,23 @@ const ProductsPage: React.FC = () => {
       description: '',
       sku: '',
       categoryId: '',
-      price: 0,
-      cost: 0,
-      stock: 0,
-      minStock: 0,
-      maxStock: 0,
+      type: 'goods' as 'goods' | 'service',
+      baseCost: 0,
+      retailPrice: 0,
+      wholesalePrice: 0,
+      specialPrice: 0,
+      initialStockQuantity: 0,
+      reorderLevel: 0,
+      optimalStockLevel: 0,
       unit: 'pcs',
       isActive: true,
     },
   })
 
   // Filter products
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredProducts = (products || []).filter(product => {
+    const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === '' || product.category?.id === selectedCategory
     return matchesSearch && matchesCategory
   })
@@ -166,12 +176,15 @@ const ProductsPage: React.FC = () => {
       name: product.name,
       description: product.description || '',
       sku: product.sku,
-      categoryId: product.category?.id || '',
-      price: product.price,
-      cost: product.cost,
-      stock: product.stock,
-      minStock: product.minStock,
-      maxStock: product.maxStock,
+      categoryId: product.categoryId || product.category?.id || '',
+      type: product.type || 'goods',
+      baseCost: product.baseCost || 0,
+      retailPrice: product.retailPrice || 0,
+      wholesalePrice: product.wholesalePrice || 0,
+      specialPrice: product.specialPrice || 0,
+      initialStockQuantity: product.stockQuantity || 0,
+      reorderLevel: product.reorderLevel || 0,
+      optimalStockLevel: product.optimalStockLevel || 0,
       unit: product.unit,
       isActive: product.isActive,
     })
@@ -212,10 +225,13 @@ const ProductsPage: React.FC = () => {
   }
 
   const getStockStatus = (product: Product) => {
-    if (product.stock <= product.minStock) {
-      return { label: 'Low Stock', color: 'error' as const }
-    } else if (product.stock >= product.maxStock) {
-      return { label: 'Overstock', color: 'warning' as const }
+    const stock = product.stockQuantity || 0
+    const reorderLevel = product.reorderLevel || 0
+    
+    if (stock <= 0) {
+      return { label: 'Out of Stock', color: 'error' as const }
+    } else if (stock <= reorderLevel) {
+      return { label: 'Low Stock', color: 'warning' as const }
     } else {
       return { label: 'In Stock', color: 'success' as const }
     }
@@ -258,14 +274,14 @@ const ProductsPage: React.FC = () => {
           
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="h6" color="primary">
-              ${product.price.toFixed(2)}
+              ${(product.retailPrice || 0).toFixed(2)}
             </Typography>
             <Chip label={product.category?.name} size="small" variant="outlined" />
           </Box>
           
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2">
-              Stock: {product.stock} {product.unit}
+              Stock: {product.stockQuantity || 0} {product.unit}
             </Typography>
             <Chip 
               label={stockStatus.label} 
@@ -435,11 +451,11 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="subtitle2" color="primary">
-                            ${product.price.toFixed(2)}
+                            ${(product.retailPrice || 0).toFixed(2)}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
-                          {product.stock} {product.unit}
+                          {product.stockQuantity || 0} {product.unit}
                         </TableCell>
                         <TableCell>
                           <Chip 
@@ -587,6 +603,26 @@ const ProductsPage: React.FC = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <Controller
+                  name="type"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl fullWidth error={!!errors.type}>
+                      <InputLabel>Product Type</InputLabel>
+                      <Select {...field} label="Product Type">
+                        <MenuItem value="goods">Goods</MenuItem>
+                        <MenuItem value="service">Service</MenuItem>
+                      </Select>
+                      {errors.type && (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.5, mx: 2 }}>
+                          {errors.type.message}
+                        </Typography>
+                      )}
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Controller
                   name="unit"
                   control={control}
                   render={({ field }) => (
@@ -605,93 +641,145 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
+              {/* Multi-level Pricing */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                  Pricing Information
+                </Typography>
+              </Grid>
               <Grid item xs={12} md={6}>
                 <Controller
-                  name="price"
+                  name="baseCost"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="Sale Price"
+                      label="Base Cost"
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
                         startAdornment: <InputAdornment position="start">$</InputAdornment>
                       }}
-                      error={!!errors.price}
-                      helperText={errors.price?.message}
+                      error={!!errors.baseCost}
+                      helperText={errors.baseCost?.message}
                     />
                   )}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Controller
-                  name="cost"
+                  name="retailPrice"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="Cost Price"
+                      label="Retail Price"
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
                         startAdornment: <InputAdornment position="start">$</InputAdornment>
                       }}
-                      error={!!errors.cost}
-                      helperText={errors.cost?.message}
+                      error={!!errors.retailPrice}
+                      helperText={errors.retailPrice?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="wholesalePrice"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Wholesale Price"
+                      type="number"
+                      inputProps={{ step: 0.01, min: 0 }}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                      }}
+                      error={!!errors.wholesalePrice}
+                      helperText={errors.wholesalePrice?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="specialPrice"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Special Price"
+                      type="number"
+                      inputProps={{ step: 0.01, min: 0 }}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                      }}
+                      error={!!errors.specialPrice}
+                      helperText={errors.specialPrice?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              {/* Stock Management */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                  Stock Information
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Controller
+                  name="initialStockQuantity"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Initial Stock"
+                      type="number"
+                      inputProps={{ min: 0 }}
+                      error={!!errors.initialStockQuantity}
+                      helperText={errors.initialStockQuantity?.message}
                     />
                   )}
                 />
               </Grid>
               <Grid item xs={12} md={4}>
                 <Controller
-                  name="stock"
+                  name="reorderLevel"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="Current Stock"
+                      label="Reorder Level"
                       type="number"
                       inputProps={{ min: 0 }}
-                      error={!!errors.stock}
-                      helperText={errors.stock?.message}
+                      error={!!errors.reorderLevel}
+                      helperText={errors.reorderLevel?.message}
                     />
                   )}
                 />
               </Grid>
               <Grid item xs={12} md={4}>
                 <Controller
-                  name="minStock"
+                  name="optimalStockLevel"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="Min Stock"
+                      label="Optimal Stock"
                       type="number"
                       inputProps={{ min: 0 }}
-                      error={!!errors.minStock}
-                      helperText={errors.minStock?.message}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Controller
-                  name="maxStock"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Max Stock"
-                      type="number"
-                      inputProps={{ min: 0 }}
-                      error={!!errors.maxStock}
-                      helperText={errors.maxStock?.message}
+                      error={!!errors.optimalStockLevel}
+                      helperText={errors.optimalStockLevel?.message}
                     />
                   )}
                 />
