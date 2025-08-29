@@ -71,8 +71,10 @@ export class CreditManagementController {
   async requestCreditIncrease(
     @Body() request: Omit<CreditApprovalRequest, 'requestedByUserId'>,
   ): Promise<CreditApprovalResponse> {
+    // Auth removed - using system user
     return this.creditManagementService.requestCreditIncrease({
       ...request,
+      requestedByUserId: 'system',
     });
   }
 
@@ -90,8 +92,10 @@ export class CreditManagementController {
     @Param('approvalId') approvalId: string,
     @Body() approvalData: { comments?: string },
   ): Promise<CreditApprovalResponse> {
+    // Auth removed - using system user
     return this.creditManagementService.approveCreditRequest(
       approvalId,
+      'system',
       approvalData.comments,
     );
   }
@@ -109,8 +113,10 @@ export class CreditManagementController {
     @Param('approvalId') approvalId: string,
     @Body() rejectionData: { comments: string },
   ): Promise<CreditApprovalResponse> {
+    // Auth removed - using system user
     return this.creditManagementService.rejectCreditRequest(
       approvalId,
+      'system',
       rejectionData.comments,
     );
   }
@@ -172,10 +178,12 @@ export class CreditManagementController {
       expirationHours?: number;
     },
   ): Promise<CreditHold> {
+    // Auth removed - using system user
     return this.creditManagementService.placeCreditHold(
       holdData.customerId,
       holdData.amount,
       holdData.reason,
+      'system',
       holdData.orderId,
       holdData.expirationHours,
     );
@@ -193,7 +201,8 @@ export class CreditManagementController {
   async releaseCreditHold(
     @Param('holdId') holdId: string,
   ): Promise<CreditHold> {
-    return this.creditManagementService.releaseCreditHold(holdId);
+    // Auth removed - using system user
+    return this.creditManagementService.releaseCreditHold(holdId, 'system');
   }
 
   @Get('holds/customer/:customerId')
@@ -207,7 +216,7 @@ export class CreditManagementController {
   async getActiveCreditHolds(
     @Param('customerId', ParseUUIDPipe) customerId: string,
   ): Promise<CreditHold[]> {
-    return this.creditManagementService.getActiveCreditHolds(customerId);
+    return this.creditManagementService.getActiveCreditHoldsList(customerId);
   }
 
   @Get('utilization/:customerId')

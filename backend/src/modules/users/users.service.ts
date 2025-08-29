@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, Like, ILike } from 'typeorm';
 import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
-import { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+// Auth imports removed - authentication system disabled
 import {
   CreateUserDto,
   UpdateUserDto,

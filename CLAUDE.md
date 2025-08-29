@@ -139,46 +139,44 @@ docker compose logs backend # Check specific service logs
 
 ### Backend Module Structure
 The backend follows NestJS modular architecture with clear separation:
-- **Core modules**: `users/` - User management (authentication removed)
-- **Business modules**: `inventory/`, `sales/`, `purchasing/` - Core ERP functionality
-- **Analytics modules**: `dashboard/`, `reports/` - Business intelligence and reporting
-- **System modules**: `plugins/` - Extensibility framework
-- **Auth module**: `auth/` - Available but disconnected from main app
+- **Core modules**: `users/` - User management (authentication completely removed)
+- **Business modules**: `inventory/` (active), `sales/` (active), `purchasing/` (disabled) - Core ERP functionality
+- **Analytics modules**: `dashboard/`, `reports/` (both disabled) - Business intelligence and reporting
+- **System modules**: `plugins/` (disabled) - Extensibility framework
 
 **⚠️ CRITICAL: Current System Status (Updated August 2025)**
-- **Most modules temporarily disabled**: Only `UsersModule` and `InventoryModule` are currently loaded in `app.module.ts`
-- **Business modules temporarily re-disabled**: `SalesModule`, `PurchasingModule`, `ReportsModule`, `DashboardModule`, `PluginsModule` are enabled in code but temporarily disabled due to compilation issues
-- **Authentication system intact but disconnected**: AuthModule exists but is not imported - system running without auth for development/testing
+- **Authentication system completely removed**: AuthModule, auth guards, decorators, and strategies have been deleted
+- **Currently active modules**: `UsersModule`, `InventoryModule`, and `SalesModule` are loaded in `app.module.ts`
+- **Business modules still disabled**: `PurchasingModule`, `ReportsModule`, `DashboardModule`, `PluginsModule` remain commented out
 - **Database schema issues resolved**: Manual table creation required due to TypeORM sync issues
-- **Backend fully operational**: Core APIs working after fixing BaseEntity references and database columns
+- **Backend fully operational**: Core APIs working with all endpoints publicly accessible
 
 **Module Loading Status (app.module.ts:40-46):**
 ```typescript
 // Currently active:
-UsersModule,        // ✅ Active (with some endpoint issues)
+UsersModule,        // ✅ Active - all endpoints publicly accessible
 InventoryModule,    // ✅ Fully functional
+SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
 
-// Enabled but temporarily re-disabled due to compilation issues:
-// SalesModule, // Re-enable after fixing compilation issues
+// Still disabled due to auth dependencies:
 // PurchasingModule, // Re-enable after fixing compilation issues  
 // ReportsModule, // Re-enable after fixing compilation issues
 // DashboardModule, // Re-enable after fixing compilation issues
 // PluginsModule, // Re-enable after fixing compilation issues
 ```
 
-**Known Issues Fixed:**
-- ✅ BaseEntity reference error in `entities/index.ts` (BaseEntity removed from ALL_ENTITIES array)
-- ✅ Plugin entity `IsVersion` validator issue (replaced with `IsString`)
-- ✅ Missing database columns for products and categories tables
-- ✅ Docker volume mount synchronization issues
-- ✅ ALL_ENTITIES and ENTITY_GROUPS arrays compilation errors (temporarily commented out in `database/entities/index.ts`)
+**Recent Fixes Completed:**
+- ✅ AuthModule completely removed from codebase
+- ✅ Auth guards and decorators deleted (`src/common/guards/`, `src/common/strategies/`, auth decorators)
+- ✅ Auth imports cleaned up from all modules
+- ✅ SalesModule TypeScript compilation errors fixed (method signatures, property names)
+- ✅ Service method calls updated to use 'system' as default userId
+- ✅ SalesModule successfully re-enabled in app.module.ts
 
-**Re-enabling Modules:**
-- Modules have been enabled in code but temporarily re-disabled due to auth-related compilation errors
-- Required dependencies installed: `class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader` 
-- Main remaining issues are auth decorator TypeScript compilation errors
-- To re-enable: Uncomment modules in `app.module.ts` after fixing compilation issues
+**Remaining Tasks for Other Modules:**
+- Other business modules may still have auth-related compilation errors
 - Use `npx tsc --noEmit` to check for TypeScript compilation errors before enabling modules
+- Follow same pattern as SalesModule: replace missing auth parameters with 'system' default
 
 ### Service-Controller-DTO Pattern
 Each module follows consistent architecture:
@@ -220,7 +218,7 @@ React application with:
 - **Authentication**: All auth components and hooks disabled
 
 ### Security Implementation
-**⚠️ SECURITY NOTICE: Authentication system has been removed**
+**⚠️ SECURITY NOTICE: Authentication system has been completely removed**
 
 Remaining security features:
 - **Input validation**: class-validator on all DTOs with sanitization
@@ -228,11 +226,16 @@ Remaining security features:
 - **Security headers**: CORS, CSP, HSTS via Helmet middleware
 - **Audit logging**: Basic request logging (user attribution removed)
 
-**Disabled Security Features:**
-- **Authentication**: JWT authentication completely removed
-- **Authorization**: Role-based access control disabled
-- **Password Security**: bcrypt functionality still available but not enforced
-- **Account Security**: Account lockout disabled
+**Removed Security Features:**
+- **Authentication**: JWT authentication, guards, decorators, and strategies completely deleted from codebase
+- **Authorization**: Role-based access control completely removed
+- **Password Security**: bcrypt functionality removed along with auth system
+- **Account Security**: Account lockout completely removed
+
+**Current Security Status:**
+- All API endpoints are publicly accessible without authentication
+- Services use 'system' as default user context where userId is required
+- Frontend auth components and interceptors have been removed
 
 ### Multi-Level Pricing System
 Products support comprehensive pricing structure:
@@ -322,23 +325,31 @@ All entities extend `BaseEntity` which provides:
 - DTOs use class-validator for validation
 - Services handle business logic, controllers handle HTTP concerns
 
-### Authentication Decorators (DISABLED)
-**⚠️ All authentication decorators have been removed from controllers:**
-- `@Public()` - bypass JWT authentication entirely (REMOVED)
-- `@OptionalAuth()` - optional authentication (REMOVED)
-- `@Auth(...roles)` - role-based authentication (REMOVED)
-- `@AuthWithPermissions(...permissions)` - permission-based authorization (REMOVED)
-- `@AdminOnly()` - convenience decorator for admin-only endpoints (REMOVED)
-- `@ManagerOrAdmin()` - convenience decorator for manager or admin access (REMOVED)
-- `@Roles(Role.ADMIN, Role.MANAGER)` - traditional role-based authorization (REMOVED)
+### Post-Authentication Removal Pattern
+**⚠️ All authentication-related code has been completely removed:**
 
-### User Context Decorators (DISABLED)
-**⚠️ All user context decorators have been removed from controllers:**
-- `@CurrentUser()` - extracts full authenticated user object (REMOVED)
-- `@User(property)` - extracts specific user property (REMOVED)
-- `@UserId()` - extracts user ID from authenticated request (REMOVED)
-- `@UserRole()` - extracts user role from authenticated request (REMOVED)
-- `@SessionId()` - extracts session ID from authenticated request (REMOVED)
+**Deleted Files and Directories:**
+- `src/modules/auth/` - Complete authentication module
+- `src/common/guards/` - Authentication and authorization guards  
+- `src/common/strategies/` - Passport authentication strategies
+- `src/common/decorators/auth.decorator.ts` - Authentication decorators
+- `src/common/decorators/user.decorator.ts` - User context extractors
+
+**Service Method Signature Updates:**
+When fixing modules after auth removal, follow this pattern:
+```typescript
+// Before (auth system):
+service.create(dto, userId)
+// After (auth removed):
+service.create(dto, 'system') // Use 'system' as default userId
+```
+
+**Common Auth-Related Fixes:**
+- Replace missing auth parameters with `'system'` string
+- Remove `@UseGuards()`, `@Roles()`, `@Auth()` decorators from controllers
+- Remove auth imports and update interface references
+- Update property names: `sellingPrice` → `retailPrice`, `costPrice` → `baseCost`
+- Replace missing enum values: `RESERVATION` → `ADJUSTMENT_DECREASE`
 
 ### Redux State Management Patterns
 Each Redux slice follows a consistent pattern:
@@ -518,18 +529,21 @@ npm run start:dev
 - **Frontend blank page**: ~~This issue has been permanently fixed. The Docker build now properly copies the production-built index.html with correct asset references instead of the development version.~~ (RESOLVED)
 
 ### Backend Module Loading Issues
-**⚠️ IMPORTANT: Authentication has been completely removed**
-- **AuthModule**: No longer loaded in `app.module.ts` - authentication system disabled for future upgrade
-- **Missing Dependencies**: May need npm dependencies (`class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`) for other modules. Install with `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
-- **Silent Module Loading Failures**: Non-auth modules may fail to load silently due to TypeScript compilation errors. Check startup logs for missing module initialization messages.
+**⚠️ IMPORTANT: Authentication has been completely removed from codebase**
+- **AuthModule**: Completely deleted from filesystem - authentication system removed entirely
+- **SalesModule**: Successfully re-enabled after fixing auth compilation errors
+- **Missing Dependencies**: May need npm dependencies (`class-transformer`, `@grpc/grpc-js`, `@grpc/proto-loader`) for remaining disabled modules. Install with `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
+- **Silent Module Loading Failures**: Remaining disabled modules may fail to load due to auth-related TypeScript compilation errors. Check startup logs for missing module initialization messages.
 - **TypeScript Compilation Errors**: Use type assertions `as any` for repository operations if TypeScript validation fails.
 - **Dependency Version Conflicts**: Use `--legacy-peer-deps` flag when installing dependencies to resolve NestJS version conflicts
 - **IPv6 Connection Issues**: Add `family: 4` to Redis/PostgreSQL connection configs to force IPv4 in Docker environments
 
 ### Current System Status
-**⚠️ Authentication Status:**
-- All authentication endpoints are disabled (return 404)
-- All API endpoints are publicly accessible
+**⚠️ Post-Authentication Removal Status:**
+- Authentication system completely removed from codebase
+- All API endpoints are publicly accessible without any authentication
+- SalesModule successfully re-enabled and functional
+- Remaining modules (Purchasing, Reports, Dashboard, Plugins) still disabled pending similar fixes
 - Demo user creation is no longer needed
 - Frontend auth components have been removed
 
@@ -557,13 +571,23 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT email, role F
 docker compose exec backend npm run build
 
 # Test individual module loading with ts-node (most effective for diagnosing module issues)
-# Note: AuthModule is no longer loaded, test other modules instead
+# Test currently active modules
 docker compose exec backend npx ts-node -e "
   try { 
-    const usersModule = require('./src/modules/users/users.module.ts'); 
-    console.log('✓ UsersModule loaded successfully');
+    const salesModule = require('./src/modules/sales/sales.module.ts'); 
+    console.log('✓ SalesModule loaded successfully');
   } catch (error) { 
-    console.error('✗ UsersModule failed:', error.message); 
+    console.error('✗ SalesModule failed:', error.message); 
+  }
+"
+
+# Test disabled modules for auth-related errors
+docker compose exec backend npx ts-node -e "
+  try { 
+    const purchasingModule = require('./src/modules/purchasing/purchasing.module.ts'); 
+    console.log('✓ PurchasingModule loaded successfully');
+  } catch (error) { 
+    console.error('✗ PurchasingModule failed:', error.message); 
   }
 "
 
@@ -575,16 +599,16 @@ docker compose exec backend find src -name "*app.module*"
 
 # Test API availability (all endpoints should be accessible without auth)
 curl http://localhost:3001/api/users -X GET
+curl http://localhost:3001/api/inventory -X GET  
+curl http://localhost:3001/api/sales-orders -X GET
 ```
 
 
 ## Key Files to Know
 
-- `backend/src/app.module.ts` - Main NestJS module with global providers (most modules currently disabled)
+- `backend/src/app.module.ts` - Main NestJS module with global providers (SalesModule re-enabled, others still disabled)
 - `backend/src/database/entities/base.entity.ts` - Base entity all others extend  
 - `backend/src/database/entities/index.ts` - Entity exports (BaseEntity removed from ALL_ENTITIES array)
-- `backend/src/common/decorators/auth.decorator.ts` - Authentication decorators (exist but not functional)
-- `backend/src/common/decorators/user.decorator.ts` - User context extractors (exist but not functional)
 - `frontend/src/App.tsx` - Main React component with routing
 - `frontend/src/components/common/Sidebar.tsx` - Dynamic sidebar with module detection
 - `frontend/src/services/moduleApi.ts` - Backend module availability detection service
@@ -593,24 +617,25 @@ curl http://localhost:3001/api/users -X GET
 - `deploy.sh` - Production deployment automation
 - `frontend/nginx.conf` - NGINX configuration for frontend container
 
-### Critical Files for Module Loading Issues
+### Critical Files for Module Re-enabling
+- `backend/src/modules/sales/` - Successfully re-enabled after auth removal fixes
+- `backend/src/modules/purchasing/purchasing.module.ts` - Next module to re-enable (auth imports need cleaning)
+- `backend/src/modules/dashboard/` - Auth decorators and imports cleaned up but module still disabled
+- `backend/src/modules/reports/` - Auth imports partially cleaned up but module still disabled
 - `backend/src/database/entities/plugin.entity.ts` - Plugin entity (IsVersion fixed to IsString)
-- `backend/src/modules/purchasing/purchasing.module.ts` - PurchasingModule (AuthModule import removed)
 - `backend/src/config/database.config.ts` - Database configuration with sync settings
 
-### Authentication System Files (INTACT BUT DISCONNECTED)
-The authentication system exists but is temporarily disconnected:
+### Authentication System Status (COMPLETELY REMOVED)
+**⚠️ IMPORTANT: Authentication system has been completely deleted from the codebase**
 
-**Backend Auth Files (Available):**
-- `backend/src/modules/auth/` - Complete auth module with JWT, guards, strategies
-- `backend/src/common/guards/` - Authentication and authorization guards
-- `backend/src/common/strategies/` - Passport strategies for JWT and local auth
+**Deleted Files and Directories:**
+- `backend/src/modules/auth/` - ❌ DELETED - Complete auth module
+- `backend/src/common/guards/` - ❌ DELETED - Authentication and authorization guards
+- `backend/src/common/strategies/` - ❌ DELETED - Passport strategies
+- `backend/src/common/decorators/auth.decorator.ts` - ❌ DELETED
+- `backend/src/common/decorators/user.decorator.ts` - ❌ DELETED
 
-**Frontend Auth Files (Status Unknown):**
-- Frontend auth components may exist but are not currently imported/used
-- System currently runs without authentication for development purposes
-
-**Note**: The authentication system is architecturally complete but disabled for the current development phase. It can be re-enabled by uncommenting AuthModule in app.module.ts and resolving any dependency issues.
+**Authentication cannot be restored without recreating these files from scratch.**
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.

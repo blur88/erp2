@@ -46,7 +46,8 @@ export class QuotationController {
   async createQuotation(
     @Body() createQuotationDto: CreateQuotationDto,
   ): Promise<QuotationResponseDto> {
-    return this.quotationService.create(createQuotationDto);
+    // Auth removed - using system user
+    return this.quotationService.create(createQuotationDto, 'system');
   }
 
   @Get()
@@ -181,8 +182,10 @@ export class QuotationController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() convertDto: Omit<ConvertQuotationDto, 'quotationId'>,
   ): Promise<{ salesOrderId: string; quotationId: string; message: string }> {
+    // Auth removed - using system user
     const salesOrderId = await this.quotationService.convertToSalesOrder(
       { ...convertDto, quotationId: id },
+      'system'
     );
 
     return {

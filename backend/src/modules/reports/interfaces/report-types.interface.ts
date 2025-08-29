@@ -1,4 +1,4 @@
-import { UserRole } from '../../auth/interfaces/user-role.interface';
+// Auth imports removed - authentication system disabled
 
 export enum ReportCategory {
   SALES = 'sales',
@@ -29,7 +29,7 @@ export interface ReportConfig {
   category: ReportCategory;
   type: string;
   description?: string;
-  requiredRoles: UserRole[];
+  // requiredRoles removed - authentication system disabled
   filters?: Record<string, any>;
   timeRange?: {
     start: Date;
@@ -43,7 +43,7 @@ export interface ReportTemplate {
   category: ReportCategory;
   template: string;
   fields: string[];
-  requiredPermissions: UserRole[];
+  // requiredPermissions removed - authentication system disabled
 }
 
 export interface ReportGenerationOptions {

@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Customer, CustomerStatus } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
+import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import { User, UserRole } from '../../../database/entities/user.entity';
 import { CreditCheckResponseDto } from '../dto/customer.dto';
 
@@ -289,7 +289,7 @@ export class CreditManagementService {
     return hold;
   }
 
-  async getActiveCreditHolds(customerId: string): Promise<CreditHold[]> {
+  async getActiveCreditHoldsList(customerId: string): Promise<CreditHold[]> {
     const now = new Date();
     return Array.from(this.creditHolds.values())
       .filter(hold => 
@@ -319,7 +319,8 @@ export class CreditManagementService {
     effectiveAvailableCredit: number;
   }> {
     const customer = await this.findCustomer(customerId);
-    const activeCreditHolds = this.getActiveCreditHolds(customerId);
+    const activeCreditHolds = await this.getActiveCreditHoldsList(customerId);
+    const activeCreditHoldsTotal = this.getActiveCreditHolds(customerId);
     
     const creditLimit = Number(customer.creditLimit);
     const currentBalance = Number(customer.currentBalance);
@@ -330,8 +331,8 @@ export class CreditManagementService {
       currentBalance,
       availableCredit: customer.availableCredit,
       utilizationPercentage,
-      activeCreditHolds,
-      effectiveAvailableCredit: customer.availableCredit - activeCreditHolds,
+      activeCreditHolds: activeCreditHoldsTotal,
+      effectiveAvailableCredit: customer.availableCredit - activeCreditHoldsTotal,
     };
   }
 
@@ -346,7 +347,7 @@ export class CreditManagementService {
     // Get customer's payment history and order statistics
     const [overdueInvoices, totalInvoices, recentOrders] = await Promise.all([
       this.invoiceRepository.count({
-        where: { customerId, status: 'overdue' },
+        where: { customerId, status: InvoiceStatus.OVERDUE as any },
       }),
       this.invoiceRepository.count({ where: { customerId } }),
       this.salesOrderRepository.count({
@@ -480,8 +481,9 @@ export class CreditManagementService {
     const approvalLimits: Record<UserRole, number> = {
       [UserRole.ADMIN]: Number.MAX_SAFE_INTEGER,
       [UserRole.MANAGER]: 50000,
-      [UserRole.SALES_REP]: 10000,
-      [UserRole.USER]: 1000,
+      [UserRole.SALES_STAFF]: 10000,
+      [UserRole.INVENTORY_STAFF]: 1000,
+      [UserRole.PROCUREMENT_STAFF]: 1000,
     };
 
     const userLimit = approvalLimits[user.role] || 0;

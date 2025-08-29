@@ -1,4 +1,4 @@
-import { UserRole } from '../../auth/interfaces/user-interfaces';
+// Auth imports removed - authentication system disabled
 
 // Core Dashboard Types
 export interface DashboardWidget {
@@ -7,7 +7,7 @@ export interface DashboardWidget {
   title: string;
   dataSource: string;
   config: WidgetConfig;
-  accessibleRoles: UserRole[];
+  // accessibleRoles removed - all widgets now publicly accessible
 }
 
 export enum WidgetType {
