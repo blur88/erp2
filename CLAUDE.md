@@ -83,18 +83,7 @@ npm run type-check             # TypeScript check without build
 ```
 
 ### Plugin System
-**Status**: Plugin system is architecturally complete but CLI is not fully integrated.
-
-```bash
-# Plugin CLI (from backend directory)
-# Commands are not registered as npm scripts yet
-npx ts-node src/modules/plugins/cli/plugin-cli.ts create my-plugin --type business
-npx ts-node src/modules/plugins/cli/plugin-cli.ts validate
-npx ts-node src/modules/plugins/cli/plugin-cli.ts build --production
-
-# Install plugin via API
-curl -X POST http://localhost:3001/api/plugins/install -F "file=@plugin.zip"
-```
+**Status**: Plugin system is disabled.
 
 ### Deployment
 ```bash
@@ -169,33 +158,11 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
 // PluginsModule, // Re-enable after fixing compilation issues
 ```
 
-**Recent Fixes Completed:**
-- ✅ AuthModule completely removed from codebase
-- ✅ Auth guards and decorators deleted (`src/common/guards/`, `src/common/strategies/`, auth decorators)
-- ✅ Auth imports cleaned up from all modules
-- ✅ SalesModule TypeScript compilation errors fixed (method signatures, property names)
-- ✅ Service method calls updated to use 'system' as default userId
-- ✅ SalesModule successfully re-enabled in app.module.ts
-- ✅ InventoryModule TypeScript compilation errors fixed (stock controller, audit service)
-- ✅ InventoryModule fully functional with comprehensive business logic
-- ✅ UsersModule fixed to work without authentication (all service methods use default 'system' parameter)
-- ✅ Frontend sidebar reset to show all modules without backend filtering
-- ✅ Backend `/api/info` endpoint updated to return only active modules
-- ✅ **Critical Inventory Module Issues Fixed** (August 2025):
-  - ✅ **Overview Page**: Fixed "An unexpected error occurred" and zero values - now displays real product counts, categories, and calculated inventory values (8 products, 4 categories, ~$36,689 inventory value)
-  - ✅ **Product Deletion**: Fixed persistence issue where deleted products reappeared after browser refresh - added explicit backend refresh after deletion
-  - ✅ **Category Duplication**: Fixed "Duplicate entry detected" errors with improved client-side validation and better error handling
-  - ✅ **API Response Handling**: Fixed inconsistent data extraction from `ApiResponse<PaginatedResponse<T>>` structure across components
-  - ✅ **Redux State Management**: Standardized response handling in inventory slice with proper null safety checks
-  - ✅ Products page loads data from backend API with full CRUD operations and multi-level pricing
-  - ✅ Categories page loads data from backend API with full CRUD operations  
-  - ✅ All buttons and forms functional, no longer in "demo mode"
-  - ✅ Redux state management properly integrated with backend APIs
-  - ✅ Product creation API fixed (userId parameter issue resolved)
-  - ✅ **Sample Data Added**: Database now includes 8 sample products across 4 categories (Electronics, Office Supplies, Furniture, test) with complete multi-level pricing and stock quantities
-- ✅ **Category Code Unique Constraint Fix** (August 2025): Fixed PostgreSQL unique constraint violation on category `code` field by converting empty strings to `NULL` values in service layer
-- ✅ **API Endpoint Method Mismatch Fix** (August 2025): Fixed category and product update operations failing with 404 errors by changing frontend API calls from `PUT` to `PATCH` to match backend controller decorators (`@Patch(':id)'`)
-- ✅ **Category Deletion UX Enhancement** (August 2025): Fixed misleading category deletion errors by adding product count display in categories table and improved error messaging for categories containing products
+**Recent Key Changes:**
+- Authentication system completely removed from codebase
+- UsersModule, InventoryModule, and SalesModule are active and functional
+- Inventory frontend fully integrated with backend APIs
+- All API endpoints publicly accessible without authentication
 
 **Remaining Tasks for Other Modules:**
 - Other business modules may still have auth-related compilation errors
@@ -408,23 +375,10 @@ Backend returns `PaginatedResponse<T>` directly: `{data: T[], meta: {...}}`, not
 ```
 
 ### Plugin Development
-The plugin system supports multiple plugin types:
-- **Business modules**: New ERP functionality (HR, CRM, Manufacturing)
-- **Integrations**: Third-party services (payment gateways, shipping)
-- **UI extensions**: Dashboard widgets, custom pages
-- **Workflows**: Process automation and approvals
-
-**Plugin Architecture**:
-- **BasePlugin Class**: Complete lifecycle management (initialize → start → stop → destroy)
-- **Plugin Types**: Business, Integration, Reporting, UI Extension, Workflow, Authentication
-- **Security System**: Multi-level security policies per plugin type with resource monitoring
-- **Hook System**: Event-driven architecture with 20+ system hooks for integration
-- **Database Integration**: Dynamic entity support and plugin-specific connections
-- **Development Tools**: CLI for plugin creation, validation, and building
-- **Production Features**: Health monitoring, auto-restart, security audit trails
-- **Hot Reload**: Development mode plugin reloading with dependency injection
-
-Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Hook()`, `@ApiEndpoint()`. The plugin system includes comprehensive security policies, resource usage monitoring, and violation detection.
+The plugin system is currently disabled but architecturally supports:
+- Business modules, integrations, UI extensions, and workflows
+- BasePlugin class with lifecycle management
+- Security policies and resource monitoring
 
 ## Critical Recent Architecture Changes
 
@@ -450,83 +404,20 @@ Plugins must extend `BasePlugin` class and use decorators like `@Plugin()`, `@Ho
 - `frontend/src/services/inventoryApi.ts` - Added support for `includeProductCount` parameter in categories API
 - `frontend/src/types/index.ts` - Added `productCount` field to Category interface
 
-**Pattern for Future Module Fixes**:
-```typescript
-// ❌ Common API response handling issue
-const data = response.data || [];  // Wrong - missing nested structure
+**Key Patterns for Module Fixes**:
+- API responses: Use `response.data?.data` for `ApiResponse<PaginatedResponse<T>>`
+- After mutations: Add backend refresh with `setTimeout(() => dispatch(fetchItems({})), 500)`
+- Error handling: Check for 409 conflicts and show specific messages
+- API methods: Match frontend calls to backend decorators (@Patch → patch())
 
-// ✅ Correct API response handling  
-const data = response.data?.data || [];  // ApiResponse<PaginatedResponse<T>>
+### Authentication System Status
+**⚠️ IMPORTANT: Authentication system completely removed**
 
-// ❌ Missing backend synchronization after mutations
-await dispatch(deleteItem(id));
-// Item reappears on refresh
-
-// ✅ Proper backend synchronization
-await dispatch(deleteItem(id));
-setTimeout(() => {
-  dispatch(fetchItems({}));  // Refresh from backend
-}, 500);
-
-// ❌ Poor error handling for duplicates
-catch (error) {
-  showError('Failed to save');
-}
-
-// ✅ Specific error handling with validation
-catch (error) {
-  if (error?.response?.status === 409) {
-    showError(`Duplicate entry: ${name} already exists`);
-  } else {
-    showError(`Failed to save: ${error?.message}`);
-  }
-}
-
-// ❌ API method mismatch causing 404 errors
-ApiService.put(`/api/resource/${id}`, data)  // Backend uses @Patch(':id')
-
-// ✅ Correct API method matching backend decorator
-ApiService.patch(`/api/resource/${id}`, data)  // Matches @Patch(':id')
-
-// ❌ Missing UX information for dependent data
-// User tries to delete category but gets confusing error message
-
-// ✅ Enhanced UX with dependency information
-// Display related data counts and clear error messaging
-const handleDelete = async (item) => {
-  const dependentCount = item.relatedCount ?? 0
-  const confirmMessage = dependentCount > 0 
-    ? `Item contains ${dependentCount} dependent records. Remove dependents first. Continue?`
-    : `Are you sure you want to delete "${item.name}"?`
-    
-  if (window.confirm(confirmMessage)) {
-    // Proceed with deletion and show specific backend errors
-  }
-}
-```
-
-### Authentication System Removal (August 2025)
-The entire authentication system has been **completely removed** from the codebase:
-
-**What was removed:**
-- All auth-related files and directories (`src/modules/auth/`, `src/common/guards/`, etc.)
-- JWT token handling, bcrypt password hashing, passport strategies
-- All authentication decorators (`@UseGuards()`, `@Roles()`, `@Auth()`)
-- Protected routes and auth interceptors in frontend
-
-**Impact on services:**
-- All service methods now use default `'system'` parameter instead of authenticated user context
-- Controllers no longer require user authentication parameters
+- All auth files, guards, decorators, and strategies deleted
 - All API endpoints are publicly accessible
-
-**Frontend changes:**
-- Sidebar filtering removed - all modules now visible regardless of backend state
-- Auth components and hooks removed from React application
-- Redux auth slices removed
-
-**Backend API routing quirks:**
-- Sales API uses double `/api` prefix: `/api/api/v1/sales-orders` (configuration issue)
-- Module info endpoint returns only active modules: `["users", "inventory", "sales"]`
+- Service methods use 'system' as default userId
+- Frontend auth components removed
+- Sales API has double `/api` prefix: `/api/api/v1/sales-orders`
 
 ### Service Method Pattern After Auth Removal
 ```typescript
@@ -620,10 +511,7 @@ Copy `.env.example` to `.env` and configure:
 ### Backend Variables
 - **Database**: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`
 - **Redis**: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
-- **JWT**: `JWT_SECRET`, `JWT_EXPIRATION`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRATION`
-- **Email**: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
 - **Upload**: `UPLOAD_PATH`, `MAX_FILE_SIZE`
-- **External Services**: `STRIPE_SECRET_KEY`, `PAYPAL_CLIENT_ID`, `AWS_ACCESS_KEY`
 
 ### Frontend Variables (VITE_*)
 - **API Configuration**: `VITE_API_BASE_URL`, `VITE_SOCKET_URL`
@@ -639,12 +527,7 @@ Copy `.env.example` to `.env` and configure:
 - Backend API: http://localhost:3001/api  
 - API Documentation: http://localhost:3001/api/docs
 
-**⚠️ Authentication has been removed - demo accounts are no longer functional:**
-- Admin: admin@erp.com / admin123 (DISABLED)
-- Manager: manager@erp.com / manager123 (DISABLED) 
-- Sales Staff: sales@erp.com / sales123 (DISABLED)
-
-**Note**: All endpoints are now publicly accessible without authentication.
+**Note**: All endpoints are publicly accessible without authentication.
 
 **✅ Fully Functional Pages (Ready for Testing):**
 - **Inventory Overview**: http://localhost:3000/inventory (shows real data, functional buttons)
@@ -747,25 +630,13 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 - **IPv6 Connection Issues**: Add `family: 4` to Redis/PostgreSQL connection configs to force IPv4 in Docker environments
 
 ### Current System Status
-**⚠️ Post-Authentication Removal Status:**
-- Authentication system completely removed from codebase
-- All API endpoints are publicly accessible without any authentication
-- UsersModule, InventoryModule, and SalesModule are fully functional
-- **InventoryModule frontend completely integrated and functional** (latest update)
-- Remaining modules (Purchasing, Reports, Dashboard, Plugins) still disabled pending similar fixes
-- Demo user creation is no longer needed
-- Frontend auth components have been removed
-- Frontend sidebar shows all modules regardless of backend status
+**Working Features:**
+- UsersModule, InventoryModule, and SalesModule fully functional
+- Inventory frontend completely integrated with backend
+- Database with sample data (8 products, 4 categories)
+- All containers running with proper networking
 
-**✅ Known Working Features (August 2025):**
-- **Backend APIs**: All inventory and sales endpoints fully operational
-- **Inventory Frontend**: **COMPLETELY FIXED** - Overview shows real data, products persist after deletion, categories prevent duplicates and show product counts
-- **Category Management**: **ENHANCED** - Categories table displays product counts, deletion warnings show dependent data, and clear error messages prevent user confusion
-- **Database Operations**: PostgreSQL with proper schema and sample data (8 products, 4 categories confirmed)
-- **Docker Environment**: All containers running correctly with proper networking
-- **API Structure**: Confirmed `{data: T[], meta: PaginationMeta}` response format working properly
-- **Inventory Data**: Sample products include Electronics, Office Supplies, and Furniture categories with multi-level pricing
-- **Inventory Value Calculation**: Overview page now correctly calculates total inventory value from (retailPrice × stockQuantity)
+**Still Disabled:** PurchasingModule, ReportsModule, DashboardModule, PluginsModule
 
 ## Critical Troubleshooting Commands
 
@@ -796,37 +667,9 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT SUM(\"retailP
 # Check for compilation errors
 docker compose exec backend npm run build
 
-# Test individual module loading with ts-node (most effective for diagnosing module issues)
-# Test currently active modules
-docker compose exec backend npx ts-node -e "
-  try { 
-    const salesModule = require('./src/modules/sales/sales.module.ts'); 
-    console.log('✓ SalesModule loaded successfully');
-  } catch (error) { 
-    console.error('✗ SalesModule failed:', error.message); 
-  }
-"
-
-# Test disabled modules for auth-related errors
-docker compose exec backend npx ts-node -e "
-  try { 
-    const purchasingModule = require('./src/modules/purchasing/purchasing.module.ts'); 
-    console.log('✓ PurchasingModule loaded successfully');
-  } catch (error) { 
-    console.error('✗ PurchasingModule failed:', error.message); 
-  }
-"
-
-# Check if missing dependencies are the issue
-docker compose exec backend npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps
-
-# Verify which app module is being used
-docker compose exec backend find src -name "*app.module*"
-
-# Test API availability (all endpoints should be accessible without auth)
+# Test API availability
 curl http://localhost:3001/api/users -X GET
 curl http://localhost:3001/api/inventory/products -X GET  
-curl http://localhost:3001/api/api/v1/sales-orders -X GET
 curl http://localhost:3001/api/info -X GET
 ```
 
@@ -852,17 +695,10 @@ curl http://localhost:3001/api/info -X GET
 - `backend/src/database/entities/plugin.entity.ts` - Plugin entity (IsVersion fixed to IsString)
 - `backend/src/config/database.config.ts` - Database configuration with sync settings
 
-### Authentication System Status (COMPLETELY REMOVED)
-**⚠️ IMPORTANT: Authentication system has been completely deleted from the codebase**
+### Authentication System Status
+**⚠️ IMPORTANT: Authentication system completely deleted**
 
-**Deleted Files and Directories:**
-- `backend/src/modules/auth/` - ❌ DELETED - Complete auth module
-- `backend/src/common/guards/` - ❌ DELETED - Authentication and authorization guards
-- `backend/src/common/strategies/` - ❌ DELETED - Passport strategies
-- `backend/src/common/decorators/auth.decorator.ts` - ❌ DELETED
-- `backend/src/common/decorators/user.decorator.ts` - ❌ DELETED
-
-**Authentication cannot be restored without recreating these files from scratch.**
+Deleted: auth module, guards, strategies, decorators. Cannot be restored without recreation.
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
