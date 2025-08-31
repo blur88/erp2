@@ -16,7 +16,9 @@ interface WebSocketContextType {
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null)
 
-const SOCKET_URL = (import.meta as any).env?.VITE_SOCKET_URL || 'http://localhost:3001'
+const getSocketUrl = () => {
+  return (window as any).__ENV__?.VITE_SOCKET_URL || 'http://localhost:3001'
+}
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Authentication removed - WebSocket will connect without auth
@@ -33,9 +35,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Initialize WebSocket connection
   useEffect(() => {
     if (!socketRef.current) {
-      console.log('Connecting to WebSocket...')
+      const socketUrl = getSocketUrl()
       
-      const socket = io(SOCKET_URL, {
+      const socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         timeout: 20000,
         retries: 3,

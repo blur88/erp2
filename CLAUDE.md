@@ -144,6 +144,7 @@ The backend follows NestJS modular architecture with clear separation:
 - **Backend fully operational**: Core APIs working with all endpoints publicly accessible
 - **Frontend sidebar**: Shows ALL modules without backend filtering (authentication removal pattern)
 - **Module detection**: Backend `/api/info` endpoint returns active modules: `["users", "inventory", "sales", "dashboard"]`
+- **Environment Configuration**: Frontend now uses runtime `window.__ENV__` pattern for Docker compatibility
 
 **Module Loading Status (app.module.ts:40-46):**
 ```typescript
@@ -518,10 +519,10 @@ Copy `.env.example` to `.env` and configure:
 - **Upload**: `UPLOAD_PATH`, `MAX_FILE_SIZE`
 
 ### Frontend Variables 
-**⚠️ Environment Variable Inconsistency:**
+**✅ Environment Variable Configuration (RESOLVED):**
 - **Frontend Code Uses**: `VITE_API_BASE_URL`, `VITE_SOCKET_URL` (Vite standard)
-- **Docker Compose Uses**: `REACT_APP_API_URL` (Create React App legacy pattern)
-- **Resolution Needed**: Standardize on `VITE_` prefix for all environment variables
+- **Docker Compose Uses**: `VITE_API_BASE_URL`, `VITE_SOCKET_URL` (now standardized)
+- **Runtime Configuration**: Environment variables injected via `window.__ENV__` object at container startup
 
 **Standard Variables**:
 - **API Configuration**: `VITE_API_BASE_URL`, `VITE_SOCKET_URL`
@@ -752,6 +753,39 @@ Deleted: auth module, guards, strategies, decorators. Cannot be restored without
 - **Real-time Features**: Dashboard data updates, alerts, and notifications
 - **Development Ready**: Vite proxy configuration and CORS setup completed
 - **Production Considerations**: Namespace isolation and error handling implemented
+
+### Frontend Environment Configuration Fix (Latest Update):
+**Problem Resolved**: Frontend environment variables weren't working in Docker due to build-time vs runtime configuration mismatch.
+
+**Solution Implemented**:
+1. **Dynamic API Configuration**: API service now uses `window.__ENV__` for runtime configuration
+2. **Runtime Injection**: `docker-entrypoint.sh` creates `env-config.js` with environment variables at container startup
+3. **WebSocket Configuration**: WebSocket hook updated to use same dynamic pattern
+4. **HTML Script Loading**: `index.html` loads `env-config.js` before React app initialization
+
+**Critical Pattern for Docker Environment Variables**:
+```typescript
+// Frontend services now use dynamic runtime configuration
+const getApiBaseUrl = () => {
+  return (window as any).__ENV__?.VITE_API_BASE_URL || 'http://localhost:3001/api'
+}
+
+// WebSocket configuration
+const getSocketUrl = () => {
+  return (window as any).__ENV__?.VITE_SOCKET_URL || 'http://localhost:3001'
+}
+```
+
+**Docker Entrypoint Script Pattern**:
+```bash
+# /frontend/docker-entrypoint.sh creates runtime config
+cat > /usr/share/nginx/html/env-config.js << EOF
+window.__ENV__ = {
+  VITE_API_BASE_URL: '$VITE_API_BASE_URL',
+  VITE_SOCKET_URL: '$VITE_SOCKET_URL'
+};
+EOF
+```
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.

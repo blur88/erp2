@@ -226,11 +226,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
       }
     }
 
-    checkModuleAvailability()
+    // Small delay to ensure env-config.js is loaded
+    const timer = setTimeout(checkModuleAvailability, 100)
     
     // Reduce frequency to 60 seconds to minimize API calls
     const interval = setInterval(checkModuleAvailability, 60000)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
   }, [])
 
   // Show all modules - no filtering based on backend availability

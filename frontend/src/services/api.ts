@@ -1,21 +1,25 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ApiResponse } from '@/types'
 
-// API base configuration
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001/api'
+// Get API base URL dynamically
+const getApiBaseUrl = () => {
+  return (window as any).__ENV__?.VITE_API_BASE_URL || 'http://localhost:3001/api'
+}
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Request interceptor (auth removed - no token needed)
+// Request interceptor to set baseURL dynamically (auth removed - no token needed)
 api.interceptors.request.use(
   (config) => {
+    if (!config.baseURL) {
+      config.baseURL = getApiBaseUrl()
+    }
     return config
   },
   (error) => {
