@@ -74,7 +74,8 @@ export const fetchProducts = createAsyncThunk(
   'inventory/fetchProducts',
   async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
     try {
-      const response = await inventoryApi.getProducts(params)
+      // Always fetch only active products (exclude soft-deleted products)
+      const response = await inventoryApi.getProducts({ ...params, isActive: true })
       return response
     } catch (error: any) {
       console.error('Failed to fetch products:', error)

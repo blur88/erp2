@@ -315,6 +315,8 @@ export interface QueryParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   filters?: Record<string, any>;
+  isActive?: boolean;
+  categoryId?: string;
 }
 
 // Theme types
