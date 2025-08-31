@@ -307,6 +307,11 @@ export class CategoryService {
       }
       updateCategoryDto.code = code;
     }
+    
+    // Additional safety check: ensure no empty strings are passed to database
+    if (updateCategoryDto.code === '') {
+      updateCategoryDto.code = null;
+    }
 
     // Track changes for audit
     const changes: Record<string, { from: any; to: any }> = {};
