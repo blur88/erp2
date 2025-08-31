@@ -89,7 +89,9 @@ export interface Category {
   parentId?: string | null;
   fullPath: string;
   isRoot: boolean;
+  hasChildren: boolean;
   children?: Category[];
+  parent?: Partial<Category>;
   productCount?: number;  // Number of products in this category
   createdAt: Date | string;
   updatedAt: Date | string;

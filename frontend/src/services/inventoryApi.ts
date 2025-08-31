@@ -68,6 +68,76 @@ export const inventoryApi = {
     return ApiService.post<Category>(`/inventory/categories/${id}/restore`)
   },
 
+  // Hierarchical category methods
+  async getCategoryTree(includeProductCount?: boolean) {
+    return ApiService.get<{
+      data: Category[]
+      meta: { totalCategories: number; maxDepth: number; rootCategories: number }
+    }>('/inventory/categories/tree', { params: { includeProductCount } })
+  },
+
+  async getRootCategories(includeProductCount?: boolean) {
+    return ApiService.get<PaginatedResponse<Category>>('/inventory/categories/roots', { 
+      params: { includeProductCount } 
+    })
+  },
+
+  async getCategoryChildren(parentId: string, includeProductCount?: boolean) {
+    return ApiService.get<PaginatedResponse<Category>>(`/inventory/categories/${parentId}/children`, {
+      params: { includeProductCount }
+    })
+  },
+
+  async getCategoryAncestors(id: string) {
+    return ApiService.get<{
+      id: string
+      ancestors: Category[]
+      category: Category
+      breadcrumbs: string[]
+    }>(`/inventory/categories/${id}/ancestors`)
+  },
+
+  async getCategoryStats(id: string) {
+    return ApiService.get<{
+      id: string
+      name: string
+      fullPath: string
+      directProductCount: number
+      totalProductCount: number
+      subcategoryCount: number
+      totalSubcategoryCount: number
+      totalStockValue: number
+      activeProductCount: number
+      inactiveProductCount: number
+      lowStockProductCount: number
+      outOfStockProductCount: number
+      averageRetailPrice: number
+      highestPrice: number
+      lowestPrice: number
+      createdAt: string
+      updatedAt: string
+    }>(`/inventory/categories/${id}/stats`)
+  },
+
+  async moveCategory(id: string, newParentId: string | null, sortOrder?: number) {
+    return ApiService.patch<Category>(`/inventory/categories/${id}/move`, {
+      newParentId,
+      sortOrder
+    })
+  },
+
+  async bulkUpdateCategories(updates: Array<{
+    id: string
+    name?: string
+    isActive?: boolean
+    sortOrder?: number
+    parentId?: string
+  }>) {
+    return ApiService.post<{ message: string }>('/inventory/categories/bulk-update', {
+      categories: updates
+    })
+  },
+
   // Stock management
   async getStockMovements(params?: QueryParams & { productId?: string }) {
     return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock-movements', { params })

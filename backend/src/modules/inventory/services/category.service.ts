@@ -72,15 +72,17 @@ export class CategoryService {
       }
     }
 
-    // Calculate level
+    // Calculate level and path
     const level = parent ? parent.level + 1 : 0;
+    const path = parent ? `${parent.path || parent.id}.${createCategoryDto.name}` : createCategoryDto.name;
 
     // Create category
     const category = this.categoryRepository.create({
       ...createCategoryDto,
       code,
       level,
-      parent,
+      path,
+      parentId: createCategoryDto.parentId,
       isActive: createCategoryDto.isActive ?? true,
       sortOrder: createCategoryDto.sortOrder ?? 0,
     });
@@ -178,8 +180,8 @@ export class CategoryService {
       // Load full tree structure for root categories
       const treeData = await Promise.all(
         categories.map(async (category) => {
-          const tree = await this.categoryRepository.findDescendantsTree(category);
-          return this.toResponseDto(tree, true, includeProductCount);
+          const categoryWithChildren = await this.loadCategoryTree(category);
+          return this.toResponseDto(categoryWithChildren, true, includeProductCount);
         }),
       );
       data = treeData;
@@ -209,25 +211,37 @@ export class CategoryService {
    * Get complete category tree
    */
   async getTree(includeProductCount = false): Promise<CategoryTreeResponseDto> {
-    const trees = await this.categoryRepository.findTrees();
-    
-    const data = await Promise.all(
-      trees.map(async (tree) => this.toResponseDto(tree, true, includeProductCount)),
-    );
+    try {
+      // Get all root categories (level 0)
+      const rootCategories = await this.categoryRepository.find({
+        where: { level: 0, isActive: true },
+        order: { sortOrder: 'ASC', name: 'ASC' },
+      });
+      
+      const data = await Promise.all(
+        rootCategories.map(async (category) => {
+          const categoryWithChildren = await this.loadCategoryTree(category);
+          return this.toResponseDto(categoryWithChildren, true, includeProductCount);
+        }),
+      );
 
-    // Calculate metadata
-    const allCategories = await this.categoryRepository.find();
-    const maxDepth = Math.max(...allCategories.map(c => c.level), 0);
-    const rootCategories = allCategories.filter(c => c.level === 0).length;
+      // Calculate metadata
+      const allCategories = await this.categoryRepository.find({ where: { isActive: true } });
+      const maxDepth = allCategories.length > 0 ? Math.max(...allCategories.map(c => c.level), 0) : 0;
+      const rootCategoriesCount = allCategories.filter(c => c.level === 0).length;
 
-    return {
-      data,
-      meta: {
-        totalCategories: allCategories.length,
-        maxDepth,
-        rootCategories,
-      },
-    };
+      return {
+        data,
+        meta: {
+          totalCategories: allCategories.length,
+          maxDepth,
+          rootCategories: rootCategoriesCount,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error getting category tree: ${error.message}`);
+      throw error;
+    }
   }
 
   /**
@@ -236,18 +250,12 @@ export class CategoryService {
   async findOne(id: string, includeChildren = false, includeProductCount = false): Promise<CategoryResponseDto> {
     let category: Category | null;
 
-    if (includeChildren) {
-      category = await this.categoryRepository.findOne({
-        where: { id },
-      });
+    category = await this.categoryRepository.findOne({
+      where: { id },
+    });
 
-      if (category) {
-        category = await this.categoryRepository.findDescendantsTree(category);
-      }
-    } else {
-      category = await this.categoryRepository.findOne({
-        where: { id },
-      });
+    if (category && includeChildren) {
+      category = await this.loadCategoryTree(category);
     }
 
     if (!category) {
@@ -267,18 +275,13 @@ export class CategoryService {
       throw new NotFoundException(`Category with ID '${id}' not found`);
     }
 
-    const ancestors = await this.categoryRepository.findAncestors(category);
+    const ancestors = await this.loadAncestors(category);
     
-    // Remove the category itself from ancestors and reverse order (root first)
-    const ancestorList = ancestors
-      .filter(ancestor => ancestor.id !== category.id)
-      .reverse();
-
     return {
       id: category.id,
-      ancestors: ancestorList.map(ancestor => this.toResponseDto(ancestor)),
+      ancestors: ancestors.map(ancestor => this.toResponseDto(ancestor)),
       category: this.toResponseDto(category),
-      breadcrumbs: [...ancestorList.map(a => a.name), category.name],
+      breadcrumbs: [...ancestors.map(a => a.name), category.name],
     };
   }
 
@@ -363,7 +366,7 @@ export class CategoryService {
       }
 
       // Check if the new parent is a descendant of the current category
-      const descendants = await this.categoryRepository.findDescendants(category);
+      const descendants = await this.loadAllDescendants(category);
       if (descendants.some(desc => desc.id === moveCategoryDto.newParentId)) {
         throw new BadRequestException('Cannot move category to one of its descendants');
       }
@@ -384,8 +387,8 @@ export class CategoryService {
 
     const movedCategory = await this.categoryRepository.save(category);
 
-    // Update levels for all descendants
-    await this.updateDescendantLevels(movedCategory);
+    // Update levels and paths for all descendants
+    await this.updateDescendantLevelsAndPaths(movedCategory);
 
     // Log audit event
     await this.auditService.logCategoryEvent(
@@ -647,7 +650,7 @@ export class CategoryService {
     ]);
 
     // Get all descendants for total counts
-    const descendants = await this.categoryRepository.findDescendants(category);
+    const descendants = await this.loadAllDescendants(category);
     const allCategoryIds = [id, ...descendants.map(d => d.id)];
 
     const totalProductsQuery = this.productRepository
@@ -789,20 +792,86 @@ export class CategoryService {
   }
 
   /**
-   * Update levels for all descendants after moving a category
+   * Load category tree with all children recursively
    */
-  private async updateDescendantLevels(category: Category): Promise<void> {
-    const descendants = await this.categoryRepository.findDescendants(category);
-    
-    const updates = descendants.map(async (descendant) => {
-      if (descendant.id !== category.id) {
-        // Calculate new level based on the path from the moved category
-        const ancestors = await this.categoryRepository.findAncestors(descendant);
-        descendant.level = ancestors.length - 1; // Subtract 1 because ancestors include the descendant itself
-        return this.categoryRepository.save(descendant);
-      }
+  private async loadCategoryTree(category: Category): Promise<Category> {
+    const children = await this.categoryRepository.find({
+      where: { parentId: category.id, isActive: true },
+      order: { sortOrder: 'ASC', name: 'ASC' },
     });
 
-    await Promise.all(updates.filter(Boolean));
+    if (children.length > 0) {
+      const childrenWithSubchildren = await Promise.all(
+        children.map(child => this.loadCategoryTree(child))
+      );
+      category.children = childrenWithSubchildren;
+    } else {
+      category.children = [];
+    }
+
+    return category;
+  }
+
+  /**
+   * Load all ancestors of a category
+   */
+  private async loadAncestors(category: Category): Promise<Category[]> {
+    const ancestors: Category[] = [];
+    let currentCategory = category;
+
+    while (currentCategory.parentId) {
+      const parent = await this.categoryRepository.findOne({
+        where: { id: currentCategory.parentId },
+      });
+      if (parent) {
+        ancestors.unshift(parent); // Add to beginning
+        currentCategory = parent;
+      } else {
+        break;
+      }
+    }
+
+    return ancestors;
+  }
+
+  /**
+   * Load all descendants of a category
+   */
+  private async loadAllDescendants(category: Category): Promise<Category[]> {
+    const descendants: Category[] = [];
+    
+    const loadChildren = async (parentCategory: Category) => {
+      const children = await this.categoryRepository.find({
+        where: { parentId: parentCategory.id },
+      });
+      
+      for (const child of children) {
+        descendants.push(child);
+        await loadChildren(child); // Recursive call
+      }
+    };
+
+    await loadChildren(category);
+    return descendants;
+  }
+
+  /**
+   * Update levels and paths for all descendants after moving a category
+   */
+  private async updateDescendantLevelsAndPaths(category: Category): Promise<void> {
+    const descendants = await this.loadAllDescendants(category);
+    
+    const updates = descendants.map(async (descendant) => {
+      // Recalculate level and path
+      const ancestors = await this.loadAncestors(descendant);
+      descendant.level = ancestors.length;
+      descendant.path = ancestors.length > 0 
+        ? `${ancestors.map(a => a.name).join('.')}.${descendant.name}`
+        : descendant.name;
+      
+      return this.categoryRepository.save(descendant);
+    });
+
+    await Promise.all(updates);
   }
 }

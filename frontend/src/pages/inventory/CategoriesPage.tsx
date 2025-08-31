@@ -43,6 +43,9 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { inventoryApi } from '@/services/inventoryApi'
 import { useNotification } from '@/hooks/useNotification'
+import CategoryTreeView from '@/components/inventory/CategoryTreeView'
+import CategoryBreadcrumb from '@/components/inventory/CategoryBreadcrumb'
+import CategorySelector from '@/components/inventory/CategorySelector'
 import type { Category } from '@/types'
 
 
@@ -51,6 +54,7 @@ interface CategoryFormData {
   code?: string
   description?: string
   isActive: boolean
+  parentId?: string
 }
 
 const categorySchema = yup.object({
@@ -58,6 +62,7 @@ const categorySchema = yup.object({
   code: yup.string().optional(),
   description: yup.string().optional(),
   isActive: yup.boolean(),
+  parentId: yup.string().optional(),
 })
 
 const CategoriesPage: React.FC = () => {
@@ -72,6 +77,10 @@ const CategoriesPage: React.FC = () => {
   const [nameValidationError, setNameValidationError] = useState<string | null>(null)
   const [recentlyDeleted, setRecentlyDeleted] = useState<Map<string, { category: Category; timestamp: number }>>(new Map())
   const [undoMenuAnchor, setUndoMenuAnchor] = useState<null | HTMLElement>(null)
+  const [viewMode, setViewMode] = useState<'table' | 'tree'>('tree')
+  const [categoryTree, setCategoryTree] = useState<Category[]>([])
+  const [selectedTreeCategory, setSelectedTreeCategory] = useState<Category | null>(null)
+  const [parentCategory, setParentCategory] = useState<Category | null>(null)
 
   const {
     control,
@@ -85,6 +94,7 @@ const CategoriesPage: React.FC = () => {
       code: '',
       description: '',
       isActive: true,
+      parentId: undefined,
     },
   })
 
@@ -92,10 +102,21 @@ const CategoriesPage: React.FC = () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await inventoryApi.getCategories({ includeProductCount: true })
+      
+      // Fetch both flat list and tree structure
+      const [flatResponse, treeResponse] = await Promise.all([
+        inventoryApi.getCategories({ includeProductCount: true }),
+        inventoryApi.getCategoryTree(true)
+      ])
+      
       // Handle API response format: { data: Category[], meta: {...} }
-      const categoriesData = response.data || []
+      const categoriesData = flatResponse.data || []
       setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+      
+      // Handle tree response
+      const treeData = treeResponse.data?.data || []
+      setCategoryTree(Array.isArray(treeData) ? treeData : [])
+      
     } catch (err) {
       console.error('Error fetching categories:', err)
       setError('Failed to load categories. Please try again.')
@@ -112,23 +133,34 @@ const CategoriesPage: React.FC = () => {
     fetchCategories()
   }
 
-  const handleAddCategory = () => {
-    reset()
+  const handleAddCategory = (parentId?: string) => {
+    const parent = parentId ? findCategoryById(categories, parentId) : null
+    reset({
+      name: '',
+      code: '',
+      description: '',
+      isActive: true,
+      parentId: parentId,
+    })
     setEditMode(false)
     setSelectedCategory(null)
+    setParentCategory(parent)
     setNameValidationError(null)
     setDialogOpen(true)
   }
 
   const handleEditCategory = (category: Category) => {
+    const parent = category.parentId ? findCategoryById(categories, category.parentId) : null
     reset({
       name: category.name,
       code: category.code || '',
       description: category.description || '',
       isActive: category.isActive,
+      parentId: category.parentId,
     })
     setEditMode(true)
     setSelectedCategory(category)
+    setParentCategory(parent)
     setNameValidationError(null)
     setDialogOpen(true)
   }
@@ -226,7 +258,11 @@ const CategoriesPage: React.FC = () => {
         await inventoryApi.updateCategory(selectedCategory.id, data)
         showSuccess('Category updated successfully')
       } else {
-        await inventoryApi.createCategory(data)
+        const createData = {
+          ...data,
+          parentId: data.parentId || null
+        }
+        await inventoryApi.createCategory(createData)
         showSuccess('Category created successfully')
       }
       
@@ -253,6 +289,32 @@ const CategoriesPage: React.FC = () => {
 
   const getLevelIndicator = (level: number) => {
     return '  '.repeat(level) + (level > 0 ? '└─ ' : '')
+  }
+
+  const findCategoryById = (cats: Category[], id: string): Category | null => {
+    for (const cat of cats) {
+      if (cat.id === id) return cat
+      if (cat.children) {
+        const found = findCategoryById(cat.children, id)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  const handleTreeCategorySelect = (category: Category | null) => {
+    setSelectedTreeCategory(category)
+  }
+
+  const handleMoveCategory = async (categoryId: string, newParentId: string | null) => {
+    try {
+      await inventoryApi.moveCategory(categoryId, newParentId)
+      showSuccess('Category moved successfully')
+      fetchCategories()
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to move category'
+      showError(errorMessage)
+    }
   }
 
   const validateCategoryName = (name: string) => {
@@ -286,6 +348,20 @@ const CategoriesPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
+            variant={viewMode === 'tree' ? 'contained' : 'outlined'}
+            onClick={() => setViewMode('tree')}
+            size="small"
+          >
+            Tree View
+          </Button>
+          <Button
+            variant={viewMode === 'table' ? 'contained' : 'outlined'}
+            onClick={() => setViewMode('table')}
+            size="small"
+          >
+            Table View
+          </Button>
+          <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
             onClick={handleRefresh}
@@ -318,7 +394,7 @@ const CategoriesPage: React.FC = () => {
             variant="contained"
             startIcon={<AddIcon />}
             size="large"
-            onClick={handleAddCategory}
+            onClick={() => handleAddCategory()}
           >
             Add Category
           </Button>
@@ -388,7 +464,19 @@ const CategoriesPage: React.FC = () => {
         )}
       </Menu>
 
-      {/* Categories Table */}
+      {/* Breadcrumb for selected category in tree view */}
+      {viewMode === 'tree' && selectedTreeCategory && (
+        <Box sx={{ mb: 3 }}>
+          <CategoryBreadcrumb
+            category={selectedTreeCategory}
+            showHome
+            showLevel
+            onHomeClick={() => setSelectedTreeCategory(null)}
+          />
+        </Box>
+      )}
+
+      {/* Categories Content */}
       <Paper>
         {error && (
           <Alert severity="error" sx={{ m: 2 }}>
@@ -407,90 +495,112 @@ const CategoriesPage: React.FC = () => {
             </Typography>
           </Box>
         ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>Name</strong></TableCell>
-                  <TableCell><strong>Code</strong></TableCell>
-                  <TableCell><strong>Description</strong></TableCell>
-                  <TableCell><strong>Status</strong></TableCell>
-                  <TableCell><strong>Level</strong></TableCell>
-                  <TableCell><strong>Products</strong></TableCell>
-                  <TableCell><strong>Created</strong></TableCell>
-                  <TableCell align="right"><strong>Actions</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {categories.map((category) => (
-                  <TableRow key={category.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {getLevelIndicator(category.level)}
-                      </Typography>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                        {category.name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {category.code ? (
-                        <Chip label={category.code} size="small" variant="outlined" />
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">—</Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {category.description || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={category.isActive ? 'Active' : 'Inactive'}
-                        color={category.isActive ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        Level {category.level}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={category.productCount ?? 0}
-                        size="small"
-                        color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {new Date(category.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton 
-                        size="small" 
-                        title="Edit Category"
-                        onClick={() => handleEditCategory(category)}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        title="Delete Category" 
-                        onClick={() => handleDeleteCategory(category)}
-                        color="error"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <Box>
+            {/* Tree View */}
+            {viewMode === 'tree' && (
+              <CategoryTreeView
+                categories={categoryTree}
+                selectedCategory={selectedTreeCategory?.id}
+                onSelectCategory={handleTreeCategorySelect}
+                onCreateCategory={handleAddCategory}
+                onEditCategory={handleEditCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onMoveCategory={handleMoveCategory}
+                showProductCount
+                showActions
+                loading={loading}
+                error={error}
+              />
+            )}
+
+            {/* Table View */}
+            {viewMode === 'table' && (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Name</strong></TableCell>
+                      <TableCell><strong>Code</strong></TableCell>
+                      <TableCell><strong>Description</strong></TableCell>
+                      <TableCell><strong>Status</strong></TableCell>
+                      <TableCell><strong>Level</strong></TableCell>
+                      <TableCell><strong>Products</strong></TableCell>
+                      <TableCell><strong>Created</strong></TableCell>
+                      <TableCell align="right"><strong>Actions</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                            {getLevelIndicator(category.level)}
+                          </Typography>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            {category.name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {category.code ? (
+                            <Chip label={category.code} size="small" variant="outlined" />
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">—</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {category.description || '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={category.isActive ? 'Active' : 'Inactive'}
+                            color={category.isActive ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            Level {category.level}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={category.productCount ?? 0}
+                            size="small"
+                            color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {new Date(category.createdAt).toLocaleDateString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton 
+                            size="small" 
+                            title="Edit Category"
+                            onClick={() => handleEditCategory(category)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            title="Delete Category" 
+                            onClick={() => handleDeleteCategory(category)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
         )}
       </Paper>
 
@@ -503,6 +613,11 @@ const CategoriesPage: React.FC = () => {
       >
         <DialogTitle>
           {editMode ? 'Edit Category' : 'Add New Category'}
+          {parentCategory && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Parent: {parentCategory.name}
+            </Typography>
+          )}
         </DialogTitle>
         <form onSubmit={handleSubmit(onSubmit as any)}>
           <DialogContent>
@@ -561,6 +676,22 @@ const CategoriesPage: React.FC = () => {
                       rows={3}
                       error={!!errors.description}
                       helperText={errors.description?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Controller
+                  name="parentId"
+                  control={control}
+                  render={({ field }) => (
+                    <CategorySelector
+                      value={field.value ? findCategoryById(categories, field.value) : null}
+                      onChange={(category) => field.onChange(category?.id || null)}
+                      label="Parent Category"
+                      placeholder="Select parent category (optional)"
+                      allowRoot
+                      excludeCategories={editMode && selectedCategory ? [selectedCategory.id] : []}
                     />
                   )}
                 />
