@@ -83,7 +83,7 @@ npm run type-check             # TypeScript check without build
 ```
 
 ### Plugin System
-**Status**: Plugin system is disabled.
+**Status**: Plugin system is completely disabled and non-functional.
 
 ### Deployment
 ```bash
@@ -111,7 +111,7 @@ docker compose logs backend # Check specific service logs
 - Runtime environment variable replacement via `docker-entrypoint.sh`
 - Vite build with optimized chunk splitting and asset bundling
 - NGINX configuration with gzip, security headers, and health checks
-- **Important**: Use `VITE_` prefixed environment variables (not `REACT_APP_`)
+- **Important**: Frontend code uses `VITE_` prefixed environment variables, but docker-compose.yml currently uses `REACT_APP_API_URL` (inconsistency needs resolution)
 
 #### Backend Container
 - Development-focused build using `ts-node --transpile-only` for faster iteration
@@ -163,6 +163,7 @@ SalesModule,        // ✅ Re-enabled after fixing auth compilation issues
 - UsersModule, InventoryModule, and SalesModule are active and functional
 - Inventory frontend fully integrated with backend APIs
 - All API endpoints publicly accessible without authentication
+- Frontend loading performance optimized (reduced API calls on page reload)
 
 **Remaining Tasks for Other Modules:**
 - Other business modules may still have auth-related compilation errors
@@ -513,7 +514,13 @@ Copy `.env.example` to `.env` and configure:
 - **Redis**: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
 - **Upload**: `UPLOAD_PATH`, `MAX_FILE_SIZE`
 
-### Frontend Variables (VITE_*)
+### Frontend Variables 
+**⚠️ Environment Variable Inconsistency:**
+- **Frontend Code Uses**: `VITE_API_BASE_URL`, `VITE_SOCKET_URL` (Vite standard)
+- **Docker Compose Uses**: `REACT_APP_API_URL` (Create React App legacy pattern)
+- **Resolution Needed**: Standardize on `VITE_` prefix for all environment variables
+
+**Standard Variables**:
 - **API Configuration**: `VITE_API_BASE_URL`, `VITE_SOCKET_URL`
 - **App Settings**: `VITE_APP_VERSION`, `VITE_APP_NAME`
 - **Development**: `VITE_ENABLE_MOCK_DATA`, `VITE_ENABLE_DEBUG`

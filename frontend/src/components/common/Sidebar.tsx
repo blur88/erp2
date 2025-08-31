@@ -215,10 +215,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   useEffect(() => {
     const checkModuleAvailability = async () => {
       try {
+        // Only check modules info, skip health check for faster loading
         const modules = await moduleApi.getAvailableModules()
-        const isHealthy = await moduleApi.checkHealth()
         setAvailableModules(modules)
-        setBackendAvailable(isHealthy)
+        setBackendAvailable(modules.length > 0) // Assume healthy if modules are returned
       } catch (error) {
         console.error('Failed to check module availability:', error)
         setAvailableModules([])
@@ -228,8 +228,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
 
     checkModuleAvailability()
     
-    // Check every 30 seconds
-    const interval = setInterval(checkModuleAvailability, 30000)
+    // Reduce frequency to 60 seconds to minimize API calls
+    const interval = setInterval(checkModuleAvailability, 60000)
     return () => clearInterval(interval)
   }, [])
 

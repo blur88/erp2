@@ -35,28 +35,17 @@ const InventoryPage: React.FC = () => {
       setLoading(true)
       setError(null)
 
-      // Fetch products and categories in parallel with timeout and retry
+      // Fetch all data in parallel for better performance
       const [productsResponse, categoriesResponse] = await Promise.all([
-        inventoryApi.getProducts({ limit: 1 }), // Just get count
+        inventoryApi.getProducts({ limit: 50 }), // Get first 50 products for inventory calculation
         inventoryApi.getCategories(),
       ])
-
-      // Get full product list to calculate inventory value
-      const allProductsResponse = await inventoryApi.getProducts({ limit: 1000 })
       
       // Safely extract data with null checks - structure is ApiResponse<PaginatedResponse<T>>
-      const products = Array.isArray(allProductsResponse?.data?.data) ? allProductsResponse.data.data : []
+      const products = Array.isArray(productsResponse?.data?.data) ? productsResponse.data.data : []
       const categories = Array.isArray(categoriesResponse?.data?.data) ? categoriesResponse.data.data : []
       
-      // Additional validation to ensure we have proper data
-      console.log('API Responses:', {
-        productsResponse: productsResponse,
-        categoriesResponse: categoriesResponse,
-        allProductsResponse: allProductsResponse,
-        extractedProducts: products.length,
-        extractedCategories: categories.length
-      })
-      
+      // Calculate inventory value from first 50 products (estimate)
       const inventoryValue = products.reduce((total: number, product: any) => {
         const price = product?.retailPrice || 0
         const stock = product?.stockQuantity || 0
@@ -64,19 +53,12 @@ const InventoryPage: React.FC = () => {
       }, 0)
 
       setStats({
-        totalProducts: productsResponse?.data?.meta?.total || allProductsResponse?.data?.meta?.total || products.length || 0,
+        totalProducts: productsResponse?.data?.meta?.total || products.length || 0,
         totalCategories: categoriesResponse?.data?.meta?.total || categories.length || 0,
         inventoryValue: Number(inventoryValue.toFixed(2)),
       })
     } catch (err: any) {
       console.error('Error fetching inventory stats:', err)
-      // More detailed error logging
-      console.error('Full error object:', {
-        message: err?.message,
-        response: err?.response?.data,
-        status: err?.response?.status,
-        statusText: err?.response?.statusText
-      })
       const errorMessage = err?.response?.data?.message || err?.message || 'Failed to load inventory statistics'
       setError(errorMessage)
     } finally {
