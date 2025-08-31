@@ -42,7 +42,7 @@ import { AppService } from './app.service';
     SalesModule, // Re-enabled after fixing auth compilation issues
     // PurchasingModule, // Re-enable after fixing compilation issues  
     // ReportsModule, // Re-enable after fixing compilation issues
-    // DashboardModule, // Re-enable after fixing compilation issues
+    DashboardModule, // Re-enabled - WebSocket support
     // PluginsModule, // Re-enable after fixing compilation issues
   ],
   controllers: [AppController],
