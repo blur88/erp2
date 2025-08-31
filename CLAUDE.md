@@ -392,26 +392,28 @@ The plugin system is currently disabled but architecturally supports:
 
 **Critical Issues Resolved**:
 1. **Overview Page Error**: "An unexpected error occurred" with zero values for all stats
-2. **Product Deletion Bug**: Deleted products reappeared after browser refresh
+2. **Product Deletion Bug**: Deleted products reappeared after browser refresh - FIXED by filtering `isActive: true` in fetchProducts
 3. **Category Duplication**: "Duplicate entry detected" errors when adding categories
 
 **Root Causes & Solutions**:
 1. **API Response Structure Mismatch**: Fixed inconsistent data extraction from `ApiResponse<PaginatedResponse<T>>` - properly access `response.data.data` and `response.data.meta`
 2. **Missing Backend Synchronization**: Added explicit `dispatch(fetchProducts({}))` after deletion operations with 500ms delay
-3. **Poor Error Handling**: Implemented client-side duplicate validation and enhanced error messages for 409 conflicts
-4. **Redux State Inconsistency**: Standardized response handling with proper null safety checks across all inventory reducers
+3. **Soft Delete Confusion**: Backend performs soft delete (sets `isActive: false`) but frontend was fetching all products. FIXED by adding `isActive: true` filter to fetchProducts Redux action
+4. **Poor Error Handling**: Implemented client-side duplicate validation and enhanced error messages for 409 conflicts
+5. **Redux State Inconsistency**: Standardized response handling with proper null safety checks across all inventory reducers
 
 **Files Fixed**:
 - `frontend/src/pages/inventory/InventoryPage.tsx` - Fixed API response data extraction and added debugging
 - `frontend/src/pages/inventory/ProductsPage.tsx` - Added deletion persistence with backend refresh  
 - `frontend/src/pages/inventory/CategoriesPage.tsx` - Enhanced duplicate validation, error handling, and product count display
-- `frontend/src/store/slices/inventorySlice.ts` - Fixed Redux state management consistency
+- `frontend/src/store/slices/inventorySlice.ts` - Fixed Redux state management consistency + added `isActive: true` filter to fetchProducts
 - `frontend/src/services/inventoryApi.ts` - Added support for `includeProductCount` parameter in categories API
-- `frontend/src/types/index.ts` - Added `productCount` field to Category interface
+- `frontend/src/types/index.ts` - Added `productCount`, `isActive`, and `categoryId` fields to QueryParams interface
 
 **Key Patterns for Module Fixes**:
 - API responses: Use `response.data?.data` for `ApiResponse<PaginatedResponse<T>>`
 - After mutations: Add backend refresh with `setTimeout(() => dispatch(fetchItems({})), 500)`
+- Soft Delete Pattern: Always include `isActive: true` filter when fetching entities to exclude soft-deleted records
 - Error handling: Check for 409 conflicts and show specific messages
 - API methods: Match frontend calls to backend decorators (@Patch → patch())
 
@@ -555,6 +557,13 @@ Copy `.env.example` to `.env` and configure:
 - Module Info: `http://localhost:3001/api/info`
 
 ## Known Issues & Troubleshooting
+
+### README.md Discrepancy
+**⚠️ IMPORTANT**: The README.md file contains outdated information and should NOT be used as reference:
+- Still mentions authentication features that have been completely removed
+- Lists demo accounts that don't exist (authentication removed)
+- Claims features like "JWT-based authentication" and "Role-based access control" which are disabled
+- **Use CLAUDE.md instead** - this file reflects the actual current system state
 
 ### TypeScript Configuration
 - **Frontend**: Uses relaxed TypeScript settings (`"strict": false`) to avoid build failures. Redux slices include proper null checks for `action.payload`
