@@ -51,16 +51,12 @@ import type { Category } from '@/types'
 
 interface CategoryFormData {
   name: string
-  code?: string
-  description?: string
   isActive: boolean
   parentId?: string
 }
 
 const categorySchema = yup.object({
   name: yup.string().required('Category name is required').min(2, 'Name must be at least 2 characters'),
-  code: yup.string().optional(),
-  description: yup.string().optional(),
   isActive: yup.boolean(),
   parentId: yup.string().optional(),
 })
@@ -91,8 +87,6 @@ const CategoriesPage: React.FC = () => {
     resolver: yupResolver(categorySchema) as any,
     defaultValues: {
       name: '',
-      code: '',
-      description: '',
       isActive: true,
       parentId: undefined,
     },
@@ -137,8 +131,6 @@ const CategoriesPage: React.FC = () => {
     const parent = parentId ? findCategoryById(categories, parentId) : null
     reset({
       name: '',
-      code: '',
-      description: '',
       isActive: true,
       parentId: parentId,
     })
@@ -153,8 +145,6 @@ const CategoriesPage: React.FC = () => {
     const parent = category.parentId ? findCategoryById(categories, category.parentId) : null
     reset({
       name: category.name,
-      code: category.code || '',
-      description: category.description || '',
       isActive: category.isActive,
       parentId: category.parentId,
     })
@@ -520,8 +510,6 @@ const CategoriesPage: React.FC = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell><strong>Name</strong></TableCell>
-                      <TableCell><strong>Code</strong></TableCell>
-                      <TableCell><strong>Description</strong></TableCell>
                       <TableCell><strong>Status</strong></TableCell>
                       <TableCell><strong>Level</strong></TableCell>
                       <TableCell><strong>Products</strong></TableCell>
@@ -538,18 +526,6 @@ const CategoriesPage: React.FC = () => {
                           </Typography>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                             {category.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {category.code ? (
-                            <Chip label={category.code} size="small" variant="outlined" />
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">—</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {category.description || '—'}
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -646,38 +622,6 @@ const CategoriesPage: React.FC = () => {
                       />
                     )
                   }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="code"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Category Code (Optional)"
-                      error={!!errors.code}
-                      helperText={errors.code?.message}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Description (Optional)"
-                      multiline
-                      rows={3}
-                      error={!!errors.description}
-                      helperText={errors.description?.message}
-                    />
-                  )}
                 />
               </Grid>
               <Grid item xs={12}>

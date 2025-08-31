@@ -168,6 +168,7 @@ DashboardModule,    // ✅ Re-enabled with WebSocket support
 - WebSocket dependencies installed: `socket.io`, `@nestjs/websockets`, `@nestjs/platform-socket.io`
 - All API endpoints publicly accessible without authentication
 - Frontend loading performance optimized (reduced API calls on page reload)
+- **Categories Simplified**: Removed `code` and `description` fields from categories - now only contains name, status, hierarchy, and audit fields
 
 **Remaining Tasks for Other Modules:**
 - Other business modules may still have auth-related compilation errors
@@ -198,7 +199,7 @@ The system uses a hybrid database approach:
 **PostgreSQL Entities:**
 - **Base entity**: `BaseEntity` provides UUID, timestamps, soft deletes, and audit fields
 - **User management**: `User` with role-based access control (5 roles)
-- **Inventory**: `Product`, `Category`, `StockMovement`, `StockAdjustment` with multi-level pricing
+- **Inventory**: `Product`, `Category` (simplified - name + hierarchy only), `StockMovement`, `StockAdjustment` with multi-level pricing
 - **Sales**: `Customer`, `SalesOrder`, `Invoice`, `Payment` with credit management
 - **Purchasing**: `Supplier`, `PurchaseOrder`, `GoodsReceivedNote` with approval workflows
 
@@ -699,7 +700,7 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 - `backend/src/modules/inventory/services/category.service.ts`: Uses `softRemove()` and restores existing "Uncategorized" categories
 - `backend/src/modules/inventory/services/product.service.ts`: Added null safety for category field in response DTOs  
 - Products are automatically moved to restored/created "Uncategorized" category when their category is deleted
-- **Additional Safety Fix**: Empty string codes are converted to `NULL` before database operations to prevent unique constraint violations
+- **Category Field Simplification (Latest)**: Removed `code` and `description` fields entirely from categories - database columns dropped, entity updated, DTOs cleaned up, frontend forms simplified
 
 ### WebSocket/Socket.IO Integration
 **Dependencies Installed:**
@@ -791,6 +792,15 @@ curl http://localhost:3001/socket.io/ | head -1
 Deleted: auth module, guards, strategies, decorators. Cannot be restored without recreation.
 
 ## Recent System Changes (August 2025)
+
+### Latest Updates (December 2025):
+1. **Category Model Simplification**: Completely removed `code` and `description` fields from categories
+   - Database columns dropped via direct SQL execution
+   - Entity, DTOs, service logic, and frontend components all updated
+   - Categories now only contain: name, hierarchy (parent/child), status, sort order, and audit fields
+   - Frontend forms and table displays simplified accordingly
+   
+### Earlier Updates (August 2025):
 
 ### Major Updates Completed:
 1. **Authentication System Removal**: Complete removal of all authentication-related code, guards, and decorators

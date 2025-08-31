@@ -52,14 +52,6 @@ export class CategoryService {
     // Check if name already exists at the same level
     await this.validateCategoryName(createCategoryDto.name, createCategoryDto.parentId);
 
-    // Convert empty string code to null to prevent unique constraint violations
-    const code = createCategoryDto.code?.trim() || null;
-
-    // Check if code already exists (if provided)
-    if (code) {
-      await this.validateCategoryCode(code);
-    }
-
     // Validate parent category if provided
     let parent: Category | undefined;
     if (createCategoryDto.parentId) {
@@ -79,7 +71,6 @@ export class CategoryService {
     // Create category
     const category = this.categoryRepository.create({
       ...createCategoryDto,
-      code,
       level,
       path,
       parentId: createCategoryDto.parentId,
@@ -141,7 +132,7 @@ export class CategoryService {
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(category.name ILIKE :search OR category.code ILIKE :search)',
+        '(category.name ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -159,7 +150,7 @@ export class CategoryService {
     }
 
     // Apply sorting
-    const validSortFields = ['name', 'code', 'createdAt', 'sortOrder'];
+    const validSortFields = ['name', 'createdAt', 'sortOrder'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     queryBuilder.orderBy(`category.${sortField}`, sortOrder);
 
@@ -300,20 +291,6 @@ export class CategoryService {
     // Check for name conflicts if name is being changed
     if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
       await this.validateCategoryName(updateCategoryDto.name, category.parentId, id);
-    }
-
-    // Convert empty string code to null and check for code conflicts if code is being changed
-    const code = updateCategoryDto.code !== undefined ? (updateCategoryDto.code?.trim() || null) : undefined;
-    if (code !== undefined && code !== category.code) {
-      if (code) {
-        await this.validateCategoryCode(code, id);
-      }
-      updateCategoryDto.code = code;
-    }
-    
-    // Additional safety check: ensure no empty strings are passed to database
-    if (updateCategoryDto.code === '') {
-      updateCategoryDto.code = null;
     }
 
     // Track changes for audit
@@ -459,8 +436,6 @@ export class CategoryService {
         this.logger.log('Creating Uncategorized category');
         uncategorizedCategory = this.categoryRepository.create({
           name: 'Uncategorized',
-          code: 'UNCAT',
-          description: 'Products without specific category',
           isActive: true,
           sortOrder: 999,
           level: 0,
@@ -581,10 +556,6 @@ export class CategoryService {
         await this.validateCategoryName(categoryUpdate.name, category.parentId, category.id);
       }
 
-      // Convert empty string code to null
-      if (categoryUpdate.code !== undefined) {
-        categoryUpdate.code = categoryUpdate.code?.trim() || null;
-      }
 
       // Track changes
       const changes: Record<string, { from: any; to: any }> = {};
@@ -711,8 +682,6 @@ export class CategoryService {
     const response: CategoryResponseDto = {
       id: category.id,
       name: category.name,
-      code: category.code,
-      description: category.description,
       imageUrl: category.imageUrl,
       isActive: category.isActive,
       sortOrder: category.sortOrder,
@@ -772,24 +741,6 @@ export class CategoryService {
     }
   }
 
-  /**
-   * Validate category code uniqueness
-   */
-  private async validateCategoryCode(code: string, excludeId?: string): Promise<void> {
-    const query = this.categoryRepository
-      .createQueryBuilder('category')
-      .where('category.code = :code', { code });
-
-    if (excludeId) {
-      query.andWhere('category.id != :excludeId', { excludeId });
-    }
-
-    const existingCategory = await query.getOne();
-
-    if (existingCategory) {
-      throw new ConflictException(`Category with code '${code}' already exists`);
-    }
-  }
 
   /**
    * Load category tree with all children recursively

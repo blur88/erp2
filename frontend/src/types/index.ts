@@ -79,8 +79,6 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  code?: string;
-  description?: string;
   imageUrl?: string | null;
   isActive: boolean;
   sortOrder: number;
