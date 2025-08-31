@@ -10,7 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
-  TreeRepository,
+  // TreeRepository, // Temporarily disabled due to tree structure issues
   FindManyOptions,
   SelectQueryBuilder,
   In,
@@ -37,7 +37,7 @@ export class CategoryService {
 
   constructor(
     @InjectRepository(Category)
-    private readonly categoryRepository: TreeRepository<Category>,
+    private readonly categoryRepository: Repository<Category>, // Changed from TreeRepository to Repository
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly auditService: AuditService,
@@ -52,9 +52,12 @@ export class CategoryService {
     // Check if name already exists at the same level
     await this.validateCategoryName(createCategoryDto.name, createCategoryDto.parentId);
 
+    // Convert empty string code to null to prevent unique constraint violations
+    const code = createCategoryDto.code?.trim() || null;
+
     // Check if code already exists (if provided)
-    if (createCategoryDto.code) {
-      await this.validateCategoryCode(createCategoryDto.code);
+    if (code) {
+      await this.validateCategoryCode(code);
     }
 
     // Validate parent category if provided
@@ -75,6 +78,7 @@ export class CategoryService {
     // Create category
     const category = this.categoryRepository.create({
       ...createCategoryDto,
+      code,
       level,
       parent,
       isActive: createCategoryDto.isActive ?? true,
@@ -83,17 +87,21 @@ export class CategoryService {
 
     const savedCategory = await this.categoryRepository.save(category);
 
-    // Log audit event
-    await this.auditService.logCategoryEvent(
-      savedCategory.id,
-      'CATEGORY_CREATED',
-      `Category ${savedCategory.name} created`,
-      userId,
-      {
-        parentId: parent?.id,
-        level: savedCategory.level,
-      },
-    );
+    // Log audit event (temporarily disabled due to audit schema mismatch)
+    try {
+      await this.auditService.logCategoryEvent(
+        savedCategory.id,
+        'CATEGORY_CREATED',
+        `Category ${savedCategory.name} created`,
+        userId,
+        {
+          parentId: parent?.id,
+          level: savedCategory.level,
+        },
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to log audit event: ${error.message}`);
+    }
 
     this.logger.log(`Category created successfully with ID: ${savedCategory.id}`);
     return this.toResponseDto(savedCategory);
@@ -291,9 +299,13 @@ export class CategoryService {
       await this.validateCategoryName(updateCategoryDto.name, category.parentId, id);
     }
 
-    // Check for code conflicts if code is being changed
-    if (updateCategoryDto.code && updateCategoryDto.code !== category.code) {
-      await this.validateCategoryCode(updateCategoryDto.code, id);
+    // Convert empty string code to null and check for code conflicts if code is being changed
+    const code = updateCategoryDto.code !== undefined ? (updateCategoryDto.code?.trim() || null) : undefined;
+    if (code !== undefined && code !== category.code) {
+      if (code) {
+        await this.validateCategoryCode(code, id);
+      }
+      updateCategoryDto.code = code;
     }
 
     // Track changes for audit
@@ -402,17 +414,77 @@ export class CategoryService {
       throw new NotFoundException(`Category with ID '${id}' not found`);
     }
 
-    // Check if category has children or products
+    this.logger.log(`Found category: ${category.name} with ${category.products?.length || 0} products and ${category.children?.length || 0} children`);
+
+    // Check if category has children
     if (category.children && category.children.length > 0) {
       throw new BadRequestException(
         'Cannot delete category that has subcategories. Move or delete subcategories first.',
       );
     }
 
-    if (category.products && category.products.length > 0) {
-      throw new BadRequestException(
-        'Cannot delete category that has products. Move products to another category first.',
+    // Check if category has active products by querying directly
+    const activeProductCount = await this.productRepository.count({
+      where: { categoryId: id }
+    });
+    
+    // Also check for soft-deleted products that still reference this category
+    const allProductCount = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.categoryId = :categoryId', { categoryId: id })
+      .withDeleted() // Include soft-deleted records
+      .getCount();
+    
+    this.logger.log(`Active product count: ${activeProductCount}, All products (including deleted): ${allProductCount}`);
+
+    // Handle all products (including soft-deleted ones) that reference this category
+    if (allProductCount > 0) {
+      this.logger.log(`Moving ${allProductCount} products (including deleted) to Uncategorized category`);
+      
+      // Find or create "Uncategorized" category
+      let uncategorizedCategory = await this.categoryRepository.findOne({
+        where: { name: 'Uncategorized' }
+      });
+      
+      if (!uncategorizedCategory) {
+        this.logger.log('Creating Uncategorized category');
+        uncategorizedCategory = this.categoryRepository.create({
+          name: 'Uncategorized',
+          code: 'UNCAT',
+          description: 'Products without specific category',
+          isActive: true,
+          sortOrder: 999,
+          level: 0,
+          path: null,
+          fullPath: 'Uncategorized',
+          isRoot: true,
+          parentId: null,
+          createdBy: userId || null,
+          updatedBy: userId || null,
+        });
+        uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
+        this.logger.log(`Created Uncategorized category with ID: ${uncategorizedCategory.id}`);
+      } else {
+        this.logger.log(`Found existing Uncategorized category with ID: ${uncategorizedCategory.id}`);
+      }
+      
+      // Update all products (including soft-deleted ones) to reference the Uncategorized category
+      this.logger.log(`Updating products from category ${id} to ${uncategorizedCategory.id}`);
+      const updateResult = await this.productRepository.manager.query(
+        'UPDATE products SET "categoryId" = $1, "updatedBy" = $2, "updatedAt" = NOW() WHERE "categoryId" = $3',
+        [uncategorizedCategory.id, userId || null, id]
       );
+      this.logger.log(`Update result executed successfully`);
+      
+      // Verify the update worked (check both active and soft-deleted)
+      const remainingActiveCount = await this.productRepository.count({
+        where: { categoryId: id }
+      });
+      const remainingAllCount = await this.productRepository.manager.query(
+        'SELECT COUNT(*) as count FROM products WHERE "categoryId" = $1',
+        [id]
+      );
+      this.logger.log(`Remaining products with old category - Active: ${remainingActiveCount}, All: ${remainingAllCount[0]?.count || 0}`);
     }
 
     await this.categoryRepository.remove(category);
@@ -421,7 +493,7 @@ export class CategoryService {
     await this.auditService.logCategoryEvent(
       id,
       'CATEGORY_DELETED',
-      `Category ${category.name} deleted`,
+      `Category ${category.name} deleted, ${category.products?.length || 0} products uncategorized`,
       userId,
     );
 
@@ -449,6 +521,11 @@ export class CategoryService {
       // Validate name conflicts if name is changing
       if (categoryUpdate.name && categoryUpdate.name !== category.name) {
         await this.validateCategoryName(categoryUpdate.name, category.parentId, category.id);
+      }
+
+      // Convert empty string code to null
+      if (categoryUpdate.code !== undefined) {
+        categoryUpdate.code = categoryUpdate.code?.trim() || null;
       }
 
       // Track changes

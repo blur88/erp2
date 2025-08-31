@@ -54,18 +54,6 @@ async function bootstrap() {
       .setTitle('ERP System API')
       .setDescription('A comprehensive ERP system API with modular architecture')
       .setVersion('1.0')
-      .addBearerAuth(
-        {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          name: 'JWT',
-          description: 'Enter JWT token',
-          in: 'header',
-        },
-        'JWT-auth',
-      )
-      .addTag('Authentication', 'User authentication and authorization')
       .addTag('User Management', 'User account management and role control')
       .addTag('Dashboard', 'Dashboard and analytics endpoints')
       .addTag('Inventory', 'Product and inventory management')

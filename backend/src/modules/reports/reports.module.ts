@@ -20,7 +20,7 @@ import {
 } from './models/report.schema';
 
 // Imports from other modules
-import { AuthModule } from '../auth/auth.module';
+// AuthModule removed - authentication system disabled
 import { SharedModule } from '../shared/shared.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SalesModule } from '../sales/sales.module';
@@ -39,7 +39,7 @@ import { CrmModule } from '../crm/crm.module';
     ScheduleModule.forRoot(),
     
     // Cross-module dependencies
-    AuthModule,
+    // AuthModule removed - authentication system disabled
     SharedModule,
     NotificationsModule,
     SalesModule,

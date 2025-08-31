@@ -191,8 +191,10 @@ const salesSlice = createSlice({
       })
       .addCase(fetchCustomers.fulfilled, (state, action) => {
         state.loading.customers = false
-        state.customers = action.payload.data
-        state.pagination.customers = action.payload.meta
+        if (action.payload) {
+          state.customers = action.payload.data
+          state.pagination.customers = action.payload.meta
+        }
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
         state.loading.customers = false
@@ -207,8 +209,10 @@ const salesSlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading.orders = false
-        state.orders = action.payload.data
-        state.pagination.orders = action.payload.meta
+        if (action.payload) {
+          state.orders = action.payload.data
+          state.pagination.orders = action.payload.meta
+        }
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading.orders = false
@@ -223,8 +227,10 @@ const salesSlice = createSlice({
       })
       .addCase(fetchInvoices.fulfilled, (state, action) => {
         state.loading.invoices = false
-        state.invoices = action.payload.data
-        state.pagination.invoices = action.payload.meta
+        if (action.payload) {
+          state.invoices = action.payload.data
+          state.pagination.invoices = action.payload.meta
+        }
       })
       .addCase(fetchInvoices.rejected, (state, action) => {
         state.loading.invoices = false
@@ -239,8 +245,10 @@ const salesSlice = createSlice({
       })
       .addCase(fetchPayments.fulfilled, (state, action) => {
         state.loading.payments = false
-        state.payments = action.payload.data
-        state.pagination.payments = action.payload.meta
+        if (action.payload) {
+          state.payments = action.payload.data
+          state.pagination.payments = action.payload.meta
+        }
       })
       .addCase(fetchPayments.rejected, (state, action) => {
         state.loading.payments = false
@@ -250,25 +258,33 @@ const salesSlice = createSlice({
     // Create Customer
     builder
       .addCase(createCustomer.fulfilled, (state, action) => {
-        state.customers.unshift(action.payload)
+        if (action.payload) {
+          state.customers.unshift(action.payload)
+        }
       })
 
     // Create Order
     builder
       .addCase(createOrder.fulfilled, (state, action) => {
-        state.orders.unshift(action.payload)
+        if (action.payload) {
+          state.orders.unshift(action.payload)
+        }
       })
 
     // Create Invoice
     builder
       .addCase(createInvoice.fulfilled, (state, action) => {
-        state.invoices.unshift(action.payload)
+        if (action.payload) {
+          state.invoices.unshift(action.payload)
+        }
       })
 
     // Record Payment
     builder
       .addCase(recordPayment.fulfilled, (state, action) => {
-        state.payments.unshift(action.payload)
+        if (action.payload) {
+          state.payments.unshift(action.payload)
+        }
       })
   },
 })
@@ -281,15 +297,15 @@ export const {
 } = salesSlice.actions
 
 // Selectors
-export const selectCustomers = (state: { sales: SalesState }) => state.sales.customers
-export const selectOrders = (state: { sales: SalesState }) => state.sales.orders
-export const selectInvoices = (state: { sales: SalesState }) => state.sales.invoices
-export const selectPayments = (state: { sales: SalesState }) => state.sales.payments
-export const selectSelectedCustomer = (state: { sales: SalesState }) => state.sales.selectedCustomer
-export const selectSelectedOrder = (state: { sales: SalesState }) => state.sales.selectedOrder
-export const selectSelectedInvoice = (state: { sales: SalesState }) => state.sales.selectedInvoice
-export const selectSalesLoading = (state: { sales: SalesState }) => state.sales.loading
-export const selectSalesError = (state: { sales: SalesState }) => state.sales.error
-export const selectSalesPagination = (state: { sales: SalesState }) => state.sales.pagination
+export const selectCustomers = (state: any) => state.sales?.customers
+export const selectOrders = (state: any) => state.sales?.orders
+export const selectInvoices = (state: any) => state.sales?.invoices
+export const selectPayments = (state: any) => state.sales?.payments
+export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
+export const selectSelectedOrder = (state: any) => state.sales?.selectedOrder
+export const selectSelectedInvoice = (state: any) => state.sales?.selectedInvoice
+export const selectSalesLoading = (state: any) => state.sales?.loading
+export const selectSalesError = (state: any) => state.sales?.error
+export const selectSalesPagination = (state: any) => state.sales?.pagination
 
 export default salesSlice.reducer

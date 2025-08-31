@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useCallback, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
-import { useAuth } from './useAuth'
 import { useNotification } from './useNotification'
 import { useAppDispatch } from './useRedux'
 import { addNotification } from '@/store/slices/notificationSlice'
@@ -17,10 +16,14 @@ interface WebSocketContextType {
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null)
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001'
+const getSocketUrl = () => {
+  return (window as any).__ENV__?.VITE_SOCKET_URL || 'http://localhost:3001'
+}
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token, isAuthenticated } = useAuth()
+  // Authentication removed - WebSocket will connect without auth
+  const isAuthenticated = true
+  const token = null
   const { showNotification } = useNotification()
   const dispatch = useAppDispatch()
   
@@ -31,13 +34,10 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Initialize WebSocket connection
   useEffect(() => {
-    if (isAuthenticated && token && !socketRef.current) {
-      console.log('Connecting to WebSocket...')
+    if (!socketRef.current) {
+      const socketUrl = getSocketUrl()
       
-      const socket = io(SOCKET_URL, {
-        auth: {
-          token,
-        },
+      const socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         timeout: 20000,
         retries: 3,
@@ -158,7 +158,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     }
-  }, [isAuthenticated, token, showNotification, dispatch])
+  }, [showNotification, dispatch])
 
   // Cleanup on unmount or auth change
   useEffect(() => {

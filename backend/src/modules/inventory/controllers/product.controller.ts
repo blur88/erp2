@@ -7,7 +7,6 @@ import {
   Param,
   Delete,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
@@ -18,14 +17,8 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { PermissionsGuard } from '../../../common/guards/permissions.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { User } from '../../../common/decorators/user.decorator';
 import { ProductService } from '../services/product.service';
 import { PricingService } from '../services/pricing.service';
 import {
@@ -39,9 +32,7 @@ import {
 } from '../dto/product.dto';
 
 @ApiTags('Products')
-@ApiBearerAuth()
 @Controller('inventory/products')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class ProductController {
   constructor(
     private readonly productService: ProductService,
@@ -49,7 +40,6 @@ export class ProductController {
   ) {}
 
   @Post()
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({
     status: 201,
@@ -61,13 +51,11 @@ export class ProductController {
   @ApiBody({ type: CreateProductDto })
   async create(
     @Body() createProductDto: CreateProductDto,
-    @User('id') userId: string,
   ): Promise<ProductResponseDto> {
-    return this.productService.create(createProductDto, userId);
+    return this.productService.create(createProductDto, null);
   }
 
   @Get()
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get all products with filtering and pagination' })
   @ApiResponse({
     status: 200,
@@ -90,7 +78,6 @@ export class ProductController {
   }
 
   @Get('stock-summary')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Get stock summary for all products' })
   @ApiResponse({
     status: 200,
@@ -107,7 +94,6 @@ export class ProductController {
   }
 
   @Get('low-stock')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Get products with low stock levels' })
   @ApiResponse({
     status: 200,
@@ -119,7 +105,6 @@ export class ProductController {
   }
 
   @Get('out-of-stock')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Get products that are out of stock' })
   @ApiResponse({
     status: 200,
@@ -131,7 +116,6 @@ export class ProductController {
   }
 
   @Get('sku/:sku')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get a product by SKU' })
   @ApiResponse({
     status: 200,
@@ -145,7 +129,6 @@ export class ProductController {
   }
 
   @Get(':id')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiResponse({
     status: 200,
@@ -159,7 +142,6 @@ export class ProductController {
   }
 
   @Get(':id/pricing-analysis')
-  @Roles('admin', 'inventory_manager', 'sales_manager')
   @ApiOperation({ summary: 'Get pricing analysis for a product' })
   @ApiResponse({
     status: 200,
@@ -171,7 +153,6 @@ export class ProductController {
   }
 
   @Get(':id/dynamic-pricing')
-  @Roles('admin', 'inventory_manager', 'sales_manager')
   @ApiOperation({ summary: 'Get dynamic pricing recommendations for a product' })
   @ApiResponse({
     status: 200,
@@ -183,7 +164,6 @@ export class ProductController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'inventory_manager', 'inventory_staff')
   @ApiOperation({ summary: 'Update a product' })
   @ApiResponse({
     status: 200,
@@ -198,13 +178,11 @@ export class ProductController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
-    @User('id') userId: string,
   ): Promise<ProductResponseDto> {
-    return this.productService.update(id, updateProductDto, userId);
+    return this.productService.update(id, updateProductDto, null);
   }
 
   @Post('bulk-update-prices')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Bulk update product prices' })
   @ApiResponse({
     status: 200,
@@ -216,14 +194,12 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async bulkUpdatePrices(
     @Body() bulkUpdateDto: BulkUpdatePricesDto,
-    @User('id') userId: string,
   ): Promise<{ message: string }> {
-    await this.productService.bulkUpdatePrices(bulkUpdateDto, userId);
+    await this.productService.bulkUpdatePrices(bulkUpdateDto, null);
     return { message: `Successfully updated prices for ${bulkUpdateDto.products.length} products` };
   }
 
   @Post(':id/reserve-stock')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_staff')
   @ApiOperation({ summary: 'Reserve stock for a product' })
   @ApiResponse({
     status: 200,
@@ -236,13 +212,12 @@ export class ProductController {
   async reserveStock(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { quantity: number; reason: string },
-    @User('id') userId: string,
   ): Promise<{ success: boolean; message: string }> {
     const success = await this.productService.reserveStock(
       id,
       body.quantity,
       body.reason,
-      userId,
+      null,
     );
     
     return {
@@ -254,7 +229,6 @@ export class ProductController {
   }
 
   @Post(':id/release-reserved-stock')
-  @Roles('admin', 'inventory_manager', 'inventory_staff', 'sales_staff')
   @ApiOperation({ summary: 'Release reserved stock for a product' })
   @ApiResponse({
     status: 200,
@@ -266,20 +240,18 @@ export class ProductController {
   async releaseReservedStock(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { quantity: number; reason: string },
-    @User('id') userId: string,
   ): Promise<{ message: string }> {
     await this.productService.releaseReservedStock(
       id,
       body.quantity,
       body.reason,
-      userId,
+      null,
     );
     
     return { message: `Successfully released ${body.quantity} reserved units` };
   }
 
   @Post('calculate-price')
-  @Roles('admin', 'inventory_manager', 'sales_manager', 'sales_staff')
   @ApiOperation({ summary: 'Calculate price for a product with discounts' })
   @ApiResponse({
     status: 200,
@@ -306,7 +278,6 @@ export class ProductController {
   }
 
   @Delete(':id')
-  @Roles('admin', 'inventory_manager')
   @ApiOperation({ summary: 'Delete a product (soft delete - sets status to DISCONTINUED)' })
   @ApiResponse({
     status: 204,
@@ -321,8 +292,7 @@ export class ProductController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
-    @User('id') userId: string,
   ): Promise<void> {
-    await this.productService.remove(id, userId);
+    await this.productService.remove(id, null);
   }
 }

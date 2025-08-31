@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -16,14 +15,9 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { UserRole } from '../../../database/entities/user.entity';
 import { CustomerService } from '../services/customer.service';
 import {
   CreateCustomerDto,
@@ -36,9 +30,7 @@ import {
 } from '../dto/customer.dto';
 
 @ApiTags('Customers')
-@ApiBearerAuth()
 @Controller('api/v1/customers')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
@@ -51,7 +43,6 @@ export class CustomerController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 409, description: 'Customer with email already exists' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP)
   async createCustomer(@Body() createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
     return this.customerService.create(createCustomerDto);
   }
@@ -72,7 +63,6 @@ export class CustomerController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getAllCustomers(@Query() query: QueryCustomersDto) {
     return this.customerService.findAll(query);
   }
@@ -84,7 +74,6 @@ export class CustomerController {
     description: 'Customer summaries retrieved successfully',
     type: [CustomerSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getCustomerSummaries(): Promise<CustomerSummaryDto[]> {
     return this.customerService.findSummaries();
   }
@@ -98,7 +87,6 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getCustomerById(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
     return this.customerService.findById(id);
   }
@@ -112,7 +100,6 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getCustomerByCode(@Param('customerCode') customerCode: string): Promise<CustomerResponseDto> {
     return this.customerService.findByCode(customerCode);
   }
@@ -127,7 +114,6 @@ export class CustomerController {
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async updateCustomer(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCustomerDto: UpdateCustomerDto,
@@ -142,7 +128,6 @@ export class CustomerController {
   @ApiResponse({ status: 404, description: 'Customer not found' })
   @ApiResponse({ status: 409, description: 'Cannot delete customer with existing orders' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async deleteCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.customerService.delete(id);
   }
@@ -155,7 +140,6 @@ export class CustomerController {
     type: CreditCheckResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP)
   async checkCredit(@Body() creditCheckDto: CreditCheckDto): Promise<CreditCheckResponseDto> {
     return this.customerService.checkCredit(creditCheckDto.customerId, creditCheckDto.amount);
   }
@@ -169,7 +153,6 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async updateCreditLimit(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('creditLimit') creditLimit: number,
@@ -186,7 +169,6 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async activateCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
     return this.customerService.activate(id);
   }
@@ -200,7 +182,6 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async deactivateCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
     return this.customerService.deactivate(id);
   }
@@ -214,7 +195,6 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER)
   async suspendCustomer(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
@@ -230,7 +210,6 @@ export class CustomerController {
     description: 'Sales history retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getCustomerSalesHistory(
     @Param('id', ParseUUIDPipe) id: string,
     @Query('limit') limit?: number,
@@ -246,7 +225,6 @@ export class CustomerController {
     description: 'Outstanding invoices retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getOutstandingInvoices(@Param('id', ParseUUIDPipe) id: string) {
     return this.customerService.getOutstandingInvoices(id);
   }
@@ -259,7 +237,6 @@ export class CustomerController {
     description: 'Customer statistics retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.SALES_MANAGER, UserRole.SALES_REP, UserRole.VIEWER)
   async getCustomerStatistics(@Param('id', ParseUUIDPipe) id: string) {
     return this.customerService.getCustomerStatistics(id);
   }

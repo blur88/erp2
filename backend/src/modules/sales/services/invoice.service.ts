@@ -24,7 +24,7 @@ import {
   InvoicePaymentAllocationDto,
   CreditNoteDto,
 } from '../dto/invoice.dto';
-import { EmailService } from '../../auth/services/email.service';
+// import { EmailService } from '../../auth/services/email.service'; // Temporarily disabled
 
 @Injectable()
 export class InvoiceService {
@@ -37,7 +37,7 @@ export class InvoiceService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-    private readonly emailService: EmailService,
+    // private readonly emailService: EmailService, // Temporarily disabled
   ) {}
 
   async create(createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
@@ -449,7 +449,8 @@ export class InvoiceService {
 
     // Send email with PDF attachment
     for (const email of emailAddresses) {
-      await this.emailService.sendEmail({
+      /* 
+      await this.emailService.sendEmail({ // Temporarily disabled
         to: email,
         subject,
         body: message,
@@ -459,6 +460,7 @@ export class InvoiceService {
           contentType: 'application/pdf',
         }],
       });
+      */
     }
 
     // Mark as sent if requested

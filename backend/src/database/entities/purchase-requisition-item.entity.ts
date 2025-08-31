@@ -240,7 +240,7 @@ export class PurchaseRequisitionItem extends BaseEntity {
       this.description = this.product.description || this.product.name;
       this.unit = this.product.unit;
       if (this.estimatedUnitPrice === 0) {
-        this.estimatedUnitPrice = Number(this.product.costPrice) || Number(this.product.sellingPrice);
+        this.estimatedUnitPrice = Number(this.product.baseCost) || Number(this.product.retailPrice);
       }
       this.calculateEstimatedTotal();
     }

@@ -17,8 +17,7 @@ import {
   ApiExcludeEndpoint,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { RolesGuard } from '../guards/roles.guard';
-import { Roles } from '../decorators/auth.decorator';
+// Auth guards and decorators removed - authentication system disabled
 import { UserRole } from '../../database/entities/user.entity';
 
 export interface CspViolationReport {
@@ -90,8 +89,7 @@ export class SecurityController {
    * Get CSP violation statistics (Admin only)
    */
   @Get('csp-violations')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  // Auth guards removed - endpoint now publicly accessible
   @ApiOperation({
     summary: 'Get CSP violation statistics',
     description: 'Retrieve Content Security Policy violation statistics and recent violations',

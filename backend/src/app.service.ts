@@ -17,13 +17,9 @@ export class AppService {
       version: '1.0.0',
       description: 'A comprehensive ERP system with modular architecture',
       modules: [
-        'authentication',
-        'dashboard',
+        'users',
         'inventory',
         'sales',
-        'purchasing',
-        'reports',
-        'plugins',
       ],
       features: [
         'Multi-level pricing',

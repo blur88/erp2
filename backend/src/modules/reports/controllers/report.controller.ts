@@ -5,7 +5,6 @@ import {
   Body, 
   Query, 
   Param, 
-  UseGuards, 
   Req 
 } from '@nestjs/common';
 import { 
@@ -16,13 +15,8 @@ import {
 } from '../interfaces/report-types.interface';
 import { SalesReportService } from '../services/sales-report.service';
 import { BaseReportService } from '../services/base-report.service';
-import { AuthGuard } from '../../auth/guards/auth.guard';
-import { RoleGuard } from '../../auth/guards/role.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { UserRole } from '../../auth/interfaces/user-role.interface';
 
 @Controller('reports')
-@UseGuards(AuthGuard, RoleGuard)
 export class ReportController {
   constructor(
     private readonly salesReportService: SalesReportService,
@@ -33,7 +27,6 @@ export class ReportController {
    * Generate a report
    */
   @Post('generate')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async generateReport(
     @Body('reportConfig') reportConfig: ReportConfig,
     @Body('options') options: ReportGenerationOptions,
@@ -61,7 +54,6 @@ export class ReportController {
    * Export a report
    */
   @Post('export')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async exportReport(
     @Body('reportData') reportData: any,
     @Body('format') format: ReportFormat,
@@ -82,7 +74,6 @@ export class ReportController {
    * Get available report templates
    */
   @Get('templates')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async getReportTemplates(
     @Query('category') category?: ReportCategory
   ) {

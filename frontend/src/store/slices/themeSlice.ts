@@ -30,9 +30,11 @@ const themeSlice = createSlice({
       state.secondaryColor = action.payload
     },
     setThemeConfig: (state, action: PayloadAction<ThemeConfig>) => {
-      state.mode = action.payload.mode
-      state.primaryColor = action.payload.primaryColor
-      state.secondaryColor = action.payload.secondaryColor
+      if (action.payload) {
+        state.mode = action.payload.mode
+        state.primaryColor = action.payload.primaryColor
+        state.secondaryColor = action.payload.secondaryColor
+      }
     },
     resetTheme: () => initialState,
   },
@@ -48,9 +50,9 @@ export const {
 } = themeSlice.actions
 
 // Selectors
-export const selectTheme = (state: { theme: ThemeState }) => state.theme
-export const selectThemeMode = (state: { theme: ThemeState }) => state.theme.mode
-export const selectPrimaryColor = (state: { theme: ThemeState }) => state.theme.primaryColor
-export const selectSecondaryColor = (state: { theme: ThemeState }) => state.theme.secondaryColor
+export const selectTheme = (state: any) => state.theme
+export const selectThemeMode = (state: any) => state.theme?.mode
+export const selectPrimaryColor = (state: any) => state.theme?.primaryColor
+export const selectSecondaryColor = (state: any) => state.theme?.secondaryColor
 
 export default themeSlice.reducer

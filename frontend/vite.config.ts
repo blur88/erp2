@@ -35,6 +35,8 @@ export default defineConfig({
       },
     },
   },
+  root: '.',
+  publicDir: 'public',
   build: {
     outDir: 'dist',
     sourcemap: true,

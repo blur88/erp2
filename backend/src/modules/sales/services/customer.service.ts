@@ -266,7 +266,7 @@ export class CustomerService {
     const invoices = await this.invoiceRepository.find({
       where: { 
         customerId,
-        balanceDue: Like('%'),  // This will be filtered in code
+        // Note: filtering for balanceDue > 0 will be done in code below
       },
       order: { dueDate: 'ASC' },
     });

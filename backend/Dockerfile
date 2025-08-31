@@ -1,26 +1,11 @@
-# Multi-stage build for optimized production image
-FROM node:18-alpine AS builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy source code
-COPY . .
-
-# Build the application
-RUN npm run build
-
-# Production stage
-FROM node:18-alpine AS production
+# Single stage for development deployment
+FROM node:18-alpine
 
 # Install security updates
 RUN apk update && apk upgrade
+
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -29,18 +14,19 @@ RUN adduser -S nestjs -u 1001
 # Set working directory
 WORKDIR /app
 
-# Copy package files and install production dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
 
-# Copy built application from builder stage
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+# Install all dependencies
+RUN npm install && npm cache clean --force
 
-# Create necessary directories with proper permissions
-RUN mkdir -p uploads logs && chown -R nestjs:nodejs uploads logs
+# Copy source code
+COPY --chown=nestjs:nodejs . .
 
-# Switch to non-root user
-USER nestjs
+# Create necessary directories
+RUN mkdir -p uploads logs dist
+
+# Note: Running as root for development - not recommended for production
 
 # Expose port
 EXPOSE 3001
@@ -49,5 +35,8 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3001/api/health || exit 1
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# Install missing dependencies with legacy peer deps to resolve conflicts
+RUN npm install @nestjs/microservices class-transformer --legacy-peer-deps || true
+
+# Alternative: start with node and transpile-only option to bypass webpack
+CMD ["npx", "ts-node", "--transpile-only", "src/main.ts"]

@@ -11,7 +11,6 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import App from './App'
 import { store } from './store'
 import { theme } from './styles/theme'
-import { AuthProvider } from './hooks/useAuth'
 import { NotificationProvider } from './hooks/useNotification'
 import { WebSocketProvider } from './hooks/useWebSocket'
 
@@ -32,7 +31,7 @@ const queryClient = new QueryClient({
 })
 
 // Enable React Query Devtools in development
-if (import.meta.env.DEV) {
+if ((import.meta as any).env?.DEV) {
   import('@tanstack/react-query-devtools').then(({ ReactQueryDevtools }) => {
     // Devtools will be added automatically
   })
@@ -46,13 +45,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <ThemeProvider theme={theme}>
             <CssBaseline />
             <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <AuthProvider>
-                <NotificationProvider>
-                  <WebSocketProvider>
-                    <App />
-                  </WebSocketProvider>
-                </NotificationProvider>
-              </AuthProvider>
+              <NotificationProvider>
+                <WebSocketProvider>
+                  <App />
+                </WebSocketProvider>
+              </NotificationProvider>
             </LocalizationProvider>
           </ThemeProvider>
         </QueryClientProvider>

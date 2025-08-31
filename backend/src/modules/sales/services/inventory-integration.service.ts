@@ -134,7 +134,7 @@ export class InventoryIntegrationService {
       await this.createStockMovement(
         item.productId,
         item.quantity,
-        StockMovementType.RESERVATION,
+        StockMovementType.ADJUSTMENT_DECREASE, // Using ADJUSTMENT_DECREASE instead of missing RESERVATION
         `Reserved for sales order ${item.salesOrderId}`,
         item.salesOrderId,
       );
@@ -152,7 +152,7 @@ export class InventoryIntegrationService {
       await this.createStockMovement(
         productId,
         quantity,
-        StockMovementType.RESERVATION_RELEASE,
+        StockMovementType.ADJUSTMENT_INCREASE, // Using ADJUSTMENT_INCREASE instead of missing RESERVATION_RELEASE
         `Released reservation for sales order ${salesOrderId}`,
         salesOrderId,
       );
@@ -365,8 +365,8 @@ export class InventoryIntegrationService {
 
     // Create stock movement record
     const movementType = difference > 0 
-      ? StockMovementType.RESERVATION 
-      : StockMovementType.RESERVATION_RELEASE;
+      ? StockMovementType.ADJUSTMENT_DECREASE // Using ADJUSTMENT_DECREASE instead of missing RESERVATION
+      : StockMovementType.ADJUSTMENT_INCREASE; // Using ADJUSTMENT_INCREASE instead of missing RESERVATION_RELEASE
 
     await this.createStockMovement(
       productId,
@@ -394,7 +394,7 @@ export class InventoryIntegrationService {
     let reservationValue = 0;
 
     for (const product of products) {
-      const stockValue = Number(product.stockQuantity) * Number(product.costPrice || 0);
+      const stockValue = Number(product.stockQuantity) * Number(product.baseCost || 0);
       totalStockValue += stockValue;
 
       // Check if low stock
@@ -405,7 +405,7 @@ export class InventoryIntegrationService {
       // Calculate reservations for this product
       const reservations = await this.getProductReservations(product.id);
       totalReservations += reservations.totalReserved;
-      reservationValue += reservations.totalReserved * Number(product.costPrice || 0);
+      reservationValue += reservations.totalReserved * Number(product.baseCost || 0);
     }
 
     return {

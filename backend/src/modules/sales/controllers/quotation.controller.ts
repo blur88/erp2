@@ -6,7 +6,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -15,15 +14,9 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { CurrentUser } from '../../../common/decorators/user.decorator';
-import { UserRole, User } from '../../../database/entities/user.entity';
 import { QuotationService } from '../services/quotation.service';
 import {
   CreateQuotationDto,
@@ -37,9 +30,7 @@ import {
 } from '../dto/quotation.dto';
 
 @ApiTags('Quotations')
-@ApiBearerAuth()
 @Controller('api/v1/quotations')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class QuotationController {
   constructor(private readonly quotationService: QuotationService) {}
 
@@ -52,12 +43,11 @@ export class QuotationController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Customer or product not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async createQuotation(
     @Body() createQuotationDto: CreateQuotationDto,
-    @CurrentUser() user: User,
   ): Promise<QuotationResponseDto> {
-    return this.quotationService.create(createQuotationDto, user.id);
+    // Auth removed - using system user
+    return this.quotationService.create(createQuotationDto, 'system');
   }
 
   @Get()
@@ -77,7 +67,6 @@ export class QuotationController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getAllQuotations(@Query() query: QueryQuotationsDto) {
     return this.quotationService.findAll(query);
   }
@@ -90,7 +79,6 @@ export class QuotationController {
     description: 'Quotation summaries retrieved successfully',
     type: [QuotationSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getQuotationSummaries(@Query('customerId') customerId?: string): Promise<QuotationSummaryDto[]> {
     return this.quotationService.getSummaries(customerId);
   }
@@ -104,7 +92,6 @@ export class QuotationController {
     type: QuotationResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Quotation not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getQuotationById(@Param('id', ParseUUIDPipe) id: string): Promise<QuotationResponseDto> {
     return this.quotationService.findById(id);
   }
@@ -119,7 +106,6 @@ export class QuotationController {
   })
   @ApiResponse({ status: 404, description: 'Quotation not found' })
   @ApiResponse({ status: 400, description: 'Cannot update quotation in current status' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async updateQuotation(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateQuotationDto: UpdateQuotationDto,
@@ -137,7 +123,6 @@ export class QuotationController {
   })
   @ApiResponse({ status: 404, description: 'Quotation not found' })
   @ApiResponse({ status: 400, description: 'Only draft quotations can be sent' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async sendQuotation(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() sendQuotationDto: Omit<SendQuotationDto, 'quotationId'>,
@@ -155,7 +140,6 @@ export class QuotationController {
   })
   @ApiResponse({ status: 404, description: 'Quotation not found' })
   @ApiResponse({ status: 400, description: 'Only sent quotations can be accepted' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async acceptQuotation(@Param('id', ParseUUIDPipe) id: string): Promise<QuotationResponseDto> {
     return this.quotationService.accept(id);
   }
@@ -170,7 +154,6 @@ export class QuotationController {
   })
   @ApiResponse({ status: 404, description: 'Quotation not found' })
   @ApiResponse({ status: 400, description: 'Only sent quotations can be rejected' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async rejectQuotation(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
@@ -195,15 +178,14 @@ export class QuotationController {
   })
   @ApiResponse({ status: 404, description: 'Quotation not found' })
   @ApiResponse({ status: 400, description: 'Quotation cannot be converted to sales order' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async convertToSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() convertDto: Omit<ConvertQuotationDto, 'quotationId'>,
-    @CurrentUser() user: User,
   ): Promise<{ salesOrderId: string; quotationId: string; message: string }> {
+    // Auth removed - using system user
     const salesOrderId = await this.quotationService.convertToSalesOrder(
       { ...convertDto, quotationId: id },
-      user.id,
+      'system'
     );
 
     return {
@@ -227,7 +209,6 @@ export class QuotationController {
     },
   })
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async updateExpiredQuotations(): Promise<{ updatedCount: number; message: string }> {
     const updatedCount = await this.quotationService.updateExpiredQuotations();
 
@@ -245,7 +226,6 @@ export class QuotationController {
     description: 'Expiring quotations retrieved successfully',
     type: [QuotationSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getExpiringQuotations(@Param('days') days: number): Promise<QuotationSummaryDto[]> {
     return this.quotationService.getSummaries().then(summaries =>
       summaries.filter(summary => 
@@ -265,7 +245,6 @@ export class QuotationController {
     description: 'Customer quotations retrieved successfully',
     type: [QuotationSummaryDto],
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getQuotationsByCustomer(
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Query('status') status?: QuotationStatus,

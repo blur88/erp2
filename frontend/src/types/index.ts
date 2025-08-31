@@ -12,26 +12,6 @@ export interface User {
   updatedAt: Date;
 }
 
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-}
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
 
 export type UserRole = 'admin' | 'manager' | 'employee' | 'viewer';
 
@@ -48,16 +28,50 @@ export interface Product {
   name: string;
   description?: string;
   sku: string;
+  type: 'goods' | 'service';
   category?: Category;
-  price: number;
-  cost: number;
-  stock: number;
-  minStock: number;
-  maxStock: number;
+  categoryId?: string;
+  // Multi-level pricing
+  baseCost: number;
+  retailPrice: number;
+  wholesalePrice: number;
+  specialPrice: number;
+  // Legacy price fields for backwards compatibility
+  price?: number;
+  cost?: number;
+  // Stock management
+  stockQuantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  reorderLevel: number;
+  optimalStockLevel: number;
+  stockStatus: string;
+  // Legacy stock fields for backwards compatibility
+  stock?: number;
+  minStock?: number;
+  maxStock?: number;
   unit: string;
   isActive: boolean;
+  // Additional properties
+  weight?: number;
+  dimensions?: {
+    length?: number;
+    width?: number;
+    height?: number;
+  };
+  brand?: string;
+  model?: string;
+  imageUrl?: string;
   images?: string[];
-  attributes?: ProductAttribute[];
+  additionalImages?: string[];
+  attributes?: ProductAttribute[] | Record<string, any>;
+  notes?: string;
+  // Stock status indicators
+  isLowStock: boolean;
+  isOutOfStock: boolean;
+  // Margin calculations
+  grossMarginRetail: number;
+  grossMarginWholesale: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,12 +79,20 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
+  code?: string;
   description?: string;
-  parentId?: string;
-  children?: Category[];
+  imageUrl?: string | null;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  sortOrder: number;
+  path?: string | null;
+  level: number;
+  parentId?: string | null;
+  fullPath: string;
+  isRoot: boolean;
+  children?: Category[];
+  productCount?: number;  // Number of products in this category
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 export interface ProductAttribute {

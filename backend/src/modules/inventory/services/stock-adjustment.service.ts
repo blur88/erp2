@@ -33,6 +33,7 @@ import {
 import { StockMovementService } from './stock-movement.service';
 import { ProductService } from './product.service';
 import { AuditService } from './audit.service';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
 
 @Injectable()
 export class StockAdjustmentService {
@@ -57,7 +58,7 @@ export class StockAdjustmentService {
    */
   async create(
     createAdjustmentDto: CreateStockAdjustmentDto,
-    userId: string,
+    userId: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(
       `Creating stock adjustment for product ${createAdjustmentDto.productId}`,
@@ -260,7 +261,7 @@ export class StockAdjustmentService {
   async update(
     id: string,
     updateAdjustmentDto: UpdateStockAdjustmentDto,
-    userId: string,
+    userId: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Updating stock adjustment: ${id}`);
 
@@ -341,7 +342,7 @@ export class StockAdjustmentService {
   async approve(
     id: string,
     actionDto: StockAdjustmentActionDto,
-    userId: string,
+    userId: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Approving stock adjustment: ${id}`);
 
@@ -396,7 +397,7 @@ export class StockAdjustmentService {
   async reject(
     id: string,
     actionDto: StockAdjustmentActionDto,
-    userId: string,
+    userId: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Rejecting stock adjustment: ${id}`);
 
@@ -443,7 +444,7 @@ export class StockAdjustmentService {
   async cancel(
     id: string,
     reason: string,
-    userId: string,
+    userId: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Cancelling stock adjustment: ${id}`);
 
@@ -490,7 +491,7 @@ export class StockAdjustmentService {
    */
   async createBulk(
     bulkAdjustmentDto: BulkStockAdjustmentDto,
-    userId: string,
+    userId: string = 'system',
   ): Promise<StockAdjustmentResponseDto[]> {
     this.logger.log(`Creating bulk stock adjustments: ${bulkAdjustmentDto.adjustments.length} items`);
 

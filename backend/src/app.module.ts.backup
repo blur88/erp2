@@ -1,0 +1,112 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bull';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+// import { redisStore } from 'cache-manager-redis-yet'; // Disabled for testing
+
+// Configuration
+import { DatabaseConfig } from './config/database.config';
+import { RedisConfig } from './config/redis.config';
+
+// Security (temporarily disabled for testing)
+// import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+// import { RolesGuard } from './common/guards/roles.guard';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+
+// Modules (temporarily disabled for testing)
+// import { AuthModule } from './modules/auth/auth.module';
+// import { UsersModule } from './modules/users/users.module';
+// import { InventoryModule } from './modules/inventory/inventory.module';
+// import { SalesModule } from './modules/sales/sales.module';
+// import { PurchasingModule } from './modules/purchasing/purchasing.module';
+// import { DashboardModule } from './modules/dashboard/dashboard-module';
+// import { ReportsModule } from './modules/reports/reports.module';
+// import { PluginsModule } from './modules/plugins/plugins.module';
+
+// Controllers
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
+@Module({
+  imports: [
+    // Configuration
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+
+    // Database
+    TypeOrmModule.forRootAsync({
+      useClass: DatabaseConfig,
+    }),
+
+    // Temporarily disable cache and throttling to get basic functionality working
+    // CacheModule.register({
+    //   isGlobal: true,
+    //   ttl: 300, // 5 minutes default TTL
+    //   max: 1000, // Maximum number of items in cache
+    // }),
+
+    // Rate Limiting (temporarily disabled for testing)
+    // ThrottlerModule.forRoot([
+    //   {
+    //     ttl: 60000, // 1 minute
+    //     limit: 100, // 100 requests per minute
+    //   },
+    // ]),
+
+    // Background Jobs (temporarily disabled)
+    // BullModule.forRootAsync({
+    //   useClass: RedisConfig,
+    // }),
+
+    // Core Modules (temporarily disabled for testing)
+    // AuthModule,
+    // UsersModule,
+
+    // Business Modules (temporarily disabled for testing)
+    // InventoryModule,
+    // SalesModule,
+    // PurchasingModule,
+    // DashboardModule,
+    // ReportsModule,
+
+    // Plugin System
+    // PluginsModule,
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+    
+    // Global Security Guards (temporarily disabled for testing)
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: JwtAuthGuard, // Apply JWT authentication globally
+    // },
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: ThrottlerGuard, // Apply rate limiting globally (disabled for testing)
+    // },
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: RolesGuard, // Apply role-based access control globally
+    // },
+    
+    // Global Exception Filter
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter, // Handle all exceptions consistently
+    },
+    
+    // Global Logging Interceptor
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor, // Log all requests and responses
+    },
+  ],
+})
+export class AppModule {}

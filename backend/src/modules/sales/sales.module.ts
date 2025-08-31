@@ -37,7 +37,7 @@ import {
 import { SalesAuditService } from './services/sales-audit.service';
 
 // External services (from other modules)
-import { EmailService } from '../auth/services/email.service';
+// import { EmailService } from '../auth/services/email.service'; // Temporarily disabled
 
 @Module({
   imports: [
@@ -78,7 +78,7 @@ import { EmailService } from '../auth/services/email.service';
     SalesAuditService,
     
     // External services
-    EmailService,
+    // EmailService, // Temporarily disabled
   ],
   exports: [
     // Export services that might be used by other modules

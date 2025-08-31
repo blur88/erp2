@@ -88,27 +88,40 @@ export class ProductService {
 
     const savedProduct = await this.productRepository.save(product);
 
-    // Create initial stock movement if initial stock provided
-    if (createProductDto.initialStockQuantity && createProductDto.initialStockQuantity > 0) {
-      await this.stockMovementService.recordInitialStock(
-        savedProduct.id,
-        createProductDto.initialStockQuantity,
-        createProductDto.baseCost,
-        userId,
-      );
+    // Set the category relationship for the response DTO
+    savedProduct.category = category;
+
+    // Create initial stock movement if initial stock provided (temporarily disabled for system users)
+    if (createProductDto.initialStockQuantity && createProductDto.initialStockQuantity > 0 && userId) {
+      try {
+        await this.stockMovementService.recordInitialStock(
+          savedProduct.id,
+          createProductDto.initialStockQuantity,
+          createProductDto.baseCost,
+          userId,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to create initial stock movement: ${error.message}`);
+      }
     }
 
-    // Log audit event
-    await this.auditService.logProductEvent(
-      savedProduct.id,
-      'PRODUCT_CREATED',
-      `Product ${savedProduct.name} (${savedProduct.sku}) created`,
-      userId,
-      {
-        initialStock: createProductDto.initialStockQuantity || 0,
-        category: category.name,
-      },
-    );
+    // Log audit event (temporarily disabled for system users)
+    if (userId) {
+      try {
+        await this.auditService.logProductEvent(
+          savedProduct.id,
+          'PRODUCT_CREATED',
+          `Product ${savedProduct.name} (${savedProduct.sku}) created`,
+          userId,
+          {
+            initialStock: createProductDto.initialStockQuantity || 0,
+            category: category.name,
+          },
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to log audit event: ${error.message}`);
+      }
+    }
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
     return this.toResponseDto(savedProduct);

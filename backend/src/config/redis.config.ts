@@ -12,6 +12,7 @@ export class RedisConfig implements BullOptionsFactory {
         host: this.configService.get('REDIS_HOST', 'localhost'),
         port: this.configService.get('REDIS_PORT', 6379),
         password: this.configService.get('REDIS_PASSWORD'),
+        family: 4, // Force IPv4
         retryDelayOnFailover: 100,
         enableReadyCheck: false,
         lazyConnect: true,

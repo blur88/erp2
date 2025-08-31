@@ -14,35 +14,31 @@ import {
   DashboardDataRequest, 
   UserDashboardLayout 
 } from '../interfaces/dashboard-interfaces';
-import { AuthGuard } from '../../auth/guards/auth-guard';
-import { RolesGuard } from '../../auth/guards/roles-guard';
-import { Roles } from '../../auth/decorators/roles-decorator';
-import { UserRole } from '../../auth/interfaces/user-interfaces';
+// Auth imports removed - authentication system disabled
 
 @Controller('dashboard')
-@UseGuards(AuthGuard, RolesGuard)
+// Auth guards removed - endpoints now publicly accessible
 export class DashboardController {
   constructor(private dashboardService: DashboardService) {}
 
   @Get('/data')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.EXECUTIVE)
+  // Auth roles removed - endpoint now publicly accessible
   async getDashboardData(
     @Query() request: DashboardDataRequest,
     @Request() req
   ) {
-    // Validate user's access to specific dashboard widgets
+    // User role filtering disabled - authentication removed
     return this.dashboardService.getDashboardData({
       ...request,
-      // Add user's role-based filtering
       filters: {
         ...request.filters,
-        userRole: req.user.role
+        // userRole filtering removed
       }
     });
   }
 
   @Get('/kpis')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.EXECUTIVE)
+  // Auth roles removed - endpoint now publicly accessible
   async getDashboardKPIs(
     @Query('category') category: string,
     @Query('startDate') startDate?: string,
@@ -55,7 +51,7 @@ export class DashboardController {
   }
 
   @Get('/alerts')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.EXECUTIVE)
+  // Auth roles removed - endpoint now publicly accessible
   async getDashboardAlerts(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string
@@ -67,7 +63,7 @@ export class DashboardController {
   }
 
   @Post('/layout')
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.EXECUTIVE)
+  // Auth roles removed - endpoint now publicly accessible
   async saveUserDashboardLayout(
     @Request() req,
     @Body() layout: UserDashboardLayout

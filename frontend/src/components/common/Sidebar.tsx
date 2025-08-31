@@ -1,8 +1,7 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Box,
-  Drawer,
   List,
   ListItem,
   ListItemButton,
@@ -23,7 +22,7 @@ import {
   ExpandLess,
   ExpandMore,
   Category as CategoryIcon,
-  Product as ProductIcon,
+  Inventory2 as ProductIcon,
   People as CustomersIcon,
   Receipt as OrdersIcon,
   ReceiptLong as InvoiceIcon,
@@ -33,6 +32,7 @@ import {
   Person as UsersIcon,
   Tune as SystemSettingsIcon,
 } from '@mui/icons-material'
+import { moduleApi } from '@/services/moduleApi'
 
 interface SidebarProps {
   onItemClick?: () => void
@@ -209,6 +209,38 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const [expandedItems, setExpandedItems] = React.useState<string[]>(['inventory', 'sales', 'purchasing'])
+  const [availableModules, setAvailableModules] = React.useState<string[]>([])
+  const [backendAvailable, setBackendAvailable] = React.useState<boolean>(true)
+
+  useEffect(() => {
+    const checkModuleAvailability = async () => {
+      try {
+        // Only check modules info, skip health check for faster loading
+        const modules = await moduleApi.getAvailableModules()
+        setAvailableModules(modules)
+        setBackendAvailable(modules.length > 0) // Assume healthy if modules are returned
+      } catch (error) {
+        console.error('Failed to check module availability:', error)
+        setAvailableModules([])
+        setBackendAvailable(false)
+      }
+    }
+
+    // Small delay to ensure env-config.js is loaded
+    const timer = setTimeout(checkModuleAvailability, 100)
+    
+    // Reduce frequency to 60 seconds to minimize API calls
+    const interval = setInterval(checkModuleAvailability, 60000)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Show all modules - no filtering based on backend availability
+  const getFilteredMenuSections = () => {
+    return menuSections // Return all menu sections without filtering
+  }
 
   const handleItemClick = (item: MenuItem) => {
     if (item.path) {
@@ -344,14 +376,21 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
         >
           ERP
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          ERP System
-        </Typography>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            ERP System
+          </Typography>
+          {!backendAvailable && (
+            <Typography variant="caption" sx={{ color: 'warning.main', display: 'block' }}>
+              Backend Offline
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       {/* Navigation */}
       <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
-        {menuSections.map((section, index) => (
+        {getFilteredMenuSections().map((section, index) => (
           <React.Fragment key={section.id}>
             {index > 0 && <Divider sx={{ my: 1 }} />}
             

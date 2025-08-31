@@ -620,7 +620,7 @@ export class SalesOrderService {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      const unitPrice = item.unitPrice || Number(product.sellingPrice);
+      const unitPrice = item.unitPrice || Number(product.retailPrice);
       const discountPercent = item.discountPercent || 0;
       const discountAmount = (unitPrice * item.quantity * discountPercent) / 100;
       const totalAmount = (unitPrice * item.quantity) - discountAmount;

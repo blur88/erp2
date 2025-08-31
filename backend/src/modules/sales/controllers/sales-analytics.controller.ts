@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Query,
-  UseGuards,
   ParseUUIDPipe,
   Param,
 } from '@nestjs/common';
@@ -10,14 +9,9 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiQuery,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { UserRole } from '../../../database/entities/user.entity';
 import { SalesAnalyticsService } from '../services/sales-analytics.service';
 import {
   SalesAnalyticsQueryDto,
@@ -32,9 +26,7 @@ import {
 } from '../dto/sales-analytics.dto';
 
 @ApiTags('Sales Analytics')
-@ApiBearerAuth()
 @Controller('api/v1/sales/analytics')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class SalesAnalyticsController {
   constructor(private readonly salesAnalyticsService: SalesAnalyticsService) {}
 
@@ -51,7 +43,6 @@ export class SalesAnalyticsController {
     description: 'Sales analytics retrieved successfully',
     type: SalesAnalyticsResponseDto,
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getSalesAnalytics(@Query() query: SalesAnalyticsQueryDto): Promise<SalesAnalyticsResponseDto> {
     return this.salesAnalyticsService.getSalesAnalytics(query);
   }
@@ -79,7 +70,6 @@ export class SalesAnalyticsController {
       },
     },
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getDashboardMetrics() {
     return this.salesAnalyticsService.getDashboardMetrics();
   }
@@ -96,7 +86,6 @@ export class SalesAnalyticsController {
     description: 'Sales pipeline analytics retrieved successfully',
     type: SalesPipelineResponseDto,
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getSalesPipeline(@Query() query: SalesPipelineQueryDto): Promise<SalesPipelineResponseDto> {
     return this.salesAnalyticsService.getSalesPipeline(query);
   }
@@ -114,7 +103,6 @@ export class SalesAnalyticsController {
     type: CustomerMetricsDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getCustomerAnalytics(
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Query() query: Omit<CustomerAnalyticsQueryDto, 'customerId'>,
@@ -137,7 +125,6 @@ export class SalesAnalyticsController {
     description: 'Revenue report retrieved successfully',
     type: RevenueReportResponseDto,
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getRevenueReport(@Query() query: RevenueReportQueryDto): Promise<RevenueReportResponseDto> {
     return this.salesAnalyticsService.getRevenueReport(query);
   }
@@ -167,7 +154,6 @@ export class SalesAnalyticsController {
       },
     },
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getTopCustomers(
     @Query('dateRange') dateRange?: DateRange,
     @Query('startDate') startDate?: string,
@@ -208,7 +194,6 @@ export class SalesAnalyticsController {
       },
     },
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getTopProducts(
     @Query('dateRange') dateRange?: DateRange,
     @Query('startDate') startDate?: string,
@@ -260,7 +245,6 @@ export class SalesAnalyticsController {
       },
     },
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getSalesTrends(
     @Param('period') period: 'daily' | 'weekly' | 'monthly',
     @Query('days') days: number = 30,
@@ -341,7 +325,6 @@ export class SalesAnalyticsController {
     status: 200,
     description: 'Sales rep performance retrieved successfully',
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async getSalesRepPerformance(
     @Param('salesRepId', ParseUUIDPipe) salesRepId: string,
     @Query() query: Omit<SalesAnalyticsQueryDto, 'salesRepId'>,

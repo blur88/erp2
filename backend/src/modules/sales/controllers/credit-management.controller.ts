@@ -6,22 +6,15 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../common/guards/roles.guard';
-import { Roles } from '../../../common/decorators/auth.decorator';
-import { CurrentUser } from '../../../common/decorators/user.decorator';
-import { UserRole, User } from '../../../database/entities/user.entity';
 import { 
   CreditManagementService, 
   CreditApprovalRequest, 
@@ -32,9 +25,7 @@ import {
 import { CreditCheckResponseDto } from '../dto/customer.dto';
 
 @ApiTags('Credit Management')
-@ApiBearerAuth()
 @Controller('api/v1/credit')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class CreditManagementController {
   constructor(private readonly creditManagementService: CreditManagementService) {}
 
@@ -46,7 +37,6 @@ export class CreditManagementController {
     type: CreditCheckResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async checkCredit(
     @Body() checkDto: { customerId: string; amount: number },
   ): Promise<CreditCheckResponseDto> {
@@ -78,14 +68,13 @@ export class CreditManagementController {
   })
   @ApiResponse({ status: 400, description: 'Invalid request data' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async requestCreditIncrease(
     @Body() request: Omit<CreditApprovalRequest, 'requestedByUserId'>,
-    @CurrentUser() user: User,
   ): Promise<CreditApprovalResponse> {
+    // Auth removed - using system user
     return this.creditManagementService.requestCreditIncrease({
       ...request,
-      requestedByUserId: user.id,
+      requestedByUserId: 'system',
     });
   }
 
@@ -99,15 +88,14 @@ export class CreditManagementController {
   @ApiResponse({ status: 404, description: 'Approval request not found' })
   @ApiResponse({ status: 400, description: 'Request already processed' })
   @ApiResponse({ status: 403, description: 'User does not have authority to approve this credit limit' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async approveCredit(
     @Param('approvalId') approvalId: string,
     @Body() approvalData: { comments?: string },
-    @CurrentUser() user: User,
   ): Promise<CreditApprovalResponse> {
+    // Auth removed - using system user
     return this.creditManagementService.approveCreditRequest(
       approvalId,
-      user.id,
+      'system',
       approvalData.comments,
     );
   }
@@ -121,15 +109,14 @@ export class CreditManagementController {
   })
   @ApiResponse({ status: 404, description: 'Approval request not found' })
   @ApiResponse({ status: 400, description: 'Request already processed or missing rejection comments' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async rejectCredit(
     @Param('approvalId') approvalId: string,
     @Body() rejectionData: { comments: string },
-    @CurrentUser() user: User,
   ): Promise<CreditApprovalResponse> {
+    // Auth removed - using system user
     return this.creditManagementService.rejectCreditRequest(
       approvalId,
-      user.id,
+      'system',
       rejectionData.comments,
     );
   }
@@ -142,13 +129,10 @@ export class CreditManagementController {
     description: 'Pending approval requests retrieved successfully',
     type: 'array',
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async getPendingApprovals(
     @Query('userId') userId?: string,
-    @CurrentUser() user?: User,
   ): Promise<CreditApprovalResponse[]> {
-    const filterUserId = userId || (user?.role === UserRole.MANAGER ? user.id : undefined);
-    return this.creditManagementService.getPendingApprovals(filterUserId);
+    return this.creditManagementService.getPendingApprovals(userId);
   }
 
   @Get('approvals/history')
@@ -159,7 +143,6 @@ export class CreditManagementController {
     description: 'Approval history retrieved successfully',
     type: 'array',
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getApprovalHistory(
     @Query('customerId') customerId?: string,
   ): Promise<CreditApprovalResponse[]> {
@@ -186,7 +169,6 @@ export class CreditManagementController {
   })
   @ApiResponse({ status: 400, description: 'Insufficient available credit for hold' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async placeCreditHold(
     @Body() holdData: {
       customerId: string;
@@ -195,13 +177,13 @@ export class CreditManagementController {
       orderId?: string;
       expirationHours?: number;
     },
-    @CurrentUser() user: User,
   ): Promise<CreditHold> {
+    // Auth removed - using system user
     return this.creditManagementService.placeCreditHold(
       holdData.customerId,
       holdData.amount,
       holdData.reason,
-      user.id,
+      'system',
       holdData.orderId,
       holdData.expirationHours,
     );
@@ -216,12 +198,11 @@ export class CreditManagementController {
   })
   @ApiResponse({ status: 404, description: 'Credit hold not found' })
   @ApiResponse({ status: 400, description: 'Credit hold already released' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async releaseCreditHold(
     @Param('holdId') holdId: string,
-    @CurrentUser() user: User,
   ): Promise<CreditHold> {
-    return this.creditManagementService.releaseCreditHold(holdId, user.id);
+    // Auth removed - using system user
+    return this.creditManagementService.releaseCreditHold(holdId, 'system');
   }
 
   @Get('holds/customer/:customerId')
@@ -232,11 +213,10 @@ export class CreditManagementController {
     description: 'Active credit holds retrieved successfully',
     type: 'array',
   })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getActiveCreditHolds(
     @Param('customerId', ParseUUIDPipe) customerId: string,
   ): Promise<CreditHold[]> {
-    return this.creditManagementService.getActiveCreditHolds(customerId);
+    return this.creditManagementService.getActiveCreditHoldsList(customerId);
   }
 
   @Get('utilization/:customerId')
@@ -258,7 +238,6 @@ export class CreditManagementController {
     },
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP, UserRole.USER)
   async getCreditUtilization(
     @Param('customerId', ParseUUIDPipe) customerId: string,
   ) {
@@ -282,7 +261,6 @@ export class CreditManagementController {
     },
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_REP)
   async getCreditRisk(
     @Param('customerId', ParseUUIDPipe) customerId: string,
   ) {

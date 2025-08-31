@@ -1,19 +1,11 @@
 import React, { Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
-import { useAuth } from './hooks/useAuth'
 import { useAppSelector } from './hooks/useRedux'
 import { selectTheme } from './store/slices/themeSlice'
 
 // Layouts
 import MainLayout from './components/common/MainLayout'
-import AuthLayout from './components/common/AuthLayout'
-
-// Auth Pages (lazy loaded)
-const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
-const RegisterPage = React.lazy(() => import('./pages/auth/RegisterPage'))
-const ForgotPasswordPage = React.lazy(() => import('./pages/auth/ForgotPasswordPage'))
-const ResetPasswordPage = React.lazy(() => import('./pages/auth/ResetPasswordPage'))
 
 // Main Pages (lazy loaded)
 const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
@@ -41,44 +33,9 @@ const PageLoader = () => (
   </Box>
 )
 
-// Protected Route Component
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth()
-
-  if (isLoading) {
-    return <PageLoader />
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/auth/login" replace />
-  }
-
-  return <>{children}</>
-}
-
-// Auth Route Component (redirect if already authenticated)
-const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth()
-
-  if (isLoading) {
-    return <PageLoader />
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
-  }
-
-  return <>{children}</>
-}
 
 function App() {
-  const { initialize } = useAuth()
   const theme = useAppSelector(selectTheme)
-
-  useEffect(() => {
-    // Initialize auth state from localStorage
-    initialize()
-  }, [initialize])
 
   useEffect(() => {
     // Apply theme to document
@@ -89,30 +46,11 @@ function App() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Public Routes */}
-          <Route
-            path="/auth/*"
-            element={
-              <AuthRoute>
-                <AuthLayout>
-                  <Routes>
-                    <Route path="login" element={<LoginPage />} />
-                    <Route path="register" element={<RegisterPage />} />
-                    <Route path="forgot-password" element={<ForgotPasswordPage />} />
-                    <Route path="reset-password" element={<ResetPasswordPage />} />
-                    <Route path="*" element={<Navigate to="/auth/login" replace />} />
-                  </Routes>
-                </AuthLayout>
-              </AuthRoute>
-            }
-          />
-
-          {/* Protected Routes */}
+          {/* Main Routes */}
           <Route
             path="/*"
             element={
-              <ProtectedRoute>
-                <MainLayout>
+              <MainLayout>
                   <Routes>
                     {/* Dashboard */}
                     <Route path="/dashboard" element={<DashboardPage />} />
@@ -148,8 +86,7 @@ function App() {
                     {/* 404 page */}
                     <Route path="*" element={<NotFoundPage />} />
                   </Routes>
-                </MainLayout>
-              </ProtectedRoute>
+              </MainLayout>
             }
           />
         </Routes>

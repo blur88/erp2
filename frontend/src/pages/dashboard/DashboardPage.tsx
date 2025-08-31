@@ -22,7 +22,6 @@ import {
   MoreVert as MoreIcon,
 } from '@mui/icons-material'
 
-import { useAuth } from '@/hooks/useAuth'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 
 interface StatCardProps {
@@ -131,7 +130,8 @@ const QuickStatsCard: React.FC<{ title: string; children: React.ReactNode }> = (
 )
 
 const DashboardPage: React.FC = () => {
-  const { user } = useAuth()
+  // Authentication removed - using placeholder user
+  const user = { name: 'User' }
   const [loading, setLoading] = React.useState(true)
 
   // Simulate loading

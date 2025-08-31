@@ -509,7 +509,7 @@ export class SupplierInvoice extends BaseEntity {
 
     // Compare amounts
     const poAmount = Number(this.purchaseOrder.totalAmount);
-    const grnAmount = Number(this.goodsReceivedNote.totalAmount);
+    const grnAmount = Number(this.goodsReceivedNote.totalValue);
     const invoiceAmount = Number(this.netAmount);
 
     this.poMatchedAmount = poAmount;

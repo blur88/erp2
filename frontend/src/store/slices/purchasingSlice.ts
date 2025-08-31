@@ -156,8 +156,10 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchSuppliers.fulfilled, (state, action) => {
         state.loading.suppliers = false
-        state.suppliers = action.payload.data
-        state.pagination.suppliers = action.payload.meta
+        if (action.payload) {
+          state.suppliers = action.payload.data
+          state.pagination.suppliers = action.payload.meta
+        }
       })
       .addCase(fetchSuppliers.rejected, (state, action) => {
         state.loading.suppliers = false
@@ -172,8 +174,10 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchPurchaseOrders.fulfilled, (state, action) => {
         state.loading.purchaseOrders = false
-        state.purchaseOrders = action.payload.data
-        state.pagination.purchaseOrders = action.payload.meta
+        if (action.payload) {
+          state.purchaseOrders = action.payload.data
+          state.pagination.purchaseOrders = action.payload.meta
+        }
       })
       .addCase(fetchPurchaseOrders.rejected, (state, action) => {
         state.loading.purchaseOrders = false
@@ -188,8 +192,10 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchGoodsReceivedNotes.fulfilled, (state, action) => {
         state.loading.goodsReceivedNotes = false
-        state.goodsReceivedNotes = action.payload.data
-        state.pagination.goodsReceivedNotes = action.payload.meta
+        if (action.payload) {
+          state.goodsReceivedNotes = action.payload.data
+          state.pagination.goodsReceivedNotes = action.payload.meta
+        }
       })
       .addCase(fetchGoodsReceivedNotes.rejected, (state, action) => {
         state.loading.goodsReceivedNotes = false
@@ -199,19 +205,25 @@ const purchasingSlice = createSlice({
     // Create Supplier
     builder
       .addCase(createSupplier.fulfilled, (state, action) => {
-        state.suppliers.unshift(action.payload)
+        if (action.payload) {
+          state.suppliers.unshift(action.payload)
+        }
       })
 
     // Create Purchase Order
     builder
       .addCase(createPurchaseOrder.fulfilled, (state, action) => {
-        state.purchaseOrders.unshift(action.payload)
+        if (action.payload) {
+          state.purchaseOrders.unshift(action.payload)
+        }
       })
 
     // Create GRN
     builder
       .addCase(createGoodsReceivedNote.fulfilled, (state, action) => {
-        state.goodsReceivedNotes.unshift(action.payload)
+        if (action.payload) {
+          state.goodsReceivedNotes.unshift(action.payload)
+        }
       })
   },
 })
@@ -224,14 +236,14 @@ export const {
 } = purchasingSlice.actions
 
 // Selectors
-export const selectSuppliers = (state: { purchasing: PurchasingState }) => state.purchasing.suppliers
-export const selectPurchaseOrders = (state: { purchasing: PurchasingState }) => state.purchasing.purchaseOrders
-export const selectGoodsReceivedNotes = (state: { purchasing: PurchasingState }) => state.purchasing.goodsReceivedNotes
-export const selectSelectedSupplier = (state: { purchasing: PurchasingState }) => state.purchasing.selectedSupplier
-export const selectSelectedPurchaseOrder = (state: { purchasing: PurchasingState }) => state.purchasing.selectedPurchaseOrder
-export const selectSelectedGRN = (state: { purchasing: PurchasingState }) => state.purchasing.selectedGRN
-export const selectPurchasingLoading = (state: { purchasing: PurchasingState }) => state.purchasing.loading
-export const selectPurchasingError = (state: { purchasing: PurchasingState }) => state.purchasing.error
-export const selectPurchasingPagination = (state: { purchasing: PurchasingState }) => state.purchasing.pagination
+export const selectSuppliers = (state: any) => state.purchasing?.suppliers
+export const selectPurchaseOrders = (state: any) => state.purchasing?.purchaseOrders
+export const selectGoodsReceivedNotes = (state: any) => state.purchasing?.goodsReceivedNotes
+export const selectSelectedSupplier = (state: any) => state.purchasing?.selectedSupplier
+export const selectSelectedPurchaseOrder = (state: any) => state.purchasing?.selectedPurchaseOrder
+export const selectSelectedGRN = (state: any) => state.purchasing?.selectedGRN
+export const selectPurchasingLoading = (state: any) => state.purchasing?.loading
+export const selectPurchasingError = (state: any) => state.purchasing?.error
+export const selectPurchasingPagination = (state: any) => state.purchasing?.pagination
 
 export default purchasingSlice.reducer
