@@ -414,17 +414,77 @@ export class CategoryService {
       throw new NotFoundException(`Category with ID '${id}' not found`);
     }
 
-    // Check if category has children or products
+    this.logger.log(`Found category: ${category.name} with ${category.products?.length || 0} products and ${category.children?.length || 0} children`);
+
+    // Check if category has children
     if (category.children && category.children.length > 0) {
       throw new BadRequestException(
         'Cannot delete category that has subcategories. Move or delete subcategories first.',
       );
     }
 
-    if (category.products && category.products.length > 0) {
-      throw new BadRequestException(
-        'Cannot delete category that has products. Move products to another category first.',
+    // Check if category has active products by querying directly
+    const activeProductCount = await this.productRepository.count({
+      where: { categoryId: id }
+    });
+    
+    // Also check for soft-deleted products that still reference this category
+    const allProductCount = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.categoryId = :categoryId', { categoryId: id })
+      .withDeleted() // Include soft-deleted records
+      .getCount();
+    
+    this.logger.log(`Active product count: ${activeProductCount}, All products (including deleted): ${allProductCount}`);
+
+    // Handle all products (including soft-deleted ones) that reference this category
+    if (allProductCount > 0) {
+      this.logger.log(`Moving ${allProductCount} products (including deleted) to Uncategorized category`);
+      
+      // Find or create "Uncategorized" category
+      let uncategorizedCategory = await this.categoryRepository.findOne({
+        where: { name: 'Uncategorized' }
+      });
+      
+      if (!uncategorizedCategory) {
+        this.logger.log('Creating Uncategorized category');
+        uncategorizedCategory = this.categoryRepository.create({
+          name: 'Uncategorized',
+          code: 'UNCAT',
+          description: 'Products without specific category',
+          isActive: true,
+          sortOrder: 999,
+          level: 0,
+          path: null,
+          fullPath: 'Uncategorized',
+          isRoot: true,
+          parentId: null,
+          createdBy: userId || null,
+          updatedBy: userId || null,
+        });
+        uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
+        this.logger.log(`Created Uncategorized category with ID: ${uncategorizedCategory.id}`);
+      } else {
+        this.logger.log(`Found existing Uncategorized category with ID: ${uncategorizedCategory.id}`);
+      }
+      
+      // Update all products (including soft-deleted ones) to reference the Uncategorized category
+      this.logger.log(`Updating products from category ${id} to ${uncategorizedCategory.id}`);
+      const updateResult = await this.productRepository.manager.query(
+        'UPDATE products SET "categoryId" = $1, "updatedBy" = $2, "updatedAt" = NOW() WHERE "categoryId" = $3',
+        [uncategorizedCategory.id, userId || null, id]
       );
+      this.logger.log(`Update result executed successfully`);
+      
+      // Verify the update worked (check both active and soft-deleted)
+      const remainingActiveCount = await this.productRepository.count({
+        where: { categoryId: id }
+      });
+      const remainingAllCount = await this.productRepository.manager.query(
+        'SELECT COUNT(*) as count FROM products WHERE "categoryId" = $1',
+        [id]
+      );
+      this.logger.log(`Remaining products with old category - Active: ${remainingActiveCount}, All: ${remainingAllCount[0]?.count || 0}`);
     }
 
     await this.categoryRepository.remove(category);
@@ -433,7 +493,7 @@ export class CategoryService {
     await this.auditService.logCategoryEvent(
       id,
       'CATEGORY_DELETED',
-      `Category ${category.name} deleted`,
+      `Category ${category.name} deleted, ${category.products?.length || 0} products uncategorized`,
       userId,
     );
 
