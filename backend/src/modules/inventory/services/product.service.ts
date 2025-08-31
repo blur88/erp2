@@ -627,12 +627,12 @@ export class ProductService {
       attributes: product.attributes,
       notes: product.notes,
       categoryId: product.categoryId,
-      category: {
+      category: product.category ? {
         id: product.category.id,
         name: product.category.name,
         code: product.category.code,
         fullPath: product.category.fullPath,
-      },
+      } : null,
       isLowStock: product.isLowStock,
       isOutOfStock: product.isOutOfStock,
       grossMarginRetail: product.grossMarginRetail,

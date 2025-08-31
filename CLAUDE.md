@@ -656,8 +656,22 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 - Inventory frontend completely integrated with backend
 - Database with sample data (8 products, 4 categories)
 - All containers running with proper networking
+- **Category deletion with products**: Fixed foreign key constraint issues (August 2025)
 
 **Still Disabled:** PurchasingModule, ReportsModule, PluginsModule
+
+### Category Deletion Foreign Key Fix (August 2025)
+**Problem**: Deleting categories with associated products caused foreign key constraint violations.
+
+**Solution Implemented**:
+1. **Soft Delete**: Changed `categoryRepository.remove()` to `categoryRepository.softRemove()` to preserve referential integrity
+2. **Uncategorized Category Restoration**: Enhanced logic to find and restore existing soft-deleted "Uncategorized" categories instead of creating duplicates
+3. **Null Safety**: Added proper null checks in product service when accessing category properties after soft deletion
+
+**Key Changes**:
+- `backend/src/modules/inventory/services/category.service.ts`: Uses `softRemove()` and restores existing "Uncategorized" categories
+- `backend/src/modules/inventory/services/product.service.ts`: Added null safety for category field in response DTOs
+- Products are automatically moved to restored/created "Uncategorized" category when their category is deleted
 
 ### WebSocket/Socket.IO Integration
 **Dependencies Installed:**

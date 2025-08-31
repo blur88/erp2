@@ -441,9 +441,10 @@ export class CategoryService {
     if (allProductCount > 0) {
       this.logger.log(`Moving ${allProductCount} products (including deleted) to Uncategorized category`);
       
-      // Find or create "Uncategorized" category
+      // Find or create "Uncategorized" category (including soft-deleted ones)
       let uncategorizedCategory = await this.categoryRepository.findOne({
-        where: { name: 'Uncategorized' }
+        where: { name: 'Uncategorized' },
+        withDeleted: true // Include soft-deleted records
       });
       
       if (!uncategorizedCategory) {
@@ -464,8 +465,17 @@ export class CategoryService {
         });
         uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
         this.logger.log(`Created Uncategorized category with ID: ${uncategorizedCategory.id}`);
+      } else if (uncategorizedCategory.deletedAt) {
+        // Restore soft-deleted Uncategorized category
+        this.logger.log(`Restoring soft-deleted Uncategorized category with ID: ${uncategorizedCategory.id}`);
+        uncategorizedCategory.deletedAt = null;
+        uncategorizedCategory.isActive = true;
+        uncategorizedCategory.updatedBy = userId || null;
+        uncategorizedCategory.updatedAt = new Date();
+        uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
+        this.logger.log(`Restored Uncategorized category with ID: ${uncategorizedCategory.id}`);
       } else {
-        this.logger.log(`Found existing Uncategorized category with ID: ${uncategorizedCategory.id}`);
+        this.logger.log(`Found existing active Uncategorized category with ID: ${uncategorizedCategory.id}`);
       }
       
       // Update all products (including soft-deleted ones) to reference the Uncategorized category
@@ -487,7 +497,8 @@ export class CategoryService {
       this.logger.log(`Remaining products with old category - Active: ${remainingActiveCount}, All: ${remainingAllCount[0]?.count || 0}`);
     }
 
-    await this.categoryRepository.remove(category);
+    // Use soft delete instead of hard delete to preserve referential integrity
+    await this.categoryRepository.softRemove(category);
 
     // Log audit event
     await this.auditService.logCategoryEvent(
