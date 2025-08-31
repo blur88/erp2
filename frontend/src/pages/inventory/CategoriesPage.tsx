@@ -22,12 +22,21 @@ import {
   FormControlLabel,
   Switch,
   Grid,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Badge,
+  Divider,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
+  Undo as UndoIcon,
+  Refresh as RefreshIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -61,6 +70,8 @@ const CategoriesPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [nameValidationError, setNameValidationError] = useState<string | null>(null)
+  const [recentlyDeleted, setRecentlyDeleted] = useState<Map<string, { category: Category; timestamp: number }>>(new Map())
+  const [undoMenuAnchor, setUndoMenuAnchor] = useState<null | HTMLElement>(null)
 
   const {
     control,
@@ -125,19 +136,75 @@ const CategoriesPage: React.FC = () => {
   const handleDeleteCategory = async (category: Category) => {
     const productCount = category.productCount ?? 0
     const confirmMessage = productCount > 0 
-      ? `Category "${category.name}" contains ${productCount} product${productCount === 1 ? '' : 's'}. You must move or delete these products before deleting the category. Continue?`
+      ? `Category "${category.name}" contains ${productCount} product${productCount === 1 ? '' : 's'}. Products will be moved to "Uncategorized". Continue?`
       : `Are you sure you want to delete the category "${category.name}"?`
       
     if (window.confirm(confirmMessage)) {
       try {
         await inventoryApi.deleteCategory(category.id)
-        showSuccess(`Category "${category.name}" deleted successfully`)
+        
+        // Add to recently deleted with timestamp
+        const newRecentlyDeleted = new Map(recentlyDeleted)
+        newRecentlyDeleted.set(category.id, {
+          category,
+          timestamp: Date.now()
+        })
+        setRecentlyDeleted(newRecentlyDeleted)
+        
+        // Auto-remove from recently deleted after 30 seconds
+        setTimeout(() => {
+          setRecentlyDeleted(prev => {
+            const updated = new Map(prev)
+            updated.delete(category.id)
+            return updated
+          })
+        }, 30000)
+        
+        showSuccess(
+          `Category "${category.name}" deleted successfully. Click the undo button to restore it.`
+        )
         fetchCategories()
       } catch (error: any) {
         const errorMessage = error.response?.data?.message || 'Failed to delete category'
         showError(errorMessage)
       }
     }
+  }
+
+  const handleRestoreCategory = async (categoryId: string) => {
+    const deletedInfo = recentlyDeleted.get(categoryId)
+    if (!deletedInfo) return
+    
+    try {
+      await inventoryApi.restoreCategory(categoryId)
+      
+      // Remove from recently deleted
+      const newRecentlyDeleted = new Map(recentlyDeleted)
+      newRecentlyDeleted.delete(categoryId)
+      setRecentlyDeleted(newRecentlyDeleted)
+      
+      // Close the menu after restore
+      setUndoMenuAnchor(null)
+      
+      showSuccess(`Category "${deletedInfo.category.name}" restored successfully`)
+      fetchCategories()
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to restore category'
+      showError(errorMessage)
+    }
+  }
+
+  const handleUndoMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUndoMenuAnchor(event.currentTarget)
+  }
+
+  const handleUndoMenuClose = () => {
+    setUndoMenuAnchor(null)
+  }
+
+  const formatTimeRemaining = (timestamp: number) => {
+    const timeLeft = Math.max(0, 30 - Math.floor((Date.now() - timestamp) / 1000))
+    return `${timeLeft}s remaining`
   }
 
   const onSubmit = async (data: CategoryFormData) => {
@@ -220,11 +287,33 @@ const CategoriesPage: React.FC = () => {
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="outlined"
+            startIcon={<RefreshIcon />}
             onClick={handleRefresh}
             disabled={loading}
           >
             Refresh
           </Button>
+          {recentlyDeleted.size > 0 && (
+            <Badge badgeContent={recentlyDeleted.size} color="warning">
+              <Button
+                variant="outlined"
+                startIcon={<UndoIcon />}
+                endIcon={<ExpandMoreIcon />}
+                onClick={handleUndoMenuOpen}
+                color="warning"
+                sx={{ 
+                  borderColor: 'warning.main',
+                  color: 'warning.main',
+                  '&:hover': {
+                    borderColor: 'warning.dark',
+                    backgroundColor: 'warning.light',
+                  }
+                }}
+              >
+                Undo ({recentlyDeleted.size})
+              </Button>
+            </Badge>
+          )}
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -235,6 +324,69 @@ const CategoriesPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Undo Menu */}
+      <Menu
+        anchorEl={undoMenuAnchor}
+        open={Boolean(undoMenuAnchor)}
+        onClose={handleUndoMenuClose}
+        PaperProps={{
+          sx: {
+            minWidth: 320,
+            maxWidth: 400,
+            mt: 1,
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem disabled sx={{ opacity: '1 !important', cursor: 'default' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            Recently Deleted Categories
+          </Typography>
+        </MenuItem>
+        <Divider />
+        {Array.from(recentlyDeleted.entries()).map(([categoryId, { category, timestamp }]) => (
+          <MenuItem 
+            key={categoryId}
+            onClick={() => handleRestoreCategory(categoryId)}
+            sx={{
+              py: 1.5,
+              px: 2,
+              '&:hover': {
+                backgroundColor: 'warning.light',
+              }
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <UndoIcon color="warning" fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {category.name}
+                </Typography>
+              }
+              secondary={
+                <Typography variant="caption" color="text.secondary">
+                  {formatTimeRemaining(timestamp)}
+                </Typography>
+              }
+            />
+          </MenuItem>
+        ))}
+        {recentlyDeleted.size === 0 && (
+          <MenuItem disabled>
+            <ListItemText
+              primary={
+                <Typography variant="body2" color="text.secondary">
+                  No recently deleted categories
+                </Typography>
+              }
+            />
+          </MenuItem>
+        )}
+      </Menu>
 
       {/* Categories Table */}
       <Paper>

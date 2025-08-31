@@ -517,6 +517,45 @@ export class CategoryService {
   }
 
   /**
+   * Restore a soft-deleted category
+   */
+  async restore(id: string, userId?: string): Promise<CategoryResponseDto> {
+    this.logger.log(`Restoring category with ID: ${id}`);
+
+    const category = await this.categoryRepository.findOne({
+      where: { id },
+      withDeleted: true, // Include soft-deleted records
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID '${id}' not found`);
+    }
+
+    if (!category.deletedAt) {
+      throw new BadRequestException(`Category '${category.name}' is not deleted`);
+    }
+
+    // Restore the category
+    category.deletedAt = null;
+    category.isActive = true;
+    category.updatedBy = userId || null;
+    category.updatedAt = new Date();
+
+    const restoredCategory = await this.categoryRepository.save(category);
+
+    // Log audit event
+    await this.auditService.logCategoryEvent(
+      restoredCategory.id,
+      'CATEGORY_RESTORED',
+      `Category ${restoredCategory.name} restored`,
+      userId,
+    );
+
+    this.logger.log(`Category restored successfully: ${restoredCategory.id}`);
+    return this.toResponseDto(restoredCategory);
+  }
+
+  /**
    * Bulk update categories
    */
   async bulkUpdate(bulkUpdateDto: BulkUpdateCategoriesDto, userId?: string): Promise<void> {

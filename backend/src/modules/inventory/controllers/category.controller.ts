@@ -239,6 +239,22 @@ export class CategoryController {
     return { message: `Successfully updated ${bulkUpdateDto.categories.length} categories` };
   }
 
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted category' })
+  @ApiResponse({
+    status: 200,
+    description: 'Category restored successfully',
+    type: CategoryResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 400, description: 'Category is not deleted' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<CategoryResponseDto> {
+    return this.categoryService.restore(id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a category' })
   @ApiResponse({

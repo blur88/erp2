@@ -64,6 +64,10 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/categories/${id}`)
   },
 
+  async restoreCategory(id: string) {
+    return ApiService.post<Category>(`/inventory/categories/${id}/restore`)
+  },
+
   // Stock management
   async getStockMovements(params?: QueryParams & { productId?: string }) {
     return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock-movements', { params })

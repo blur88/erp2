@@ -501,6 +501,16 @@ import { Entity } from '@database/entities/entity';
 import { Config } from '@config/config';
 ```
 
+### Material-UI Design Patterns
+Frontend follows Material-UI v5 design language consistently:
+- **Component Structure**: Use Paper, Box, Typography hierarchy for layouts
+- **Interactive Elements**: Button variants (contained/outlined), proper spacing with `sx={{ gap: 2 }}`
+- **Icons**: Import from `@mui/icons-material`, use consistent sizing (`fontSize="small"`)
+- **Colors**: Use theme colors (`warning.main`, `error.main`, `success.main`) for semantic meaning
+- **Responsive Layout**: Grid system with proper breakpoints and spacing
+- **Menu/Dropdown Patterns**: Use Menu component with proper positioning and MaterialUI list items
+- **Badge Components**: Show counts and status indicators with proper visual hierarchy
+
 ### Database Configuration Pattern
 Docker-optimized database connections with IPv4 enforcement:
 ```typescript
@@ -545,13 +555,14 @@ Copy `.env.example` to `.env` and configure:
 **✅ Fully Functional Pages (Ready for Testing):**
 - **Inventory Overview**: http://localhost:3000/inventory (shows real data, functional buttons)
 - **Products Management**: http://localhost:3000/inventory/products (full CRUD with multi-pricing)
-- **Categories Management**: http://localhost:3000/inventory/categories (full CRUD operations)
+- **Categories Management**: http://localhost:3000/inventory/categories (full CRUD operations + restore/undo functionality)
 - **Sales Module**: Available but frontend integration may need similar fixes as inventory
 
 **Working API Endpoints:**
 - Users: `http://localhost:3001/api/users`
 - Inventory Products: `http://localhost:3001/api/inventory/products`
 - Inventory Categories: `http://localhost:3001/api/inventory/categories` 
+- Category Restore: `http://localhost:3001/api/inventory/categories/:id/restore` (POST)
 - Inventory Stock: `http://localhost:3001/api/inventory/stock/movements`
 - Sales Orders: `http://localhost:3001/api/api/v1/sales-orders` (note double `/api` prefix)
 - Module Info: `http://localhost:3001/api/info`
@@ -660,6 +671,7 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 - UsersModule, InventoryModule, SalesModule, and DashboardModule fully functional
 - DashboardModule with WebSocket/Socket.IO support for real-time updates
 - Inventory frontend completely integrated with backend
+- **Category Restore/Undo**: Complete implementation with 30-second restore window and Material-UI design
 - Database with sample data (8 products, 4 categories)
 - All containers running with proper networking
 - **Category deletion with products**: Fixed foreign key constraint issues (August 2025)
@@ -667,11 +679,13 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 **Still Disabled:** PurchasingModule, ReportsModule, PluginsModule
 
 ### Category Restore Functionality Status
-**Missing Feature**: Categories page lacks restore/undo functionality despite soft delete implementation
-- **Backend**: Supports soft delete (sets `deletedAt` timestamp) 
-- **Frontend**: No restore UI implemented
-- **Gap**: Deleted categories cannot be restored through the interface
-- **Manual Restore**: `UPDATE categories SET deletedAt = NULL WHERE id = 'category-id'`
+**✅ IMPLEMENTED**: Categories page now has complete restore/undo functionality
+- **Backend**: Full soft delete and restore support with audit logging
+- **Frontend**: Elegant header-based undo button with dropdown menu
+- **30-Second Window**: Users can restore deleted categories within 30 seconds
+- **API Endpoint**: `POST /api/inventory/categories/:id/restore`
+- **UI Design**: Material-UI compliant dropdown with countdown timers
+- **Audit Trail**: All restore operations logged with `CATEGORY_RESTORED` event type
 
 ### Category Deletion Foreign Key Fix (August 2025)
 **Problem**: Deleting categories with associated products caused foreign key constraint violations.
