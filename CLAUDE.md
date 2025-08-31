@@ -594,6 +594,12 @@ npm run start:dev
 
 # Frontend icon import fixes
 # Replace non-existent imports like 'Product' with 'Inventory2' in src/components/common/Sidebar.tsx
+
+# Check if categories are soft-deleted vs hard-deleted
+docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT name, \"isActive\", \"deletedAt\" FROM categories;"
+
+# Fix empty string unique constraint violations (convert to NULL)
+# In service files, use: const code = dto.code?.trim() || null;
 ```
 
 ### API Method Mismatch Issues
@@ -660,6 +666,13 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 
 **Still Disabled:** PurchasingModule, ReportsModule, PluginsModule
 
+### Category Restore Functionality Status
+**Missing Feature**: Categories page lacks restore/undo functionality despite soft delete implementation
+- **Backend**: Supports soft delete (sets `deletedAt` timestamp) 
+- **Frontend**: No restore UI implemented
+- **Gap**: Deleted categories cannot be restored through the interface
+- **Manual Restore**: `UPDATE categories SET deletedAt = NULL WHERE id = 'category-id'`
+
 ### Category Deletion Foreign Key Fix (August 2025)
 **Problem**: Deleting categories with associated products caused foreign key constraint violations.
 
@@ -670,8 +683,9 @@ docker compose exec backend grep -A 5 "your search pattern" /app/src/path/to/fil
 
 **Key Changes**:
 - `backend/src/modules/inventory/services/category.service.ts`: Uses `softRemove()` and restores existing "Uncategorized" categories
-- `backend/src/modules/inventory/services/product.service.ts`: Added null safety for category field in response DTOs
+- `backend/src/modules/inventory/services/product.service.ts`: Added null safety for category field in response DTOs  
 - Products are automatically moved to restored/created "Uncategorized" category when their category is deleted
+- **Additional Safety Fix**: Empty string codes are converted to `NULL` before database operations to prevent unique constraint violations
 
 ### WebSocket/Socket.IO Integration
 **Dependencies Installed:**
