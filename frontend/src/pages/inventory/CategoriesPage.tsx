@@ -49,13 +49,13 @@ import type { Category } from '@/types'
 interface CategoryFormData {
   name: string
   isActive: boolean
-  parentId?: string
+  parentId?: string | null
 }
 
 const categorySchema = yup.object({
   name: yup.string().required('Category name is required').min(2, 'Name must be at least 2 characters'),
   isActive: yup.boolean(),
-  parentId: yup.string().optional(),
+  parentId: yup.string().optional().nullable(),
 })
 
 const CategoriesPage: React.FC = () => {
@@ -82,7 +82,7 @@ const CategoriesPage: React.FC = () => {
     defaultValues: {
       name: '',
       isActive: true,
-      parentId: undefined,
+      parentId: null,
     },
   })
 
@@ -118,7 +118,7 @@ const CategoriesPage: React.FC = () => {
     reset({
       name: '',
       isActive: true,
-      parentId: parentId,
+      parentId: parentId || null,
     })
     setEditMode(false)
     setSelectedCategory(null)
@@ -229,7 +229,7 @@ const CategoriesPage: React.FC = () => {
         showError(`A category named "${data.name}" already exists. Please choose a different name.`)
         return
       }
-      
+
       if (editMode && selectedCategory) {
         await inventoryApi.updateCategory(selectedCategory.id, data)
         showSuccess('Category updated successfully')
@@ -513,7 +513,7 @@ const CategoriesPage: React.FC = () => {
             </Typography>
           )}
         </DialogTitle>
-        <form onSubmit={handleSubmit(onSubmit as any)}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <DialogContent>
             <Grid container spacing={3} sx={{ mt: 1 }}>
               <Grid item xs={12}>
@@ -537,6 +537,7 @@ const CategoriesPage: React.FC = () => {
                           const error = validateCategoryName(e.target.value)
                           setNameValidationError(error)
                         }}
+                        onBlur={field.onBlur}
                       />
                     )
                   }}

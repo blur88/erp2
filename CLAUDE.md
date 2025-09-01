@@ -15,7 +15,7 @@ Comprehensive ERP system with modern full-stack architecture:
 **⚠️ CRITICAL: Authentication system completely removed**
 
 **Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `DashboardModule`  
-**Disabled Modules**: `PurchasingModule`, `ReportsModule`, `PluginsModule`
+**Disabled Modules**: `PurchasingModule`, `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
 
 - All API endpoints publicly accessible
 - Frontend fully integrated with backend
@@ -228,6 +228,12 @@ When enabling disabled modules:
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
 
+### Category Form Validation Fixed (September 2025)
+- Fixed yup schema validation for `parentId` to allow `null` values: `.nullable()`
+- Updated TypeScript interfaces to support `parentId?: string | null`
+- Root level categories properly created with `parentId: null`
+- CategorySelector properly handles "No Category (Root Level)" option
+
 ## Code Patterns
 
 ### Entity Design
@@ -254,6 +260,33 @@ export class EntityName extends BaseEntity {
 - Use Paper, Box, Typography hierarchy
 - Theme colors: `warning.main`, `error.main`, `success.main`
 - Icons from `@mui/icons-material` with consistent sizing
+
+### Form Validation Patterns
+```typescript
+// Yup schema for nullable foreign keys
+const schema = yup.object({
+  name: yup.string().required('Name is required'),
+  parentId: yup.string().optional().nullable(), // Allows null for root level
+  isActive: yup.boolean()
+})
+
+// TypeScript interface matching the schema
+interface FormData {
+  name: string
+  parentId?: string | null  // Important: allow null
+  isActive: boolean
+}
+
+// React Hook Form setup
+const { control, handleSubmit } = useForm<FormData>({
+  resolver: yupResolver(schema),
+  defaultValues: {
+    name: '',
+    parentId: null, // Use null, not undefined
+    isActive: true
+  }
+})
+```
 
 ## Environment
 
@@ -290,6 +323,8 @@ export class EntityName extends BaseEntity {
 - **TypeScript**: Uses `"strict": false`, use `as any` assertions for TypeORM when needed
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
 - **Icons**: Use `Inventory2` instead of non-existent `Product` icon
+- **Form validation fails silently**: Check yup schema allows `null` for optional foreign keys (use `.nullable()`)
+- **CategorySelector API response**: Use `response.data?.data || []` for tree endpoints, not `response.data.data`
 
 ### Debug Commands
 ```bash

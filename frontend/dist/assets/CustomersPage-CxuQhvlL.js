@@ -1,2 +1,0 @@
-import{j as e,B as r,T as s,ag as t,H as o}from"./mui-CiG4LjL5.js";import"./vendor-CwczGxAq.js";const i=()=>e.jsxs(r,{children:[e.jsx(s,{variant:"h4",sx:{fontWeight:700,mb:4},children:"Customers"}),e.jsxs(t,{sx:{p:6,textAlign:"center"},children:[e.jsx(s,{variant:"h5",sx:{fontWeight:600,mb:2},children:"Customers Coming Soon"}),e.jsx(s,{variant:"body1",color:"text.secondary",sx:{mb:3},children:"This module is under development."}),e.jsx(o,{label:"In Development",color:"primary",variant:"outlined"})]})]});export{i as default};
-//# sourceMappingURL=CustomersPage-CxuQhvlL.js.map
