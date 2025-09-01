@@ -175,10 +175,25 @@ const ProductsPage: React.FC = () => {
   const handleAddProduct = () => {
     reset()
     setEditMode(false)
+    setSelectedProduct(null)
     setDialogOpen(true)
   }
 
+  const handleCloseDialog = () => {
+    setDialogOpen(false)
+    setEditMode(false)
+    setSelectedProduct(null)
+    reset()
+  }
+
   const handleEditProduct = (product: Product) => {
+    console.log('=== EDIT PRODUCT DEBUG ===')
+    console.log('Editing product:', product)
+    console.log('Product ID:', product.id)
+    console.log('Current selectedProduct before:', selectedProduct)
+    console.log('Current editMode before:', editMode)
+    console.log('=======================')
+    
     reset({
       name: product.name,
       description: product.description || '',
@@ -195,9 +210,20 @@ const ProductsPage: React.FC = () => {
       unit: product.unit,
       isActive: product.isActive,
     })
+    setSelectedProduct(product)
     setEditMode(true)
     setDialogOpen(true)
-    handleMenuClose()
+    // Close menu but don't reset selectedProduct since we need it for editing
+    setAnchorEl(null)
+    
+    // Check state after setting
+    setTimeout(() => {
+      console.log('=== EDIT PRODUCT DEBUG AFTER STATE CHANGE ===')
+      console.log('selectedProduct after:', selectedProduct)
+      console.log('editMode after:', editMode)
+      console.log('dialogOpen after:', dialogOpen)
+      console.log('===============================================')
+    }, 100)
   }
 
   const handleDeleteProduct = async (product: Product) => {
@@ -218,8 +244,16 @@ const ProductsPage: React.FC = () => {
 
   const onSubmit = async (data: ProductFormData) => {
     try {
-      // Debug: Log the form data being submitted
-      console.log('Submitting product data:', data)
+      // Debug: Log the form data being submitted and current state
+      console.log('=== FORM SUBMISSION DEBUG ===')
+      console.log('Form data:', data)
+      console.log('Edit mode:', editMode)
+      console.log('Selected product:', selectedProduct)
+      console.log('Selected product ID:', selectedProduct?.id)
+      console.log('selectedProductForDetails:', selectedProductForDetails)
+      console.log('selectedProductForDetails ID:', selectedProductForDetails?.id)
+      console.log('Condition (editMode && selectedProduct):', (editMode && selectedProduct))
+      console.log('====================')
       
       // Validate categoryId is present and valid
       if (!data.categoryId || data.categoryId.trim() === '') {
@@ -229,10 +263,18 @@ const ProductsPage: React.FC = () => {
       
       if (editMode && selectedProduct) {
         // Update existing product
-        await dispatch(updateProduct({ id: selectedProduct.id, data }))
+        console.log('UPDATING product with ID:', selectedProduct.id)
+        
+        // Remove initialStockQuantity from update data as it's only used for creation
+        const updateData = { ...data }
+        delete updateData.initialStockQuantity
+        console.log('Update data after removing initialStockQuantity:', updateData)
+        
+        await dispatch(updateProduct({ id: selectedProduct.id, data: updateData }))
         showSuccess('Product updated successfully')
       } else {
         // Add new product
+        console.log('CREATING new product - reason: editMode=', editMode, ', selectedProduct=', !!selectedProduct)
         const result = await dispatch(createProduct(data))
         
         // Check if the action was rejected
@@ -247,8 +289,7 @@ const ProductsPage: React.FC = () => {
         }, 500)
       }
       
-      setDialogOpen(false)
-      reset()
+      handleCloseDialog()
     } catch (error: any) {
       console.error('Product save error:', error)
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save product'
@@ -793,7 +834,7 @@ const ProductsPage: React.FC = () => {
       {/* Product Form Dialog */}
       <Dialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
       >
@@ -1119,7 +1160,7 @@ const ProductsPage: React.FC = () => {
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCloseDialog}>Cancel</Button>
             <Button
               type="submit"
               variant="contained"
