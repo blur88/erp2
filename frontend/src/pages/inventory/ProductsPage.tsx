@@ -6,9 +6,6 @@ import {
   Button,
   TextField,
   Grid,
-  Card,
-  CardContent,
-  CardMedia,
   Chip,
   IconButton,
   Menu,
@@ -105,7 +102,6 @@ const ProductsPage: React.FC = () => {
   
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -265,63 +261,6 @@ const ProductsPage: React.FC = () => {
     }
   }
 
-  const ProductCard = ({ product }: { product: Product }) => {
-    const stockStatus = getStockStatus(product)
-    
-    return (
-      <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <CardMedia
-          component="div"
-          sx={{
-            height: 140,
-            bgcolor: 'grey.100',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <InventoryIcon sx={{ fontSize: 60, color: 'text.disabled' }} />
-        </CardMedia>
-        <CardContent sx={{ flexGrow: 1, p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-              {product.name}
-            </Typography>
-            <IconButton size="small" onClick={(e) => handleMenuOpen(e, product)}>
-              <MoreIcon />
-            </IconButton>
-          </Box>
-          
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            SKU: {product.sku}
-          </Typography>
-          
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: '2.5em', overflow: 'hidden' }}>
-            {product.description}
-          </Typography>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h6" color="primary">
-              ${(product.retailPrice || 0).toFixed(2)}
-            </Typography>
-            <Chip label={product.category?.name} size="small" variant="outlined" />
-          </Box>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2">
-              Stock: {product.stockQuantity || 0} {product.unit}
-            </Typography>
-            <Chip 
-              label={stockStatus.label} 
-              size="small" 
-              color={stockStatus.color}
-              variant="outlined"
-            />
-          </Box>
-        </CardContent>
-      </Card>
-    )
-  }
 
   return (
     <Box>
@@ -391,18 +330,6 @@ const ProductsPage: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={5} sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
             <Button
-              variant={viewMode === 'grid' ? 'contained' : 'outlined'}
-              onClick={() => setViewMode('grid')}
-            >
-              Grid
-            </Button>
-            <Button
-              variant={viewMode === 'table' ? 'contained' : 'outlined'}
-              onClick={() => setViewMode('table')}
-            >
-              Table
-            </Button>
-            <Button
               variant="outlined"
               startIcon={<ExportIcon />}
             >
@@ -417,28 +344,16 @@ const ProductsPage: React.FC = () => {
         <LoadingSpinner message="Loading products..." />
       ) : (
         <>
-          {viewMode === 'grid' ? (
-            <>
-              <Grid container spacing={3}>
-                {paginatedProducts.map(product => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
-                    <ProductCard product={product} />
-                  </Grid>
-                ))}
-              </Grid>
-              
-              {filteredProducts.length === 0 && (
-                <Paper sx={{ p: 6, textAlign: 'center' }}>
-                  <InventoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    No products found
-                  </Typography>
-                  <Typography color="text.secondary">
-                    Try adjusting your search criteria or add a new product.
-                  </Typography>
-                </Paper>
-              )}
-            </>
+          {filteredProducts.length === 0 ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <InventoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                No products found
+              </Typography>
+              <Typography color="text.secondary">
+                Try adjusting your search criteria or add a new product.
+              </Typography>
+            </Paper>
           ) : (
             <TableContainer component={Paper}>
               <Table>
