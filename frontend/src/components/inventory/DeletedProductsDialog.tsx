@@ -73,7 +73,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   // Filter products based on search term
   const filteredProducts = deletedProducts.filter(product => 
     product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+    product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleRestore = async (product: Product) => {
@@ -214,7 +214,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                   {!isMobile && (
                     <TableCell sx={{ width: '15%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        SKU
+                        Barcode
                       </Typography>
                     </TableCell>
                   )}
@@ -283,7 +283,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                           {isMobile && (
                             <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
                               <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                {product.sku}
+                                {product.barcode}
                               </Typography>
                               {product.retailPrice && (
                                 <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
@@ -297,7 +297,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                            {product.sku}
+                            {product.barcode}
                           </Typography>
                         </TableCell>
                       )}
@@ -430,7 +430,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                   {confirmDelete.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  SKU: {confirmDelete.sku}
+                  Barcode: {confirmDelete.barcode}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Category: {confirmDelete.category?.name || 'No Category'}
@@ -438,7 +438,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
               </Box>
               <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
                 This will permanently remove the product and all its data from the database.
-                The SKU "{confirmDelete.sku}" will become available for reuse.
+                The barcode "{confirmDelete.barcode}" will become available for reuse.
               </Typography>
             </Box>
           )}

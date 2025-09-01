@@ -47,7 +47,7 @@ export enum StockStatus {
  * Optimized for ERP operations with proper indexing
  */
 @Entity('products')
-@Index(['sku'], { unique: true })
+@Index(['barcode'], { unique: true })
 @Index(['name'])
 @Index(['categoryId'])
 @Index(['status', 'isActive'])
@@ -55,15 +55,6 @@ export enum StockStatus {
 @Index(['stockStatus'])
 @Index(['reorderLevel'])
 export class Product extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 50,
-    unique: true,
-    comment: 'Stock Keeping Unit - unique product identifier',
-  })
-  @IsString()
-  @MaxLength(50)
-  sku: string;
 
   @Column({
     type: 'varchar',
@@ -86,13 +77,12 @@ export class Product extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
-    nullable: true,
-    comment: 'Product barcode',
+    unique: true,
+    comment: 'Product barcode - unique product identifier',
   })
-  @IsOptional()
   @IsString()
   @MaxLength(100)
-  barcode?: string;
+  barcode: string;
 
   @Column({
     type: 'enum',

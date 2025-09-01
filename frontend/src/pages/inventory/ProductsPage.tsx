@@ -63,7 +63,7 @@ import {
 interface ProductFormData {
   name: string
   description: string
-  sku: string
+  barcode: string
   categoryId: string
   type: 'goods' | 'service'
   baseCost: number
@@ -80,7 +80,7 @@ interface ProductFormData {
 const productSchema = yup.object({
   name: yup.string().required('Product name is required').min(2, 'Name must be at least 2 characters'),
   description: yup.string(),
-  sku: yup.string().required('SKU is required').min(3, 'SKU must be at least 3 characters'),
+  barcode: yup.string().required('Barcode is required').min(3, 'Barcode must be at least 3 characters'),
   categoryId: yup.string().required('Category is required').min(1, 'Please select a category'),
   type: yup.string().oneOf(['goods', 'service'], 'Product type is required').required(),
   baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
@@ -134,7 +134,7 @@ const ProductsPage: React.FC = () => {
     defaultValues: {
       name: '',
       description: '',
-      sku: '',
+      barcode: '',
       categoryId: '',
       type: 'goods' as 'goods' | 'service',
       baseCost: 0,
@@ -197,7 +197,7 @@ const ProductsPage: React.FC = () => {
     reset({
       name: product.name,
       description: product.description || '',
-      sku: product.sku,
+      barcode: product.barcode,
       categoryId: product.categoryId || product.category?.id || '',
       type: product.type || 'goods',
       baseCost: product.baseCost || 0,
@@ -630,10 +630,10 @@ const ProductsPage: React.FC = () => {
                       <Grid item xs={6}>
                         <Box>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            SKU
+                            Barcode
                           </Typography>
                           <Typography variant="body1">
-                            {selectedProductForDetails.sku}
+                            {selectedProductForDetails.barcode}
                           </Typography>
                         </Box>
                       </Grid>
@@ -871,15 +871,15 @@ const ProductsPage: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <Controller
-                  name="sku"
+                  name="barcode"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="SKU"
-                      error={!!errors.sku}
-                      helperText={errors.sku?.message}
+                      label="Barcode"
+                      error={!!errors.barcode}
+                      helperText={errors.barcode?.message}
                       sx={{
                         '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                         '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },

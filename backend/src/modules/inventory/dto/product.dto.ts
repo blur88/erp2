@@ -39,10 +39,10 @@ export class ProductDimensionsDto {
 }
 
 export class CreateProductDto {
-  @ApiProperty({ description: 'Stock Keeping Unit - unique product identifier', maxLength: 50 })
+  @ApiProperty({ description: 'Product barcode - unique product identifier', maxLength: 100 })
   @IsString()
-  @MaxLength(50)
-  sku: string;
+  @MaxLength(100)
+  barcode: string;
 
   @ApiProperty({ description: 'Product name', maxLength: 200 })
   @IsString()
@@ -54,11 +54,6 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Product barcode', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  barcode?: string;
 
   @ApiProperty({ description: 'Product type', enum: ProductType })
   @IsEnum(ProductType)
@@ -170,11 +165,11 @@ export class CreateProductDto {
 }
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {
-  @ApiPropertyOptional({ description: 'Stock Keeping Unit - unique product identifier', maxLength: 50 })
+  @ApiPropertyOptional({ description: 'Product barcode - unique product identifier', maxLength: 100 })
   @IsOptional()
   @IsString()
-  @MaxLength(50)
-  sku?: string;
+  @MaxLength(100)
+  barcode?: string;
 
   @ApiPropertyOptional({ description: 'Product name', maxLength: 200 })
   @IsOptional()
@@ -204,7 +199,7 @@ export class QueryProductsDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Search term (product name, SKU, barcode, brand)' })
+  @ApiPropertyOptional({ description: 'Search term (product name, barcode, brand)' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
@@ -255,7 +250,7 @@ export class QueryProductsDto {
   @IsBoolean()
   outOfStock?: boolean;
 
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'sku', 'createdAt', 'stockQuantity', 'retailPrice'] })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
@@ -304,8 +299,8 @@ export class ProductResponseDto {
   @ApiProperty({ description: 'Product ID' })
   id: string;
 
-  @ApiProperty({ description: 'Stock Keeping Unit' })
-  sku: string;
+  @ApiProperty({ description: 'Product barcode' })
+  barcode: string;
 
   @ApiProperty({ description: 'Product name' })
   name: string;
@@ -313,8 +308,6 @@ export class ProductResponseDto {
   @ApiPropertyOptional({ description: 'Product description' })
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Product barcode' })
-  barcode?: string;
 
   @ApiProperty({ description: 'Product type', enum: ProductType })
   type: ProductType;
@@ -470,8 +463,8 @@ export class ProductStockSummaryDto {
   @ApiProperty({ description: 'Product ID' })
   id: string;
 
-  @ApiProperty({ description: 'Product SKU' })
-  sku: string;
+  @ApiProperty({ description: 'Product barcode' })
+  barcode: string;
 
   @ApiProperty({ description: 'Product name' })
   name: string;

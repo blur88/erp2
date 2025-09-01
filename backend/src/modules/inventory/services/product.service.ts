@@ -50,22 +50,22 @@ export class ProductService {
    * Create a new product
    */
   async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
-    this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
+    this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
-    // Check if SKU already exists (including soft-deleted products)
+    // Check if barcode already exists (including soft-deleted products)
     const existingProduct = await this.productRepository.findOne({
-      where: { sku: createProductDto.sku },
+      where: { barcode: createProductDto.barcode },
       withDeleted: true, // Include soft-deleted products in the check
     });
 
     if (existingProduct) {
       if (existingProduct.deletedAt) {
         throw new ConflictException(
-          `Product with SKU '${createProductDto.sku}' was previously deleted but cannot be reused. ` +
-          `Please choose a different SKU.`
+          `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
+          `Please choose a different barcode.`
         );
       } else {
-        throw new ConflictException(`Product with SKU '${createProductDto.sku}' already exists`);
+        throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
       }
     }
 
@@ -119,7 +119,7 @@ export class ProductService {
         await this.auditService.logProductEvent(
           savedProduct.id,
           'PRODUCT_CREATED',
-          `Product ${savedProduct.name} (${savedProduct.sku}) created`,
+          `Product ${savedProduct.name} (${savedProduct.barcode}) created`,
           userId,
           {
             initialStock: createProductDto.initialStockQuantity || 0,
@@ -166,7 +166,7 @@ export class ProductService {
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.sku ILIKE :search OR product.barcode ILIKE :search OR product.brand ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR product.brand ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -216,7 +216,7 @@ export class ProductService {
     }
 
     // Apply sorting
-    const validSortFields = ['name', 'sku', 'createdAt', 'stockQuantity', 'retailPrice'];
+    const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
     queryBuilder.orderBy(`product.${sortField}`, sortOrder);
 
@@ -258,16 +258,16 @@ export class ProductService {
   }
 
   /**
-   * Find one product by SKU
+   * Find one product by barcode
    */
-  async findBySku(sku: string): Promise<ProductResponseDto> {
+  async findByBarcode(barcode: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
-      where: { sku },
+      where: { barcode },
       relations: ['category'],
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with SKU '${sku}' not found`);
+      throw new NotFoundException(`Product with barcode '${barcode}' not found`);
     }
 
     return this.toResponseDto(product);
@@ -297,7 +297,7 @@ export class ProductService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.sku ILIKE :search OR product.description ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR product.description ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -311,7 +311,7 @@ export class ProductService {
     }
 
     // Sorting
-    const allowedSortFields = ['name', 'sku', 'deletedAt', 'createdAt'];
+    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
@@ -357,14 +357,14 @@ export class ProductService {
       throw new BadRequestException(`Product with ID '${id}' is not deleted`);
     }
 
-    // Check if SKU is still unique (another product might have been created with the same SKU)
+    // Check if barcode is still unique (another product might have been created with the same barcode)
     const existingProduct = await this.productRepository.findOne({
-      where: { sku: product.sku },
+      where: { barcode: product.barcode },
     });
 
     if (existingProduct) {
       throw new ConflictException(
-        `Cannot restore product: SKU '${product.sku}' is now used by another active product`
+        `Cannot restore product: barcode '${product.barcode}' is now used by another active product`
       );
     }
 
@@ -414,7 +414,7 @@ export class ProductService {
     // If there are stock movements, we should allow deletion but log it
     if (product.stockMovements?.length > 0) {
       this.logger.warn(
-        `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.sku}`
+        `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
       );
     }
 
@@ -425,7 +425,7 @@ export class ProductService {
     await this.auditService.logProductEvent(
       product.id,
       'PRODUCT_PERMANENTLY_DELETED',
-      `Product ${product.name} (${product.sku}) permanently deleted from database`,
+      `Product ${product.name} (${product.barcode}) permanently deleted from database`,
       userId,
     );
 
@@ -447,14 +447,14 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    // Check for SKU conflicts if SKU is being changed
-    if (updateProductDto.sku && updateProductDto.sku !== product.sku) {
+    // Check for barcode conflicts if barcode is being changed
+    if (updateProductDto.barcode && updateProductDto.barcode !== product.barcode) {
       const existingProduct = await this.productRepository.findOne({
-        where: { sku: updateProductDto.sku },
+        where: { barcode: updateProductDto.barcode },
       });
 
       if (existingProduct) {
-        throw new ConflictException(`Product with SKU '${updateProductDto.sku}' already exists`);
+        throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
       }
     }
 
@@ -497,7 +497,7 @@ export class ProductService {
       await this.auditService.logProductEvent(
         updatedProduct.id,
         'PRODUCT_UPDATED',
-        `Product ${updatedProduct.name} (${updatedProduct.sku}) updated`,
+        `Product ${updatedProduct.name} (${updatedProduct.barcode}) updated`,
         userId,
         { changes },
       );
@@ -536,7 +536,7 @@ export class ProductService {
     await this.auditService.logProductEvent(
       product.id,
       'PRODUCT_DELETED',
-      `Product ${product.name} (${product.sku}) soft deleted`,
+      `Product ${product.name} (${product.barcode}) soft deleted`,
       userId,
     );
 
@@ -601,7 +601,7 @@ export class ProductService {
           this.auditService.logProductEvent(
             priceUpdate.productId,
             'PRODUCT_PRICE_UPDATED',
-            `Bulk price update for ${product.name} (${product.sku})`,
+            `Bulk price update for ${product.name} (${product.barcode})`,
             userId,
             { priceChanges },
           ),
@@ -624,7 +624,7 @@ export class ProductService {
       .leftJoin('product.stockMovements', 'movements')
       .select([
         'product.id',
-        'product.sku',
+        'product.barcode',
         'product.name',
         'product.stockQuantity',
         'product.reservedQuantity',
@@ -659,7 +659,7 @@ export class ProductService {
 
     return results.map(result => ({
       id: result.product_id,
-      sku: result.product_sku,
+      barcode: result.product_barcode,
       name: result.product_name,
       stockQuantity: Number(result.product_stockQuantity),
       availableQuantity: Number(result.product_stockQuantity) - Number(result.product_reservedQuantity),
@@ -764,10 +764,9 @@ export class ProductService {
   private toResponseDto(product: Product): ProductResponseDto {
     return {
       id: product.id,
-      sku: product.sku,
+      barcode: product.barcode,
       name: product.name,
       description: product.description,
-      barcode: product.barcode,
       type: product.type,
       status: product.status,
       isActive: product.isActive,

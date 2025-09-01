@@ -27,7 +27,7 @@ export interface Product {
   id: string;
   name: string;
   description?: string;
-  sku: string;
+  barcode: string;
   type: 'goods' | 'service';
   category?: Category;
   categoryId?: string;
