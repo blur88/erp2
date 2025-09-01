@@ -25,7 +25,6 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  Checkbox,
   Alert,
 } from '@mui/material'
 import {
@@ -359,9 +358,6 @@ const ProductsPage: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox />
-                    </TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>SKU</TableCell>
                     <TableCell>Category</TableCell>
@@ -376,9 +372,6 @@ const ProductsPage: React.FC = () => {
                     const stockStatus = getStockStatus(product)
                     return (
                       <TableRow key={product.id} hover>
-                        <TableCell padding="checkbox">
-                          <Checkbox />
-                        </TableCell>
                         <TableCell>
                           <Box>
                             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
