@@ -21,12 +21,16 @@ import {
   Tooltip,
   Alert,
   Divider,
+  CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material'
 import {
   Search as SearchIcon,
   Restore as RestoreIcon,
   Close as CloseIcon,
   DeleteForever as DeleteForeverIcon,
+  Inventory2 as ProductIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { 
@@ -49,6 +53,9 @@ interface DeletedProductsDialogProps {
 const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onClose }) => {
   const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const deletedProducts = useSelector(selectDeletedProducts) || []
   const loading = useSelector(selectInventoryLoading)
   
@@ -117,6 +124,14 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
@@ -133,11 +148,19 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Deleted Products</Typography>
-          <IconButton onClick={onClose}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ProductIcon sx={{ color: 'error.main' }} />
+            <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
+              Deleted Products
+            </Typography>
+          </Box>
+          <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          Manage soft-deleted products ({filteredProducts.length} {searchTerm ? 'found' : 'total'})
+        </Typography>
       </DialogTitle>
 
       <DialogContent>
@@ -164,87 +187,205 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         </Box>
 
         {loading?.deletedProducts ? (
-          <LoadingSpinner message="Loading deleted products..." />
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
         ) : (
-          <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
-            <Table stickyHeader>
+          <TableContainer sx={{ overflowX: 'auto', maxHeight: 400 }}>
+            <Table 
+              size="small" 
+              stickyHeader
+              sx={{ 
+                minWidth: isMobile ? 650 : 800,
+                '& .MuiTableCell-root': { 
+                  borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                  py: 0.75,
+                  px: 1.5
+                }
+              }}
+            >
               <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell align="right">Price</TableCell>
-                  <TableCell>Deleted At</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                  <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Product Details
+                    </Typography>
+                  </TableCell>
+                  {!isMobile && (
+                    <TableCell sx={{ width: '15%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        SKU
+                      </Typography>
+                    </TableCell>
+                  )}
+                  <TableCell sx={{ width: isMobile ? '20%' : '15%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Category
+                    </Typography>
+                  </TableCell>
+                  {!isMobile && (
+                    <TableCell align="right" sx={{ width: '12%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Price
+                      </Typography>
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell sx={{ width: '15%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Deleted Date
+                      </Typography>
+                    </TableCell>
+                  )}
+                  <TableCell align="right" sx={{ width: isMobile ? '45%' : '13%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Actions
+                    </Typography>
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Typography variant="body2" color="text.secondary">
+                    <TableCell colSpan={isMobile ? 4 : 6} align="center" sx={{ py: 4 }}>
+                      <Typography variant="body1" color="text.secondary">
                         {searchTerm ? 'No deleted products match your search.' : 'No deleted products found.'}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredProducts.map((product) => (
-                    <TableRow key={product.id} hover>
+                    <TableRow 
+                      key={product.id} 
+                      hover
+                      sx={{
+                        '&:hover, &:focus-within': {
+                          backgroundColor: 'action.hover',
+                          '& .product-actions': {
+                            opacity: 1
+                          }
+                        },
+                        transition: 'background-color 0.2s ease',
+                        cursor: 'default',
+                        height: 48
+                      }}
+                    >
                       <TableCell>
                         <Box>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
                             {product.name}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {product.description}
-                          </Typography>
+                          {product.description && (
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              {product.description}
+                            </Typography>
+                          )}
+                          {isMobile && (
+                            <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                {product.sku}
+                              </Typography>
+                              {product.retailPrice && (
+                                <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                                  • ${(product.retailPrice || 0).toFixed(2)}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                          {product.sku}
-                        </Typography>
-                      </TableCell>
+                      {!isMobile && (
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                            {product.sku}
+                          </Typography>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Chip 
                           label={product.category?.name || 'No Category'} 
                           size="small" 
                           variant="outlined"
+                          color={product.category ? 'primary' : 'default'}
+                          sx={{
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            height: 20
+                          }}
                         />
                       </TableCell>
+                      {!isMobile && (
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                            ${(product.retailPrice || 0).toFixed(2)}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      {!isMobile && (
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            {(product as any).deletedAt ? formatDate((product as any).deletedAt) : 'Unknown'}
+                          </Typography>
+                        </TableCell>
+                      )}
                       <TableCell align="right">
-                        <Typography variant="subtitle2" color="primary">
-                          ${(product.retailPrice || 0).toFixed(2)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {(product as any).deletedAt ? formatDate((product as any).deletedAt) : 'Unknown'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box display="flex" gap={1} justifyContent="center">
+                        <Box 
+                          className="product-actions"
+                          sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'flex-end',
+                            gap: 0.25,
+                            opacity: isMobile ? 1 : 0.7,
+                            transition: 'opacity 0.2s ease'
+                          }}
+                        >
                           <Tooltip title="Restore Product">
                             <IconButton 
                               onClick={() => handleRestore(product)}
                               disabled={restoringId === product.id || deletingId === product.id}
-                              color="primary"
                               size="small"
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'success.light',
+                                  color: 'success.main'
+                                },
+                                p: 0.5
+                              }}
                             >
-                              <RestoreIcon />
+                              <RestoreIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Permanently Delete (Cannot be undone)">
                             <IconButton 
                               onClick={() => setConfirmDelete(product)}
                               disabled={restoringId === product.id || deletingId === product.id}
-                              color="error"
                               size="small"
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.main'
+                                },
+                                p: 0.5
+                              }}
                             >
-                              <DeleteForeverIcon />
+                              <DeleteForeverIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </Box>
+                        {isMobile && (product as any).deletedAt && (
+                          <Typography variant="caption" color="text.secondary" sx={{ 
+                            display: 'block', 
+                            textAlign: 'right', 
+                            mt: 0.25,
+                            fontSize: '0.65rem'
+                          }}>
+                            {new Date((product as any).deletedAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: '2-digit'
+                            })}
+                          </Typography>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
