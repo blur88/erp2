@@ -214,6 +214,13 @@ When enabling disabled modules:
 - **API Response**: Access `response.data.data` and `response.data.meta`
 - **Soft Delete**: Include `isActive: true` filter when fetching
 
+### Frontend Development Patterns
+- **Docker rebuilds**: Frontend changes require `docker compose build frontend && docker compose up -d frontend`
+- **Component testing**: Use browser dev tools console for debugging API responses
+- **API Service**: All API calls go through `ApiService` which wraps responses in `{ data: T, meta?: {...} }`
+- **TypeScript relaxed**: Project uses `"strict": false`, liberal use of `as any` when needed
+- **Path aliases**: Use `@/` for src imports, configured in both Vite and TypeScript
+
 ## Recent Changes (September 2025)
 
 ### Frontend Integration Fixed
@@ -227,6 +234,13 @@ When enabling disabled modules:
 - Removed `code` and `description` fields entirely
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
+
+### CategorySelector Data Fix (September 2025)
+- ✅ **FIXED**: CategorySelector now properly displays all categories instead of just "Main Category"
+- **Root Cause**: Component was incorrectly accessing `response.data?.data` instead of `response.data`
+- **Fix**: Updated to `const categoryTree = (response.data as any) || []`
+- **Result**: Parent category dropdown now shows hierarchical category tree with proper indentation
+- Categories display as: "Main Category", "Electronics", "  Mobile Phones" (indented), etc.
 
 ### Category Form Validation Fixed (September 2025)
 - Fixed yup schema validation for `parentId` to allow `null` values: `.nullable()`
@@ -324,7 +338,8 @@ const { control, handleSubmit } = useForm<FormData>({
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
 - **Icons**: Use `Inventory2` instead of non-existent `Product` icon
 - **Form validation fails silently**: Check yup schema allows `null` for optional foreign keys (use `.nullable()`)
-- **CategorySelector API response**: Use `response.data?.data || []` for tree endpoints, not `response.data.data`
+- **CategorySelector only shows "Main Category"**: ✅ FIXED - Was accessing `response.data?.data` instead of `response.data`
+- **API Response Structure**: For tree endpoints, API response is `{ data: Category[], meta: {...} }`, access directly as `response.data`
 
 ### Debug Commands
 ```bash

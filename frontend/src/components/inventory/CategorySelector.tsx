@@ -60,8 +60,8 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     setLoading(true)
     try {
       const response = await inventoryApi.getCategoryTree(true)
-      // response.data contains the full API response: { data: Category[], meta: {...} }
-      const categoryTree = response.data?.data || []
+      // response.data is the category array from the API
+      const categoryTree = (response.data as any) || []
       const flatCategories = flattenCategoryTree(categoryTree)
       
       // Filter out excluded categories
