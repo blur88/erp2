@@ -157,8 +157,7 @@ const ProductsPage: React.FC = () => {
 
   // Filter products
   const filteredProducts = (products || []).filter(product => {
-    const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === '' || product.category?.id === selectedCategory
     return matchesSearch && matchesCategory
   })
@@ -494,16 +493,6 @@ const ProductsPage: React.FC = () => {
                                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                                     {product.name}
                                   </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    SKU: {product.sku}
-                                  </Typography>
-                                  <br />
-                                  <Chip 
-                                    label={product.category?.name} 
-                                    size="small" 
-                                    variant="outlined"
-                                    sx={{ fontSize: '0.7rem', height: 18, mt: 0.5 }}
-                                  />
                                 </Box>
                               </TableCell>
                             </TableRow>
@@ -574,16 +563,6 @@ const ProductsPage: React.FC = () => {
                                 <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                                   {product.name}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  SKU: {product.sku}
-                                </Typography>
-                                <br />
-                                <Chip 
-                                  label={product.category?.name || 'No Category'} 
-                                  size="small" 
-                                  variant="outlined"
-                                  sx={{ fontSize: '0.7rem', height: 18, mt: 0.5 }}
-                                />
                               </Box>
                             </TableCell>
                             <TableCell align="center">
