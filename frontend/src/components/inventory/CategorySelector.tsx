@@ -73,8 +73,8 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
       const finalOptions = allowRoot ? [
         {
           id: '',
-          name: 'No Category (Root Level)',
-          displayName: 'No Category (Root Level)',
+          name: 'Main Category',
+          displayName: 'Main Category',
           indentLevel: 0,
           level: -1,
           isActive: true,

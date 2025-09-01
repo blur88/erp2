@@ -232,7 +232,7 @@ When enabling disabled modules:
 - Fixed yup schema validation for `parentId` to allow `null` values: `.nullable()`
 - Updated TypeScript interfaces to support `parentId?: string | null`
 - Root level categories properly created with `parentId: null`
-- CategorySelector properly handles "No Category (Root Level)" option
+- CategorySelector properly handles "Main Category" option (updated from "No Category (Root Level)")
 
 ## Code Patterns
 
