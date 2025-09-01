@@ -243,6 +243,15 @@ When enabling disabled modules:
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
 
+### Product API Endpoints Fixed (September 2025)
+- ✅ **CRITICAL FIX**: Product listing endpoints were returning reversed data
+- **Root Cause**: `remove()` method only set status flags but didn't use TypeORM's `softDelete()` for `deletedAt` timestamp
+- **Fix**: Updated `remove()` to use `await this.productRepository.softDelete(id)` and `findAll()` to filter `WHERE product.deletedAt IS NULL`
+- **Result**: 
+  - `/api/inventory/products` now correctly returns only **active products**
+  - `/api/inventory/products/deleted` now correctly returns only **soft-deleted products**
+- **Frontend Impact**: Products page and "View Deleted" dialog now show correct data sets
+
 ### CategorySelector Data Fix (September 2025)
 - ✅ **FIXED**: CategorySelector now properly displays all categories instead of just "Main Category"
 - **Root Cause**: Component was incorrectly accessing `response.data?.data` instead of `response.data`
@@ -377,15 +386,16 @@ const { control, handleSubmit } = useForm<FormData>({
 ## Troubleshooting
 
 ### Common Issues
-- **README.md outdated**: Use CLAUDE.md instead (mentions removed auth features)
+- **README.md outdated**: Use CLAUDE.md instead - README mentions authentication features that were completely removed
 - **TypeScript**: Uses `"strict": false`, use `as any` assertions for TypeORM when needed
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
 - **Icons**: Use `Inventory2` instead of non-existent `Product` icon
 - **Form validation fails silently**: Check yup schema allows `null` for optional foreign keys (use `.nullable()`)
 - **CategorySelector only shows "Main Category"**: ✅ FIXED - Was accessing `response.data?.data` instead of `response.data`
+- **Product API endpoints returning wrong data**: ✅ FIXED - Was caused by inconsistent soft delete implementation
 - **API Response Structure**: For tree endpoints, API response is `{ data: Category[], meta: {...} }`, access directly as `response.data`
 - **Route Order Issues**: In NestJS controllers, specific routes (like `deleted`) must come before parameterized routes (like `:id`)
-- **Soft Delete Filtering**: Always check if queries properly filter `isActive: true` to exclude soft-deleted records
+- **Soft Delete Filtering**: Always use TypeORM's `softDelete()` method and filter `WHERE deletedAt IS NULL` for active records
 
 ### Debug Commands
 ```bash

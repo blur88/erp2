@@ -161,7 +161,7 @@ export class ProductService {
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .where('1=1');
+      .where('product.deletedAt IS NULL');
 
     // Apply filters
     if (search) {
@@ -456,7 +456,7 @@ export class ProductService {
   }
 
   /**
-   * Delete a product (soft delete by setting status to DISCONTINUED)
+   * Delete a product (soft delete using TypeORM)
    */
   async remove(id: string, userId?: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
@@ -477,17 +477,14 @@ export class ProductService {
       );
     }
 
-    // Soft delete by setting status to DISCONTINUED and isActive to false
-    product.status = ProductStatus.DISCONTINUED;
-    product.isActive = false;
-    
-    await this.productRepository.save(product);
+    // Use TypeORM soft delete (sets deletedAt timestamp)
+    await this.productRepository.softDelete(id);
 
     // Log audit event
     await this.auditService.logProductEvent(
       product.id,
       'PRODUCT_DELETED',
-      `Product ${product.name} (${product.sku}) marked as discontinued`,
+      `Product ${product.name} (${product.sku}) soft deleted`,
       userId,
     );
 
