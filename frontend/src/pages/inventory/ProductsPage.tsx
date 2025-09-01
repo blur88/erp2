@@ -54,8 +54,11 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  fetchDeletedProducts,
+  restoreProduct,
   selectProducts,
   selectCategories,
+  selectDeletedProducts,
   selectInventoryLoading,
 } from '@/store/slices/inventorySlice'
 
@@ -101,6 +104,7 @@ const ProductsPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const products = useSelector(selectProducts) || []
   const categories = useSelector(selectCategories) || []
+  const deletedProducts = useSelector(selectDeletedProducts) || []
   const loading = useSelector(selectInventoryLoading)
   
   const [searchTerm, setSearchTerm] = useState('')
@@ -117,11 +121,13 @@ const ProductsPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchProducts({}))
     dispatch(fetchCategories())
+    dispatch(fetchDeletedProducts({}))
   }, [dispatch])
 
   const handleRefresh = () => {
     dispatch(fetchProducts({}))
     dispatch(fetchCategories())
+    dispatch(fetchDeletedProducts({}))
   }
 
   const {
@@ -307,15 +313,6 @@ const ProductsPage: React.FC = () => {
             {isMobile ? "Refresh Products" : "Refresh"}
           </Button>
           <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => setDeletedProductsDialogOpen(true)}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "View Deleted Products" : "View Deleted"}
-          </Button>
-          <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
             size={isMobile ? "medium" : "large"}
@@ -443,10 +440,10 @@ const ProductsPage: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Split Layout: Products List and Details */}
+      {/* Split Layout: Active Products and Deleted Products */}
       <Grid container spacing={3}>
-        {/* Left Side - Products List */}
-        <Grid item xs={12} md={selectedProductForDetails ? 6 : 12}>
+        {/* Left Side - Active Products List */}
+        <Grid item xs={12} md={6}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 2, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -472,12 +469,6 @@ const ProductsPage: React.FC = () => {
                         <TableRow>
                           <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
                             Product
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                            Price
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                            Stock
                           </TableCell>
                         </TableRow>
                       </TableHead>
@@ -515,25 +506,6 @@ const ProductsPage: React.FC = () => {
                                   />
                                 </Box>
                               </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
-                                  ${(product.retailPrice || 0).toFixed(2)}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Box>
-                                  <Typography variant="body2">
-                                    {product.stockQuantity || 0} {product.unit}
-                                  </Typography>
-                                  <Chip 
-                                    label={stockStatus.label} 
-                                    size="small" 
-                                    color={stockStatus.color}
-                                    variant="outlined"
-                                    sx={{ fontSize: '0.65rem', height: 16, mt: 0.5 }}
-                                  />
-                                </Box>
-                              </TableCell>
                             </TableRow>
                           )
                         })}
@@ -561,170 +533,87 @@ const ProductsPage: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Right Side - Product Details */}
-        {selectedProductForDetails && (
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2, borderBottom: '1px solid rgba(224, 224, 224, 0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Product Details
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <IconButton 
-                    size="small"
-                    onClick={() => handleEditProduct(selectedProductForDetails)}
-                    sx={{ color: 'primary.main' }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton 
-                    size="small"
-                    onClick={() => handleDeleteProduct(selectedProductForDetails)}
-                    sx={{ color: 'error.main' }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+        {/* Right Side - Deleted Products List */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Deleted Products ({deletedProducts.length})
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {loading?.deletedProducts ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+                  <CircularProgress />
                 </Box>
-              </Box>
-              <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
-                <Grid container spacing={3}>
-                  <Grid item xs={12}>
-                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-                      {selectedProductForDetails.name}
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                      {selectedProductForDetails.description || 'No description available'}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      SKU
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                      {selectedProductForDetails.sku}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Category
-                    </Typography>
-                    <Chip 
-                      label={selectedProductForDetails.category?.name || 'No Category'} 
-                      size="small" 
-                      variant="outlined"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Product Type
-                    </Typography>
-                    <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                      {selectedProductForDetails.type || 'goods'}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Unit
-                    </Typography>
-                    <Typography variant="body2">
-                      {selectedProductForDetails.unit}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, mt: 2 }}>
-                      Pricing Information
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Base Cost
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      ${(selectedProductForDetails.baseCost || 0).toFixed(2)}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Retail Price
-                    </Typography>
-                    <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
-                      ${(selectedProductForDetails.retailPrice || 0).toFixed(2)}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Wholesale Price
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      ${(selectedProductForDetails.wholesalePrice || 0).toFixed(2)}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Special Price
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      ${(selectedProductForDetails.specialPrice || 0).toFixed(2)}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, mt: 2 }}>
-                      Stock Information
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={4}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Current Stock
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {selectedProductForDetails.stockQuantity || 0} {selectedProductForDetails.unit}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={4}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Reorder Level
-                    </Typography>
-                    <Typography variant="body2">
-                      {selectedProductForDetails.reorderLevel || 0} {selectedProductForDetails.unit}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={4}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Optimal Level
-                    </Typography>
-                    <Typography variant="body2">
-                      {selectedProductForDetails.optimalStockLevel || 0} {selectedProductForDetails.unit}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
-                      Stock Status
-                    </Typography>
-                    <Chip 
-                      label={getStockStatus(selectedProductForDetails).label}
-                      color={getStockStatus(selectedProductForDetails).color}
-                      variant="outlined"
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-            </Paper>
-          </Grid>
-        )}
+              ) : deletedProducts.length === 0 ? (
+                <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No deleted products found.
+                  </Typography>
+                </Box>
+              ) : (
+                <>
+                  <TableContainer sx={{ flex: 1, overflowX: 'auto' }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
+                            Deleted Product
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50', textAlign: 'center' }}>
+                            Action
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {deletedProducts.slice(0, 20).map((product: any) => (
+                          <TableRow key={product.id} hover>
+                            <TableCell>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                                  {product.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  SKU: {product.sku}
+                                </Typography>
+                                <br />
+                                <Chip 
+                                  label={product.category?.name || 'No Category'} 
+                                  size="small" 
+                                  variant="outlined"
+                                  sx={{ fontSize: '0.7rem', height: 18, mt: 0.5 }}
+                                />
+                              </Box>
+                            </TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={async () => {
+                                  try {
+                                    await dispatch(restoreProduct(product.id))
+                                    showSuccess(`Product "${product.name}" restored successfully`)
+                                    dispatch(fetchProducts({}))
+                                    dispatch(fetchDeletedProducts({}))
+                                  } catch (error) {
+                                    showError('Failed to restore product')
+                                  }
+                                }}
+                              >
+                                <RestoreIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </>
+              )}
+            </Box>
+          </Paper>
+        </Grid>
       </Grid>
 
       {/* Context Menu */}
