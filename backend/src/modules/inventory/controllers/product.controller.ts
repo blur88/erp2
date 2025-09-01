@@ -128,6 +128,20 @@ export class ProductController {
     return this.productService.findBySku(sku);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted products' })
+  @ApiResponse({
+    status: 200,
+    description: 'Deleted products retrieved successfully',
+    type: ProductListResponseDto,
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search term' })
+  async findDeleted(@Query() query: QueryProductsDto): Promise<ProductListResponseDto> {
+    return this.productService.findDeleted(query);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiResponse({
@@ -275,6 +289,23 @@ export class ProductController {
       promotionCode: body.promotionCode,
       includeDiscounts: true,
     });
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted product' })
+  @ApiResponse({
+    status: 200,
+    description: 'Product restored successfully',
+    type: ProductResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  @ApiResponse({ status: 400, description: 'Product is not deleted' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @HttpCode(HttpStatus.OK)
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ProductResponseDto> {
+    return this.productService.restore(id, null);
   }
 
   @Delete(':id')

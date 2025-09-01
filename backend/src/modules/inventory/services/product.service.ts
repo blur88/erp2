@@ -52,13 +52,21 @@ export class ProductService {
   async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
     this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
 
-    // Check if SKU already exists
+    // Check if SKU already exists (including soft-deleted products)
     const existingProduct = await this.productRepository.findOne({
       where: { sku: createProductDto.sku },
+      withDeleted: true, // Include soft-deleted products in the check
     });
 
     if (existingProduct) {
-      throw new ConflictException(`Product with SKU '${createProductDto.sku}' already exists`);
+      if (existingProduct.deletedAt) {
+        throw new ConflictException(
+          `Product with SKU '${createProductDto.sku}' was previously deleted but cannot be reused. ` +
+          `Please choose a different SKU.`
+        );
+      } else {
+        throw new ConflictException(`Product with SKU '${createProductDto.sku}' already exists`);
+      }
     }
 
     // Validate category exists
@@ -263,6 +271,113 @@ export class ProductService {
     }
 
     return this.toResponseDto(product);
+  }
+
+  /**
+   * Find all soft-deleted products
+   */
+  async findDeleted(query: QueryProductsDto): Promise<ProductListResponseDto> {
+    this.logger.log('Fetching deleted products with filters:', query);
+
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      categoryId,
+      type,
+      sortBy = 'deletedAt',
+      sortOrder = 'DESC',
+    } = query;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.deletedAt IS NOT NULL')
+      .withDeleted();
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(product.name ILIKE :search OR product.sku ILIKE :search OR product.description ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (categoryId) {
+      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('product.type = :type', { type });
+    }
+
+    // Sorting
+    const allowedSortFields = ['name', 'sku', 'deletedAt', 'createdAt'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [products, total] = await queryBuilder.getManyAndCount();
+
+    const productDtos = products.map(product => this.toResponseDto(product));
+
+    return {
+      data: productDtos,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Restore a soft-deleted product
+   */
+  async restore(id: string, _userId?: string): Promise<ProductResponseDto> {
+    this.logger.log(`Restoring product with ID: ${id}`);
+
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: ['category'],
+      withDeleted: true,
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID '${id}' not found`);
+    }
+
+    if (!product.deletedAt) {
+      throw new BadRequestException(`Product with ID '${id}' is not deleted`);
+    }
+
+    // Check if SKU is still unique (another product might have been created with the same SKU)
+    const existingProduct = await this.productRepository.findOne({
+      where: { sku: product.sku },
+    });
+
+    if (existingProduct) {
+      throw new ConflictException(
+        `Cannot restore product: SKU '${product.sku}' is now used by another active product`
+      );
+    }
+
+    // Restore the product
+    await this.productRepository.restore(id);
+
+    // Fetch the restored product
+    const restoredProduct = await this.productRepository.findOne({
+      where: { id },
+      relations: ['category'],
+    });
+
+    return this.toResponseDto(restoredProduct!);
   }
 
   /**
@@ -576,7 +691,7 @@ export class ProductService {
   /**
    * Update stock quantity for a product (internal use by stock movement service)
    */
-  async updateStockQuantity(productId: string, newQuantity: number, userId?: string): Promise<void> {
+  async updateStockQuantity(productId: string, newQuantity: number, _userId?: string): Promise<void> {
     const product = await this.productRepository.findOne({ where: { id: productId } });
     
     if (!product) {
@@ -630,7 +745,6 @@ export class ProductService {
       category: product.category ? {
         id: product.category.id,
         name: product.category.name,
-        code: product.category.code,
         fullPath: product.category.fullPath,
       } : null,
       isLowStock: product.isLowStock,

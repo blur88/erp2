@@ -40,6 +40,7 @@ import {
   Inventory as InventoryIcon,
   Visibility as ViewIcon,
   GetApp as ExportIcon,
+  RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -47,6 +48,7 @@ import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { useNotification } from '@/hooks/useNotification'
+import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import type { Product, Category } from '@/types'
 import {
   fetchProducts,
@@ -81,7 +83,7 @@ const productSchema = yup.object({
   name: yup.string().required('Product name is required').min(2, 'Name must be at least 2 characters'),
   description: yup.string(),
   sku: yup.string().required('SKU is required').min(3, 'SKU must be at least 3 characters'),
-  categoryId: yup.string().required('Category is required'),
+  categoryId: yup.string().required('Category is required').min(1, 'Please select a category'),
   type: yup.string().oneOf(['goods', 'service'], 'Product type is required').required(),
   baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
   retailPrice: yup.number().required('Retail price is required').min(0, 'Price must be positive'),
@@ -110,6 +112,7 @@ const ProductsPage: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
+  const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
 
   useEffect(() => {
     dispatch(fetchProducts({}))
@@ -211,13 +214,28 @@ const ProductsPage: React.FC = () => {
 
   const onSubmit = async (data: ProductFormData) => {
     try {
+      // Debug: Log the form data being submitted
+      console.log('Submitting product data:', data)
+      
+      // Validate categoryId is present and valid
+      if (!data.categoryId || data.categoryId.trim() === '') {
+        showError('Please select a category')
+        return
+      }
+      
       if (editMode && selectedProduct) {
         // Update existing product
         await dispatch(updateProduct({ id: selectedProduct.id, data }))
         showSuccess('Product updated successfully')
       } else {
         // Add new product
-        await dispatch(createProduct(data))
+        const result = await dispatch(createProduct(data))
+        
+        // Check if the action was rejected
+        if (createProduct.rejected.match(result)) {
+          throw new Error(result.payload as string)
+        }
+        
         showSuccess('Product added successfully')
         // Refresh products list to ensure new product appears
         setTimeout(() => {
@@ -317,14 +335,23 @@ const ProductsPage: React.FC = () => {
             Manage your product catalog and inventory
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          size="large"
-          onClick={handleAddProduct}
-        >
-          Add Product
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<RestoreIcon />}
+            onClick={() => setDeletedProductsDialogOpen(true)}
+          >
+            View Deleted
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            size="large"
+            onClick={handleAddProduct}
+          >
+            Add Product
+          </Button>
+        </Box>
       </Box>
 
       {/* Filters and Search */}
@@ -596,11 +623,17 @@ const ProductsPage: React.FC = () => {
                     <FormControl fullWidth error={!!errors.categoryId}>
                       <InputLabel>Category</InputLabel>
                       <Select {...field} label="Category">
-                        {categories.map(category => (
-                          <MenuItem key={category.id} value={category.id}>
-                            {category.name}
+                        {categories && categories.length > 0 ? (
+                          categories.map(category => (
+                            <MenuItem key={category.id} value={category.id}>
+                              {category.name}
+                            </MenuItem>
+                          ))
+                        ) : (
+                          <MenuItem value="" disabled>
+                            No categories available
                           </MenuItem>
-                        ))}
+                        )}
                       </Select>
                       {errors.categoryId && (
                         <Typography variant="caption" color="error" sx={{ mt: 0.5, mx: 2 }}>
@@ -808,6 +841,12 @@ const ProductsPage: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* Deleted Products Dialog */}
+      <DeletedProductsDialog
+        open={deletedProductsDialogOpen}
+        onClose={() => setDeletedProductsDialogOpen(false)}
+      />
     </Box>
   )
 }

@@ -23,6 +23,14 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/products/${id}`)
   },
 
+  async getDeletedProducts(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Product>>('/inventory/products/deleted', { params })
+  },
+
+  async restoreProduct(id: string) {
+    return ApiService.post<Product>(`/inventory/products/${id}/restore`)
+  },
+
   async uploadProductImage(productId: string, file: File) {
     return ApiService.uploadFile<{ url: string }>(`/inventory/products/${productId}/image`, file)
   },

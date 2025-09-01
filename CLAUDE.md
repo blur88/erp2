@@ -223,6 +223,14 @@ When enabling disabled modules:
 
 ## Recent Changes (September 2025)
 
+### Soft-Deleted Products Feature (September 2025)
+- ✅ **NEW**: Complete soft-deleted products management system
+- **Backend**: Added `GET /api/inventory/products/deleted` and `POST /api/inventory/products/:id/restore` endpoints
+- **Frontend**: Added `DeletedProductsDialog` component with search and restore functionality
+- **UI Integration**: "View Deleted" button in Products page header opens comprehensive restore dialog
+- **Route Fix**: Moved deleted products endpoint before `:id` route to prevent UUID validation conflicts
+- **State Management**: Added Redux support for fetching and restoring deleted products
+
 ### Frontend Integration Fixed
 - ✅ Inventory pages fully functional with real backend data
 - ✅ Fixed API response extraction from `ApiResponse<PaginatedResponse<T>>`
@@ -275,6 +283,41 @@ export class EntityName extends BaseEntity {
 - Theme colors: `warning.main`, `error.main`, `success.main`
 - Icons from `@mui/icons-material` with consistent sizing
 
+### Soft Delete Pattern
+```typescript
+// Entity with soft delete support
+@Entity('products')
+export class Product extends BaseEntity {
+  @Column({ default: 'active' })
+  status: string; // 'active' | 'discontinued'
+  
+  @Column({ default: true })
+  isActive: boolean; // false when soft-deleted
+  
+  @DeleteDateColumn() // TypeORM built-in soft delete
+  deletedAt?: Date;
+}
+
+// Service method for soft delete
+async remove(id: string, user: string = 'system'): Promise<void> {
+  await this.productRepository.softDelete(id);
+}
+
+// Service method for restore
+async restore(id: string, user: string = 'system'): Promise<Product> {
+  await this.productRepository.restore(id);
+  return this.findOne(id);
+}
+
+// Query with soft delete awareness
+async findAll(query: QueryProductsDto): Promise<PaginatedResponse<Product>> {
+  return this.productRepository.find({
+    where: { isActive: true }, // Exclude soft-deleted
+    relations: ['category']
+  });
+}
+```
+
 ### Form Validation Patterns
 ```typescript
 // Yup schema for nullable foreign keys
@@ -321,12 +364,13 @@ const { control, handleSubmit } = useForm<FormData>({
 
 **✅ Functional Pages:**
 - Inventory: http://localhost:3000/inventory
-- Products: http://localhost:3000/inventory/products (full CRUD)
+- Products: http://localhost:3000/inventory/products (full CRUD + soft-deleted products management)
 - Categories: http://localhost:3000/inventory/categories (table view with restore/undo)
 
 **Key API Endpoints:**
 - Users: `/api/users`
 - Inventory: `/api/inventory/products`, `/api/inventory/categories`  
+- Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
 - Sales: `/api/api/v1/sales-orders` (note: double `/api`)
 - Module Info: `/api/info`
 
@@ -340,6 +384,8 @@ const { control, handleSubmit } = useForm<FormData>({
 - **Form validation fails silently**: Check yup schema allows `null` for optional foreign keys (use `.nullable()`)
 - **CategorySelector only shows "Main Category"**: ✅ FIXED - Was accessing `response.data?.data` instead of `response.data`
 - **API Response Structure**: For tree endpoints, API response is `{ data: Category[], meta: {...} }`, access directly as `response.data`
+- **Route Order Issues**: In NestJS controllers, specific routes (like `deleted`) must come before parameterized routes (like `:id`)
+- **Soft Delete Filtering**: Always check if queries properly filter `isActive: true` to exclude soft-deleted records
 
 ### Debug Commands
 ```bash
@@ -378,6 +424,12 @@ For disabled modules (Purchasing, Reports, Plugins):
 - `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes
 - `backend/src/modules/dashboard/` - ✅ WebSocket support
 - `backend/src/modules/purchasing/` - ❌ Needs auth cleanup
+
+### Key Inventory Components
+- `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products
+- `frontend/src/components/inventory/CategorySelector.tsx` - Hierarchical category selection component
+- `frontend/src/components/inventory/CategoryTreeView.tsx` - Tree view for category management
+- `frontend/src/components/inventory/CategoryBreadcrumb.tsx` - Navigation breadcrumbs for categories
 
 ### Environment Config
 - `frontend/docker-entrypoint.sh` - Runtime `window.__ENV__` injection  

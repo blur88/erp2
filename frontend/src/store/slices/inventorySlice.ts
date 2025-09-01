@@ -4,12 +4,14 @@ import { inventoryApi } from '@/services/inventoryApi'
 
 interface InventoryState {
   products: Product[]
+  deletedProducts: Product[]
   categories: Category[]
   stockMovements: StockMovement[]
   selectedProduct: Product | null
   selectedCategory: Category | null
   loading: {
     products: boolean
+    deletedProducts: boolean
     categories: boolean
     stockMovements: boolean
   }
@@ -38,12 +40,14 @@ interface InventoryState {
 
 const initialState: InventoryState = {
   products: [],
+  deletedProducts: [],
   categories: [],
   stockMovements: [],
   selectedProduct: null,
   selectedCategory: null,
   loading: {
     products: false,
+    deletedProducts: false,
     categories: false,
     stockMovements: false,
   },
@@ -129,6 +133,31 @@ export const deleteProduct = createAsyncThunk(
       return id
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to delete product')
+    }
+  }
+)
+
+export const fetchDeletedProducts = createAsyncThunk(
+  'inventory/fetchDeletedProducts',
+  async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getDeletedProducts(params)
+      return response
+    } catch (error: any) {
+      console.error('Failed to fetch deleted products:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted products')
+    }
+  }
+)
+
+export const restoreProduct = createAsyncThunk(
+  'inventory/restoreProduct',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.restoreProduct(id)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore product')
     }
   }
 )
@@ -239,6 +268,33 @@ const inventorySlice = createSlice({
         }
       })
 
+    // Fetch Deleted Products
+    builder
+      .addCase(fetchDeletedProducts.pending, (state) => {
+        state.loading.deletedProducts = true
+        state.error = null
+      })
+      .addCase(fetchDeletedProducts.fulfilled, (state, action) => {
+        state.loading.deletedProducts = false
+        if (action.payload) {
+          state.deletedProducts = (action.payload as any).data || []
+        }
+      })
+      .addCase(fetchDeletedProducts.rejected, (state, action) => {
+        state.loading.deletedProducts = false
+        state.error = action.payload as string
+      })
+
+    // Restore Product
+    builder
+      .addCase(restoreProduct.fulfilled, (state, action) => {
+        if (action.payload) {
+          // Remove from deleted products and add to active products
+          state.deletedProducts = state.deletedProducts.filter(p => p.id !== action.payload.id)
+          state.products.unshift(action.payload)
+        }
+      })
+
     // Fetch Stock Movements
     builder
       .addCase(fetchStockMovements.pending, (state) => {
@@ -269,6 +325,7 @@ export const {
 
 // Selectors
 export const selectProducts = (state: any) => state.inventory?.products
+export const selectDeletedProducts = (state: any) => state.inventory?.deletedProducts
 export const selectCategories = (state: any) => state.inventory?.categories
 export const selectStockMovements = (state: any) => state.inventory?.stockMovements
 export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
