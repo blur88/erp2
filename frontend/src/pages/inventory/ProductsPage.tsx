@@ -26,6 +26,9 @@ import {
   TableRow,
   TablePagination,
   Alert,
+  CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -33,19 +36,18 @@ import {
   MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Inventory as InventoryIcon,
   Visibility as ViewIcon,
   GetApp as ExportIcon,
   RestoreFromTrash as RestoreIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
-import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
-import type { Product, Category } from '@/types'
+import type { Product } from '@/types'
 import {
   fetchProducts,
   fetchCategories,
@@ -95,6 +97,8 @@ const productSchema = yup.object({
 const ProductsPage: React.FC = () => {
   const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const products = useSelector(selectProducts) || []
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
@@ -113,6 +117,11 @@ const ProductsPage: React.FC = () => {
     dispatch(fetchProducts({}))
     dispatch(fetchCategories())
   }, [dispatch])
+
+  const handleRefresh = () => {
+    dispatch(fetchProducts({}))
+    dispatch(fetchCategories())
+  }
 
   const {
     control,
@@ -264,30 +273,59 @@ const ProductsPage: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        mb: 4,
+        gap: isMobile ? 2 : 0
+      }}>
+        <Box sx={{ mb: isMobile ? 2 : 0 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
             Products
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage your product catalog and inventory
+            Manage your product catalog and inventory ({filteredProducts.length} total)
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 1.5 : 2,
+          alignItems: isMobile ? 'stretch' : 'center'
+        }}>
           <Button
             variant="outlined"
-            startIcon={<RestoreIcon />}
-            onClick={() => setDeletedProductsDialogOpen(true)}
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
+            onClick={handleRefresh}
+            disabled={loading?.products}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
           >
-            View Deleted
+            {isMobile ? "Refresh Products" : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => setDeletedProductsDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "View Deleted Products" : "View Deleted"}
           </Button>
           <Button
             variant="contained"
-            startIcon={<AddIcon />}
-            size="large"
+            startIcon={!isMobile ? <AddIcon /> : undefined}
+            size={isMobile ? "medium" : "large"}
             onClick={handleAddProduct}
+            fullWidth={isMobile}
+            sx={{
+              py: isMobile ? 1.5 : 1,
+              fontWeight: 600
+            }}
           >
-            Add Product
+            {isMobile ? "Add New Product" : "Add Product"}
           </Button>
         </Box>
       </Box>
@@ -319,7 +357,7 @@ const ProductsPage: React.FC = () => {
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
                 <MenuItem value="">All Categories</MenuItem>
-                {categories.map(category => (
+                {categories.map((category: any) => (
                   <MenuItem key={category.id} value={category.id}>
                     {category.name}
                   </MenuItem>
@@ -338,107 +376,254 @@ const ProductsPage: React.FC = () => {
         </Grid>
       </Paper>
 
-      {/* Products Display */}
-      {loading?.products ? (
-        <LoadingSpinner message="Loading products..." />
-      ) : (
-        <>
-          {filteredProducts.length === 0 ? (
-            <Paper sx={{ p: 6, textAlign: 'center' }}>
-              <InventoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                No products found
-              </Typography>
-              <Typography color="text.secondary">
-                Try adjusting your search criteria or add a new product.
-              </Typography>
-            </Paper>
-          ) : (
-            <TableContainer component={Paper}>
-              <Table>
+      {/* Products Content */}
+      <Paper>
+        {loading?.products ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : filteredProducts.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              No products found. Create your first product to get started.
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table 
+                size="small"
+                sx={{ 
+                  minWidth: isMobile ? 650 : 800,
+                  '& .MuiTableCell-root': { 
+                    borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                    py: 0.75,
+                    px: 1.5
+                  }
+                }}
+              >
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>SKU</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell align="right">Price</TableCell>
-                    <TableCell align="right">Stock</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
+                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                    <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Product Details
+                      </Typography>
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell sx={{ width: '12%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          SKU
+                        </Typography>
+                      </TableCell>
+                    )}
+                    <TableCell sx={{ width: isMobile ? '15%' : '12%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Category
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right" sx={{ width: isMobile ? '12%' : '10%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Price
+                      </Typography>
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell align="right" sx={{ width: '10%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          Stock
+                        </Typography>
+                      </TableCell>
+                    )}
+                    <TableCell sx={{ width: isMobile ? '15%' : '12%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Status
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right" sx={{ width: isMobile ? '28%' : '19%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Actions
+                      </Typography>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paginatedProducts.map(product => {
+                  {paginatedProducts.map((product: any) => {
                     const stockStatus = getStockStatus(product)
                     return (
-                      <TableRow key={product.id} hover>
+                      <TableRow 
+                        key={product.id} 
+                        hover
+                        tabIndex={0}
+                        sx={{
+                          '&:hover, &:focus-within': {
+                            backgroundColor: 'action.hover',
+                            '& .product-actions': {
+                              opacity: 1
+                            }
+                          },
+                          transition: 'background-color 0.2s ease',
+                          cursor: 'default',
+                          height: 48
+                        }}
+                      >
                         <TableCell>
                           <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>
                               {product.name}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                               {product.description}
                             </Typography>
+                            {/* Mobile-only SKU indicator */}
+                            {isMobile && (
+                              <Typography variant="caption" color="text.secondary" sx={{ 
+                                display: 'block', 
+                                fontFamily: 'monospace',
+                                fontSize: '0.65rem',
+                                mt: 0.25
+                              }}>
+                                SKU: {product.sku}
+                              </Typography>
+                            )}
                           </Box>
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                            {product.sku}
-                          </Typography>
-                        </TableCell>
+                        {!isMobile && (
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                              {product.sku}
+                            </Typography>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Chip 
                             label={product.category?.name} 
                             size="small" 
                             variant="outlined"
+                            sx={{
+                              fontSize: '0.7rem',
+                              fontWeight: 500,
+                              height: 20
+                            }}
                           />
                         </TableCell>
                         <TableCell align="right">
-                          <Typography variant="subtitle2" color="primary">
+                          <Typography variant="body2" color="primary" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                             ${(product.retailPrice || 0).toFixed(2)}
                           </Typography>
+                          {/* Mobile-only stock indicator */}
+                          {isMobile && (
+                            <Typography variant="caption" color="text.secondary" sx={{ 
+                              display: 'block',
+                              fontSize: '0.65rem',
+                              mt: 0.25
+                            }}>
+                              Stock: {product.stockQuantity || 0} {product.unit}
+                            </Typography>
+                          )}
                         </TableCell>
-                        <TableCell align="right">
-                          {product.stockQuantity || 0} {product.unit}
-                        </TableCell>
+                        {!isMobile && (
+                          <TableCell align="right">
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                              {product.stockQuantity || 0} {product.unit}
+                            </Typography>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Chip 
                             label={stockStatus.label} 
                             size="small" 
                             color={stockStatus.color}
-                            variant="outlined"
+                            variant={stockStatus.color === 'success' ? 'filled' : 'outlined'}
+                            sx={{
+                              fontSize: '0.7rem',
+                              fontWeight: 500,
+                              height: 20
+                            }}
                           />
                         </TableCell>
                         <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuOpen(e, product)}
+                          <Box 
+                            className="product-actions"
+                            sx={{ 
+                              display: 'flex', 
+                              justifyContent: 'flex-end',
+                              gap: 0.25,
+                              opacity: isMobile ? 1 : 0.7,
+                              transition: 'opacity 0.2s ease'
+                            }}
                           >
-                            <MoreIcon />
-                          </IconButton>
+                            <IconButton 
+                              size="small"
+                              title={`Edit ${product.name}`}
+                              aria-label={`Edit product ${product.name}`}
+                              onClick={() => handleEditProduct(product)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'action.hover',
+                                  color: 'primary.main'
+                                },
+                                p: 0.5
+                              }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              size="small"
+                              title={`Delete ${product.name}`}
+                              aria-label={`Delete product ${product.name}`}
+                              onClick={() => handleDeleteProduct(product)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.main'
+                                },
+                                p: 0.5
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              title={`More options for ${product.name}`}
+                              aria-label={`More options for product ${product.name}`}
+                              onClick={(e) => handleMenuOpen(e, product)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'action.hover'
+                                },
+                                p: 0.5
+                              }}
+                            >
+                              <MoreIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     )
                   })}
                 </TableBody>
               </Table>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25, 50]}
-                component="div"
-                count={filteredProducts.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={(_, newPage) => setPage(newPage)}
-                onRowsPerPageChange={(e) => {
-                  setRowsPerPage(parseInt(e.target.value, 10))
-                  setPage(0)
-                }}
-              />
             </TableContainer>
-          )}
-        </>
-      )}
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={filteredProducts.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10))
+                setPage(0)
+              }}
+              sx={{
+                borderTop: '1px solid rgba(224, 224, 224, 0.4)',
+                '& .MuiTablePagination-toolbar': {
+                  px: 2
+                }
+              }}
+            />
+          </>
+        )}
+      </Paper>
 
       {/* Context Menu */}
       <Menu
@@ -447,19 +632,8 @@ const ProductsPage: React.FC = () => {
         onClose={handleMenuClose}
       >
         <MenuItem onClick={() => selectedProduct && handleEditProduct(selectedProduct)}>
-          <EditIcon sx={{ mr: 1 }} fontSize="small" />
-          Edit
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuClose()}>
           <ViewIcon sx={{ mr: 1 }} fontSize="small" />
           View Details
-        </MenuItem>
-        <MenuItem 
-          onClick={() => selectedProduct && handleDeleteProduct(selectedProduct)}
-          sx={{ color: 'error.main' }}
-        >
-          <DeleteIcon sx={{ mr: 1 }} fontSize="small" />
-          Delete
         </MenuItem>
       </Menu>
 
@@ -532,7 +706,7 @@ const ProductsPage: React.FC = () => {
                       <InputLabel>Category</InputLabel>
                       <Select {...field} label="Category">
                         {categories && categories.length > 0 ? (
-                          categories.map(category => (
+                          categories.map((category: any) => (
                             <MenuItem key={category.id} value={category.id}>
                               {category.name}
                             </MenuItem>
