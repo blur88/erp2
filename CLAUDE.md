@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this ERP system codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -214,7 +214,7 @@ When enabling disabled modules:
 - **API Response**: Access `response.data.data` and `response.data.meta`
 - **Soft Delete**: Include `isActive: true` filter when fetching
 
-## Recent Changes (August 2025)
+## Recent Changes (September 2025)
 
 ### Frontend Integration Fixed
 - ✅ Inventory pages fully functional with real backend data
@@ -226,6 +226,7 @@ When enabling disabled modules:
 ### Categories Simplified (December 2025)
 - Removed `code` and `description` fields entirely
 - Now only contains: name, hierarchy, status, sort order, audit fields
+- Tree view removed from categories page - now displays simple table view only
 
 ## Code Patterns
 
@@ -274,7 +275,7 @@ export class EntityName extends BaseEntity {
 **✅ Functional Pages:**
 - Inventory: http://localhost:3000/inventory
 - Products: http://localhost:3000/inventory/products (full CRUD)
-- Categories: http://localhost:3000/inventory/categories (with restore/undo)
+- Categories: http://localhost:3000/inventory/categories (table view with restore/undo)
 
 **Key API Endpoints:**
 - Users: `/api/users`

@@ -33,7 +33,6 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as ViewIcon,
   Undo as UndoIcon,
   Refresh as RefreshIcon,
   ExpandMore as ExpandMoreIcon,
@@ -43,8 +42,6 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { inventoryApi } from '@/services/inventoryApi'
 import { useNotification } from '@/hooks/useNotification'
-import CategoryTreeView from '@/components/inventory/CategoryTreeView'
-import CategoryBreadcrumb from '@/components/inventory/CategoryBreadcrumb'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import type { Category } from '@/types'
 
@@ -73,9 +70,6 @@ const CategoriesPage: React.FC = () => {
   const [nameValidationError, setNameValidationError] = useState<string | null>(null)
   const [recentlyDeleted, setRecentlyDeleted] = useState<Map<string, { category: Category; timestamp: number }>>(new Map())
   const [undoMenuAnchor, setUndoMenuAnchor] = useState<null | HTMLElement>(null)
-  const [viewMode, setViewMode] = useState<'table' | 'tree'>('tree')
-  const [categoryTree, setCategoryTree] = useState<Category[]>([])
-  const [selectedTreeCategory, setSelectedTreeCategory] = useState<Category | null>(null)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
 
   const {
@@ -97,19 +91,11 @@ const CategoriesPage: React.FC = () => {
       setLoading(true)
       setError(null)
       
-      // Fetch both flat list and tree structure
-      const [flatResponse, treeResponse] = await Promise.all([
-        inventoryApi.getCategories({ includeProductCount: true }),
-        inventoryApi.getCategoryTree(true)
-      ])
+      const response = await inventoryApi.getCategories({ includeProductCount: true })
       
       // Handle API response format: { data: Category[], meta: {...} }
-      const categoriesData = flatResponse.data || []
+      const categoriesData = response.data || []
       setCategories(Array.isArray(categoriesData) ? categoriesData : [])
-      
-      // Handle tree response
-      const treeData = treeResponse.data?.data || []
-      setCategoryTree(Array.isArray(treeData) ? treeData : [])
       
     } catch (err) {
       console.error('Error fetching categories:', err)
@@ -282,30 +268,9 @@ const CategoriesPage: React.FC = () => {
   }
 
   const findCategoryById = (cats: Category[], id: string): Category | null => {
-    for (const cat of cats) {
-      if (cat.id === id) return cat
-      if (cat.children) {
-        const found = findCategoryById(cat.children, id)
-        if (found) return found
-      }
-    }
-    return null
+    return cats.find(cat => cat.id === id) || null
   }
 
-  const handleTreeCategorySelect = (category: Category | null) => {
-    setSelectedTreeCategory(category)
-  }
-
-  const handleMoveCategory = async (categoryId: string, newParentId: string | null) => {
-    try {
-      await inventoryApi.moveCategory(categoryId, newParentId)
-      showSuccess('Category moved successfully')
-      fetchCategories()
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to move category'
-      showError(errorMessage)
-    }
-  }
 
   const validateCategoryName = (name: string) => {
     if (!name || name.length < 2) {
@@ -337,20 +302,6 @@ const CategoriesPage: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant={viewMode === 'tree' ? 'contained' : 'outlined'}
-            onClick={() => setViewMode('tree')}
-            size="small"
-          >
-            Tree View
-          </Button>
-          <Button
-            variant={viewMode === 'table' ? 'contained' : 'outlined'}
-            onClick={() => setViewMode('table')}
-            size="small"
-          >
-            Table View
-          </Button>
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
@@ -454,17 +405,6 @@ const CategoriesPage: React.FC = () => {
         )}
       </Menu>
 
-      {/* Breadcrumb for selected category in tree view */}
-      {viewMode === 'tree' && selectedTreeCategory && (
-        <Box sx={{ mb: 3 }}>
-          <CategoryBreadcrumb
-            category={selectedTreeCategory}
-            showHome
-            showLevel
-            onHomeClick={() => setSelectedTreeCategory(null)}
-          />
-        </Box>
-      )}
 
       {/* Categories Content */}
       <Paper>
@@ -485,98 +425,76 @@ const CategoriesPage: React.FC = () => {
             </Typography>
           </Box>
         ) : (
-          <Box>
-            {/* Tree View */}
-            {viewMode === 'tree' && (
-              <CategoryTreeView
-                categories={categoryTree}
-                selectedCategory={selectedTreeCategory?.id}
-                onSelectCategory={handleTreeCategorySelect}
-                onCreateCategory={handleAddCategory}
-                onEditCategory={handleEditCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onMoveCategory={handleMoveCategory}
-                showProductCount
-                showActions
-                loading={loading}
-                error={error}
-              />
-            )}
-
-            {/* Table View */}
-            {viewMode === 'table' && (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell><strong>Name</strong></TableCell>
-                      <TableCell><strong>Status</strong></TableCell>
-                      <TableCell><strong>Level</strong></TableCell>
-                      <TableCell><strong>Products</strong></TableCell>
-                      <TableCell><strong>Created</strong></TableCell>
-                      <TableCell align="right"><strong>Actions</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {categories.map((category) => (
-                      <TableRow key={category.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                            {getLevelIndicator(category.level)}
-                          </Typography>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {category.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={category.isActive ? 'Active' : 'Inactive'}
-                            color={category.isActive ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            Level {category.level}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={category.productCount ?? 0}
-                            size="small"
-                            color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {new Date(category.createdAt).toLocaleDateString()}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton 
-                            size="small" 
-                            title="Edit Category"
-                            onClick={() => handleEditCategory(category)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            title="Delete Category" 
-                            onClick={() => handleDeleteCategory(category)}
-                            color="error"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Box>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Name</strong></TableCell>
+                  <TableCell><strong>Status</strong></TableCell>
+                  <TableCell><strong>Level</strong></TableCell>
+                  <TableCell><strong>Products</strong></TableCell>
+                  <TableCell><strong>Created</strong></TableCell>
+                  <TableCell align="right"><strong>Actions</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {categories.map((category) => (
+                  <TableRow key={category.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                        {getLevelIndicator(category.level)}
+                      </Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {category.name}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={category.isActive ? 'Active' : 'Inactive'}
+                        color={category.isActive ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        Level {category.level}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={category.productCount ?? 0}
+                        size="small"
+                        color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {new Date(category.createdAt).toLocaleDateString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <IconButton 
+                        size="small" 
+                        title="Edit Category"
+                        onClick={() => handleEditCategory(category)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        title="Delete Category" 
+                        onClick={() => handleDeleteCategory(category)}
+                        color="error"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Paper>
 
