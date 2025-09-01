@@ -331,50 +331,116 @@ const ProductsPage: React.FC = () => {
       </Box>
 
       {/* Filters and Search */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={selectedCategory}
-                label="Category"
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                <MenuItem value="">All Categories</MenuItem>
-                {categories.map((category: any) => (
-                  <MenuItem key={category.id} value={category.id}>
-                    {category.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={5} sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              startIcon={<ExportIcon />}
-            >
-              Export
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: 2,
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 3,
+        '& > *': {
+          alignSelf: isMobile ? 'stretch' : 'flex-start'
+        }
+      }}>
+        <TextField
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="medium"
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 250,
+            flex: isMobile ? 'none' : 1,
+            maxWidth: isMobile ? 'none' : 400,
+            '& .MuiOutlinedInput-root': {
+              height: '40px',
+              fontSize: '0.875rem',
+              '& input': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            },
+            '& .MuiInputAdornment-root': {
+              '& .MuiSvgIcon-root': {
+                fontSize: '1.25rem',
+                color: 'action.active'
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl 
+          size="medium" 
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 180,
+            flex: 'none'
+          }}
+        >
+          <InputLabel 
+            sx={{ 
+              fontSize: '0.875rem',
+              '&.MuiInputLabel-shrunk': {
+                fontSize: '0.75rem'
+              }
+            }}
+          >
+            Category
+          </InputLabel>
+          <Select
+            value={selectedCategory}
+            label="Category"
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            sx={{
+              height: '40px',
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: '0.875rem',
+                padding: '8.5px 14px',
+                height: '40px',
+                boxSizing: 'border-box'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.23)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.87)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: theme.palette.primary.main,
+                borderWidth: 2
+              }
+            }}
+          >
+            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>
+              All Categories
+            </MenuItem>
+            {categories.map((category: any) => (
+              <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.875rem' }}>
+                {category.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button
+          variant="outlined"
+          startIcon={<ExportIcon />}
+          size="medium"
+          sx={{ 
+            flex: 'none',
+            height: '40px',
+            fontSize: '0.875rem',
+            fontWeight: 500
+          }}
+        >
+          Export
+        </Button>
+      </Box>
 
       {/* Products Content */}
       <Paper>
@@ -703,22 +769,40 @@ const ProductsPage: React.FC = () => {
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth error={!!errors.categoryId}>
-                      <InputLabel>Category</InputLabel>
-                      <Select {...field} label="Category">
+                      <InputLabel 
+                        sx={{ 
+                          fontSize: '1rem',
+                          '&.MuiInputLabel-shrunk': {
+                            fontSize: '0.75rem'
+                          }
+                        }}
+                      >
+                        Category
+                      </InputLabel>
+                      <Select 
+                        {...field} 
+                        label="Category"
+                        sx={{
+                          '& .MuiSelect-select': {
+                            fontSize: '1rem',
+                            padding: '16.5px 14px'
+                          }
+                        }}
+                      >
                         {categories && categories.length > 0 ? (
                           categories.map((category: any) => (
-                            <MenuItem key={category.id} value={category.id}>
+                            <MenuItem key={category.id} value={category.id} sx={{ fontSize: '1rem' }}>
                               {category.name}
                             </MenuItem>
                           ))
                         ) : (
-                          <MenuItem value="" disabled>
+                          <MenuItem value="" disabled sx={{ fontSize: '1rem' }}>
                             No categories available
                           </MenuItem>
                         )}
                       </Select>
                       {errors.categoryId && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, mx: 2 }}>
+                        <Typography variant="caption" color="error" sx={{ mt: 0.75, ml: 1.75, fontSize: '0.75rem' }}>
                           {errors.categoryId.message}
                         </Typography>
                       )}
@@ -732,13 +816,31 @@ const ProductsPage: React.FC = () => {
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth error={!!errors.type}>
-                      <InputLabel>Product Type</InputLabel>
-                      <Select {...field} label="Product Type">
-                        <MenuItem value="goods">Goods</MenuItem>
-                        <MenuItem value="service">Service</MenuItem>
+                      <InputLabel 
+                        sx={{ 
+                          fontSize: '1rem',
+                          '&.MuiInputLabel-shrunk': {
+                            fontSize: '0.75rem'
+                          }
+                        }}
+                      >
+                        Product Type
+                      </InputLabel>
+                      <Select 
+                        {...field} 
+                        label="Product Type"
+                        sx={{
+                          '& .MuiSelect-select': {
+                            fontSize: '1rem',
+                            padding: '16.5px 14px'
+                          }
+                        }}
+                      >
+                        <MenuItem value="goods" sx={{ fontSize: '1rem' }}>Goods</MenuItem>
+                        <MenuItem value="service" sx={{ fontSize: '1rem' }}>Service</MenuItem>
                       </Select>
                       {errors.type && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, mx: 2 }}>
+                        <Typography variant="caption" color="error" sx={{ mt: 0.75, ml: 1.75, fontSize: '0.75rem' }}>
                           {errors.type.message}
                         </Typography>
                       )}
@@ -752,15 +854,33 @@ const ProductsPage: React.FC = () => {
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth>
-                      <InputLabel>Unit</InputLabel>
-                      <Select {...field} label="Unit">
-                        <MenuItem value="pcs">Pieces</MenuItem>
-                        <MenuItem value="kg">Kilograms</MenuItem>
-                        <MenuItem value="lbs">Pounds</MenuItem>
-                        <MenuItem value="m">Meters</MenuItem>
-                        <MenuItem value="ft">Feet</MenuItem>
-                        <MenuItem value="l">Liters</MenuItem>
-                        <MenuItem value="gal">Gallons</MenuItem>
+                      <InputLabel 
+                        sx={{ 
+                          fontSize: '1rem',
+                          '&.MuiInputLabel-shrunk': {
+                            fontSize: '0.75rem'
+                          }
+                        }}
+                      >
+                        Unit
+                      </InputLabel>
+                      <Select 
+                        {...field} 
+                        label="Unit"
+                        sx={{
+                          '& .MuiSelect-select': {
+                            fontSize: '1rem',
+                            padding: '16.5px 14px'
+                          }
+                        }}
+                      >
+                        <MenuItem value="pcs" sx={{ fontSize: '1rem' }}>Pieces</MenuItem>
+                        <MenuItem value="kg" sx={{ fontSize: '1rem' }}>Kilograms</MenuItem>
+                        <MenuItem value="lbs" sx={{ fontSize: '1rem' }}>Pounds</MenuItem>
+                        <MenuItem value="m" sx={{ fontSize: '1rem' }}>Meters</MenuItem>
+                        <MenuItem value="ft" sx={{ fontSize: '1rem' }}>Feet</MenuItem>
+                        <MenuItem value="l" sx={{ fontSize: '1rem' }}>Liters</MenuItem>
+                        <MenuItem value="gal" sx={{ fontSize: '1rem' }}>Gallons</MenuItem>
                       </Select>
                     </FormControl>
                   )}
