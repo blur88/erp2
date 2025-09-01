@@ -31,6 +31,10 @@ export const inventoryApi = {
     return ApiService.post<Product>(`/inventory/products/${id}/restore`)
   },
 
+  async permanentDeleteProduct(id: string) {
+    return ApiService.delete(`/inventory/products/${id}/permanent`)
+  },
+
   async uploadProductImage(productId: string, file: File) {
     return ApiService.uploadFile<{ url: string }>(`/inventory/products/${productId}/image`, file)
   },

@@ -381,6 +381,58 @@ export class ProductService {
   }
 
   /**
+   * Permanently delete a product from database
+   */
+  async permanentDelete(id: string, userId?: string): Promise<void> {
+    this.logger.log(`Permanently deleting product with ID: ${id}`);
+
+    // Find the product (including soft-deleted ones)
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+      withDeleted: true,
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID '${id}' not found`);
+    }
+
+    // Ensure product is already soft-deleted
+    if (!product.deletedAt) {
+      throw new BadRequestException(
+        'Product must be soft-deleted first before permanent deletion. Use regular delete endpoint first.'
+      );
+    }
+
+    // Check if product has any active dependencies that prevent permanent deletion
+    if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
+      throw new BadRequestException(
+        'Cannot permanently delete product that has associated sales orders or purchase orders'
+      );
+    }
+
+    // If there are stock movements, we should allow deletion but log it
+    if (product.stockMovements?.length > 0) {
+      this.logger.warn(
+        `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.sku}`
+      );
+    }
+
+    // Hard delete the product from database
+    await this.productRepository.delete(id);
+
+    // Log audit event
+    await this.auditService.logProductEvent(
+      product.id,
+      'PRODUCT_PERMANENTLY_DELETED',
+      `Product ${product.name} (${product.sku}) permanently deleted from database`,
+      userId,
+    );
+
+    this.logger.log(`Product permanently deleted: ${id}`);
+  }
+
+  /**
    * Update a product
    */
   async update(id: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductResponseDto> {

@@ -162,6 +162,18 @@ export const restoreProduct = createAsyncThunk(
   }
 )
 
+export const permanentDeleteProduct = createAsyncThunk(
+  'inventory/permanentDeleteProduct',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await inventoryApi.permanentDeleteProduct(id)
+      return id
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete product')
+    }
+  }
+)
+
 export const fetchStockMovements = createAsyncThunk(
   'inventory/fetchStockMovements',
   async (params: { page?: number; limit?: number; productId?: string }, { rejectWithValue }) => {
@@ -292,6 +304,15 @@ const inventorySlice = createSlice({
           // Remove from deleted products and add to active products
           state.deletedProducts = state.deletedProducts.filter(p => p.id !== action.payload.id)
           state.products.unshift(action.payload)
+        }
+      })
+
+    // Permanent Delete Product
+    builder
+      .addCase(permanentDeleteProduct.fulfilled, (state, action) => {
+        if (action.payload) {
+          // Remove from deleted products list
+          state.deletedProducts = state.deletedProducts.filter(p => p.id !== action.payload)
         }
       })
 

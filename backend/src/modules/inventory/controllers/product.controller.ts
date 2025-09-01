@@ -308,6 +308,25 @@ export class ProductController {
     return this.productService.restore(id, null);
   }
 
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a product from database' })
+  @ApiResponse({
+    status: 204,
+    description: 'Product permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Product must be soft-deleted first or has active references' 
+  })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.productService.permanentDelete(id, null);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a product (soft delete - sets status to DISCONTINUED)' })
   @ApiResponse({

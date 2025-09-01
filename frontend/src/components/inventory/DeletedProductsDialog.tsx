@@ -20,16 +20,19 @@ import {
   IconButton,
   Tooltip,
   Alert,
+  Divider,
 } from '@mui/material'
 import {
   Search as SearchIcon,
   Restore as RestoreIcon,
   Close as CloseIcon,
+  DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { 
   fetchDeletedProducts, 
-  restoreProduct, 
+  restoreProduct,
+  permanentDeleteProduct, 
   selectDeletedProducts, 
   selectInventoryLoading,
   fetchProducts
@@ -51,6 +54,8 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Product | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -86,6 +91,28 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     }
   }
 
+  const handlePermanentDelete = async (product: Product) => {
+    setDeletingId(product.id)
+    try {
+      const result = await dispatch(permanentDeleteProduct(product.id))
+      
+      if (permanentDeleteProduct.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+      
+      showSuccess(`Product "${product.name}" permanently deleted`)
+      // Refresh deleted products list
+      dispatch(fetchDeletedProducts({}))
+    } catch (error: any) {
+      console.error('Product permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete product'
+      showError(errorMessage)
+    } finally {
+      setDeletingId(null)
+      setConfirmDelete(null)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -116,7 +143,9 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
-            These products have been soft-deleted. You can restore them to make their SKUs available for reuse.
+            These products have been soft-deleted. You can restore them or permanently delete them from the database.
+            <br />
+            <strong>Warning:</strong> Permanent deletion cannot be undone!
           </Alert>
           
           <TextField
@@ -194,15 +223,28 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
-                        <Tooltip title="Restore Product">
-                          <IconButton 
-                            onClick={() => handleRestore(product)}
-                            disabled={restoringId === product.id}
-                            color="primary"
-                          >
-                            <RestoreIcon />
-                          </IconButton>
-                        </Tooltip>
+                        <Box display="flex" gap={1} justifyContent="center">
+                          <Tooltip title="Restore Product">
+                            <IconButton 
+                              onClick={() => handleRestore(product)}
+                              disabled={restoringId === product.id || deletingId === product.id}
+                              color="primary"
+                              size="small"
+                            >
+                              <RestoreIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Permanently Delete (Cannot be undone)">
+                            <IconButton 
+                              onClick={() => setConfirmDelete(product)}
+                              disabled={restoringId === product.id || deletingId === product.id}
+                              color="error"
+                              size="small"
+                            >
+                              <DeleteForeverIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))
@@ -218,6 +260,67 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           Close
         </Button>
       </DialogActions>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <Dialog
+        open={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">
+          <Box display="flex" alignItems="center" gap={1}>
+            <DeleteForeverIcon color="error" />
+            Permanently Delete Product
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            This action cannot be undone! The product will be completely removed from the database.
+          </Alert>
+          
+          {confirmDelete && (
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                Are you sure you want to permanently delete this product?
+              </Typography>
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  {confirmDelete.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  SKU: {confirmDelete.sku}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Category: {confirmDelete.category?.name || 'No Category'}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+                This will permanently remove the product and all its data from the database.
+                The SKU "{confirmDelete.sku}" will become available for reuse.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setConfirmDelete(null)} 
+            variant="outlined"
+            disabled={deletingId === confirmDelete?.id}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => confirmDelete && handlePermanentDelete(confirmDelete)}
+            variant="contained"
+            color="error"
+            disabled={deletingId === confirmDelete?.id}
+            startIcon={deletingId === confirmDelete?.id ? undefined : <DeleteForeverIcon />}
+          >
+            {deletingId === confirmDelete?.id ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   )
 }
