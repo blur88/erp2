@@ -107,12 +107,19 @@ const ProductsPage: React.FC = () => {
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
 
   useEffect(() => {
-    dispatch(fetchProducts({}))
     dispatch(fetchCategories())
   }, [dispatch])
 
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [dispatch, searchTerm, selectedCategory])
+
   const handleRefresh = () => {
-    dispatch(fetchProducts({}))
+    dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
     dispatch(fetchCategories())
   }
 
@@ -137,12 +144,8 @@ const ProductsPage: React.FC = () => {
     },
   })
 
-  // Filter products
-  const filteredProducts = (products || []).filter(product => {
-    const matchesSearch = product.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === '' || product.category?.id === selectedCategory
-    return matchesSearch && matchesCategory
-  })
+  // Products are already filtered by backend search
+  const filteredProducts = products || []
 
   // Paginated products
   const paginatedProducts = filteredProducts.slice(
@@ -213,7 +216,7 @@ const ProductsPage: React.FC = () => {
         showSuccess(`Product ${product.name} deleted successfully`)
         // Explicitly refresh the products list to ensure backend state is synchronized
         setTimeout(() => {
-          dispatch(fetchProducts({}))
+          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
         }, 500)
       } catch (error) {
         showError('Failed to delete product. Please try again.')
@@ -264,7 +267,7 @@ const ProductsPage: React.FC = () => {
         showSuccess('Product added successfully')
         // Refresh products list to ensure new product appears
         setTimeout(() => {
-          dispatch(fetchProducts({}))
+          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
         }, 500)
       }
       
@@ -370,7 +373,7 @@ const ProductsPage: React.FC = () => {
         }
       }}>
         <TextField
-          placeholder="Search products..."
+          placeholder="Search by name, barcode, or brand..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           size="medium"
