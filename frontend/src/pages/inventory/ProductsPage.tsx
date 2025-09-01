@@ -835,16 +835,21 @@ const ProductsPage: React.FC = () => {
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
       >
         <DialogTitle>
           {editMode ? 'Edit Product' : 'Add New Product'}
+          {selectedProduct && editMode && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Editing: {selectedProduct.name}
+            </Typography>
+          )}
         </DialogTitle>
         <form onSubmit={handleSubmit(onSubmit as any)}>
           <DialogContent>
             <Grid container spacing={3} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="name"
                   control={control}
@@ -855,11 +860,16 @@ const ProductsPage: React.FC = () => {
                       label="Product Name"
                       error={!!errors.name}
                       helperText={errors.name?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="sku"
                   control={control}
@@ -870,6 +880,11 @@ const ProductsPage: React.FC = () => {
                       label="SKU"
                       error={!!errors.sku}
                       helperText={errors.sku?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
                     />
                   )}
                 />
@@ -887,44 +902,37 @@ const ProductsPage: React.FC = () => {
                       rows={3}
                       error={!!errors.description}
                       helperText={errors.description?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="categoryId"
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth error={!!errors.categoryId}>
-                      <InputLabel 
-                        sx={{ 
-                          fontSize: '1rem',
-                          '&.MuiInputLabel-shrunk': {
-                            fontSize: '0.75rem'
-                          }
-                        }}
-                      >
-                        Category
-                      </InputLabel>
+                      <InputLabel sx={{ fontSize: '0.875rem' }}>Category</InputLabel>
                       <Select 
                         {...field} 
                         label="Category"
                         sx={{
-                          '& .MuiSelect-select': {
-                            fontSize: '1rem',
-                            padding: '16.5px 14px'
-                          }
+                          '& .MuiSelect-select': { fontSize: '0.875rem' }
                         }}
                       >
                         {categories && categories.length > 0 ? (
                           categories.map((category: any) => (
-                            <MenuItem key={category.id} value={category.id} sx={{ fontSize: '1rem' }}>
+                            <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.875rem' }}>
                               {category.name}
                             </MenuItem>
                           ))
                         ) : (
-                          <MenuItem value="" disabled sx={{ fontSize: '1rem' }}>
+                          <MenuItem value="" disabled sx={{ fontSize: '0.875rem' }}>
                             No categories available
                           </MenuItem>
                         )}
@@ -938,34 +946,22 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="type"
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth error={!!errors.type}>
-                      <InputLabel 
-                        sx={{ 
-                          fontSize: '1rem',
-                          '&.MuiInputLabel-shrunk': {
-                            fontSize: '0.75rem'
-                          }
-                        }}
-                      >
-                        Product Type
-                      </InputLabel>
+                      <InputLabel sx={{ fontSize: '0.875rem' }}>Product Type</InputLabel>
                       <Select 
                         {...field} 
                         label="Product Type"
                         sx={{
-                          '& .MuiSelect-select': {
-                            fontSize: '1rem',
-                            padding: '16.5px 14px'
-                          }
+                          '& .MuiSelect-select': { fontSize: '0.875rem' }
                         }}
                       >
-                        <MenuItem value="goods" sx={{ fontSize: '1rem' }}>Goods</MenuItem>
-                        <MenuItem value="service" sx={{ fontSize: '1rem' }}>Service</MenuItem>
+                        <MenuItem value="goods" sx={{ fontSize: '0.875rem' }}>Goods</MenuItem>
+                        <MenuItem value="service" sx={{ fontSize: '0.875rem' }}>Service</MenuItem>
                       </Select>
                       {errors.type && (
                         <Typography variant="caption" color="error" sx={{ mt: 0.75, ml: 1.75, fontSize: '0.75rem' }}>
@@ -976,51 +972,33 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="unit"
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth>
-                      <InputLabel 
-                        sx={{ 
-                          fontSize: '1rem',
-                          '&.MuiInputLabel-shrunk': {
-                            fontSize: '0.75rem'
-                          }
-                        }}
-                      >
-                        Unit
-                      </InputLabel>
+                      <InputLabel sx={{ fontSize: '0.875rem' }}>Unit</InputLabel>
                       <Select 
                         {...field} 
                         label="Unit"
                         sx={{
-                          '& .MuiSelect-select': {
-                            fontSize: '1rem',
-                            padding: '16.5px 14px'
-                          }
+                          '& .MuiSelect-select': { fontSize: '0.875rem' }
                         }}
                       >
-                        <MenuItem value="pcs" sx={{ fontSize: '1rem' }}>Pieces</MenuItem>
-                        <MenuItem value="kg" sx={{ fontSize: '1rem' }}>Kilograms</MenuItem>
-                        <MenuItem value="lbs" sx={{ fontSize: '1rem' }}>Pounds</MenuItem>
-                        <MenuItem value="m" sx={{ fontSize: '1rem' }}>Meters</MenuItem>
-                        <MenuItem value="ft" sx={{ fontSize: '1rem' }}>Feet</MenuItem>
-                        <MenuItem value="l" sx={{ fontSize: '1rem' }}>Liters</MenuItem>
-                        <MenuItem value="gal" sx={{ fontSize: '1rem' }}>Gallons</MenuItem>
+                        <MenuItem value="pcs" sx={{ fontSize: '0.875rem' }}>Pieces</MenuItem>
+                        <MenuItem value="kg" sx={{ fontSize: '0.875rem' }}>Kilograms</MenuItem>
+                        <MenuItem value="lbs" sx={{ fontSize: '0.875rem' }}>Pounds</MenuItem>
+                        <MenuItem value="m" sx={{ fontSize: '0.875rem' }}>Meters</MenuItem>
+                        <MenuItem value="ft" sx={{ fontSize: '0.875rem' }}>Feet</MenuItem>
+                        <MenuItem value="l" sx={{ fontSize: '0.875rem' }}>Liters</MenuItem>
+                        <MenuItem value="gal" sx={{ fontSize: '0.875rem' }}>Gallons</MenuItem>
                       </Select>
                     </FormControl>
                   )}
                 />
               </Grid>
-              {/* Multi-level Pricing */}
               <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                  Pricing Information
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
                 <Controller
                   name="baseCost"
                   control={control}
@@ -1036,11 +1014,19 @@ const ProductsPage: React.FC = () => {
                       }}
                       error={!!errors.baseCost}
                       helperText={errors.baseCost?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' },
+                        '& .MuiInputAdornment-root': { 
+                          '& .MuiTypography-root': { fontSize: '0.875rem' }
+                        }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="retailPrice"
                   control={control}
@@ -1056,11 +1042,19 @@ const ProductsPage: React.FC = () => {
                       }}
                       error={!!errors.retailPrice}
                       helperText={errors.retailPrice?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' },
+                        '& .MuiInputAdornment-root': { 
+                          '& .MuiTypography-root': { fontSize: '0.875rem' }
+                        }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="wholesalePrice"
                   control={control}
@@ -1076,11 +1070,19 @@ const ProductsPage: React.FC = () => {
                       }}
                       error={!!errors.wholesalePrice}
                       helperText={errors.wholesalePrice?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' },
+                        '& .MuiInputAdornment-root': { 
+                          '& .MuiTypography-root': { fontSize: '0.875rem' }
+                        }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="specialPrice"
                   control={control}
@@ -1096,17 +1098,19 @@ const ProductsPage: React.FC = () => {
                       }}
                       error={!!errors.specialPrice}
                       helperText={errors.specialPrice?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' },
+                        '& .MuiInputAdornment-root': { 
+                          '& .MuiTypography-root': { fontSize: '0.875rem' }
+                        }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              {/* Stock Management */}
               <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                  Stock Information
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={4}>
                 <Controller
                   name="initialStockQuantity"
                   control={control}
@@ -1119,11 +1123,16 @@ const ProductsPage: React.FC = () => {
                       inputProps={{ min: 0 }}
                       error={!!errors.initialStockQuantity}
                       helperText={errors.initialStockQuantity?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12}>
                 <Controller
                   name="reorderLevel"
                   control={control}
@@ -1136,11 +1145,16 @@ const ProductsPage: React.FC = () => {
                       inputProps={{ min: 0 }}
                       error={!!errors.reorderLevel}
                       helperText={errors.reorderLevel?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12}>
                 <Controller
                   name="optimalStockLevel"
                   control={control}
@@ -1153,6 +1167,11 @@ const ProductsPage: React.FC = () => {
                       inputProps={{ min: 0 }}
                       error={!!errors.optimalStockLevel}
                       helperText={errors.optimalStockLevel?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
                     />
                   )}
                 />
@@ -1160,7 +1179,9 @@ const ProductsPage: React.FC = () => {
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleCloseDialog} disabled={isSubmitting}>
+              Cancel
+            </Button>
             <Button
               type="submit"
               variant="contained"
