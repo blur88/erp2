@@ -28,6 +28,8 @@ import {
   ListItemText,
   Badge,
   Divider,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -36,6 +38,10 @@ import {
   Undo as UndoIcon,
   Refresh as RefreshIcon,
   ExpandMore as ExpandMoreIcon,
+  FolderOpen as FolderOpenIcon,
+  Folder as FolderIcon,
+  Category as CategoryIcon,
+  ArrowRight as ArrowRightIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -60,6 +66,9 @@ const categorySchema = yup.object({
 
 const CategoriesPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -263,8 +272,80 @@ const CategoriesPage: React.FC = () => {
     }
   }
 
-  const getLevelIndicator = (level: number) => {
-    return '  '.repeat(level) + (level > 0 ? '└─ ' : '')
+  const renderCategoryName = (category: Category) => {
+    const indentLevel = category.level
+    const isParent = category.hasChildren
+    const indentSize = 1.5 // Reduced indentation for more compact display
+    
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          ml: indentLevel * indentSize,
+          minHeight: 32 // Compact row height
+        }}
+        aria-level={indentLevel + 1}
+        role="treeitem"
+        aria-expanded={isParent ? true : undefined}
+        aria-label={`${category.name} ${indentLevel === 0 ? 'root category' : `level ${indentLevel} category`} ${isParent ? 'with subcategories' : ''}`}
+      >        
+        {/* Simple hierarchy indicator with text prefix */}
+        {indentLevel > 0 && (
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              mr: 0.5,
+              color: 'text.disabled',
+              fontSize: '0.75rem',
+              fontFamily: 'monospace'
+            }}
+          >
+            {'├─ '.repeat(1)}
+          </Typography>
+        )}
+        
+        {/* Minimal Category Icon */}
+        <Box sx={{ mr: 0.75, display: 'flex', alignItems: 'center' }}>
+          {indentLevel === 0 ? (
+            <FolderOpenIcon 
+              sx={{ 
+                fontSize: 18, 
+                color: 'primary.main'
+              }} 
+            />
+          ) : isParent ? (
+            <FolderIcon 
+              sx={{ 
+                fontSize: 16, 
+                color: 'secondary.main'
+              }} 
+            />
+          ) : (
+            <CategoryIcon 
+              sx={{ 
+                fontSize: 14, 
+                color: 'text.secondary'
+              }} 
+            />
+          )}
+        </Box>
+        
+        {/* Category Name */}
+        <Typography 
+          variant="body2"
+          sx={{ 
+            fontWeight: indentLevel === 0 ? 600 : isParent ? 500 : 400,
+            color: indentLevel === 0 ? 'primary.dark' : 'text.primary',
+            fontSize: indentLevel === 0 ? '0.9rem' : '0.8rem',
+            lineHeight: 1.2,
+            wordBreak: 'break-word'
+          }}
+        >
+          {category.name}
+        </Typography>
+      </Box>
+    )
   }
 
   const findCategoryById = (cats: Category[], id: string): Category | null => {
@@ -292,32 +373,47 @@ const CategoriesPage: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        mb: 4,
+        gap: isMobile ? 2 : 0
+      }}>
+        <Box sx={{ mb: isMobile ? 2 : 0 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
             Categories
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Organize your products with categories ({categories.length} total)
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 1.5 : 2,
+          alignItems: isMobile ? 'stretch' : 'center'
+        }}>
           <Button
             variant="outlined"
-            startIcon={<RefreshIcon />}
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
             onClick={handleRefresh}
             disabled={loading}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
           >
-            Refresh
+            {isMobile ? "Refresh Categories" : "Refresh"}
           </Button>
           {recentlyDeleted.size > 0 && (
             <Badge badgeContent={recentlyDeleted.size} color="warning">
               <Button
                 variant="outlined"
-                startIcon={<UndoIcon />}
-                endIcon={<ExpandMoreIcon />}
+                startIcon={!isMobile ? <UndoIcon /> : undefined}
+                endIcon={!isMobile ? <ExpandMoreIcon /> : undefined}
                 onClick={handleUndoMenuOpen}
                 color="warning"
+                fullWidth={isMobile}
                 sx={{ 
                   borderColor: 'warning.main',
                   color: 'warning.main',
@@ -327,17 +423,22 @@ const CategoriesPage: React.FC = () => {
                   }
                 }}
               >
-                Undo ({recentlyDeleted.size})
+                {isMobile ? `Restore Deleted (${recentlyDeleted.size})` : `Undo (${recentlyDeleted.size})`}
               </Button>
             </Badge>
           )}
           <Button
             variant="contained"
-            startIcon={<AddIcon />}
-            size="large"
+            startIcon={!isMobile ? <AddIcon /> : undefined}
+            size={isMobile ? "medium" : "large"}
             onClick={() => handleAddCategory()}
+            fullWidth={isMobile}
+            sx={{
+              py: isMobile ? 1.5 : 1,
+              fontWeight: 600
+            }}
           >
-            Add Category
+            {isMobile ? "Add New Category" : "Add Category"}
           </Button>
         </Box>
       </Box>
@@ -347,11 +448,13 @@ const CategoriesPage: React.FC = () => {
         anchorEl={undoMenuAnchor}
         open={Boolean(undoMenuAnchor)}
         onClose={handleUndoMenuClose}
-        PaperProps={{
-          sx: {
-            minWidth: 320,
-            maxWidth: 400,
-            mt: 1,
+        slotProps={{
+          paper: {
+            sx: {
+              minWidth: 320,
+              maxWidth: 400,
+              mt: 1,
+            }
           }
         }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
@@ -425,70 +528,184 @@ const CategoriesPage: React.FC = () => {
             </Typography>
           </Box>
         ) : (
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table 
+              size="small" // Use compact table size
+              sx={{ 
+                minWidth: isMobile ? 650 : 800,
+                '& .MuiTableCell-root': { 
+                  borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                  py: 0.75, // Reduced padding for compact display
+                  px: 1.5 // Consistent horizontal padding
+                }
+              }}
+            >
               <TableHead>
-                <TableRow>
-                  <TableCell><strong>Name</strong></TableCell>
-                  <TableCell><strong>Status</strong></TableCell>
-                  <TableCell><strong>Level</strong></TableCell>
-                  <TableCell><strong>Products</strong></TableCell>
-                  <TableCell><strong>Created</strong></TableCell>
-                  <TableCell align="right"><strong>Actions</strong></TableCell>
+                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                  <TableCell sx={{ width: isMobile ? '45%' : '40%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Category Hierarchy
+                    </Typography>
+                  </TableCell>
+                  {!isMobile && (
+                    <TableCell sx={{ width: '12%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Status
+                      </Typography>
+                    </TableCell>
+                  )}
+                  <TableCell sx={{ width: isMobile ? '15%' : '12%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Products
+                    </Typography>
+                  </TableCell>
+                  {!isMobile && (
+                    <TableCell sx={{ width: '16%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Created Date
+                      </Typography>
+                    </TableCell>
+                  )}
+                  <TableCell align="right" sx={{ width: isMobile ? '40%' : '20%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Actions
+                    </Typography>
+                  </TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody>
+              <TableBody role="tree" aria-label="Categories hierarchy">
                 {categories.map((category) => (
-                  <TableRow key={category.id} hover>
+                  <TableRow 
+                    key={category.id} 
+                    hover
+                    tabIndex={0}
+                    sx={{
+                      '&:hover, &:focus-within': {
+                        backgroundColor: 'action.hover',
+                        '& .category-actions': {
+                          opacity: 1
+                        }
+                      },
+                      transition: 'background-color 0.2s ease',
+                      cursor: 'default',
+                      height: 48 // Fixed compact row height
+                    }}
+                  >
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {getLevelIndicator(category.level)}
-                      </Typography>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                        {category.name}
-                      </Typography>
+                      {renderCategoryName(category)}
+                      {/* Mobile-only status indicator */}
+                      {isMobile && (
+                        <Box sx={{ mt: 0.25 }}>
+                          <Chip
+                            label={category.isActive ? 'Active' : 'Inactive'}
+                            color={category.isActive ? 'success' : 'default'}
+                            size="small"
+                            variant={category.isActive ? 'filled' : 'outlined'}
+                            sx={{
+                              fontSize: '0.65rem',
+                              height: 18 // More compact chip
+                            }}
+                          />
+                        </Box>
+                      )}
                     </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Chip
+                          label={category.isActive ? 'Active' : 'Inactive'}
+                          color={category.isActive ? 'success' : 'default'}
+                          size="small"
+                          variant={category.isActive ? 'filled' : 'outlined'}
+                          sx={{
+                            minWidth: 60,
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            height: 20 // More compact chip
+                          }}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Chip
-                        label={category.isActive ? 'Active' : 'Inactive'}
-                        color={category.isActive ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        Level {category.level}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={category.productCount ?? 0}
+                        label={`${category.productCount ?? 0} ${(category.productCount ?? 0) === 1 ? 'item' : 'items'}`}
                         size="small"
                         color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
                         variant="outlined"
+                        sx={{
+                          fontSize: '0.7rem',
+                          fontWeight: 500,
+                          height: 20
+                        }}
                       />
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {new Date(category.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          {new Date(category.createdAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </Typography>
+                      </TableCell>
+                    )}
                     <TableCell align="right">
-                      <IconButton 
-                        size="small" 
-                        title="Edit Category"
-                        onClick={() => handleEditCategory(category)}
+                      <Box 
+                        className="category-actions"
+                        sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'flex-end',
+                          gap: 0.25, // Tight spacing for compact display
+                          opacity: isMobile ? 1 : 0.7,
+                          transition: 'opacity 0.2s ease'
+                        }}
                       >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        title="Delete Category" 
-                        onClick={() => handleDeleteCategory(category)}
-                        color="error"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                        <IconButton 
+                          size="small" // Always use small size for compactness
+                          title={`Edit ${category.name}`}
+                          aria-label={`Edit category ${category.name}`}
+                          onClick={() => handleEditCategory(category)}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                              color: 'primary.main'
+                            },
+                            p: 0.5 // Reduced padding
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton 
+                          size="small" // Always use small size for compactness
+                          title={`Delete ${category.name}`}
+                          aria-label={`Delete category ${category.name}`}
+                          onClick={() => handleDeleteCategory(category)}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'error.light',
+                              color: 'error.main'
+                            },
+                            p: 0.5 // Reduced padding
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                      {/* Mobile-only date indicator */}
+                      {isMobile && (
+                        <Typography variant="caption" color="text.secondary" sx={{ 
+                          display: 'block', 
+                          textAlign: 'right', 
+                          mt: 0.25, // Reduced margin
+                          fontSize: '0.65rem'
+                        }}>
+                          {new Date(category.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: '2-digit'
+                          })}
+                        </Typography>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

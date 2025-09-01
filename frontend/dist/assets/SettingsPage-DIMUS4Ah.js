@@ -1,0 +1,2 @@
+import{j as e,B as n,T as t,ag as s,H as r}from"./mui--cE5JoHr.js";import"./vendor-CwczGxAq.js";const a=()=>e.jsxs(n,{children:[e.jsx(t,{variant:"h4",sx:{fontWeight:700,mb:4},children:"Settings"}),e.jsxs(s,{sx:{p:6,textAlign:"center"},children:[e.jsx(t,{variant:"h5",sx:{fontWeight:600,mb:2},children:"Settings Coming Soon"}),e.jsx(t,{variant:"body1",color:"text.secondary",sx:{mb:3},children:"This module is under development."}),e.jsx(r,{label:"In Development",color:"primary",variant:"outlined"})]})]});export{a as default};
+//# sourceMappingURL=SettingsPage-DIMUS4Ah.js.map
