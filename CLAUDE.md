@@ -223,10 +223,17 @@ When enabling disabled modules:
 
 ## Recent Changes (September 2025)
 
+### Product Fields Modernization (September 2025)
+- ✅ **LATEST**: Replaced SKU field with Barcode for better retail integration
+- **Removed Fields**: Product type, unit, initial stock, reorder level, optimal stock (simplified model)
+- **Added**: Current stock field for real-time inventory tracking
+- **Search**: Barcode field is now searchable in product lists
+- **Permanent Delete**: Added hard delete functionality for soft-deleted products
+
 ### Soft-Deleted Products Feature (September 2025)
-- ✅ **NEW**: Complete soft-deleted products management system
-- **Backend**: Added `GET /api/inventory/products/deleted` and `POST /api/inventory/products/:id/restore` endpoints
-- **Frontend**: Added `DeletedProductsDialog` component with search and restore functionality
+- ✅ **COMPLETE**: Full soft-deleted products management system
+- **Backend**: `GET /api/inventory/products/deleted` and `POST /api/inventory/products/:id/restore` endpoints
+- **Frontend**: Enhanced `DeletedProductsDialog` with modern table design matching categories
 - **UI Integration**: "View Deleted" button in Products page header opens comprehensive restore dialog
 - **Route Fix**: Moved deleted products endpoint before `:id` route to prevent UUID validation conflicts
 - **State Management**: Added Redux support for fetching and restoring deleted products
