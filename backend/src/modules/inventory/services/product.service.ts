@@ -84,11 +84,14 @@ export class ProductService {
     // Create product
     const product = this.productRepository.create({
       ...createProductDto,
-      stockQuantity: createProductDto.initialStockQuantity || 0,
+      stockQuantity: createProductDto.currentStock || 0,
       status: createProductDto.status || ProductStatus.ACTIVE,
       isActive: createProductDto.isActive ?? true,
-      reorderLevel: createProductDto.reorderLevel || 0,
-      optimalStockLevel: createProductDto.optimalStockLevel || 0,
+      // Set default values for removed fields
+      type: 'goods',
+      unit: 'pcs',
+      reorderLevel: 0,
+      optimalStockLevel: 0,
     });
 
     // Set initial stock status
@@ -99,12 +102,12 @@ export class ProductService {
     // Set the category relationship for the response DTO
     savedProduct.category = category;
 
-    // Create initial stock movement if initial stock provided (temporarily disabled for system users)
-    if (createProductDto.initialStockQuantity && createProductDto.initialStockQuantity > 0 && userId) {
+    // Create initial stock movement if current stock provided (temporarily disabled for system users)
+    if (createProductDto.currentStock && createProductDto.currentStock > 0 && userId) {
       try {
         await this.stockMovementService.recordInitialStock(
           savedProduct.id,
-          createProductDto.initialStockQuantity,
+          createProductDto.currentStock,
           createProductDto.baseCost,
           userId,
         );
@@ -122,7 +125,7 @@ export class ProductService {
           `Product ${savedProduct.name} (${savedProduct.barcode}) created`,
           userId,
           {
-            initialStock: createProductDto.initialStockQuantity || 0,
+            initialStock: createProductDto.currentStock || 0,
             category: category.name,
           },
         );

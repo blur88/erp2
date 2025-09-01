@@ -65,15 +65,11 @@ interface ProductFormData {
   description: string
   barcode: string
   categoryId: string
-  type: 'goods' | 'service'
   baseCost: number
   retailPrice: number
   wholesalePrice: number
   specialPrice: number
-  initialStockQuantity: number
-  reorderLevel: number
-  optimalStockLevel: number
-  unit: string
+  currentStock: number
   isActive: boolean
 }
 
@@ -82,15 +78,11 @@ const productSchema = yup.object({
   description: yup.string(),
   barcode: yup.string().required('Barcode is required').min(3, 'Barcode must be at least 3 characters'),
   categoryId: yup.string().required('Category is required').min(1, 'Please select a category'),
-  type: yup.string().oneOf(['goods', 'service'], 'Product type is required').required(),
   baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
   retailPrice: yup.number().required('Retail price is required').min(0, 'Price must be positive'),
   wholesalePrice: yup.number().required('Wholesale price is required').min(0, 'Price must be positive'),
   specialPrice: yup.number().required('Special price is required').min(0, 'Price must be positive'),
-  initialStockQuantity: yup.number().required('Stock is required').min(0, 'Stock must be non-negative'),
-  reorderLevel: yup.number().required('Reorder level is required').min(0, 'Reorder level must be non-negative'),
-  optimalStockLevel: yup.number().required('Optimal stock is required').min(0, 'Optimal stock must be non-negative'),
-  unit: yup.string().required('Unit is required'),
+  currentStock: yup.number().required('Current stock is required').min(0, 'Stock must be non-negative'),
   isActive: yup.boolean(),
 })
 
@@ -136,15 +128,11 @@ const ProductsPage: React.FC = () => {
       description: '',
       barcode: '',
       categoryId: '',
-      type: 'goods' as 'goods' | 'service',
       baseCost: 0,
       retailPrice: 0,
       wholesalePrice: 0,
       specialPrice: 0,
-      initialStockQuantity: 0,
-      reorderLevel: 0,
-      optimalStockLevel: 0,
-      unit: 'pcs',
+      currentStock: 0,
       isActive: true,
     },
   })
@@ -162,10 +150,6 @@ const ProductsPage: React.FC = () => {
     page * rowsPerPage + rowsPerPage
   )
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, product: Product) => {
-    setAnchorEl(event.currentTarget)
-    setSelectedProduct(product)
-  }
 
   const handleMenuClose = () => {
     setAnchorEl(null)
@@ -199,15 +183,11 @@ const ProductsPage: React.FC = () => {
       description: product.description || '',
       barcode: product.barcode,
       categoryId: product.categoryId || product.category?.id || '',
-      type: product.type || 'goods',
       baseCost: product.baseCost || 0,
       retailPrice: product.retailPrice || 0,
       wholesalePrice: product.wholesalePrice || 0,
       specialPrice: product.specialPrice || 0,
-      initialStockQuantity: product.stockQuantity || 0,
-      reorderLevel: product.reorderLevel || 0,
-      optimalStockLevel: product.optimalStockLevel || 0,
-      unit: product.unit,
+      currentStock: product.stockQuantity || 0,
       isActive: product.isActive,
     })
     setSelectedProduct(product)
@@ -265,10 +245,9 @@ const ProductsPage: React.FC = () => {
         // Update existing product
         console.log('UPDATING product with ID:', selectedProduct.id)
         
-        // Remove initialStockQuantity from update data as it's only used for creation
+        // Use currentStock for updates
         const updateData = { ...data }
-        delete updateData.initialStockQuantity
-        console.log('Update data after removing initialStockQuantity:', updateData)
+        console.log('Update data:', updateData)
         
         await dispatch(updateProduct({ id: selectedProduct.id, data: updateData }))
         showSuccess('Product updated successfully')
@@ -297,7 +276,7 @@ const ProductsPage: React.FC = () => {
     }
   }
 
-  const getStockStatus = (product: Product) => {
+  const getStockStatus = (product: any) => {
     const stock = product.stockQuantity || 0
     const reorderLevel = product.reorderLevel || 0
     
@@ -525,7 +504,6 @@ const ProductsPage: React.FC = () => {
                       </TableHead>
                       <TableBody>
                         {paginatedProducts.map((product: any) => {
-                          const stockStatus = getStockStatus(product)
                           const isSelected = selectedProductForDetails?.id === product.id
                           return (
                             <TableRow 
@@ -640,11 +618,19 @@ const ProductsPage: React.FC = () => {
                       <Grid item xs={6}>
                         <Box>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Type
+                            Current Stock
                           </Typography>
-                          <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>
-                            {selectedProductForDetails.type || 'Goods'}
-                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                              {selectedProductForDetails.stockQuantity || 0}
+                            </Typography>
+                            <Chip
+                              label={getStockStatus(selectedProductForDetails).label}
+                              color={getStockStatus(selectedProductForDetails).color}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Box>
                         </Box>
                       </Grid>
                       <Grid item xs={12}>
@@ -727,54 +713,6 @@ const ProductsPage: React.FC = () => {
                       Stock Information
                     </Typography>
                     <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Current Stock
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                              {selectedProductForDetails.stockQuantity || 0} {selectedProductForDetails.unit}
-                            </Typography>
-                            <Chip
-                              label={getStockStatus(selectedProductForDetails).label}
-                              color={getStockStatus(selectedProductForDetails).color}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </Box>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Unit
-                          </Typography>
-                          <Typography variant="body1">
-                            {selectedProductForDetails.unit}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Reorder Level
-                          </Typography>
-                          <Typography variant="body1">
-                            {selectedProductForDetails.reorderLevel || 0} {selectedProductForDetails.unit}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Optimal Stock
-                          </Typography>
-                          <Typography variant="body1">
-                            {selectedProductForDetails.optimalStockLevel || 0} {selectedProductForDetails.unit}
-                          </Typography>
-                        </Box>
-                      </Grid>
                     </Grid>
                   </Box>
 
@@ -948,58 +886,6 @@ const ProductsPage: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <Controller
-                  name="type"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControl fullWidth error={!!errors.type}>
-                      <InputLabel sx={{ fontSize: '0.875rem' }}>Product Type</InputLabel>
-                      <Select 
-                        {...field} 
-                        label="Product Type"
-                        sx={{
-                          '& .MuiSelect-select': { fontSize: '0.875rem' }
-                        }}
-                      >
-                        <MenuItem value="goods" sx={{ fontSize: '0.875rem' }}>Goods</MenuItem>
-                        <MenuItem value="service" sx={{ fontSize: '0.875rem' }}>Service</MenuItem>
-                      </Select>
-                      {errors.type && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.75, ml: 1.75, fontSize: '0.75rem' }}>
-                          {errors.type.message}
-                        </Typography>
-                      )}
-                    </FormControl>
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="unit"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControl fullWidth>
-                      <InputLabel sx={{ fontSize: '0.875rem' }}>Unit</InputLabel>
-                      <Select 
-                        {...field} 
-                        label="Unit"
-                        sx={{
-                          '& .MuiSelect-select': { fontSize: '0.875rem' }
-                        }}
-                      >
-                        <MenuItem value="pcs" sx={{ fontSize: '0.875rem' }}>Pieces</MenuItem>
-                        <MenuItem value="kg" sx={{ fontSize: '0.875rem' }}>Kilograms</MenuItem>
-                        <MenuItem value="lbs" sx={{ fontSize: '0.875rem' }}>Pounds</MenuItem>
-                        <MenuItem value="m" sx={{ fontSize: '0.875rem' }}>Meters</MenuItem>
-                        <MenuItem value="ft" sx={{ fontSize: '0.875rem' }}>Feet</MenuItem>
-                        <MenuItem value="l" sx={{ fontSize: '0.875rem' }}>Liters</MenuItem>
-                        <MenuItem value="gal" sx={{ fontSize: '0.875rem' }}>Gallons</MenuItem>
-                      </Select>
-                    </FormControl>
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
                   name="baseCost"
                   control={control}
                   render={({ field }) => (
@@ -1112,61 +998,17 @@ const ProductsPage: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <Controller
-                  name="initialStockQuantity"
+                  name="currentStock"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="Initial Stock"
+                      label="Current Stock"
                       type="number"
                       inputProps={{ min: 0 }}
-                      error={!!errors.initialStockQuantity}
-                      helperText={errors.initialStockQuantity?.message}
-                      sx={{
-                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
-                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="reorderLevel"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Reorder Level"
-                      type="number"
-                      inputProps={{ min: 0 }}
-                      error={!!errors.reorderLevel}
-                      helperText={errors.reorderLevel?.message}
-                      sx={{
-                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
-                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="optimalStockLevel"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Optimal Stock"
-                      type="number"
-                      inputProps={{ min: 0 }}
-                      error={!!errors.optimalStockLevel}
-                      helperText={errors.optimalStockLevel?.message}
+                      error={!!errors.currentStock}
+                      helperText={errors.currentStock?.message}
                       sx={{
                         '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                         '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
