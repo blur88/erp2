@@ -54,11 +54,8 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  fetchDeletedProducts,
-  restoreProduct,
   selectProducts,
   selectCategories,
-  selectDeletedProducts,
   selectInventoryLoading,
 } from '@/store/slices/inventorySlice'
 
@@ -104,7 +101,6 @@ const ProductsPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const products = useSelector(selectProducts) || []
   const categories = useSelector(selectCategories) || []
-  const deletedProducts = useSelector(selectDeletedProducts) || []
   const loading = useSelector(selectInventoryLoading)
   
   const [searchTerm, setSearchTerm] = useState('')
@@ -121,13 +117,11 @@ const ProductsPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchProducts({}))
     dispatch(fetchCategories())
-    dispatch(fetchDeletedProducts({}))
   }, [dispatch])
 
   const handleRefresh = () => {
     dispatch(fetchProducts({}))
     dispatch(fetchCategories())
-    dispatch(fetchDeletedProducts({}))
   }
 
   const {
@@ -312,6 +306,23 @@ const ProductsPage: React.FC = () => {
             {isMobile ? "Refresh Products" : "Refresh"}
           </Button>
           <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => setDeletedProductsDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
+            }}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
+          </Button>
+          <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
             size={isMobile ? "medium" : "large"}
@@ -439,7 +450,7 @@ const ProductsPage: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Split Layout: Active Products and Deleted Products */}
+      {/* Split Layout: Active Products and Product Details */}
       <Grid container spacing={3}>
         {/* Left Side - Active Products List */}
         <Grid item xs={12} md={6}>
@@ -469,6 +480,15 @@ const ProductsPage: React.FC = () => {
                           <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
                             Product
                           </TableCell>
+                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
+                            SKU
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
+                            Price
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
+                            Stock
+                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -493,7 +513,29 @@ const ProductsPage: React.FC = () => {
                                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                                     {product.name}
                                   </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {product.category?.name || 'No Category'}
+                                  </Typography>
                                 </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                  {product.sku}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                  ${product.retailPrice?.toFixed(2) || '0.00'}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={`${product.stockQuantity || 0} ${product.unit}`}
+                                  color={stockStatus.color}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ fontSize: '0.75rem' }}
+                                />
                               </TableCell>
                             </TableRow>
                           )
@@ -522,73 +564,245 @@ const ProductsPage: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Right Side - Deleted Products List */}
+        {/* Right Side - Product Details View */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid rgba(224, 224, 224, 0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Deleted Products ({deletedProducts.length})
+                {selectedProductForDetails ? 'Product Details' : 'Select Product'}
               </Typography>
-            </Box>
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {loading?.deletedProducts ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-                  <CircularProgress />
+              {selectedProductForDetails && (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={() => handleEditProduct(selectedProductForDetails)}
+                    title="Edit Product"
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleDeleteProduct(selectedProductForDetails)}
+                    title="Delete Product"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 </Box>
-              ) : deletedProducts.length === 0 ? (
-                <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Typography variant="body1" color="text.secondary">
-                    No deleted products found.
+              )}
+            </Box>
+            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+              {!selectedProductForDetails ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  <Typography variant="body1" color="text.secondary" textAlign="center">
+                    Select a product from the list to view its details
                   </Typography>
                 </Box>
               ) : (
-                <>
-                  <TableContainer sx={{ flex: 1, overflowX: 'auto' }}>
-                    <Table size="small" stickyHeader>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                            Deleted Product
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50', textAlign: 'center' }}>
-                            Action
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {deletedProducts.slice(0, 20).map((product: any) => (
-                          <TableRow key={product.id} hover>
-                            <TableCell>
-                              <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                                  {product.name}
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell align="center">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={async () => {
-                                  try {
-                                    await dispatch(restoreProduct(product.id))
-                                    showSuccess(`Product "${product.name}" restored successfully`)
-                                    dispatch(fetchProducts({}))
-                                    dispatch(fetchDeletedProducts({}))
-                                  } catch (error) {
-                                    showError('Failed to restore product')
-                                  }
-                                }}
-                              >
-                                <RestoreIcon fontSize="small" />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {/* Basic Information */}
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                      Basic Information
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Product Name
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                            {selectedProductForDetails.name}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            SKU
+                          </Typography>
+                          <Typography variant="body1">
+                            {selectedProductForDetails.sku}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Type
+                          </Typography>
+                          <Typography variant="body1" sx={{ textTransform: 'capitalize' }}>
+                            {selectedProductForDetails.type || 'Goods'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Category
+                          </Typography>
+                          <Typography variant="body1">
+                            {selectedProductForDetails.category?.name || 'No Category'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      {selectedProductForDetails.description && (
+                        <Grid item xs={12}>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              Description
+                            </Typography>
+                            <Typography variant="body1">
+                              {selectedProductForDetails.description}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      )}
+                    </Grid>
+                  </Box>
+
+                  {/* Pricing Information */}
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                      Pricing Information
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Base Cost
+                          </Typography>
+                          <Typography variant="body1">
+                            ${selectedProductForDetails.baseCost?.toFixed(2) || '0.00'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Retail Price
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main' }}>
+                            ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Wholesale Price
+                          </Typography>
+                          <Typography variant="body1">
+                            ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Special Price
+                          </Typography>
+                          <Typography variant="body1">
+                            ${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  {/* Stock Information */}
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                      Stock Information
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Current Stock
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                              {selectedProductForDetails.stockQuantity || 0} {selectedProductForDetails.unit}
+                            </Typography>
+                            <Chip
+                              label={getStockStatus(selectedProductForDetails).label}
+                              color={getStockStatus(selectedProductForDetails).color}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Unit
+                          </Typography>
+                          <Typography variant="body1">
+                            {selectedProductForDetails.unit}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Reorder Level
+                          </Typography>
+                          <Typography variant="body1">
+                            {selectedProductForDetails.reorderLevel || 0} {selectedProductForDetails.unit}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Optimal Stock
+                          </Typography>
+                          <Typography variant="body1">
+                            {selectedProductForDetails.optimalStockLevel || 0} {selectedProductForDetails.unit}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  {/* Status Information */}
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
+                      Status
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Status
+                          </Typography>
+                          <Chip
+                            label="Active"
+                            color="success"
+                            size="small"
+                            variant="outlined"
+                          />
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Active
+                          </Typography>
+                          <Chip
+                            label={selectedProductForDetails.isActive ? 'Yes' : 'No'}
+                            color={selectedProductForDetails.isActive ? 'success' : 'error'}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Box>
               )}
             </Box>
           </Paper>
