@@ -480,15 +480,6 @@ const ProductsPage: React.FC = () => {
                           <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
                             Product
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                            SKU
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                            Price
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                            Stock
-                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -513,29 +504,7 @@ const ProductsPage: React.FC = () => {
                                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                                     {product.name}
                                   </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {product.category?.name || 'No Category'}
-                                  </Typography>
                                 </Box>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                  {product.sku}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                  ${product.retailPrice?.toFixed(2) || '0.00'}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={`${product.stockQuantity || 0} ${product.unit}`}
-                                  color={stockStatus.color}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ fontSize: '0.75rem' }}
-                                />
                               </TableCell>
                             </TableRow>
                           )
