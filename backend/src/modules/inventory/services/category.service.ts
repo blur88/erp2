@@ -66,7 +66,7 @@ export class CategoryService {
 
     // Calculate level and path
     const level = parent ? parent.level + 1 : 0;
-    const path = parent ? `${parent.path || parent.id}.${createCategoryDto.name}` : createCategoryDto.name;
+    const path = parent ? `${parent.path || parent.name}.${createCategoryDto.name}` : createCategoryDto.name;
 
     // Create category
     const category = this.categoryRepository.create({
@@ -149,15 +149,19 @@ export class CategoryService {
       queryBuilder.andWhere('category.isActive = :isActive', { isActive });
     }
 
-    // Apply sorting
+    // Apply hierarchical sorting
     const validSortFields = ['name', 'createdAt', 'sortOrder'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
-    queryBuilder.orderBy(`category.${sortField}`, sortOrder);
-
-    // Add secondary sort by sortOrder if not primary sort
-    if (sortField !== 'sortOrder') {
-      queryBuilder.addOrderBy('category.sortOrder', 'ASC');
-    }
+    
+    // For hierarchical ordering, sort by path first (maintains parent-child relationships)
+    // Use COALESCE to handle null paths and fall back to name
+    queryBuilder.orderBy('COALESCE(category.path, category.name)', 'ASC');
+    
+    // Then sort by level to ensure proper nesting
+    queryBuilder.addOrderBy('category.level', 'ASC');
+    
+    // Finally apply the requested sort within each level
+    queryBuilder.addOrderBy(`category.${sortField}`, sortOrder);
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -301,9 +305,37 @@ export class CategoryService {
       }
     });
 
+    // Check if name is being changed - this requires updating all descendant paths
+    const nameChanged = updateCategoryDto.name && updateCategoryDto.name !== category.name;
+    this.logger.log(`Name changed check: ${nameChanged}, oldName: ${category.name}, newName: ${updateCategoryDto.name}`);
+
     // Update category
     Object.assign(category, updateCategoryDto);
     const updatedCategory = await this.categoryRepository.save(category);
+
+    // If name changed, update paths for this category and all descendants
+    if (nameChanged) {
+      this.logger.log(`Updating paths for category ${updatedCategory.name} and its descendants`);
+      
+      // Recalculate path for the updated category
+      if (updatedCategory.parentId) {
+        const parent = await this.categoryRepository.findOne({
+          where: { id: updatedCategory.parentId }
+        });
+        if (parent) {
+          updatedCategory.path = parent.path ? `${parent.path}.${updatedCategory.name}` : `${parent.name}.${updatedCategory.name}`;
+        }
+      } else {
+        updatedCategory.path = updatedCategory.name;
+      }
+      
+      this.logger.log(`Updated category path from "${category.path}" to "${updatedCategory.path}"`);
+      await this.categoryRepository.save(updatedCategory);
+
+      // Update levels and paths for all descendants
+      await this.updateDescendantLevelsAndPaths(updatedCategory);
+      this.logger.log(`Finished updating descendant paths for category ${updatedCategory.name}`);
+    }
 
     // Log audit event
     if (Object.keys(changes).length > 0) {
