@@ -32,9 +32,16 @@ import {
   Category as CategoryIcon,
   DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
-import { inventoryApi } from '@/services/inventoryApi'
+import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import type { Category } from '@/types'
+import {
+  fetchDeletedCategories,
+  restoreCategory,
+  permanentDeleteCategory,
+  selectDeletedCategories,
+  selectInventoryLoading,
+} from '@/store/slices/inventorySlice'
 
 interface DeletedCategoriesDialogProps {
   open: boolean
@@ -47,37 +54,24 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   onClose, 
   onCategoryRestored 
 }) => {
+  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   
-  const [deletedCategories, setDeletedCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(false)
+  const deletedCategories = useSelector(selectDeletedCategories) || []
+  const loading = useSelector(selectInventoryLoading)
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
 
-  const fetchDeletedCategories = async () => {
-    try {
-      setLoading(true)
-      const response = await inventoryApi.getDeletedCategories({})
-      // Response is PaginatedResponse<Category> = { data: Category[], meta: {...} }
-      setDeletedCategories((response as any).data || [])
-    } catch (error: any) {
-      console.error('Error fetching deleted categories:', error)
-      showError('Failed to load deleted categories')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
     if (open) {
-      fetchDeletedCategories()
+      dispatch(fetchDeletedCategories({}))
     }
-  }, [open])
+  }, [open, dispatch])
 
   // Filter categories based on search term
   const filteredCategories = deletedCategories.filter(category => 
@@ -87,11 +81,8 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   const handleRestore = async (category: Category) => {
     setRestoringId(category.id)
     try {
-      await inventoryApi.restoreCategory(category.id)
+      await dispatch(restoreCategory(category.id))
       showSuccess(`Category "${category.name}" restored successfully`)
-      
-      // Refresh deleted categories list
-      await fetchDeletedCategories()
       
       // Notify parent component that a category was restored
       onCategoryRestored?.()
@@ -115,11 +106,8 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
 
     setPermanentDeletingId(categoryToDelete.id)
     try {
-      await inventoryApi.permanentDeleteCategory(categoryToDelete.id)
+      await dispatch(permanentDeleteCategory(categoryToDelete.id))
       showSuccess(`Category "${categoryToDelete.name}" permanently deleted`)
-      
-      // Refresh deleted categories list
-      await fetchDeletedCategories()
       
       // Notify parent component that a category was restored (in case they want to refresh main list)
       onCategoryRestored?.()
@@ -194,7 +182,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           />
         </Box>
 
-        {loading ? (
+        {loading?.deletedCategories ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>

@@ -108,7 +108,7 @@ const ProductsPage: React.FC = () => {
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
 
   useEffect(() => {
-    dispatch(fetchCategories())
+    dispatch(fetchCategories({ includeProductCount: true }))
   }, [dispatch])
 
   useEffect(() => {
@@ -124,14 +124,21 @@ const ProductsPage: React.FC = () => {
     if (selectedProductForDetails && products.length > 0) {
       const updatedProduct = products.find(p => p.id === selectedProductForDetails.id)
       if (updatedProduct) {
-        setSelectedProductForDetails(updatedProduct)
+        // Only update if the product data has actually changed to avoid unnecessary re-renders
+        const hasChanged = JSON.stringify(updatedProduct) !== JSON.stringify(selectedProductForDetails)
+        if (hasChanged) {
+          setSelectedProductForDetails(updatedProduct)
+        }
+      } else {
+        // Product might have been deleted, clear selection
+        setSelectedProductForDetails(null)
       }
     }
   }, [products, selectedProductForDetails])
 
   const handleRefresh = () => {
     dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
-    dispatch(fetchCategories())
+    dispatch(fetchCategories({ includeProductCount: true }))
   }
 
   const {
@@ -223,32 +230,31 @@ const ProductsPage: React.FC = () => {
   const handleDeleteProduct = async (product: Product) => {
     if (window.confirm(`Are you sure you want to delete ${product.name}?`)) {
       try {
-        await dispatch(deleteProduct(product.id))
-        showSuccess(`Product ${product.name} deleted successfully`)
-        // Explicitly refresh the products list to ensure backend state is synchronized
-        setTimeout(() => {
+        const result = await dispatch(deleteProduct(product.id))
+        
+        if (deleteProduct.fulfilled.match(result)) {
+          showSuccess(`Product ${product.name} deleted successfully`)
+          
+          // If the deleted product was selected for details, clear the selection
+          if (selectedProductForDetails?.id === product.id) {
+            setSelectedProductForDetails(null)
+          }
+          
+          // Refresh the product list to ensure consistency
           dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
-        }, 500)
-      } catch (error) {
-        showError('Failed to delete product. Please try again.')
+        } else {
+          throw new Error(result.payload as string)
+        }
+      } catch (error: any) {
+        const errorMessage = error?.message || 'Failed to delete product. Please try again.'
+        showError(errorMessage)
       }
     }
     handleMenuClose()
   }
 
   const onSubmit = async (data: ProductFormData) => {
-    try {
-      // Debug: Log the form data being submitted and current state
-      console.log('=== FORM SUBMISSION DEBUG ===')
-      console.log('Form data:', data)
-      console.log('Edit mode:', editMode)
-      console.log('Selected product:', selectedProduct)
-      console.log('Selected product ID:', selectedProduct?.id)
-      console.log('selectedProductForDetails:', selectedProductForDetails)
-      console.log('selectedProductForDetails ID:', selectedProductForDetails?.id)
-      console.log('Condition (editMode && selectedProduct):', (editMode && selectedProduct))
-      console.log('====================')
-      
+    try {      
       // Validate categoryId is present and valid
       if (!data.categoryId || data.categoryId.trim() === '') {
         showError('Please select a category')
@@ -257,17 +263,18 @@ const ProductsPage: React.FC = () => {
       
       if (editMode && selectedProduct) {
         // Update existing product
-        console.log('UPDATING product with ID:', selectedProduct.id)
-        
-        // Use currentStock for updates
         const updateData = { ...data }
-        console.log('Update data:', updateData)
+        const result = await dispatch(updateProduct({ id: selectedProduct.id, data: updateData }))
         
-        await dispatch(updateProduct({ id: selectedProduct.id, data: updateData }))
-        showSuccess('Product updated successfully')
+        if (updateProduct.fulfilled.match(result)) {
+          showSuccess('Product updated successfully')
+          // Refresh the product list to ensure consistency
+          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+        } else {
+          throw new Error(result.payload as string)
+        }
       } else {
         // Add new product
-        console.log('CREATING new product - reason: editMode=', editMode, ', selectedProduct=', !!selectedProduct)
         const result = await dispatch(createProduct(data))
         
         // Check if the action was rejected
@@ -276,10 +283,8 @@ const ProductsPage: React.FC = () => {
         }
         
         showSuccess('Product added successfully')
-        // Refresh products list to ensure new product appears
-        setTimeout(() => {
-          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
-        }, 500)
+        // Refresh the product list to show the new product
+        dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
       }
       
       handleCloseDialog()

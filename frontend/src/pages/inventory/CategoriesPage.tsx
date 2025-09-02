@@ -38,11 +38,19 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { inventoryApi } from '@/services/inventoryApi'
+import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
 import type { Category } from '@/types'
+import {
+  fetchCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  selectCategories,
+  selectInventoryLoading,
+} from '@/store/slices/inventorySlice'
 
 
 interface CategoryFormData {
@@ -58,13 +66,13 @@ const categorySchema = yup.object({
 })
 
 const CategoriesPage: React.FC = () => {
+  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const categories = useSelector(selectCategories) || []
+  const loading = useSelector(selectInventoryLoading)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
@@ -87,31 +95,12 @@ const CategoriesPage: React.FC = () => {
     },
   })
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const response = await inventoryApi.getCategories({ includeProductCount: true })
-      
-      // Handle API response format: { data: Category[], meta: {...} }
-      const categoriesData = response.data || []
-      setCategories(Array.isArray(categoriesData) ? categoriesData : [])
-      
-    } catch (err) {
-      console.error('Error fetching categories:', err)
-      setError('Failed to load categories. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
-    fetchCategories()
-  }, [])
+    dispatch(fetchCategories())
+  }, [dispatch])
 
   const handleRefresh = () => {
-    fetchCategories()
+    dispatch(fetchCategories())
   }
 
   const handleAddCategory = (parentId?: string) => {
@@ -150,12 +139,8 @@ const CategoriesPage: React.FC = () => {
       
     if (window.confirm(confirmMessage)) {
       try {
-        await inventoryApi.deleteCategory(category.id)
-        
-        showSuccess(
-          `Category "${category.name}" deleted successfully.`
-        )
-        fetchCategories()
+        await dispatch(deleteCategory(category.id))
+        showSuccess(`Category "${category.name}" deleted successfully.`)
       } catch (error: any) {
         const errorMessage = error.response?.data?.message || 'Failed to delete category'
         showError(errorMessage)
@@ -180,20 +165,19 @@ const CategoriesPage: React.FC = () => {
       }
 
       if (editMode && selectedCategory) {
-        await inventoryApi.updateCategory(selectedCategory.id, data)
+        await dispatch(updateCategory({ id: selectedCategory.id, data }))
         showSuccess('Category updated successfully')
       } else {
         const createData = {
           ...data,
           parentId: data.parentId || null
         }
-        await inventoryApi.createCategory(createData)
+        await dispatch(createCategory(createData))
         showSuccess('Category created successfully')
       }
       
       setDialogOpen(false)
       reset()
-      fetchCategories()
     } catch (error: any) {
       console.error('Category save error:', error)
       
@@ -328,7 +312,7 @@ const CategoriesPage: React.FC = () => {
             variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
             onClick={handleRefresh}
-            disabled={loading}
+            disabled={loading?.categories}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
           >
@@ -369,14 +353,8 @@ const CategoriesPage: React.FC = () => {
 
 
       {/* Categories Content */}
-      <Paper>
-        {error && (
-          <Alert severity="error" sx={{ m: 2 }}>
-            {error}
-          </Alert>
-        )}
-        
-        {loading ? (
+      <Paper>        
+        {loading?.categories ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
@@ -673,7 +651,7 @@ const CategoriesPage: React.FC = () => {
       <DeletedCategoriesDialog
         open={deletedCategoriesDialogOpen}
         onClose={() => setDeletedCategoriesDialogOpen(false)}
-        onCategoryRestored={fetchCategories}
+        onCategoryRestored={() => dispatch(fetchCategories())}
       />
     </Box>
   )

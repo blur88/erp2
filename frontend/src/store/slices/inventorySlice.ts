@@ -6,6 +6,7 @@ interface InventoryState {
   products: Product[]
   deletedProducts: Product[]
   categories: Category[]
+  deletedCategories: Category[]
   stockMovements: StockMovement[]
   selectedProduct: Product | null
   selectedCategory: Category | null
@@ -13,6 +14,7 @@ interface InventoryState {
     products: boolean
     deletedProducts: boolean
     categories: boolean
+    deletedCategories: boolean
     stockMovements: boolean
   }
   error: string | null
@@ -42,6 +44,7 @@ const initialState: InventoryState = {
   products: [],
   deletedProducts: [],
   categories: [],
+  deletedCategories: [],
   stockMovements: [],
   selectedProduct: null,
   selectedCategory: null,
@@ -49,6 +52,7 @@ const initialState: InventoryState = {
     products: false,
     deletedProducts: false,
     categories: false,
+    deletedCategories: false,
     stockMovements: false,
   },
   error: null,
@@ -90,9 +94,9 @@ export const fetchProducts = createAsyncThunk(
 
 export const fetchCategories = createAsyncThunk(
   'inventory/fetchCategories',
-  async (_, { rejectWithValue }) => {
+  async (params: { includeProductCount?: boolean } = {}, { rejectWithValue }) => {
     try {
-      const response = await inventoryApi.getCategories()
+      const response = await inventoryApi.getCategories({ includeProductCount: true, ...params })
       return response
     } catch (error: any) {
       console.error('Failed to fetch categories:', error)
@@ -170,6 +174,91 @@ export const permanentDeleteProduct = createAsyncThunk(
       return id
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete product')
+    }
+  }
+)
+
+// Category CRUD operations
+export const createCategory = createAsyncThunk(
+  'inventory/createCategory',
+  async (categoryData: Partial<Category>, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await inventoryApi.createCategory(categoryData)
+      // Automatically refresh categories to get updated hierarchical data
+      dispatch(fetchCategories({ includeProductCount: true }))
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to create category')
+    }
+  }
+)
+
+export const updateCategory = createAsyncThunk(
+  'inventory/updateCategory',
+  async ({ id, data }: { id: string; data: Partial<Category> }, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await inventoryApi.updateCategory(id, data)
+      // Automatically refresh categories to get updated hierarchical data
+      dispatch(fetchCategories({ includeProductCount: true }))
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update category')
+    }
+  }
+)
+
+export const deleteCategory = createAsyncThunk(
+  'inventory/deleteCategory',
+  async (id: string, { rejectWithValue, dispatch }) => {
+    try {
+      await inventoryApi.deleteCategory(id)
+      // Automatically refresh categories to get updated hierarchical data
+      dispatch(fetchCategories({ includeProductCount: true }))
+      return id
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete category')
+    }
+  }
+)
+
+export const fetchDeletedCategories = createAsyncThunk(
+  'inventory/fetchDeletedCategories',
+  async (params: { page?: number; limit?: number }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getDeletedCategories(params)
+      return response
+    } catch (error: any) {
+      console.error('Failed to fetch deleted categories:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted categories')
+    }
+  }
+)
+
+export const restoreCategory = createAsyncThunk(
+  'inventory/restoreCategory',
+  async (id: string, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await inventoryApi.restoreCategory(id)
+      // Automatically refresh both active and deleted categories
+      dispatch(fetchCategories({ includeProductCount: true }))
+      dispatch(fetchDeletedCategories({}))
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore category')
+    }
+  }
+)
+
+export const permanentDeleteCategory = createAsyncThunk(
+  'inventory/permanentDeleteCategory',
+  async (id: string, { rejectWithValue, dispatch }) => {
+    try {
+      await inventoryApi.permanentDeleteCategory(id)
+      // Automatically refresh deleted categories
+      dispatch(fetchDeletedCategories({}))
+      return id
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete category')
     }
   }
 )
@@ -333,6 +422,53 @@ const inventorySlice = createSlice({
         state.loading.stockMovements = false
         state.error = action.payload as string
       })
+
+    // Create Category (data refreshed automatically via dispatch)
+    builder
+      .addCase(createCategory.fulfilled, (state, action) => {
+        // Categories will be refreshed automatically via fetchCategories dispatch
+      })
+
+    // Update Category (data refreshed automatically via dispatch)  
+    builder
+      .addCase(updateCategory.fulfilled, (state, action) => {
+        // Categories will be refreshed automatically via fetchCategories dispatch
+      })
+
+    // Delete Category (data refreshed automatically via dispatch)
+    builder
+      .addCase(deleteCategory.fulfilled, (state, action) => {
+        // Categories will be refreshed automatically via fetchCategories dispatch
+      })
+
+    // Fetch Deleted Categories
+    builder
+      .addCase(fetchDeletedCategories.pending, (state) => {
+        state.loading.deletedCategories = true
+        state.error = null
+      })
+      .addCase(fetchDeletedCategories.fulfilled, (state, action) => {
+        state.loading.deletedCategories = false
+        if (action.payload) {
+          state.deletedCategories = (action.payload as any).data || []
+        }
+      })
+      .addCase(fetchDeletedCategories.rejected, (state, action) => {
+        state.loading.deletedCategories = false
+        state.error = action.payload as string
+      })
+
+    // Restore Category (data refreshed automatically via dispatch)
+    builder
+      .addCase(restoreCategory.fulfilled, (state, action) => {
+        // Categories will be refreshed automatically via fetchCategories dispatch
+      })
+
+    // Permanent Delete Category (data refreshed automatically via dispatch)
+    builder
+      .addCase(permanentDeleteCategory.fulfilled, (state, action) => {
+        // Deleted categories will be refreshed automatically via fetchDeletedCategories dispatch
+      })
   },
 })
 
@@ -348,6 +484,7 @@ export const {
 export const selectProducts = (state: any) => state.inventory?.products
 export const selectDeletedProducts = (state: any) => state.inventory?.deletedProducts
 export const selectCategories = (state: any) => state.inventory?.categories
+export const selectDeletedCategories = (state: any) => state.inventory?.deletedCategories
 export const selectStockMovements = (state: any) => state.inventory?.stockMovements
 export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
 export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
