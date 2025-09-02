@@ -497,11 +497,33 @@ const ProductsPage: React.FC = () => {
               ) : (
                 <>
                   <TableContainer sx={{ flex: 1, overflowX: 'auto' }}>
-                    <Table size="small" stickyHeader>
+                    <Table 
+                      size="small" 
+                      stickyHeader
+                      sx={{ 
+                        '& .MuiTableCell-root': { 
+                          borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                          py: 0.75,
+                          px: 1.5
+                        }
+                      }}
+                    >
                       <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                            Product
+                        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                              Product
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                              Stock
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                              Price
+                            </Typography>
                           </TableCell>
                         </TableRow>
                       </TableHead>
@@ -512,21 +534,50 @@ const ProductsPage: React.FC = () => {
                             <TableRow 
                               key={product.id}
                               hover
+                              tabIndex={0}
                               onClick={() => setSelectedProductForDetails(product)}
                               sx={{
                                 cursor: 'pointer',
                                 backgroundColor: isSelected ? 'action.selected' : 'inherit',
-                                '&:hover': {
+                                '&:hover, &:focus-within': {
                                   backgroundColor: isSelected ? 'action.selected' : 'action.hover'
-                                }
+                                },
+                                transition: 'background-color 0.2s ease',
+                                height: 48
                               }}
                             >
                               <TableCell>
                                 <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', lineHeight: 1.2 }}>
                                     {product.name}
                                   </Typography>
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                    {product.barcode}
+                                  </Typography>
                                 </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                                    {product.stockQuantity || 0}
+                                  </Typography>
+                                  <Chip
+                                    label={getStockStatus(product).label}
+                                    color={getStockStatus(product).color}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{
+                                      fontSize: '0.65rem',
+                                      height: 18,
+                                      fontWeight: 500
+                                    }}
+                                  />
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
+                                  ${product.retailPrice?.toFixed(2) || '0.00'}
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           )
@@ -563,20 +614,42 @@ const ProductsPage: React.FC = () => {
                 {selectedProductForDetails ? 'Product Details' : 'Select Product'}
               </Typography>
               {selectedProductForDetails && (
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box 
+                  className="product-actions"
+                  sx={{ 
+                    display: 'flex', 
+                    gap: 0.25,
+                    opacity: 0.7,
+                    transition: 'opacity 0.2s ease'
+                  }}
+                >
                   <IconButton
                     size="small"
-                    color="primary"
+                    title={`Edit ${selectedProductForDetails.name}`}
+                    aria-label={`Edit product ${selectedProductForDetails.name}`}
                     onClick={() => handleEditProduct(selectedProductForDetails)}
-                    title="Edit Product"
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                        color: 'primary.main'
+                      },
+                      p: 0.5
+                    }}
                   >
                     <EditIcon fontSize="small" />
                   </IconButton>
                   <IconButton
                     size="small"
-                    color="error"
+                    title={`Delete ${selectedProductForDetails.name}`}
+                    aria-label={`Delete product ${selectedProductForDetails.name}`}
                     onClick={() => handleDeleteProduct(selectedProductForDetails)}
-                    title="Delete Product"
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'error.light',
+                        color: 'error.main'
+                      },
+                      p: 0.5
+                    }}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -632,6 +705,11 @@ const ProductsPage: React.FC = () => {
                               color={getStockStatus(selectedProductForDetails).color}
                               size="small"
                               variant="outlined"
+                              sx={{
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20
+                              }}
                             />
                           </Box>
                         </Box>
@@ -735,6 +813,11 @@ const ProductsPage: React.FC = () => {
                             color="success"
                             size="small"
                             variant="outlined"
+                            sx={{
+                              fontSize: '0.7rem',
+                              fontWeight: 500,
+                              height: 20
+                            }}
                           />
                         </Box>
                       </Grid>
@@ -747,7 +830,12 @@ const ProductsPage: React.FC = () => {
                             label={selectedProductForDetails.isActive ? 'Yes' : 'No'}
                             color={selectedProductForDetails.isActive ? 'success' : 'error'}
                             size="small"
-                            variant="outlined"
+                            variant={selectedProductForDetails.isActive ? 'filled' : 'outlined'}
+                            sx={{
+                              fontSize: '0.7rem',
+                              fontWeight: 500,
+                              height: 20
+                            }}
                           />
                         </Box>
                       </Grid>
