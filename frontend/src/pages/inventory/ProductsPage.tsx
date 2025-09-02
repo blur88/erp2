@@ -660,29 +660,6 @@ const ProductsPage: React.FC = () => {
                       <Grid item xs={6}>
                         <Box>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Current Stock
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                              {selectedProductForDetails.stockQuantity || 0}
-                            </Typography>
-                            <Chip
-                              label={getStockStatus(selectedProductForDetails).label}
-                              color={getStockStatus(selectedProductForDetails).color}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                fontSize: '0.7rem',
-                                fontWeight: 500,
-                                height: 20
-                              }}
-                            />
-                          </Box>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                             Category
                           </Typography>
                           <Typography variant="body1">
@@ -760,6 +737,29 @@ const ProductsPage: React.FC = () => {
                       Stock Information
                     </Typography>
                     <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Current Stock
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                              {selectedProductForDetails.stockQuantity || 0}
+                            </Typography>
+                            <Chip
+                              label={getStockStatus(selectedProductForDetails).label}
+                              color={getStockStatus(selectedProductForDetails).color}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
                     </Grid>
                   </Box>
 
@@ -1004,28 +1004,6 @@ const ProductsPage: React.FC = () => {
                         '& .MuiInputAdornment-root': { 
                           '& .MuiTypography-root': { fontSize: '0.875rem' }
                         }
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="currentStock"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Current Stock"
-                      type="number"
-                      inputProps={{ min: 0 }}
-                      error={!!errors.currentStock}
-                      helperText={errors.currentStock?.message}
-                      sx={{
-                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
-                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
                       }}
                     />
                   )}
