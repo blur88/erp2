@@ -637,6 +637,61 @@ export class CategoryService {
   }
 
   /**
+   * Permanently delete a category from database
+   */
+  async permanentDelete(id: string, userId?: string): Promise<void> {
+    this.logger.log(`Permanently deleting category with ID: ${id}`);
+    
+    // Find the category (including soft-deleted ones)
+    const category = await this.categoryRepository.findOne({
+      where: { id },
+      relations: ['children', 'products'],
+      withDeleted: true,
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID '${id}' not found`);
+    }
+
+    // Ensure category is already soft-deleted
+    if (!category.deletedAt) {
+      throw new BadRequestException(
+        'Category must be soft-deleted first before permanent deletion. Use regular delete endpoint first.'
+      );
+    }
+
+    // Check if category has any active dependencies that prevent permanent deletion
+    if (category.children?.length > 0) {
+      throw new BadRequestException(
+        'Cannot permanently delete category that has subcategories'
+      );
+    }
+
+    if (category.products?.length > 0) {
+      throw new BadRequestException(
+        'Cannot permanently delete category that has products assigned to it'
+      );
+    }
+
+    // Perform the permanent deletion
+    await this.categoryRepository.remove(category);
+
+    // Log the audit event
+    try {
+      await this.auditService.logCategoryEvent(
+        id,
+        'CATEGORY_PERMANENTLY_DELETED',
+        `Category ${category.name} permanently deleted from database`,
+        userId,
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to log audit event: ${error.message}`);
+    }
+
+    this.logger.log(`Category permanently deleted successfully: ${id}`);
+  }
+
+  /**
    * Bulk update categories
    */
   async bulkUpdate(bulkUpdateDto: BulkUpdateCategoriesDto, userId?: string): Promise<void> {

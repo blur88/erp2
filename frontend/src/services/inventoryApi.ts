@@ -84,6 +84,10 @@ export const inventoryApi = {
     return ApiService.post<Category>(`/inventory/categories/${id}/restore`)
   },
 
+  async permanentDeleteCategory(id: string) {
+    return ApiService.delete(`/inventory/categories/${id}/permanent`)
+  },
+
   // Hierarchical category methods
   async getCategoryTree(includeProductCount?: boolean) {
     return ApiService.get<{

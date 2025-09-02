@@ -269,6 +269,25 @@ export class CategoryController {
     return this.categoryService.restore(id);
   }
 
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a category from database' })
+  @ApiResponse({
+    status: 204,
+    description: 'Category permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Category must be soft-deleted first or has active references' 
+  })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.categoryService.permanentDelete(id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a category' })
   @ApiResponse({

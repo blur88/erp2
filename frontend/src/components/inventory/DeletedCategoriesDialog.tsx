@@ -23,12 +23,14 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
+  DialogContentText,
 } from '@mui/material'
 import {
   Search as SearchIcon,
   Restore as RestoreIcon,
   Close as CloseIcon,
   Category as CategoryIcon,
+  DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
 import { inventoryApi } from '@/services/inventoryApi'
 import { useNotification } from '@/hooks/useNotification'
@@ -53,6 +55,9 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
 
   const fetchDeletedCategories = async () => {
     try {
@@ -100,8 +105,43 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const handlePermanentDeleteClick = (category: Category) => {
+    setCategoryToDelete(category)
+    setConfirmDialogOpen(true)
+  }
+
+  const handlePermanentDeleteConfirm = async () => {
+    if (!categoryToDelete) return
+
+    setPermanentDeletingId(categoryToDelete.id)
+    try {
+      await inventoryApi.permanentDeleteCategory(categoryToDelete.id)
+      showSuccess(`Category "${categoryToDelete.name}" permanently deleted`)
+      
+      // Refresh deleted categories list
+      await fetchDeletedCategories()
+      
+      // Notify parent component that a category was restored (in case they want to refresh main list)
+      onCategoryRestored?.()
+      
+    } catch (error: any) {
+      console.error('Category permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete category'
+      showError(errorMessage)
+    } finally {
+      setPermanentDeletingId(null)
+      setConfirmDialogOpen(false)
+      setCategoryToDelete(null)
+    }
+  }
+
+  const handlePermanentDeleteCancel = () => {
+    setConfirmDialogOpen(false)
+    setCategoryToDelete(null)
+  }
+
+  const formatDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -284,6 +324,22 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                               <RestoreIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
+                          <Tooltip title="Permanently Delete Category">
+                            <IconButton 
+                              onClick={() => handlePermanentDeleteClick(category)}
+                              disabled={permanentDeletingId === category.id}
+                              size="small"
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.main'
+                                },
+                                p: 0.5
+                              }}
+                            >
+                              <DeleteForeverIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </Box>
                         {isMobile && category.deletedAt && (
                           <Typography variant="caption" color="text.secondary" sx={{ 
@@ -314,6 +370,54 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           Close
         </Button>
       </DialogActions>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={handlePermanentDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+            <DeleteForeverIcon />
+            Permanently Delete Category
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to permanently delete the category "{categoryToDelete?.name}"?
+          </DialogContentText>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              This action cannot be undone!
+            </Typography>
+            <Typography variant="body2">
+              • The category will be completely removed from the database
+              <br />
+              • This category must not have any subcategories or products
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button 
+            onClick={handlePermanentDeleteCancel} 
+            variant="outlined"
+            disabled={permanentDeletingId === categoryToDelete?.id}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handlePermanentDeleteConfirm} 
+            variant="contained" 
+            color="error"
+            disabled={permanentDeletingId === categoryToDelete?.id}
+            startIcon={permanentDeletingId === categoryToDelete?.id ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
+          >
+            {permanentDeletingId === categoryToDelete?.id ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   )
 }
