@@ -763,50 +763,6 @@ const ProductsPage: React.FC = () => {
                     </Grid>
                   </Box>
 
-                  {/* Status Information */}
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
-                      Status
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Status
-                          </Typography>
-                          <Chip
-                            label="Active"
-                            color="success"
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              fontSize: '0.7rem',
-                              fontWeight: 500,
-                              height: 20
-                            }}
-                          />
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Active
-                          </Typography>
-                          <Chip
-                            label={selectedProductForDetails.isActive ? 'Yes' : 'No'}
-                            color={selectedProductForDetails.isActive ? 'success' : 'error'}
-                            size="small"
-                            variant={selectedProductForDetails.isActive ? 'filled' : 'outlined'}
-                            sx={{
-                              fontSize: '0.7rem',
-                              fontWeight: 500,
-                              height: 20
-                            }}
-                          />
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Box>
                 </Box>
               )}
             </Box>
