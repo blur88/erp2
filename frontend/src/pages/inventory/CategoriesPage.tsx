@@ -22,12 +22,6 @@ import {
   FormControlLabel,
   Switch,
   Grid,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Badge,
-  Divider,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -35,9 +29,7 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Undo as UndoIcon,
   Refresh as RefreshIcon,
-  ExpandMore as ExpandMoreIcon,
   FolderOpen as FolderOpenIcon,
   Folder as FolderIcon,
   Category as CategoryIcon,
@@ -78,8 +70,6 @@ const CategoriesPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [nameValidationError, setNameValidationError] = useState<string | null>(null)
-  const [recentlyDeleted, setRecentlyDeleted] = useState<Map<string, { category: Category; timestamp: number }>>(new Map())
-  const [undoMenuAnchor, setUndoMenuAnchor] = useState<null | HTMLElement>(null)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
   const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
 
@@ -162,25 +152,8 @@ const CategoriesPage: React.FC = () => {
       try {
         await inventoryApi.deleteCategory(category.id)
         
-        // Add to recently deleted with timestamp
-        const newRecentlyDeleted = new Map(recentlyDeleted)
-        newRecentlyDeleted.set(category.id, {
-          category,
-          timestamp: Date.now()
-        })
-        setRecentlyDeleted(newRecentlyDeleted)
-        
-        // Auto-remove from recently deleted after 30 seconds
-        setTimeout(() => {
-          setRecentlyDeleted(prev => {
-            const updated = new Map(prev)
-            updated.delete(category.id)
-            return updated
-          })
-        }, 30000)
-        
         showSuccess(
-          `Category "${category.name}" deleted successfully. Click the undo button to restore it.`
+          `Category "${category.name}" deleted successfully.`
         )
         fetchCategories()
       } catch (error: any) {
@@ -190,41 +163,6 @@ const CategoriesPage: React.FC = () => {
     }
   }
 
-  const handleRestoreCategory = async (categoryId: string) => {
-    const deletedInfo = recentlyDeleted.get(categoryId)
-    if (!deletedInfo) return
-    
-    try {
-      await inventoryApi.restoreCategory(categoryId)
-      
-      // Remove from recently deleted
-      const newRecentlyDeleted = new Map(recentlyDeleted)
-      newRecentlyDeleted.delete(categoryId)
-      setRecentlyDeleted(newRecentlyDeleted)
-      
-      // Close the menu after restore
-      setUndoMenuAnchor(null)
-      
-      showSuccess(`Category "${deletedInfo.category.name}" restored successfully`)
-      fetchCategories()
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to restore category'
-      showError(errorMessage)
-    }
-  }
-
-  const handleUndoMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setUndoMenuAnchor(event.currentTarget)
-  }
-
-  const handleUndoMenuClose = () => {
-    setUndoMenuAnchor(null)
-  }
-
-  const formatTimeRemaining = (timestamp: number) => {
-    const timeLeft = Math.max(0, 30 - Math.floor((Date.now() - timestamp) / 1000))
-    return `${timeLeft}s remaining`
-  }
 
   const onSubmit = async (data: CategoryFormData) => {
     try {
@@ -409,7 +347,6 @@ const CategoriesPage: React.FC = () => {
           </Button>
           <Button
             variant="outlined"
-            startIcon={!isMobile ? <UndoIcon /> : undefined}
             onClick={() => setDeletedCategoriesDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
@@ -424,28 +361,6 @@ const CategoriesPage: React.FC = () => {
           >
             {isMobile ? "View Deleted" : "View Deleted"}
           </Button>
-          {recentlyDeleted.size > 0 && (
-            <Badge badgeContent={recentlyDeleted.size} color="warning">
-              <Button
-                variant="outlined"
-                startIcon={!isMobile ? <UndoIcon /> : undefined}
-                endIcon={!isMobile ? <ExpandMoreIcon /> : undefined}
-                onClick={handleUndoMenuOpen}
-                color="warning"
-                fullWidth={isMobile}
-                sx={{ 
-                  borderColor: 'warning.main',
-                  color: 'warning.main',
-                  '&:hover': {
-                    borderColor: 'warning.dark',
-                    backgroundColor: 'warning.light',
-                  }
-                }}
-              >
-                {isMobile ? `Restore Deleted (${recentlyDeleted.size})` : `Undo (${recentlyDeleted.size})`}
-              </Button>
-            </Badge>
-          )}
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
@@ -462,70 +377,6 @@ const CategoriesPage: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Undo Menu */}
-      <Menu
-        anchorEl={undoMenuAnchor}
-        open={Boolean(undoMenuAnchor)}
-        onClose={handleUndoMenuClose}
-        slotProps={{
-          paper: {
-            sx: {
-              minWidth: 320,
-              maxWidth: 400,
-              mt: 1,
-            }
-          }
-        }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-      >
-        <MenuItem disabled sx={{ opacity: '1 !important', cursor: 'default' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            Recently Deleted Categories
-          </Typography>
-        </MenuItem>
-        <Divider />
-        {Array.from(recentlyDeleted.entries()).map(([categoryId, { category, timestamp }]) => (
-          <MenuItem 
-            key={categoryId}
-            onClick={() => handleRestoreCategory(categoryId)}
-            sx={{
-              py: 1.5,
-              px: 2,
-              '&:hover': {
-                backgroundColor: 'warning.light',
-              }
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <UndoIcon color="warning" fontSize="small" />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {category.name}
-                </Typography>
-              }
-              secondary={
-                <Typography variant="caption" color="text.secondary">
-                  {formatTimeRemaining(timestamp)}
-                </Typography>
-              }
-            />
-          </MenuItem>
-        ))}
-        {recentlyDeleted.size === 0 && (
-          <MenuItem disabled>
-            <ListItemText
-              primary={
-                <Typography variant="body2" color="text.secondary">
-                  No recently deleted categories
-                </Typography>
-              }
-            />
-          </MenuItem>
-        )}
-      </Menu>
 
 
       {/* Categories Content */}
