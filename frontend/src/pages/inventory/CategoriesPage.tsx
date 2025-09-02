@@ -257,14 +257,7 @@ const CategoriesPage: React.FC = () => {
                 color: 'secondary.main'
               }} 
             />
-          ) : (
-            <CategoryIcon 
-              sx={{ 
-                fontSize: 14, 
-                color: 'text.secondary'
-              }} 
-            />
-          )}
+          ) : null}
         </Box>
         
         {/* Category Name */}
