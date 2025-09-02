@@ -93,6 +93,7 @@ export interface Category {
   productCount?: number;  // Number of products in this category
   createdAt: Date | string;
   updatedAt: Date | string;
+  deletedAt?: Date | string | null; // For soft-deleted categories
 }
 
 export interface ProductAttribute {

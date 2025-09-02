@@ -14,6 +14,7 @@ import {
   FindManyOptions,
   SelectQueryBuilder,
   In,
+  Like,
 } from 'typeorm';
 import { Category } from '../../../database/entities/category.entity';
 import { Product } from '../../../database/entities/product.entity';
@@ -216,32 +217,41 @@ export class CategoryService {
       sortOrder = 'DESC',
     } = query;
 
-    const queryBuilder = this.categoryRepository
-      .createQueryBuilder('category')
-      .where('category.deletedAt IS NOT NULL')
-      .withDeleted();
+    // Use find method with withDeleted option to properly include soft-deleted records
+    const where: any = {};
 
     if (search) {
-      queryBuilder.andWhere(
-        '(category.name ILIKE :search)',
-        { search: `%${search}%` }
-      );
+      where.name = Like(`%${search}%`);
     }
 
     // Sorting
     const allowedSortFields = ['name', 'deletedAt', 'createdAt'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    queryBuilder.orderBy(`category.${safeSortBy}`, safeSortOrder);
 
-    // Pagination
     const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
 
-    const [categories, total] = await queryBuilder.getManyAndCount();
+    const [categories, total] = await this.categoryRepository.findAndCount({
+      where,
+      withDeleted: true,
+      order: { [safeSortBy]: safeSortOrder },
+      skip,
+      take: limit,
+    });
+
+    // Filter only soft-deleted categories
+    const deletedCategories = categories.filter(cat => cat.deletedAt !== null);
+    const deletedTotal = await this.categoryRepository.count({
+      where,
+      withDeleted: true,
+    }).then(count => 
+      // We need to count manually since TypeORM doesn't filter in count
+      this.categoryRepository.find({ where, withDeleted: true })
+        .then(all => all.filter(cat => cat.deletedAt !== null).length)
+    );
 
     const data = await Promise.all(
-      categories.map(async (category) => 
+      deletedCategories.map(async (category) => 
         await this.toResponseDto(category, false, false)
       ),
     );
@@ -251,9 +261,9 @@ export class CategoryService {
       meta: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
+        total: deletedTotal,
+        totalPages: Math.ceil(deletedTotal / limit),
+        hasNextPage: page < Math.ceil(deletedTotal / limit),
         hasPreviousPage: page > 1,
       },
     };
@@ -569,8 +579,12 @@ export class CategoryService {
       this.logger.log(`Remaining products with old category - Active: ${remainingActiveCount}, All: ${remainingAllCount[0]?.count || 0}`);
     }
 
-    // Use soft delete instead of hard delete to preserve referential integrity
-    await this.categoryRepository.softRemove(category);
+    // Use soft delete and properly update isActive flag
+    category.isActive = false;
+    category.updatedBy = userId || null;
+    category.updatedAt = new Date();
+    await this.categoryRepository.save(category);
+    await this.categoryRepository.softDelete(id);
 
     // Log audit event
     await this.auditService.logCategoryEvent(
@@ -782,6 +796,7 @@ export class CategoryService {
       hasChildren: category.hasChildren,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
+      ...(category.deletedAt && { deletedAt: category.deletedAt }),
     };
 
     // Include product count if requested

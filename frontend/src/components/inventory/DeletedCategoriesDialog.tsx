@@ -58,7 +58,8 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
     try {
       setLoading(true)
       const response = await inventoryApi.getDeletedCategories({})
-      setDeletedCategories(response.data?.data || [])
+      // Response is PaginatedResponse<Category> = { data: Category[], meta: {...} }
+      setDeletedCategories((response as any).data || [])
     } catch (error: any) {
       console.error('Error fetching deleted categories:', error)
       showError('Failed to load deleted categories')
@@ -252,7 +253,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            {(category as any).deletedAt ? formatDate((category as any).deletedAt) : 'Unknown'}
+                            {category.deletedAt ? formatDate(category.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
                       )}
@@ -284,14 +285,14 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        {isMobile && (category as any).deletedAt && (
+                        {isMobile && category.deletedAt && (
                           <Typography variant="caption" color="text.secondary" sx={{ 
                             display: 'block', 
                             textAlign: 'right', 
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date((category as any).deletedAt).toLocaleDateString('en-US', {
+                            {new Date(category.deletedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: '2-digit'
