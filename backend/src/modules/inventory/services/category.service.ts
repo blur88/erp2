@@ -203,6 +203,63 @@ export class CategoryService {
   }
 
   /**
+   * Find all soft-deleted categories
+   */
+  async findDeleted(query: QueryCategoriesDto): Promise<CategoryListResponseDto> {
+    this.logger.log('Fetching deleted categories with filters:', query);
+
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      sortBy = 'deletedAt',
+      sortOrder = 'DESC',
+    } = query;
+
+    const queryBuilder = this.categoryRepository
+      .createQueryBuilder('category')
+      .where('category.deletedAt IS NOT NULL')
+      .withDeleted();
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(category.name ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Sorting
+    const allowedSortFields = ['name', 'deletedAt', 'createdAt'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(`category.${safeSortBy}`, safeSortOrder);
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [categories, total] = await queryBuilder.getManyAndCount();
+
+    const data = await Promise.all(
+      categories.map(async (category) => 
+        await this.toResponseDto(category, false, false)
+      ),
+    );
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  /**
    * Get complete category tree
    */
   async getTree(includeProductCount = false): Promise<CategoryTreeResponseDto> {

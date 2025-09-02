@@ -92,6 +92,20 @@ export class CategoryController {
     return this.categoryService.getTree(includeProductCount);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted categories' })
+  @ApiResponse({
+    status: 200,
+    description: 'Deleted categories retrieved successfully',
+    type: CategoryListResponseDto,
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search term' })
+  async findDeleted(@Query() query: QueryCategoriesDto): Promise<CategoryListResponseDto> {
+    return this.categoryService.findDeleted(query);
+  }
+
   @Get('roots')
   @ApiOperation({ summary: 'Get root level categories only' })
   @ApiResponse({

@@ -76,6 +76,10 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/categories/${id}`)
   },
 
+  async getDeletedCategories(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Category>>('/inventory/categories/deleted', { params })
+  },
+
   async restoreCategory(id: string) {
     return ApiService.post<Category>(`/inventory/categories/${id}/restore`)
   },

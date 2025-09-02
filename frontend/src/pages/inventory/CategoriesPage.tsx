@@ -49,6 +49,7 @@ import * as yup from 'yup'
 import { inventoryApi } from '@/services/inventoryApi'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
+import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
 import type { Category } from '@/types'
 
 
@@ -80,6 +81,7 @@ const CategoriesPage: React.FC = () => {
   const [recentlyDeleted, setRecentlyDeleted] = useState<Map<string, { category: Category; timestamp: number }>>(new Map())
   const [undoMenuAnchor, setUndoMenuAnchor] = useState<null | HTMLElement>(null)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
+  const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
 
   const {
     control,
@@ -404,6 +406,23 @@ const CategoriesPage: React.FC = () => {
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Categories" : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <UndoIcon /> : undefined}
+            onClick={() => setDeletedCategoriesDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
+            }}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
           </Button>
           {recentlyDeleted.size > 0 && (
             <Badge badgeContent={recentlyDeleted.size} color="warning">
@@ -809,6 +828,13 @@ const CategoriesPage: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* Deleted Categories Dialog */}
+      <DeletedCategoriesDialog
+        open={deletedCategoriesDialogOpen}
+        onClose={() => setDeletedCategoriesDialogOpen(false)}
+        onCategoryRestored={fetchCategories}
+      />
     </Box>
   )
 }
