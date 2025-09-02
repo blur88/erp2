@@ -40,6 +40,7 @@ import {
   GetApp as ExportIcon,
   RestoreFromTrash as RestoreIcon,
   Refresh as RefreshIcon,
+  DragIndicator as DragIndicatorIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -515,16 +516,6 @@ const ProductsPage: React.FC = () => {
                               Product
                             </Typography>
                           </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                              Stock
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                              Price
-                            </Typography>
-                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -547,37 +538,12 @@ const ProductsPage: React.FC = () => {
                               }}
                             >
                               <TableCell>
-                                <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem', lineHeight: 1.2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                                  <Typography variant="body2" sx={{ fontSize: '0.875rem', lineHeight: 1.2 }}>
                                     {product.name}
                                   </Typography>
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                    {product.barcode}
-                                  </Typography>
                                 </Box>
-                              </TableCell>
-                              <TableCell>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-                                    {product.stockQuantity || 0}
-                                  </Typography>
-                                  <Chip
-                                    label={getStockStatus(product).label}
-                                    color={getStockStatus(product).color}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{
-                                      fontSize: '0.65rem',
-                                      height: 18,
-                                      fontWeight: 500
-                                    }}
-                                  />
-                                </Box>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
-                                  ${product.retailPrice?.toFixed(2) || '0.00'}
-                                </Typography>
                               </TableCell>
                             </TableRow>
                           )
