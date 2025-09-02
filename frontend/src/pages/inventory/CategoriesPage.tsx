@@ -33,7 +33,7 @@ import {
   FolderOpen as FolderOpenIcon,
   Folder as FolderIcon,
   Category as CategoryIcon,
-  ArrowForwardIos as ArrowForwardIosIcon,
+  KeyboardDoubleArrowRight as DoubleArrowIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -230,13 +230,13 @@ const CategoriesPage: React.FC = () => {
         aria-expanded={isParent ? true : undefined}
         aria-label={`${category.name} ${indentLevel === 0 ? 'root category' : `level ${indentLevel} category`} ${isParent ? 'with subcategories' : ''}`}
       >        
-        {/* Hierarchy indicator with ArrowForwardIos for child categories */}
+        {/* Hierarchy indicator with DoubleArrow for child categories */}
         {indentLevel > 0 && (
-          <ArrowForwardIosIcon 
+          <DoubleArrowIcon 
             sx={{ 
               mr: 0.5,
               color: 'text.disabled',
-              fontSize: '0.7rem'
+              fontSize: 20
             }}
           />
         )}
