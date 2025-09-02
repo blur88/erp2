@@ -119,6 +119,16 @@ const ProductsPage: React.FC = () => {
     return () => clearTimeout(timeoutId)
   }, [dispatch, searchTerm, selectedCategory])
 
+  // Update selectedProductForDetails when products change (to reflect updates in detail view)
+  useEffect(() => {
+    if (selectedProductForDetails && products.length > 0) {
+      const updatedProduct = products.find(p => p.id === selectedProductForDetails.id)
+      if (updatedProduct) {
+        setSelectedProductForDetails(updatedProduct)
+      }
+    }
+  }, [products, selectedProductForDetails])
+
   const handleRefresh = () => {
     dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
     dispatch(fetchCategories())
