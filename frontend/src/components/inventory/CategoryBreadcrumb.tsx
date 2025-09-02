@@ -1,6 +1,6 @@
 import React from 'react'
 import { Breadcrumbs, Link, Typography, Box, Chip } from '@mui/material'
-import { NavigateNext, Home, ChevronRight } from '@mui/icons-material'
+import { NavigateNext, Home, ArrowForwardIos } from '@mui/icons-material'
 import { Category } from '@/types'
 
 interface CategoryBreadcrumbProps {
@@ -150,7 +150,7 @@ const CategoryBreadcrumb: React.FC<CategoryBreadcrumbProps> = ({
   return (
     <Box sx={{ mb: 2 }}>
       <Breadcrumbs
-        separator={<ChevronRight fontSize="small" />}
+        separator={<ArrowForwardIos fontSize="small" />}
         aria-label="category breadcrumb"
         sx={{
           '& .MuiBreadcrumbs-ol': {

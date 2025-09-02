@@ -17,7 +17,7 @@ import {
 } from '@mui/material'
 import {
   ExpandMore,
-  ChevronRight,
+  ArrowForwardIos,
   Add,
   Edit,
   Delete,
@@ -152,7 +152,7 @@ const CategoryTreeView: React.FC<CategoryTreeViewProps> = ({
               }}
               sx={{ mr: 0.5, p: 0.25 }}
             >
-              {isExpanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+              {isExpanded ? <ExpandMore fontSize="small" /> : <ArrowForwardIos fontSize="small" />}
             </IconButton>
           ) : (
             <Box sx={{ width: 24, mr: 0.5 }} />
