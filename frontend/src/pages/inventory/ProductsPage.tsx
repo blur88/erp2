@@ -147,6 +147,7 @@ const ProductsPage: React.FC = () => {
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
@@ -164,6 +165,22 @@ const ProductsPage: React.FC = () => {
       isActive: true,
     },
   })
+
+  // Watch form values for real-time profit margin calculation
+  const baseCost = watch('baseCost')
+  const retailPrice = watch('retailPrice')
+  const wholesalePrice = watch('wholesalePrice')
+  const specialPrice = watch('specialPrice')
+
+  // Calculate profit margins
+  const calculateMargin = (sellingPrice: number, cost: number): number => {
+    if (!cost || cost <= 0 || !sellingPrice || sellingPrice <= 0) return 0
+    return ((sellingPrice - cost) / sellingPrice) * 100
+  }
+
+  const retailMargin = calculateMargin(retailPrice, baseCost)
+  const wholesaleMargin = calculateMargin(wholesalePrice, baseCost)
+  const specialMargin = calculateMargin(specialPrice, baseCost)
 
   // Products are already filtered by backend search
   const filteredProducts = products || []
@@ -763,8 +780,26 @@ const ProductsPage: React.FC = () => {
                             Retail Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
-                          ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
+                              ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
+                            </Typography>
+                            {selectedProductForDetails.grossMarginRetail !== undefined && (
+                              <Chip
+                                label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
+                                size="small"
+                                variant="outlined"
+                                color={selectedProductForDetails.grossMarginRetail > 20 ? 'success' : selectedProductForDetails.grossMarginRetail > 10 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -774,8 +809,26 @@ const ProductsPage: React.FC = () => {
                             Wholesale Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
-                          ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontSize: '0.8rem' }}>
+                              ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
+                            </Typography>
+                            {selectedProductForDetails.grossMarginWholesale !== undefined && (
+                              <Chip
+                                label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
+                                size="small"
+                                variant="outlined"
+                                color={selectedProductForDetails.grossMarginWholesale > 15 ? 'success' : selectedProductForDetails.grossMarginWholesale > 5 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -1034,10 +1087,26 @@ const ProductsPage: React.FC = () => {
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        endAdornment: retailMargin > 0 && (
+                          <InputAdornment position="end">
+                            <Chip
+                              label={`${retailMargin.toFixed(1)}%`}
+                              size="small"
+                              variant="outlined"
+                              color={retailMargin > 20 ? 'success' : retailMargin > 10 ? 'warning' : 'error'}
+                              sx={{
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20,
+                                minWidth: 45
+                              }}
+                            />
+                          </InputAdornment>
+                        )
                       }}
                       error={!!errors.retailPrice}
-                      helperText={errors.retailPrice?.message}
+                      helperText={errors.retailPrice?.message || (retailMargin > 0 ? `Profit margin: ${retailMargin.toFixed(1)}%` : '')}
                       sx={{
                         '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                         '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
@@ -1062,10 +1131,26 @@ const ProductsPage: React.FC = () => {
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        endAdornment: wholesaleMargin > 0 && (
+                          <InputAdornment position="end">
+                            <Chip
+                              label={`${wholesaleMargin.toFixed(1)}%`}
+                              size="small"
+                              variant="outlined"
+                              color={wholesaleMargin > 15 ? 'success' : wholesaleMargin > 5 ? 'warning' : 'error'}
+                              sx={{
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20,
+                                minWidth: 45
+                              }}
+                            />
+                          </InputAdornment>
+                        )
                       }}
                       error={!!errors.wholesalePrice}
-                      helperText={errors.wholesalePrice?.message}
+                      helperText={errors.wholesalePrice?.message || (wholesaleMargin > 0 ? `Profit margin: ${wholesaleMargin.toFixed(1)}%` : '')}
                       sx={{
                         '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                         '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
@@ -1090,10 +1175,26 @@ const ProductsPage: React.FC = () => {
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        endAdornment: specialMargin > 0 && (
+                          <InputAdornment position="end">
+                            <Chip
+                              label={`${specialMargin.toFixed(1)}%`}
+                              size="small"
+                              variant="outlined"
+                              color={specialMargin > 15 ? 'success' : specialMargin > 5 ? 'warning' : 'error'}
+                              sx={{
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20,
+                                minWidth: 45
+                              }}
+                            />
+                          </InputAdornment>
+                        )
                       }}
                       error={!!errors.specialPrice}
-                      helperText={errors.specialPrice?.message}
+                      helperText={errors.specialPrice?.message || (specialMargin > 0 ? `Profit margin: ${specialMargin.toFixed(1)}%` : '')}
                       sx={{
                         '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                         '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
