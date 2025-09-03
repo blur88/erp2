@@ -649,128 +649,145 @@ const ProductsPage: React.FC = () => {
                   </Typography>
                 </Box>
               ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {/* Basic Information */}
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
-                      Basic Information
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Product Name
+                <TableContainer>
+                  <Table 
+                    size="small" 
+                    sx={{ 
+                      '& .MuiTableCell-root': { 
+                        border: 'none', 
+                        py: 1.5, 
+                        px: 2,
+                        ...(isMobile && {
+                          px: 1,
+                          py: 1,
+                          fontSize: '0.85rem'
+                        })
+                      }
+                    }}
+                  >
+                    <TableBody>
+                      {/* Basic Information Section */}
+                      <TableRow>
+                        <TableCell colSpan={2} sx={{ pb: 1 }}>
+                          <Typography variant="h6" sx={{ 
+                            fontWeight: 600, 
+                            color: 'primary.main', 
+                            fontSize: isMobile ? '0.9rem' : '1rem'
+                          }}>
+                            Basic Information
                           </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                            {selectedProductForDetails.name}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Barcode
-                          </Typography>
-                          <Typography variant="body1">
-                            {selectedProductForDetails.barcode}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Type
-                          </Typography>
-                          <Typography variant="body1">
-                            {selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Category
-                          </Typography>
-                          <Typography variant="body1">
-                            {selectedProductForDetails.category?.name || 'No Category'}
-                          </Typography>
-                        </Box>
-                      </Grid>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ 
+                          fontWeight: 500, 
+                          color: 'text.secondary', 
+                          width: isMobile ? '40%' : '35%',
+                          minWidth: isMobile ? 'auto' : '120px'
+                        }}>
+                          Product Name
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>
+                          {selectedProductForDetails.name}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Barcode
+                        </TableCell>
+                        <TableCell>
+                          {selectedProductForDetails.barcode}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Type
+                        </TableCell>
+                        <TableCell>
+                          {selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Category
+                        </TableCell>
+                        <TableCell>
+                          {selectedProductForDetails.category?.name || 'No Category'}
+                        </TableCell>
+                      </TableRow>
                       {selectedProductForDetails.description && (
-                        <Grid item xs={12}>
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              Description
-                            </Typography>
-                            <Typography variant="body1">
-                              {selectedProductForDetails.description}
-                            </Typography>
-                          </Box>
-                        </Grid>
+                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                            Description
+                          </TableCell>
+                          <TableCell>
+                            {selectedProductForDetails.description}
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </Grid>
-                  </Box>
-
-                  {/* Pricing Information */}
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
-                      Pricing Information
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Base Cost
+                      
+                      {/* Pricing Information Section */}
+                      <TableRow>
+                        <TableCell colSpan={2} sx={{ pt: 3, pb: 1 }}>
+                          <Typography variant="h6" sx={{ 
+                            fontWeight: 600, 
+                            color: 'primary.main', 
+                            fontSize: isMobile ? '0.9rem' : '1rem'
+                          }}>
+                            Pricing Information
                           </Typography>
-                          <Typography variant="body1">
-                            ${selectedProductForDetails.baseCost?.toFixed(2) || '0.00'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Base Cost
+                        </TableCell>
+                        <TableCell>
+                          ${selectedProductForDetails.baseCost?.toFixed(2) || '0.00'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Retail Price
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600, color: 'success.main' }}>
+                          ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Wholesale Price
+                        </TableCell>
+                        <TableCell>
+                          ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Special Price
+                        </TableCell>
+                        <TableCell>
+                          ${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}
+                        </TableCell>
+                      </TableRow>
+                      
+                      {/* Stock Information Section */}
+                      <TableRow>
+                        <TableCell colSpan={2} sx={{ pt: 3, pb: 1 }}>
+                          <Typography variant="h6" sx={{ 
+                            fontWeight: 600, 
+                            color: 'primary.main', 
+                            fontSize: isMobile ? '0.9rem' : '1rem'
+                          }}>
+                            Stock Information
                           </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Retail Price
-                          </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main' }}>
-                            ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Wholesale Price
-                          </Typography>
-                          <Typography variant="body1">
-                            ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Special Price
-                          </Typography>
-                          <Typography variant="body1">
-                            ${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Box>
-
-                  {/* Stock Information */}
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'primary.main' }}>
-                      Stock Information
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            Current Stock
-                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                          Current Stock
+                        </TableCell>
+                        <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body1" sx={{ fontWeight: 600 }}>
                               {selectedProductForDetails.stockQuantity || 0}
@@ -787,12 +804,11 @@ const ProductsPage: React.FC = () => {
                               }}
                             />
                           </Box>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Box>
-
-                </Box>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               )}
             </Box>
           </Paper>
