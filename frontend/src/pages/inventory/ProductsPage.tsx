@@ -528,15 +528,6 @@ const ProductsPage: React.FC = () => {
                         }
                       }}
                     >
-                      <TableHead>
-                        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                              Product
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
                       <TableBody>
                         {paginatedProducts.map((product: any) => {
                           const isSelected = selectedProductForDetails?.id === product.id
