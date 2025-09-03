@@ -559,7 +559,7 @@ const ProductsPage: React.FC = () => {
                               <TableCell>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
-                                  <Typography variant="body2" sx={{ fontSize: '0.875rem', lineHeight: 1.2 }}>
+                                  <Typography variant="body2" sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>
                                     {product.name}
                                   </Typography>
                                 </Box>
@@ -672,7 +672,7 @@ const ProductsPage: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.875rem'
+                            fontSize: '0.8rem'
                           }}>
                             Basic Information
                           </Typography>
@@ -684,59 +684,59 @@ const ProductsPage: React.FC = () => {
                           color: 'text.secondary', 
                           width: isMobile ? '40%' : '35%',
                           minWidth: isMobile ? 'auto' : '120px',
-                          fontSize: '0.875rem'
+                          fontSize: '0.8rem'
                         }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Product Name
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                           {selectedProductForDetails.name}
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Barcode
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           {selectedProductForDetails.barcode}
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Type
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           {selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'}
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Category
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           {selectedProductForDetails.category?.name || 'No Category'}
                         </TableCell>
                       </TableRow>
                       {selectedProductForDetails.description && (
                         <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                          <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                               Description
                             </Box>
                           </TableCell>
-                          <TableCell sx={{ fontSize: '0.875rem' }}>
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
                             {selectedProductForDetails.description}
                           </TableCell>
                         </TableRow>
@@ -748,53 +748,53 @@ const ProductsPage: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.875rem'
+                            fontSize: '0.8rem'
                           }}>
                             Pricing Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Base Cost
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           ${selectedProductForDetails.baseCost?.toFixed(2) || '0.00'}
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Retail Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
                           ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Wholesale Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Special Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           ${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}
                         </TableCell>
                       </TableRow>
@@ -805,14 +805,14 @@ const ProductsPage: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.875rem'
+                            fontSize: '0.8rem'
                           }}>
                             Stock Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.875rem' }}>
+                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
                             Current Stock
@@ -820,7 +820,7 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                            <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                               {selectedProductForDetails.stockQuantity || 0}
                             </Typography>
                             <Chip
