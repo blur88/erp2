@@ -1024,6 +1024,28 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
+              <Grid item xs={12}>
+                <Controller
+                  name="currentStock"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Current Stock"
+                      type="number"
+                      inputProps={{ step: 1, min: 0 }}
+                      error={!!errors.currentStock}
+                      helperText={errors.currentStock?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
