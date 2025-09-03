@@ -440,6 +440,7 @@ export class ProductService {
    */
   async update(id: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductResponseDto> {
     this.logger.log(`Updating product with ID: ${id}`);
+    console.log('🚀 UPDATE METHOD CALLED - CODE VERSION 2.0');
 
     const product = await this.productRepository.findOne({
       where: { id },
@@ -472,28 +473,67 @@ export class ProductService {
       }
     }
 
-    // Validate pricing if being updated
-    if (this.hasPricingChanges(updateProductDto)) {
-      this.validatePricing({ ...product, ...updateProductDto } as any);
+    // Transform DTO fields to match entity fields FIRST
+    const updateData: any = { ...updateProductDto };
+    
+    // Map currentStock to stockQuantity if present
+    if (updateProductDto.hasOwnProperty('currentStock')) {
+      updateData.stockQuantity = updateProductDto.currentStock;
+      delete updateData.currentStock;
     }
 
-    // Track changes for audit
+    // Validate pricing if being updated (use transformed data)
+    if (this.hasPricingChanges(updateData)) {
+      this.validatePricing({ ...product, ...updateData } as any);
+    }
+
+    // Debug logging
+    console.log('=== PRODUCT UPDATE DEBUG ===');
+    console.log('Current product.categoryId:', product.categoryId);
+    console.log('Original DTO:', updateProductDto);
+    console.log('Transformed updateData:', updateData);
+    console.log('Update DTO categoryId:', updateData.categoryId);
+
+    // Track changes for audit (use transformed data)
     const changes: Record<string, { from: any; to: any }> = {};
-    Object.keys(updateProductDto).forEach(key => {
-      if (updateProductDto[key] !== product[key]) {
-        changes[key] = { from: product[key], to: updateProductDto[key] };
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] !== product[key]) {
+        changes[key] = { from: product[key], to: updateData[key] };
       }
     });
 
-    // Update product
-    Object.assign(product, updateProductDto);
+    console.log('Detected changes:', changes);
+
+    // Update product with transformed data
+    Object.assign(product, updateData);
+    
+    console.log('After Object.assign - product.categoryId:', product.categoryId);
+    console.log('=============================');
 
     // Update stock status if quantities changed
-    if (updateProductDto.hasOwnProperty('reorderLevel') || updateProductDto.hasOwnProperty('stockQuantity')) {
+    if (updateProductDto.hasOwnProperty('currentStock') || updateData.hasOwnProperty('stockQuantity')) {
       product.updateStockStatus();
     }
 
-    const updatedProduct = await this.productRepository.save(product);
+    // Use direct update for better control over what gets updated
+    const updateResult = await this.productRepository.update(
+      { id: product.id },
+      updateData
+    );
+    console.log('UPDATE RESULT:', updateResult);
+
+    const updatedProduct = await this.productRepository.findOne({
+      where: { id: product.id },
+    });
+    console.log('POST-UPDATE updatedProduct.categoryId:', updatedProduct?.categoryId);
+
+    // Reload the product with category relation to ensure fresh data
+    const productWithCategory = await this.productRepository.findOne({
+      where: { id: product.id },
+      relations: ['category'],
+    });
+    console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
+    console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
     // Log audit event
     if (Object.keys(changes).length > 0) {
@@ -507,7 +547,7 @@ export class ProductService {
     }
 
     this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
-    return this.toResponseDto(updatedProduct);
+    return this.toResponseDto(productWithCategory!);
   }
 
   /**
@@ -781,8 +821,6 @@ export class ProductService {
       stockQuantity: Number(product.stockQuantity),
       reservedQuantity: Number(product.reservedQuantity),
       availableQuantity: product.availableQuantity,
-      reorderLevel: Number(product.reorderLevel),
-      optimalStockLevel: Number(product.optimalStockLevel),
       stockStatus: product.stockStatus,
       weight: product.weight ? Number(product.weight) : undefined,
       dimensions: product.dimensions,

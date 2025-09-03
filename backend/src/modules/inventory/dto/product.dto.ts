@@ -282,6 +282,11 @@ export class ProductResponseDto {
   @ApiPropertyOptional({ description: 'Product description' })
   description?: string;
 
+  @ApiProperty({ description: 'Product type' })
+  type: string;
+
+  @ApiProperty({ description: 'Product unit' })
+  unit: string;
 
   @ApiProperty({ description: 'Product status', enum: ProductStatus })
   status: ProductStatus;
