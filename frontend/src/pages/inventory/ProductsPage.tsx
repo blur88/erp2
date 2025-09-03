@@ -74,6 +74,7 @@ interface ProductFormData {
   wholesalePrice: number
   specialPrice: number
   currentStock: number
+  notes: string
   isActive: boolean
 }
 
@@ -88,6 +89,7 @@ const productSchema = yup.object({
   wholesalePrice: yup.number().required('Wholesale price is required').min(0, 'Price must be positive'),
   specialPrice: yup.number().required('Special price is required').min(0, 'Price must be positive'),
   currentStock: yup.number().required('Current stock is required').min(0, 'Stock must be non-negative'),
+  notes: yup.string(),
   isActive: yup.boolean(),
 })
 
@@ -174,6 +176,7 @@ const ProductsPage: React.FC = () => {
       wholesalePrice: 0,
       specialPrice: 0,
       currentStock: 0,
+      notes: '',
       isActive: true,
     },
   })
@@ -236,6 +239,7 @@ const ProductsPage: React.FC = () => {
       wholesalePrice: product.wholesalePrice || 0,
       specialPrice: product.specialPrice || 0,
       currentStock: product.stockQuantity || 0,
+      notes: product.notes || '',
       isActive: product.isActive,
     })
     // Close menu
@@ -1235,19 +1239,47 @@ const ProductsPage: React.FC = () => {
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
                         <TableCell colSpan={2} sx={{ p: 1.5 }}>
-                          <Box sx={{ 
-                            minHeight: 80,
-                            border: '1px dashed rgba(0, 0, 0, 0.12)',
-                            borderRadius: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: 'grey.50'
-                          }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
-                              No notes available
-                            </Typography>
-                          </Box>
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.notes}
+                              onChange={(e) => handleInlineEditChange('notes', e.target.value)}
+                              multiline
+                              rows={3}
+                              fullWidth
+                              placeholder="Add notes about this product..."
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  backgroundColor: 'background.paper'
+                                }
+                              }}
+                            />
+                          ) : (
+                            <Box sx={{ 
+                              minHeight: 80,
+                              border: selectedProductForDetails.notes ? 'none' : '1px dashed rgba(0, 0, 0, 0.12)',
+                              borderRadius: 1,
+                              display: 'flex',
+                              alignItems: selectedProductForDetails.notes ? 'flex-start' : 'center',
+                              justifyContent: selectedProductForDetails.notes ? 'flex-start' : 'center',
+                              backgroundColor: 'grey.50',
+                              p: selectedProductForDetails.notes ? 1 : 0
+                            }}>
+                              {selectedProductForDetails.notes ? (
+                                <Typography variant="body2" sx={{ 
+                                  fontSize: '0.8rem', 
+                                  lineHeight: 1.4,
+                                  whiteSpace: 'pre-wrap'
+                                }}>
+                                  {selectedProductForDetails.notes}
+                                </Typography>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
+                                  No notes available
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -1589,6 +1621,29 @@ const ProductsPage: React.FC = () => {
                       inputProps={{ step: 1, min: 0 }}
                       error={!!errors.currentStock}
                       helperText={errors.currentStock?.message}
+                      sx={{
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Controller
+                  name="notes"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Notes"
+                      multiline
+                      rows={3}
+                      placeholder="Add internal notes about this product..."
+                      error={!!errors.notes}
+                      helperText={errors.notes?.message}
                       sx={{
                         '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                         '& .MuiOutlinedInput-input': { fontSize: '0.875rem' },
