@@ -41,6 +41,8 @@ import {
   RestoreFromTrash as RestoreIcon,
   Refresh as RefreshIcon,
   DragIndicator as DragIndicatorIcon,
+  Save as SaveIcon,
+  Close as CancelIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -65,7 +67,7 @@ interface ProductFormData {
   name: string
   description: string
   barcode: string
-  type: string
+  type: 'goods' | 'service'
   categoryId: string
   baseCost: number
   retailPrice: number
@@ -108,6 +110,8 @@ const ProductsPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
+  const [inlineEditMode, setInlineEditMode] = useState(false)
+  const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
 
   useEffect(() => {
     dispatch(fetchCategories({ includeProductCount: true }))
@@ -137,6 +141,14 @@ const ProductsPage: React.FC = () => {
       }
     }
   }, [products, selectedProductForDetails])
+
+  // Cancel inline editing when selected product changes
+  useEffect(() => {
+    if (inlineEditMode) {
+      setInlineEditMode(false)
+      setInlineEditData(null)
+    }
+  }, [selectedProductForDetails?.id])
 
   const handleRefresh = () => {
     dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
@@ -212,14 +224,8 @@ const ProductsPage: React.FC = () => {
   }
 
   const handleEditProduct = (product: Product) => {
-    console.log('=== EDIT PRODUCT DEBUG ===')
-    console.log('Editing product:', product)
-    console.log('Product ID:', product.id)
-    console.log('Current selectedProduct before:', selectedProduct)
-    console.log('Current editMode before:', editMode)
-    console.log('=======================')
-    
-    reset({
+    setInlineEditMode(true)
+    setInlineEditData({
       name: product.name,
       description: product.description || '',
       barcode: product.barcode,
@@ -232,20 +238,53 @@ const ProductsPage: React.FC = () => {
       currentStock: product.stockQuantity || 0,
       isActive: product.isActive,
     })
-    setSelectedProduct(product)
-    setEditMode(true)
-    setDialogOpen(true)
-    // Close menu but don't reset selectedProduct since we need it for editing
+    // Close menu
     setAnchorEl(null)
+  }
+
+  const handleInlineEditCancel = () => {
+    setInlineEditMode(false)
+    setInlineEditData(null)
+  }
+
+  const handleInlineEditSave = async () => {
+    if (!selectedProductForDetails || !inlineEditData) return
     
-    // Check state after setting
-    setTimeout(() => {
-      console.log('=== EDIT PRODUCT DEBUG AFTER STATE CHANGE ===')
-      console.log('selectedProduct after:', selectedProduct)
-      console.log('editMode after:', editMode)
-      console.log('dialogOpen after:', dialogOpen)
-      console.log('===============================================')
-    }, 100)
+    try {
+      // Validate categoryId is present and valid
+      if (!inlineEditData.categoryId || inlineEditData.categoryId.trim() === '') {
+        showError('Please select a category')
+        return
+      }
+      
+      const result = await dispatch(updateProduct({ 
+        id: selectedProductForDetails.id, 
+        data: inlineEditData 
+      }))
+      
+      if (updateProduct.fulfilled.match(result)) {
+        showSuccess('Product updated successfully')
+        // Refresh the product list to ensure consistency
+        dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+        setInlineEditMode(false)
+        setInlineEditData(null)
+      } else {
+        throw new Error(result.payload as string)
+      }
+    } catch (error: any) {
+      console.error('Inline product save error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save product'
+      showError(errorMessage + '. Please try again.')
+    }
+  }
+
+  const handleInlineEditChange = (field: keyof ProductFormData, value: any) => {
+    if (inlineEditData) {
+      setInlineEditData({
+        ...inlineEditData,
+        [field]: value
+      })
+    }
   }
 
   const handleDeleteProduct = async (product: Product) => {
@@ -616,36 +655,73 @@ const ProductsPage: React.FC = () => {
                     transition: 'opacity 0.2s ease'
                   }}
                 >
-                  <IconButton
-                    size="small"
-                    title={`Edit ${selectedProductForDetails.name}`}
-                    aria-label={`Edit product ${selectedProductForDetails.name}`}
-                    onClick={() => handleEditProduct(selectedProductForDetails)}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                        color: 'primary.main'
-                      },
-                      p: 0.5
-                    }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    title={`Delete ${selectedProductForDetails.name}`}
-                    aria-label={`Delete product ${selectedProductForDetails.name}`}
-                    onClick={() => handleDeleteProduct(selectedProductForDetails)}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'error.light',
-                        color: 'error.main'
-                      },
-                      p: 0.5
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  {inlineEditMode ? (
+                    <>
+                      <IconButton
+                        size="small"
+                        title="Save changes"
+                        aria-label="Save changes"
+                        onClick={handleInlineEditSave}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'success.light',
+                            color: 'success.main'
+                          },
+                          p: 0.5
+                        }}
+                      >
+                        <SaveIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        title="Cancel editing"
+                        aria-label="Cancel editing"
+                        onClick={handleInlineEditCancel}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'error.light',
+                            color: 'error.main'
+                          },
+                          p: 0.5
+                        }}
+                      >
+                        <CancelIcon fontSize="small" />
+                      </IconButton>
+                    </>
+                  ) : (
+                    <>
+                      <IconButton
+                        size="small"
+                        title={`Edit ${selectedProductForDetails.name}`}
+                        aria-label={`Edit product ${selectedProductForDetails.name}`}
+                        onClick={() => handleEditProduct(selectedProductForDetails)}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'action.hover',
+                            color: 'primary.main'
+                          },
+                          p: 0.5
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        title={`Delete ${selectedProductForDetails.name}`}
+                        aria-label={`Delete product ${selectedProductForDetails.name}`}
+                        onClick={() => handleDeleteProduct(selectedProductForDetails)}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'error.light',
+                            color: 'error.main'
+                          },
+                          p: 0.5
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </>
+                  )}
                 </Box>
               )}
             </Box>
@@ -700,7 +776,22 @@ const ProductsPage: React.FC = () => {
                           </Box>
                         </TableCell>
                         <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-                          {selectedProductForDetails.name}
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.name}
+                              onChange={(e) => handleInlineEditChange('name', e.target.value)}
+                              size="small"
+                              fullWidth
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            selectedProductForDetails.name
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -711,7 +802,22 @@ const ProductsPage: React.FC = () => {
                           </Box>
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
-                          {selectedProductForDetails.barcode}
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.barcode}
+                              onChange={(e) => handleInlineEditChange('barcode', e.target.value)}
+                              size="small"
+                              fullWidth
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            selectedProductForDetails.barcode
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -722,7 +828,30 @@ const ProductsPage: React.FC = () => {
                           </Box>
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
-                          {selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'}
+                          {inlineEditMode && inlineEditData ? (
+                            <FormControl fullWidth size="small">
+                              <Select 
+                                value={inlineEditData.type}
+                                onChange={(e) => handleInlineEditChange('type', e.target.value)}
+                                sx={{
+                                  '& .MuiSelect-select': { 
+                                    fontSize: '0.8rem',
+                                    height: '28px',
+                                    padding: '4px 8px'
+                                  }
+                                }}
+                              >
+                                <MenuItem value="goods" sx={{ fontSize: '0.8rem' }}>
+                                  Stocked Product
+                                </MenuItem>
+                                <MenuItem value="service" sx={{ fontSize: '0.8rem' }}>
+                                  Service
+                                </MenuItem>
+                              </Select>
+                            </FormControl>
+                          ) : (
+                            selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -733,7 +862,35 @@ const ProductsPage: React.FC = () => {
                           </Box>
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
-                          {selectedProductForDetails.category?.name || 'No Category'}
+                          {inlineEditMode && inlineEditData ? (
+                            <FormControl fullWidth size="small">
+                              <Select 
+                                value={inlineEditData.categoryId}
+                                onChange={(e) => handleInlineEditChange('categoryId', e.target.value)}
+                                sx={{
+                                  '& .MuiSelect-select': { 
+                                    fontSize: '0.8rem',
+                                    height: '28px',
+                                    padding: '4px 8px'
+                                  }
+                                }}
+                              >
+                                {categories && categories.length > 0 ? (
+                                  categories.map((category: any) => (
+                                    <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.8rem' }}>
+                                      {category.name}
+                                    </MenuItem>
+                                  ))
+                                ) : (
+                                  <MenuItem value="" disabled sx={{ fontSize: '0.8rem' }}>
+                                    No categories available
+                                  </MenuItem>
+                                )}
+                              </Select>
+                            </FormControl>
+                          ) : (
+                            selectedProductForDetails.category?.name || 'No Category'
+                          )}
                         </TableCell>
                       </TableRow>
                       {selectedProductForDetails.description && (
@@ -745,7 +902,23 @@ const ProductsPage: React.FC = () => {
                             </Box>
                           </TableCell>
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {selectedProductForDetails.description}
+                            {inlineEditMode && inlineEditData ? (
+                              <TextField
+                                value={inlineEditData.description}
+                                onChange={(e) => handleInlineEditChange('description', e.target.value)}
+                                size="small"
+                                fullWidth
+                                multiline
+                                rows={2}
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    fontSize: '0.8rem'
+                                  }
+                                }}
+                              />
+                            ) : (
+                              selectedProductForDetails.description
+                            )}
                           </TableCell>
                         </TableRow>
                       )}
@@ -770,7 +943,26 @@ const ProductsPage: React.FC = () => {
                           </Box>
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
-                          ${selectedProductForDetails.baseCost?.toFixed(2) || '0.00'}
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.baseCost}
+                              onChange={(e) => handleInlineEditChange('baseCost', parseFloat(e.target.value) || 0)}
+                              size="small"
+                              type="number"
+                              inputProps={{ step: 0.01, min: 0 }}
+                              InputProps={{
+                                startAdornment: <InputAdornment position="start">$</InputAdornment>
+                              }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            `$${selectedProductForDetails.baseCost?.toFixed(2) || '0.00'}`
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -782,22 +974,43 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
-                              ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
-                            </Typography>
-                            {selectedProductForDetails.grossMarginRetail !== undefined && (
-                              <Chip
-                                label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
+                            {inlineEditMode && inlineEditData ? (
+                              <TextField
+                                value={inlineEditData.retailPrice}
+                                onChange={(e) => handleInlineEditChange('retailPrice', parseFloat(e.target.value) || 0)}
                                 size="small"
-                                variant="outlined"
-                                color={selectedProductForDetails.grossMarginRetail > 20 ? 'success' : selectedProductForDetails.grossMarginRetail > 10 ? 'warning' : 'error'}
+                                type="number"
+                                inputProps={{ step: 0.01, min: 0 }}
+                                InputProps={{
+                                  startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                }}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
-                                  minWidth: 42
+                                  '& .MuiOutlinedInput-root': {
+                                    fontSize: '0.8rem',
+                                    height: '28px'
+                                  }
                                 }}
                               />
+                            ) : (
+                              <>
+                                <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
+                                  ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
+                                </Typography>
+                                {selectedProductForDetails.grossMarginRetail !== undefined && (
+                                  <Chip
+                                    label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
+                                    size="small"
+                                    variant="outlined"
+                                    color={selectedProductForDetails.grossMarginRetail > 20 ? 'success' : selectedProductForDetails.grossMarginRetail > 10 ? 'warning' : 'error'}
+                                    sx={{
+                                      fontSize: '0.65rem',
+                                      fontWeight: 500,
+                                      height: 18,
+                                      minWidth: 42
+                                    }}
+                                  />
+                                )}
+                              </>
                             )}
                           </Box>
                         </TableCell>
@@ -811,22 +1024,43 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography sx={{ fontSize: '0.8rem' }}>
-                              ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
-                            </Typography>
-                            {selectedProductForDetails.grossMarginWholesale !== undefined && (
-                              <Chip
-                                label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
+                            {inlineEditMode && inlineEditData ? (
+                              <TextField
+                                value={inlineEditData.wholesalePrice}
+                                onChange={(e) => handleInlineEditChange('wholesalePrice', parseFloat(e.target.value) || 0)}
                                 size="small"
-                                variant="outlined"
-                                color={selectedProductForDetails.grossMarginWholesale > 15 ? 'success' : selectedProductForDetails.grossMarginWholesale > 5 ? 'warning' : 'error'}
+                                type="number"
+                                inputProps={{ step: 0.01, min: 0 }}
+                                InputProps={{
+                                  startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                }}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
-                                  minWidth: 42
+                                  '& .MuiOutlinedInput-root': {
+                                    fontSize: '0.8rem',
+                                    height: '28px'
+                                  }
                                 }}
                               />
+                            ) : (
+                              <>
+                                <Typography sx={{ fontSize: '0.8rem' }}>
+                                  ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
+                                </Typography>
+                                {selectedProductForDetails.grossMarginWholesale !== undefined && (
+                                  <Chip
+                                    label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
+                                    size="small"
+                                    variant="outlined"
+                                    color={selectedProductForDetails.grossMarginWholesale > 15 ? 'success' : selectedProductForDetails.grossMarginWholesale > 5 ? 'warning' : 'error'}
+                                    sx={{
+                                      fontSize: '0.65rem',
+                                      fontWeight: 500,
+                                      height: 18,
+                                      minWidth: 42
+                                    }}
+                                  />
+                                )}
+                              </>
                             )}
                           </Box>
                         </TableCell>
@@ -839,7 +1073,26 @@ const ProductsPage: React.FC = () => {
                           </Box>
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
-                          ${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.specialPrice}
+                              onChange={(e) => handleInlineEditChange('specialPrice', parseFloat(e.target.value) || 0)}
+                              size="small"
+                              type="number"
+                              inputProps={{ step: 0.01, min: 0 }}
+                              InputProps={{
+                                startAdornment: <InputAdornment position="start">$</InputAdornment>
+                              }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            `$${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}`
+                          )}
                         </TableCell>
                       </TableRow>
                       
@@ -864,20 +1117,38 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-                              {selectedProductForDetails.stockQuantity || 0}
-                            </Typography>
-                            <Chip
-                              label={getStockStatus(selectedProductForDetails).label}
-                              color={getStockStatus(selectedProductForDetails).color}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                fontSize: '0.7rem',
-                                fontWeight: 500,
-                                height: 20
-                              }}
-                            />
+                            {inlineEditMode && inlineEditData ? (
+                              <TextField
+                                value={inlineEditData.currentStock}
+                                onChange={(e) => handleInlineEditChange('currentStock', parseInt(e.target.value) || 0)}
+                                size="small"
+                                type="number"
+                                inputProps={{ step: 1, min: 0 }}
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    fontSize: '0.8rem',
+                                    height: '28px'
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                                  {selectedProductForDetails.stockQuantity || 0}
+                                </Typography>
+                                <Chip
+                                  label={getStockStatus(selectedProductForDetails).label}
+                                  color={getStockStatus(selectedProductForDetails).color}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: 500,
+                                    height: 20
+                                  }}
+                                />
+                              </>
+                            )}
                           </Box>
                         </TableCell>
                       </TableRow>
