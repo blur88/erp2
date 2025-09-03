@@ -15,7 +15,7 @@ import {
   UpdateResult,
   In,
 } from 'typeorm';
-import { Product, ProductStatus, StockStatus } from '../../../database/entities/product.entity';
+import { Product, ProductStatus, ProductType, StockStatus } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import {
   CreateProductDto,
@@ -87,8 +87,8 @@ export class ProductService {
       stockQuantity: createProductDto.currentStock || 0,
       status: createProductDto.status || ProductStatus.ACTIVE,
       isActive: createProductDto.isActive ?? true,
+      type: createProductDto.type || ProductType.GOODS,
       // Set default values for removed fields
-      type: 'goods',
       unit: 'pcs',
       reorderLevel: 0,
       optimalStockLevel: 0,

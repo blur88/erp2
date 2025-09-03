@@ -15,7 +15,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { ProductStatus } from '../../../database/entities/product.entity';
+import { ProductStatus, ProductType } from '../../../database/entities/product.entity';
 
 export class ProductDimensionsDto {
   @ApiPropertyOptional({ description: 'Product length in cm' })
@@ -53,6 +53,10 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ description: 'Product type', enum: ProductType, default: ProductType.GOODS })
+  @IsOptional()
+  @IsEnum(ProductType)
+  type?: ProductType;
 
   @ApiPropertyOptional({ description: 'Product status', enum: ProductStatus, default: ProductStatus.ACTIVE })
   @IsOptional()
@@ -282,8 +286,8 @@ export class ProductResponseDto {
   @ApiPropertyOptional({ description: 'Product description' })
   description?: string;
 
-  @ApiProperty({ description: 'Product type' })
-  type: string;
+  @ApiProperty({ description: 'Product type', enum: ProductType })
+  type: ProductType;
 
   @ApiProperty({ description: 'Product unit' })
   unit: string;

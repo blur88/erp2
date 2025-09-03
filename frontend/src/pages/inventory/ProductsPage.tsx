@@ -65,6 +65,7 @@ interface ProductFormData {
   name: string
   description: string
   barcode: string
+  type: string
   categoryId: string
   baseCost: number
   retailPrice: number
@@ -78,6 +79,7 @@ const productSchema = yup.object({
   name: yup.string().required('Product name is required').min(2, 'Name must be at least 2 characters'),
   description: yup.string(),
   barcode: yup.string().required('Barcode is required').min(3, 'Barcode must be at least 3 characters'),
+  type: yup.string().required('Product type is required'),
   categoryId: yup.string().required('Category is required').min(1, 'Please select a category'),
   baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
   retailPrice: yup.number().required('Retail price is required').min(0, 'Price must be positive'),
@@ -152,6 +154,7 @@ const ProductsPage: React.FC = () => {
       name: '',
       description: '',
       barcode: '',
+      type: 'goods',
       categoryId: '',
       baseCost: 0,
       retailPrice: 0,
@@ -203,6 +206,7 @@ const ProductsPage: React.FC = () => {
       name: product.name,
       description: product.description || '',
       barcode: product.barcode,
+      type: product.type || 'goods',
       categoryId: product.categoryId || product.category?.id || '',
       baseCost: product.baseCost || 0,
       retailPrice: product.retailPrice || 0,
@@ -675,6 +679,16 @@ const ProductsPage: React.FC = () => {
                       <Grid item xs={6}>
                         <Box>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            Type
+                          </Typography>
+                          <Typography variant="body1">
+                            {selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                             Category
                           </Typography>
                           <Typography variant="body1">
@@ -852,6 +866,36 @@ const ProductsPage: React.FC = () => {
                         '& .MuiFormHelperText-root': { fontSize: '0.75rem' }
                       }}
                     />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Controller
+                  name="type"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl fullWidth error={!!errors.type}>
+                      <InputLabel sx={{ fontSize: '0.875rem' }}>Type</InputLabel>
+                      <Select 
+                        {...field} 
+                        label="Type"
+                        sx={{
+                          '& .MuiSelect-select': { fontSize: '0.875rem' }
+                        }}
+                      >
+                        <MenuItem value="goods" sx={{ fontSize: '0.875rem' }}>
+                          Stocked Product
+                        </MenuItem>
+                        <MenuItem value="service" sx={{ fontSize: '0.875rem' }}>
+                          Service
+                        </MenuItem>
+                      </Select>
+                      {errors.type && (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.75, ml: 1.75, fontSize: '0.75rem' }}>
+                          {errors.type.message}
+                        </Typography>
+                      )}
+                    </FormControl>
                   )}
                 />
               </Grid>
