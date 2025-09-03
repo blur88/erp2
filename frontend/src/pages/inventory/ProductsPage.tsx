@@ -498,8 +498,8 @@ const ProductsPage: React.FC = () => {
         {/* Left Side - Active Products List */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
                 Product List ({filteredProducts.length})
               </Typography>
             </Box>
@@ -523,8 +523,8 @@ const ProductsPage: React.FC = () => {
                       sx={{ 
                         '& .MuiTableCell-root': { 
                           borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                          py: 0.75,
-                          px: 1.5
+                          py: 0.5,
+                          px: 1
                         }
                       }}
                     >
@@ -544,13 +544,13 @@ const ProductsPage: React.FC = () => {
                                   backgroundColor: isSelected ? 'action.selected' : 'action.hover'
                                 },
                                 transition: 'background-color 0.2s ease',
-                                height: 48
+                                height: 36
                               }}
                             >
-                              <TableCell>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
-                                  <Typography variant="body2" sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>
+                              <TableCell sx={{ py: 0.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '0.875rem' }} />
+                                  <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.1 }}>
                                     {product.name}
                                   </Typography>
                                 </Box>
@@ -585,8 +585,8 @@ const ProductsPage: React.FC = () => {
         {/* Right Side - Product Details View */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(224, 224, 224, 0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
                 {selectedProductForDetails ? 'Product Details' : 'Select Product'}
               </Typography>
               {selectedProductForDetails && (
@@ -632,7 +632,7 @@ const ProductsPage: React.FC = () => {
                 </Box>
               )}
             </Box>
-            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+            <Box sx={{ flex: 1, overflow: 'auto', p: 1.5 }}>
               {!selectedProductForDetails ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                   <Typography variant="body1" color="text.secondary" textAlign="center">
@@ -646,12 +646,12 @@ const ProductsPage: React.FC = () => {
                     sx={{ 
                       '& .MuiTableCell-root': { 
                         border: 'none', 
-                        py: 1.5, 
-                        px: 2,
+                        py: 0.75, 
+                        px: 1.5,
                         ...(isMobile && {
                           px: 1,
-                          py: 1,
-                          fontSize: '0.85rem'
+                          py: 0.5,
+                          fontSize: '0.75rem'
                         })
                       }
                     }}
@@ -659,11 +659,11 @@ const ProductsPage: React.FC = () => {
                     <TableBody>
                       {/* Basic Information Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pb: 1 }}>
+                        <TableCell colSpan={2} sx={{ pb: 0.5, py: 0.5 }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.8rem'
+                            fontSize: '0.75rem'
                           }}>
                             Basic Information
                           </Typography>
@@ -675,7 +675,7 @@ const ProductsPage: React.FC = () => {
                           color: 'text.secondary', 
                           width: isMobile ? '40%' : '35%',
                           minWidth: isMobile ? 'auto' : '120px',
-                          fontSize: '0.8rem'
+                          fontSize: '0.75rem'
                         }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
@@ -735,11 +735,11 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Pricing Information Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pt: 3, pb: 1 }}>
+                        <TableCell colSpan={2} sx={{ pt: 1.5, pb: 0.5 }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.8rem'
+                            fontSize: '0.75rem'
                           }}>
                             Pricing Information
                           </Typography>
@@ -792,11 +792,11 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Stock Information Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pt: 3, pb: 1 }}>
+                        <TableCell colSpan={2} sx={{ pt: 1.5, pb: 0.5 }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.8rem'
+                            fontSize: '0.75rem'
                           }}>
                             Stock Information
                           </Typography>
