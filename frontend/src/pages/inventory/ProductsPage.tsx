@@ -881,6 +881,36 @@ const ProductsPage: React.FC = () => {
                           </Box>
                         </TableCell>
                       </TableRow>
+                      
+                      {/* Notes Section */}
+                      <TableRow>
+                        <TableCell colSpan={2} sx={{ pt: 1.5, pb: 0.5 }}>
+                          <Typography variant="h6" sx={{ 
+                            fontWeight: 600, 
+                            color: 'primary.main', 
+                            fontSize: '0.75rem'
+                          }}>
+                            Notes
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell colSpan={2} sx={{ p: 1.5 }}>
+                          <Box sx={{ 
+                            minHeight: 80,
+                            border: '1px dashed rgba(0, 0, 0, 0.12)',
+                            borderRadius: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: 'grey.50'
+                          }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
+                              No notes available
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </TableContainer>
