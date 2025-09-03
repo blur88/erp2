@@ -369,6 +369,9 @@ export class ProductResponseDto {
   @ApiProperty({ description: 'Wholesale margin percentage' })
   grossMarginWholesale: number;
 
+  @ApiProperty({ description: 'Special price margin percentage' })
+  grossMarginSpecial: number;
+
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
 

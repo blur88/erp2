@@ -72,6 +72,7 @@ export interface Product {
   // Margin calculations
   grossMarginRetail: number;
   grossMarginWholesale: number;
+  grossMarginSpecial: number;
   createdAt: Date;
   updatedAt: Date;
 }

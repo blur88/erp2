@@ -1072,27 +1072,47 @@ const ProductsPage: React.FC = () => {
                             Special Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
-                          {inlineEditMode && inlineEditData ? (
-                            <TextField
-                              value={inlineEditData.specialPrice}
-                              onChange={(e) => handleInlineEditChange('specialPrice', parseFloat(e.target.value) || 0)}
-                              size="small"
-                              type="number"
-                              inputProps={{ step: 0.01, min: 0 }}
-                              InputProps={{
-                                startAdornment: <InputAdornment position="start">$</InputAdornment>
-                              }}
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
-                                  height: '28px'
-                                }
-                              }}
-                            />
-                          ) : (
-                            `$${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}`
-                          )}
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {inlineEditMode && inlineEditData ? (
+                              <TextField
+                                value={inlineEditData.specialPrice}
+                                onChange={(e) => handleInlineEditChange('specialPrice', parseFloat(e.target.value) || 0)}
+                                size="small"
+                                type="number"
+                                inputProps={{ step: 0.01, min: 0 }}
+                                InputProps={{
+                                  startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                }}
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    fontSize: '0.8rem',
+                                    height: '28px'
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <Typography sx={{ fontSize: '0.8rem' }}>
+                                  ${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}
+                                </Typography>
+                                {selectedProductForDetails.grossMarginSpecial !== undefined && (
+                                  <Chip
+                                    label={`${selectedProductForDetails.grossMarginSpecial?.toFixed(1) || '0.0'}%`}
+                                    size="small"
+                                    variant="outlined"
+                                    color={selectedProductForDetails.grossMarginSpecial > 15 ? 'success' : selectedProductForDetails.grossMarginSpecial > 5 ? 'warning' : 'error'}
+                                    sx={{
+                                      fontSize: '0.65rem',
+                                      fontWeight: 500,
+                                      height: 18,
+                                      minWidth: 42
+                                    }}
+                                  />
+                                )}
+                              </>
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                       

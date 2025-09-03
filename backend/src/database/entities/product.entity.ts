@@ -359,6 +359,12 @@ export class Product extends BaseEntity {
     return cost > 0 ? ((wholesale - cost) / wholesale) * 100 : 0;
   }
 
+  get grossMarginSpecial(): number {
+    const special = Number(this.specialPrice);
+    const cost = Number(this.baseCost);
+    return cost > 0 ? ((special - cost) / special) * 100 : 0;
+  }
+
   // Helper methods
   updateStockStatus(): void {
     if (this.isOutOfStock) {

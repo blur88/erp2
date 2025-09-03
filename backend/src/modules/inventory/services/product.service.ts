@@ -840,6 +840,7 @@ export class ProductService {
       isOutOfStock: product.isOutOfStock,
       grossMarginRetail: product.grossMarginRetail,
       grossMarginWholesale: product.grossMarginWholesale,
+      grossMarginSpecial: product.grossMarginSpecial,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
