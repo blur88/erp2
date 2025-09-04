@@ -802,6 +802,119 @@ export class ProductService {
   }
 
   /**
+   * Get dashboard statistics for inventory overview
+   */
+  async getDashboardStats(): Promise<{
+    totalProducts: number;
+    totalCategories: number;
+    inventoryValue: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+    recentMovements: number;
+    categoryBreakdown: Array<{ category: string; count: number; value: number }>;
+    stockHealthMetrics: {
+      inStockPercentage: number;
+      lowStockPercentage: number;
+      outOfStockPercentage: number;
+      averageValue: number;
+    };
+  }> {
+    this.logger.log('Fetching dashboard statistics');
+
+    // Get total products count
+    const totalProducts = await this.productRepository.count({
+      where: { deletedAt: null }
+    });
+
+    // Get total categories count
+    const totalCategories = await this.categoryRepository.count({
+      where: { isActive: true }
+    });
+
+    // Get all active products with category info for calculations
+    const products = await this.productRepository.find({
+      relations: ['category'],
+      where: { deletedAt: null }
+    });
+
+    // Calculate comprehensive statistics
+    let inventoryValue = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+    const categoryMap = new Map<string, { count: number; value: number }>();
+
+    products.forEach(product => {
+      const stock = Number(product.stockQuantity) || 0;
+      const price = Number(product.retailPrice) || 0;
+      const reorderLevel = Number(product.reorderLevel) || 0;
+      
+      // Calculate inventory value
+      inventoryValue += stock * price;
+
+      // Count low stock and out of stock
+      if (stock <= 0) {
+        outOfStockCount++;
+      } else if (reorderLevel > 0 && stock <= reorderLevel) {
+        lowStockCount++;
+      }
+
+      // Category breakdown
+      const categoryName = product.category?.name || 'Uncategorized';
+      const existing = categoryMap.get(categoryName) || { count: 0, value: 0 };
+      existing.count += 1;
+      existing.value += stock * price;
+      categoryMap.set(categoryName, existing);
+    });
+
+    // Convert category map to array and sort by value
+    const categoryBreakdown = Array.from(categoryMap.entries())
+      .map(([category, data]) => ({ category, ...data }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5); // Top 5 categories
+
+    // Calculate stock health metrics
+    const inStockCount = totalProducts - outOfStockCount;
+    const stockHealthMetrics = {
+      inStockPercentage: totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0,
+      lowStockPercentage: totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0,
+      outOfStockPercentage: totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0,
+      averageValue: totalProducts > 0 ? inventoryValue / totalProducts : 0,
+    };
+
+    // Get recent movements count (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    let recentMovements = 0;
+    try {
+      // Try to get recent movements count from stock movement service
+      const movementsQuery = await this.stockMovementService.findAll({
+        page: 1,
+        limit: 1,
+        fromDate: thirtyDaysAgo,
+      });
+      recentMovements = movementsQuery.meta?.total || 0;
+    } catch (error) {
+      this.logger.warn('Could not fetch recent movements count:', error.message);
+      recentMovements = 0;
+    }
+
+    const stats = {
+      totalProducts,
+      totalCategories,
+      inventoryValue: Number(inventoryValue.toFixed(2)),
+      lowStockCount,
+      outOfStockCount,
+      recentMovements,
+      categoryBreakdown,
+      stockHealthMetrics,
+    };
+
+    this.logger.log('Dashboard statistics calculated successfully');
+    return stats;
+  }
+
+  /**
    * Convert product entity to response DTO
    */
   private toResponseDto(product: Product): ProductResponseDto {

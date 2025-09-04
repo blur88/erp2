@@ -39,6 +39,16 @@ export class ProductController {
     private readonly pricingService: PricingService,
   ) {}
 
+  @Get('dashboard-stats')
+  @ApiOperation({ summary: 'Get inventory dashboard statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Dashboard statistics retrieved successfully',
+  })
+  async getDashboardStats() {
+    return this.productService.getDashboardStats();
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({

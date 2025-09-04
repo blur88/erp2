@@ -247,4 +247,23 @@ export const inventoryApi = {
       }>
     }>('/inventory/analytics', { params })
   },
+
+  // Dashboard
+  async getDashboardStats() {
+    return ApiService.get<{
+      totalProducts: number
+      totalCategories: number
+      inventoryValue: number
+      lowStockCount: number
+      outOfStockCount: number
+      recentMovements: number
+      categoryBreakdown: Array<{ category: string; count: number; value: number }>
+      stockHealthMetrics: {
+        inStockPercentage: number
+        lowStockPercentage: number
+        outOfStockPercentage: number
+        averageValue: number
+      }
+    }>('/inventory/products/dashboard-stats')
+  },
 }
