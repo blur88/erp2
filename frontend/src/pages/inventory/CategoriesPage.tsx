@@ -96,11 +96,11 @@ const CategoriesPage: React.FC = () => {
   })
 
   useEffect(() => {
-    dispatch(fetchCategories())
+    dispatch(fetchCategories({}))
   }, [dispatch])
 
   const handleRefresh = () => {
-    dispatch(fetchCategories())
+    dispatch(fetchCategories({}))
   }
 
   const handleAddCategory = (parentId?: string) => {
@@ -651,7 +651,7 @@ const CategoriesPage: React.FC = () => {
       <DeletedCategoriesDialog
         open={deletedCategoriesDialogOpen}
         onClose={() => setDeletedCategoriesDialogOpen(false)}
-        onCategoryRestored={() => dispatch(fetchCategories())}
+        onCategoryRestored={() => dispatch(fetchCategories({}))}
       />
     </Box>
   )

@@ -44,6 +44,7 @@ import {
 import { useNotification } from '@/hooks/useNotification'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import type { Product } from '@/types'
+import { formatCurrency } from '@/utils/currency'
 
 interface DeletedProductsDialogProps {
   open: boolean
@@ -287,7 +288,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                               </Typography>
                               {product.retailPrice && (
                                 <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
-                                  • ${(product.retailPrice || 0).toFixed(2)}
+                                  • {formatCurrency(product.retailPrice)}
                                 </Typography>
                               )}
                             </Box>
@@ -317,7 +318,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       {!isMobile && (
                         <TableCell align="right">
                           <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
-                            ${(product.retailPrice || 0).toFixed(2)}
+                            {formatCurrency(product.retailPrice)}
                           </Typography>
                         </TableCell>
                       )}

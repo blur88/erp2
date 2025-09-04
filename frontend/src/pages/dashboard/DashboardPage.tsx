@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material'
 
 import LoadingSpinner from '@/components/common/LoadingSpinner'
+import { formatCurrency } from '@/utils/currency'
 
 interface StatCardProps {
   title: string
@@ -144,7 +145,7 @@ const DashboardPage: React.FC = () => {
   const stats = [
     {
       title: 'Total Sales',
-      value: '$125,430',
+      value: formatCurrency(125430),
       change: 12.5,
       icon: <SalesIcon />,
       color: 'primary' as const,

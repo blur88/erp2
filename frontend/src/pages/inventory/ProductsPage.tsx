@@ -51,6 +51,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import type { Product } from '@/types'
+import { formatCurrency } from '@/utils/currency'
 import {
   fetchProducts,
   fetchCategories,
@@ -955,7 +956,7 @@ const ProductsPage: React.FC = () => {
                               type="number"
                               inputProps={{ step: 0.01, min: 0 }}
                               InputProps={{
-                                startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                startAdornment: <InputAdornment position="start">RM</InputAdornment>
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
@@ -965,7 +966,7 @@ const ProductsPage: React.FC = () => {
                               }}
                             />
                           ) : (
-                            `$${selectedProductForDetails.baseCost?.toFixed(2) || '0.00'}`
+                            formatCurrency(selectedProductForDetails.baseCost)
                           )}
                         </TableCell>
                       </TableRow>
@@ -987,7 +988,7 @@ const ProductsPage: React.FC = () => {
                                   type="number"
                                   inputProps={{ step: 0.01, min: 0 }}
                                   InputProps={{
-                                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                    startAdornment: <InputAdornment position="start">RM</InputAdornment>
                                   }}
                                   sx={{
                                     '& .MuiOutlinedInput-root': {
@@ -1014,7 +1015,7 @@ const ProductsPage: React.FC = () => {
                             ) : (
                               <>
                                 <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
-                                  ${selectedProductForDetails.retailPrice?.toFixed(2) || '0.00'}
+                                  {formatCurrency(selectedProductForDetails.retailPrice)}
                                 </Typography>
                                 {selectedProductForDetails.grossMarginRetail !== undefined && (
                                   <Chip
@@ -1053,7 +1054,7 @@ const ProductsPage: React.FC = () => {
                                   type="number"
                                   inputProps={{ step: 0.01, min: 0 }}
                                   InputProps={{
-                                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                    startAdornment: <InputAdornment position="start">RM</InputAdornment>
                                   }}
                                   sx={{
                                     '& .MuiOutlinedInput-root': {
@@ -1080,7 +1081,7 @@ const ProductsPage: React.FC = () => {
                             ) : (
                               <>
                                 <Typography sx={{ fontSize: '0.8rem' }}>
-                                  ${selectedProductForDetails.wholesalePrice?.toFixed(2) || '0.00'}
+                                  {formatCurrency(selectedProductForDetails.wholesalePrice)}
                                 </Typography>
                                 {selectedProductForDetails.grossMarginWholesale !== undefined && (
                                   <Chip
@@ -1119,7 +1120,7 @@ const ProductsPage: React.FC = () => {
                                   type="number"
                                   inputProps={{ step: 0.01, min: 0 }}
                                   InputProps={{
-                                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                    startAdornment: <InputAdornment position="start">RM</InputAdornment>
                                   }}
                                   sx={{
                                     '& .MuiOutlinedInput-root': {
@@ -1146,7 +1147,7 @@ const ProductsPage: React.FC = () => {
                             ) : (
                               <>
                                 <Typography sx={{ fontSize: '0.8rem' }}>
-                                  ${selectedProductForDetails.specialPrice?.toFixed(2) || '0.00'}
+                                  {formatCurrency(selectedProductForDetails.specialPrice)}
                                 </Typography>
                                 {selectedProductForDetails.grossMarginSpecial !== undefined && (
                                   <Chip
@@ -1428,7 +1429,7 @@ const ProductsPage: React.FC = () => {
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                        startAdornment: <InputAdornment position="start">RM</InputAdornment>
                       }}
                       error={!!errors.baseCost}
                       helperText={errors.baseCost?.message}
@@ -1469,7 +1470,7 @@ const ProductsPage: React.FC = () => {
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        startAdornment: <InputAdornment position="start">RM</InputAdornment>,
                         endAdornment: retailMargin > 0 && (
                           <InputAdornment position="end">
                             <Chip
@@ -1501,7 +1502,7 @@ const ProductsPage: React.FC = () => {
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        startAdornment: <InputAdornment position="start">RM</InputAdornment>,
                         endAdornment: wholesaleMargin > 0 && (
                           <InputAdornment position="end">
                             <Chip
@@ -1533,7 +1534,7 @@ const ProductsPage: React.FC = () => {
                       type="number"
                       inputProps={{ step: 0.01, min: 0 }}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        startAdornment: <InputAdornment position="start">RM</InputAdornment>,
                         endAdornment: specialMargin > 0 && (
                           <InputAdornment position="end">
                             <Chip
