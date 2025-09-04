@@ -196,6 +196,9 @@ const ProductsPage: React.FC = () => {
   const wholesalePrice = watch('wholesalePrice')
   const specialPrice = watch('specialPrice')
   const watchedName = watch('name')
+  const watchedType = watch('type')
+  const watchedCategoryId = watch('categoryId')
+  const watchedCurrentStock = watch('currentStock')
 
   // Calculate profit margins
   const calculateMargin = (sellingPrice: number | undefined, cost: number): number => {
@@ -207,6 +210,13 @@ const ProductsPage: React.FC = () => {
   const retailMargin = calculateMargin(retailPrice, baseCost)
   const wholesaleMargin = calculateMargin(wholesalePrice, baseCost)
   const specialMargin = calculateMargin(specialPrice, baseCost)
+
+  // Check if all mandatory fields are filled
+  const isMandatoryFieldsComplete = watchedName?.trim().length >= 2 && 
+    watchedType && 
+    watchedCategoryId?.trim().length >= 1 && 
+    baseCost >= 0 && 
+    watchedCurrentStock >= 0
 
   // Real-time duplicate name checking
   useEffect(() => {
@@ -1913,15 +1923,15 @@ const ProductsPage: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={isSubmitting || isDuplicateName}
+              disabled={isSubmitting || isDuplicateName || (!editMode && !isMandatoryFieldsComplete)}
               sx={{ 
                 minWidth: 100,
-                backgroundColor: isDuplicateName ? 'grey.400' : undefined,
+                backgroundColor: (isDuplicateName || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
                 '&:hover': {
-                  backgroundColor: isDuplicateName ? 'grey.400' : undefined
+                  backgroundColor: (isDuplicateName || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined
                 },
                 '&.Mui-disabled': {
-                  backgroundColor: isDuplicateName ? 'grey.400' : undefined,
+                  backgroundColor: (isDuplicateName || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
                   color: 'grey.600'
                 }
               }}
