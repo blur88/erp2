@@ -339,8 +339,15 @@ const ProductsPage: React.FC = () => {
           throw new Error(result.payload as string)
         }
       } else {
-        // Add new product
-        const result = await dispatch(createProduct(data))
+        // Add new product - transform form data to match backend DTO
+        const createData = {
+          ...data,
+          currentStock: data.currentStock, // Backend expects currentStock, not stockQuantity
+          // Remove fields that shouldn't be sent to backend
+          type: data.type === 'goods' || data.type === 'service' ? data.type : 'goods'
+        }
+        
+        const result = await dispatch(createProduct(createData))
         
         // Check if the action was rejected
         if (createProduct.rejected.match(result)) {
