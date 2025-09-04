@@ -52,20 +52,31 @@ export class ProductService {
   async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
     this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
-    // Check if barcode already exists (including soft-deleted products)
-    const existingProduct = await this.productRepository.findOne({
-      where: { barcode: createProductDto.barcode },
-      withDeleted: true, // Include soft-deleted products in the check
+    // Check if product name already exists (active products only)
+    const existingProductByName = await this.productRepository.findOne({
+      where: { name: createProductDto.name },
     });
 
-    if (existingProduct) {
-      if (existingProduct.deletedAt) {
-        throw new ConflictException(
-          `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
-          `Please choose a different barcode.`
-        );
-      } else {
-        throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
+    if (existingProductByName) {
+      throw new ConflictException(`Product with name '${createProductDto.name}' already exists`);
+    }
+
+    // Check if barcode already exists (including soft-deleted products)
+    if (createProductDto.barcode) {
+      const existingProduct = await this.productRepository.findOne({
+        where: { barcode: createProductDto.barcode },
+        withDeleted: true, // Include soft-deleted products in the check
+      });
+
+      if (existingProduct) {
+        if (existingProduct.deletedAt) {
+          throw new ConflictException(
+            `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
+            `Please choose a different barcode.`
+          );
+        } else {
+          throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
+        }
       }
     }
 
@@ -449,6 +460,17 @@ export class ProductService {
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${id}' not found`);
+    }
+
+    // Check for name conflicts if name is being changed
+    if (updateProductDto.name && updateProductDto.name !== product.name) {
+      const existingProductByName = await this.productRepository.findOne({
+        where: { name: updateProductDto.name },
+      });
+
+      if (existingProductByName) {
+        throw new ConflictException(`Product with name '${updateProductDto.name}' already exists`);
+      }
     }
 
     // Check for barcode conflicts if barcode is being changed

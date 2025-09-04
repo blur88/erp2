@@ -120,6 +120,8 @@ const ProductsPage: React.FC = () => {
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
+  const [duplicateNameError, setDuplicateNameError] = useState<string>('')
+  const [isDuplicateName, setIsDuplicateName] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -188,11 +190,12 @@ const ProductsPage: React.FC = () => {
     },
   })
 
-  // Watch form values for real-time profit margin calculation
+  // Watch form values for real-time profit margin calculation and duplicate name validation
   const baseCost = watch('baseCost')
   const retailPrice = watch('retailPrice')
   const wholesalePrice = watch('wholesalePrice')
   const specialPrice = watch('specialPrice')
+  const watchedName = watch('name')
 
   // Calculate profit margins
   const calculateMargin = (sellingPrice: number | undefined, cost: number): number => {
@@ -204,6 +207,34 @@ const ProductsPage: React.FC = () => {
   const retailMargin = calculateMargin(retailPrice, baseCost)
   const wholesaleMargin = calculateMargin(wholesalePrice, baseCost)
   const specialMargin = calculateMargin(specialPrice, baseCost)
+
+  // Real-time duplicate name checking
+  useEffect(() => {
+    if (!watchedName || watchedName.trim().length < 2) {
+      setDuplicateNameError('')
+      setIsDuplicateName(false)
+      return
+    }
+
+    const trimmedName = watchedName.trim().toLowerCase()
+    
+    // Check for duplicate names in existing products
+    const duplicateProduct = products.find(product => {
+      // Skip self when editing
+      if (editMode && selectedProduct && product.id === selectedProduct.id) {
+        return false
+      }
+      return product.name.toLowerCase() === trimmedName
+    })
+
+    if (duplicateProduct) {
+      setDuplicateNameError(`Product with name '${duplicateProduct.name}' already exists`)
+      setIsDuplicateName(true)
+    } else {
+      setDuplicateNameError('')
+      setIsDuplicateName(false)
+    }
+  }, [watchedName, products, editMode, selectedProduct])
 
   // Products are already filtered by backend search
   const filteredProducts = products || []
@@ -1600,8 +1631,17 @@ const ProductsPage: React.FC = () => {
                       fullWidth
                       size="small"
                       label="Product Name"
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
+                      error={!!errors.name || isDuplicateName}
+                      helperText={errors.name?.message || duplicateNameError}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-error': {
+                            '& fieldset': {
+                              borderColor: isDuplicateName ? 'error.main' : undefined
+                            }
+                          }
+                        }
+                      }}
                     />
                   )}
                 />
@@ -1873,8 +1913,18 @@ const ProductsPage: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={isSubmitting}
-              sx={{ minWidth: 100 }}
+              disabled={isSubmitting || isDuplicateName}
+              sx={{ 
+                minWidth: 100,
+                backgroundColor: isDuplicateName ? 'grey.400' : undefined,
+                '&:hover': {
+                  backgroundColor: isDuplicateName ? 'grey.400' : undefined
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: isDuplicateName ? 'grey.400' : undefined,
+                  color: 'grey.600'
+                }
+              }}
             >
               {isSubmitting ? 'Saving...' : editMode ? 'Update' : 'Create'}
             </Button>

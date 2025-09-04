@@ -343,6 +343,9 @@ const inventorySlice = createSlice({
           state.products.unshift(action.payload)
         }
       })
+      .addCase(createProduct.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
 
     // Update Product
     builder
@@ -356,6 +359,9 @@ const inventorySlice = createSlice({
             state.selectedProduct = action.payload
           }
         }
+      })
+      .addCase(updateProduct.rejected, (state, action) => {
+        state.error = action.payload as string
       })
 
     // Delete Product
