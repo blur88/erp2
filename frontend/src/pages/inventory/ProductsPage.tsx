@@ -142,6 +142,10 @@ const ProductsPage: React.FC = () => {
   const [isDuplicateName, setIsDuplicateName] = useState(false)
   const [duplicateBarcodeError, setDuplicateBarcodeError] = useState<string>('')
   const [isDuplicateBarcode, setIsDuplicateBarcode] = useState(false)
+  const [inlineEditDuplicateNameError, setInlineEditDuplicateNameError] = useState<string>('')
+  const [isInlineEditDuplicateName, setIsInlineEditDuplicateName] = useState(false)
+  const [inlineEditDuplicateBarcodeError, setInlineEditDuplicateBarcodeError] = useState<string>('')
+  const [isInlineEditDuplicateBarcode, setIsInlineEditDuplicateBarcode] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -179,6 +183,11 @@ const ProductsPage: React.FC = () => {
     if (inlineEditMode) {
       setInlineEditMode(false)
       setInlineEditData(null)
+      // Clear validation states
+      setInlineEditDuplicateNameError('')
+      setIsInlineEditDuplicateName(false)
+      setInlineEditDuplicateBarcodeError('')
+      setIsInlineEditDuplicateBarcode(false)
     }
   }, [selectedProductForDetails?.id])
 
@@ -310,6 +319,79 @@ const ProductsPage: React.FC = () => {
       setIsDuplicateBarcode(false)
     }
   }, [watchedBarcode, products, deletedProducts, editMode, selectedProduct])
+
+  // Real-time duplicate validation for inline editing
+  useEffect(() => {
+    if (!inlineEditMode || !inlineEditData || !selectedProductForDetails) {
+      setInlineEditDuplicateNameError('')
+      setIsInlineEditDuplicateName(false)
+      setInlineEditDuplicateBarcodeError('')
+      setIsInlineEditDuplicateBarcode(false)
+      return
+    }
+
+    // Check for duplicate name
+    if (inlineEditData.name && inlineEditData.name.trim().length >= 2) {
+      const trimmedName = inlineEditData.name.trim().toLowerCase()
+      
+      const duplicateActiveProduct = products.find(product => {
+        // Skip self when editing
+        if (product.id === selectedProductForDetails.id) {
+          return false
+        }
+        return product.name.toLowerCase() === trimmedName
+      })
+
+      const duplicateDeletedProduct = deletedProducts.find(product => {
+        return product.name.toLowerCase() === trimmedName
+      })
+
+      if (duplicateActiveProduct) {
+        setInlineEditDuplicateNameError(`Product with name '${duplicateActiveProduct.name}' already exists`)
+        setIsInlineEditDuplicateName(true)
+      } else if (duplicateDeletedProduct) {
+        setInlineEditDuplicateNameError(`Product with name '${duplicateDeletedProduct.name}' was previously deleted. Please choose a different name or restore the deleted product.`)
+        setIsInlineEditDuplicateName(true)
+      } else {
+        setInlineEditDuplicateNameError('')
+        setIsInlineEditDuplicateName(false)
+      }
+    } else {
+      setInlineEditDuplicateNameError('')
+      setIsInlineEditDuplicateName(false)
+    }
+
+    // Check for duplicate barcode
+    if (inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1) {
+      const trimmedBarcode = inlineEditData.barcode.trim().toLowerCase()
+      
+      const duplicateActiveProduct = products.find(product => {
+        // Skip self when editing
+        if (product.id === selectedProductForDetails.id) {
+          return false
+        }
+        return product.barcode?.toLowerCase() === trimmedBarcode
+      })
+
+      const duplicateDeletedProduct = deletedProducts.find(product => {
+        return product.barcode?.toLowerCase() === trimmedBarcode
+      })
+
+      if (duplicateActiveProduct) {
+        setInlineEditDuplicateBarcodeError(`Product with barcode '${duplicateActiveProduct.barcode}' already exists`)
+        setIsInlineEditDuplicateBarcode(true)
+      } else if (duplicateDeletedProduct) {
+        setInlineEditDuplicateBarcodeError(`Product with barcode '${duplicateDeletedProduct.barcode}' was previously deleted. Please choose a different barcode or restore the deleted product.`)
+        setIsInlineEditDuplicateBarcode(true)
+      } else {
+        setInlineEditDuplicateBarcodeError('')
+        setIsInlineEditDuplicateBarcode(false)
+      }
+    } else {
+      setInlineEditDuplicateBarcodeError('')
+      setIsInlineEditDuplicateBarcode(false)
+    }
+  }, [inlineEditData, products, deletedProducts, inlineEditMode, selectedProductForDetails])
 
   // Products are already filtered by backend search
   const filteredProducts = products || []
@@ -480,6 +562,11 @@ const ProductsPage: React.FC = () => {
   const handleInlineEditCancel = () => {
     setInlineEditMode(false)
     setInlineEditData(null)
+    // Clear validation states
+    setInlineEditDuplicateNameError('')
+    setIsInlineEditDuplicateName(false)
+    setInlineEditDuplicateBarcodeError('')
+    setIsInlineEditDuplicateBarcode(false)
   }
 
   const handleInlineEditSave = async () => {
@@ -490,6 +577,56 @@ const ProductsPage: React.FC = () => {
       if (!inlineEditData.categoryId || inlineEditData.categoryId.trim() === '') {
         showError('Please select a category')
         return
+      }
+
+      // Check for duplicate name
+      if (inlineEditData.name && inlineEditData.name.trim().length >= 2) {
+        const trimmedName = inlineEditData.name.trim().toLowerCase()
+        
+        const duplicateActiveProduct = products.find(product => {
+          // Skip self when editing
+          if (product.id === selectedProductForDetails.id) {
+            return false
+          }
+          return product.name.toLowerCase() === trimmedName
+        })
+
+        const duplicateDeletedProduct = deletedProducts.find(product => {
+          return product.name.toLowerCase() === trimmedName
+        })
+
+        if (duplicateActiveProduct) {
+          showError(`Product with name '${duplicateActiveProduct.name}' already exists`)
+          return
+        } else if (duplicateDeletedProduct) {
+          showError(`Product with name '${duplicateDeletedProduct.name}' was previously deleted. Please choose a different name or restore the deleted product.`)
+          return
+        }
+      }
+
+      // Check for duplicate barcode
+      if (inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1) {
+        const trimmedBarcode = inlineEditData.barcode.trim().toLowerCase()
+        
+        const duplicateActiveProduct = products.find(product => {
+          // Skip self when editing
+          if (product.id === selectedProductForDetails.id) {
+            return false
+          }
+          return product.barcode?.toLowerCase() === trimmedBarcode
+        })
+
+        const duplicateDeletedProduct = deletedProducts.find(product => {
+          return product.barcode?.toLowerCase() === trimmedBarcode
+        })
+
+        if (duplicateActiveProduct) {
+          showError(`Product with barcode '${duplicateActiveProduct.barcode}' already exists`)
+          return
+        } else if (duplicateDeletedProduct) {
+          showError(`Product with barcode '${duplicateDeletedProduct.barcode}' was previously deleted. Please choose a different barcode or restore the deleted product.`)
+          return
+        }
       }
       
       const result = await dispatch(updateProduct({ 
@@ -503,6 +640,11 @@ const ProductsPage: React.FC = () => {
         dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
         setInlineEditMode(false)
         setInlineEditData(null)
+        // Clear validation states
+        setInlineEditDuplicateNameError('')
+        setIsInlineEditDuplicateName(false)
+        setInlineEditDuplicateBarcodeError('')
+        setIsInlineEditDuplicateBarcode(false)
       } else {
         throw new Error(result.payload as string)
       }
@@ -1055,10 +1197,15 @@ const ProductsPage: React.FC = () => {
                         title="Save changes"
                         aria-label="Save changes"
                         onClick={handleInlineEditSave}
+                        disabled={isInlineEditDuplicateName || isInlineEditDuplicateBarcode}
                         sx={{
                           '&:hover': {
                             backgroundColor: 'success.light',
                             color: 'success.main'
+                          },
+                          '&.Mui-disabled': {
+                            backgroundColor: 'grey.300',
+                            color: 'grey.500'
                           },
                           p: 0.5
                         }}
@@ -1175,10 +1322,21 @@ const ProductsPage: React.FC = () => {
                               onChange={(e) => handleInlineEditChange('name', e.target.value)}
                               size="small"
                               fullWidth
+                              error={isInlineEditDuplicateName}
+                              helperText={inlineEditDuplicateNameError}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   fontSize: '0.8rem',
-                                  height: '28px'
+                                  height: '28px',
+                                  '&.Mui-error': {
+                                    '& fieldset': {
+                                      borderColor: 'error.main'
+                                    }
+                                  }
+                                },
+                                '& .MuiFormHelperText-root': {
+                                  fontSize: '0.7rem',
+                                  margin: '2px 0 0 0'
                                 }
                               }}
                             />
@@ -1201,10 +1359,21 @@ const ProductsPage: React.FC = () => {
                               onChange={(e) => handleInlineEditChange('barcode', e.target.value)}
                               size="small"
                               fullWidth
+                              error={isInlineEditDuplicateBarcode}
+                              helperText={inlineEditDuplicateBarcodeError}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   fontSize: '0.8rem',
-                                  height: '28px'
+                                  height: '28px',
+                                  '&.Mui-error': {
+                                    '& fieldset': {
+                                      borderColor: 'error.main'
+                                    }
+                                  }
+                                },
+                                '& .MuiFormHelperText-root': {
+                                  fontSize: '0.7rem',
+                                  margin: '2px 0 0 0'
                                 }
                               }}
                             />
