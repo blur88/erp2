@@ -401,7 +401,7 @@ export class PurchaseOrderItem extends BaseEntity {
   ): Partial<PurchaseOrderItem> {
     return {
       productId: product.id,
-      productSku: product.sku,
+      productSku: product.barcode,
       productName: product.name,
       productDescription: product.description,
       unit: product.unit,

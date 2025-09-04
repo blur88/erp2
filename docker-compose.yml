@@ -67,8 +67,9 @@ services:
     container_name: erp_frontend
     restart: unless-stopped
     environment:
-      - VITE_API_BASE_URL=http://localhost:3001/api
-      - VITE_SOCKET_URL=http://localhost:3001
+      # Use relative URLs for VPN compatibility - NGINX will proxy
+      - VITE_API_BASE_URL=/api
+      - VITE_SOCKET_URL=/
     ports:
       - "3000:80"
     depends_on:

@@ -182,7 +182,7 @@ export const PERFORMANCE_INDEXES = {
   CRITICAL: [
     'users.email',
     'users.username', 
-    'products.sku',
+    'products.barcode',
     'customers.customerCode',
     'suppliers.supplierCode',
     'sales_orders.orderNumber',

@@ -92,6 +92,20 @@ export class CategoryController {
     return this.categoryService.getTree(includeProductCount);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted categories' })
+  @ApiResponse({
+    status: 200,
+    description: 'Deleted categories retrieved successfully',
+    type: CategoryListResponseDto,
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search term' })
+  async findDeleted(@Query() query: QueryCategoriesDto): Promise<CategoryListResponseDto> {
+    return this.categoryService.findDeleted(query);
+  }
+
   @Get('roots')
   @ApiOperation({ summary: 'Get root level categories only' })
   @ApiResponse({
@@ -237,6 +251,41 @@ export class CategoryController {
   ): Promise<{ message: string }> {
     await this.categoryService.bulkUpdate(bulkUpdateDto);
     return { message: `Successfully updated ${bulkUpdateDto.categories.length} categories` };
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted category' })
+  @ApiResponse({
+    status: 200,
+    description: 'Category restored successfully',
+    type: CategoryResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 400, description: 'Category is not deleted' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<CategoryResponseDto> {
+    return this.categoryService.restore(id);
+  }
+
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a category from database' })
+  @ApiResponse({
+    status: 204,
+    description: 'Category permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Category must be soft-deleted first or has active references' 
+  })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.categoryService.permanentDelete(id);
   }
 
   @Delete(':id')

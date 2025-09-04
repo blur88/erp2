@@ -303,7 +303,7 @@ export class SalesOrderItem extends BaseEntity {
     
     return {
       productId: product.id,
-      productSku: product.sku,
+      productSku: product.barcode,
       productName: product.name,
       productDescription: product.description,
       unit: product.unit,

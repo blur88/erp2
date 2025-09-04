@@ -23,6 +23,18 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/products/${id}`)
   },
 
+  async getDeletedProducts(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Product>>('/inventory/products/deleted', { params })
+  },
+
+  async restoreProduct(id: string) {
+    return ApiService.post<Product>(`/inventory/products/${id}/restore`)
+  },
+
+  async permanentDeleteProduct(id: string) {
+    return ApiService.delete(`/inventory/products/${id}/permanent`)
+  },
+
   async uploadProductImage(productId: string, file: File) {
     return ApiService.uploadFile<{ url: string }>(`/inventory/products/${productId}/image`, file)
   },
@@ -62,6 +74,88 @@ export const inventoryApi = {
 
   async deleteCategory(id: string) {
     return ApiService.delete(`/inventory/categories/${id}`)
+  },
+
+  async getDeletedCategories(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Category>>('/inventory/categories/deleted', { params })
+  },
+
+  async restoreCategory(id: string) {
+    return ApiService.post<Category>(`/inventory/categories/${id}/restore`)
+  },
+
+  async permanentDeleteCategory(id: string) {
+    return ApiService.delete(`/inventory/categories/${id}/permanent`)
+  },
+
+  // Hierarchical category methods
+  async getCategoryTree(includeProductCount?: boolean) {
+    return ApiService.get<{
+      data: Category[]
+      meta: { totalCategories: number; maxDepth: number; rootCategories: number }
+    }>('/inventory/categories/tree', { params: { includeProductCount } })
+  },
+
+  async getRootCategories(includeProductCount?: boolean) {
+    return ApiService.get<PaginatedResponse<Category>>('/inventory/categories/roots', { 
+      params: { includeProductCount } 
+    })
+  },
+
+  async getCategoryChildren(parentId: string, includeProductCount?: boolean) {
+    return ApiService.get<PaginatedResponse<Category>>(`/inventory/categories/${parentId}/children`, {
+      params: { includeProductCount }
+    })
+  },
+
+  async getCategoryAncestors(id: string) {
+    return ApiService.get<{
+      id: string
+      ancestors: Category[]
+      category: Category
+      breadcrumbs: string[]
+    }>(`/inventory/categories/${id}/ancestors`)
+  },
+
+  async getCategoryStats(id: string) {
+    return ApiService.get<{
+      id: string
+      name: string
+      fullPath: string
+      directProductCount: number
+      totalProductCount: number
+      subcategoryCount: number
+      totalSubcategoryCount: number
+      totalStockValue: number
+      activeProductCount: number
+      inactiveProductCount: number
+      lowStockProductCount: number
+      outOfStockProductCount: number
+      averageRetailPrice: number
+      highestPrice: number
+      lowestPrice: number
+      createdAt: string
+      updatedAt: string
+    }>(`/inventory/categories/${id}/stats`)
+  },
+
+  async moveCategory(id: string, newParentId: string | null, sortOrder?: number) {
+    return ApiService.patch<Category>(`/inventory/categories/${id}/move`, {
+      newParentId,
+      sortOrder
+    })
+  },
+
+  async bulkUpdateCategories(updates: Array<{
+    id: string
+    name?: string
+    isActive?: boolean
+    sortOrder?: number
+    parentId?: string
+  }>) {
+    return ApiService.post<{ message: string }>('/inventory/categories/bulk-update', {
+      categories: updates
+    })
   },
 
   // Stock management

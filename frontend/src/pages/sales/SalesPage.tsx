@@ -48,6 +48,7 @@ import {
 } from 'chart.js'
 import { Line, Bar, Doughnut } from 'react-chartjs-2'
 import { format } from 'date-fns'
+import { formatCurrency } from '@/utils/currency'
 
 ChartJS.register(
   CategoryScale,
@@ -193,7 +194,7 @@ const SalesPage: React.FC = () => {
         beginAtZero: true,
         ticks: {
           callback: function(value: any) {
-            return '$' + value.toLocaleString()
+            return formatCurrency(value, { showSymbol: true })
           }
         }
       }
@@ -258,7 +259,7 @@ const SalesPage: React.FC = () => {
                 </Box>
               </Box>
               <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-                $125,430
+                {formatCurrency(125430)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Total Sales
@@ -360,7 +361,7 @@ const SalesPage: React.FC = () => {
                 </Box>
               </Box>
               <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-                $98,450
+                {formatCurrency(98450)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Payments
@@ -444,7 +445,7 @@ const SalesPage: React.FC = () => {
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="subtitle2" color="primary">
-                          ${order.amount.toFixed(2)}
+                          {formatCurrency(order.amount)}
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -508,7 +509,7 @@ const SalesPage: React.FC = () => {
                       </Box>
                     </Box>
                     <Typography variant="subtitle2" color="primary">
-                      ${customer.amount.toFixed(2)}
+                      {formatCurrency(customer.amount)}
                     </Typography>
                   </Box>
                   <LinearProgress

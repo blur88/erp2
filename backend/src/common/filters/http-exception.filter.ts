@@ -104,6 +104,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (message.includes('users_email_key')) {
         return 'Email already exists';
       }
+      if (message.includes('UQ_c44ac33a05b144dd0d9ddcf9327') || message.includes('products_sku_key')) {
+        return 'Product SKU already exists. Please use a unique SKU.';
+      }
       return 'Duplicate entry detected';
     }
 

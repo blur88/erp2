@@ -5,7 +5,6 @@ import {
   IsBoolean,
   IsEnum,
   IsUUID,
-  IsDecimal,
   IsArray,
   Min,
   Max,
@@ -16,7 +15,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { ProductType, ProductStatus } from '../../../database/entities/product.entity';
+import { ProductStatus, ProductType } from '../../../database/entities/product.entity';
 
 export class ProductDimensionsDto {
   @ApiPropertyOptional({ description: 'Product length in cm' })
@@ -39,10 +38,11 @@ export class ProductDimensionsDto {
 }
 
 export class CreateProductDto {
-  @ApiProperty({ description: 'Stock Keeping Unit - unique product identifier', maxLength: 50 })
+  @ApiPropertyOptional({ description: 'Product barcode - unique product identifier', maxLength: 100 })
+  @IsOptional()
   @IsString()
-  @MaxLength(50)
-  sku: string;
+  @MaxLength(100)
+  barcode?: string;
 
   @ApiProperty({ description: 'Product name', maxLength: 200 })
   @IsString()
@@ -54,15 +54,10 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Product barcode', maxLength: 100 })
+  @ApiPropertyOptional({ description: 'Product type', enum: ProductType, default: ProductType.GOODS })
   @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  barcode?: string;
-
-  @ApiProperty({ description: 'Product type', enum: ProductType })
   @IsEnum(ProductType)
-  type: ProductType;
+  type?: ProductType;
 
   @ApiPropertyOptional({ description: 'Product status', enum: ProductStatus, default: ProductStatus.ACTIVE })
   @IsOptional()
@@ -74,48 +69,34 @@ export class CreateProductDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiProperty({ description: 'Unit of measurement (pcs, kg, liter, etc.)', maxLength: 20 })
-  @IsString()
-  @MaxLength(20)
-  unit: string;
-
   @ApiProperty({ description: 'Base cost price', minimum: 0 })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   baseCost: number;
 
-  @ApiProperty({ description: 'Retail selling price', minimum: 0 })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  retailPrice: number;
-
-  @ApiProperty({ description: 'Wholesale selling price', minimum: 0 })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  wholesalePrice: number;
-
-  @ApiProperty({ description: 'Special/promotional selling price', minimum: 0 })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  specialPrice: number;
-
-  @ApiPropertyOptional({ description: 'Initial stock quantity', minimum: 0, default: 0 })
+  @ApiPropertyOptional({ description: 'Retail selling price', minimum: 0 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  initialStockQuantity?: number;
+  retailPrice?: number;
 
-  @ApiPropertyOptional({ description: 'Minimum stock level for reorder alerts', minimum: 0, default: 0 })
+  @ApiPropertyOptional({ description: 'Wholesale selling price', minimum: 0 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  reorderLevel?: number;
+  wholesalePrice?: number;
 
-  @ApiPropertyOptional({ description: 'Optimal stock quantity to maintain', minimum: 0, default: 0 })
+  @ApiPropertyOptional({ description: 'Special/promotional selling price', minimum: 0 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  optimalStockLevel?: number;
+  specialPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  currentStock?: number;
 
   @ApiPropertyOptional({ description: 'Product weight in kg', minimum: 0 })
   @IsOptional()
@@ -170,11 +151,11 @@ export class CreateProductDto {
 }
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {
-  @ApiPropertyOptional({ description: 'Stock Keeping Unit - unique product identifier', maxLength: 50 })
+  @ApiPropertyOptional({ description: 'Product barcode - unique product identifier', maxLength: 100 })
   @IsOptional()
   @IsString()
-  @MaxLength(50)
-  sku?: string;
+  @MaxLength(100)
+  barcode?: string;
 
   @ApiPropertyOptional({ description: 'Product name', maxLength: 200 })
   @IsOptional()
@@ -204,7 +185,7 @@ export class QueryProductsDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Search term (product name, SKU, barcode, brand)' })
+  @ApiPropertyOptional({ description: 'Search term (product name, barcode, brand)' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
@@ -215,10 +196,6 @@ export class QueryProductsDto {
   @IsUUID(4)
   categoryId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by product type', enum: ProductType })
-  @IsOptional()
-  @IsEnum(ProductType)
-  type?: ProductType;
 
   @ApiPropertyOptional({ description: 'Filter by product status', enum: ProductStatus })
   @IsOptional()
@@ -255,7 +232,7 @@ export class QueryProductsDto {
   @IsBoolean()
   outOfStock?: boolean;
 
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'sku', 'createdAt', 'stockQuantity', 'retailPrice'] })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
@@ -304,8 +281,8 @@ export class ProductResponseDto {
   @ApiProperty({ description: 'Product ID' })
   id: string;
 
-  @ApiProperty({ description: 'Stock Keeping Unit' })
-  sku: string;
+  @ApiProperty({ description: 'Product barcode' })
+  barcode: string;
 
   @ApiProperty({ description: 'Product name' })
   name: string;
@@ -313,20 +290,17 @@ export class ProductResponseDto {
   @ApiPropertyOptional({ description: 'Product description' })
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Product barcode' })
-  barcode?: string;
-
   @ApiProperty({ description: 'Product type', enum: ProductType })
   type: ProductType;
+
+  @ApiProperty({ description: 'Product unit' })
+  unit: string;
 
   @ApiProperty({ description: 'Product status', enum: ProductStatus })
   status: ProductStatus;
 
   @ApiProperty({ description: 'Active status' })
   isActive: boolean;
-
-  @ApiProperty({ description: 'Unit of measurement' })
-  unit: string;
 
   @ApiProperty({ description: 'Base cost price' })
   baseCost: number;
@@ -348,12 +322,6 @@ export class ProductResponseDto {
 
   @ApiProperty({ description: 'Available stock quantity' })
   availableQuantity: number;
-
-  @ApiProperty({ description: 'Reorder level' })
-  reorderLevel: number;
-
-  @ApiProperty({ description: 'Optimal stock level' })
-  optimalStockLevel: number;
 
   @ApiProperty({ description: 'Stock status' })
   stockStatus: string;
@@ -404,6 +372,9 @@ export class ProductResponseDto {
 
   @ApiProperty({ description: 'Wholesale margin percentage' })
   grossMarginWholesale: number;
+
+  @ApiProperty({ description: 'Special price margin percentage' })
+  grossMarginSpecial: number;
 
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
@@ -470,8 +441,8 @@ export class ProductStockSummaryDto {
   @ApiProperty({ description: 'Product ID' })
   id: string;
 
-  @ApiProperty({ description: 'Product SKU' })
-  sku: string;
+  @ApiProperty({ description: 'Product barcode' })
+  barcode: string;
 
   @ApiProperty({ description: 'Product name' })
   name: string;
@@ -485,9 +456,6 @@ export class ProductStockSummaryDto {
   @ApiProperty({ description: 'Reserved stock quantity' })
   reservedQuantity: number;
 
-  @ApiProperty({ description: 'Reorder level' })
-  reorderLevel: number;
-
   @ApiProperty({ description: 'Stock status' })
   stockStatus: string;
 
@@ -496,9 +464,6 @@ export class ProductStockSummaryDto {
 
   @ApiProperty({ description: 'Out of stock indicator' })
   isOutOfStock: boolean;
-
-  @ApiProperty({ description: 'Unit of measurement' })
-  unit: string;
 
   @ApiProperty({ description: 'Category name' })
   categoryName: string;

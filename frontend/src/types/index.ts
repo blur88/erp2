@@ -27,7 +27,7 @@ export interface Product {
   id: string;
   name: string;
   description?: string;
-  sku: string;
+  barcode: string;
   type: 'goods' | 'service';
   category?: Category;
   categoryId?: string;
@@ -72,6 +72,7 @@ export interface Product {
   // Margin calculations
   grossMarginRetail: number;
   grossMarginWholesale: number;
+  grossMarginSpecial: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -79,8 +80,6 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  code?: string;
-  description?: string;
   imageUrl?: string | null;
   isActive: boolean;
   sortOrder: number;
@@ -89,10 +88,13 @@ export interface Category {
   parentId?: string | null;
   fullPath: string;
   isRoot: boolean;
+  hasChildren: boolean;
   children?: Category[];
+  parent?: Partial<Category>;
   productCount?: number;  // Number of products in this category
   createdAt: Date | string;
   updatedAt: Date | string;
+  deletedAt?: Date | string | null; // For soft-deleted categories
 }
 
 export interface ProductAttribute {
@@ -315,6 +317,8 @@ export interface QueryParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   filters?: Record<string, any>;
+  isActive?: boolean;
+  categoryId?: string;
 }
 
 // Theme types

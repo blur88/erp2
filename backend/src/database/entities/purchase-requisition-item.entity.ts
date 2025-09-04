@@ -199,7 +199,7 @@ export class PurchaseRequisitionItem extends BaseEntity {
 
   get formattedDescription(): string {
     if (this.product) {
-      return `${this.product.name} (${this.product.sku})`;
+      return `${this.product.name} (${this.product.barcode || 'No Barcode'})`;
     }
     return this.description;
   }

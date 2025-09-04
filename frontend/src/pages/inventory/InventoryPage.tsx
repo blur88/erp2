@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { inventoryApi } from '@/services/inventoryApi'
+import { formatCurrencyWhole } from '@/utils/currency'
 
 const InventoryPage: React.FC = () => {
   const navigate = useNavigate()
@@ -150,7 +151,7 @@ const InventoryPage: React.FC = () => {
                 <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
                 <Box>
                   <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                    ${stats.inventoryValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    {formatCurrencyWhole(stats.inventoryValue)}
                   </Typography>
                   <Typography color="text.secondary">Inventory Value</Typography>
                 </Box>

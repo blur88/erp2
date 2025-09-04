@@ -6,6 +6,7 @@ import { selectTheme } from './store/slices/themeSlice'
 
 // Layouts
 import MainLayout from './components/common/MainLayout'
+import NetworkStatus from './components/common/NetworkStatus'
 
 // Main Pages (lazy loaded)
 const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
@@ -44,6 +45,7 @@ function App() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <NetworkStatus />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Main Routes */}

@@ -19,16 +19,6 @@ export class CreateCategoryDto {
   @MaxLength(100)
   name: string;
 
-  @ApiPropertyOptional({ description: 'Unique category code/SKU prefix', maxLength: 20 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  code?: string;
-
-  @ApiPropertyOptional({ description: 'Category description' })
-  @IsOptional()
-  @IsString()
-  description?: string;
 
   @ApiPropertyOptional({ description: 'Category image URL or path', maxLength: 255 })
   @IsOptional()
@@ -77,7 +67,7 @@ export class QueryCategoriesDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Search term (category name or code)' })
+  @ApiPropertyOptional({ description: 'Search term (category name)' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
@@ -118,7 +108,7 @@ export class QueryCategoriesDto {
   @IsBoolean()
   includeProductCount?: boolean;
 
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'code', 'createdAt', 'sortOrder'] })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'createdAt', 'sortOrder'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
@@ -136,11 +126,6 @@ export class CategoryResponseDto {
   @ApiProperty({ description: 'Category name' })
   name: string;
 
-  @ApiPropertyOptional({ description: 'Category code' })
-  code?: string;
-
-  @ApiPropertyOptional({ description: 'Category description' })
-  description?: string;
 
   @ApiPropertyOptional({ description: 'Category image URL' })
   imageUrl?: string;

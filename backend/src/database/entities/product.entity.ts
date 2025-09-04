@@ -47,7 +47,7 @@ export enum StockStatus {
  * Optimized for ERP operations with proper indexing
  */
 @Entity('products')
-@Index(['sku'], { unique: true })
+@Index(['barcode'], { unique: true })
 @Index(['name'])
 @Index(['categoryId'])
 @Index(['status', 'isActive'])
@@ -55,15 +55,6 @@ export enum StockStatus {
 @Index(['stockStatus'])
 @Index(['reorderLevel'])
 export class Product extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 50,
-    unique: true,
-    comment: 'Stock Keeping Unit - unique product identifier',
-  })
-  @IsString()
-  @MaxLength(50)
-  sku: string;
 
   @Column({
     type: 'varchar',
@@ -86,8 +77,9 @@ export class Product extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
+    unique: true,
     nullable: true,
-    comment: 'Product barcode',
+    comment: 'Product barcode - unique product identifier',
   })
   @IsOptional()
   @IsString()
@@ -144,31 +136,37 @@ export class Product extends BaseEntity {
     type: 'decimal',
     precision: 15,
     scale: 4,
+    nullable: true,
     comment: 'Retail selling price',
   })
+  @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  retailPrice: number;
+  retailPrice?: number;
 
   @Column({
     type: 'decimal',
     precision: 15,
     scale: 4,
+    nullable: true,
     comment: 'Wholesale selling price',
   })
+  @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  wholesalePrice: number;
+  wholesalePrice?: number;
 
   @Column({
     type: 'decimal',
     precision: 15,
     scale: 4,
+    nullable: true,
     comment: 'Special/promotional selling price',
   })
+  @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  specialPrice: number;
+  specialPrice?: number;
 
   // Inventory Management
   @Column({
@@ -358,15 +356,21 @@ export class Product extends BaseEntity {
   }
 
   get grossMarginRetail(): number {
-    const retail = Number(this.retailPrice);
+    const retail = Number(this.retailPrice || 0);
     const cost = Number(this.baseCost);
-    return cost > 0 ? ((retail - cost) / retail) * 100 : 0;
+    return cost > 0 && retail > 0 ? ((retail - cost) / retail) * 100 : 0;
   }
 
   get grossMarginWholesale(): number {
-    const wholesale = Number(this.wholesalePrice);
+    const wholesale = Number(this.wholesalePrice || 0);
     const cost = Number(this.baseCost);
-    return cost > 0 ? ((wholesale - cost) / wholesale) * 100 : 0;
+    return cost > 0 && wholesale > 0 ? ((wholesale - cost) / wholesale) * 100 : 0;
+  }
+
+  get grossMarginSpecial(): number {
+    const special = Number(this.specialPrice || 0);
+    const cost = Number(this.baseCost);
+    return cost > 0 && special > 0 ? ((special - cost) / special) * 100 : 0;
   }
 
   // Helper methods
@@ -412,13 +416,13 @@ export class Product extends BaseEntity {
   getPriceByType(priceType: 'retail' | 'wholesale' | 'special'): number {
     switch (priceType) {
       case 'retail':
-        return Number(this.retailPrice);
+        return Number(this.retailPrice || 0);
       case 'wholesale':
-        return Number(this.wholesalePrice);
+        return Number(this.wholesalePrice || 0);
       case 'special':
-        return Number(this.specialPrice);
+        return Number(this.specialPrice || 0);
       default:
-        return Number(this.retailPrice);
+        return Number(this.retailPrice || 0);
     }
   }
 }

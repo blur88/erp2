@@ -15,7 +15,7 @@ import {
   UpdateResult,
   In,
 } from 'typeorm';
-import { Product, ProductStatus, StockStatus } from '../../../database/entities/product.entity';
+import { Product, ProductStatus, ProductType, StockStatus } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import {
   CreateProductDto,
@@ -50,15 +50,23 @@ export class ProductService {
    * Create a new product
    */
   async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
-    this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
+    this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
-    // Check if SKU already exists
+    // Check if barcode already exists (including soft-deleted products)
     const existingProduct = await this.productRepository.findOne({
-      where: { sku: createProductDto.sku },
+      where: { barcode: createProductDto.barcode },
+      withDeleted: true, // Include soft-deleted products in the check
     });
 
     if (existingProduct) {
-      throw new ConflictException(`Product with SKU '${createProductDto.sku}' already exists`);
+      if (existingProduct.deletedAt) {
+        throw new ConflictException(
+          `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
+          `Please choose a different barcode.`
+        );
+      } else {
+        throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
+      }
     }
 
     // Validate category exists
@@ -76,11 +84,14 @@ export class ProductService {
     // Create product
     const product = this.productRepository.create({
       ...createProductDto,
-      stockQuantity: createProductDto.initialStockQuantity || 0,
+      stockQuantity: createProductDto.currentStock || 0,
       status: createProductDto.status || ProductStatus.ACTIVE,
       isActive: createProductDto.isActive ?? true,
-      reorderLevel: createProductDto.reorderLevel || 0,
-      optimalStockLevel: createProductDto.optimalStockLevel || 0,
+      type: createProductDto.type || ProductType.GOODS,
+      // Set default values for removed fields
+      unit: 'pcs',
+      reorderLevel: 0,
+      optimalStockLevel: 0,
     });
 
     // Set initial stock status
@@ -91,12 +102,12 @@ export class ProductService {
     // Set the category relationship for the response DTO
     savedProduct.category = category;
 
-    // Create initial stock movement if initial stock provided (temporarily disabled for system users)
-    if (createProductDto.initialStockQuantity && createProductDto.initialStockQuantity > 0 && userId) {
+    // Create initial stock movement if current stock provided (temporarily disabled for system users)
+    if (createProductDto.currentStock && createProductDto.currentStock > 0 && userId) {
       try {
         await this.stockMovementService.recordInitialStock(
           savedProduct.id,
-          createProductDto.initialStockQuantity,
+          createProductDto.currentStock,
           createProductDto.baseCost,
           userId,
         );
@@ -111,10 +122,10 @@ export class ProductService {
         await this.auditService.logProductEvent(
           savedProduct.id,
           'PRODUCT_CREATED',
-          `Product ${savedProduct.name} (${savedProduct.sku}) created`,
+          `Product ${savedProduct.name} (${savedProduct.barcode}) created`,
           userId,
           {
-            initialStock: createProductDto.initialStockQuantity || 0,
+            initialStock: createProductDto.currentStock || 0,
             category: category.name,
           },
         );
@@ -153,12 +164,12 @@ export class ProductService {
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .where('1=1');
+      .where('product.deletedAt IS NULL');
 
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.sku ILIKE :search OR product.barcode ILIKE :search OR product.brand ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR product.brand ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -208,7 +219,7 @@ export class ProductService {
     }
 
     // Apply sorting
-    const validSortFields = ['name', 'sku', 'createdAt', 'stockQuantity', 'retailPrice'];
+    const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
     queryBuilder.orderBy(`product.${sortField}`, sortOrder);
 
@@ -250,19 +261,178 @@ export class ProductService {
   }
 
   /**
-   * Find one product by SKU
+   * Find one product by barcode
    */
-  async findBySku(sku: string): Promise<ProductResponseDto> {
+  async findByBarcode(barcode: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
-      where: { sku },
+      where: { barcode },
       relations: ['category'],
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with SKU '${sku}' not found`);
+      throw new NotFoundException(`Product with barcode '${barcode}' not found`);
     }
 
     return this.toResponseDto(product);
+  }
+
+  /**
+   * Find all soft-deleted products
+   */
+  async findDeleted(query: QueryProductsDto): Promise<ProductListResponseDto> {
+    this.logger.log('Fetching deleted products with filters:', query);
+
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      categoryId,
+      type,
+      sortBy = 'deletedAt',
+      sortOrder = 'DESC',
+    } = query;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.deletedAt IS NOT NULL')
+      .withDeleted();
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR product.description ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (categoryId) {
+      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('product.type = :type', { type });
+    }
+
+    // Sorting
+    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [products, total] = await queryBuilder.getManyAndCount();
+
+    const productDtos = products.map(product => this.toResponseDto(product));
+
+    return {
+      data: productDtos,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Restore a soft-deleted product
+   */
+  async restore(id: string, _userId?: string): Promise<ProductResponseDto> {
+    this.logger.log(`Restoring product with ID: ${id}`);
+
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: ['category'],
+      withDeleted: true,
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID '${id}' not found`);
+    }
+
+    if (!product.deletedAt) {
+      throw new BadRequestException(`Product with ID '${id}' is not deleted`);
+    }
+
+    // Check if barcode is still unique (another product might have been created with the same barcode)
+    const existingProduct = await this.productRepository.findOne({
+      where: { barcode: product.barcode },
+    });
+
+    if (existingProduct) {
+      throw new ConflictException(
+        `Cannot restore product: barcode '${product.barcode}' is now used by another active product`
+      );
+    }
+
+    // Restore the product
+    await this.productRepository.restore(id);
+
+    // Fetch the restored product
+    const restoredProduct = await this.productRepository.findOne({
+      where: { id },
+      relations: ['category'],
+    });
+
+    return this.toResponseDto(restoredProduct!);
+  }
+
+  /**
+   * Permanently delete a product from database
+   */
+  async permanentDelete(id: string, userId?: string): Promise<void> {
+    this.logger.log(`Permanently deleting product with ID: ${id}`);
+
+    // Find the product (including soft-deleted ones)
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+      withDeleted: true,
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID '${id}' not found`);
+    }
+
+    // Ensure product is already soft-deleted
+    if (!product.deletedAt) {
+      throw new BadRequestException(
+        'Product must be soft-deleted first before permanent deletion. Use regular delete endpoint first.'
+      );
+    }
+
+    // Check if product has any active dependencies that prevent permanent deletion
+    if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
+      throw new BadRequestException(
+        'Cannot permanently delete product that has associated sales orders or purchase orders'
+      );
+    }
+
+    // If there are stock movements, we should allow deletion but log it
+    if (product.stockMovements?.length > 0) {
+      this.logger.warn(
+        `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
+      );
+    }
+
+    // Hard delete the product from database
+    await this.productRepository.delete(id);
+
+    // Log audit event
+    await this.auditService.logProductEvent(
+      product.id,
+      'PRODUCT_PERMANENTLY_DELETED',
+      `Product ${product.name} (${product.barcode}) permanently deleted from database`,
+      userId,
+    );
+
+    this.logger.log(`Product permanently deleted: ${id}`);
   }
 
   /**
@@ -270,6 +440,7 @@ export class ProductService {
    */
   async update(id: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductResponseDto> {
     this.logger.log(`Updating product with ID: ${id}`);
+    console.log('🚀 UPDATE METHOD CALLED - CODE VERSION 2.0');
 
     const product = await this.productRepository.findOne({
       where: { id },
@@ -280,14 +451,14 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    // Check for SKU conflicts if SKU is being changed
-    if (updateProductDto.sku && updateProductDto.sku !== product.sku) {
+    // Check for barcode conflicts if barcode is being changed
+    if (updateProductDto.barcode && updateProductDto.barcode !== product.barcode) {
       const existingProduct = await this.productRepository.findOne({
-        where: { sku: updateProductDto.sku },
+        where: { barcode: updateProductDto.barcode },
       });
 
       if (existingProduct) {
-        throw new ConflictException(`Product with SKU '${updateProductDto.sku}' already exists`);
+        throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
       }
     }
 
@@ -302,46 +473,85 @@ export class ProductService {
       }
     }
 
-    // Validate pricing if being updated
-    if (this.hasPricingChanges(updateProductDto)) {
-      this.validatePricing({ ...product, ...updateProductDto } as any);
+    // Transform DTO fields to match entity fields FIRST
+    const updateData: any = { ...updateProductDto };
+    
+    // Map currentStock to stockQuantity if present
+    if (updateProductDto.hasOwnProperty('currentStock')) {
+      updateData.stockQuantity = updateProductDto.currentStock;
+      delete updateData.currentStock;
     }
 
-    // Track changes for audit
+    // Validate pricing if being updated (use transformed data)
+    if (this.hasPricingChanges(updateData)) {
+      this.validatePricing({ ...product, ...updateData } as any);
+    }
+
+    // Debug logging
+    console.log('=== PRODUCT UPDATE DEBUG ===');
+    console.log('Current product.categoryId:', product.categoryId);
+    console.log('Original DTO:', updateProductDto);
+    console.log('Transformed updateData:', updateData);
+    console.log('Update DTO categoryId:', updateData.categoryId);
+
+    // Track changes for audit (use transformed data)
     const changes: Record<string, { from: any; to: any }> = {};
-    Object.keys(updateProductDto).forEach(key => {
-      if (updateProductDto[key] !== product[key]) {
-        changes[key] = { from: product[key], to: updateProductDto[key] };
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] !== product[key]) {
+        changes[key] = { from: product[key], to: updateData[key] };
       }
     });
 
-    // Update product
-    Object.assign(product, updateProductDto);
+    console.log('Detected changes:', changes);
+
+    // Update product with transformed data
+    Object.assign(product, updateData);
+    
+    console.log('After Object.assign - product.categoryId:', product.categoryId);
+    console.log('=============================');
 
     // Update stock status if quantities changed
-    if (updateProductDto.hasOwnProperty('reorderLevel') || updateProductDto.hasOwnProperty('stockQuantity')) {
+    if (updateProductDto.hasOwnProperty('currentStock') || updateData.hasOwnProperty('stockQuantity')) {
       product.updateStockStatus();
     }
 
-    const updatedProduct = await this.productRepository.save(product);
+    // Use direct update for better control over what gets updated
+    const updateResult = await this.productRepository.update(
+      { id: product.id },
+      updateData
+    );
+    console.log('UPDATE RESULT:', updateResult);
+
+    const updatedProduct = await this.productRepository.findOne({
+      where: { id: product.id },
+    });
+    console.log('POST-UPDATE updatedProduct.categoryId:', updatedProduct?.categoryId);
+
+    // Reload the product with category relation to ensure fresh data
+    const productWithCategory = await this.productRepository.findOne({
+      where: { id: product.id },
+      relations: ['category'],
+    });
+    console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
+    console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
     // Log audit event
     if (Object.keys(changes).length > 0) {
       await this.auditService.logProductEvent(
         updatedProduct.id,
         'PRODUCT_UPDATED',
-        `Product ${updatedProduct.name} (${updatedProduct.sku}) updated`,
+        `Product ${updatedProduct.name} (${updatedProduct.barcode}) updated`,
         userId,
         { changes },
       );
     }
 
     this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
-    return this.toResponseDto(updatedProduct);
+    return this.toResponseDto(productWithCategory!);
   }
 
   /**
-   * Delete a product (soft delete by setting status to DISCONTINUED)
+   * Delete a product (soft delete using TypeORM)
    */
   async remove(id: string, userId?: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
@@ -362,17 +572,14 @@ export class ProductService {
       );
     }
 
-    // Soft delete by setting status to DISCONTINUED and isActive to false
-    product.status = ProductStatus.DISCONTINUED;
-    product.isActive = false;
-    
-    await this.productRepository.save(product);
+    // Use TypeORM soft delete (sets deletedAt timestamp)
+    await this.productRepository.softDelete(id);
 
     // Log audit event
     await this.auditService.logProductEvent(
       product.id,
       'PRODUCT_DELETED',
-      `Product ${product.name} (${product.sku}) marked as discontinued`,
+      `Product ${product.name} (${product.barcode}) soft deleted`,
       userId,
     );
 
@@ -437,7 +644,7 @@ export class ProductService {
           this.auditService.logProductEvent(
             priceUpdate.productId,
             'PRODUCT_PRICE_UPDATED',
-            `Bulk price update for ${product.name} (${product.sku})`,
+            `Bulk price update for ${product.name} (${product.barcode})`,
             userId,
             { priceChanges },
           ),
@@ -460,7 +667,7 @@ export class ProductService {
       .leftJoin('product.stockMovements', 'movements')
       .select([
         'product.id',
-        'product.sku',
+        'product.barcode',
         'product.name',
         'product.stockQuantity',
         'product.reservedQuantity',
@@ -495,7 +702,7 @@ export class ProductService {
 
     return results.map(result => ({
       id: result.product_id,
-      sku: result.product_sku,
+      barcode: result.product_barcode,
       name: result.product_name,
       stockQuantity: Number(result.product_stockQuantity),
       availableQuantity: Number(result.product_stockQuantity) - Number(result.product_reservedQuantity),
@@ -576,7 +783,7 @@ export class ProductService {
   /**
    * Update stock quantity for a product (internal use by stock movement service)
    */
-  async updateStockQuantity(productId: string, newQuantity: number, userId?: string): Promise<void> {
+  async updateStockQuantity(productId: string, newQuantity: number, _userId?: string): Promise<void> {
     const product = await this.productRepository.findOne({ where: { id: productId } });
     
     if (!product) {
@@ -600,10 +807,9 @@ export class ProductService {
   private toResponseDto(product: Product): ProductResponseDto {
     return {
       id: product.id,
-      sku: product.sku,
+      barcode: product.barcode,
       name: product.name,
       description: product.description,
-      barcode: product.barcode,
       type: product.type,
       status: product.status,
       isActive: product.isActive,
@@ -615,8 +821,6 @@ export class ProductService {
       stockQuantity: Number(product.stockQuantity),
       reservedQuantity: Number(product.reservedQuantity),
       availableQuantity: product.availableQuantity,
-      reorderLevel: Number(product.reorderLevel),
-      optimalStockLevel: Number(product.optimalStockLevel),
       stockStatus: product.stockStatus,
       weight: product.weight ? Number(product.weight) : undefined,
       dimensions: product.dimensions,
@@ -627,16 +831,16 @@ export class ProductService {
       attributes: product.attributes,
       notes: product.notes,
       categoryId: product.categoryId,
-      category: {
+      category: product.category ? {
         id: product.category.id,
         name: product.category.name,
-        code: product.category.code,
         fullPath: product.category.fullPath,
-      },
+      } : null,
       isLowStock: product.isLowStock,
       isOutOfStock: product.isOutOfStock,
       grossMarginRetail: product.grossMarginRetail,
       grossMarginWholesale: product.grossMarginWholesale,
+      grossMarginSpecial: product.grossMarginSpecial,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
