@@ -116,6 +116,7 @@ const ProductsPage: React.FC = () => {
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [calculatorDialogOpen, setCalculatorDialogOpen] = useState(false)
+  const [calculatorInFormOpen, setCalculatorInFormOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
 
@@ -1623,6 +1624,19 @@ const ProductsPage: React.FC = () => {
               Cancel
             </Button>
             <Button
+              onClick={() => setCalculatorInFormOpen(true)}
+              startIcon={<CalculateIcon />}
+              sx={{
+                color: 'primary.main',
+                '&:hover': {
+                  backgroundColor: 'primary.light'
+                }
+              }}
+              disabled={isSubmitting}
+            >
+              Calculator
+            </Button>
+            <Button
               type="submit"
               variant="contained"
               disabled={isSubmitting}
@@ -1638,6 +1652,12 @@ const ProductsPage: React.FC = () => {
       <CalculatorDialog
         open={calculatorDialogOpen}
         onClose={() => setCalculatorDialogOpen(false)}
+      />
+
+      {/* Calculator Dialog for Form */}
+      <CalculatorDialog
+        open={calculatorInFormOpen}
+        onClose={() => setCalculatorInFormOpen(false)}
       />
 
       {/* Deleted Products Dialog */}
