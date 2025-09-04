@@ -223,7 +223,9 @@ export class StockMovementService {
     // Apply sorting
     const validSortFields = ['movementDate', 'quantity', 'totalValue'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'movementDate';
-    queryBuilder.orderBy(`movement.${sortField}`, sortOrder);
+    // Normalize sort order to uppercase for TypeORM
+    const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    queryBuilder.orderBy(`movement.${sortField}`, normalizedSortOrder);
 
     // Apply pagination
     const offset = (page - 1) * limit;

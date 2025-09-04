@@ -111,15 +111,21 @@ const InventoryPage: React.FC = () => {
       }
       setError(null)
 
-      // Fetch dashboard stats and recent movements in parallel
-      const [dashboardResponse, stockMovementsResponse] = await Promise.all([
-        inventoryApi.getDashboardStats(),
-        inventoryApi.getStockMovements({ limit: 10, sortBy: 'movementDate', sortOrder: 'desc' }),
-      ])
+      // Fetch dashboard stats (critical) and recent movements (optional) separately
+      const dashboardResponse = await inventoryApi.getDashboardStats()
+      
+      // Try to fetch stock movements, but don't fail if it doesn't work
+      let movements: any[] = []
+      try {
+        const stockMovementsResponse = await inventoryApi.getStockMovements({ limit: 10, sortBy: 'movementDate', sortOrder: 'desc' })
+        movements = Array.isArray(stockMovementsResponse?.data?.data) ? stockMovementsResponse.data.data : []
+      } catch (movementsError) {
+        console.warn('Failed to fetch stock movements:', movementsError)
+        movements = []
+      }
       
       // Safely extract data with null checks
-      const dashboardData = dashboardResponse?.data
-      const movements = Array.isArray(stockMovementsResponse?.data?.data) ? stockMovementsResponse.data.data : []
+      const dashboardData = (dashboardResponse as any)
       
       if (dashboardData) {
         setStats({

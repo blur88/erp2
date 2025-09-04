@@ -160,7 +160,7 @@ export const inventoryApi = {
 
   // Stock management
   async getStockMovements(params?: QueryParams & { productId?: string }) {
-    return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock-movements', { params })
+    return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock/movements', { params })
   },
 
   async createStockAdjustment(data: {
@@ -170,7 +170,7 @@ export const inventoryApi = {
     reason?: string
     reference?: string
   }) {
-    return ApiService.post<StockMovement>('/inventory/stock-movements', data)
+    return ApiService.post<StockMovement>('/inventory/stock/movements', data)
   },
 
   async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {
@@ -180,7 +180,7 @@ export const inventoryApi = {
       minStock: number
       maxStock: number
       status: 'in_stock' | 'low_stock' | 'out_of_stock'
-    }>>('/inventory/stock-levels', { params })
+    }>>('/inventory/stock/levels', { params })
   },
 
   async stockTake(data: Array<{ productId: string; countedQuantity: number }>) {
@@ -191,7 +191,7 @@ export const inventoryApi = {
         adjustmentsMade: number
         totalVariance: number
       }
-    }>('/inventory/stock-take', { items: data })
+    }>('/inventory/stock/take', { items: data })
   },
 
   // Reports
@@ -215,9 +215,9 @@ export const inventoryApi = {
     format?: 'json' | 'csv' | 'pdf'
   }) {
     if (params.format && params.format !== 'json') {
-      return ApiService.downloadFile('/inventory/stock-movements/report', `stock-movements.${params.format}`)
+      return ApiService.downloadFile('/inventory/stock/movements/report', `stock-movements.${params.format}`)
     }
-    return ApiService.get('/inventory/stock-movements/report', { params })
+    return ApiService.get('/inventory/stock/movements/report', { params })
   },
 
   // Analytics
