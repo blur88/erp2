@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -119,6 +119,8 @@ const ProductsPage: React.FC = () => {
   const [calculatorInFormOpen, setCalculatorInFormOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
+  const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
+  const productListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     dispatch(fetchCategories({ includeProductCount: true }))
@@ -198,6 +200,7 @@ const ProductsPage: React.FC = () => {
     return ((sellingPrice - cost) / sellingPrice) * 100
   }
 
+
   const retailMargin = calculateMargin(retailPrice, baseCost)
   const wholesaleMargin = calculateMargin(wholesalePrice, baseCost)
   const specialMargin = calculateMargin(specialPrice, baseCost)
@@ -210,6 +213,123 @@ const ProductsPage: React.FC = () => {
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   )
+
+  // Keyboard navigation handlers
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (paginatedProducts.length === 0) return
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault()
+        setFocusedProductIndex(prev => {
+          const nextIndex = prev < paginatedProducts.length - 1 ? prev + 1 : 0
+          return nextIndex
+        })
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        setFocusedProductIndex(prev => {
+          const nextIndex = prev > 0 ? prev - 1 : paginatedProducts.length - 1
+          return nextIndex
+        })
+        break
+      case 'Enter':
+        event.preventDefault()
+        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length) {
+          setSelectedProductForDetails(paginatedProducts[focusedProductIndex])
+        }
+        break
+      case 'Home':
+        event.preventDefault()
+        setFocusedProductIndex(0)
+        break
+      case 'End':
+        event.preventDefault()
+        setFocusedProductIndex(paginatedProducts.length - 1)
+        break
+      case 'PageDown':
+        event.preventDefault()
+        setFocusedProductIndex(prev => {
+          const nextIndex = Math.min(prev + 5, paginatedProducts.length - 1)
+          return nextIndex >= 0 ? nextIndex : 0
+        })
+        break
+      case 'PageUp':
+        event.preventDefault()
+        setFocusedProductIndex(prev => {
+          const nextIndex = Math.max(prev - 5, 0)
+          return nextIndex
+        })
+        break
+      case 'Delete':
+        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length) {
+          event.preventDefault()
+          handleDeleteProduct(paginatedProducts[focusedProductIndex])
+        }
+        break
+      case 'e':
+      case 'E':
+        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          event.preventDefault()
+          handleEditProduct(paginatedProducts[focusedProductIndex])
+        }
+        break
+      case 'Escape':
+        event.preventDefault()
+        setFocusedProductIndex(-1)
+        break
+      case 'f':
+      case 'F':
+        if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+          event.preventDefault()
+          // Focus the search input
+          const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+          if (searchInput) {
+            searchInput.focus()
+            searchInput.select()
+          }
+        }
+        break
+      case '+':
+      case 'n':
+      case 'N':
+        if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+          event.preventDefault()
+          handleAddProduct()
+        }
+        break
+      default:
+        break
+    }
+  }, [paginatedProducts, focusedProductIndex])
+
+  // Reset focused index when products change or page changes
+  useEffect(() => {
+    setFocusedProductIndex(-1)
+  }, [page, rowsPerPage, searchTerm, selectedCategory])
+
+  // Auto-focus the first product when the list becomes available
+  useEffect(() => {
+    if (paginatedProducts.length > 0 && focusedProductIndex === -1) {
+      // Only auto-focus if we don't have a selected product
+      if (!selectedProductForDetails) {
+        setFocusedProductIndex(0)
+      }
+    }
+  }, [paginatedProducts, focusedProductIndex, selectedProductForDetails])
+
+  // Auto-scroll to keep focused item visible
+  useEffect(() => {
+    if (focusedProductIndex >= 0 && productListRef.current) {
+      const focusedRow = productListRef.current.querySelector(`[data-product-index="${focusedProductIndex}"]`)
+      if (focusedRow) {
+        focusedRow.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        })
+      }
+    }
+  }, [focusedProductIndex])
 
 
   const handleMenuClose = () => {
@@ -588,11 +708,108 @@ const ProductsPage: React.FC = () => {
         <Grid item xs={12} md={6}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                Product List ({filteredProducts.length})
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+                  Product List ({filteredProducts.length})
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      px: 0.5, 
+                      py: 0.2, 
+                      backgroundColor: 'grey.100', 
+                      borderRadius: 0.5, 
+                      fontSize: '0.6rem',
+                      fontFamily: 'monospace',
+                      color: 'text.secondary'
+                    }}>
+                      ↑↓
+                    </Box>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                      Navigate
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      px: 0.5, 
+                      py: 0.2, 
+                      backgroundColor: 'grey.100', 
+                      borderRadius: 0.5, 
+                      fontSize: '0.6rem',
+                      fontFamily: 'monospace',
+                      color: 'text.secondary'
+                    }}>
+                      Enter
+                    </Box>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                      Select
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      px: 0.5, 
+                      py: 0.2, 
+                      backgroundColor: 'grey.100', 
+                      borderRadius: 0.5, 
+                      fontSize: '0.6rem',
+                      fontFamily: 'monospace',
+                      color: 'text.secondary'
+                    }}>
+                      E
+                    </Box>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                      Edit
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      px: 0.5, 
+                      py: 0.2, 
+                      backgroundColor: 'grey.100', 
+                      borderRadius: 0.5, 
+                      fontSize: '0.6rem',
+                      fontFamily: 'monospace',
+                      color: 'text.secondary'
+                    }}>
+                      Del
+                    </Box>
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                      Delete
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
             </Box>
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box 
+              sx={{ 
+                flex: 1, 
+                overflow: 'hidden', 
+                display: 'flex', 
+                flexDirection: 'column',
+                '&:focus': {
+                  outline: '2px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: '-2px'
+                }
+              }}
+              ref={productListRef}
+              tabIndex={0}
+              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                // Auto-focus first product when the container gets focus
+                if (paginatedProducts.length > 0 && focusedProductIndex === -1) {
+                  setFocusedProductIndex(0)
+                }
+              }}
+            >
               {loading?.products ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
                   <CircularProgress />
@@ -618,22 +835,39 @@ const ProductsPage: React.FC = () => {
                       }}
                     >
                       <TableBody>
-                        {paginatedProducts.map((product: any) => {
+                        {paginatedProducts.map((product: any, index: number) => {
                           const isSelected = selectedProductForDetails?.id === product.id
+                          const isFocused = focusedProductIndex === index
                           return (
                             <TableRow 
                               key={product.id}
+                              data-product-index={index}
                               hover
-                              tabIndex={0}
-                              onClick={() => setSelectedProductForDetails(product)}
+                              tabIndex={-1}
+                              onClick={() => {
+                                setSelectedProductForDetails(product)
+                                setFocusedProductIndex(index)
+                              }}
                               sx={{
                                 cursor: 'pointer',
-                                backgroundColor: isSelected ? 'action.selected' : 'inherit',
-                                '&:hover, &:focus-within': {
-                                  backgroundColor: isSelected ? 'action.selected' : 'action.hover'
+                                backgroundColor: isSelected 
+                                  ? 'action.selected' 
+                                  : isFocused 
+                                    ? 'primary.light'
+                                    : 'inherit',
+                                '&:hover': {
+                                  backgroundColor: isSelected 
+                                    ? 'action.selected' 
+                                    : isFocused 
+                                      ? 'primary.light'
+                                      : 'action.hover'
                                 },
                                 transition: 'background-color 0.2s ease',
-                                height: 36
+                                height: 36,
+                                ...(isFocused && {
+                                  outline: `2px solid ${theme.palette.primary.main}`,
+                                  outlineOffset: '-2px'
+                                })
                               }}
                             >
                               <TableCell sx={{ py: 0.5 }}>
