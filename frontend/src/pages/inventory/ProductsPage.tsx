@@ -43,6 +43,7 @@ import {
   DragIndicator as DragIndicatorIcon,
   Save as SaveIcon,
   Close as CancelIcon,
+  Calculate as CalculateIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -50,6 +51,7 @@ import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
+import CalculatorDialog from '@/components/calculator/CalculatorDialog'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import {
@@ -113,6 +115,7 @@ const ProductsPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
+  const [calculatorDialogOpen, setCalculatorDialogOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
 
@@ -415,6 +418,23 @@ const ProductsPage: React.FC = () => {
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Products" : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <CalculateIcon /> : undefined}
+            onClick={() => setCalculatorDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              color: 'info.main',
+              borderColor: 'info.main',
+              '&:hover': {
+                borderColor: 'info.dark',
+                backgroundColor: 'info.light'
+              }
+            }}
+          >
+            {isMobile ? "Calculator" : "Calculator"}
           </Button>
           <Button
             variant="outlined"
@@ -1613,6 +1633,12 @@ const ProductsPage: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* Calculator Dialog */}
+      <CalculatorDialog
+        open={calculatorDialogOpen}
+        onClose={() => setCalculatorDialogOpen(false)}
+      />
 
       {/* Deleted Products Dialog */}
       <DeletedProductsDialog
