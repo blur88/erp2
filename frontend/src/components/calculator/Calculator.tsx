@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Paper,
@@ -16,6 +16,7 @@ const Calculator: React.FC<CalculatorProps> = ({ onCalculatorClose }) => {
   const [previousValue, setPreviousValue] = useState<number | null>(null)
   const [operation, setOperation] = useState<string | null>(null)
   const [waitingForOperand, setWaitingForOperand] = useState(false)
+  const calculatorRef = useRef<HTMLDivElement>(null)
 
   const inputNumber = (num: string) => {
     if (waitingForOperand) {
@@ -91,6 +92,83 @@ const Calculator: React.FC<CalculatorProps> = ({ onCalculatorClose }) => {
     }
   }
 
+  const handleBackspace = () => {
+    if (display.length > 1) {
+      setDisplay(display.slice(0, -1))
+    } else {
+      setDisplay('0')
+    }
+  }
+
+  const handleKeyPress = (event: KeyboardEvent) => {
+    event.preventDefault()
+    
+    const key = event.key
+    
+    // Numbers
+    if (key >= '0' && key <= '9') {
+      inputNumber(key)
+    }
+    // Decimal point
+    else if (key === '.') {
+      inputDecimal()
+    }
+    // Operations
+    else if (key === '+') {
+      handleOperationClick('+')
+    }
+    else if (key === '-') {
+      handleOperationClick('-')
+    }
+    else if (key === '*' || key === 'x' || key === 'X') {
+      handleOperationClick('*')
+    }
+    else if (key === '/') {
+      handleOperationClick('/')
+    }
+    // Equals
+    else if (key === '=' || key === 'Enter') {
+      handleOperationClick('=')
+    }
+    // Clear
+    else if (key === 'c' || key === 'C' || key === 'Delete') {
+      clear()
+    }
+    // Backspace
+    else if (key === 'Backspace') {
+      handleBackspace()
+    }
+    // Close calculator
+    else if (key === 'Escape') {
+      if (onCalculatorClose) {
+        onCalculatorClose()
+      }
+    }
+  }
+
+  // Add keyboard event listeners
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle keys if the calculator is focused or if it's a global shortcut
+      const isCalculatorFocused = calculatorRef.current?.contains(document.activeElement)
+      const isGlobalShortcut = event.key === 'Escape'
+      
+      if (isCalculatorFocused || isGlobalShortcut) {
+        handleKeyPress(event)
+      }
+    }
+
+    // Focus the calculator when it mounts
+    if (calculatorRef.current) {
+      calculatorRef.current.focus()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [display, operation, previousValue, waitingForOperand, onCalculatorClose])
+
   const buttonStyle = {
     minHeight: 48,
     fontSize: '1.1rem',
@@ -125,10 +203,24 @@ const Calculator: React.FC<CalculatorProps> = ({ onCalculatorClose }) => {
   }
 
   return (
-    <Paper sx={{ p: 2, width: 280 }}>
+    <Paper 
+      ref={calculatorRef}
+      tabIndex={0}
+      sx={{ 
+        p: 2, 
+        width: 280,
+        outline: 'none',
+        '&:focus': {
+          outline: 'none',
+        }
+      }}
+    >
       <Box sx={{ mb: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, textAlign: 'center' }}>
           Calculator
+        </Typography>
+        <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', color: 'text.secondary', mb: 1 }}>
+          Use keyboard for input • ESC to close
         </Typography>
         <Paper
           variant="outlined"
