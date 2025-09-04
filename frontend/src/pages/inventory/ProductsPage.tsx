@@ -67,13 +67,13 @@ import {
 interface ProductFormData {
   name: string
   description: string
-  barcode: string
+  barcode?: string
   type: 'goods' | 'service'
   categoryId: string
   baseCost: number
-  retailPrice: number
-  wholesalePrice: number
-  specialPrice: number
+  retailPrice?: number
+  wholesalePrice?: number
+  specialPrice?: number
   currentStock: number
   notes: string
   isActive: boolean
@@ -82,13 +82,13 @@ interface ProductFormData {
 const productSchema = yup.object({
   name: yup.string().required('Product name is required').min(2, 'Name must be at least 2 characters'),
   description: yup.string(),
-  barcode: yup.string().required('Barcode is required').min(3, 'Barcode must be at least 3 characters'),
+  barcode: yup.string().optional(),
   type: yup.string().required('Product type is required'),
   categoryId: yup.string().required('Category is required').min(1, 'Please select a category'),
   baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
-  retailPrice: yup.number().required('Retail price is required').min(0, 'Price must be positive'),
-  wholesalePrice: yup.number().required('Wholesale price is required').min(0, 'Price must be positive'),
-  specialPrice: yup.number().required('Special price is required').min(0, 'Price must be positive'),
+  retailPrice: yup.number().optional().min(0, 'Price must be positive'),
+  wholesalePrice: yup.number().optional().min(0, 'Price must be positive'),
+  specialPrice: yup.number().optional().min(0, 'Price must be positive'),
   currentStock: yup.number().required('Current stock is required').min(0, 'Stock must be non-negative'),
   notes: yup.string(),
   isActive: yup.boolean(),
@@ -173,9 +173,9 @@ const ProductsPage: React.FC = () => {
       type: 'goods',
       categoryId: '',
       baseCost: 0,
-      retailPrice: 0,
-      wholesalePrice: 0,
-      specialPrice: 0,
+      retailPrice: undefined,
+      wholesalePrice: undefined,
+      specialPrice: undefined,
       currentStock: 0,
       notes: '',
       isActive: true,
@@ -189,7 +189,7 @@ const ProductsPage: React.FC = () => {
   const specialPrice = watch('specialPrice')
 
   // Calculate profit margins
-  const calculateMargin = (sellingPrice: number, cost: number): number => {
+  const calculateMargin = (sellingPrice: number | undefined, cost: number): number => {
     if (!cost || cost <= 0 || !sellingPrice || sellingPrice <= 0) return 0
     return ((sellingPrice - cost) / sellingPrice) * 100
   }
@@ -232,13 +232,13 @@ const ProductsPage: React.FC = () => {
     setInlineEditData({
       name: product.name,
       description: product.description || '',
-      barcode: product.barcode,
+      barcode: product.barcode || '',
       type: product.type || 'goods',
       categoryId: product.categoryId || product.category?.id || '',
       baseCost: product.baseCost || 0,
-      retailPrice: product.retailPrice || 0,
-      wholesalePrice: product.wholesalePrice || 0,
-      specialPrice: product.specialPrice || 0,
+      retailPrice: product.retailPrice || undefined,
+      wholesalePrice: product.wholesalePrice || undefined,
+      specialPrice: product.specialPrice || undefined,
       currentStock: product.stockQuantity || 0,
       notes: product.notes || '',
       isActive: product.isActive,

@@ -78,11 +78,13 @@ export class Product extends BaseEntity {
     type: 'varchar',
     length: 100,
     unique: true,
+    nullable: true,
     comment: 'Product barcode - unique product identifier',
   })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  barcode: string;
+  barcode?: string;
 
   @Column({
     type: 'enum',
@@ -134,31 +136,37 @@ export class Product extends BaseEntity {
     type: 'decimal',
     precision: 15,
     scale: 4,
+    nullable: true,
     comment: 'Retail selling price',
   })
+  @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  retailPrice: number;
+  retailPrice?: number;
 
   @Column({
     type: 'decimal',
     precision: 15,
     scale: 4,
+    nullable: true,
     comment: 'Wholesale selling price',
   })
+  @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  wholesalePrice: number;
+  wholesalePrice?: number;
 
   @Column({
     type: 'decimal',
     precision: 15,
     scale: 4,
+    nullable: true,
     comment: 'Special/promotional selling price',
   })
+  @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  specialPrice: number;
+  specialPrice?: number;
 
   // Inventory Management
   @Column({
@@ -348,21 +356,21 @@ export class Product extends BaseEntity {
   }
 
   get grossMarginRetail(): number {
-    const retail = Number(this.retailPrice);
+    const retail = Number(this.retailPrice || 0);
     const cost = Number(this.baseCost);
-    return cost > 0 ? ((retail - cost) / retail) * 100 : 0;
+    return cost > 0 && retail > 0 ? ((retail - cost) / retail) * 100 : 0;
   }
 
   get grossMarginWholesale(): number {
-    const wholesale = Number(this.wholesalePrice);
+    const wholesale = Number(this.wholesalePrice || 0);
     const cost = Number(this.baseCost);
-    return cost > 0 ? ((wholesale - cost) / wholesale) * 100 : 0;
+    return cost > 0 && wholesale > 0 ? ((wholesale - cost) / wholesale) * 100 : 0;
   }
 
   get grossMarginSpecial(): number {
-    const special = Number(this.specialPrice);
+    const special = Number(this.specialPrice || 0);
     const cost = Number(this.baseCost);
-    return cost > 0 ? ((special - cost) / special) * 100 : 0;
+    return cost > 0 && special > 0 ? ((special - cost) / special) * 100 : 0;
   }
 
   // Helper methods
@@ -408,13 +416,13 @@ export class Product extends BaseEntity {
   getPriceByType(priceType: 'retail' | 'wholesale' | 'special'): number {
     switch (priceType) {
       case 'retail':
-        return Number(this.retailPrice);
+        return Number(this.retailPrice || 0);
       case 'wholesale':
-        return Number(this.wholesalePrice);
+        return Number(this.wholesalePrice || 0);
       case 'special':
-        return Number(this.specialPrice);
+        return Number(this.specialPrice || 0);
       default:
-        return Number(this.retailPrice);
+        return Number(this.retailPrice || 0);
     }
   }
 }

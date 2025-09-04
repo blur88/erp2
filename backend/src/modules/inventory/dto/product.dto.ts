@@ -38,10 +38,11 @@ export class ProductDimensionsDto {
 }
 
 export class CreateProductDto {
-  @ApiProperty({ description: 'Product barcode - unique product identifier', maxLength: 100 })
+  @ApiPropertyOptional({ description: 'Product barcode - unique product identifier', maxLength: 100 })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  barcode: string;
+  barcode?: string;
 
   @ApiProperty({ description: 'Product name', maxLength: 200 })
   @IsString()
@@ -73,20 +74,23 @@ export class CreateProductDto {
   @Min(0)
   baseCost: number;
 
-  @ApiProperty({ description: 'Retail selling price', minimum: 0 })
+  @ApiPropertyOptional({ description: 'Retail selling price', minimum: 0 })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  retailPrice: number;
+  retailPrice?: number;
 
-  @ApiProperty({ description: 'Wholesale selling price', minimum: 0 })
+  @ApiPropertyOptional({ description: 'Wholesale selling price', minimum: 0 })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  wholesalePrice: number;
+  wholesalePrice?: number;
 
-  @ApiProperty({ description: 'Special/promotional selling price', minimum: 0 })
+  @ApiPropertyOptional({ description: 'Special/promotional selling price', minimum: 0 })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  specialPrice: number;
+  specialPrice?: number;
 
   @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
   @IsOptional()
