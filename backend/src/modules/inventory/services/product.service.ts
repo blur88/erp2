@@ -52,13 +52,21 @@ export class ProductService {
   async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
     this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
-    // Check if product name already exists (active products only)
+    // Check if product name already exists (including soft-deleted products)
     const existingProductByName = await this.productRepository.findOne({
       where: { name: createProductDto.name },
+      withDeleted: true, // Include soft-deleted products in the check
     });
 
     if (existingProductByName) {
-      throw new ConflictException(`Product with name '${createProductDto.name}' already exists`);
+      if (existingProductByName.deletedAt) {
+        throw new ConflictException(
+          `Product with name '${createProductDto.name}' was previously deleted but cannot be reused. ` +
+          `Please choose a different name or restore the deleted product.`
+        );
+      } else {
+        throw new ConflictException(`Product with name '${createProductDto.name}' already exists`);
+      }
     }
 
     // Check if barcode already exists (including soft-deleted products)
@@ -466,10 +474,18 @@ export class ProductService {
     if (updateProductDto.name && updateProductDto.name !== product.name) {
       const existingProductByName = await this.productRepository.findOne({
         where: { name: updateProductDto.name },
+        withDeleted: true, // Include soft-deleted products in the check
       });
 
       if (existingProductByName) {
-        throw new ConflictException(`Product with name '${updateProductDto.name}' already exists`);
+        if (existingProductByName.deletedAt) {
+          throw new ConflictException(
+            `Product with name '${updateProductDto.name}' was previously deleted but cannot be reused. ` +
+            `Please choose a different name or restore the deleted product.`
+          );
+        } else {
+          throw new ConflictException(`Product with name '${updateProductDto.name}' already exists`);
+        }
       }
     }
 
@@ -477,10 +493,18 @@ export class ProductService {
     if (updateProductDto.barcode && updateProductDto.barcode !== product.barcode) {
       const existingProduct = await this.productRepository.findOne({
         where: { barcode: updateProductDto.barcode },
+        withDeleted: true, // Include soft-deleted products in the check
       });
 
       if (existingProduct) {
-        throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
+        if (existingProduct.deletedAt) {
+          throw new ConflictException(
+            `Product with barcode '${updateProductDto.barcode}' was previously deleted but cannot be reused. ` +
+            `Please choose a different barcode or restore the deleted product.`
+          );
+        } else {
+          throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
+        }
       }
     }
 

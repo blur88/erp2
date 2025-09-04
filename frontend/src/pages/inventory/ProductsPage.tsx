@@ -57,10 +57,12 @@ import { formatCurrency } from '@/utils/currency'
 import {
   fetchProducts,
   fetchCategories,
+  fetchDeletedProducts,
   createProduct,
   updateProduct,
   deleteProduct,
   selectProducts,
+  selectDeletedProducts,
   selectCategories,
   selectInventoryLoading,
 } from '@/store/slices/inventorySlice'
@@ -76,7 +78,7 @@ interface ProductFormData {
   retailPrice?: number
   wholesalePrice?: number
   specialPrice?: number
-  currentStock: number
+  currentStock?: number
   notes: string
   isActive: boolean
 }
@@ -86,12 +88,27 @@ const productSchema = yup.object({
   description: yup.string(),
   barcode: yup.string().optional(),
   type: yup.string().required('Product type is required'),
-  categoryId: yup.string().required('Category is required').min(1, 'Please select a category'),
+  categoryId: yup.string().required('Category is required').test(
+    'is-valid-uuid',
+    'Please select a valid category',
+    function(value) {
+      // Allow empty string for initial form state, but require UUID when submitting
+      if (!value || value.trim() === '') {
+        return this.createError({ message: 'Please select a category' })
+      }
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(value)) {
+        return this.createError({ message: 'Invalid category selection - please choose from the dropdown' })
+      }
+      return true
+    }
+  ),
   baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
   retailPrice: yup.number().optional().min(0, 'Price must be positive'),
   wholesalePrice: yup.number().optional().min(0, 'Price must be positive'),
   specialPrice: yup.number().optional().min(0, 'Price must be positive'),
-  currentStock: yup.number().required('Current stock is required').min(0, 'Stock must be non-negative'),
+  currentStock: yup.number().optional().min(0, 'Stock must be non-negative'),
   notes: yup.string(),
   isActive: yup.boolean(),
 })
@@ -102,6 +119,7 @@ const ProductsPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const products = useSelector(selectProducts) || []
+  const deletedProducts = useSelector(selectDeletedProducts) || []
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
   
@@ -122,10 +140,13 @@ const ProductsPage: React.FC = () => {
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
   const [duplicateNameError, setDuplicateNameError] = useState<string>('')
   const [isDuplicateName, setIsDuplicateName] = useState(false)
+  const [duplicateBarcodeError, setDuplicateBarcodeError] = useState<string>('')
+  const [isDuplicateBarcode, setIsDuplicateBarcode] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     dispatch(fetchCategories({ includeProductCount: true }))
+    dispatch(fetchDeletedProducts({ page: 1, limit: 1000 })) // Fetch deleted products for validation
   }, [dispatch])
 
   useEffect(() => {
@@ -184,7 +205,7 @@ const ProductsPage: React.FC = () => {
       retailPrice: undefined,
       wholesalePrice: undefined,
       specialPrice: undefined,
-      currentStock: 0,
+      currentStock: undefined,
       notes: '',
       isActive: true,
     },
@@ -196,6 +217,7 @@ const ProductsPage: React.FC = () => {
   const wholesalePrice = watch('wholesalePrice')
   const specialPrice = watch('specialPrice')
   const watchedName = watch('name')
+  const watchedBarcode = watch('barcode')
   const watchedType = watch('type')
   const watchedCategoryId = watch('categoryId')
   const watchedCurrentStock = watch('currentStock')
@@ -215,8 +237,7 @@ const ProductsPage: React.FC = () => {
   const isMandatoryFieldsComplete = watchedName?.trim().length >= 2 && 
     watchedType && 
     watchedCategoryId?.trim().length >= 1 && 
-    baseCost >= 0 && 
-    watchedCurrentStock >= 0
+    (baseCost !== null && baseCost !== undefined && baseCost >= 0)
 
   // Real-time duplicate name checking
   useEffect(() => {
@@ -228,8 +249,8 @@ const ProductsPage: React.FC = () => {
 
     const trimmedName = watchedName.trim().toLowerCase()
     
-    // Check for duplicate names in existing products
-    const duplicateProduct = products.find(product => {
+    // Check for duplicate names in existing active products
+    const duplicateActiveProduct = products.find(product => {
       // Skip self when editing
       if (editMode && selectedProduct && product.id === selectedProduct.id) {
         return false
@@ -237,14 +258,58 @@ const ProductsPage: React.FC = () => {
       return product.name.toLowerCase() === trimmedName
     })
 
-    if (duplicateProduct) {
-      setDuplicateNameError(`Product with name '${duplicateProduct.name}' already exists`)
+    // Check for duplicate names in soft-deleted products
+    const duplicateDeletedProduct = deletedProducts.find(product => {
+      return product.name.toLowerCase() === trimmedName
+    })
+
+    if (duplicateActiveProduct) {
+      setDuplicateNameError(`Product with name '${duplicateActiveProduct.name}' already exists`)
+      setIsDuplicateName(true)
+    } else if (duplicateDeletedProduct) {
+      setDuplicateNameError(`Product with name '${duplicateDeletedProduct.name}' was previously deleted. Please choose a different name or restore the deleted product.`)
       setIsDuplicateName(true)
     } else {
       setDuplicateNameError('')
       setIsDuplicateName(false)
     }
-  }, [watchedName, products, editMode, selectedProduct])
+  }, [watchedName, products, deletedProducts, editMode, selectedProduct])
+
+  // Real-time duplicate barcode checking
+  useEffect(() => {
+    if (!watchedBarcode || watchedBarcode.trim().length < 1) {
+      setDuplicateBarcodeError('')
+      setIsDuplicateBarcode(false)
+      return
+    }
+
+    const trimmedBarcode = watchedBarcode.trim().toLowerCase()
+    
+    // Check for duplicate barcodes in existing active products
+    const duplicateActiveProduct = products.find(product => {
+      // Skip self when editing
+      if (editMode && selectedProduct && product.id === selectedProduct.id) {
+        return false
+      }
+      return product.barcode?.toLowerCase() === trimmedBarcode
+    })
+
+    // Check for duplicate barcodes in soft-deleted products
+    const duplicateDeletedProduct = deletedProducts.find(product => {
+      return product.barcode?.toLowerCase() === trimmedBarcode
+    })
+
+    if (duplicateActiveProduct) {
+      setDuplicateBarcodeError(`Product with barcode '${duplicateActiveProduct.barcode}' already exists`)
+      setIsDuplicateBarcode(true)
+    } else if (duplicateDeletedProduct) {
+      setDuplicateBarcodeError(`Product with barcode '${duplicateDeletedProduct.barcode}' was previously deleted. Please choose a different barcode or restore the deleted product.`)
+      setIsDuplicateBarcode(true)
+    } else {
+      setDuplicateBarcodeError('')
+      setIsDuplicateBarcode(false)
+    }
+  }, [watchedBarcode, products, deletedProducts, editMode, selectedProduct])
 
   // Products are already filtered by backend search
   const filteredProducts = products || []
@@ -404,7 +469,7 @@ const ProductsPage: React.FC = () => {
       retailPrice: product.retailPrice || undefined,
       wholesalePrice: product.wholesalePrice || undefined,
       specialPrice: product.specialPrice || undefined,
-      currentStock: product.stockQuantity || 0,
+      currentStock: product.stockQuantity || undefined,
       notes: product.notes || '',
       isActive: product.isActive,
     })
@@ -527,8 +592,28 @@ const ProductsPage: React.FC = () => {
       handleCloseDialog()
     } catch (error: any) {
       console.error('Product save error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save product'
-      showError(errorMessage + '. Please try again.')
+      // Handle different error types more specifically
+      let errorMessage = 'Failed to save product'
+      
+      if (error?.response?.data?.message) {
+        // Backend validation error
+        errorMessage = error.response.data.message
+      } else if (error?.message) {
+        // Network or other error
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        // Redux rejection error
+        errorMessage = error
+      }
+      
+      // Show more specific error messages for common issues
+      if (errorMessage.includes('categoryId must be a UUID')) {
+        errorMessage = 'Please select a valid category from the dropdown'
+      } else if (errorMessage.includes('Validation failed')) {
+        errorMessage = 'Please check all required fields and try again'
+      }
+      
+      showError(errorMessage)
     }
   }
 
@@ -1492,7 +1577,7 @@ const ProductsPage: React.FC = () => {
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.currentStock}
-                              onChange={(e) => handleInlineEditChange('currentStock', parseInt(e.target.value) || 0)}
+                              onChange={(e) => handleInlineEditChange('currentStock', e.target.value === '' ? undefined : parseInt(e.target.value) || 0)}
                               size="small"
                               type="number"
                               inputProps={{ step: 1, min: 0 }}
@@ -1666,8 +1751,17 @@ const ProductsPage: React.FC = () => {
                       fullWidth
                       size="small"
                       label="Barcode"
-                      error={!!errors.barcode}
-                      helperText={errors.barcode?.message}
+                      error={!!errors.barcode || isDuplicateBarcode}
+                      helperText={errors.barcode?.message || duplicateBarcodeError}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-error': {
+                            '& fieldset': {
+                              borderColor: isDuplicateBarcode ? 'error.main' : undefined
+                            }
+                          }
+                        }
+                      }}
                     />
                   )}
                 />
@@ -1923,15 +2017,15 @@ const ProductsPage: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={isSubmitting || isDuplicateName || (!editMode && !isMandatoryFieldsComplete)}
+              disabled={isSubmitting || isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)}
               sx={{ 
                 minWidth: 100,
-                backgroundColor: (isDuplicateName || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
+                backgroundColor: (isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
                 '&:hover': {
-                  backgroundColor: (isDuplicateName || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined
+                  backgroundColor: (isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined
                 },
                 '&.Mui-disabled': {
-                  backgroundColor: (isDuplicateName || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
+                  backgroundColor: (isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
                   color: 'grey.600'
                 }
               }}
