@@ -937,7 +937,7 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Pricing Information Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pt: 1.5, pb: 0.5 }}>
+                        <TableCell colSpan={3} sx={{ pt: 1.5, pb: 0.5 }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
@@ -984,63 +984,62 @@ const ProductsPage: React.FC = () => {
                             Retail Price
                           </Box>
                         </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {inlineEditMode && inlineEditData ? (
-                              <>
-                                <TextField
-                                  value={inlineEditData.retailPrice}
-                                  onChange={(e) => handleInlineEditChange('retailPrice', parseFloat(e.target.value) || 0)}
-                                  size="small"
-                                  type="number"
-                                  inputProps={{ step: 0.01, min: 0 }}
-                                  InputProps={{
-                                    startAdornment: <InputAdornment position="start">RM</InputAdornment>
-                                  }}
-                                  sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                      fontSize: '0.8rem',
-                                      height: '28px'
-                                    }
-                                  }}
-                                />
-                                {calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 0 && (
-                                  <Chip
-                                    label={`${calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost).toFixed(1)}%`}
-                                    size="small"
-                                    variant="outlined"
-                                    color={calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 20 ? 'success' : calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 10 ? 'warning' : 'error'}
-                                    sx={{
-                                      fontSize: '0.65rem',
-                                      fontWeight: 500,
-                                      height: 18,
-                                      minWidth: 42
-                                    }}
-                                  />
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
-                                  {formatCurrency(selectedProductForDetails.retailPrice)}
-                                </Typography>
-                                {selectedProductForDetails.grossMarginRetail !== undefined && (
-                                  <Chip
-                                    label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
-                                    size="small"
-                                    variant="outlined"
-                                    color={selectedProductForDetails.grossMarginRetail > 20 ? 'success' : selectedProductForDetails.grossMarginRetail > 10 ? 'warning' : 'error'}
-                                    sx={{
-                                      fontSize: '0.65rem',
-                                      fontWeight: 500,
-                                      height: 18,
-                                      minWidth: 42
-                                    }}
-                                  />
-                                )}
-                              </>
-                            )}
-                          </Box>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.retailPrice}
+                              onChange={(e) => handleInlineEditChange('retailPrice', parseFloat(e.target.value) || 0)}
+                              size="small"
+                              type="number"
+                              inputProps={{ step: 0.01, min: 0 }}
+                              InputProps={{
+                                startAdornment: <InputAdornment position="start">RM</InputAdornment>
+                              }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
+                              {formatCurrency(selectedProductForDetails.retailPrice)}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {inlineEditMode && inlineEditData ? (
+                            calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 0 && (
+                              <Chip
+                                label={`${calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost).toFixed(1)}%`}
+                                size="small"
+                                variant="outlined"
+                                color={calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 20 ? 'success' : calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 10 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )
+                          ) : (
+                            selectedProductForDetails.grossMarginRetail !== undefined && (
+                              <Chip
+                                label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
+                                size="small"
+                                variant="outlined"
+                                color={selectedProductForDetails.grossMarginRetail > 20 ? 'success' : selectedProductForDetails.grossMarginRetail > 10 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -1050,63 +1049,62 @@ const ProductsPage: React.FC = () => {
                             Wholesale Price
                           </Box>
                         </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {inlineEditMode && inlineEditData ? (
-                              <>
-                                <TextField
-                                  value={inlineEditData.wholesalePrice}
-                                  onChange={(e) => handleInlineEditChange('wholesalePrice', parseFloat(e.target.value) || 0)}
-                                  size="small"
-                                  type="number"
-                                  inputProps={{ step: 0.01, min: 0 }}
-                                  InputProps={{
-                                    startAdornment: <InputAdornment position="start">RM</InputAdornment>
-                                  }}
-                                  sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                      fontSize: '0.8rem',
-                                      height: '28px'
-                                    }
-                                  }}
-                                />
-                                {calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 0 && (
-                                  <Chip
-                                    label={`${calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost).toFixed(1)}%`}
-                                    size="small"
-                                    variant="outlined"
-                                    color={calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
-                                    sx={{
-                                      fontSize: '0.65rem',
-                                      fontWeight: 500,
-                                      height: 18,
-                                      minWidth: 42
-                                    }}
-                                  />
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <Typography sx={{ fontSize: '0.8rem' }}>
-                                  {formatCurrency(selectedProductForDetails.wholesalePrice)}
-                                </Typography>
-                                {selectedProductForDetails.grossMarginWholesale !== undefined && (
-                                  <Chip
-                                    label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
-                                    size="small"
-                                    variant="outlined"
-                                    color={selectedProductForDetails.grossMarginWholesale > 15 ? 'success' : selectedProductForDetails.grossMarginWholesale > 5 ? 'warning' : 'error'}
-                                    sx={{
-                                      fontSize: '0.65rem',
-                                      fontWeight: 500,
-                                      height: 18,
-                                      minWidth: 42
-                                    }}
-                                  />
-                                )}
-                              </>
-                            )}
-                          </Box>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.wholesalePrice}
+                              onChange={(e) => handleInlineEditChange('wholesalePrice', parseFloat(e.target.value) || 0)}
+                              size="small"
+                              type="number"
+                              inputProps={{ step: 0.01, min: 0 }}
+                              InputProps={{
+                                startAdornment: <InputAdornment position="start">RM</InputAdornment>
+                              }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            <Typography sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(selectedProductForDetails.wholesalePrice)}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {inlineEditMode && inlineEditData ? (
+                            calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 0 && (
+                              <Chip
+                                label={`${calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost).toFixed(1)}%`}
+                                size="small"
+                                variant="outlined"
+                                color={calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )
+                          ) : (
+                            selectedProductForDetails.grossMarginWholesale !== undefined && (
+                              <Chip
+                                label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
+                                size="small"
+                                variant="outlined"
+                                color={selectedProductForDetails.grossMarginWholesale > 15 ? 'success' : selectedProductForDetails.grossMarginWholesale > 5 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -1116,69 +1114,68 @@ const ProductsPage: React.FC = () => {
                             Special Price
                           </Box>
                         </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {inlineEditMode && inlineEditData ? (
-                              <>
-                                <TextField
-                                  value={inlineEditData.specialPrice}
-                                  onChange={(e) => handleInlineEditChange('specialPrice', parseFloat(e.target.value) || 0)}
-                                  size="small"
-                                  type="number"
-                                  inputProps={{ step: 0.01, min: 0 }}
-                                  InputProps={{
-                                    startAdornment: <InputAdornment position="start">RM</InputAdornment>
-                                  }}
-                                  sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                      fontSize: '0.8rem',
-                                      height: '28px'
-                                    }
-                                  }}
-                                />
-                                {calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 0 && (
-                                  <Chip
-                                    label={`${calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost).toFixed(1)}%`}
-                                    size="small"
-                                    variant="outlined"
-                                    color={calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
-                                    sx={{
-                                      fontSize: '0.65rem',
-                                      fontWeight: 500,
-                                      height: 18,
-                                      minWidth: 42
-                                    }}
-                                  />
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <Typography sx={{ fontSize: '0.8rem' }}>
-                                  {formatCurrency(selectedProductForDetails.specialPrice)}
-                                </Typography>
-                                {selectedProductForDetails.grossMarginSpecial !== undefined && (
-                                  <Chip
-                                    label={`${selectedProductForDetails.grossMarginSpecial?.toFixed(1) || '0.0'}%`}
-                                    size="small"
-                                    variant="outlined"
-                                    color={selectedProductForDetails.grossMarginSpecial > 15 ? 'success' : selectedProductForDetails.grossMarginSpecial > 5 ? 'warning' : 'error'}
-                                    sx={{
-                                      fontSize: '0.65rem',
-                                      fontWeight: 500,
-                                      height: 18,
-                                      minWidth: 42
-                                    }}
-                                  />
-                                )}
-                              </>
-                            )}
-                          </Box>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.specialPrice}
+                              onChange={(e) => handleInlineEditChange('specialPrice', parseFloat(e.target.value) || 0)}
+                              size="small"
+                              type="number"
+                              inputProps={{ step: 0.01, min: 0 }}
+                              InputProps={{
+                                startAdornment: <InputAdornment position="start">RM</InputAdornment>
+                              }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            <Typography sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(selectedProductForDetails.specialPrice)}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {inlineEditMode && inlineEditData ? (
+                            calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 0 && (
+                              <Chip
+                                label={`${calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost).toFixed(1)}%`}
+                                size="small"
+                                variant="outlined"
+                                color={calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )
+                          ) : (
+                            selectedProductForDetails.grossMarginSpecial !== undefined && (
+                              <Chip
+                                label={`${selectedProductForDetails.grossMarginSpecial?.toFixed(1) || '0.0'}%`}
+                                size="small"
+                                variant="outlined"
+                                color={selectedProductForDetails.grossMarginSpecial > 15 ? 'success' : selectedProductForDetails.grossMarginSpecial > 5 ? 'warning' : 'error'}
+                                sx={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  height: 18,
+                                  minWidth: 42
+                                }}
+                              />
+                            )
+                          )}
                         </TableCell>
                       </TableRow>
                       
                       {/* Stock Information Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pt: 1.5, pb: 0.5 }}>
+                        <TableCell colSpan={3} sx={{ pt: 1.5, pb: 0.5 }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
@@ -1195,41 +1192,41 @@ const ProductsPage: React.FC = () => {
                             Current Stock
                           </Box>
                         </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {inlineEditMode && inlineEditData ? (
-                              <TextField
-                                value={inlineEditData.currentStock}
-                                onChange={(e) => handleInlineEditChange('currentStock', parseInt(e.target.value) || 0)}
-                                size="small"
-                                type="number"
-                                inputProps={{ step: 1, min: 0 }}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    fontSize: '0.8rem',
-                                    height: '28px'
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <>
-                                <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-                                  {selectedProductForDetails.stockQuantity || 0}
-                                </Typography>
-                                <Chip
-                                  label={getStockStatus(selectedProductForDetails).label}
-                                  color={getStockStatus(selectedProductForDetails).color}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{
-                                    fontSize: '0.7rem',
-                                    fontWeight: 500,
-                                    height: 20
-                                  }}
-                                />
-                              </>
-                            )}
-                          </Box>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.currentStock}
+                              onChange={(e) => handleInlineEditChange('currentStock', parseInt(e.target.value) || 0)}
+                              size="small"
+                              type="number"
+                              inputProps={{ step: 1, min: 0 }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: '0.8rem',
+                                  height: '28px'
+                                }
+                              }}
+                            />
+                          ) : (
+                            <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                              {selectedProductForDetails.stockQuantity || 0}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {!inlineEditMode && (
+                            <Chip
+                              label={getStockStatus(selectedProductForDetails).label}
+                              color={getStockStatus(selectedProductForDetails).color}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20
+                              }}
+                            />
+                          )}
                         </TableCell>
                       </TableRow>
                       
