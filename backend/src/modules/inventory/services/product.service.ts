@@ -280,6 +280,13 @@ export class ProductService {
   }
 
   /**
+   * Find one product by SKU (alias for barcode)
+   */
+  async findBySku(sku: string): Promise<ProductResponseDto> {
+    return this.findByBarcode(sku);
+  }
+
+  /**
    * Find one product by barcode
    */
   async findByBarcode(barcode: string): Promise<ProductResponseDto> {
@@ -293,6 +300,89 @@ export class ProductService {
     }
 
     return this.toResponseDto(product);
+  }
+
+  /**
+   * Check for duplicate product names and barcodes (including soft-deleted)
+   */
+  async checkDuplicate(params: {
+    name?: string;
+    barcode?: string;
+    excludeId?: string;
+  }): Promise<{
+    nameExists: boolean;
+    barcodeExists: boolean;
+    nameConflict?: {
+      id: string;
+      name: string;
+      isDeleted: boolean;
+      barcode?: string;
+    };
+    barcodeConflict?: {
+      id: string;
+      name: string;
+      isDeleted: boolean;
+      barcode?: string;
+    };
+  }> {
+    this.logger.log(`Checking duplicate for name: "${params.name}", barcode: "${params.barcode}"`);
+
+    const result = {
+      nameExists: false,
+      barcodeExists: false,
+      nameConflict: undefined as any,
+      barcodeConflict: undefined as any,
+    };
+
+    // Check name duplicate
+    if (params.name && params.name.trim()) {
+      const nameQuery = this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.name) = LOWER(:name)', { name: params.name.trim() })
+        .withDeleted();
+
+      if (params.excludeId) {
+        nameQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+      }
+
+      const existingByName = await nameQuery.getOne();
+
+      if (existingByName) {
+        result.nameExists = true;
+        result.nameConflict = {
+          id: existingByName.id,
+          name: existingByName.name,
+          isDeleted: !!existingByName.deletedAt,
+          barcode: existingByName.barcode,
+        };
+      }
+    }
+
+    // Check barcode duplicate
+    if (params.barcode && params.barcode.trim()) {
+      const barcodeQuery = this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: params.barcode.trim() })
+        .withDeleted();
+
+      if (params.excludeId) {
+        barcodeQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+      }
+
+      const existingByBarcode = await barcodeQuery.getOne();
+
+      if (existingByBarcode) {
+        result.barcodeExists = true;
+        result.barcodeConflict = {
+          id: existingByBarcode.id,
+          name: existingByBarcode.name,
+          isDeleted: !!existingByBarcode.deletedAt,
+          barcode: existingByBarcode.barcode,
+        };
+      }
+    }
+
+    return result;
   }
 
   /**

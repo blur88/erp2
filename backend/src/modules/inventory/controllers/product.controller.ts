@@ -138,6 +138,23 @@ export class ProductController {
     return this.productService.findBySku(sku);
   }
 
+  @Get('check-duplicate')
+  @ApiOperation({ summary: 'Check if product name or barcode already exists (including soft-deleted)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Duplicate check completed',
+  })
+  @ApiQuery({ name: 'name', required: false, description: 'Product name to check' })
+  @ApiQuery({ name: 'barcode', required: false, description: 'Product barcode to check' })
+  @ApiQuery({ name: 'excludeId', required: false, description: 'Product ID to exclude from check (for updates)' })
+  async checkDuplicate(
+    @Query('name') name?: string,
+    @Query('barcode') barcode?: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    return this.productService.checkDuplicate({ name, barcode, excludeId });
+  }
+
   @Get('deleted')
   @ApiOperation({ summary: 'Get all soft-deleted products' })
   @ApiResponse({

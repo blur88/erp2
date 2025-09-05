@@ -55,6 +55,29 @@ export const inventoryApi = {
     return ApiService.downloadFile('/inventory/products/export', `products.${params?.format || 'csv'}`)
   },
 
+  async checkProductDuplicate(params: {
+    name?: string
+    barcode?: string
+    excludeId?: string
+  }) {
+    return ApiService.get<{
+      nameExists: boolean
+      barcodeExists: boolean
+      nameConflict?: {
+        id: string
+        name: string
+        isDeleted: boolean
+        barcode?: string
+      }
+      barcodeConflict?: {
+        id: string
+        name: string
+        isDeleted: boolean
+        barcode?: string
+      }
+    }>('/inventory/products/check-duplicate', { params })
+  },
+
   // Categories
   async getCategories(params?: QueryParams & { includeProductCount?: boolean }) {
     return ApiService.get<PaginatedResponse<Category>>('/inventory/categories', { params })
