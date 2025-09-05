@@ -84,7 +84,7 @@ export const fetchProducts = createAsyncThunk(
     try {
       // Always fetch only active products (exclude soft-deleted products)
       const response = await inventoryApi.getProducts({ ...params, isActive: true })
-      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch products:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch products')
@@ -337,8 +337,9 @@ const inventorySlice = createSlice({
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading.products = false
         if (action.payload) {
-          state.products = action.payload.data || []
-          state.pagination.products = action.payload.meta || {
+          const payload = action.payload as any
+          state.products = payload.data || []
+          state.pagination.products = payload.meta || {
             page: 1, limit: 20, total: 0, totalPages: 0
           }
         }
@@ -358,7 +359,7 @@ const inventorySlice = createSlice({
         state.loading.categories = false
         if (action.payload) {
           // The API response is in the format { data: [...], meta: {...} }
-          state.categories = action.payload.data || []
+          state.categories = (action.payload as any).data || []
         }
       })
       .addCase(fetchCategories.rejected, (state, action) => {
