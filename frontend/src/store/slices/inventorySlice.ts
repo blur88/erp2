@@ -97,7 +97,7 @@ export const fetchCategories = createAsyncThunk(
   async (params: { includeProductCount?: boolean } = {}, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getCategories({ includeProductCount: true, ...params })
-      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch categories:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch categories')
@@ -357,6 +357,7 @@ const inventorySlice = createSlice({
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading.categories = false
         if (action.payload) {
+          // The API response is in the format { data: [...], meta: {...} }
           state.categories = action.payload.data || []
         }
       })
