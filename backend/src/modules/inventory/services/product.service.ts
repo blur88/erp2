@@ -52,11 +52,12 @@ export class ProductService {
   async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
     this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
-    // Check if product name already exists (including soft-deleted products)
-    const existingProductByName = await this.productRepository.findOne({
-      where: { name: createProductDto.name },
-      withDeleted: true, // Include soft-deleted products in the check
-    });
+    // Check if product name already exists (case-insensitive, including soft-deleted products)
+    const existingProductByName = await this.productRepository
+      .createQueryBuilder('product')
+      .where('LOWER(product.name) = LOWER(:name)', { name: createProductDto.name.trim() })
+      .withDeleted()
+      .getOne();
 
     if (existingProductByName) {
       if (existingProductByName.deletedAt) {
@@ -69,12 +70,13 @@ export class ProductService {
       }
     }
 
-    // Check if barcode already exists (including soft-deleted products)
+    // Check if barcode already exists (case-insensitive, including soft-deleted products)
     if (createProductDto.barcode) {
-      const existingProduct = await this.productRepository.findOne({
-        where: { barcode: createProductDto.barcode },
-        withDeleted: true, // Include soft-deleted products in the check
-      });
+      const existingProduct = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: createProductDto.barcode.trim() })
+        .withDeleted()
+        .getOne();
 
       if (existingProduct) {
         if (existingProduct.deletedAt) {
@@ -469,10 +471,12 @@ export class ProductService {
       throw new BadRequestException(`Product with ID '${id}' is not deleted`);
     }
 
-    // Check if barcode is still unique (another product might have been created with the same barcode)
-    const existingProduct = await this.productRepository.findOne({
-      where: { barcode: product.barcode },
-    });
+    // Check if barcode is still unique (case-insensitive, another product might have been created with the same barcode)
+    const existingProduct = await this.productRepository
+      .createQueryBuilder('product')
+      .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+      .andWhere('product.id != :id', { id: product.id })
+      .getOne();
 
     if (existingProduct) {
       throw new ConflictException(
@@ -560,12 +564,14 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    // Check for name conflicts if name is being changed
-    if (updateProductDto.name && updateProductDto.name !== product.name) {
-      const existingProductByName = await this.productRepository.findOne({
-        where: { name: updateProductDto.name },
-        withDeleted: true, // Include soft-deleted products in the check
-      });
+    // Check for name conflicts if name is being changed (case-insensitive)
+    if (updateProductDto.name && updateProductDto.name.toLowerCase() !== product.name.toLowerCase()) {
+      const existingProductByName = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.name) = LOWER(:name)', { name: updateProductDto.name.trim() })
+        .andWhere('product.id != :id', { id: product.id })
+        .withDeleted()
+        .getOne();
 
       if (existingProductByName) {
         if (existingProductByName.deletedAt) {
@@ -579,12 +585,14 @@ export class ProductService {
       }
     }
 
-    // Check for barcode conflicts if barcode is being changed
-    if (updateProductDto.barcode && updateProductDto.barcode !== product.barcode) {
-      const existingProduct = await this.productRepository.findOne({
-        where: { barcode: updateProductDto.barcode },
-        withDeleted: true, // Include soft-deleted products in the check
-      });
+    // Check for barcode conflicts if barcode is being changed (case-insensitive)
+    if (updateProductDto.barcode && updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()) {
+      const existingProduct = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: updateProductDto.barcode.trim() })
+        .andWhere('product.id != :id', { id: product.id })
+        .withDeleted()
+        .getOne();
 
       if (existingProduct) {
         if (existingProduct.deletedAt) {
