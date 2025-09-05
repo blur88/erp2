@@ -335,6 +335,38 @@ export class ProductController {
     return this.productService.restore(id, null);
   }
 
+  @Post('bulk-permanent-delete')
+  @ApiOperation({ summary: 'Bulk permanently delete products from database' })
+  @ApiResponse({
+    status: 200,
+    description: 'Products permanently deleted successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid product IDs or products have active references' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        productIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of product IDs to permanently delete'
+        }
+      },
+      required: ['productIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkPermanentDelete(
+    @Body() body: { productIds: string[] },
+  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
+    const result = await this.productService.bulkPermanentDelete(body.productIds, null);
+    return {
+      message: `Successfully permanently deleted ${result.deletedCount} of ${body.productIds.length} products`,
+      deletedCount: result.deletedCount,
+      failedIds: result.failedIds,
+    };
+  }
+
   @Delete(':id/permanent')
   @ApiOperation({ summary: 'Permanently delete a product from database' })
   @ApiResponse({

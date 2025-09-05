@@ -549,6 +549,87 @@ export class ProductService {
   }
 
   /**
+   * Bulk permanently delete products from database
+   */
+  async bulkPermanentDelete(
+    productIds: string[], 
+    userId?: string
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${productIds.length} products`);
+    
+    if (!productIds || productIds.length === 0) {
+      return { deletedCount: 0, failedIds: [] };
+    }
+
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    // Process each product individually to handle failures gracefully
+    for (const id of productIds) {
+      try {
+        // Find the product (including soft-deleted ones)
+        const product = await this.productRepository.findOne({
+          where: { id },
+          relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+          withDeleted: true,
+        });
+
+        if (!product) {
+          this.logger.warn(`Product with ID '${id}' not found`);
+          failedIds.push(id);
+          continue;
+        }
+
+        // Ensure product is already soft-deleted
+        if (!product.deletedAt) {
+          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
+          failedIds.push(id);
+          continue;
+        }
+
+        // Check if product has any active dependencies that prevent permanent deletion
+        if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
+          this.logger.warn(
+            `Product with ID '${id}' has associated orders and cannot be permanently deleted`
+          );
+          failedIds.push(id);
+          continue;
+        }
+
+        // If there are stock movements, we allow deletion but log it
+        if (product.stockMovements?.length > 0) {
+          this.logger.warn(
+            `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
+          );
+        }
+
+        // Hard delete the product from database
+        await this.productRepository.delete(id);
+
+        // Log audit event
+        await this.auditService.logProductEvent(
+          product.id,
+          'PRODUCT_PERMANENTLY_DELETED',
+          `Product ${product.name} (${product.barcode}) permanently deleted from database (bulk operation)`,
+          userId,
+        );
+
+        deletedCount++;
+        this.logger.log(`Product permanently deleted: ${id}`);
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete product ${id}: ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(
+      `Bulk permanent delete completed: ${deletedCount} succeeded, ${failedIds.length} failed`
+    );
+
+    return { deletedCount, failedIds };
+  }
+
+  /**
    * Update a product
    */
   async update(id: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductResponseDto> {

@@ -35,6 +35,13 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/products/${id}/permanent`)
   },
 
+  async bulkPermanentDeleteProducts(productIds: string[]) {
+    return ApiService.post<{ message: string; deletedCount: number; failedIds: string[] }>(
+      '/inventory/products/bulk-permanent-delete',
+      { productIds }
+    )
+  },
+
   async uploadProductImage(productId: string, file: File) {
     return ApiService.uploadFile<{ url: string }>(`/inventory/products/${productId}/image`, file)
   },

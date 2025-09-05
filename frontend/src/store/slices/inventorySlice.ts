@@ -178,6 +178,18 @@ export const permanentDeleteProduct = createAsyncThunk(
   }
 )
 
+export const bulkPermanentDeleteProducts = createAsyncThunk(
+  'inventory/bulkPermanentDeleteProducts',
+  async (productIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkPermanentDeleteProducts(productIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk delete products')
+    }
+  }
+)
+
 export const checkProductDuplicate = createAsyncThunk(
   'inventory/checkProductDuplicate',
   async (params: { name?: string; barcode?: string; excludeId?: string }, { rejectWithValue }) => {
@@ -427,6 +439,18 @@ const inventorySlice = createSlice({
         if (action.payload) {
           // Remove from deleted products list
           state.deletedProducts = state.deletedProducts.filter(p => p.id !== action.payload)
+        }
+      })
+      .addCase(bulkPermanentDeleteProducts.fulfilled, (state, action) => {
+        if (action.payload) {
+          const { deletedCount, failedIds } = action.payload
+          // Remove successfully deleted products from deleted products list
+          const successfulIds = state.deletedProducts
+            .map(p => p.id)
+            .filter(id => !failedIds.includes(id))
+          state.deletedProducts = state.deletedProducts.filter(
+            p => !successfulIds.includes(p.id)
+          )
         }
       })
 
