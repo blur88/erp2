@@ -359,9 +359,22 @@ export class CategoryService {
       throw new NotFoundException(`Category with ID '${id}' not found`);
     }
 
-    // Check for name conflicts if name is being changed
+    // Check if name is being changed - this requires updating all descendant paths
+    const nameChanged = updateCategoryDto.name && updateCategoryDto.name !== category.name;
+    
+    // Check if parent is being changed - this also requires updating levels and paths
+    const parentChanged = updateCategoryDto.hasOwnProperty('parentId') && updateCategoryDto.parentId !== category.parentId;
+
+    // Check for name conflicts if name is being changed or parent is being changed
     if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
-      await this.validateCategoryName(updateCategoryDto.name, category.parentId, id);
+      // Name is changing - validate against the new parent (if also changing parent)
+      const parentIdForValidation = updateCategoryDto.hasOwnProperty('parentId') 
+        ? updateCategoryDto.parentId 
+        : category.parentId;
+      await this.validateCategoryName(updateCategoryDto.name, parentIdForValidation, id);
+    } else if (parentChanged) {
+      // Only parent is changing - validate current name against new parent
+      await this.validateCategoryName(category.name, updateCategoryDto.parentId, id);
     }
 
     // Track changes for audit
@@ -371,32 +384,51 @@ export class CategoryService {
         changes[key] = { from: category[key], to: updateCategoryDto[key] };
       }
     });
+    
+    this.logger.log(`Name changed: ${nameChanged}, Parent changed: ${parentChanged}`);
+    this.logger.log(`Old parent: ${category.parentId}, New parent: ${updateCategoryDto.parentId}`);
 
-    // Check if name is being changed - this requires updating all descendant paths
-    const nameChanged = updateCategoryDto.name && updateCategoryDto.name !== category.name;
-    this.logger.log(`Name changed check: ${nameChanged}, oldName: ${category.name}, newName: ${updateCategoryDto.name}`);
+    // Validate parent change to prevent circular references
+    if (parentChanged && updateCategoryDto.parentId) {
+      const newParent = await this.categoryRepository.findOne({
+        where: { id: updateCategoryDto.parentId },
+      });
+
+      if (!newParent) {
+        throw new NotFoundException(`New parent category with ID '${updateCategoryDto.parentId}' not found`);
+      }
+
+      // Check if the new parent is a descendant of the current category
+      const descendants = await this.loadAllDescendants(category);
+      if (descendants.some(desc => desc.id === updateCategoryDto.parentId)) {
+        throw new BadRequestException('Cannot move category to one of its descendants');
+      }
+    }
 
     // Update category
     Object.assign(category, updateCategoryDto);
     const updatedCategory = await this.categoryRepository.save(category);
 
-    // If name changed, update paths for this category and all descendants
-    if (nameChanged) {
-      this.logger.log(`Updating paths for category ${updatedCategory.name} and its descendants`);
+    // If name or parent changed, update paths and levels for this category and all descendants
+    if (nameChanged || parentChanged) {
+      this.logger.log(`Updating paths and levels for category ${updatedCategory.name} and its descendants`);
       
-      // Recalculate path for the updated category
+      // Recalculate level and path for the updated category
       if (updatedCategory.parentId) {
         const parent = await this.categoryRepository.findOne({
           where: { id: updatedCategory.parentId }
         });
         if (parent) {
+          updatedCategory.level = parent.level + 1;
           updatedCategory.path = parent.path ? `${parent.path}.${updatedCategory.name}` : `${parent.name}.${updatedCategory.name}`;
         }
       } else {
+        // Moving to root level
+        updatedCategory.level = 0;
         updatedCategory.path = updatedCategory.name;
       }
       
-      this.logger.log(`Updated category path from "${category.path}" to "${updatedCategory.path}"`);
+      this.logger.log(`Updated category level: ${updatedCategory.level}, path: "${updatedCategory.path}"`);
       await this.categoryRepository.save(updatedCategory);
 
       // Update levels and paths for all descendants
