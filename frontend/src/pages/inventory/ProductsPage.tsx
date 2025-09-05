@@ -772,6 +772,37 @@ const ProductsPage: React.FC = () => {
             value={selectedCategory}
             label="Category"
             onChange={(e) => setSelectedCategory(e.target.value)}
+            MenuProps={{
+              PaperProps: {
+                style: {
+                  maxHeight: 'none', // Remove height restriction
+                  maxWidth: 'none',  // Remove width restriction
+                  overflow: 'visible' // Ensure content is fully visible
+                },
+                sx: {
+                  '& .MuiList-root': {
+                    maxHeight: '400px', // Set max height on the list itself
+                    overflow: 'auto',   // Enable scrolling on the list
+                    padding: 0
+                  }
+                }
+              },
+              // Render dropdown in document body to avoid clipping
+              disablePortal: false,
+              // Allow dropdown to position freely
+              anchorOrigin: {
+                vertical: 'bottom',
+                horizontal: 'left'
+              },
+              transformOrigin: {
+                vertical: 'top',
+                horizontal: 'left'
+              },
+              // Ensure z-index is high enough
+              sx: {
+                zIndex: 9999
+              }
+            }}
             sx={{
               height: '40px',
               fontSize: '0.875rem',
@@ -1301,6 +1332,14 @@ const ProductsPage: React.FC = () => {
                               <Select 
                                 value={inlineEditData.categoryId}
                                 onChange={(e) => handleInlineEditChange('categoryId', e.target.value)}
+                                MenuProps={{
+                                  PaperProps: {
+                                    style: {
+                                      maxHeight: 300,
+                                      overflow: 'auto'
+                                    }
+                                  }
+                                }}
                                 sx={{
                                   '& .MuiSelect-select': { 
                                     fontSize: '0.8rem',
@@ -1862,7 +1901,28 @@ const ProductsPage: React.FC = () => {
                   render={({ field }) => (
                     <FormControl fullWidth size="small" error={!!errors.categoryId}>
                       <InputLabel>Category</InputLabel>
-                      <Select {...field} label="Category">
+                      <Select 
+                        {...field} 
+                        label="Category"
+                        MenuProps={{
+                          PaperProps: {
+                            style: {
+                              maxHeight: 'none',
+                              maxWidth: 'none',
+                              overflow: 'visible'
+                            },
+                            sx: {
+                              '& .MuiList-root': {
+                                maxHeight: '400px',
+                                overflow: 'auto',
+                                padding: 0
+                              }
+                            }
+                          },
+                          disablePortal: false,
+                          sx: { zIndex: 9999 }
+                        }}
+                      >
                         {categories && categories.length > 0 ? (
                           categories.map((category: any) => (
                             <MenuItem key={category.id} value={category.id}>

@@ -60,8 +60,9 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     setLoading(true)
     try {
       const response = await inventoryApi.getCategoryTree(true)
-      // response.data is the category array from the API
-      const categoryTree = (response.data as any) || []
+      
+      // The API returns { data: Category[], meta: {...} } 
+      const categoryTree = response.data || []
       const flatCategories = flattenCategoryTree(categoryTree)
       
       // Filter out excluded categories
@@ -190,7 +191,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     </ListItem>
   )
 
-  const handleChange = (event: any, newValue: CategoryOption | null) => {
+  const handleChange = (_event: any, newValue: CategoryOption | null) => {
     if (!newValue || newValue.id === '') {
       onChange(null)
     } else {
@@ -219,6 +220,23 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
         getOptionLabel={getOptionLabel}
         isOptionEqualToValue={isOptionEqualToValue}
         renderOption={renderOption}
+        slotProps={{
+          popper: {
+            style: {
+              zIndex: 9999
+            },
+            modifiers: [
+              {
+                name: 'preventOverflow',
+                enabled: false
+              },
+              {
+                name: 'flip',
+                enabled: true
+              }
+            ]
+          }
+        }}
         renderInput={(params) => (
           <TextField
             {...params}
@@ -239,7 +257,14 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           />
         )}
         PaperComponent={(props) => (
-          <Paper {...props}>
+          <Paper 
+            {...props} 
+            sx={{
+              maxHeight: 'none',
+              maxWidth: 'none',
+              overflow: 'visible'
+            }}
+          >
             {/* Create category button */}
             {showCreateButton && onCreateCategory && (
               <>
@@ -259,7 +284,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
             )}
             
             {/* Category options */}
-            <List dense sx={{ maxHeight: 300, overflow: 'auto' }}>
+            <List dense sx={{ maxHeight: 400, overflow: 'auto', padding: 0 }}>
               {props.children}
             </List>
           </Paper>
