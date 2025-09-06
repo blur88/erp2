@@ -451,16 +451,6 @@ const CustomersPage: React.FC = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} md={2}>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => dispatch(fetchCustomers({ ...filters, search: searchTerm }))}
-              sx={{ height: 40 }}
-            >
-              Refresh
-            </Button>
-          </Grid>
         </Grid>
       </Paper>
 
