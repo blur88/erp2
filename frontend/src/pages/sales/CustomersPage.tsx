@@ -76,6 +76,7 @@ import {
 import { addNotification } from '@/store/slices/notificationSlice'
 import type { Customer } from '@/types'
 import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
+import { formatCurrency } from '@/utils/currency'
 
 // Form validation schema
 const customerSchema = yup.object({
@@ -547,16 +548,16 @@ const CustomersPage: React.FC = () => {
                     <TableCell>
                       <Stack spacing={0.5}>
                         <Typography variant="caption" color="text.secondary">
-                          Limit: ${customer.creditLimit.toFixed(2)}
+                          Limit: {formatCurrency(customer.creditLimit)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Balance: ${customer.currentBalance.toFixed(2)}
+                          Balance: {formatCurrency(customer.currentBalance)}
                         </Typography>
                         <Typography 
                           variant="caption" 
                           color={customer.availableCredit >= 0 ? 'success.main' : 'error.main'}
                         >
-                          Available: ${customer.availableCredit.toFixed(2)}
+                          Available: {formatCurrency(customer.availableCredit)}
                         </Typography>
                       </Stack>
                     </TableCell>
@@ -566,10 +567,10 @@ const CustomersPage: React.FC = () => {
                           Orders: {customer.totalOrders}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Sales: ${customer.totalSales.toFixed(2)}
+                          Sales: {formatCurrency(customer.totalSales)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Avg: ${customer.averageOrderValue.toFixed(2)}
+                          Avg: {formatCurrency(customer.averageOrderValue)}
                         </Typography>
                       </Stack>
                     </TableCell>
@@ -1021,6 +1022,10 @@ const CustomersPage: React.FC = () => {
                       fullWidth
                       type="number"
                       label="Credit Limit"
+                      inputProps={{ step: 0.01, min: 0 }}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">RM</InputAdornment>
+                      }}
                       error={!!errors.creditLimit}
                       helperText={errors.creditLimit?.message}
                     />
@@ -1133,11 +1138,11 @@ const CustomersPage: React.FC = () => {
                 <Stack spacing={1}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography color="text.secondary">Credit Limit:</Typography>
-                    <Typography fontWeight={600}>${selectedCustomer.creditLimit.toFixed(2)}</Typography>
+                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.creditLimit)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography color="text.secondary">Current Balance:</Typography>
-                    <Typography fontWeight={600}>${selectedCustomer.currentBalance.toFixed(2)}</Typography>
+                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.currentBalance)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography color="text.secondary">Available Credit:</Typography>
@@ -1145,7 +1150,7 @@ const CustomersPage: React.FC = () => {
                       fontWeight={600}
                       color={selectedCustomer.availableCredit >= 0 ? 'success.main' : 'error.main'}
                     >
-                      ${selectedCustomer.availableCredit.toFixed(2)}
+                      {formatCurrency(selectedCustomer.availableCredit)}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1164,11 +1169,11 @@ const CustomersPage: React.FC = () => {
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography color="text.secondary">Total Sales:</Typography>
-                    <Typography fontWeight={600}>${selectedCustomer.totalSales.toFixed(2)}</Typography>
+                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.totalSales)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography color="text.secondary">Average Order:</Typography>
-                    <Typography fontWeight={600}>${selectedCustomer.averageOrderValue.toFixed(2)}</Typography>
+                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.averageOrderValue)}</Typography>
                   </Box>
                   {selectedCustomer.lastPurchaseDate && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
