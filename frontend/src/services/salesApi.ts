@@ -96,6 +96,14 @@ export const salesApi = {
     return ApiService.get(`v1/customers/${id}/statistics`)
   },
 
+  async getDeletedCustomers(params?: CustomerQueryParams) {
+    return ApiService.get<PaginatedResponse<Customer>>('v1/customers/deleted', { params })
+  },
+
+  async restoreCustomer(id: string) {
+    return ApiService.post<Customer>(`v1/customers/${id}/restore`)
+  },
+
   // Sales Orders
   async getOrders(params?: QueryParams & { customerId?: string; status?: string }) {
     return ApiService.get<PaginatedResponse<SalesOrder>>('/sales/orders', { params })

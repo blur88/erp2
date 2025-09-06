@@ -93,9 +93,49 @@ export class CustomerService {
       order: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
       take: limit,
+      withDeleted: false, // Only show active customers
     };
 
     const [customers, total] = await this.customerRepository.findAndCount(findOptions);
+
+    return {
+      data: customers.map(customer => this.mapToResponseDto(customer)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findDeleted(query: QueryCustomersDto) {
+    const {
+      search,
+      sortBy = 'name',
+      sortOrder = 'ASC',
+      page = 1,
+      limit = 20,
+    } = query;
+
+    const queryBuilder = this.customerRepository
+      .createQueryBuilder('customer')
+      .where('customer.deletedAt IS NOT NULL')
+      .withDeleted(); // Include soft-deleted records
+
+    // Add search conditions
+    if (search) {
+      queryBuilder.andWhere(
+        '(customer.name ILIKE :search OR customer.email ILIKE :search OR customer.phone ILIKE :search OR customer.customerCode ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Add ordering
+    queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
+
+    // Add pagination
+    queryBuilder.offset((page - 1) * limit).limit(limit);
+
+    const [customers, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: customers.map(customer => this.mapToResponseDto(customer)),
@@ -169,19 +209,25 @@ export class CustomerService {
       throw new NotFoundException('Customer not found');
     }
 
-    // Check if customer has orders
-    const orderCount = await this.salesOrderRepository.count({ where: { customerId: id } });
-    if (orderCount > 0) {
-      throw new ConflictException('Cannot delete customer with existing orders');
+    // Use soft delete instead of hard delete
+    await this.customerRepository.softDelete(id);
+  }
+
+  async restore(id: string): Promise<CustomerResponseDto> {
+    // First, restore the customer
+    await this.customerRepository.restore(id);
+    
+    // Then find and return the restored customer
+    const customer = await this.customerRepository.findOne({ 
+      where: { id },
+      withDeleted: true 
+    });
+    
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
     }
 
-    // Check if customer has invoices
-    const invoiceCount = await this.invoiceRepository.count({ where: { customerId: id } });
-    if (invoiceCount > 0) {
-      throw new ConflictException('Cannot delete customer with existing invoices');
-    }
-
-    await this.customerRepository.remove(customer);
+    return this.mapToResponseDto(customer);
   }
 
   async checkCredit(customerId: string, amount: number): Promise<CreditCheckResponseDto> {

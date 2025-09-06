@@ -41,6 +41,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
+  DeleteOutline as ViewDeletedIcon,
   Person as PersonIcon,
   Business as BusinessIcon,
   AccountBalance as CreditIcon,
@@ -77,6 +78,7 @@ import { addNotification } from '@/store/slices/notificationSlice'
 import type { Customer } from '@/types'
 import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
 import { formatCurrency } from '@/utils/currency'
+import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 
 // Form validation schema
 const customerSchema = yup.object({
@@ -145,6 +147,7 @@ const CustomersPage: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const [copyShippingFromBilling, setCopyShippingFromBilling] = useState(false)
 
@@ -361,6 +364,16 @@ const CustomersPage: React.FC = () => {
           gap: isMobile ? 1.5 : 2,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <ViewDeletedIcon /> : undefined}
+            onClick={() => setIsDeletedDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{ color: 'error.main', borderColor: 'error.main' }}
+          >
+            {isMobile ? "View Deleted Customers" : "View Deleted"}
+          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
@@ -1225,6 +1238,12 @@ const CustomersPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Deleted Customers Dialog */}
+      <DeletedCustomersDialog
+        open={isDeletedDialogOpen}
+        onClose={() => setIsDeletedDialogOpen(false)}
+      />
     </Box>
   )
 }

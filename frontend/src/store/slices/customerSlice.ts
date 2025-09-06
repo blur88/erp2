@@ -4,6 +4,7 @@ import type { Customer, CustomerType, CustomerStatus, PriceLevel, PaginatedRespo
 
 interface CustomerState {
   customers: Customer[]
+  deletedCustomers: Customer[]
   currentCustomer: Customer | null
   loading: boolean
   error: string | null
@@ -26,6 +27,7 @@ interface CustomerState {
 
 const initialState: CustomerState = {
   customers: [],
+  deletedCustomers: [],
   currentCustomer: null,
   loading: false,
   error: null,
@@ -125,6 +127,33 @@ export const updateCreditLimit = createAsyncThunk(
   'customers/updateCreditLimit',
   async ({ id, creditLimit }: { id: string; creditLimit: number }) => {
     const response = await salesApi.updateCreditLimit(id, creditLimit)
+    return response  // Return the full response
+  }
+)
+
+export const fetchDeletedCustomers = createAsyncThunk(
+  'customers/fetchDeletedCustomers',
+  async (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    sortBy?: string
+    sortOrder?: 'ASC' | 'DESC'
+  }) => {
+    // Clean params to avoid sending empty strings
+    const cleanParams = params ? Object.fromEntries(
+      Object.entries(params).filter(([_, value]) => value !== '' && value !== undefined && value !== null)
+    ) : undefined
+    
+    const response = await salesApi.getDeletedCustomers(cleanParams)
+    return response  // Return the full response
+  }
+)
+
+export const restoreCustomer = createAsyncThunk(
+  'customers/restoreCustomer',
+  async (id: string) => {
+    const response = await salesApi.restoreCustomer(id)
     return response  // Return the full response
   }
 )
@@ -315,6 +344,50 @@ const customerSlice = createSlice({
           }
         }
       })
+
+    // Fetch deleted customers
+    builder
+      .addCase(fetchDeletedCustomers.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchDeletedCustomers.fulfilled, (state, action) => {
+        state.loading = false
+        if (action.payload) {
+          // API response structure: { data: Customer[], total, page, limit, totalPages }
+          const payload = action.payload as any
+          state.deletedCustomers = payload.data || []
+        }
+      })
+      .addCase(fetchDeletedCustomers.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to fetch deleted customers'
+      })
+
+    // Restore customer
+    builder
+      .addCase(restoreCustomer.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(restoreCustomer.fulfilled, (state, action) => {
+        state.loading = false
+        if (action.payload) {
+          const restoredCustomer = (action.payload as any).data || action.payload as Customer
+          // Remove from deleted customers
+          state.deletedCustomers = state.deletedCustomers.filter(c => c.id !== restoredCustomer.id)
+          // Add to regular customers if not already there
+          const exists = state.customers.find(c => c.id === restoredCustomer.id)
+          if (!exists) {
+            state.customers.unshift(restoredCustomer)
+            state.pagination.total += 1
+          }
+        }
+      })
+      .addCase(restoreCustomer.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to restore customer'
+      })
   },
 })
 
@@ -322,6 +395,7 @@ export const { clearError, setFilters, clearFilters, setCurrentCustomer } = cust
 
 // Selectors
 export const selectCustomers = (state: any) => state.customers?.customers || []
+export const selectDeletedCustomers = (state: any) => state.customers?.deletedCustomers || []
 export const selectCurrentCustomer = (state: any) => state.customers?.currentCustomer
 export const selectCustomersLoading = (state: any) => state.customers?.loading || false
 export const selectCustomersError = (state: any) => state.customers?.error

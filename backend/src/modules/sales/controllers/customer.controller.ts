@@ -240,4 +240,31 @@ export class CustomerController {
   async getCustomerStatistics(@Param('id', ParseUUIDPipe) id: string) {
     return this.customerService.getCustomerStatistics(id);
   }
+
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted customers' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of soft-deleted customers retrieved successfully',
+    type: [CustomerResponseDto],
+  })
+  @ApiQuery({ name: 'search', required: false, description: 'Search customers by name, email, or phone' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  async getDeletedCustomers(@Query() query: QueryCustomersDto) {
+    return this.customerService.findDeleted(query);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore soft-deleted customer' })
+  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer restored successfully',
+    type: CustomerResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  async restoreCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
+    return this.customerService.restore(id);
+  }
 }
