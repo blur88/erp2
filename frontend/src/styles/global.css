@@ -115,6 +115,16 @@ button {
   100% { background-position: -200% 0; }
 }
 
+/* Rotate animation for refresh icon */
+.rotate {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Utility classes */
 .text-center { text-align: center; }
 .text-left { text-align: left; }

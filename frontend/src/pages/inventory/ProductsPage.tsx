@@ -50,6 +50,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
+import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import CalculatorDialog from '@/components/calculator/CalculatorDialog'
 import type { Product } from '@/types'
@@ -76,7 +77,7 @@ interface ProductFormData {
   retailPrice?: number
   wholesalePrice?: number
   specialPrice?: number
-  currentStock: number
+  currentStock?: number
   notes: string
   isActive: boolean
 }
@@ -86,12 +87,27 @@ const productSchema = yup.object({
   description: yup.string(),
   barcode: yup.string().optional(),
   type: yup.string().required('Product type is required'),
-  categoryId: yup.string().required('Category is required').min(1, 'Please select a category'),
+  categoryId: yup.string().required('Category is required').test(
+    'is-valid-uuid',
+    'Please select a valid category',
+    function(value) {
+      // Allow empty string for initial form state, but require UUID when submitting
+      if (!value || value.trim() === '') {
+        return this.createError({ message: 'Please select a category' })
+      }
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(value)) {
+        return this.createError({ message: 'Invalid category selection - please choose from the dropdown' })
+      }
+      return true
+    }
+  ),
   baseCost: yup.number().required('Base cost is required').min(0, 'Cost must be positive'),
   retailPrice: yup.number().optional().min(0, 'Price must be positive'),
   wholesalePrice: yup.number().optional().min(0, 'Price must be positive'),
   specialPrice: yup.number().optional().min(0, 'Price must be positive'),
-  currentStock: yup.number().required('Current stock is required').min(0, 'Stock must be non-negative'),
+  currentStock: yup.number().optional().min(0, 'Stock must be non-negative'),
   notes: yup.string(),
   isActive: yup.boolean(),
 })
@@ -121,6 +137,18 @@ const ProductsPage: React.FC = () => {
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
   const productListRef = useRef<HTMLDivElement>(null)
+
+  // Use the new duplicate check hook
+  const { 
+    checkDuplicate, 
+    nameError: duplicateNameError, 
+    barcodeError: duplicateBarcodeError,
+    hasNameDuplicate: isDuplicateName,
+    hasBarcodeDuplicate: isDuplicateBarcode
+  } = useDuplicateCheck()
+
+  // Inline edit duplicate checking
+  const inlineEditDuplicateCheck = useDuplicateCheck()
 
   useEffect(() => {
     dispatch(fetchCategories({ includeProductCount: true }))
@@ -182,17 +210,22 @@ const ProductsPage: React.FC = () => {
       retailPrice: undefined,
       wholesalePrice: undefined,
       specialPrice: undefined,
-      currentStock: 0,
+      currentStock: undefined,
       notes: '',
       isActive: true,
     },
   })
 
-  // Watch form values for real-time profit margin calculation
+  // Watch form values for real-time profit margin calculation and duplicate name validation
   const baseCost = watch('baseCost')
   const retailPrice = watch('retailPrice')
   const wholesalePrice = watch('wholesalePrice')
   const specialPrice = watch('specialPrice')
+  const watchedName = watch('name')
+  const watchedBarcode = watch('barcode')
+  const watchedType = watch('type')
+  const watchedCategoryId = watch('categoryId')
+  const watchedCurrentStock = watch('currentStock')
 
   // Calculate profit margins
   const calculateMargin = (sellingPrice: number | undefined, cost: number): number => {
@@ -204,6 +237,60 @@ const ProductsPage: React.FC = () => {
   const retailMargin = calculateMargin(retailPrice, baseCost)
   const wholesaleMargin = calculateMargin(wholesalePrice, baseCost)
   const specialMargin = calculateMargin(specialPrice, baseCost)
+
+  // Check if all mandatory fields are filled
+  const isMandatoryFieldsComplete = watchedName?.trim().length >= 2 && 
+    watchedType && 
+    watchedCategoryId?.trim().length >= 1 && 
+    (baseCost !== null && baseCost !== undefined && baseCost >= 0)
+
+  // Real-time duplicate checking for form fields
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      if ((watchedName && watchedName.trim().length >= 2) || (watchedBarcode && watchedBarcode.trim().length >= 1)) {
+        console.log('Checking duplicates for:', { 
+          name: watchedName?.trim(), 
+          barcode: watchedBarcode?.trim(),
+          excludeId: editMode && selectedProduct ? selectedProduct.id : undefined
+        })
+        
+        await checkDuplicate({
+          name: watchedName && watchedName.trim().length >= 2 ? watchedName.trim() : undefined,
+          barcode: watchedBarcode && watchedBarcode.trim().length >= 1 ? watchedBarcode.trim() : undefined,
+          excludeId: editMode && selectedProduct ? selectedProduct.id : undefined,
+        })
+      }
+    }, 500) // Debounce API calls
+
+    return () => clearTimeout(timeoutId)
+  }, [watchedName, watchedBarcode, editMode, selectedProduct, checkDuplicate])
+
+  // Real-time duplicate checking for inline editing
+  useEffect(() => {
+    if (!inlineEditMode || !inlineEditData || !selectedProductForDetails) {
+      return
+    }
+
+    const timeoutId = setTimeout(async () => {
+      if ((inlineEditData.name && inlineEditData.name.trim().length >= 2) || 
+          (inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1)) {
+        
+        console.log('Checking duplicates for inline edit:', { 
+          name: inlineEditData.name?.trim(), 
+          barcode: inlineEditData.barcode?.trim(),
+          excludeId: selectedProductForDetails.id
+        })
+
+        await inlineEditDuplicateCheck.checkDuplicate({
+          name: inlineEditData.name && inlineEditData.name.trim().length >= 2 ? inlineEditData.name.trim() : undefined,
+          barcode: inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 ? inlineEditData.barcode.trim() : undefined,
+          excludeId: selectedProductForDetails.id,
+        })
+      }
+    }, 500) // Debounce API calls
+
+    return () => clearTimeout(timeoutId)
+  }, [inlineEditData, selectedProductForDetails, inlineEditMode, inlineEditDuplicateCheck])
 
   // Products are already filtered by backend search
   const filteredProducts = products || []
@@ -363,7 +450,7 @@ const ProductsPage: React.FC = () => {
       retailPrice: product.retailPrice || undefined,
       wholesalePrice: product.wholesalePrice || undefined,
       specialPrice: product.specialPrice || undefined,
-      currentStock: product.stockQuantity || 0,
+      currentStock: product.stockQuantity || undefined,
       notes: product.notes || '',
       isActive: product.isActive,
     })
@@ -383,6 +470,17 @@ const ProductsPage: React.FC = () => {
       // Validate categoryId is present and valid
       if (!inlineEditData.categoryId || inlineEditData.categoryId.trim() === '') {
         showError('Please select a category')
+        return
+      }
+
+      // Check for duplicates using the API
+      if (inlineEditDuplicateCheck.hasNameDuplicate) {
+        showError(inlineEditDuplicateCheck.nameError)
+        return
+      }
+      
+      if (inlineEditDuplicateCheck.hasBarcodeDuplicate) {
+        showError(inlineEditDuplicateCheck.barcodeError)
         return
       }
       
@@ -486,8 +584,28 @@ const ProductsPage: React.FC = () => {
       handleCloseDialog()
     } catch (error: any) {
       console.error('Product save error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save product'
-      showError(errorMessage + '. Please try again.')
+      // Handle different error types more specifically
+      let errorMessage = 'Failed to save product'
+      
+      if (error?.response?.data?.message) {
+        // Backend validation error
+        errorMessage = error.response.data.message
+      } else if (error?.message) {
+        // Network or other error
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        // Redux rejection error
+        errorMessage = error
+      }
+      
+      // Show more specific error messages for common issues
+      if (errorMessage.includes('categoryId must be a UUID')) {
+        errorMessage = 'Please select a valid category from the dropdown'
+      } else if (errorMessage.includes('Validation failed')) {
+        errorMessage = 'Please check all required fields and try again'
+      }
+      
+      showError(errorMessage)
     }
   }
 
@@ -654,6 +772,37 @@ const ProductsPage: React.FC = () => {
             value={selectedCategory}
             label="Category"
             onChange={(e) => setSelectedCategory(e.target.value)}
+            MenuProps={{
+              PaperProps: {
+                style: {
+                  maxHeight: 'none', // Remove height restriction
+                  maxWidth: 'none',  // Remove width restriction
+                  overflow: 'visible' // Ensure content is fully visible
+                },
+                sx: {
+                  '& .MuiList-root': {
+                    maxHeight: '400px', // Set max height on the list itself
+                    overflow: 'auto',   // Enable scrolling on the list
+                    padding: 0
+                  }
+                }
+              },
+              // Render dropdown in document body to avoid clipping
+              disablePortal: false,
+              // Allow dropdown to position freely
+              anchorOrigin: {
+                vertical: 'bottom',
+                horizontal: 'left'
+              },
+              transformOrigin: {
+                vertical: 'top',
+                horizontal: 'left'
+              },
+              // Ensure z-index is high enough
+              sx: {
+                zIndex: 9999
+              }
+            }}
             sx={{
               height: '40px',
               fontSize: '0.875rem',
@@ -929,10 +1078,15 @@ const ProductsPage: React.FC = () => {
                         title="Save changes"
                         aria-label="Save changes"
                         onClick={handleInlineEditSave}
+                        disabled={inlineEditDuplicateCheck.hasNameDuplicate || inlineEditDuplicateCheck.hasBarcodeDuplicate}
                         sx={{
                           '&:hover': {
                             backgroundColor: 'success.light',
                             color: 'success.main'
+                          },
+                          '&.Mui-disabled': {
+                            backgroundColor: 'grey.300',
+                            color: 'grey.500'
                           },
                           p: 0.5
                         }}
@@ -1049,10 +1203,32 @@ const ProductsPage: React.FC = () => {
                               onChange={(e) => handleInlineEditChange('name', e.target.value)}
                               size="small"
                               fullWidth
+                              error={inlineEditDuplicateCheck.hasNameDuplicate}
+                              helperText={
+                                inlineEditDuplicateCheck.hasNameDuplicate 
+                                  ? inlineEditDuplicateCheck.nameError 
+                                  : inlineEditData.name && inlineEditData.name.trim().length >= 2 && !inlineEditDuplicateCheck.hasNameDuplicate
+                                    ? 'Name is available'
+                                    : ''
+                              }
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   fontSize: '0.8rem',
-                                  height: '28px'
+                                  height: '28px',
+                                  '&.Mui-error': {
+                                    '& fieldset': {
+                                      borderColor: 'error.main'
+                                    }
+                                  }
+                                },
+                                '& .MuiFormHelperText-root': {
+                                  fontSize: '0.7rem',
+                                  margin: '2px 0 0 0',
+                                  color: inlineEditDuplicateCheck.hasNameDuplicate 
+                                    ? 'error.main' 
+                                    : inlineEditData.name && inlineEditData.name.trim().length >= 2 && !inlineEditDuplicateCheck.hasNameDuplicate
+                                      ? 'success.main'
+                                      : undefined
                                 }
                               }}
                             />
@@ -1075,10 +1251,32 @@ const ProductsPage: React.FC = () => {
                               onChange={(e) => handleInlineEditChange('barcode', e.target.value)}
                               size="small"
                               fullWidth
+                              error={inlineEditDuplicateCheck.hasBarcodeDuplicate}
+                              helperText={
+                                inlineEditDuplicateCheck.hasBarcodeDuplicate 
+                                  ? inlineEditDuplicateCheck.barcodeError 
+                                  : inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 && !inlineEditDuplicateCheck.hasBarcodeDuplicate
+                                    ? 'Barcode is available'
+                                    : ''
+                              }
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   fontSize: '0.8rem',
-                                  height: '28px'
+                                  height: '28px',
+                                  '&.Mui-error': {
+                                    '& fieldset': {
+                                      borderColor: 'error.main'
+                                    }
+                                  }
+                                },
+                                '& .MuiFormHelperText-root': {
+                                  fontSize: '0.7rem',
+                                  margin: '2px 0 0 0',
+                                  color: inlineEditDuplicateCheck.hasBarcodeDuplicate 
+                                    ? 'error.main' 
+                                    : inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 && !inlineEditDuplicateCheck.hasBarcodeDuplicate
+                                      ? 'success.main'
+                                      : undefined
                                 }
                               }}
                             />
@@ -1134,6 +1332,14 @@ const ProductsPage: React.FC = () => {
                               <Select 
                                 value={inlineEditData.categoryId}
                                 onChange={(e) => handleInlineEditChange('categoryId', e.target.value)}
+                                MenuProps={{
+                                  PaperProps: {
+                                    style: {
+                                      maxHeight: 300,
+                                      overflow: 'auto'
+                                    }
+                                  }
+                                }}
                                 sx={{
                                   '& .MuiSelect-select': { 
                                     fontSize: '0.8rem',
@@ -1451,7 +1657,7 @@ const ProductsPage: React.FC = () => {
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.currentStock}
-                              onChange={(e) => handleInlineEditChange('currentStock', parseInt(e.target.value) || 0)}
+                              onChange={(e) => handleInlineEditChange('currentStock', e.target.value === '' ? undefined : parseInt(e.target.value) || 0)}
                               size="small"
                               type="number"
                               inputProps={{ step: 1, min: 0 }}
@@ -1600,8 +1806,30 @@ const ProductsPage: React.FC = () => {
                       fullWidth
                       size="small"
                       label="Product Name"
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
+                      error={!!errors.name || isDuplicateName}
+                      helperText={
+                        errors.name?.message || 
+                        (isDuplicateName ? duplicateNameError : '') ||
+                        (watchedName && watchedName.trim().length >= 2 && !isDuplicateName ? 'Name is available' : '')
+                      }
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-error': {
+                            '& fieldset': {
+                              borderColor: 'error.main'
+                            }
+                          }
+                        },
+                        '& .MuiFormHelperText-root': {
+                          color: isDuplicateName 
+                            ? 'error.main' 
+                            : errors.name 
+                              ? 'error.main'
+                              : watchedName && watchedName.trim().length >= 2 && !isDuplicateName
+                                ? 'success.main'
+                                : undefined
+                        }
+                      }}
                     />
                   )}
                 />
@@ -1616,8 +1844,30 @@ const ProductsPage: React.FC = () => {
                       fullWidth
                       size="small"
                       label="Barcode"
-                      error={!!errors.barcode}
-                      helperText={errors.barcode?.message}
+                      error={!!errors.barcode || isDuplicateBarcode}
+                      helperText={
+                        errors.barcode?.message || 
+                        (isDuplicateBarcode ? duplicateBarcodeError : '') ||
+                        (watchedBarcode && watchedBarcode.trim().length >= 1 && !isDuplicateBarcode ? 'Barcode is available' : '')
+                      }
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&.Mui-error': {
+                            '& fieldset': {
+                              borderColor: 'error.main'
+                            }
+                          }
+                        },
+                        '& .MuiFormHelperText-root': {
+                          color: isDuplicateBarcode 
+                            ? 'error.main' 
+                            : errors.barcode 
+                              ? 'error.main'
+                              : watchedBarcode && watchedBarcode.trim().length >= 1 && !isDuplicateBarcode
+                                ? 'success.main'
+                                : undefined
+                        }
+                      }}
                     />
                   )}
                 />
@@ -1651,7 +1901,28 @@ const ProductsPage: React.FC = () => {
                   render={({ field }) => (
                     <FormControl fullWidth size="small" error={!!errors.categoryId}>
                       <InputLabel>Category</InputLabel>
-                      <Select {...field} label="Category">
+                      <Select 
+                        {...field} 
+                        label="Category"
+                        MenuProps={{
+                          PaperProps: {
+                            style: {
+                              maxHeight: 'none',
+                              maxWidth: 'none',
+                              overflow: 'visible'
+                            },
+                            sx: {
+                              '& .MuiList-root': {
+                                maxHeight: '400px',
+                                overflow: 'auto',
+                                padding: 0
+                              }
+                            }
+                          },
+                          disablePortal: false,
+                          sx: { zIndex: 9999 }
+                        }}
+                      >
                         {categories && categories.length > 0 ? (
                           categories.map((category: any) => (
                             <MenuItem key={category.id} value={category.id}>
@@ -1873,8 +2144,18 @@ const ProductsPage: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={isSubmitting}
-              sx={{ minWidth: 100 }}
+              disabled={isSubmitting || isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)}
+              sx={{ 
+                minWidth: 100,
+                backgroundColor: (isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
+                '&:hover': {
+                  backgroundColor: (isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: (isDuplicateName || isDuplicateBarcode || (!editMode && !isMandatoryFieldsComplete)) ? 'grey.400' : undefined,
+                  color: 'grey.600'
+                }
+              }}
             >
               {isSubmitting ? 'Saving...' : editMode ? 'Update' : 'Create'}
             </Button>

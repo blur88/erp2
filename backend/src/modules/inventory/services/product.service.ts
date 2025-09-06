@@ -52,20 +52,41 @@ export class ProductService {
   async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
     this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
-    // Check if barcode already exists (including soft-deleted products)
-    const existingProduct = await this.productRepository.findOne({
-      where: { barcode: createProductDto.barcode },
-      withDeleted: true, // Include soft-deleted products in the check
-    });
+    // Check if product name already exists (case-insensitive, including soft-deleted products)
+    const existingProductByName = await this.productRepository
+      .createQueryBuilder('product')
+      .where('LOWER(product.name) = LOWER(:name)', { name: createProductDto.name.trim() })
+      .withDeleted()
+      .getOne();
 
-    if (existingProduct) {
-      if (existingProduct.deletedAt) {
+    if (existingProductByName) {
+      if (existingProductByName.deletedAt) {
         throw new ConflictException(
-          `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
-          `Please choose a different barcode.`
+          `Product with name '${createProductDto.name}' was previously deleted but cannot be reused. ` +
+          `Please choose a different name or restore the deleted product.`
         );
       } else {
-        throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
+        throw new ConflictException(`Product with name '${createProductDto.name}' already exists`);
+      }
+    }
+
+    // Check if barcode already exists (case-insensitive, including soft-deleted products)
+    if (createProductDto.barcode) {
+      const existingProduct = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: createProductDto.barcode.trim() })
+        .withDeleted()
+        .getOne();
+
+      if (existingProduct) {
+        if (existingProduct.deletedAt) {
+          throw new ConflictException(
+            `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
+            `Please choose a different barcode.`
+          );
+        } else {
+          throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
+        }
       }
     }
 
@@ -261,6 +282,13 @@ export class ProductService {
   }
 
   /**
+   * Find one product by SKU (alias for barcode)
+   */
+  async findBySku(sku: string): Promise<ProductResponseDto> {
+    return this.findByBarcode(sku);
+  }
+
+  /**
    * Find one product by barcode
    */
   async findByBarcode(barcode: string): Promise<ProductResponseDto> {
@@ -274,6 +302,89 @@ export class ProductService {
     }
 
     return this.toResponseDto(product);
+  }
+
+  /**
+   * Check for duplicate product names and barcodes (including soft-deleted)
+   */
+  async checkDuplicate(params: {
+    name?: string;
+    barcode?: string;
+    excludeId?: string;
+  }): Promise<{
+    nameExists: boolean;
+    barcodeExists: boolean;
+    nameConflict?: {
+      id: string;
+      name: string;
+      isDeleted: boolean;
+      barcode?: string;
+    };
+    barcodeConflict?: {
+      id: string;
+      name: string;
+      isDeleted: boolean;
+      barcode?: string;
+    };
+  }> {
+    this.logger.log(`Checking duplicate for name: "${params.name}", barcode: "${params.barcode}"`);
+
+    const result = {
+      nameExists: false,
+      barcodeExists: false,
+      nameConflict: undefined as any,
+      barcodeConflict: undefined as any,
+    };
+
+    // Check name duplicate
+    if (params.name && params.name.trim()) {
+      const nameQuery = this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.name) = LOWER(:name)', { name: params.name.trim() })
+        .withDeleted();
+
+      if (params.excludeId) {
+        nameQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+      }
+
+      const existingByName = await nameQuery.getOne();
+
+      if (existingByName) {
+        result.nameExists = true;
+        result.nameConflict = {
+          id: existingByName.id,
+          name: existingByName.name,
+          isDeleted: !!existingByName.deletedAt,
+          barcode: existingByName.barcode,
+        };
+      }
+    }
+
+    // Check barcode duplicate
+    if (params.barcode && params.barcode.trim()) {
+      const barcodeQuery = this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: params.barcode.trim() })
+        .withDeleted();
+
+      if (params.excludeId) {
+        barcodeQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+      }
+
+      const existingByBarcode = await barcodeQuery.getOne();
+
+      if (existingByBarcode) {
+        result.barcodeExists = true;
+        result.barcodeConflict = {
+          id: existingByBarcode.id,
+          name: existingByBarcode.name,
+          isDeleted: !!existingByBarcode.deletedAt,
+          barcode: existingByBarcode.barcode,
+        };
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -360,10 +471,12 @@ export class ProductService {
       throw new BadRequestException(`Product with ID '${id}' is not deleted`);
     }
 
-    // Check if barcode is still unique (another product might have been created with the same barcode)
-    const existingProduct = await this.productRepository.findOne({
-      where: { barcode: product.barcode },
-    });
+    // Check if barcode is still unique (case-insensitive, another product might have been created with the same barcode)
+    const existingProduct = await this.productRepository
+      .createQueryBuilder('product')
+      .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+      .andWhere('product.id != :id', { id: product.id })
+      .getOne();
 
     if (existingProduct) {
       throw new ConflictException(
@@ -436,6 +549,87 @@ export class ProductService {
   }
 
   /**
+   * Bulk permanently delete products from database
+   */
+  async bulkPermanentDelete(
+    productIds: string[], 
+    userId?: string
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${productIds.length} products`);
+    
+    if (!productIds || productIds.length === 0) {
+      return { deletedCount: 0, failedIds: [] };
+    }
+
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    // Process each product individually to handle failures gracefully
+    for (const id of productIds) {
+      try {
+        // Find the product (including soft-deleted ones)
+        const product = await this.productRepository.findOne({
+          where: { id },
+          relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+          withDeleted: true,
+        });
+
+        if (!product) {
+          this.logger.warn(`Product with ID '${id}' not found`);
+          failedIds.push(id);
+          continue;
+        }
+
+        // Ensure product is already soft-deleted
+        if (!product.deletedAt) {
+          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
+          failedIds.push(id);
+          continue;
+        }
+
+        // Check if product has any active dependencies that prevent permanent deletion
+        if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
+          this.logger.warn(
+            `Product with ID '${id}' has associated orders and cannot be permanently deleted`
+          );
+          failedIds.push(id);
+          continue;
+        }
+
+        // If there are stock movements, we allow deletion but log it
+        if (product.stockMovements?.length > 0) {
+          this.logger.warn(
+            `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
+          );
+        }
+
+        // Hard delete the product from database
+        await this.productRepository.delete(id);
+
+        // Log audit event
+        await this.auditService.logProductEvent(
+          product.id,
+          'PRODUCT_PERMANENTLY_DELETED',
+          `Product ${product.name} (${product.barcode}) permanently deleted from database (bulk operation)`,
+          userId,
+        );
+
+        deletedCount++;
+        this.logger.log(`Product permanently deleted: ${id}`);
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete product ${id}: ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(
+      `Bulk permanent delete completed: ${deletedCount} succeeded, ${failedIds.length} failed`
+    );
+
+    return { deletedCount, failedIds };
+  }
+
+  /**
    * Update a product
    */
   async update(id: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductResponseDto> {
@@ -451,14 +645,45 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    // Check for barcode conflicts if barcode is being changed
-    if (updateProductDto.barcode && updateProductDto.barcode !== product.barcode) {
-      const existingProduct = await this.productRepository.findOne({
-        where: { barcode: updateProductDto.barcode },
-      });
+    // Check for name conflicts if name is being changed (case-insensitive)
+    if (updateProductDto.name && updateProductDto.name.toLowerCase() !== product.name.toLowerCase()) {
+      const existingProductByName = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.name) = LOWER(:name)', { name: updateProductDto.name.trim() })
+        .andWhere('product.id != :id', { id: product.id })
+        .withDeleted()
+        .getOne();
+
+      if (existingProductByName) {
+        if (existingProductByName.deletedAt) {
+          throw new ConflictException(
+            `Product with name '${updateProductDto.name}' was previously deleted but cannot be reused. ` +
+            `Please choose a different name or restore the deleted product.`
+          );
+        } else {
+          throw new ConflictException(`Product with name '${updateProductDto.name}' already exists`);
+        }
+      }
+    }
+
+    // Check for barcode conflicts if barcode is being changed (case-insensitive)
+    if (updateProductDto.barcode && updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()) {
+      const existingProduct = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: updateProductDto.barcode.trim() })
+        .andWhere('product.id != :id', { id: product.id })
+        .withDeleted()
+        .getOne();
 
       if (existingProduct) {
-        throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
+        if (existingProduct.deletedAt) {
+          throw new ConflictException(
+            `Product with barcode '${updateProductDto.barcode}' was previously deleted but cannot be reused. ` +
+            `Please choose a different barcode or restore the deleted product.`
+          );
+        } else {
+          throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
+        }
       }
     }
 
@@ -802,6 +1027,119 @@ export class ProductService {
   }
 
   /**
+   * Get dashboard statistics for inventory overview
+   */
+  async getDashboardStats(): Promise<{
+    totalProducts: number;
+    totalCategories: number;
+    inventoryValue: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+    recentMovements: number;
+    categoryBreakdown: Array<{ category: string; count: number; value: number }>;
+    stockHealthMetrics: {
+      inStockPercentage: number;
+      lowStockPercentage: number;
+      outOfStockPercentage: number;
+      averageValue: number;
+    };
+  }> {
+    this.logger.log('Fetching dashboard statistics');
+
+    // Get total products count
+    const totalProducts = await this.productRepository.count({
+      where: { deletedAt: null }
+    });
+
+    // Get total categories count
+    const totalCategories = await this.categoryRepository.count({
+      where: { isActive: true }
+    });
+
+    // Get all active products with category info for calculations
+    const products = await this.productRepository.find({
+      relations: ['category'],
+      where: { deletedAt: null }
+    });
+
+    // Calculate comprehensive statistics
+    let inventoryValue = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+    const categoryMap = new Map<string, { count: number; value: number }>();
+
+    products.forEach(product => {
+      const stock = Number(product.stockQuantity) || 0;
+      const price = Number(product.retailPrice) || 0;
+      const reorderLevel = Number(product.reorderLevel) || 0;
+      
+      // Calculate inventory value
+      inventoryValue += stock * price;
+
+      // Count low stock and out of stock
+      if (stock <= 0) {
+        outOfStockCount++;
+      } else if (stock <= reorderLevel) {
+        lowStockCount++;
+      }
+
+      // Category breakdown
+      const categoryName = product.category?.name || 'Uncategorized';
+      const existing = categoryMap.get(categoryName) || { count: 0, value: 0 };
+      existing.count += 1;
+      existing.value += stock * price;
+      categoryMap.set(categoryName, existing);
+    });
+
+    // Convert category map to array and sort by value
+    const categoryBreakdown = Array.from(categoryMap.entries())
+      .map(([category, data]) => ({ category, ...data }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5); // Top 5 categories
+
+    // Calculate stock health metrics
+    const inStockCount = totalProducts - outOfStockCount;
+    const stockHealthMetrics = {
+      inStockPercentage: totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0,
+      lowStockPercentage: totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0,
+      outOfStockPercentage: totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0,
+      averageValue: totalProducts > 0 ? inventoryValue / totalProducts : 0,
+    };
+
+    // Get recent movements count (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    let recentMovements = 0;
+    try {
+      // Try to get recent movements count from stock movement service
+      const movementsQuery = await this.stockMovementService.findAll({
+        page: 1,
+        limit: 1,
+        fromDate: thirtyDaysAgo,
+      });
+      recentMovements = movementsQuery.meta?.total || 0;
+    } catch (error) {
+      this.logger.warn('Could not fetch recent movements count:', error.message);
+      recentMovements = 0;
+    }
+
+    const stats = {
+      totalProducts,
+      totalCategories,
+      inventoryValue: Number(inventoryValue.toFixed(2)),
+      lowStockCount,
+      outOfStockCount,
+      recentMovements,
+      categoryBreakdown,
+      stockHealthMetrics,
+    };
+
+    this.logger.log('Dashboard statistics calculated successfully');
+    return stats;
+  }
+
+  /**
    * Convert product entity to response DTO
    */
   private toResponseDto(product: Product): ProductResponseDto {
@@ -852,19 +1190,22 @@ export class ProductService {
   private validatePricing(productData: any): void {
     const { baseCost, retailPrice, wholesalePrice, specialPrice } = productData;
 
-    if (retailPrice < baseCost) {
-      throw new BadRequestException('Retail price cannot be lower than base cost');
+    // Only validate selling prices against base cost if they are greater than 0
+    // This allows base cost to be higher than selling prices (negative margins)
+    if (retailPrice > 0 && retailPrice < baseCost) {
+      this.logger.warn(`Retail price (${retailPrice}) is lower than base cost (${baseCost}) - negative margin`);
     }
 
-    if (wholesalePrice < baseCost) {
-      throw new BadRequestException('Wholesale price cannot be lower than base cost');
+    if (wholesalePrice > 0 && wholesalePrice < baseCost) {
+      this.logger.warn(`Wholesale price (${wholesalePrice}) is lower than base cost (${baseCost}) - negative margin`);
     }
 
-    if (specialPrice < baseCost) {
-      throw new BadRequestException('Special price cannot be lower than base cost');
+    if (specialPrice > 0 && specialPrice < baseCost) {
+      this.logger.warn(`Special price (${specialPrice}) is lower than base cost (${baseCost}) - negative margin`);
     }
 
-    if (wholesalePrice > retailPrice) {
+    // Keep the wholesale vs retail validation as it's a business logic rule
+    if (wholesalePrice > 0 && retailPrice > 0 && wholesalePrice > retailPrice) {
       throw new BadRequestException('Wholesale price cannot be higher than retail price');
     }
   }

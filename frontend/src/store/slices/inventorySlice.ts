@@ -84,7 +84,7 @@ export const fetchProducts = createAsyncThunk(
     try {
       // Always fetch only active products (exclude soft-deleted products)
       const response = await inventoryApi.getProducts({ ...params, isActive: true })
-      return response
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch products:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch products')
@@ -97,7 +97,7 @@ export const fetchCategories = createAsyncThunk(
   async (params: { includeProductCount?: boolean } = {}, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getCategories({ includeProductCount: true, ...params })
-      return response
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch categories:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch categories')
@@ -146,7 +146,7 @@ export const fetchDeletedProducts = createAsyncThunk(
   async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getDeletedProducts(params)
-      return response
+      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch deleted products:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted products')
@@ -174,6 +174,37 @@ export const permanentDeleteProduct = createAsyncThunk(
       return id
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete product')
+    }
+  }
+)
+
+export const bulkPermanentDeleteProducts = createAsyncThunk(
+  'inventory/bulkPermanentDeleteProducts',
+  async (productIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkPermanentDeleteProducts(productIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk delete products')
+    }
+  }
+)
+
+export const checkProductDuplicate = createAsyncThunk(
+  'inventory/checkProductDuplicate',
+  async (params: { name?: string; barcode?: string; excludeId?: string }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.checkProductDuplicate(params)
+      // Handle both direct response and wrapped response structures
+      if (response && typeof response === 'object' && 'nameExists' in response) {
+        return response as any
+      } else if (response && 'data' in response) {
+        return (response as any).data
+      }
+      return response as any
+    } catch (error: any) {
+      console.error('Redux: API call failed:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to check for duplicates')
     }
   }
 )
@@ -226,7 +257,7 @@ export const fetchDeletedCategories = createAsyncThunk(
   async (params: { page?: number; limit?: number }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getDeletedCategories(params)
-      return response
+      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch deleted categories:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted categories')
@@ -306,9 +337,9 @@ const inventorySlice = createSlice({
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading.products = false
         if (action.payload) {
-          // Backend returns PaginatedResponse<Product> directly: {data: Product[], meta: {...}}
-          state.products = (action.payload as any).data || []
-          state.pagination.products = (action.payload as any).meta || {
+          const payload = action.payload as any
+          state.products = payload.data || []
+          state.pagination.products = payload.meta || {
             page: 1, limit: 20, total: 0, totalPages: 0
           }
         }
@@ -327,7 +358,7 @@ const inventorySlice = createSlice({
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading.categories = false
         if (action.payload) {
-          // Backend returns PaginatedResponse<Category> directly: {data: Category[], meta: {...}}
+          // The API response is in the format { data: [...], meta: {...} }
           state.categories = (action.payload as any).data || []
         }
       })
@@ -343,6 +374,9 @@ const inventorySlice = createSlice({
           state.products.unshift(action.payload)
         }
       })
+      .addCase(createProduct.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
 
     // Update Product
     builder
@@ -356,6 +390,9 @@ const inventorySlice = createSlice({
             state.selectedProduct = action.payload
           }
         }
+      })
+      .addCase(updateProduct.rejected, (state, action) => {
+        state.error = action.payload as string
       })
 
     // Delete Product
@@ -378,7 +415,7 @@ const inventorySlice = createSlice({
       .addCase(fetchDeletedProducts.fulfilled, (state, action) => {
         state.loading.deletedProducts = false
         if (action.payload) {
-          state.deletedProducts = (action.payload as any).data || []
+          state.deletedProducts = action.payload.data || []
         }
       })
       .addCase(fetchDeletedProducts.rejected, (state, action) => {
@@ -402,6 +439,18 @@ const inventorySlice = createSlice({
         if (action.payload) {
           // Remove from deleted products list
           state.deletedProducts = state.deletedProducts.filter(p => p.id !== action.payload)
+        }
+      })
+      .addCase(bulkPermanentDeleteProducts.fulfilled, (state, action) => {
+        if (action.payload) {
+          const { deletedCount, failedIds } = action.payload
+          // Remove successfully deleted products from deleted products list
+          const successfulIds = state.deletedProducts
+            .map(p => p.id)
+            .filter(id => !failedIds.includes(id))
+          state.deletedProducts = state.deletedProducts.filter(
+            p => !successfulIds.includes(p.id)
+          )
         }
       })
 
@@ -450,7 +499,7 @@ const inventorySlice = createSlice({
       .addCase(fetchDeletedCategories.fulfilled, (state, action) => {
         state.loading.deletedCategories = false
         if (action.payload) {
-          state.deletedCategories = (action.payload as any).data || []
+          state.deletedCategories = action.payload.data || []
         }
       })
       .addCase(fetchDeletedCategories.rejected, (state, action) => {

@@ -1,0 +1,2 @@
+import{j as e,B as s,T as n,ai as t,J as a}from"./mui-CFXkCUGg.js";import"./vendor-CwczGxAq.js";const i=()=>e.jsxs(s,{children:[e.jsx(n,{variant:"h4",sx:{fontWeight:700,mb:4},children:"Payments"}),e.jsxs(t,{sx:{p:6,textAlign:"center"},children:[e.jsx(n,{variant:"h5",sx:{fontWeight:600,mb:2},children:"Payments Coming Soon"}),e.jsx(n,{variant:"body1",color:"text.secondary",sx:{mb:3},children:"This module is under development."}),e.jsx(a,{label:"In Development",color:"primary",variant:"outlined"})]})]});export{i as default};
+//# sourceMappingURL=PaymentsPage-CLSjld43.js.map

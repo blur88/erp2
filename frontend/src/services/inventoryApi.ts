@@ -35,6 +35,13 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/products/${id}/permanent`)
   },
 
+  async bulkPermanentDeleteProducts(productIds: string[]) {
+    return ApiService.post<{ message: string; deletedCount: number; failedIds: string[] }>(
+      '/inventory/products/bulk-permanent-delete',
+      { productIds }
+    )
+  },
+
   async uploadProductImage(productId: string, file: File) {
     return ApiService.uploadFile<{ url: string }>(`/inventory/products/${productId}/image`, file)
   },
@@ -53,6 +60,29 @@ export const inventoryApi = {
 
   async exportProducts(params?: { format: 'csv' | 'xlsx' | 'pdf' }) {
     return ApiService.downloadFile('/inventory/products/export', `products.${params?.format || 'csv'}`)
+  },
+
+  async checkProductDuplicate(params: {
+    name?: string
+    barcode?: string
+    excludeId?: string
+  }) {
+    return ApiService.get<{
+      nameExists: boolean
+      barcodeExists: boolean
+      nameConflict?: {
+        id: string
+        name: string
+        isDeleted: boolean
+        barcode?: string
+      }
+      barcodeConflict?: {
+        id: string
+        name: string
+        isDeleted: boolean
+        barcode?: string
+      }
+    }>('/inventory/products/check-duplicate', { params })
   },
 
   // Categories
@@ -160,7 +190,7 @@ export const inventoryApi = {
 
   // Stock management
   async getStockMovements(params?: QueryParams & { productId?: string }) {
-    return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock-movements', { params })
+    return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock/movements', { params })
   },
 
   async createStockAdjustment(data: {
@@ -170,7 +200,7 @@ export const inventoryApi = {
     reason?: string
     reference?: string
   }) {
-    return ApiService.post<StockMovement>('/inventory/stock-movements', data)
+    return ApiService.post<StockMovement>('/inventory/stock/movements', data)
   },
 
   async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {
@@ -180,7 +210,7 @@ export const inventoryApi = {
       minStock: number
       maxStock: number
       status: 'in_stock' | 'low_stock' | 'out_of_stock'
-    }>>('/inventory/stock-levels', { params })
+    }>>('/inventory/stock/levels', { params })
   },
 
   async stockTake(data: Array<{ productId: string; countedQuantity: number }>) {
@@ -191,7 +221,7 @@ export const inventoryApi = {
         adjustmentsMade: number
         totalVariance: number
       }
-    }>('/inventory/stock-take', { items: data })
+    }>('/inventory/stock/take', { items: data })
   },
 
   // Reports
@@ -215,9 +245,9 @@ export const inventoryApi = {
     format?: 'json' | 'csv' | 'pdf'
   }) {
     if (params.format && params.format !== 'json') {
-      return ApiService.downloadFile('/inventory/stock-movements/report', `stock-movements.${params.format}`)
+      return ApiService.downloadFile('/inventory/stock/movements/report', `stock-movements.${params.format}`)
     }
-    return ApiService.get('/inventory/stock-movements/report', { params })
+    return ApiService.get('/inventory/stock/movements/report', { params })
   },
 
   // Analytics
@@ -246,5 +276,24 @@ export const inventoryApi = {
         turnover: number
       }>
     }>('/inventory/analytics', { params })
+  },
+
+  // Dashboard
+  async getDashboardStats() {
+    return ApiService.get<{
+      totalProducts: number
+      totalCategories: number
+      inventoryValue: number
+      lowStockCount: number
+      outOfStockCount: number
+      recentMovements: number
+      categoryBreakdown: Array<{ category: string; count: number; value: number }>
+      stockHealthMetrics: {
+        inStockPercentage: number
+        lowStockPercentage: number
+        outOfStockPercentage: number
+        averageValue: number
+      }
+    }>('/inventory/products/dashboard-stats')
   },
 }

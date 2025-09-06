@@ -196,6 +196,10 @@ export class QueryProductsDto {
   @IsUUID(4)
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by product type', enum: ProductType })
+  @IsOptional()
+  @IsEnum(ProductType)
+  type?: ProductType;
 
   @ApiPropertyOptional({ description: 'Filter by product status', enum: ProductStatus })
   @IsOptional()

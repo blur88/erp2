@@ -22,6 +22,7 @@ import {
   Alert,
   Divider,
   CircularProgress,
+  Checkbox,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -36,7 +37,8 @@ import { useDispatch, useSelector } from 'react-redux'
 import { 
   fetchDeletedProducts, 
   restoreProduct,
-  permanentDeleteProduct, 
+  permanentDeleteProduct,
+  bulkPermanentDeleteProducts, 
   selectDeletedProducts, 
   selectInventoryLoading,
   fetchProducts
@@ -64,10 +66,15 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null)
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   useEffect(() => {
     if (open) {
       dispatch(fetchDeletedProducts({}))
+      // Reset selections when dialog opens
+      setSelectedProducts(new Set())
     }
   }, [open, dispatch])
 
@@ -76,6 +83,11 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Calculate selection state
+  const selectedCount = selectedProducts.size
+  const allSelected = filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length
+  const partiallySelected = selectedProducts.size > 0 && selectedProducts.size < filteredProducts.length
 
   const handleRestore = async (product: Product) => {
     setRestoringId(product.id)
@@ -118,6 +130,59 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     } finally {
       setDeletingId(null)
       setConfirmDelete(null)
+    }
+  }
+
+  const handleSelectProduct = (productId: string, checked: boolean) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(productId)
+      } else {
+        newSet.delete(productId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProducts(new Set(filteredProducts.map(p => p.id)))
+    } else {
+      setSelectedProducts(new Set())
+    }
+  }
+
+  const handleBulkPermanentDelete = async () => {
+    setBulkDeleting(true)
+    try {
+      const productIds = Array.from(selectedProducts)
+      const result = await dispatch(bulkPermanentDeleteProducts(productIds))
+      
+      if (bulkPermanentDeleteProducts.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+      
+      const { deletedCount, failedIds } = result.payload as any
+      
+      if (deletedCount > 0) {
+        showSuccess(`Successfully permanently deleted ${deletedCount} products`)
+      }
+      
+      if (failedIds.length > 0) {
+        showError(`Failed to delete ${failedIds.length} products`)
+      }
+      
+      // Refresh deleted products list and clear selections
+      dispatch(fetchDeletedProducts({}))
+      setSelectedProducts(new Set())
+    } catch (error: any) {
+      console.error('Bulk permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete products'
+      showError(errorMessage)
+    } finally {
+      setBulkDeleting(false)
+      setShowBulkConfirm(false)
     }
   }
 
@@ -172,19 +237,35 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             <strong>Warning:</strong> Permanent deletion cannot be undone!
           </Alert>
           
-          <TextField
-            fullWidth
-            placeholder="Search deleted products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+              fullWidth
+              placeholder="Search deleted products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flex: 1, minWidth: '300px' }}
+            />
+            
+            {selectedCount > 0 && (
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={<DeleteForeverIcon />}
+                onClick={() => setShowBulkConfirm(true)}
+                disabled={bulkDeleting}
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                Delete Selected ({selectedCount})
+              </Button>
+            )}
+          </Box>
         </Box>
 
         {loading?.deletedProducts ? (
@@ -207,6 +288,14 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             >
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                  <TableCell sx={{ width: '48px', padding: '8px' }}>
+                    <Checkbox
+                      checked={allSelected}
+                      indeterminate={partiallySelected}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      size="small"
+                    />
+                  </TableCell>
                   <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Product Details
@@ -248,7 +337,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isMobile ? 4 : 6} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 5 : 7} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary">
                         {searchTerm ? 'No deleted products match your search.' : 'No deleted products found.'}
                       </Typography>
@@ -271,6 +360,13 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                         height: 48
                       }}
                     >
+                      <TableCell sx={{ padding: '8px' }}>
+                        <Checkbox
+                          checked={selectedProducts.has(product.id)}
+                          onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
+                          size="small"
+                        />
+                      </TableCell>
                       <TableCell>
                         <Box>
                           <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
@@ -460,6 +556,71 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             startIcon={deletingId === confirmDelete?.id ? undefined : <DeleteForeverIcon />}
           >
             {deletingId === confirmDelete?.id ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog
+        open={showBulkConfirm}
+        onClose={() => !bulkDeleting && setShowBulkConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">
+          <Box display="flex" alignItems="center" gap={1}>
+            <DeleteForeverIcon color="error" />
+            Bulk Permanent Delete
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            This action cannot be undone! The selected products will be completely removed from the database.
+          </Alert>
+          
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected products?
+          </Typography>
+          
+          {selectedCount <= 5 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Products to be deleted:
+              </Typography>
+              {Array.from(selectedProducts).slice(0, 5).map(productId => {
+                const product = filteredProducts.find((p: Product) => p.id === productId)
+                return product ? (
+                  <Box key={productId} sx={{ mb: 0.5 }}>
+                    <Typography variant="body2">
+                      • {product.name} ({product.barcode})
+                    </Typography>
+                  </Box>
+                ) : null
+              })}
+            </Box>
+          )}
+          
+          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+            This will permanently remove all selected products and their data from the database.
+            Their barcodes will become available for reuse.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setShowBulkConfirm(false)} 
+            variant="outlined"
+            disabled={bulkDeleting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleBulkPermanentDelete}
+            variant="contained"
+            color="error"
+            disabled={bulkDeleting}
+            startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
+          >
+            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Products`}
           </Button>
         </DialogActions>
       </Dialog>
