@@ -1079,7 +1079,7 @@ export class ProductService {
       // Count low stock and out of stock
       if (stock <= 0) {
         outOfStockCount++;
-      } else if (reorderLevel > 0 && stock <= reorderLevel) {
+      } else if (stock <= reorderLevel) {
         lowStockCount++;
       }
 
