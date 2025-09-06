@@ -20,7 +20,7 @@ interface CustomerState {
     priceLevel?: PriceLevel
     isActive?: boolean
     sortBy?: string
-    sortOrder?: 'asc' | 'desc'
+    sortOrder?: 'ASC' | 'DESC'
   }
 }
 
@@ -37,7 +37,7 @@ const initialState: CustomerState = {
   },
   filters: {
     sortBy: 'name',
-    sortOrder: 'asc',
+    sortOrder: 'ASC',
   }
 }
 
@@ -56,7 +56,7 @@ export const fetchCustomers = createAsyncThunk(
     sortOrder?: 'ASC' | 'DESC'
   }) => {
     const response = await salesApi.getCustomers(params)
-    return response.data
+    return response  // Return the full response, not just response.data
   }
 )
 
@@ -64,7 +64,7 @@ export const fetchCustomer = createAsyncThunk(
   'customers/fetchCustomer',
   async (id: string) => {
     const response = await salesApi.getCustomer(id)
-    return response.data
+    return response  // Return the full response
   }
 )
 
@@ -72,7 +72,7 @@ export const createCustomer = createAsyncThunk(
   'customers/createCustomer',
   async (customerData: Partial<Customer>) => {
     const response = await salesApi.createCustomer(customerData)
-    return response.data
+    return response  // Return the full response
   }
 )
 
@@ -80,7 +80,7 @@ export const updateCustomer = createAsyncThunk(
   'customers/updateCustomer',
   async ({ id, data }: { id: string; data: Partial<Customer> }) => {
     const response = await salesApi.updateCustomer(id, data)
-    return response.data
+    return response  // Return the full response
   }
 )
 
@@ -96,7 +96,7 @@ export const activateCustomer = createAsyncThunk(
   'customers/activateCustomer',
   async (id: string) => {
     const response = await salesApi.activateCustomer(id)
-    return response.data
+    return response  // Return the full response
   }
 )
 
@@ -104,7 +104,7 @@ export const deactivateCustomer = createAsyncThunk(
   'customers/deactivateCustomer',
   async (id: string) => {
     const response = await salesApi.deactivateCustomer(id)
-    return response.data
+    return response  // Return the full response
   }
 )
 
@@ -112,7 +112,7 @@ export const suspendCustomer = createAsyncThunk(
   'customers/suspendCustomer',
   async ({ id, reason }: { id: string; reason?: string }) => {
     const response = await salesApi.suspendCustomer(id, reason)
-    return response.data
+    return response  // Return the full response
   }
 )
 
@@ -120,7 +120,7 @@ export const updateCreditLimit = createAsyncThunk(
   'customers/updateCreditLimit',
   async ({ id, creditLimit }: { id: string; creditLimit: number }) => {
     const response = await salesApi.updateCreditLimit(id, creditLimit)
-    return response.data
+    return response  // Return the full response
   }
 )
 
@@ -137,7 +137,7 @@ const customerSlice = createSlice({
     clearFilters: (state) => {
       state.filters = {
         sortBy: 'name',
-        sortOrder: 'asc',
+        sortOrder: 'ASC',
       }
     },
     setCurrentCustomer: (state, action: PayloadAction<Customer | null>) => {
@@ -154,8 +154,15 @@ const customerSlice = createSlice({
       .addCase(fetchCustomers.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          state.customers = (action.payload as any).data || []
-          state.pagination = (action.payload as any).meta || initialState.pagination
+          // API response structure: { data: Customer[], total, page, limit, totalPages }
+          const payload = action.payload as any
+          state.customers = payload.data || []
+          state.pagination = {
+            page: payload.page || 1,
+            limit: payload.limit || 20,
+            total: payload.total || 0,
+            totalPages: payload.totalPages || 0,
+          }
         }
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
@@ -172,7 +179,7 @@ const customerSlice = createSlice({
       .addCase(fetchCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          state.currentCustomer = action.payload as Customer
+          state.currentCustomer = (action.payload as any).data || action.payload as Customer
         }
       })
       .addCase(fetchCustomer.rejected, (state, action) => {
@@ -189,7 +196,8 @@ const customerSlice = createSlice({
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          state.customers.unshift(action.payload as Customer)
+          const customer = (action.payload as any).data || action.payload as Customer
+          state.customers.unshift(customer)
           state.pagination.total += 1
         }
       })
@@ -207,7 +215,7 @@ const customerSlice = createSlice({
       .addCase(updateCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const updatedCustomer = action.payload as Customer
+          const updatedCustomer = (action.payload as any).data || action.payload as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -247,7 +255,7 @@ const customerSlice = createSlice({
     builder
       .addCase(activateCustomer.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = action.payload as Customer
+          const updatedCustomer = (action.payload as any).data || action.payload as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -262,7 +270,7 @@ const customerSlice = createSlice({
     builder
       .addCase(deactivateCustomer.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = action.payload as Customer
+          const updatedCustomer = (action.payload as any).data || action.payload as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -277,7 +285,7 @@ const customerSlice = createSlice({
     builder
       .addCase(suspendCustomer.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = action.payload as Customer
+          const updatedCustomer = (action.payload as any).data || action.payload as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -292,7 +300,7 @@ const customerSlice = createSlice({
     builder
       .addCase(updateCreditLimit.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = action.payload as Customer
+          const updatedCustomer = (action.payload as any).data || action.payload as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
