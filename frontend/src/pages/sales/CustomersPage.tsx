@@ -338,18 +338,52 @@ const CustomersPage: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          Customers
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenForm()}
-          sx={{ borderRadius: 2 }}
-        >
-          Add Customer
-        </Button>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        mb: 4,
+        gap: isMobile ? 2 : 0
+      }}>
+        <Box sx={{ mb: isMobile ? 2 : 0 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+            Customers
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Manage your customers and client information ({customers.length} total)
+          </Typography>
+        </Box>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 1.5 : 2,
+          alignItems: isMobile ? 'stretch' : 'center'
+        }}>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
+            onClick={() => dispatch(fetchCustomers({ ...filters, search: searchTerm }))}
+            disabled={loading}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "Refresh Customers" : "Refresh"}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={!isMobile ? <AddIcon /> : undefined}
+            size={isMobile ? "medium" : "large"}
+            onClick={() => handleOpenForm()}
+            fullWidth={isMobile}
+            sx={{
+              py: isMobile ? 1.5 : 1,
+              fontWeight: 600
+            }}
+          >
+            {isMobile ? "Add New Customer" : "Add Customer"}
+          </Button>
+        </Box>
       </Box>
 
       {/* Filters and Search */}
