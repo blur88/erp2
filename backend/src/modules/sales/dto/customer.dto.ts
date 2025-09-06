@@ -6,8 +6,8 @@ import {
   IsEnum,
   IsUUID,
   MaxLength,
-  IsPhoneNumber,
-  IsDecimal,
+  Matches,
+  IsNumber,
   Min,
   IsInt,
 } from 'class-validator';
@@ -58,7 +58,7 @@ export class CreateCustomerDto {
     example: '+1234567890',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @Matches(/^[+]?[\d\s\-\(\)]+$/, { message: 'phone must be a valid phone number' })
   phone?: string;
 
   @ApiPropertyOptional({
@@ -66,7 +66,7 @@ export class CreateCustomerDto {
     example: '+1234567891',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @Matches(/^[+]?[\d\s\-\(\)]+$/, { message: 'alternativePhone must be a valid phone number' })
   alternativePhone?: string;
 
   @ApiPropertyOptional({
@@ -189,9 +189,9 @@ export class CreateCustomerDto {
     example: 10000.00,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @Transform(({ value }) => value ? parseFloat(value) : undefined)
+  @IsNumber({}, { message: 'creditLimit must be a valid number' })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
   creditLimit?: number;
 
   @ApiPropertyOptional({
@@ -248,7 +248,7 @@ export class UpdateCustomerDto {
     example: '+1234567890',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @Matches(/^[+]?[\d\s\-\(\)]+$/, { message: 'phone must be a valid phone number' })
   phone?: string;
 
   @ApiPropertyOptional({
@@ -256,7 +256,7 @@ export class UpdateCustomerDto {
     example: '+1234567891',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @Matches(/^[+]?[\d\s\-\(\)]+$/, { message: 'alternativePhone must be a valid phone number' })
   alternativePhone?: string;
 
   @ApiPropertyOptional({
@@ -396,9 +396,9 @@ export class UpdateCustomerDto {
     example: 15000.00,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @Transform(({ value }) => value ? parseFloat(value) : undefined)
+  @IsNumber({}, { message: 'creditLimit must be a valid number' })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
   creditLimit?: number;
 
   @ApiPropertyOptional({
@@ -657,9 +657,9 @@ export class CreditCheckDto {
     description: 'Amount to check against credit limit',
     example: 5000.00,
   })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0.01)
   @Transform(({ value }) => parseFloat(value))
+  @IsNumber({}, { message: 'amount must be a valid number' })
+  @Min(0.01)
   amount: number;
 }
 
