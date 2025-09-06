@@ -10,6 +10,7 @@ import {
   IsNumber,
   Min,
   IsInt,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
@@ -452,7 +453,9 @@ export class QueryCustomersDto {
     example: PriceLevel.WHOLESALE,
   })
   @IsOptional()
-  @IsEnum(PriceLevel)
+  @Transform(({ value }) => value === '' ? undefined : value)
+  @ValidateIf(o => o.priceLevel !== '' && o.priceLevel !== undefined)
+  @IsEnum(PriceLevel, { message: 'priceLevel must be one of: retail, wholesale, special' })
   priceLevel?: PriceLevel;
 
   @ApiPropertyOptional({

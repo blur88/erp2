@@ -55,7 +55,12 @@ export const fetchCustomers = createAsyncThunk(
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'
   }) => {
-    const response = await salesApi.getCustomers(params)
+    // Clean params to avoid sending empty strings
+    const cleanParams = params ? Object.fromEntries(
+      Object.entries(params).filter(([_, value]) => value !== '' && value !== undefined && value !== null)
+    ) : undefined
+    
+    const response = await salesApi.getCustomers(cleanParams)
     return response  // Return the full response, not just response.data
   }
 )
