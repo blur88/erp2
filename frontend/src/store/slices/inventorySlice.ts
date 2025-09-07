@@ -306,6 +306,30 @@ export const permanentDeleteCategory = createAsyncThunk(
   }
 )
 
+export const bulkRestoreCategories = createAsyncThunk(
+  'inventory/bulkRestoreCategories',
+  async (categoryIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkRestoreCategories(categoryIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore categories')
+    }
+  }
+)
+
+export const bulkPermanentDeleteCategories = createAsyncThunk(
+  'inventory/bulkPermanentDeleteCategories',
+  async (categoryIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkPermanentDeleteCategories(categoryIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk permanently delete categories')
+    }
+  }
+)
+
 export const fetchStockMovements = createAsyncThunk(
   'inventory/fetchStockMovements',
   async (params: { page?: number; limit?: number; productId?: string }, { rejectWithValue }) => {
@@ -528,7 +552,8 @@ const inventorySlice = createSlice({
       .addCase(fetchDeletedCategories.fulfilled, (state, action) => {
         state.loading.deletedCategories = false
         if (action.payload) {
-          state.deletedCategories = action.payload.data || []
+          const payload = action.payload as any
+          state.deletedCategories = payload.data || []
         }
       })
       .addCase(fetchDeletedCategories.rejected, (state, action) => {
@@ -546,6 +571,18 @@ const inventorySlice = createSlice({
     builder
       .addCase(permanentDeleteCategory.fulfilled, (state, action) => {
         // Deleted categories will be refreshed automatically via fetchDeletedCategories dispatch
+      })
+
+    // Bulk Restore Categories
+    builder
+      .addCase(bulkRestoreCategories.fulfilled, (state, action) => {
+        // Categories will be refreshed by the component
+      })
+
+    // Bulk Permanent Delete Categories
+    builder
+      .addCase(bulkPermanentDeleteCategories.fulfilled, (state, action) => {
+        // Deleted categories will be refreshed by the component
       })
   },
 })

@@ -24,6 +24,8 @@ import {
   useTheme,
   useMediaQuery,
   DialogContentText,
+  Checkbox,
+  Divider,
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -39,6 +41,8 @@ import {
   fetchDeletedCategories,
   restoreCategory,
   permanentDeleteCategory,
+  bulkRestoreCategories,
+  bulkPermanentDeleteCategories,
   selectDeletedCategories,
   selectInventoryLoading,
 } from '@/store/slices/inventorySlice'
@@ -66,10 +70,17 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
+  const [bulkRestoring, setBulkRestoring] = useState(false)
 
   useEffect(() => {
     if (open) {
       dispatch(fetchDeletedCategories({}))
+      // Reset selections when dialog opens
+      setSelectedCategories(new Set())
     }
   }, [open, dispatch])
 
@@ -77,6 +88,11 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   const filteredCategories = deletedCategories.filter(category => 
     category.name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Calculate selection state
+  const selectedCount = selectedCategories.size
+  const allSelected = filteredCategories.length > 0 && selectedCategories.size === filteredCategories.length
+  const partiallySelected = selectedCategories.size > 0 && selectedCategories.size < filteredCategories.length
 
   const handleRestore = async (category: Category) => {
     setRestoringId(category.id)
@@ -128,6 +144,98 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
     setCategoryToDelete(null)
   }
 
+  const handleSelectCategory = (categoryId: string, checked: boolean) => {
+    setSelectedCategories(prev => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(categoryId)
+      } else {
+        newSet.delete(categoryId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedCategories(new Set(filteredCategories.map(c => c.id)))
+    } else {
+      setSelectedCategories(new Set())
+    }
+  }
+
+  const handleBulkRestore = async () => {
+    setBulkRestoring(true)
+    try {
+      const categoryIds = Array.from(selectedCategories)
+      const result = await dispatch(bulkRestoreCategories(categoryIds))
+      
+      if (bulkRestoreCategories.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+      
+      const payload = result.payload as any
+      const restoredCount = payload?.restoredCount || 0
+      const failedIds = payload?.failedIds || []
+      
+      if (restoredCount > 0) {
+        showSuccess(`Successfully restored ${restoredCount} categories`)
+      }
+      
+      if (failedIds.length > 0) {
+        showError(`Failed to restore ${failedIds.length} categories`)
+      }
+      
+      // Refresh data and clear selections
+      dispatch(fetchDeletedCategories({}))
+      setSelectedCategories(new Set())
+      onCategoryRestored?.()
+    } catch (error: any) {
+      console.error('Bulk restore error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore categories'
+      showError(errorMessage)
+    } finally {
+      setBulkRestoring(false)
+      setShowBulkRestoreConfirm(false)
+    }
+  }
+
+  const handleBulkPermanentDelete = async () => {
+    setBulkDeleting(true)
+    try {
+      const categoryIds = Array.from(selectedCategories)
+      const result = await dispatch(bulkPermanentDeleteCategories(categoryIds))
+      
+      if (bulkPermanentDeleteCategories.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+      
+      const payload = result.payload as any
+      const deletedCount = payload?.deletedCount || 0
+      const failedIds = payload?.failedIds || []
+      
+      if (deletedCount > 0) {
+        showSuccess(`Successfully permanently deleted ${deletedCount} categories`)
+      }
+      
+      if (failedIds.length > 0) {
+        showError(`Failed to delete ${failedIds.length} categories`)
+      }
+      
+      // Refresh data and clear selections
+      dispatch(fetchDeletedCategories({}))
+      setSelectedCategories(new Set())
+      onCategoryRestored?.()
+    } catch (error: any) {
+      console.error('Bulk permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete categories'
+      showError(errorMessage)
+    } finally {
+      setBulkDeleting(false)
+      setShowBulkConfirm(false)
+    }
+  }
+
   const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -165,21 +273,51 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
             These categories have been soft-deleted. You can restore them to make them active again.
+            <br />
+            <strong>Warning:</strong> Permanent deletion cannot be undone!
           </Alert>
           
-          <TextField
-            fullWidth
-            placeholder="Search deleted categories..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+              fullWidth
+              placeholder="Search deleted categories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flex: 1, minWidth: '300px' }}
+            />
+            
+            {selectedCount > 0 && (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<RestoreIcon />}
+                  onClick={() => setShowBulkRestoreConfirm(true)}
+                  disabled={bulkRestoring || bulkDeleting}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Restore Selected ({selectedCount})
+                </Button>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={<DeleteForeverIcon />}
+                  onClick={() => setShowBulkConfirm(true)}
+                  disabled={bulkDeleting || bulkRestoring}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Delete Selected ({selectedCount})
+                </Button>
+              </>
+            )}
+          </Box>
         </Box>
 
         {loading?.deletedCategories ? (
@@ -202,7 +340,15 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
             >
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                  <TableCell sx={{ width: isMobile ? '40%' : '35%' }}>
+                  <TableCell sx={{ width: '48px', padding: '8px' }}>
+                    <Checkbox
+                      checked={allSelected}
+                      indeterminate={partiallySelected}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Category Name
                     </Typography>
@@ -219,7 +365,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                       </Typography>
                     </TableCell>
                   )}
-                  <TableCell align="right" sx={{ width: isMobile ? '35%' : '25%' }}>
+                  <TableCell align="right" sx={{ width: isMobile ? '30%' : '25%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Actions
                     </Typography>
@@ -229,7 +375,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
               <TableBody>
                 {filteredCategories.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isMobile ? 3 : 4} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 4 : 5} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary">
                         {searchTerm ? 'No deleted categories match your search.' : 'No deleted categories found.'}
                       </Typography>
@@ -252,6 +398,13 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                         height: 48
                       }}
                     >
+                      <TableCell sx={{ padding: '8px' }}>
+                        <Checkbox
+                          checked={selectedCategories.has(category.id)}
+                          onChange={(e) => handleSelectCategory(category.id, e.target.checked)}
+                          size="small"
+                        />
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <CategoryIcon 
@@ -403,6 +556,135 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
             startIcon={permanentDeletingId === categoryToDelete?.id ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
           >
             {permanentDeletingId === categoryToDelete?.id ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Restore Confirmation Dialog */}
+      <Dialog
+        open={showBulkRestoreConfirm}
+        onClose={() => !bulkRestoring && setShowBulkRestoreConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="success">
+          <Box display="flex" alignItems="center" gap={1}>
+            <RestoreIcon color="success" />
+            Bulk Restore Categories
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="success" sx={{ mb: 2 }}>
+            This will restore the selected categories back to active status and make them available for use.
+          </Alert>
+          
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to restore <strong>{selectedCount}</strong> selected categories?
+          </Typography>
+          
+          {selectedCount <= 5 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Categories to be restored:
+              </Typography>
+              {Array.from(selectedCategories).slice(0, 5).map(categoryId => {
+                const category = filteredCategories.find((c: Category) => c.id === categoryId)
+                return category ? (
+                  <Box key={categoryId} sx={{ mb: 0.5 }}>
+                    <Typography variant="body2">
+                      • {category.name} (Level {category.level || 0})
+                    </Typography>
+                  </Box>
+                ) : null
+              })}
+            </Box>
+          )}
+          
+          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+            This will move the selected categories back to the active categories list.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setShowBulkRestoreConfirm(false)} 
+            variant="outlined"
+            disabled={bulkRestoring}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleBulkRestore}
+            variant="contained"
+            color="success"
+            disabled={bulkRestoring}
+            startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
+          >
+            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Categories`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog
+        open={showBulkConfirm}
+        onClose={() => !bulkDeleting && setShowBulkConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">
+          <Box display="flex" alignItems="center" gap={1}>
+            <DeleteForeverIcon color="error" />
+            Bulk Permanent Delete
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            This action cannot be undone! The selected categories will be completely removed from the database.
+          </Alert>
+          
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected categories?
+          </Typography>
+          
+          {selectedCount <= 5 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Categories to be deleted:
+              </Typography>
+              {Array.from(selectedCategories).slice(0, 5).map(categoryId => {
+                const category = filteredCategories.find((c: Category) => c.id === categoryId)
+                return category ? (
+                  <Box key={categoryId} sx={{ mb: 0.5 }}>
+                    <Typography variant="body2">
+                      • {category.name} (Level {category.level || 0})
+                    </Typography>
+                  </Box>
+                ) : null
+              })}
+            </Box>
+          )}
+          
+          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+            This will permanently remove all selected categories and their data from the database.
+            Categories must not have any subcategories or products assigned.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setShowBulkConfirm(false)} 
+            variant="outlined"
+            disabled={bulkDeleting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleBulkPermanentDelete}
+            variant="contained"
+            color="error"
+            disabled={bulkDeleting}
+            startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
+          >
+            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Categories`}
           </Button>
         </DialogActions>
       </Dialog>

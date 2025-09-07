@@ -253,6 +253,38 @@ export class CategoryController {
     return { message: `Successfully updated ${bulkUpdateDto.categories.length} categories` };
   }
 
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Bulk restore soft-deleted categories' })
+  @ApiResponse({
+    status: 200,
+    description: 'Categories restored successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid category IDs or categories are not deleted' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        categoryIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of category IDs to restore'
+        }
+      },
+      required: ['categoryIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkRestore(
+    @Body() body: { categoryIds: string[] },
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    const result = await this.categoryService.bulkRestore(body.categoryIds);
+    return {
+      message: `Successfully restored ${result.restoredCount} of ${body.categoryIds.length} categories`,
+      restoredCount: result.restoredCount,
+      failedIds: result.failedIds,
+    };
+  }
+
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore a soft-deleted category' })
   @ApiResponse({
@@ -267,6 +299,38 @@ export class CategoryController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<CategoryResponseDto> {
     return this.categoryService.restore(id);
+  }
+
+  @Post('bulk-permanent-delete')
+  @ApiOperation({ summary: 'Bulk permanently delete categories from database' })
+  @ApiResponse({
+    status: 200,
+    description: 'Categories permanently deleted successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid category IDs or categories have active references' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        categoryIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of category IDs to permanently delete'
+        }
+      },
+      required: ['categoryIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkPermanentDelete(
+    @Body() body: { categoryIds: string[] },
+  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
+    const result = await this.categoryService.bulkPermanentDelete(body.categoryIds);
+    return {
+      message: `Successfully permanently deleted ${result.deletedCount} of ${body.categoryIds.length} categories`,
+      deletedCount: result.deletedCount,
+      failedIds: result.failedIds,
+    };
   }
 
   @Delete(':id/permanent')

@@ -125,6 +125,20 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/categories/${id}/permanent`)
   },
 
+  async bulkRestoreCategories(categoryIds: string[]) {
+    return ApiService.post<{ message: string; restoredCount: number; failedIds: string[] }>(
+      '/inventory/categories/bulk-restore',
+      { categoryIds }
+    )
+  },
+
+  async bulkPermanentDeleteCategories(categoryIds: string[]) {
+    return ApiService.post<{ message: string; deletedCount: number; failedIds: string[] }>(
+      '/inventory/categories/bulk-permanent-delete',
+      { categoryIds }
+    )
+  },
+
   // Hierarchical category methods
   async getCategoryTree(includeProductCount?: boolean) {
     return ApiService.get<{

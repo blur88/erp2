@@ -724,6 +724,136 @@ export class CategoryService {
   }
 
   /**
+   * Bulk restore soft-deleted categories
+   */
+  async bulkRestore(categoryIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${categoryIds.length} categories`);
+
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    for (const categoryId of categoryIds) {
+      try {
+        const category = await this.categoryRepository.findOne({
+          where: { id: categoryId },
+          withDeleted: true,
+        });
+
+        if (!category) {
+          this.logger.warn(`Category not found: ${categoryId}`);
+          failedIds.push(categoryId);
+          continue;
+        }
+
+        if (!category.deletedAt) {
+          this.logger.warn(`Category is not deleted: ${categoryId}`);
+          failedIds.push(categoryId);
+          continue;
+        }
+
+        // Restore the category
+        category.deletedAt = null;
+        category.isActive = true;
+        category.updatedBy = null;
+        category.updatedAt = new Date();
+
+        await this.categoryRepository.save(category);
+
+        // Log audit event
+        try {
+          await this.auditService.logCategoryEvent(
+            category.id,
+            'CATEGORY_RESTORED',
+            `Category ${category.name} bulk restored`,
+            null,
+          );
+        } catch (error) {
+          this.logger.warn(`Failed to log audit event: ${error.message}`);
+        }
+
+        restoredCount++;
+        this.logger.log(`Category restored: ${categoryId}`);
+      } catch (error) {
+        this.logger.error(`Failed to restore category ${categoryId}: ${error.message}`);
+        failedIds.push(categoryId);
+      }
+    }
+
+    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`);
+    return { restoredCount, failedIds };
+  }
+
+  /**
+   * Bulk permanently delete categories from database
+   */
+  async bulkPermanentDelete(categoryIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${categoryIds.length} categories`);
+
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    for (const categoryId of categoryIds) {
+      try {
+        const category = await this.categoryRepository.findOne({
+          where: { id: categoryId },
+          relations: ['children', 'products'],
+          withDeleted: true,
+        });
+
+        if (!category) {
+          this.logger.warn(`Category not found: ${categoryId}`);
+          failedIds.push(categoryId);
+          continue;
+        }
+
+        // Ensure category is already soft-deleted
+        if (!category.deletedAt) {
+          this.logger.warn(`Category must be soft-deleted first: ${categoryId}`);
+          failedIds.push(categoryId);
+          continue;
+        }
+
+        // Check if category has any active dependencies
+        if (category.children?.length > 0) {
+          this.logger.warn(`Category has subcategories: ${categoryId}`);
+          failedIds.push(categoryId);
+          continue;
+        }
+
+        if (category.products?.length > 0) {
+          this.logger.warn(`Category has products: ${categoryId}`);
+          failedIds.push(categoryId);
+          continue;
+        }
+
+        // Perform the permanent deletion
+        await this.categoryRepository.remove(category);
+
+        // Log audit event
+        try {
+          await this.auditService.logCategoryEvent(
+            categoryId,
+            'CATEGORY_PERMANENTLY_DELETED',
+            `Category ${category.name} bulk permanently deleted`,
+            null,
+          );
+        } catch (error) {
+          this.logger.warn(`Failed to log audit event: ${error.message}`);
+        }
+
+        deletedCount++;
+        this.logger.log(`Category permanently deleted: ${categoryId}`);
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete category ${categoryId}: ${error.message}`);
+        failedIds.push(categoryId);
+      }
+    }
+
+    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
+    return { deletedCount, failedIds };
+  }
+
+  /**
    * Bulk update categories
    */
   async bulkUpdate(bulkUpdateDto: BulkUpdateCategoriesDto, userId?: string): Promise<void> {
