@@ -17,6 +17,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { CustomerService } from '../services/customer.service';
 import {
@@ -255,6 +256,70 @@ export class CustomerController {
     return this.customerService.getCustomerStatistics(id);
   }
 
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Bulk restore soft-deleted customers' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customers restored successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid customer IDs or customers are not deleted' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        customerIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of customer IDs to restore'
+        }
+      },
+      required: ['customerIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkRestore(
+    @Body() body: { customerIds: string[] },
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    const result = await this.customerService.bulkRestore(body.customerIds);
+    return {
+      message: `Successfully restored ${result.restoredCount} of ${body.customerIds.length} customers`,
+      restoredCount: result.restoredCount,
+      failedIds: result.failedIds,
+    };
+  }
+
+  @Post('bulk-permanent-delete')
+  @ApiOperation({ summary: 'Bulk permanently delete customers from database' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customers permanently deleted successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid customer IDs or customers have active references' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        customerIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of customer IDs to permanently delete'
+        }
+      },
+      required: ['customerIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkPermanentDelete(
+    @Body() body: { customerIds: string[] },
+  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
+    const result = await this.customerService.bulkPermanentDelete(body.customerIds);
+    return {
+      message: `Successfully permanently deleted ${result.deletedCount} of ${body.customerIds.length} customers`,
+      deletedCount: result.deletedCount,
+      failedIds: result.failedIds,
+    };
+  }
+
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore soft-deleted customer' })
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
@@ -266,5 +331,24 @@ export class CustomerController {
   @ApiResponse({ status: 404, description: 'Customer not found' })
   async restoreCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
     return this.customerService.restore(id);
+  }
+
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a customer from database' })
+  @ApiResponse({
+    status: 204,
+    description: 'Customer permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Customer must be soft-deleted first or has active references' 
+  })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.customerService.permanentDelete(id);
   }
 }

@@ -407,6 +407,127 @@ export class CustomerService {
     };
   }
 
+  async bulkRestore(customerIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    for (const customerId of customerIds) {
+      try {
+        // Verify customer exists and is deleted
+        const customer = await this.customerRepository.findOne({
+          where: { id: customerId },
+          withDeleted: true,
+        });
+
+        if (!customer) {
+          failedIds.push(customerId);
+          continue;
+        }
+
+        if (!customer.deletedAt) {
+          // Customer is not deleted, skip
+          failedIds.push(customerId);
+          continue;
+        }
+
+        await this.customerRepository.restore(customerId);
+        restoredCount++;
+      } catch (error) {
+        failedIds.push(customerId);
+      }
+    }
+
+    return { restoredCount, failedIds };
+  }
+
+  async bulkPermanentDelete(customerIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    for (const customerId of customerIds) {
+      try {
+        // Verify customer exists and is soft-deleted
+        const customer = await this.customerRepository.findOne({
+          where: { id: customerId },
+          withDeleted: true,
+        });
+
+        if (!customer) {
+          failedIds.push(customerId);
+          continue;
+        }
+
+        if (!customer.deletedAt) {
+          // Customer is not soft-deleted, cannot permanently delete
+          failedIds.push(customerId);
+          continue;
+        }
+
+        // Check for active references (orders, invoices, payments)
+        const hasActiveOrders = await this.salesOrderRepository.count({
+          where: { customerId },
+        });
+
+        const hasActiveInvoices = await this.invoiceRepository.count({
+          where: { customerId },
+        });
+
+        const hasActivePayments = await this.paymentRepository.count({
+          where: { customerId },
+        });
+
+        if (hasActiveOrders > 0 || hasActiveInvoices > 0 || hasActivePayments > 0) {
+          failedIds.push(customerId);
+          continue;
+        }
+
+        // Perform hard delete
+        await this.customerRepository.delete(customerId);
+        deletedCount++;
+      } catch (error) {
+        failedIds.push(customerId);
+      }
+    }
+
+    return { deletedCount, failedIds };
+  }
+
+  async permanentDelete(id: string): Promise<void> {
+    // Verify customer exists and is soft-deleted
+    const customer = await this.customerRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    if (!customer.deletedAt) {
+      throw new BadRequestException('Customer must be soft-deleted first');
+    }
+
+    // Check for active references
+    const hasActiveOrders = await this.salesOrderRepository.count({
+      where: { customerId: id },
+    });
+
+    const hasActiveInvoices = await this.invoiceRepository.count({
+      where: { customerId: id },
+    });
+
+    const hasActivePayments = await this.paymentRepository.count({
+      where: { customerId: id },
+    });
+
+    if (hasActiveOrders > 0 || hasActiveInvoices > 0 || hasActivePayments > 0) {
+      throw new BadRequestException('Cannot permanently delete customer with active orders, invoices, or payments');
+    }
+
+    // Perform hard delete
+    await this.customerRepository.delete(id);
+  }
+
   // Internal helper methods
 
   private async findCustomerEntity(id: string): Promise<Customer> {

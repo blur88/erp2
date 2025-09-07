@@ -4,6 +4,7 @@ import { salesApi } from '@/services/salesApi'
 
 interface SalesState {
   customers: Customer[]
+  deletedCustomers: Customer[]
   orders: SalesOrder[]
   invoices: Invoice[]
   payments: Payment[]
@@ -12,6 +13,7 @@ interface SalesState {
   selectedInvoice: Invoice | null
   loading: {
     customers: boolean
+    deletedCustomers: boolean
     orders: boolean
     invoices: boolean
     payments: boolean
@@ -47,6 +49,7 @@ interface SalesState {
 
 const initialState: SalesState = {
   customers: [],
+  deletedCustomers: [],
   orders: [],
   invoices: [],
   payments: [],
@@ -55,6 +58,7 @@ const initialState: SalesState = {
   selectedInvoice: null,
   loading: {
     customers: false,
+    deletedCustomers: false,
     orders: false,
     invoices: false,
     payments: false,
@@ -161,6 +165,66 @@ export const recordPayment = createAsyncThunk(
       return response.data
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to record payment')
+    }
+  }
+)
+
+export const fetchDeletedCustomers = createAsyncThunk(
+  'sales/fetchDeletedCustomers',
+  async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.getDeletedCustomers(params)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted customers')
+    }
+  }
+)
+
+export const restoreCustomer = createAsyncThunk(
+  'sales/restoreCustomer',
+  async (customerId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.restoreCustomer(customerId)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore customer')
+    }
+  }
+)
+
+export const bulkRestoreCustomers = createAsyncThunk(
+  'sales/bulkRestoreCustomers',
+  async (customerIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await salesApi.bulkRestoreCustomers(customerIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore customers')
+    }
+  }
+)
+
+export const permanentDeleteCustomer = createAsyncThunk(
+  'sales/permanentDeleteCustomer',
+  async (customerId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.permanentDeleteCustomer(customerId)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete customer')
+    }
+  }
+)
+
+export const bulkPermanentDeleteCustomers = createAsyncThunk(
+  'sales/bulkPermanentDeleteCustomers',
+  async (customerIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await salesApi.bulkPermanentDeleteCustomers(customerIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk permanently delete customers')
     }
   }
 )
@@ -286,6 +350,55 @@ const salesSlice = createSlice({
           state.payments.unshift(action.payload)
         }
       })
+
+    // Fetch Deleted Customers
+    builder
+      .addCase(fetchDeletedCustomers.pending, (state) => {
+        state.loading.deletedCustomers = true
+        state.error = null
+      })
+      .addCase(fetchDeletedCustomers.fulfilled, (state, action) => {
+        state.loading.deletedCustomers = false
+        if (action.payload) {
+          // Handle both paginated response and direct array response
+          const payload = action.payload as any
+          state.deletedCustomers = payload.data || payload
+        }
+      })
+      .addCase(fetchDeletedCustomers.rejected, (state, action) => {
+        state.loading.deletedCustomers = false
+        state.error = action.payload as string
+      })
+
+    // Restore Customer
+    builder
+      .addCase(restoreCustomer.fulfilled, (state, action) => {
+        if (action.payload) {
+          // Remove from deleted customers list
+          state.deletedCustomers = state.deletedCustomers.filter(c => c.id !== action.payload.id)
+          // Add to active customers list
+          state.customers.unshift(action.payload)
+        }
+      })
+
+    // Bulk Restore Customers
+    builder
+      .addCase(bulkRestoreCustomers.fulfilled, (state, action) => {
+        // This will be handled by refreshing the lists
+      })
+
+    // Permanent Delete Customer
+    builder
+      .addCase(permanentDeleteCustomer.fulfilled, (state, action) => {
+        // Remove from deleted customers list (action.payload should contain the deleted customer ID)
+        // For permanent delete, we'll refresh the deleted customers list instead
+      })
+
+    // Bulk Permanent Delete Customers
+    builder
+      .addCase(bulkPermanentDeleteCustomers.fulfilled, (state, action) => {
+        // This will be handled by refreshing the lists
+      })
   },
 })
 
@@ -298,6 +411,7 @@ export const {
 
 // Selectors
 export const selectCustomers = (state: any) => state.sales?.customers
+export const selectDeletedCustomers = (state: any) => state.sales?.deletedCustomers
 export const selectOrders = (state: any) => state.sales?.orders
 export const selectInvoices = (state: any) => state.sales?.invoices
 export const selectPayments = (state: any) => state.sales?.payments

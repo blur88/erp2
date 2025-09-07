@@ -104,6 +104,18 @@ export const salesApi = {
     return ApiService.post<Customer>(`customers/${id}/restore`)
   },
 
+  async bulkRestoreCustomers(customerIds: string[]) {
+    return ApiService.post<{ message: string; restoredCount: number; failedIds: string[] }>('customers/bulk-restore', { customerIds })
+  },
+
+  async permanentDeleteCustomer(id: string) {
+    return ApiService.delete(`customers/${id}/permanent`)
+  },
+
+  async bulkPermanentDeleteCustomers(customerIds: string[]) {
+    return ApiService.post<{ message: string; deletedCount: number; failedIds: string[] }>('customers/bulk-permanent-delete', { customerIds })
+  },
+
   // Sales Orders
   async getOrders(params?: QueryParams & { customerId?: string; status?: string }) {
     return ApiService.get<PaginatedResponse<SalesOrder>>('/sales/orders', { params })
