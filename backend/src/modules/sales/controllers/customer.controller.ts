@@ -30,7 +30,7 @@ import {
 } from '../dto/customer.dto';
 
 @ApiTags('Customers')
-@Controller('v1/customers')
+@Controller('customers')
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
@@ -76,6 +76,20 @@ export class CustomerController {
   })
   async getCustomerSummaries(): Promise<CustomerSummaryDto[]> {
     return this.customerService.findSummaries();
+  }
+
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted customers' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of soft-deleted customers retrieved successfully',
+    type: [CustomerResponseDto],
+  })
+  @ApiQuery({ name: 'search', required: false, description: 'Search customers by name, email, or phone' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  async getDeletedCustomers(@Query() query: QueryCustomersDto) {
+    return this.customerService.findDeleted(query);
   }
 
   @Get(':id')
@@ -239,20 +253,6 @@ export class CustomerController {
   @ApiResponse({ status: 404, description: 'Customer not found' })
   async getCustomerStatistics(@Param('id', ParseUUIDPipe) id: string) {
     return this.customerService.getCustomerStatistics(id);
-  }
-
-  @Get('deleted')
-  @ApiOperation({ summary: 'Get all soft-deleted customers' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of soft-deleted customers retrieved successfully',
-    type: [CustomerResponseDto],
-  })
-  @ApiQuery({ name: 'search', required: false, description: 'Search customers by name, email, or phone' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  async getDeletedCustomers(@Query() query: QueryCustomersDto) {
-    return this.customerService.findDeleted(query);
   }
 
   @Post(':id/restore')

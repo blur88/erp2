@@ -37,71 +37,71 @@ interface CreditCheckResponse {
 export const salesApi = {
   // Customers
   async getCustomers(params?: CustomerQueryParams) {
-    return ApiService.get<PaginatedResponse<Customer>>('v1/customers', { params })
+    return ApiService.get<PaginatedResponse<Customer>>('customers', { params })
   },
 
   async getCustomer(id: string) {
-    return ApiService.get<Customer>(`v1/customers/${id}`)
+    return ApiService.get<Customer>(`customers/${id}`)
   },
 
   async getCustomerByCode(customerCode: string) {
-    return ApiService.get<Customer>(`v1/customers/code/${customerCode}`)
+    return ApiService.get<Customer>(`customers/code/${customerCode}`)
   },
 
   async getCustomerSummaries() {
-    return ApiService.get<CustomerSummary[]>('v1/customers/summary')
+    return ApiService.get<CustomerSummary[]>('customers/summary')
   },
 
   async createCustomer(customerData: Partial<Customer>) {
-    return ApiService.post<Customer>('v1/customers', customerData)
+    return ApiService.post<Customer>('customers', customerData)
   },
 
   async updateCustomer(id: string, customerData: Partial<Customer>) {
-    return ApiService.put<Customer>(`v1/customers/${id}`, customerData)
+    return ApiService.put<Customer>(`customers/${id}`, customerData)
   },
 
   async deleteCustomer(id: string) {
-    return ApiService.delete(`v1/customers/${id}`)
+    return ApiService.delete(`customers/${id}`)
   },
 
   async checkCredit(data: CreditCheckRequest) {
-    return ApiService.post<CreditCheckResponse>('v1/customers/credit-check', data)
+    return ApiService.post<CreditCheckResponse>('customers/credit-check', data)
   },
 
   async updateCreditLimit(id: string, creditLimit: number) {
-    return ApiService.put<Customer>(`v1/customers/${id}/credit-limit`, { creditLimit })
+    return ApiService.put<Customer>(`customers/${id}/credit-limit`, { creditLimit })
   },
 
   async activateCustomer(id: string) {
-    return ApiService.put<Customer>(`v1/customers/${id}/activate`)
+    return ApiService.put<Customer>(`customers/${id}/activate`)
   },
 
   async deactivateCustomer(id: string) {
-    return ApiService.put<Customer>(`v1/customers/${id}/deactivate`)
+    return ApiService.put<Customer>(`customers/${id}/deactivate`)
   },
 
   async suspendCustomer(id: string, reason?: string) {
-    return ApiService.put<Customer>(`v1/customers/${id}/suspend`, { reason })
+    return ApiService.put<Customer>(`customers/${id}/suspend`, { reason })
   },
 
   async getCustomerSalesHistory(id: string, limit?: number) {
-    return ApiService.get(`v1/customers/${id}/sales-history`, { params: { limit } })
+    return ApiService.get(`customers/${id}/sales-history`, { params: { limit } })
   },
 
   async getOutstandingInvoices(id: string) {
-    return ApiService.get(`v1/customers/${id}/outstanding-invoices`)
+    return ApiService.get(`customers/${id}/outstanding-invoices`)
   },
 
   async getCustomerStatistics(id: string) {
-    return ApiService.get(`v1/customers/${id}/statistics`)
+    return ApiService.get(`customers/${id}/statistics`)
   },
 
   async getDeletedCustomers(params?: CustomerQueryParams) {
-    return ApiService.get<PaginatedResponse<Customer>>('v1/customers/deleted', { params })
+    return ApiService.get<PaginatedResponse<Customer>>('customers/deleted', { params })
   },
 
   async restoreCustomer(id: string) {
-    return ApiService.post<Customer>(`v1/customers/${id}/restore`)
+    return ApiService.post<Customer>(`customers/${id}/restore`)
   },
 
   // Sales Orders
