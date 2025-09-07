@@ -512,6 +512,85 @@ export class ProductService {
   }
 
   /**
+   * Bulk restore soft-deleted products
+   */
+  async bulkRestore(
+    productIds: string[], 
+    userId?: string
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${productIds.length} products`);
+    
+    if (!productIds || productIds.length === 0) {
+      return { restoredCount: 0, failedIds: [] };
+    }
+
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    // Process each product individually to handle failures gracefully
+    for (const id of productIds) {
+      try {
+        // Find the product (including soft-deleted ones)
+        const product = await this.productRepository.findOne({
+          where: { id },
+          relations: ['category'],
+          withDeleted: true,
+        });
+
+        if (!product) {
+          this.logger.warn(`Product with ID '${id}' not found`);
+          failedIds.push(id);
+          continue;
+        }
+
+        if (!product.deletedAt) {
+          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
+          failedIds.push(id);
+          continue;
+        }
+
+        // Check if barcode is still unique (case-insensitive)
+        const existingProduct = await this.productRepository
+          .createQueryBuilder('product')
+          .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+          .andWhere('product.id != :id', { id: product.id })
+          .getOne();
+
+        if (existingProduct) {
+          this.logger.warn(
+            `Cannot restore product with ID '${id}': barcode '${product.barcode}' is now used by another active product`
+          );
+          failedIds.push(id);
+          continue;
+        }
+
+        // Restore the product
+        await this.productRepository.restore(id);
+
+        // Log audit event
+        await this.auditService.logProductEvent(
+          product.id,
+          'PRODUCT_RESTORED',
+          `Product ${product.name} (${product.barcode}) restored from soft-delete (bulk operation)`,
+          userId,
+        );
+
+        restoredCount++;
+        this.logger.log(`Product restored: ${id}`);
+      } catch (error) {
+        this.logger.error(`Failed to restore product ${id}: ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(
+      `Bulk restore completed: ${restoredCount} succeeded, ${failedIds.length} failed`
+    );
+
+    return { restoredCount, failedIds };
+  }
+
+  /**
    * Permanently delete a product from database
    */
   async permanentDelete(id: string, userId?: string): Promise<void> {

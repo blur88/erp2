@@ -37,6 +37,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { 
   fetchDeletedProducts, 
   restoreProduct,
+  bulkRestoreProducts,
   permanentDeleteProduct,
   bulkPermanentDeleteProducts, 
   selectDeletedProducts, 
@@ -69,6 +70,8 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
+  const [bulkRestoring, setBulkRestoring] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -150,6 +153,40 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
       setSelectedProducts(new Set(filteredProducts.map(p => p.id)))
     } else {
       setSelectedProducts(new Set())
+    }
+  }
+
+  const handleBulkRestore = async () => {
+    setBulkRestoring(true)
+    try {
+      const productIds = Array.from(selectedProducts)
+      const result = await dispatch(bulkRestoreProducts(productIds))
+      
+      if (bulkRestoreProducts.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+      
+      const { restoredCount, failedIds } = result.payload as any
+      
+      if (restoredCount > 0) {
+        showSuccess(`Successfully restored ${restoredCount} products`)
+      }
+      
+      if (failedIds.length > 0) {
+        showError(`Failed to restore ${failedIds.length} products`)
+      }
+      
+      // Refresh both deleted and active products and clear selections
+      dispatch(fetchDeletedProducts({}))
+      dispatch(fetchProducts({}))
+      setSelectedProducts(new Set())
+    } catch (error: any) {
+      console.error('Bulk restore error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore products'
+      showError(errorMessage)
+    } finally {
+      setBulkRestoring(false)
+      setShowBulkRestoreConfirm(false)
     }
   }
 
@@ -254,16 +291,28 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             />
             
             {selectedCount > 0 && (
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<DeleteForeverIcon />}
-                onClick={() => setShowBulkConfirm(true)}
-                disabled={bulkDeleting}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                Delete Selected ({selectedCount})
-              </Button>
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<RestoreIcon />}
+                  onClick={() => setShowBulkRestoreConfirm(true)}
+                  disabled={bulkRestoring || bulkDeleting}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Restore Selected ({selectedCount})
+                </Button>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={<DeleteForeverIcon />}
+                  onClick={() => setShowBulkConfirm(true)}
+                  disabled={bulkDeleting || bulkRestoring}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Delete Selected ({selectedCount})
+                </Button>
+              </>
             )}
           </Box>
         </Box>
@@ -556,6 +605,70 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             startIcon={deletingId === confirmDelete?.id ? undefined : <DeleteForeverIcon />}
           >
             {deletingId === confirmDelete?.id ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Restore Confirmation Dialog */}
+      <Dialog
+        open={showBulkRestoreConfirm}
+        onClose={() => !bulkRestoring && setShowBulkRestoreConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="success">
+          <Box display="flex" alignItems="center" gap={1}>
+            <RestoreIcon color="success" />
+            Bulk Restore Products
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="success" sx={{ mb: 2 }}>
+            This will restore the selected products back to active status and make them available for use.
+          </Alert>
+          
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to restore <strong>{selectedCount}</strong> selected products?
+          </Typography>
+          
+          {selectedCount <= 5 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Products to be restored:
+              </Typography>
+              {Array.from(selectedProducts).slice(0, 5).map(productId => {
+                const product = filteredProducts.find((p: Product) => p.id === productId)
+                return product ? (
+                  <Box key={productId} sx={{ mb: 0.5 }}>
+                    <Typography variant="body2">
+                      • {product.name} ({product.barcode})
+                    </Typography>
+                  </Box>
+                ) : null
+              })}
+            </Box>
+          )}
+          
+          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+            This will move the selected products back to the active products list and make them available for orders and inventory management.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setShowBulkRestoreConfirm(false)} 
+            variant="outlined"
+            disabled={bulkRestoring}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleBulkRestore}
+            variant="contained"
+            color="success"
+            disabled={bulkRestoring}
+            startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
+          >
+            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Products`}
           </Button>
         </DialogActions>
       </Dialog>

@@ -31,6 +31,13 @@ export const inventoryApi = {
     return ApiService.post<Product>(`/inventory/products/${id}/restore`)
   },
 
+  async bulkRestoreProducts(productIds: string[]) {
+    return ApiService.post<{ message: string; restoredCount: number; failedIds: string[] }>(
+      '/inventory/products/bulk-restore',
+      { productIds }
+    )
+  },
+
   async permanentDeleteProduct(id: string) {
     return ApiService.delete(`/inventory/products/${id}/permanent`)
   },

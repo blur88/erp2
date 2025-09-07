@@ -166,6 +166,18 @@ export const restoreProduct = createAsyncThunk(
   }
 )
 
+export const bulkRestoreProducts = createAsyncThunk(
+  'inventory/bulkRestoreProducts',
+  async (productIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkRestoreProducts(productIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore products')
+    }
+  }
+)
+
 export const permanentDeleteProduct = createAsyncThunk(
   'inventory/permanentDeleteProduct',
   async (id: string, { rejectWithValue }) => {
@@ -431,6 +443,18 @@ const inventorySlice = createSlice({
           // Remove from deleted products and add to active products
           state.deletedProducts = state.deletedProducts.filter(p => p.id !== action.payload.id)
           state.products.unshift(action.payload)
+        }
+      })
+      .addCase(bulkRestoreProducts.fulfilled, (state, action) => {
+        if (action.payload) {
+          const { restoredCount, failedIds } = action.payload
+          // Remove successfully restored products from deleted products list
+          const successfulIds = state.deletedProducts
+            .map(p => p.id)
+            .filter(id => !failedIds.includes(id))
+          state.deletedProducts = state.deletedProducts.filter(
+            p => !successfulIds.includes(p.id)
+          )
         }
       })
 

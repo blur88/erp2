@@ -318,6 +318,38 @@ export class ProductController {
     });
   }
 
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Bulk restore soft-deleted products' })
+  @ApiResponse({
+    status: 200,
+    description: 'Products restored successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid product IDs or products are not deleted' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        productIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of product IDs to restore'
+        }
+      },
+      required: ['productIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkRestore(
+    @Body() body: { productIds: string[] },
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    const result = await this.productService.bulkRestore(body.productIds, null);
+    return {
+      message: `Successfully restored ${result.restoredCount} of ${body.productIds.length} products`,
+      restoredCount: result.restoredCount,
+      failedIds: result.failedIds,
+    };
+  }
+
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore a soft-deleted product' })
   @ApiResponse({
