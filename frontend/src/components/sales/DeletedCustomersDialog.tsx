@@ -46,9 +46,9 @@ import {
   permanentDeleteCustomer,
   bulkPermanentDeleteCustomers,
   selectDeletedCustomers, 
-  selectSalesLoading,
+  selectCustomersLoading,
   fetchCustomers
-} from '@/store/slices/salesSlice'
+} from '@/store/slices/customerSlice'
 import { useNotification } from '@/hooks/useNotification'
 import type { Customer } from '@/types'
 import { CustomerType, CustomerStatus } from '@/types'
@@ -66,7 +66,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const deletedCustomers = useSelector(selectDeletedCustomers) || []
-  const loading = useSelector(selectSalesLoading)
+  const loading = useSelector(selectCustomersLoading)
   
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
@@ -340,7 +340,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
           </Box>
         </Box>
 
-        {loading?.deletedCustomers ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>

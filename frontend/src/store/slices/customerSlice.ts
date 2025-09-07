@@ -158,6 +158,30 @@ export const restoreCustomer = createAsyncThunk(
   }
 )
 
+export const bulkRestoreCustomers = createAsyncThunk(
+  'customers/bulkRestoreCustomers',
+  async (customerIds: string[]) => {
+    const response = await salesApi.bulkRestoreCustomers(customerIds)
+    return response  // Return the full response
+  }
+)
+
+export const permanentDeleteCustomer = createAsyncThunk(
+  'customers/permanentDeleteCustomer',
+  async (id: string) => {
+    const response = await salesApi.permanentDeleteCustomer(id)
+    return response  // Return the full response
+  }
+)
+
+export const bulkPermanentDeleteCustomers = createAsyncThunk(
+  'customers/bulkPermanentDeleteCustomers',
+  async (customerIds: string[]) => {
+    const response = await salesApi.bulkPermanentDeleteCustomers(customerIds)
+    return response  // Return the full response
+  }
+)
+
 const customerSlice = createSlice({
   name: 'customers',
   initialState,
@@ -387,6 +411,57 @@ const customerSlice = createSlice({
       .addCase(restoreCustomer.rejected, (state, action) => {
         state.loading = false
         state.error = action.error.message || 'Failed to restore customer'
+      })
+
+    // Bulk restore customers
+    builder
+      .addCase(bulkRestoreCustomers.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(bulkRestoreCustomers.fulfilled, (state, action) => {
+        state.loading = false
+        // This will be handled by refreshing the lists, similar to products implementation
+      })
+      .addCase(bulkRestoreCustomers.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to bulk restore customers'
+      })
+
+    // Permanent delete customer
+    builder
+      .addCase(permanentDeleteCustomer.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(permanentDeleteCustomer.fulfilled, (state, action) => {
+        state.loading = false
+        if (action.payload) {
+          const deletedId = (action.payload as any).id || (action.payload as any).data?.id
+          if (deletedId) {
+            // Remove from deleted customers
+            state.deletedCustomers = state.deletedCustomers.filter(c => c.id !== deletedId)
+          }
+        }
+      })
+      .addCase(permanentDeleteCustomer.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to permanently delete customer'
+      })
+
+    // Bulk permanent delete customers
+    builder
+      .addCase(bulkPermanentDeleteCustomers.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(bulkPermanentDeleteCustomers.fulfilled, (state, action) => {
+        state.loading = false
+        // This will be handled by refreshing the lists
+      })
+      .addCase(bulkPermanentDeleteCustomers.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to bulk permanently delete customers'
       })
   },
 })
