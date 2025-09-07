@@ -41,7 +41,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  DeleteOutline as ViewDeletedIcon,
+  RestoreFromTrash as RestoreIcon,
   Person as PersonIcon,
   Business as BusinessIcon,
   AccountBalance as CreditIcon,
@@ -366,13 +366,20 @@ const CustomersPage: React.FC = () => {
         }}>
           <Button
             variant="outlined"
-            startIcon={!isMobile ? <ViewDeletedIcon /> : undefined}
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setIsDeletedDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
-            sx={{ color: 'error.main', borderColor: 'error.main' }}
+            sx={{
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
+            }}
           >
-            {isMobile ? "View Deleted Customers" : "View Deleted"}
+            {isMobile ? "View Deleted" : "View Deleted"}
           </Button>
           <Button
             variant="outlined"
