@@ -34,6 +34,7 @@ import {
   Folder as FolderIcon,
   Category as CategoryIcon,
   KeyboardDoubleArrowRight as DoubleArrowIcon,
+  RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -320,6 +321,7 @@ const CategoriesPage: React.FC = () => {
           </Button>
           <Button
             variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setDeletedCategoriesDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
