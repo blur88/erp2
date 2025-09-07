@@ -366,6 +366,16 @@ const CustomersPage: React.FC = () => {
         }}>
           <Button
             variant="outlined"
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
+            onClick={() => dispatch(fetchCustomers({ ...filters, search: searchTerm }))}
+            disabled={loading}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "Refresh Customers" : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setIsDeletedDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
@@ -380,16 +390,6 @@ const CustomersPage: React.FC = () => {
             }}
           >
             {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={() => dispatch(fetchCustomers({ ...filters, search: searchTerm }))}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Customers" : "Refresh"}
           </Button>
           <Button
             variant="contained"
