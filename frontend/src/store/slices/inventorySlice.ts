@@ -146,7 +146,7 @@ export const fetchDeletedProducts = createAsyncThunk(
   async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getDeletedProducts(params)
-      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch deleted products:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted products')
@@ -415,7 +415,8 @@ const inventorySlice = createSlice({
       .addCase(fetchDeletedProducts.fulfilled, (state, action) => {
         state.loading.deletedProducts = false
         if (action.payload) {
-          state.deletedProducts = action.payload.data || []
+          const payload = action.payload as any
+          state.deletedProducts = payload.data || []
         }
       })
       .addCase(fetchDeletedProducts.rejected, (state, action) => {

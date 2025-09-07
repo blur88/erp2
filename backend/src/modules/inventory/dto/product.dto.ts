@@ -385,6 +385,9 @@ export class ProductResponseDto {
 
   @ApiProperty({ description: 'Last update date' })
   updatedAt: Date;
+
+  @ApiPropertyOptional({ description: 'Deletion date (only for soft-deleted products)' })
+  deletedAt?: Date;
 }
 
 export class ProductListResponseDto {
