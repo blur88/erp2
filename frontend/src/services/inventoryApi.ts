@@ -31,6 +31,13 @@ export const inventoryApi = {
     return ApiService.post<Product>(`/inventory/products/${id}/restore`)
   },
 
+  async bulkRestoreProducts(productIds: string[]) {
+    return ApiService.post<{ message: string; restoredCount: number; failedIds: string[] }>(
+      '/inventory/products/bulk-restore',
+      { productIds }
+    )
+  },
+
   async permanentDeleteProduct(id: string) {
     return ApiService.delete(`/inventory/products/${id}/permanent`)
   },
@@ -116,6 +123,20 @@ export const inventoryApi = {
 
   async permanentDeleteCategory(id: string) {
     return ApiService.delete(`/inventory/categories/${id}/permanent`)
+  },
+
+  async bulkRestoreCategories(categoryIds: string[]) {
+    return ApiService.post<{ message: string; restoredCount: number; failedIds: string[] }>(
+      '/inventory/categories/bulk-restore',
+      { categoryIds }
+    )
+  },
+
+  async bulkPermanentDeleteCategories(categoryIds: string[]) {
+    return ApiService.post<{ message: string; deletedCount: number; failedIds: string[] }>(
+      '/inventory/categories/bulk-permanent-delete',
+      { categoryIds }
+    )
   },
 
   // Hierarchical category methods

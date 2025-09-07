@@ -14,6 +14,7 @@ import {
   SelectQueryBuilder,
   UpdateResult,
   In,
+  Like,
 } from 'typeorm';
 import { Product, ProductStatus, ProductType, StockStatus } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
@@ -403,40 +404,54 @@ export class ProductService {
       sortOrder = 'DESC',
     } = query;
 
-    const queryBuilder = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category')
-      .where('product.deletedAt IS NOT NULL')
-      .withDeleted();
+    // Build where clause for filtering
+    const where: any = {};
+    
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+    
+    if (type) {
+      where.type = type;
+    }
 
     if (search) {
-      queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR product.description ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    if (categoryId) {
-      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
-    }
-
-    if (type) {
-      queryBuilder.andWhere('product.type = :type', { type });
+      where.name = Like(`%${search}%`);
     }
 
     // Sorting
     const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
 
-    // Pagination
+    // Get ALL products that match criteria (without pagination first)
+    const allProducts = await this.productRepository.find({
+      where,
+      relations: ['category'],
+      withDeleted: true,
+    });
+
+    // Filter only soft-deleted products
+    const deletedProducts = allProducts.filter(product => product.deletedAt !== null);
+
+    // Apply sorting to filtered results
+    deletedProducts.sort((a: any, b: any) => {
+      const aValue = a[safeSortBy];
+      const bValue = b[safeSortBy];
+      
+      if (safeSortOrder === 'ASC') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    // Apply pagination to the filtered and sorted results
+    const total = deletedProducts.length;
     const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
+    const paginatedProducts = deletedProducts.slice(skip, skip + limit);
 
-    const [products, total] = await queryBuilder.getManyAndCount();
-
-    const productDtos = products.map(product => this.toResponseDto(product));
+    const productDtos = paginatedProducts.map(product => this.toResponseDto(product));
 
     return {
       data: productDtos,
@@ -445,7 +460,7 @@ export class ProductService {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
-        hasNextPage: page * limit < total,
+        hasNextPage: page < Math.ceil(total / limit),
         hasPreviousPage: page > 1,
       },
     };
@@ -494,6 +509,85 @@ export class ProductService {
     });
 
     return this.toResponseDto(restoredProduct!);
+  }
+
+  /**
+   * Bulk restore soft-deleted products
+   */
+  async bulkRestore(
+    productIds: string[], 
+    userId?: string
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${productIds.length} products`);
+    
+    if (!productIds || productIds.length === 0) {
+      return { restoredCount: 0, failedIds: [] };
+    }
+
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    // Process each product individually to handle failures gracefully
+    for (const id of productIds) {
+      try {
+        // Find the product (including soft-deleted ones)
+        const product = await this.productRepository.findOne({
+          where: { id },
+          relations: ['category'],
+          withDeleted: true,
+        });
+
+        if (!product) {
+          this.logger.warn(`Product with ID '${id}' not found`);
+          failedIds.push(id);
+          continue;
+        }
+
+        if (!product.deletedAt) {
+          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
+          failedIds.push(id);
+          continue;
+        }
+
+        // Check if barcode is still unique (case-insensitive)
+        const existingProduct = await this.productRepository
+          .createQueryBuilder('product')
+          .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+          .andWhere('product.id != :id', { id: product.id })
+          .getOne();
+
+        if (existingProduct) {
+          this.logger.warn(
+            `Cannot restore product with ID '${id}': barcode '${product.barcode}' is now used by another active product`
+          );
+          failedIds.push(id);
+          continue;
+        }
+
+        // Restore the product
+        await this.productRepository.restore(id);
+
+        // Log audit event
+        await this.auditService.logProductEvent(
+          product.id,
+          'PRODUCT_RESTORED',
+          `Product ${product.name} (${product.barcode}) restored from soft-delete (bulk operation)`,
+          userId,
+        );
+
+        restoredCount++;
+        this.logger.log(`Product restored: ${id}`);
+      } catch (error) {
+        this.logger.error(`Failed to restore product ${id}: ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(
+      `Bulk restore completed: ${restoredCount} succeeded, ${failedIds.length} failed`
+    );
+
+    return { restoredCount, failedIds };
   }
 
   /**
@@ -1181,6 +1275,7 @@ export class ProductService {
       grossMarginSpecial: product.grossMarginSpecial,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      deletedAt: product.deletedAt,
     };
   }
 

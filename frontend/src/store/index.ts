@@ -8,6 +8,7 @@ import themeSlice from './slices/themeSlice'
 import notificationSlice from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
+import customerSlice from './slices/customerSlice'
 import purchasingSlice from './slices/purchasingSlice'
 import dashboardSlice from './slices/dashboardSlice'
 
@@ -16,6 +17,7 @@ const rootReducer = combineReducers({
   notifications: notificationSlice,
   inventory: inventorySlice,
   sales: salesSlice,
+  customers: customerSlice,
   purchasing: purchasingSlice,
   dashboard: dashboardSlice,
 })

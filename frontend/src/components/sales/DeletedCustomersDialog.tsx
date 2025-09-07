@@ -22,6 +22,8 @@ import {
   Alert,
   Divider,
   CircularProgress,
+  Avatar,
+  Stack,
   Checkbox,
   useTheme,
   useMediaQuery,
@@ -30,44 +32,47 @@ import {
   Search as SearchIcon,
   Restore as RestoreIcon,
   Close as CloseIcon,
+  Person as PersonIcon,
+  Business as BusinessIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
   DeleteForever as DeleteForeverIcon,
-  Inventory2 as ProductIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { 
-  fetchDeletedProducts, 
-  restoreProduct,
-  bulkRestoreProducts,
-  permanentDeleteProduct,
-  bulkPermanentDeleteProducts, 
-  selectDeletedProducts, 
-  selectInventoryLoading,
-  fetchProducts
-} from '@/store/slices/inventorySlice'
+  fetchDeletedCustomers, 
+  restoreCustomer,
+  bulkRestoreCustomers,
+  permanentDeleteCustomer,
+  bulkPermanentDeleteCustomers,
+  selectDeletedCustomers, 
+  selectCustomersLoading,
+  fetchCustomers
+} from '@/store/slices/customerSlice'
 import { useNotification } from '@/hooks/useNotification'
-import LoadingSpinner from '@/components/common/LoadingSpinner'
-import type { Product } from '@/types'
+import type { Customer } from '@/types'
+import { CustomerType, CustomerStatus } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 
-interface DeletedProductsDialogProps {
+interface DeletedCustomersDialogProps {
   open: boolean
   onClose: () => void
 }
 
-const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onClose }) => {
+const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, onClose }) => {
   const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
-  const deletedProducts = useSelector(selectDeletedProducts) || []
-  const loading = useSelector(selectInventoryLoading)
+  const deletedCustomers = useSelector(selectDeletedCustomers) || []
+  const loading = useSelector(selectCustomersLoading)
   
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState<Product | null>(null)
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
+  const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null)
+  const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set())
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
@@ -75,60 +80,63 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
 
   useEffect(() => {
     if (open) {
-      dispatch(fetchDeletedProducts({}))
+      dispatch(fetchDeletedCustomers({}))
       // Reset selections when dialog opens
-      setSelectedProducts(new Set())
+      setSelectedCustomers(new Set())
     }
   }, [open, dispatch])
 
-  // Filter products based on search term
-  const filteredProducts = deletedProducts.filter(product => 
-    product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter customers based on search term
+  const filteredCustomers = deletedCustomers.filter(customer => 
+    customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.customerCode?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Calculate selection state
-  const selectedCount = selectedProducts.size
-  const allSelected = filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length
-  const partiallySelected = selectedProducts.size > 0 && selectedProducts.size < filteredProducts.length
+  const selectedCount = selectedCustomers.size
+  const allSelected = filteredCustomers.length > 0 && selectedCustomers.size === filteredCustomers.length
+  const partiallySelected = selectedCustomers.size > 0 && selectedCustomers.size < filteredCustomers.length
 
-  const handleRestore = async (product: Product) => {
-    setRestoringId(product.id)
+  const handleRestore = async (customer: Customer) => {
+    setRestoringId(customer.id)
     try {
-      const result = await dispatch(restoreProduct(product.id))
+      const result = await dispatch(restoreCustomer(customer.id))
       
-      if (restoreProduct.rejected.match(result)) {
+      if (restoreCustomer.rejected.match(result)) {
         throw new Error(result.payload as string)
       }
       
-      showSuccess(`Product "${product.name}" restored successfully`)
-      // Refresh both deleted and active products
-      dispatch(fetchDeletedProducts({}))
-      dispatch(fetchProducts({}))
+      showSuccess(`Customer "${customer.name}" restored successfully`)
+      
+      // Refresh both deleted and active customers
+      dispatch(fetchDeletedCustomers({}))
+      dispatch(fetchCustomers({}))
     } catch (error: any) {
-      console.error('Product restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore product'
+      console.error('Customer restore error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore customer'
       showError(errorMessage)
     } finally {
       setRestoringId(null)
     }
   }
 
-  const handlePermanentDelete = async (product: Product) => {
-    setDeletingId(product.id)
+  const handlePermanentDelete = async (customer: Customer) => {
+    setDeletingId(customer.id)
     try {
-      const result = await dispatch(permanentDeleteProduct(product.id))
+      const result = await dispatch(permanentDeleteCustomer(customer.id))
       
-      if (permanentDeleteProduct.rejected.match(result)) {
+      if (permanentDeleteCustomer.rejected.match(result)) {
         throw new Error(result.payload as string)
       }
       
-      showSuccess(`Product "${product.name}" permanently deleted`)
-      // Refresh deleted products list
-      dispatch(fetchDeletedProducts({}))
+      showSuccess(`Customer "${customer.name}" permanently deleted`)
+      // Refresh deleted customers list
+      dispatch(fetchDeletedCustomers({}))
     } catch (error: any) {
-      console.error('Product permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete product'
+      console.error('Customer permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete customer'
       showError(errorMessage)
     } finally {
       setDeletingId(null)
@@ -136,13 +144,13 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     }
   }
 
-  const handleSelectProduct = (productId: string, checked: boolean) => {
-    setSelectedProducts(prev => {
+  const handleSelectCustomer = (customerId: string, checked: boolean) => {
+    setSelectedCustomers(prev => {
       const newSet = new Set(prev)
       if (checked) {
-        newSet.add(productId)
+        newSet.add(customerId)
       } else {
-        newSet.delete(productId)
+        newSet.delete(customerId)
       }
       return newSet
     })
@@ -150,19 +158,19 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProducts(new Set(filteredProducts.map(p => p.id)))
+      setSelectedCustomers(new Set(filteredCustomers.map(c => c.id)))
     } else {
-      setSelectedProducts(new Set())
+      setSelectedCustomers(new Set())
     }
   }
 
   const handleBulkRestore = async () => {
     setBulkRestoring(true)
     try {
-      const productIds = Array.from(selectedProducts)
-      const result = await dispatch(bulkRestoreProducts(productIds))
+      const customerIds = Array.from(selectedCustomers)
+      const result = await dispatch(bulkRestoreCustomers(customerIds))
       
-      if (bulkRestoreProducts.rejected.match(result)) {
+      if (bulkRestoreCustomers.rejected.match(result)) {
         throw new Error(result.payload as string)
       }
       
@@ -171,20 +179,20 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
       const failedIds = payload?.failedIds || []
       
       if (restoredCount > 0) {
-        showSuccess(`Successfully restored ${restoredCount} products`)
+        showSuccess(`Successfully restored ${restoredCount} customers`)
       }
       
       if (failedIds.length > 0) {
-        showError(`Failed to restore ${failedIds.length} products`)
+        showError(`Failed to restore ${failedIds.length} customers`)
       }
       
-      // Refresh both deleted and active products and clear selections
-      dispatch(fetchDeletedProducts({}))
-      dispatch(fetchProducts({}))
-      setSelectedProducts(new Set())
+      // Refresh both deleted and active customers and clear selections
+      dispatch(fetchDeletedCustomers({}))
+      dispatch(fetchCustomers({}))
+      setSelectedCustomers(new Set())
     } catch (error: any) {
       console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore products'
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore customers'
       showError(errorMessage)
     } finally {
       setBulkRestoring(false)
@@ -195,10 +203,10 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   const handleBulkPermanentDelete = async () => {
     setBulkDeleting(true)
     try {
-      const productIds = Array.from(selectedProducts)
-      const result = await dispatch(bulkPermanentDeleteProducts(productIds))
+      const customerIds = Array.from(selectedCustomers)
+      const result = await dispatch(bulkPermanentDeleteCustomers(customerIds))
       
-      if (bulkPermanentDeleteProducts.rejected.match(result)) {
+      if (bulkPermanentDeleteCustomers.rejected.match(result)) {
         throw new Error(result.payload as string)
       }
       
@@ -207,19 +215,19 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
       const failedIds = payload?.failedIds || []
       
       if (deletedCount > 0) {
-        showSuccess(`Successfully permanently deleted ${deletedCount} products`)
+        showSuccess(`Successfully permanently deleted ${deletedCount} customers`)
       }
       
       if (failedIds.length > 0) {
-        showError(`Failed to delete ${failedIds.length} products`)
+        showError(`Failed to delete ${failedIds.length} customers`)
       }
       
-      // Refresh deleted products list and clear selections
-      dispatch(fetchDeletedProducts({}))
-      setSelectedProducts(new Set())
+      // Refresh deleted customers list and clear selections
+      dispatch(fetchDeletedCustomers({}))
+      setSelectedCustomers(new Set())
     } catch (error: any) {
       console.error('Bulk permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete products'
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete customers'
       showError(errorMessage)
     } finally {
       setBulkDeleting(false)
@@ -235,6 +243,26 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     })
   }
 
+  const getCustomerTypeIcon = (type: CustomerType) => {
+    return type === CustomerType.BUSINESS ? <BusinessIcon /> : <PersonIcon />
+  }
+
+  const getStatusChip = (status: CustomerStatus, isActive: boolean) => {
+    if (!isActive) {
+      return <Chip label="Inactive" size="small" color="default" />
+    }
+    
+    switch (status) {
+      case CustomerStatus.ACTIVE:
+        return <Chip label="Active" size="small" color="success" />
+      case CustomerStatus.SUSPENDED:
+        return <Chip label="Suspended" size="small" color="warning" />
+      case CustomerStatus.BLACKLISTED:
+        return <Chip label="Blacklisted" size="small" color="error" />
+      default:
+        return <Chip label="Inactive" size="small" color="default" />
+    }
+  }
 
   return (
     <Dialog
@@ -247,9 +275,9 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ProductIcon sx={{ color: 'error.main' }} />
+            <PersonIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
-              Deleted Products
+              Deleted Customers
             </Typography>
           </Box>
           <IconButton onClick={onClose} size="small">
@@ -257,14 +285,14 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </IconButton>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Manage soft-deleted products ({filteredProducts.length} {searchTerm ? 'found' : 'total'})
+          Manage soft-deleted customers ({filteredCustomers.length} {searchTerm ? 'found' : 'total'})
         </Typography>
       </DialogTitle>
 
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
-            These products have been soft-deleted. You can restore them or permanently delete them from the database.
+            These customers have been soft-deleted. You can restore them or permanently delete them from the database.
             <br />
             <strong>Warning:</strong> Permanent deletion cannot be undone!
           </Alert>
@@ -272,7 +300,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <TextField
               fullWidth
-              placeholder="Search deleted products..."
+              placeholder="Search deleted customers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
@@ -312,7 +340,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </Box>
         </Box>
 
-        {loading?.deletedProducts ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
@@ -342,28 +370,26 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                   </TableCell>
                   <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Product Details
+                      Customer Details
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ width: isMobile ? '20%' : '15%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Type
                     </Typography>
                   </TableCell>
                   {!isMobile && (
-                    <TableCell sx={{ width: '15%' }}>
+                    <TableCell sx={{ width: '20%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Barcode
+                        Contact
                       </Typography>
                     </TableCell>
                   )}
                   <TableCell sx={{ width: isMobile ? '20%' : '15%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Category
+                      Status
                     </Typography>
                   </TableCell>
-                  {!isMobile && (
-                    <TableCell align="right" sx={{ width: '12%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Price
-                      </Typography>
-                    </TableCell>
-                  )}
                   {!isMobile && (
                     <TableCell sx={{ width: '15%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
@@ -371,7 +397,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       </Typography>
                     </TableCell>
                   )}
-                  <TableCell align="right" sx={{ width: isMobile ? '45%' : '13%' }}>
+                  <TableCell align="right" sx={{ width: isMobile ? '25%' : '13%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Actions
                     </Typography>
@@ -379,23 +405,23 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredProducts.length === 0 ? (
+                {filteredCustomers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isMobile ? 5 : 7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 6 : 7} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary">
-                        {searchTerm ? 'No deleted products match your search.' : 'No deleted products found.'}
+                        {searchTerm ? 'No deleted customers match your search.' : 'No deleted customers found.'}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map((product) => (
+                  filteredCustomers.map((customer) => (
                     <TableRow 
-                      key={product.id} 
+                      key={customer.id} 
                       hover
                       sx={{
                         '&:hover, &:focus-within': {
                           backgroundColor: 'action.hover',
-                          '& .product-actions': {
+                          '& .customer-actions': {
                             opacity: 1
                           }
                         },
@@ -406,48 +432,40 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                     >
                       <TableCell sx={{ padding: '8px' }}>
                         <Checkbox
-                          checked={selectedProducts.has(product.id)}
-                          onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
+                          checked={selectedCustomers.has(customer.id)}
+                          onChange={(e) => handleSelectCustomer(customer.id, e.target.checked)}
                           size="small"
                         />
                       </TableCell>
                       <TableCell>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                            {product.name}
-                          </Typography>
-                          {product.description && (
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              {product.description}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+                            {getCustomerTypeIcon(customer.type)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                              {customer.name}
                             </Typography>
-                          )}
-                          {isMobile && (
-                            <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                {product.barcode}
-                              </Typography>
-                              {product.retailPrice && (
-                                <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
-                                  • {formatCurrency(product.retailPrice)}
-                                </Typography>
-                              )}
-                            </Box>
-                          )}
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              {customer.customerCode}
+                            </Typography>
+                            {isMobile && (
+                              <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                {customer.email && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                    {customer.email}
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
                         </Box>
                       </TableCell>
-                      {!isMobile && (
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                            {product.barcode}
-                          </Typography>
-                        </TableCell>
-                      )}
                       <TableCell>
                         <Chip 
-                          label={product.category?.name || 'No Category'} 
-                          size="small" 
+                          label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+                          size="small"
                           variant="outlined"
-                          color={product.category ? 'primary' : 'default'}
                           sx={{
                             fontSize: '0.7rem',
                             fontWeight: 500,
@@ -456,22 +474,36 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                         />
                       </TableCell>
                       {!isMobile && (
-                        <TableCell align="right">
-                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
-                            {formatCurrency(product.retailPrice)}
-                          </Typography>
+                        <TableCell>
+                          <Stack spacing={0.5}>
+                            {customer.email && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <EmailIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{customer.email}</Typography>
+                              </Box>
+                            )}
+                            {customer.phone && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{customer.phone}</Typography>
+                              </Box>
+                            )}
+                          </Stack>
                         </TableCell>
                       )}
+                      <TableCell>
+                        {getStatusChip(customer.status, customer.isActive)}
+                      </TableCell>
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            {(product as any).deletedAt ? formatDate((product as any).deletedAt) : 'Unknown'}
+                            {(customer as any).deletedAt ? formatDate((customer as any).deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
                       )}
                       <TableCell align="right">
                         <Box 
-                          className="product-actions"
+                          className="customer-actions"
                           sx={{ 
                             display: 'flex', 
                             justifyContent: 'flex-end',
@@ -480,10 +512,10 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                             transition: 'opacity 0.2s ease'
                           }}
                         >
-                          <Tooltip title="Restore Product">
+                          <Tooltip title="Restore Customer">
                             <IconButton 
-                              onClick={() => handleRestore(product)}
-                              disabled={restoringId === product.id || deletingId === product.id}
+                              onClick={() => handleRestore(customer)}
+                              disabled={restoringId === customer.id || deletingId === customer.id}
                               size="small"
                               sx={{
                                 '&:hover': {
@@ -493,13 +525,17 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                                 p: 0.5
                               }}
                             >
-                              <RestoreIcon fontSize="small" />
+                              {restoringId === customer.id ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <RestoreIcon fontSize="small" />
+                              )}
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Permanently Delete (Cannot be undone)">
                             <IconButton 
-                              onClick={() => setConfirmDelete(product)}
-                              disabled={restoringId === product.id || deletingId === product.id}
+                              onClick={() => setConfirmDelete(customer)}
+                              disabled={restoringId === customer.id || deletingId === customer.id}
                               size="small"
                               sx={{
                                 '&:hover': {
@@ -513,14 +549,14 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        {isMobile && (product as any).deletedAt && (
+                        {isMobile && (customer as any).deletedAt && (
                           <Typography variant="caption" color="text.secondary" sx={{ 
                             display: 'block', 
                             textAlign: 'right', 
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date((product as any).deletedAt).toLocaleDateString('en-US', {
+                            {new Date((customer as any).deletedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: '2-digit'
@@ -553,33 +589,33 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         <DialogTitle color="error">
           <Box display="flex" alignItems="center" gap={1}>
             <DeleteForeverIcon color="error" />
-            Permanently Delete Product
+            Permanently Delete Customer
           </Box>
         </DialogTitle>
         <DialogContent>
           <Alert severity="error" sx={{ mb: 2 }}>
-            This action cannot be undone! The product will be completely removed from the database.
+            This action cannot be undone! The customer will be completely removed from the database.
           </Alert>
           
           {confirmDelete && (
             <Box>
               <Typography variant="body1" gutterBottom>
-                Are you sure you want to permanently delete this product?
+                Are you sure you want to permanently delete this customer?
               </Typography>
               <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {confirmDelete.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Barcode: {confirmDelete.barcode}
+                  Customer Code: {confirmDelete.customerCode}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Category: {confirmDelete.category?.name || 'No Category'}
+                  Email: {confirmDelete.email || 'N/A'}
                 </Typography>
               </Box>
               <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-                This will permanently remove the product and all its data from the database.
-                The barcode "{confirmDelete.barcode}" will become available for reuse.
+                This will permanently remove the customer and all related data from the database.
+                The customer code "{confirmDelete.customerCode}" will become available for reuse.
               </Typography>
             </Box>
           )}
@@ -614,29 +650,29 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         <DialogTitle color="success">
           <Box display="flex" alignItems="center" gap={1}>
             <RestoreIcon color="success" />
-            Bulk Restore Products
+            Bulk Restore Customers
           </Box>
         </DialogTitle>
         <DialogContent>
           <Alert severity="success" sx={{ mb: 2 }}>
-            This will restore the selected products back to active status and make them available for use.
+            This will restore the selected customers back to active status and make them available for use.
           </Alert>
           
           <Typography variant="body1" gutterBottom>
-            Are you sure you want to restore <strong>{selectedCount}</strong> selected products?
+            Are you sure you want to restore <strong>{selectedCount}</strong> selected customers?
           </Typography>
           
           {selectedCount <= 5 && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                Products to be restored:
+                Customers to be restored:
               </Typography>
-              {Array.from(selectedProducts).slice(0, 5).map(productId => {
-                const product = filteredProducts.find((p: Product) => p.id === productId)
-                return product ? (
-                  <Box key={productId} sx={{ mb: 0.5 }}>
+              {Array.from(selectedCustomers).slice(0, 5).map(customerId => {
+                const customer = filteredCustomers.find((c: Customer) => c.id === customerId)
+                return customer ? (
+                  <Box key={customerId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {product.name} ({product.barcode})
+                      • {customer.name} ({customer.customerCode})
                     </Typography>
                   </Box>
                 ) : null
@@ -645,7 +681,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           )}
           
           <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-            This will move the selected products back to the active products list and make them available for orders and inventory management.
+            This will move the selected customers back to the active customers list and make them available for orders and sales.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -663,7 +699,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             disabled={bulkRestoring}
             startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
           >
-            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Products`}
+            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Customers`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -683,24 +719,24 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         </DialogTitle>
         <DialogContent>
           <Alert severity="error" sx={{ mb: 2 }}>
-            This action cannot be undone! The selected products will be completely removed from the database.
+            This action cannot be undone! The selected customers will be completely removed from the database.
           </Alert>
           
           <Typography variant="body1" gutterBottom>
-            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected products?
+            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected customers?
           </Typography>
           
           {selectedCount <= 5 && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                Products to be deleted:
+                Customers to be deleted:
               </Typography>
-              {Array.from(selectedProducts).slice(0, 5).map(productId => {
-                const product = filteredProducts.find((p: Product) => p.id === productId)
-                return product ? (
-                  <Box key={productId} sx={{ mb: 0.5 }}>
+              {Array.from(selectedCustomers).slice(0, 5).map(customerId => {
+                const customer = filteredCustomers.find((c: Customer) => c.id === customerId)
+                return customer ? (
+                  <Box key={customerId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {product.name} ({product.barcode})
+                      • {customer.name} ({customer.customerCode})
                     </Typography>
                   </Box>
                 ) : null
@@ -709,8 +745,8 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           )}
           
           <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-            This will permanently remove all selected products and their data from the database.
-            Their barcodes will become available for reuse.
+            This will permanently remove all selected customers and their data from the database.
+            Their customer codes will become available for reuse.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -728,7 +764,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             disabled={bulkDeleting}
             startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
           >
-            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Products`}
+            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Customers`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -736,4 +772,4 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   )
 }
 
-export default DeletedProductsDialog
+export default DeletedCustomersDialog

@@ -113,19 +113,68 @@ export interface StockMovement {
 }
 
 // Sales types
+export enum CustomerType {
+  INDIVIDUAL = 'individual',
+  BUSINESS = 'business',
+}
+
+export enum CustomerStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  SUSPENDED = 'suspended',
+  BLACKLISTED = 'blacklisted',
+}
+
+export enum PriceLevel {
+  RETAIL = 'retail',
+  WHOLESALE = 'wholesale',
+  SPECIAL = 'special',
+}
+
 export interface Customer {
   id: string;
+  customerCode: string;
+  type: CustomerType;
   name: string;
+  contactPerson?: string;
   email?: string;
   phone?: string;
-  address?: Address;
+  alternativePhone?: string;
   taxId?: string;
-  paymentTerms?: string;
-  creditLimit?: number;
-  currentBalance?: number;
+  // Address Information
+  billingAddress?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingPostalCode?: string;
+  billingCountry?: string;
+  shippingAddress?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostalCode?: string;
+  shippingCountry?: string;
+  // Business Information
+  status: CustomerStatus;
   isActive: boolean;
+  priceLevel: PriceLevel;
+  // Credit Management
+  creditLimit: number;
+  currentBalance: number;
+  paymentTermsDays: number;
+  // Customer Metrics
+  totalSales: number;
+  totalOrders: number;
+  lastPurchaseDate?: Date;
+  firstPurchaseDate?: Date;
+  // Additional Information
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Computed properties
+  fullAddress: string;
+  fullShippingAddress: string;
+  availableCredit: number;
+  isOverCreditLimit: boolean;
+  averageOrderValue: number;
 }
 
 export interface SalesOrder {

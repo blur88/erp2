@@ -146,7 +146,7 @@ export const fetchDeletedProducts = createAsyncThunk(
   async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getDeletedProducts(params)
-      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch deleted products:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted products')
@@ -162,6 +162,18 @@ export const restoreProduct = createAsyncThunk(
       return response.data
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore product')
+    }
+  }
+)
+
+export const bulkRestoreProducts = createAsyncThunk(
+  'inventory/bulkRestoreProducts',
+  async (productIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkRestoreProducts(productIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore products')
     }
   }
 )
@@ -257,7 +269,7 @@ export const fetchDeletedCategories = createAsyncThunk(
   async (params: { page?: number; limit?: number }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getDeletedCategories(params)
-      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch deleted categories:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted categories')
@@ -290,6 +302,30 @@ export const permanentDeleteCategory = createAsyncThunk(
       return id
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete category')
+    }
+  }
+)
+
+export const bulkRestoreCategories = createAsyncThunk(
+  'inventory/bulkRestoreCategories',
+  async (categoryIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkRestoreCategories(categoryIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore categories')
+    }
+  }
+)
+
+export const bulkPermanentDeleteCategories = createAsyncThunk(
+  'inventory/bulkPermanentDeleteCategories',
+  async (categoryIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkPermanentDeleteCategories(categoryIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk permanently delete categories')
     }
   }
 )
@@ -415,7 +451,8 @@ const inventorySlice = createSlice({
       .addCase(fetchDeletedProducts.fulfilled, (state, action) => {
         state.loading.deletedProducts = false
         if (action.payload) {
-          state.deletedProducts = action.payload.data || []
+          const payload = action.payload as any
+          state.deletedProducts = payload.data || []
         }
       })
       .addCase(fetchDeletedProducts.rejected, (state, action) => {
@@ -432,6 +469,20 @@ const inventorySlice = createSlice({
           state.products.unshift(action.payload)
         }
       })
+      .addCase(bulkRestoreProducts.fulfilled, (state, action) => {
+        if (action.payload) {
+          const payload = action.payload as any
+          const restoredCount = payload?.restoredCount || 0
+          const failedIds = payload?.failedIds || []
+          // Remove successfully restored products from deleted products list
+          const successfulIds = state.deletedProducts
+            .map(p => p.id)
+            .filter(id => !failedIds.includes(id))
+          state.deletedProducts = state.deletedProducts.filter(
+            p => !successfulIds.includes(p.id)
+          )
+        }
+      })
 
     // Permanent Delete Product
     builder
@@ -443,7 +494,9 @@ const inventorySlice = createSlice({
       })
       .addCase(bulkPermanentDeleteProducts.fulfilled, (state, action) => {
         if (action.payload) {
-          const { deletedCount, failedIds } = action.payload
+          const payload = action.payload as any
+          const deletedCount = payload?.deletedCount || 0
+          const failedIds = payload?.failedIds || []
           // Remove successfully deleted products from deleted products list
           const successfulIds = state.deletedProducts
             .map(p => p.id)
@@ -499,7 +552,8 @@ const inventorySlice = createSlice({
       .addCase(fetchDeletedCategories.fulfilled, (state, action) => {
         state.loading.deletedCategories = false
         if (action.payload) {
-          state.deletedCategories = action.payload.data || []
+          const payload = action.payload as any
+          state.deletedCategories = payload.data || []
         }
       })
       .addCase(fetchDeletedCategories.rejected, (state, action) => {
@@ -517,6 +571,18 @@ const inventorySlice = createSlice({
     builder
       .addCase(permanentDeleteCategory.fulfilled, (state, action) => {
         // Deleted categories will be refreshed automatically via fetchDeletedCategories dispatch
+      })
+
+    // Bulk Restore Categories
+    builder
+      .addCase(bulkRestoreCategories.fulfilled, (state, action) => {
+        // Categories will be refreshed by the component
+      })
+
+    // Bulk Permanent Delete Categories
+    builder
+      .addCase(bulkPermanentDeleteCategories.fulfilled, (state, action) => {
+        // Deleted categories will be refreshed by the component
       })
   },
 })

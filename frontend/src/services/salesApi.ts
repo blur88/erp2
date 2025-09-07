@@ -1,47 +1,119 @@
 import { ApiService } from './api'
-import type { Customer, SalesOrder, Invoice, Payment, PaginatedResponse, QueryParams } from '@/types'
+import type { Customer, CustomerType, CustomerStatus, PriceLevel, SalesOrder, Invoice, Payment, PaginatedResponse, QueryParams } from '@/types'
+
+interface CustomerQueryParams extends QueryParams {
+  type?: CustomerType;
+  status?: CustomerStatus;
+  priceLevel?: PriceLevel;
+}
+
+interface CustomerSummary {
+  id: string;
+  customerCode: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  status: CustomerStatus;
+  currentBalance: number;
+  creditLimit: number;
+  availableCredit: number;
+}
+
+interface CreditCheckRequest {
+  customerId: string;
+  amount: number;
+}
+
+interface CreditCheckResponse {
+  approved: boolean;
+  creditLimit: number;
+  currentBalance: number;
+  availableCredit: number;
+  requestedAmount: number;
+  remainingCreditAfterPurchase: number;
+  message?: string;
+}
 
 export const salesApi = {
   // Customers
-  async getCustomers(params?: QueryParams) {
-    return ApiService.get<PaginatedResponse<Customer>>('/sales/customers', { params })
+  async getCustomers(params?: CustomerQueryParams) {
+    return ApiService.get<PaginatedResponse<Customer>>('customers', { params })
   },
 
   async getCustomer(id: string) {
-    return ApiService.get<Customer>(`/sales/customers/${id}`)
+    return ApiService.get<Customer>(`customers/${id}`)
+  },
+
+  async getCustomerByCode(customerCode: string) {
+    return ApiService.get<Customer>(`customers/code/${customerCode}`)
+  },
+
+  async getCustomerSummaries() {
+    return ApiService.get<CustomerSummary[]>('customers/summary')
   },
 
   async createCustomer(customerData: Partial<Customer>) {
-    return ApiService.post<Customer>('/sales/customers', customerData)
+    return ApiService.post<Customer>('customers', customerData)
   },
 
   async updateCustomer(id: string, customerData: Partial<Customer>) {
-    return ApiService.put<Customer>(`/sales/customers/${id}`, customerData)
+    return ApiService.put<Customer>(`customers/${id}`, customerData)
   },
 
   async deleteCustomer(id: string) {
-    return ApiService.delete(`/sales/customers/${id}`)
+    return ApiService.delete(`customers/${id}`)
   },
 
-  async getCustomerBalance(id: string) {
-    return ApiService.get<{
-      totalInvoiced: number
-      totalPaid: number
-      balance: number
-      creditLimit: number
-      availableCredit: number
-    }>(`/sales/customers/${id}/balance`)
+  async checkCredit(data: CreditCheckRequest) {
+    return ApiService.post<CreditCheckResponse>('customers/credit-check', data)
   },
 
-  async getCustomerStatement(id: string, params: {
-    startDate?: Date
-    endDate?: Date
-    format?: 'json' | 'pdf'
-  }) {
-    if (params.format === 'pdf') {
-      return ApiService.downloadFile(`/sales/customers/${id}/statement`, `customer-statement.pdf`)
-    }
-    return ApiService.get(`/sales/customers/${id}/statement`, { params })
+  async updateCreditLimit(id: string, creditLimit: number) {
+    return ApiService.put<Customer>(`customers/${id}/credit-limit`, { creditLimit })
+  },
+
+  async activateCustomer(id: string) {
+    return ApiService.put<Customer>(`customers/${id}/activate`)
+  },
+
+  async deactivateCustomer(id: string) {
+    return ApiService.put<Customer>(`customers/${id}/deactivate`)
+  },
+
+  async suspendCustomer(id: string, reason?: string) {
+    return ApiService.put<Customer>(`customers/${id}/suspend`, { reason })
+  },
+
+  async getCustomerSalesHistory(id: string, limit?: number) {
+    return ApiService.get(`customers/${id}/sales-history`, { params: { limit } })
+  },
+
+  async getOutstandingInvoices(id: string) {
+    return ApiService.get(`customers/${id}/outstanding-invoices`)
+  },
+
+  async getCustomerStatistics(id: string) {
+    return ApiService.get(`customers/${id}/statistics`)
+  },
+
+  async getDeletedCustomers(params?: CustomerQueryParams) {
+    return ApiService.get<PaginatedResponse<Customer>>('customers/deleted', { params })
+  },
+
+  async restoreCustomer(id: string) {
+    return ApiService.post<Customer>(`customers/${id}/restore`)
+  },
+
+  async bulkRestoreCustomers(customerIds: string[]) {
+    return ApiService.post<{ message: string; restoredCount: number; failedIds: string[] }>('customers/bulk-restore', { customerIds })
+  },
+
+  async permanentDeleteCustomer(id: string) {
+    return ApiService.delete(`customers/${id}/permanent`)
+  },
+
+  async bulkPermanentDeleteCustomers(customerIds: string[]) {
+    return ApiService.post<{ message: string; deletedCount: number; failedIds: string[] }>('customers/bulk-permanent-delete', { customerIds })
   },
 
   // Sales Orders
