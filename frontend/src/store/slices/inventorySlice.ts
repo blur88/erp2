@@ -447,7 +447,9 @@ const inventorySlice = createSlice({
       })
       .addCase(bulkRestoreProducts.fulfilled, (state, action) => {
         if (action.payload) {
-          const { restoredCount, failedIds } = action.payload
+          const payload = action.payload as any
+          const restoredCount = payload?.restoredCount || 0
+          const failedIds = payload?.failedIds || []
           // Remove successfully restored products from deleted products list
           const successfulIds = state.deletedProducts
             .map(p => p.id)
@@ -468,7 +470,9 @@ const inventorySlice = createSlice({
       })
       .addCase(bulkPermanentDeleteProducts.fulfilled, (state, action) => {
         if (action.payload) {
-          const { deletedCount, failedIds } = action.payload
+          const payload = action.payload as any
+          const deletedCount = payload?.deletedCount || 0
+          const failedIds = payload?.failedIds || []
           // Remove successfully deleted products from deleted products list
           const successfulIds = state.deletedProducts
             .map(p => p.id)

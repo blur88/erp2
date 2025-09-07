@@ -166,7 +166,9 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         throw new Error(result.payload as string)
       }
       
-      const { restoredCount, failedIds } = result.payload as any
+      const payload = result.payload as any
+      const restoredCount = payload?.restoredCount || 0
+      const failedIds = payload?.failedIds || []
       
       if (restoredCount > 0) {
         showSuccess(`Successfully restored ${restoredCount} products`)
@@ -200,7 +202,9 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         throw new Error(result.payload as string)
       }
       
-      const { deletedCount, failedIds } = result.payload as any
+      const payload = result.payload as any
+      const deletedCount = payload?.deletedCount || 0
+      const failedIds = payload?.failedIds || []
       
       if (deletedCount > 0) {
         showSuccess(`Successfully permanently deleted ${deletedCount} products`)
@@ -231,15 +235,6 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     })
   }
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
 
   return (
     <Dialog
