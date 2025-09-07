@@ -257,7 +257,7 @@ export const fetchDeletedCategories = createAsyncThunk(
   async (params: { page?: number; limit?: number }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getDeletedCategories(params)
-      return response.data || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
+      return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch deleted categories:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted categories')
