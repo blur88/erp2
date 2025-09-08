@@ -250,6 +250,12 @@ When enabling disabled modules:
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
 
+### Customer Management Bulk Operations (September 2025)
+- ✅ **COMPLETE**: Bulk restore and bulk delete functionality for customers
+- **Frontend**: Enhanced customer page with bulk operations matching products/categories pattern
+- **UI Integration**: Bulk action buttons and "View Deleted" functionality
+- **State Management**: Redux support for bulk operations on customer records
+
 ### Product API Endpoints Fixed (September 2025)
 - ✅ **CRITICAL FIX**: Product listing endpoints were returning reversed data
 - **Root Cause**: `remove()` method only set status flags but didn't use TypeORM's `softDelete()` for `deletedAt` timestamp

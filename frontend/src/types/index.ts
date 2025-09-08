@@ -180,18 +180,43 @@ export interface Customer {
 export interface SalesOrder {
   id: string;
   orderNumber: string;
-  customer: Customer;
-  items: SalesOrderItem[];
+  customer?: Customer;
+  customerId: string;
+  items?: SalesOrderItem[];
   subtotal: number;
   taxAmount: number;
-  discount: number;
-  total: number;
-  status: 'draft' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  taxPercent?: number;
+  discountAmount?: number;
+  discountPercent?: number;
+  shippingAmount?: number;
+  totalAmount: number;
+  status: 'draft' | 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'completed' | 'cancelled';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
   orderDate: Date;
-  deliveryDate?: Date;
+  requiredDate?: Date;
+  shippedDate?: Date;
+  deliveredDate?: Date;
+  shippingAddress?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostalCode?: string;
+  shippingCountry?: string;
+  shippingMethod?: string;
+  trackingNumber?: string;
+  customerPoNumber?: string;
   notes?: string;
+  internalNotes?: string;
+  createdByUserId?: string;
   createdAt: Date;
   updatedAt: Date;
+  isOverdue?: boolean;
+  isShippable?: boolean;
+  isCompleted?: boolean;
+  fullShippingAddress?: string;
+  // Legacy compatibility
+  total?: number;
+  discount?: number;
+  deliveryDate?: Date;
 }
 
 export interface SalesOrderItem {
