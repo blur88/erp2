@@ -470,6 +470,13 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                 {...priceField}
                                 type="number"
                                 size="small"
+                                inputProps={{
+                                  step: "0.01",
+                                  min: "0"
+                                }}
+                                InputProps={{
+                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '14px' }}>RM</span>
+                                }}
                                 error={!!errors.items?.[index]?.unitPrice}
                                 helperText={errors.items?.[index]?.unitPrice?.message}
                               />
@@ -579,6 +586,13 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                       type="number"
                       size="small"
                       fullWidth
+                      inputProps={{
+                        step: "0.01",
+                        min: "0"
+                      }}
+                      InputProps={{
+                        startAdornment: <span style={{ marginRight: '4px', fontSize: '14px' }}>RM</span>
+                      }}
                       sx={{ mb: 2 }}
                     />
                   )}
