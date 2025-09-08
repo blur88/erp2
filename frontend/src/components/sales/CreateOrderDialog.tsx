@@ -154,21 +154,32 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       if (item.quantity && item.unitPrice) {
         const subtotal = Number(item.quantity) * Number(item.unitPrice)
         let discountAmount = 0
+        let discountPercent = Number(item.discountPercent) || 0
         
-        if (item.discountType === 'percentage' && item.discountPercent > 0) {
-          discountAmount = subtotal * (Number(item.discountPercent) / 100)
+        if (item.discountType === 'percentage' && discountPercent > 0) {
+          discountAmount = subtotal * (discountPercent / 100)
+          // Only update amount if it's significantly different (avoid constant updates)
+          if (Math.abs(item.discountAmount - discountAmount) > 0.01) {
+            setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+          }
         } else if (item.discountType === 'amount' && item.discountAmount > 0) {
           // For amount discount, ensure it doesn't exceed subtotal
           discountAmount = Math.min(Number(item.discountAmount), subtotal)
+          // Only update the actual discount amount if it was clamped
+          if (Math.abs(Number(item.discountAmount) - discountAmount) > 0.01) {
+            setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+          }
+          // Calculate equivalent percentage but don't automatically sync unless it's way off
+          const equivalentPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0
+          // Only sync percentage if there's a major discrepancy (more than 1%)
+          if (Math.abs(item.discountPercent - equivalentPercent) > 1) {
+            setValue(`items.${index}.discountPercent`, Number(equivalentPercent.toFixed(2)))
+          }
         }
         
         const totalPrice = subtotal - discountAmount
         
-        // Only update if values have actually changed to prevent infinite loops
-        if (item.discountType === 'percentage' && Math.abs(item.discountAmount - discountAmount) > 0.01) {
-          setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
-        }
-        
+        // Update total price if it has changed
         if (Math.abs(item.totalPrice - totalPrice) > 0.01) {
           setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
         }
@@ -200,7 +211,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       setValue(`items.${index}.unitPrice`, product.retailPrice || 0)
       setValue(`items.${index}.product`, product)
       
-      // Trigger immediate total calculation
+      // Trigger immediate total calculation with proper synchronization
       const currentItem = watchedItems[index]
       const quantity = currentItem?.quantity || 1
       const unitPrice = product.retailPrice || 0
@@ -208,17 +219,28 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       if (quantity && unitPrice) {
         const subtotal = Number(quantity) * Number(unitPrice)
         let discountAmount = 0
+        let discountPercent = Number(currentItem?.discountPercent) || 0
         
-        if (currentItem?.discountType === 'percentage' && currentItem?.discountPercent > 0) {
-          discountAmount = subtotal * (Number(currentItem.discountPercent) / 100)
+        if (currentItem?.discountType === 'percentage' && discountPercent > 0) {
+          discountAmount = subtotal * (discountPercent / 100)
         } else if (currentItem?.discountType === 'amount' && currentItem?.discountAmount > 0) {
           discountAmount = Math.min(Number(currentItem.discountAmount), subtotal)
+          // Recalculate percentage to match the amount
+          discountPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0
+          setValue(`items.${index}.discountPercent`, Number(discountPercent.toFixed(2)))
         }
         
         const totalPrice = subtotal - discountAmount
         
         setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
         setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+        
+        // Clear any display value override
+        setDiscountDisplayValues(prev => {
+          const updated = { ...prev }
+          delete updated[index]
+          return updated
+        })
       }
     }
   }
@@ -288,7 +310,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
         taxAmount: totals.taxAmount,
         shippingAmount: data.shippingAmount,
         totalAmount: totals.totalAmount,
-        items: data.items.map(item => ({
+        items: data.items.map((item: OrderItem) => ({
           id: '', // Backend will generate
           productId: item.productId,
           product: item.product,
@@ -623,6 +645,60 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                               <FormControl fullWidth variant="outlined" size="small">
                                 <Select
                                   {...discountTypeField}
+                                  onChange={(e) => {
+                                    const newDiscountType = e.target.value as 'percentage' | 'amount'
+                                    const currentItem = watchedItems[index]
+                                    const quantity = currentItem?.quantity || 0
+                                    const unitPrice = currentItem?.unitPrice || 0
+                                    const subtotal = Number(quantity) * Number(unitPrice)
+                                    
+                                    // Update the discount type first
+                                    discountTypeField.onChange(newDiscountType)
+                                    
+                                    // Convert discount values when switching types
+                                    if (subtotal > 0 && currentItem) {
+                                      const oldDiscountType = discountTypeField.value
+                                      
+                                      if (newDiscountType === 'percentage' && oldDiscountType === 'amount') {
+                                        // Converting from amount to percentage - preserve the amount value as percentage
+                                        const currentDiscountAmount = currentItem.discountAmount || 0
+                                        setValue(`items.${index}.discountPercent`, Number(currentDiscountAmount.toFixed(2)))
+                                        // Keep amount unchanged
+                                        setValue(`items.${index}.discountAmount`, Number(currentDiscountAmount.toFixed(2)))
+                                      } else if (newDiscountType === 'amount' && oldDiscountType === 'percentage') {
+                                        // Converting from percentage to amount - preserve the percentage value as amount
+                                        const currentDiscountPercent = currentItem.discountPercent || 0
+                                        setValue(`items.${index}.discountAmount`, Number(currentDiscountPercent.toFixed(2)))
+                                        // Keep percentage unchanged
+                                        setValue(`items.${index}.discountPercent`, Number(currentDiscountPercent.toFixed(2)))
+                                      }
+                                      
+                                      // Clear display value override to show actual values
+                                      setDiscountDisplayValues(prev => {
+                                        const updated = { ...prev }
+                                        delete updated[index]
+                                        return updated
+                                      })
+                                      
+                                      // Recalculate total immediately based on the new discount type
+                                      let finalDiscountAmount = 0
+                                      if (newDiscountType === 'percentage') {
+                                        // Use the preserved percentage value for calculation
+                                        const discountPercent = (newDiscountType === 'percentage' && oldDiscountType === 'amount') 
+                                          ? (currentItem.discountAmount || 0)  // Use preserved amount as percentage
+                                          : (currentItem.discountPercent || 0)
+                                        finalDiscountAmount = subtotal * (discountPercent / 100)
+                                      } else {
+                                        // Use the preserved amount value for calculation
+                                        const discountAmount = (newDiscountType === 'amount' && oldDiscountType === 'percentage')
+                                          ? (currentItem.discountPercent || 0)  // Use preserved percentage as amount
+                                          : (currentItem.discountAmount || 0)
+                                        finalDiscountAmount = Math.min(discountAmount, subtotal)
+                                      }
+                                      const totalPrice = subtotal - finalDiscountAmount
+                                      setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+                                    }
+                                  }}
                                   sx={{
                                     '& .MuiOutlinedInput-notchedOutline': {
                                       border: 'none',
@@ -657,10 +733,10 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                   type="number"
                                   variant="outlined"
                                   onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0
+                                    const value = Math.min(parseFloat(e.target.value) || 0, 100)
                                     discountField.onChange(value)
                                     
-                                    // Trigger immediate recalculation
+                                    // Trigger immediate recalculation and synchronization
                                     const quantity = watchedItems[index]?.quantity || 0
                                     const unitPrice = watchedItems[index]?.unitPrice || 0
                                     if (quantity && unitPrice) {
@@ -670,6 +746,13 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                       
                                       setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
                                       setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+                                      
+                                      // Clear display value override to show calculated amount
+                                      setDiscountDisplayValues(prev => {
+                                        const updated = { ...prev }
+                                        delete updated[index]
+                                        return updated
+                                      })
                                     }
                                   }}
                                   inputProps={{ 
@@ -715,7 +798,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                     const numericValue = parseFloat(finalValue) || 0
                                     discountAmountField.onChange(numericValue)
                                     
-                                    // Trigger immediate recalculation
+                                    // Trigger immediate recalculation and synchronization
                                     const quantity = watchedItems[index]?.quantity || 0
                                     const unitPrice = watchedItems[index]?.unitPrice || 0
                                     if (quantity && unitPrice) {
@@ -723,7 +806,11 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                       const discountAmount = Math.min(numericValue, subtotal)
                                       const totalPrice = subtotal - discountAmount
                                       
+                                      // Calculate equivalent percentage
+                                      const equivalentPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0
+                                      
                                       setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(4)))
+                                      setValue(`items.${index}.discountPercent`, Number(equivalentPercent.toFixed(2)))
                                       setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
                                     }
                                   }}
