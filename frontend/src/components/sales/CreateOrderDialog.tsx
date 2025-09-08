@@ -199,6 +199,27 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       setValue(`items.${index}.productId`, product.id)
       setValue(`items.${index}.unitPrice`, product.retailPrice || 0)
       setValue(`items.${index}.product`, product)
+      
+      // Trigger immediate total calculation
+      const currentItem = watchedItems[index]
+      const quantity = currentItem?.quantity || 1
+      const unitPrice = product.retailPrice || 0
+      
+      if (quantity && unitPrice) {
+        const subtotal = Number(quantity) * Number(unitPrice)
+        let discountAmount = 0
+        
+        if (currentItem?.discountType === 'percentage' && currentItem?.discountPercent > 0) {
+          discountAmount = subtotal * (Number(currentItem.discountPercent) / 100)
+        } else if (currentItem?.discountType === 'amount' && currentItem?.discountAmount > 0) {
+          discountAmount = Math.min(Number(currentItem.discountAmount), subtotal)
+        }
+        
+        const totalPrice = subtotal - discountAmount
+        
+        setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+        setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+      }
     }
   }
 
