@@ -315,9 +315,10 @@ export class SalesOrder extends BaseEntity {
 
   @Column({
     type: 'uuid',
+    nullable: true,
     comment: 'User who created the order',
   })
-  createdByUserId: string;
+  createdByUserId?: string;
 
   // Relationships
   @ManyToOne(() => Customer, (customer) => customer.salesOrders, {
@@ -329,9 +330,10 @@ export class SalesOrder extends BaseEntity {
 
   @ManyToOne(() => User, (user) => user.salesOrders, {
     onDelete: 'RESTRICT',
+    nullable: true,
   })
   @JoinColumn({ name: 'createdByUserId' })
-  createdByUser: User;
+  createdByUser?: User;
 
   @OneToMany(() => SalesOrderItem, (item) => item.salesOrder, {
     cascade: true,

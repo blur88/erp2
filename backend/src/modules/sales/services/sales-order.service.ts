@@ -46,7 +46,7 @@ export class SalesOrderService {
     private readonly inventoryIntegrationService: InventoryIntegrationService,
   ) {}
 
-  async create(createSalesOrderDto: CreateSalesOrderDto, userId: string): Promise<SalesOrderResponseDto> {
+  async create(createSalesOrderDto: CreateSalesOrderDto, userId: string | null): Promise<SalesOrderResponseDto> {
     const { customerId, items, ...orderData } = createSalesOrderDto;
 
     // Verify customer exists and can purchase

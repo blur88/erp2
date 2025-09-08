@@ -88,7 +88,7 @@ export class InventoryIntegrationService {
 
       availabilityItems.push({
         productId: item.productId,
-        productSku: product.sku,
+        productSku: product.barcode || '',
         productName: product.name,
         requested: item.quantity,
         available: availableQuantity,
@@ -191,7 +191,7 @@ export class InventoryIntegrationService {
       const reservedQuantity = orderReservations.get(item.productId) || 0;
       if (reservedQuantity < item.quantity) {
         throw new BadRequestException(
-          `Insufficient reserved stock for product ${product.sku}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`
+          `Insufficient reserved stock for product ${product.barcode || product.name}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`
         );
       }
 
@@ -267,7 +267,7 @@ export class InventoryIntegrationService {
 
       fulfillmentItems.push({
         productId: item.productId,
-        productSku: product.sku,
+        productSku: product.barcode || '',
         productName: product.name,
         ordered: item.quantity,
         reserved,

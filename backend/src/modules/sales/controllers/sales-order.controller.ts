@@ -47,7 +47,7 @@ export class SalesOrderController {
   async createSalesOrder(
     @Body() createSalesOrderDto: CreateSalesOrderDto,
   ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.create(createSalesOrderDto, 'system'); // Auth removed - using system user
+    return this.salesOrderService.create(createSalesOrderDto, null); // Auth removed - no user tracking
   }
 
   @Get()
@@ -235,7 +235,7 @@ export class SalesOrderController {
   async duplicateOrder(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.duplicateOrder(id, 'system'); // Auth removed - using system user
+    return this.salesOrderService.duplicateOrder(id, null); // Auth removed - no user tracking
   }
 
   @Get(':id/fulfillment-status')
