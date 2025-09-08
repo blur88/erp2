@@ -43,24 +43,23 @@ import {
   Delete as DeleteIcon,
   CheckCircle as ConfirmIcon,
   LocalShipping as ShipIcon,
-  Assignment as InvoiceIcon,
   FileCopy as DuplicateIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
-  FilterList as FilterIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination } from '@/store/slices/salesSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 
 interface OrdersPageState {
   search: string
   status: string
   priority: string
   sortBy: string
-  sortOrder: 'ASC' | 'DESC'
+  sortOrder: 'asc' | 'desc'
   page: number
   rowsPerPage: number
 }
@@ -77,7 +76,7 @@ const OrdersPage: React.FC = () => {
     status: '',
     priority: '',
     sortBy: 'orderDate',
-    sortOrder: 'DESC',
+    sortOrder: 'desc',
     page: 0,
     rowsPerPage: 20,
   })
@@ -85,7 +84,7 @@ const OrdersPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
   const [viewDialog, setViewDialog] = useState(false)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [createDialog, setCreateDialog] = useState(false)
 
   useEffect(() => {
     loadOrders()
@@ -95,7 +94,6 @@ const OrdersPage: React.FC = () => {
     dispatch(fetchOrders({
       page: state.page + 1,
       limit: state.rowsPerPage,
-      search: state.search || undefined,
       status: state.status || undefined,
       priority: state.priority || undefined,
       sortBy: state.sortBy,
@@ -126,8 +124,6 @@ const OrdersPage: React.FC = () => {
 
   const handleOrderAction = async (action: string, orderId: string, data?: any) => {
     try {
-      setActionLoading(action)
-      
       switch (action) {
         case 'confirm':
           await salesApi.confirmOrder(orderId)
@@ -156,9 +152,12 @@ const OrdersPage: React.FC = () => {
       handleMenuClose()
     } catch (err: any) {
       console.error(`Failed to ${action} order:`, err)
-    } finally {
-      setActionLoading(null)
     }
+  }
+
+  const handleOrderCreated = (order: SalesOrder) => {
+    loadOrders()
+    setCreateDialog(false)
   }
 
   const getStatusChip = (status: string) => {
@@ -230,7 +229,7 @@ const OrdersPage: React.FC = () => {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => {/* TODO: Open create dialog */}}
+          onClick={() => setCreateDialog(true)}
         >
           Create Order
         </Button>
@@ -245,7 +244,7 @@ const OrdersPage: React.FC = () => {
               placeholder="Search orders..."
               value={state.search}
               onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -537,6 +536,80 @@ const OrdersPage: React.FC = () => {
                 </Card>
               </Grid>
               
+              {/* Order Items */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>Order Items</Typography>
+                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Product</TableCell>
+                              <TableCell>SKU/Barcode</TableCell>
+                              <TableCell align="right">Quantity</TableCell>
+                              <TableCell align="right">Unit Price</TableCell>
+                              <TableCell align="right">Discount</TableCell>
+                              <TableCell align="right">Total</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {selectedOrder.items.map((item: any, index: number) => (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  <Typography variant="body2" fontWeight="medium">
+                                    {item.product?.name || item.productName || 'Unknown Product'}
+                                  </Typography>
+                                  {item.description && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      {item.description}
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {item.product?.barcode || item.product?.sku || 'N/A'}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2">
+                                    {item.quantity || 0}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2">
+                                    {formatCurrency(item.unitPrice || 0)}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2">
+                                    {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
+                                  </Typography>
+                                  {item.discountPercent && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      ({item.discountPercent}%)
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" fontWeight="medium">
+                                    {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    ) : (
+                      <Alert severity="info">No items in this order</Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Order Summary */}
               <Grid item xs={12}>
                 <Card>
                   <CardContent>
@@ -544,7 +617,7 @@ const OrdersPage: React.FC = () => {
                     <Stack spacing={1}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography>Subtotal:</Typography>
-                        <Typography>{formatCurrency(selectedOrder.subtotal)}</Typography>
+                        <Typography>{formatCurrency(selectedOrder.subtotal || 0)}</Typography>
                       </Box>
                       {selectedOrder.discountAmount && selectedOrder.discountAmount > 0 && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -554,7 +627,7 @@ const OrdersPage: React.FC = () => {
                       )}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography>Tax:</Typography>
-                        <Typography>{formatCurrency(selectedOrder.taxAmount)}</Typography>
+                        <Typography>{formatCurrency(selectedOrder.taxAmount || 0)}</Typography>
                       </Box>
                       {selectedOrder.shippingAmount && selectedOrder.shippingAmount > 0 && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -578,6 +651,13 @@ const OrdersPage: React.FC = () => {
           <Button onClick={() => setViewDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Create Order Dialog */}
+      <CreateOrderDialog
+        open={createDialog}
+        onClose={() => setCreateDialog(false)}
+        onOrderCreated={handleOrderCreated}
+      />
     </Box>
   )
 }
