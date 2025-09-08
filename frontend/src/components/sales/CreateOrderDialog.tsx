@@ -102,6 +102,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [discountDisplayValues, setDiscountDisplayValues] = useState<{[key: number]: string}>({})
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -211,17 +212,17 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       return parts[0] + '.' + parts.slice(1).join('')
     }
     
-    // If there's a decimal part, limit to 2 decimal places
+    // If there's a decimal part, limit to 4 decimal places for amount discounts
     if (parts.length === 2) {
-      parts[1] = parts[1].substring(0, 2)
+      parts[1] = parts[1].substring(0, 4)
     }
     
     const numericValue = parseFloat(parts.join('.'))
     if (isNaN(numericValue)) return ''
     
-    // Format with comma separators
-    const formatted = formatCurrencyInput(numericValue)
-    return formatted
+    // For discount amounts, we need to preserve the raw input to allow 4 decimal places
+    // Return the clean input as is for amount fields
+    return parts.join('.')
   }
 
   const handlePriceChange = (index: number, value: string) => {
@@ -293,6 +294,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   const handleClose = () => {
     reset()
     setError(null)
+    setDiscountDisplayValues({})
     onClose()
   }
 
@@ -652,6 +654,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                   inputProps={{ 
                                     min: 0, 
                                     max: 100,
+                                    step: 0.01,
                                     style: { textAlign: 'center' }
                                   }}
                                   InputProps={{
@@ -667,10 +670,28 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                               control={control}
                               render={({ field: discountAmountField }) => (
                                 <TextField
-                                  value={formatCurrencyInput(discountAmountField.value)}
+                                  value={discountDisplayValues[index] !== undefined ? discountDisplayValues[index] : (discountAmountField.value?.toString() || '')}
                                   onChange={(e) => {
-                                    const formattedValue = formatPriceInput(e.target.value)
-                                    const numericValue = parseFloat(formattedValue.replace(/,/g, '')) || 0
+                                    const inputValue = e.target.value
+                                    
+                                    // Allow decimal numbers with up to 4 decimal places
+                                    const cleanValue = inputValue.replace(/[^0-9.]/g, '')
+                                    const parts = cleanValue.split('.')
+                                    let finalValue = cleanValue
+                                    
+                                    // Ensure only one decimal point and max 4 decimal places
+                                    if (parts.length > 2) {
+                                      finalValue = parts[0] + '.' + parts.slice(1).join('')
+                                    }
+                                    if (parts.length === 2 && parts[1].length > 4) {
+                                      finalValue = parts[0] + '.' + parts[1].substring(0, 4)
+                                    }
+                                    
+                                    // Store the display value to preserve decimal point input
+                                    setDiscountDisplayValues(prev => ({ ...prev, [index]: finalValue }))
+                                    
+                                    // Store the numeric value for calculations
+                                    const numericValue = parseFloat(finalValue) || 0
                                     discountAmountField.onChange(numericValue)
                                     
                                     // Trigger immediate recalculation
@@ -681,12 +702,20 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                       const discountAmount = Math.min(numericValue, subtotal)
                                       const totalPrice = subtotal - discountAmount
                                       
-                                      setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+                                      setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(4)))
                                       setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    // Clean up display value on blur - remove trailing decimal point if no digits follow
+                                    const currentDisplay = discountDisplayValues[index] || ''
+                                    if (currentDisplay.endsWith('.')) {
+                                      setDiscountDisplayValues(prev => ({ ...prev, [index]: currentDisplay.slice(0, -1) }))
                                     }
                                   }}
                                   variant="outlined"
                                   inputProps={{
+                                    step: "0.01",
                                     style: { textAlign: 'right' }
                                   }}
                                   InputProps={{
@@ -763,6 +792,11 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                           type="number"
                           size="small"
                           fullWidth
+                          inputProps={{
+                            step: 0.01,
+                            min: 0,
+                            max: 100
+                          }}
                         />
                       )}
                     />
@@ -786,6 +820,10 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                           type="number"
                           size="small"
                           fullWidth
+                          inputProps={{
+                            step: 0.01,
+                            min: 0
+                          }}
                         />
                       )}
                     />
