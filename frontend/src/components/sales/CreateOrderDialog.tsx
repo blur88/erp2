@@ -35,6 +35,7 @@ import * as yup from 'yup'
 import { salesApi } from '@/services/salesApi'
 import { ApiService } from '@/services/api'
 import { formatCurrency } from '@/utils/formatters'
+import { formatCurrencyInput } from '@/utils/currency'
 import type { Customer, SalesOrder } from '@/types'
 
 interface OrderItem {
@@ -181,6 +182,35 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       setValue(`items.${index}.unitPrice`, product.retailPrice || 0)
       setValue(`items.${index}.product`, product)
     }
+  }
+
+  const formatPriceInput = (value: string) => {
+    // Remove all non-digit and non-decimal characters
+    const cleanValue = value.replace(/[^0-9.]/g, '')
+    
+    // Ensure only one decimal point
+    const parts = cleanValue.split('.')
+    if (parts.length > 2) {
+      return parts[0] + '.' + parts.slice(1).join('')
+    }
+    
+    // If there's a decimal part, limit to 2 decimal places
+    if (parts.length === 2) {
+      parts[1] = parts[1].substring(0, 2)
+    }
+    
+    const numericValue = parseFloat(parts.join('.'))
+    if (isNaN(numericValue)) return ''
+    
+    // Format with comma separators
+    const formatted = formatCurrencyInput(numericValue)
+    return formatted
+  }
+
+  const handlePriceChange = (index: number, value: string) => {
+    // Parse the formatted value back to number for storage
+    const numericValue = parseFloat(value.replace(/,/g, '')) || 0
+    setValue(`items.${index}.unitPrice`, numericValue)
   }
 
   const calculateOrderTotals = () => {
@@ -525,12 +555,13 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                             control={control}
                             render={({ field: priceField }) => (
                               <TextField
-                                {...priceField}
-                                type="number"
+                                value={formatCurrencyInput(priceField.value)}
+                                onChange={(e) => {
+                                  const formattedValue = formatPriceInput(e.target.value)
+                                  handlePriceChange(index, formattedValue)
+                                }}
                                 variant="outlined"
                                 inputProps={{
-                                  step: "0.01",
-                                  min: "0",
                                   style: { textAlign: 'right' }
                                 }}
                                 InputProps={{
