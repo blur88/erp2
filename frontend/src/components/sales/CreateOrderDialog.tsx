@@ -160,7 +160,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   const loadCustomers = async () => {
     try {
       const response = await salesApi.getCustomers({ limit: 100 })
-      setCustomers(response.data.data || [])
+      setCustomers((response as any).data || [])
     } catch (err) {
       console.error('Failed to load customers:', err)
     }
