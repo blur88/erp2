@@ -147,13 +147,16 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   useEffect(() => {
     // Recalculate totals when items change
     watchedItems.forEach((item, index) => {
-      const subtotal = item.quantity * item.unitPrice
-      const discountAmount = item.discountPercent > 0 ? subtotal * (item.discountPercent / 100) : 0
-      const totalPrice = subtotal - discountAmount
-      
-      if (item.discountAmount !== discountAmount || item.totalPrice !== totalPrice) {
-        setValue(`items.${index}.discountAmount`, discountAmount)
-        setValue(`items.${index}.totalPrice`, totalPrice)
+      if (item.quantity && item.unitPrice) {
+        const subtotal = Number(item.quantity) * Number(item.unitPrice)
+        const discountAmount = item.discountPercent > 0 ? subtotal * (Number(item.discountPercent) / 100) : 0
+        const totalPrice = subtotal - discountAmount
+        
+        // Only update if values have actually changed to prevent infinite loops
+        if (Math.abs(item.discountAmount - discountAmount) > 0.01 || Math.abs(item.totalPrice - totalPrice) > 0.01) {
+          setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+          setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+        }
       }
     })
   }, [watchedItems, setValue])
@@ -581,6 +584,22 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                 {...discountField}
                                 type="number"
                                 variant="outlined"
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0
+                                  discountField.onChange(value)
+                                  
+                                  // Trigger immediate recalculation
+                                  const quantity = watchedItems[index]?.quantity || 0
+                                  const unitPrice = watchedItems[index]?.unitPrice || 0
+                                  if (quantity && unitPrice) {
+                                    const subtotal = Number(quantity) * Number(unitPrice)
+                                    const discountAmount = value > 0 ? subtotal * (value / 100) : 0
+                                    const totalPrice = subtotal - discountAmount
+                                    
+                                    setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+                                    setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+                                  }
+                                }}
                                 inputProps={{ 
                                   min: 0, 
                                   max: 100,
