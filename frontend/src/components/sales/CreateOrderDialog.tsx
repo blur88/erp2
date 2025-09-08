@@ -408,22 +408,69 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                 </Button>
               </Box>
 
-              <TableContainer component={Paper}>
-                <Table>
+              <TableContainer component={Paper} sx={{ border: '1px solid #e0e0e0' }}>
+                <Table 
+                  size="small" 
+                  sx={{ 
+                    '& .MuiTableCell-root': {
+                      border: '1px solid #e0e0e0',
+                      padding: '4px 8px',
+                      fontSize: '0.875rem',
+                    },
+                    '& .MuiTableHead-root .MuiTableCell-root': {
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 600,
+                      color: '#424242',
+                      border: '1px solid #d0d0d0',
+                    },
+                    '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                      backgroundColor: '#f9f9f9',
+                    },
+                    '& .MuiTextField-root': {
+                      '& .MuiOutlinedInput-root': {
+                        border: 'none',
+                        '& fieldset': {
+                          border: 'none',
+                        },
+                        '&:hover fieldset': {
+                          border: '1px solid #1976d2',
+                        },
+                        '&.Mui-focused fieldset': {
+                          border: '1px solid #1976d2',
+                        },
+                        backgroundColor: 'transparent',
+                        fontSize: '0.875rem',
+                      },
+                      '& .MuiInputBase-input': {
+                        padding: '6px 8px',
+                        textAlign: 'center',
+                      },
+                      '& .MuiFormHelperText-root': {
+                        position: 'absolute',
+                        bottom: '-20px',
+                        fontSize: '0.75rem',
+                      },
+                    },
+                    '& .MuiAutocomplete-root .MuiTextField-root .MuiInputBase-input': {
+                      textAlign: 'left',
+                    }
+                  }}
+                >
                   <TableHead>
                     <TableRow>
-                      <TableCell>Product</TableCell>
-                      <TableCell width={100}>Quantity</TableCell>
-                      <TableCell width={120}>Unit Price</TableCell>
-                      <TableCell width={100}>Discount %</TableCell>
-                      <TableCell width={120}>Total</TableCell>
-                      <TableCell width={50}>Actions</TableCell>
+                      <TableCell align="center" sx={{ width: '35%', minWidth: 200 }}>Product</TableCell>
+                      <TableCell align="center" sx={{ width: '10%', minWidth: 80 }}>Qty</TableCell>
+                      <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Unit Price</TableCell>
+                      <TableCell align="center" sx={{ width: '10%', minWidth: 80 }}>Disc %</TableCell>
+                      <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Total</TableCell>
+                      <TableCell align="center" sx={{ width: '10%', minWidth: 60 }}>Action</TableCell>
+                      <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {fields.map((field, index) => (
                       <TableRow key={field.id}>
-                        <TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
                           <Controller
                             name={`items.${index}.productId`}
                             control={control}
@@ -433,20 +480,31 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                 getOptionLabel={(option) => `${option.name} (${option.barcode})`}
                                 value={products.find(p => p.id === productField.value) || null}
                                 onChange={(_, value) => handleProductSelect(index, value)}
+                                size="small"
                                 renderInput={(params) => (
                                   <TextField
                                     {...params}
-                                    placeholder="Select product"
-                                    size="small"
+                                    placeholder="Select product..."
+                                    variant="outlined"
                                     error={!!errors.items?.[index]?.productId}
-                                    helperText={errors.items?.[index]?.productId?.message}
+                                    sx={{
+                                      '& .MuiInputBase-input': {
+                                        textAlign: 'left !important',
+                                        padding: '6px 8px !important',
+                                      }
+                                    }}
                                   />
                                 )}
+                                sx={{
+                                  '& .MuiAutocomplete-inputRoot': {
+                                    padding: '0 !important',
+                                  }
+                                }}
                               />
                             )}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
                           <Controller
                             name={`items.${index}.quantity`}
                             control={control}
@@ -454,14 +512,14 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                               <TextField
                                 {...qtyField}
                                 type="number"
-                                size="small"
+                                variant="outlined"
+                                inputProps={{ min: 1, style: { textAlign: 'center' } }}
                                 error={!!errors.items?.[index]?.quantity}
-                                helperText={errors.items?.[index]?.quantity?.message}
                               />
                             )}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
                           <Controller
                             name={`items.${index}.unitPrice`}
                             control={control}
@@ -469,21 +527,21 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                               <TextField
                                 {...priceField}
                                 type="number"
-                                size="small"
+                                variant="outlined"
                                 inputProps={{
                                   step: "0.01",
-                                  min: "0"
+                                  min: "0",
+                                  style: { textAlign: 'right' }
                                 }}
                                 InputProps={{
-                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '14px' }}>RM</span>
+                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '12px', color: '#666' }}>RM</span>
                                 }}
                                 error={!!errors.items?.[index]?.unitPrice}
-                                helperText={errors.items?.[index]?.unitPrice?.message}
                               />
                             )}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
                           <Controller
                             name={`items.${index}.discountPercent`}
                             control={control}
@@ -491,26 +549,54 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                               <TextField
                                 {...discountField}
                                 type="number"
-                                size="small"
+                                variant="outlined"
+                                inputProps={{ 
+                                  min: 0, 
+                                  max: 100,
+                                  style: { textAlign: 'center' }
+                                }}
+                                InputProps={{
+                                  endAdornment: <span style={{ marginLeft: '4px', fontSize: '12px', color: '#666' }}>%</span>
+                                }}
                                 error={!!errors.items?.[index]?.discountPercent}
-                                helperText={errors.items?.[index]?.discountPercent?.message}
                               />
                             )}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
-                            {formatCurrency(watchedItems[index]?.totalPrice || 0)}
-                          </Typography>
+                        <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
+                          <Box sx={{ 
+                            backgroundColor: '#f8f9fa',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid #e9ecef',
+                            minHeight: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end'
+                          }}>
+                            <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
+                              {formatCurrency(watchedItems[index]?.totalPrice || 0)}
+                            </Typography>
+                          </Box>
                         </TableCell>
-                        <TableCell>
+                        <TableCell align="center" sx={{ padding: '2px !important' }}>
                           <IconButton
                             onClick={() => remove(index)}
                             disabled={fields.length === 1}
                             size="small"
+                            sx={{ 
+                              color: '#dc3545',
+                              '&:hover': { backgroundColor: '#f8d7da' },
+                              '&.Mui-disabled': { color: '#ccc' }
+                            }}
                           >
-                            <DeleteIcon />
+                            <DeleteIcon fontSize="small" />
                           </IconButton>
+                        </TableCell>
+                        <TableCell sx={{ width: 40, padding: '2px !important', backgroundColor: '#f8f9fa' }}>
+                          <Typography variant="caption" sx={{ color: '#6c757d', fontSize: '0.75rem' }}>
+                            {index + 1}
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     ))}
