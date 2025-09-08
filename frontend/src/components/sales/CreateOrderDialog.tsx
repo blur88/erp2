@@ -169,7 +169,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   const loadProducts = async () => {
     try {
       const response = await ApiService.get('/inventory/products', { params: { limit: 100 } })
-      setProducts((response as any).data.data || [])
+      setProducts((response as any).data || [])
     } catch (err) {
       console.error('Failed to load products:', err)
     }
