@@ -18,6 +18,7 @@ import {
   SalesOrderStatus, 
   SalesOrderPriority 
 } from '../../../database/entities/sales-order.entity';
+import { DiscountType } from '../../../database/entities/sales-order-item.entity';
 
 export class SalesOrderItemDto {
   @ApiProperty({
@@ -46,7 +47,16 @@ export class SalesOrderItemDto {
   unitPrice?: number;
 
   @ApiPropertyOptional({
-    description: 'Discount percentage for this item',
+    description: 'Type of discount: percentage or fixed amount',
+    enum: DiscountType,
+    example: DiscountType.PERCENTAGE,
+  })
+  @IsOptional()
+  @IsEnum(DiscountType)
+  discountType?: DiscountType;
+
+  @ApiPropertyOptional({
+    description: 'Discount percentage for this item (0-100)',
     example: 5.0,
   })
   @IsOptional()
@@ -54,6 +64,16 @@ export class SalesOrderItemDto {
   @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : 0)
   discountPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Discount amount for this item (fixed amount or calculated)',
+    example: 12.75,
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  discountAmount?: number;
 
   @ApiPropertyOptional({
     description: 'Item notes',
@@ -476,6 +496,9 @@ export class SalesOrderItemResponseDto {
 
   @ApiProperty({ example: 25.50 })
   unitPrice: number;
+
+  @ApiProperty({ enum: DiscountType, example: DiscountType.PERCENTAGE })
+  discountType: DiscountType;
 
   @ApiProperty({ example: 5.0 })
   discountPercent: number;

@@ -586,9 +586,14 @@ const OrdersPage: React.FC = () => {
                                   <Typography variant="body2">
                                     {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
                                   </Typography>
-                                  {item.discountPercent && (
+                                  {item.discountType === 'percentage' && item.discountPercent && (
                                     <Typography variant="caption" color="text.secondary">
                                       ({item.discountPercent}%)
+                                    </Typography>
+                                  )}
+                                  {item.discountType === 'amount' && item.discountAmount && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      (Fixed)
                                     </Typography>
                                   )}
                                 </TableCell>

@@ -43,6 +43,7 @@ interface OrderItem {
   product?: any
   quantity: number
   unitPrice: number
+  discountType: 'percentage' | 'amount'
   discountPercent: number
   discountAmount: number
   totalPrice: number
@@ -77,6 +78,7 @@ const schema = yup.object({
       productId: yup.string().required('Product is required'),
       quantity: yup.number().positive('Quantity must be positive').required(),
       unitPrice: yup.number().min(0).required(),
+      discountType: yup.string().oneOf(['percentage', 'amount']).required(),
       discountPercent: yup.number().min(0).max(100).required(),
       discountAmount: yup.number().min(0).required(),
       totalPrice: yup.number().min(0).required(),
@@ -118,6 +120,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
           productId: '',
           quantity: 1,
           unitPrice: 0,
+          discountType: 'percentage' as const,
           discountPercent: 0,
           discountAmount: 0,
           totalPrice: 0,
@@ -149,12 +152,23 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
     watchedItems.forEach((item, index) => {
       if (item.quantity && item.unitPrice) {
         const subtotal = Number(item.quantity) * Number(item.unitPrice)
-        const discountAmount = item.discountPercent > 0 ? subtotal * (Number(item.discountPercent) / 100) : 0
+        let discountAmount = 0
+        
+        if (item.discountType === 'percentage' && item.discountPercent > 0) {
+          discountAmount = subtotal * (Number(item.discountPercent) / 100)
+        } else if (item.discountType === 'amount' && item.discountAmount > 0) {
+          // For amount discount, ensure it doesn't exceed subtotal
+          discountAmount = Math.min(Number(item.discountAmount), subtotal)
+        }
+        
         const totalPrice = subtotal - discountAmount
         
         // Only update if values have actually changed to prevent infinite loops
-        if (Math.abs(item.discountAmount - discountAmount) > 0.01 || Math.abs(item.totalPrice - totalPrice) > 0.01) {
+        if (item.discountType === 'percentage' && Math.abs(item.discountAmount - discountAmount) > 0.01) {
           setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+        }
+        
+        if (Math.abs(item.totalPrice - totalPrice) > 0.01) {
           setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
         }
       }
@@ -258,6 +272,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
           product: item.product,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          discountType: item.discountType,
           discount: item.discountPercent,
           discountAmount: item.discountAmount,
           total: item.totalPrice,
@@ -286,6 +301,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       productId: '',
       quantity: 1,
       unitPrice: 0,
+      discountType: 'percentage' as const,
       discountPercent: 0,
       discountAmount: 0,
       totalPrice: 0,
@@ -491,13 +507,14 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                 >
                   <TableHead>
                     <TableRow>
-                      <TableCell align="center" sx={{ width: '35%', minWidth: 200 }}>Product</TableCell>
-                      <TableCell align="center" sx={{ width: '10%', minWidth: 80 }}>Qty</TableCell>
-                      <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Unit Price</TableCell>
-                      <TableCell align="center" sx={{ width: '10%', minWidth: 80 }}>Disc %</TableCell>
-                      <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Total</TableCell>
-                      <TableCell align="center" sx={{ width: '10%', minWidth: 60 }}>Action</TableCell>
-                      <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
+                      <TableCell align="center" sx={{ width: '30%', minWidth: 180 }}>Product</TableCell>
+                      <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Qty</TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 90 }}>Unit Price</TableCell>
+                      <TableCell align="center" sx={{ width: '10%', minWidth: 80 }}>Disc Type</TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 90 }}>Discount</TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 90 }}>Total</TableCell>
+                      <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
+                      <TableCell align="center" sx={{ width: '4%', minWidth: 40 }}></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -577,41 +594,109 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                         </TableCell>
                         <TableCell sx={{ padding: '2px !important' }}>
                           <Controller
-                            name={`items.${index}.discountPercent`}
+                            name={`items.${index}.discountType`}
                             control={control}
-                            render={({ field: discountField }) => (
-                              <TextField
-                                {...discountField}
-                                type="number"
-                                variant="outlined"
-                                onChange={(e) => {
-                                  const value = parseFloat(e.target.value) || 0
-                                  discountField.onChange(value)
-                                  
-                                  // Trigger immediate recalculation
-                                  const quantity = watchedItems[index]?.quantity || 0
-                                  const unitPrice = watchedItems[index]?.unitPrice || 0
-                                  if (quantity && unitPrice) {
-                                    const subtotal = Number(quantity) * Number(unitPrice)
-                                    const discountAmount = value > 0 ? subtotal * (value / 100) : 0
-                                    const totalPrice = subtotal - discountAmount
-                                    
-                                    setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
-                                    setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
-                                  }
-                                }}
-                                inputProps={{ 
-                                  min: 0, 
-                                  max: 100,
-                                  style: { textAlign: 'center' }
-                                }}
-                                InputProps={{
-                                  endAdornment: <span style={{ marginLeft: '4px', fontSize: '12px', color: '#666' }}>%</span>
-                                }}
-                                error={!!errors.items?.[index]?.discountPercent}
-                              />
+                            render={({ field: discountTypeField }) => (
+                              <FormControl fullWidth variant="outlined" size="small">
+                                <Select
+                                  {...discountTypeField}
+                                  sx={{
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                      border: 'none',
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                      border: '1px solid #1976d2',
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                      border: '1px solid #1976d2',
+                                    },
+                                    '& .MuiSelect-select': {
+                                      padding: '6px 8px',
+                                      fontSize: '0.875rem',
+                                    },
+                                  }}
+                                >
+                                  <MenuItem value="percentage">%</MenuItem>
+                                  <MenuItem value="amount">RM</MenuItem>
+                                </Select>
+                              </FormControl>
                             )}
                           />
+                        </TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
+                          {watchedItems[index]?.discountType === 'percentage' ? (
+                            <Controller
+                              name={`items.${index}.discountPercent`}
+                              control={control}
+                              render={({ field: discountField }) => (
+                                <TextField
+                                  {...discountField}
+                                  type="number"
+                                  variant="outlined"
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0
+                                    discountField.onChange(value)
+                                    
+                                    // Trigger immediate recalculation
+                                    const quantity = watchedItems[index]?.quantity || 0
+                                    const unitPrice = watchedItems[index]?.unitPrice || 0
+                                    if (quantity && unitPrice) {
+                                      const subtotal = Number(quantity) * Number(unitPrice)
+                                      const discountAmount = value > 0 ? subtotal * (value / 100) : 0
+                                      const totalPrice = subtotal - discountAmount
+                                      
+                                      setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+                                      setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+                                    }
+                                  }}
+                                  inputProps={{ 
+                                    min: 0, 
+                                    max: 100,
+                                    style: { textAlign: 'center' }
+                                  }}
+                                  InputProps={{
+                                    endAdornment: <span style={{ marginLeft: '4px', fontSize: '12px', color: '#666' }}>%</span>
+                                  }}
+                                  error={!!errors.items?.[index]?.discountPercent}
+                                />
+                              )}
+                            />
+                          ) : (
+                            <Controller
+                              name={`items.${index}.discountAmount`}
+                              control={control}
+                              render={({ field: discountAmountField }) => (
+                                <TextField
+                                  value={formatCurrencyInput(discountAmountField.value)}
+                                  onChange={(e) => {
+                                    const formattedValue = formatPriceInput(e.target.value)
+                                    const numericValue = parseFloat(formattedValue.replace(/,/g, '')) || 0
+                                    discountAmountField.onChange(numericValue)
+                                    
+                                    // Trigger immediate recalculation
+                                    const quantity = watchedItems[index]?.quantity || 0
+                                    const unitPrice = watchedItems[index]?.unitPrice || 0
+                                    if (quantity && unitPrice) {
+                                      const subtotal = Number(quantity) * Number(unitPrice)
+                                      const discountAmount = Math.min(numericValue, subtotal)
+                                      const totalPrice = subtotal - discountAmount
+                                      
+                                      setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+                                      setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+                                    }
+                                  }}
+                                  variant="outlined"
+                                  inputProps={{
+                                    style: { textAlign: 'right' }
+                                  }}
+                                  InputProps={{
+                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '12px', color: '#666' }}>RM</span>
+                                  }}
+                                  error={!!errors.items?.[index]?.discountAmount}
+                                />
+                              )}
+                            />
+                          )}
                         </TableCell>
                         <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
                           <Box sx={{ 
