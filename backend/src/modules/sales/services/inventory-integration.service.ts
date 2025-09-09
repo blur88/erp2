@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Product } from '../../../database/entities/product.entity';
+import { Product, ProductType } from '../../../database/entities/product.entity';
 import { StockMovement, StockMovementType, StockMovementStatus } from '../../../database/entities/stock-movement.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -65,7 +65,7 @@ export class InventoryIntegrationService {
   ) {}
 
   async checkAvailability(items: StockItem[]): Promise<AvailabilityCheck> {
-    let allAvailable = true;
+    let allAvailable = true; // Always true now - we allow negative stock for GOODS
     const availabilityItems = [];
 
     for (const item of items) {
@@ -79,12 +79,14 @@ export class InventoryIntegrationService {
 
       const availableQuantity = Number(product.stockQuantity);
       const reservedQuantity = this.getReservedQuantity(item.productId);
-      const effectiveAvailable = Math.max(0, availableQuantity - reservedQuantity);
+      const effectiveAvailable = availableQuantity - reservedQuantity;
       const shortfall = Math.max(0, item.quantity - effectiveAvailable);
 
-      if (shortfall > 0) {
-        allAvailable = false;
-      }
+      // Allow negative stock for GOODS products (stocked products)
+      // Service products should not have stock issues
+      // For GOODS, we allow negative stock, so always available
+      // For SERVICE, they don't have stock constraints, so always available
+      // Both types are always available now
 
       availabilityItems.push({
         productId: item.productId,
@@ -98,16 +100,14 @@ export class InventoryIntegrationService {
     }
 
     return {
-      available: allAvailable,
-      message: allAvailable 
-        ? 'All items are available' 
-        : 'Some items have insufficient stock',
+      available: allAvailable, // Always true now - allowing negative stock
+      message: 'All items are available (negative stock allowed for stocked products)',
       items: availabilityItems,
     };
   }
 
   async reserveStock(items: StockItem[]): Promise<void> {
-    // Check availability first
+    // Check availability first (now allows negative stock for GOODS)
     const availabilityCheck = await this.checkAvailability(items);
     if (!availabilityCheck.available) {
       throw new BadRequestException('Insufficient stock for reservation');
@@ -195,8 +195,9 @@ export class InventoryIntegrationService {
         );
       }
 
-      // Update product stock
-      product.stockQuantity = Number(product.stockQuantity) - item.quantity;
+      // Update product stock (allow negative for GOODS products)
+      const newStockQuantity = Number(product.stockQuantity) - item.quantity;
+      product.stockQuantity = newStockQuantity; // Allow negative stock for GOODS
       await this.productRepository.save(product);
 
       // Create stock movement for fulfillment

@@ -174,10 +174,9 @@ export class Product extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Current stock quantity',
+    comment: 'Current stock quantity (can be negative for stocked products)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   stockQuantity: number;
 
   @Column({
@@ -390,10 +389,12 @@ export class Product extends BaseEntity {
         this.stockQuantity = Number(this.stockQuantity) + Number(quantity);
         break;
       case 'decrease':
-        this.stockQuantity = Math.max(0, Number(this.stockQuantity) - Number(quantity));
+        // Allow negative stock for GOODS products
+        this.stockQuantity = Number(this.stockQuantity) - Number(quantity);
         break;
       case 'set':
-        this.stockQuantity = Math.max(0, Number(quantity));
+        // Allow negative stock for GOODS products  
+        this.stockQuantity = Number(quantity);
         break;
     }
     this.updateStockStatus();
