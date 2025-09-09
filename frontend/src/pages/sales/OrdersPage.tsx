@@ -56,10 +56,8 @@ import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 
 interface OrdersPageState {
   search: string
-  status: string
-  priority: string
   sortBy: string
-  sortOrder: 'ASC' | 'DESC'
+  sortOrder: 'asc' | 'desc'
   page: number
   rowsPerPage: number
 }
@@ -73,10 +71,8 @@ const OrdersPage: React.FC = () => {
 
   const [state, setState] = useState<OrdersPageState>({
     search: '',
-    status: '',
-    priority: '',
     sortBy: 'orderDate',
-    sortOrder: 'DESC',
+    sortOrder: 'desc',
     page: 0,
     rowsPerPage: 20,
   })
@@ -94,8 +90,6 @@ const OrdersPage: React.FC = () => {
     dispatch(fetchOrders({
       page: state.page + 1,
       limit: state.rowsPerPage,
-      status: state.status || undefined,
-      priority: state.priority || undefined,
       sortBy: state.sortBy,
       sortOrder: state.sortOrder,
     }))
@@ -160,48 +154,21 @@ const OrdersPage: React.FC = () => {
     setCreateDialog(false)
   }
 
-  const getStatusChip = (status: string) => {
-    const statusConfig = {
-      draft: { color: 'default' as const, label: 'Draft' },
-      pending: { color: 'warning' as const, label: 'Pending' },
-      confirmed: { color: 'info' as const, label: 'Confirmed' },
-      in_progress: { color: 'primary' as const, label: 'In Progress' },
-      shipped: { color: 'secondary' as const, label: 'Shipped' },
-      delivered: { color: 'success' as const, label: 'Delivered' },
-      completed: { color: 'success' as const, label: 'Completed' },
-      cancelled: { color: 'error' as const, label: 'Cancelled' },
-    }
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft
-    return <Chip label={config.label} color={config.color} size="small" />
-  }
-
-  const getPriorityChip = (priority: string) => {
-    const priorityConfig = {
-      low: { color: 'default' as const, label: 'Low' },
-      normal: { color: 'primary' as const, label: 'Normal' },
-      high: { color: 'warning' as const, label: 'High' },
-      urgent: { color: 'error' as const, label: 'Urgent' },
-    }
-
-    const config = priorityConfig[priority as keyof typeof priorityConfig] || priorityConfig.normal
-    return <Chip label={config.label} color={config.color} size="small" variant="outlined" />
-  }
 
   const canPerformAction = (order: SalesOrder, action: string): boolean => {
     switch (action) {
       case 'confirm':
-        return ['draft', 'pending'].includes(order.status)
+        return !order.shippedDate
       case 'ship':
-        return order.status === 'confirmed'
+        return !order.shippedDate
       case 'deliver':
-        return order.status === 'shipped'
+        return order.shippedDate && !order.deliveredDate
       case 'complete':
-        return order.status === 'delivered'
+        return order.deliveredDate !== undefined
       case 'cancel':
-        return !['shipped', 'delivered', 'completed', 'cancelled'].includes(order.status)
+        return !order.shippedDate
       case 'delete':
-        return ['draft', 'pending'].includes(order.status)
+        return !order.shippedDate
       default:
         return true
     }
@@ -238,7 +205,7 @@ const OrdersPage: React.FC = () => {
       {/* Filters */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={6}>
             <TextField
               fullWidth
               placeholder="Search orders..."
@@ -254,43 +221,7 @@ const OrdersPage: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={state.status}
-                onChange={(e) => setState(prev => ({ ...prev, status: e.target.value }))}
-                label="Status"
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="confirmed">Confirmed</MenuItem>
-                <MenuItem value="in_progress">In Progress</MenuItem>
-                <MenuItem value="shipped">Shipped</MenuItem>
-                <MenuItem value="delivered">Delivered</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="cancelled">Cancelled</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                value={state.priority}
-                onChange={(e) => setState(prev => ({ ...prev, priority: e.target.value }))}
-                label="Priority"
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="normal">Normal</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="urgent">Urgent</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} md={3}>
             <Button
               variant="outlined"
               startIcon={<SearchIcon />}
@@ -300,7 +231,7 @@ const OrdersPage: React.FC = () => {
               Search
             </Button>
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} md={3}>
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
@@ -329,8 +260,6 @@ const OrdersPage: React.FC = () => {
                 <TableCell>Order #</TableCell>
                 <TableCell>Customer</TableCell>
                 <TableCell>Date</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Priority</TableCell>
                 <TableCell align="right">Total</TableCell>
                 <TableCell>Items</TableCell>
                 <TableCell align="center">Actions</TableCell>
@@ -365,8 +294,6 @@ const OrdersPage: React.FC = () => {
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell>{getStatusChip(order.status)}</TableCell>
-                  <TableCell>{getPriorityChip(order.priority)}</TableCell>
                   <TableCell align="right">
                     <Typography variant="body2" fontWeight="medium">
                       {formatCurrency(order.totalAmount)}
@@ -477,14 +404,6 @@ const OrdersPage: React.FC = () => {
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Order Information</Typography>
                     <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography color="text.secondary">Status:</Typography>
-                        {getStatusChip(selectedOrder.status)}
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography color="text.secondary">Priority:</Typography>
-                        {getPriorityChip(selectedOrder.priority)}
-                      </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography color="text.secondary">Order Date:</Typography>
                         <Typography>{formatDate(selectedOrder.orderDate)}</Typography>

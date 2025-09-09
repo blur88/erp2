@@ -68,7 +68,7 @@ const mockRecentOrders = [
     id: 'SO-2024-001',
     customer: 'John Doe',
     amount: 1299.99,
-    status: 'shipped',
+    shippedDate: new Date('2024-01-15'),
     date: new Date('2024-01-15'),
     items: 3
   },
@@ -76,7 +76,6 @@ const mockRecentOrders = [
     id: 'SO-2024-002', 
     customer: 'Jane Smith',
     amount: 449.50,
-    status: 'confirmed',
     date: new Date('2024-01-14'),
     items: 2
   },
@@ -84,7 +83,6 @@ const mockRecentOrders = [
     id: 'SO-2024-003',
     customer: 'Bob Johnson', 
     amount: 99.99,
-    status: 'draft',
     date: new Date('2024-01-13'),
     items: 1
   },
@@ -92,7 +90,8 @@ const mockRecentOrders = [
     id: 'SO-2024-004',
     customer: 'Alice Brown',
     amount: 759.00,
-    status: 'delivered',
+    shippedDate: new Date('2024-01-11'),
+    deliveredDate: new Date('2024-01-12'),
     date: new Date('2024-01-12'),
     items: 4
   }
@@ -121,24 +120,10 @@ const SalesPage: React.FC = () => {
     setSelectedOrder(null)
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'default'
-      case 'confirmed': return 'info'
-      case 'shipped': return 'warning'
-      case 'delivered': return 'success'
-      default: return 'default'
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'draft': return 'Draft'
-      case 'confirmed': return 'Confirmed'
-      case 'shipped': return 'Shipped'
-      case 'delivered': return 'Delivered'
-      default: return status
-    }
+  const getOrderStatus = (order: any) => {
+    if (order.deliveredDate) return { label: 'Delivered', color: 'success' }
+    if (order.shippedDate) return { label: 'Shipped', color: 'warning' }
+    return { label: 'Pending', color: 'info' }
   }
 
   // Chart data
@@ -450,8 +435,8 @@ const SalesPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={getStatusLabel(order.status)}
-                          color={getStatusColor(order.status) as any}
+                          label={getOrderStatus(order).label}
+                          color={getOrderStatus(order).color as any}
                           size="small"
                           variant="outlined"
                         />

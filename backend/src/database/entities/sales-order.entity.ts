@@ -15,6 +15,7 @@ import {
   IsDecimal,
   Min,
   IsDate,
+  IsEnum,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
@@ -26,18 +27,18 @@ export enum SalesOrderStatus {
   DRAFT = 'draft',
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
-  IN_PROGRESS = 'in_progress',
+  PROCESSING = 'processing',
   SHIPPED = 'shipped',
   DELIVERED = 'delivered',
-  COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+  COMPLETED = 'completed'
 }
 
 export enum SalesOrderPriority {
   LOW = 'low',
   NORMAL = 'normal',
   HIGH = 'high',
-  URGENT = 'urgent',
+  URGENT = 'urgent'
 }
 
 /**
@@ -66,6 +67,24 @@ export class SalesOrder extends BaseEntity {
   })
   @IsDate()
   orderDate: Date;
+
+  @Column({
+    type: 'enum',
+    enum: SalesOrderStatus,
+    default: SalesOrderStatus.DRAFT,
+    comment: 'Order status',
+  })
+  @IsEnum(SalesOrderStatus)
+  status: SalesOrderStatus;
+
+  @Column({
+    type: 'enum',
+    enum: SalesOrderPriority,
+    default: SalesOrderPriority.NORMAL,
+    comment: 'Order priority',
+  })
+  @IsEnum(SalesOrderPriority)
+  priority: SalesOrderPriority;
 
   @Column({
     type: 'date',

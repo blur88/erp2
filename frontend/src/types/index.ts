@@ -184,8 +184,6 @@ export interface SalesOrder {
   customerId: string;
   items?: SalesOrderItem[];
   totalAmount: number;
-  status: 'draft' | 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'completed' | 'cancelled';
-  priority: 'low' | 'normal' | 'high' | 'urgent';
   orderDate: Date;
   requiredDate?: Date;
   shippedDate?: Date;
