@@ -612,17 +612,63 @@ const CustomersPage: React.FC = () => {
 
       {/* Customer Table */}
       <Paper>
-        <TableContainer>
-          <Table>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table 
+            size="small" // Use compact table size
+            sx={{ 
+              minWidth: isMobile ? 650 : 800,
+              '& .MuiTableCell-root': { 
+                borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                py: 0.75, // Reduced padding for compact display
+                px: 1.5 // Consistent horizontal padding
+              }
+            }}
+          >
             <TableHead>
-              <TableRow>
-                <TableCell>Customer</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Contact</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Credit Info</TableCell>
-                <TableCell>Sales</TableCell>
-                <TableCell align="right">Actions</TableCell>
+              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Customer
+                  </Typography>
+                </TableCell>
+                {!isMobile && (
+                  <TableCell sx={{ width: '10%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Type
+                    </Typography>
+                  </TableCell>
+                )}
+                <TableCell sx={{ width: isMobile ? '25%' : '18%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Contact
+                  </Typography>
+                </TableCell>
+                {!isMobile && (
+                  <TableCell sx={{ width: '10%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Status
+                    </Typography>
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ width: '12%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Credit
+                    </Typography>
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ width: '10%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Sales
+                    </Typography>
+                  </TableCell>
+                )}
+                <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Actions
+                  </Typography>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -642,87 +688,161 @@ const CustomersPage: React.FC = () => {
                 </TableRow>
               ) : (
                 customers.map((customer) => (
-                  <TableRow key={customer.id} hover>
+                  <TableRow 
+                    key={customer.id} 
+                    hover
+                    tabIndex={0}
+                    sx={{
+                      '&:hover, &:focus-within': {
+                        backgroundColor: 'action.hover',
+                        '& .customer-actions': {
+                          opacity: 1
+                        }
+                      },
+                      transition: 'background-color 0.2s ease',
+                      cursor: 'default',
+                      height: 48 // Fixed compact row height
+                    }}
+                  >
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
                           {getCustomerTypeIcon(customer.type)}
                         </Avatar>
                         <Box>
-                          <Typography variant="subtitle2" fontWeight={600}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', lineHeight: 1.2 }}>
                             {customer.name}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                             {customer.customerCode}
                           </Typography>
                         </Box>
                       </Box>
+                      {/* Mobile-only type and status indicators */}
+                      {isMobile && (
+                        <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5 }}>
+                          <Chip 
+                            label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.65rem', height: 18 }}
+                          />
+                          <Chip
+                            label={customer.status === CustomerStatus.ACTIVE ? 'Active' : customer.status}
+                            size="small"
+                            color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
+                            variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
+                            sx={{ fontSize: '0.65rem', height: 18 }}
+                          />
+                        </Box>
+                      )}
                     </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Chip 
+                          label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
-                      <Chip 
-                        label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Stack spacing={0.5}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                         {customer.email && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <EmailIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            <Typography variant="caption">{customer.email}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <EmailIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{customer.email}</Typography>
                           </Box>
                         )}
                         {customer.phone && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            <Typography variant="caption">{customer.phone}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{customer.phone}</Typography>
                           </Box>
                         )}
-                      </Stack>
+                      </Box>
                     </TableCell>
-                    <TableCell>
-                      {getStatusChip(customer.status, customer.isActive)}
-                    </TableCell>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        <Typography variant="caption" color="text.secondary">
-                          Limit: {formatCurrency(customer.creditLimit)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Balance: {formatCurrency(customer.currentBalance)}
-                        </Typography>
-                        <Typography 
-                          variant="caption" 
-                          color={customer.availableCredit >= 0 ? 'success.main' : 'error.main'}
-                        >
-                          Available: {formatCurrency(customer.availableCredit)}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        <Typography variant="caption" color="text.secondary">
-                          Orders: {customer.totalOrders}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Sales: {formatCurrency(customer.totalSales)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Avg: {formatCurrency(customer.averageOrderValue)}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Chip
+                          label={customer.status === CustomerStatus.ACTIVE ? 'Active' : customer.status}
+                          size="small"
+                          color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
+                          variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
+                          sx={{ minWidth: 60, fontSize: '0.7rem', fontWeight: 500, height: 20 }}
+                        />
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            {formatCurrency(customer.creditLimit)}
+                          </Typography>
+                          <Typography 
+                            variant="caption" 
+                            color={customer.availableCredit >= 0 ? 'success.main' : 'error.main'}
+                            sx={{ fontSize: '0.7rem' }}
+                          >
+                            Avail: {formatCurrency(customer.availableCredit)}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            {customer.totalOrders} orders
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            {formatCurrency(customer.totalSales)}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    )}
                     <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          setSelectedCustomer(customer)
-                          setAnchorEl(e.currentTarget)
+                      <Box 
+                        className="customer-actions"
+                        sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'flex-end',
+                          gap: 0.25, // Tight spacing for compact display
+                          opacity: isMobile ? 1 : 0.7,
+                          transition: 'opacity 0.2s ease'
                         }}
                       >
-                        <MoreIcon />
-                      </IconButton>
+                        <IconButton
+                          size="small"
+                          title={`Actions for ${customer.name}`}
+                          aria-label={`Actions for customer ${customer.name}`}
+                          onClick={(e) => {
+                            setSelectedCustomer(customer)
+                            setAnchorEl(e.currentTarget)
+                          }}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                              color: 'primary.main'
+                            },
+                            p: 0.5 // Reduced padding
+                          }}
+                        >
+                          <MoreIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                      {/* Mobile-only additional info */}
+                      {isMobile && (
+                        <Box sx={{ mt: 0.25, textAlign: 'right' }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block' }}>
+                            Credit: {formatCurrency(customer.availableCredit)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                            {customer.totalOrders} orders • {formatCurrency(customer.totalSales)}
+                          </Typography>
+                        </Box>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
