@@ -33,6 +33,8 @@ import {
   CardContent,
   Divider,
   Stack,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -63,6 +65,8 @@ interface OrdersPageState {
 }
 
 const OrdersPage: React.FC = () => {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const dispatch = useAppDispatch()
   const orders = useAppSelector(selectOrders) || []
   const loading = useAppSelector(selectSalesLoading)?.orders || false
@@ -191,15 +195,53 @@ const OrdersPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>Sales Orders</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateDialog(true)}
-        >
-          Create Order
-        </Button>
+      {/* Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        mb: 4,
+        gap: isMobile ? 2 : 0
+      }}>
+        <Box sx={{ mb: isMobile ? 2 : 0 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+            Sales Orders
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Manage your sales orders and track delivery status ({orders.length} total)
+          </Typography>
+        </Box>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 1.5 : 2,
+          alignItems: isMobile ? 'stretch' : 'center'
+        }}>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
+            onClick={loadOrders}
+            disabled={loading}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "Refresh Orders" : "Refresh"}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={!isMobile ? <AddIcon /> : undefined}
+            size={isMobile ? "medium" : "large"}
+            onClick={() => setCreateDialog(true)}
+            fullWidth={isMobile}
+            sx={{
+              py: isMobile ? 1.5 : 1,
+              fontWeight: 600
+            }}
+          >
+            {isMobile ? "Create New Order" : "Create Order"}
+          </Button>
+        </Box>
       </Box>
 
       {/* Filters */}
