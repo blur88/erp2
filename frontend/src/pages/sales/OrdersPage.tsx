@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -90,18 +90,37 @@ const OrdersPage: React.FC = () => {
     loadOrders()
   }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder])
 
+  // Auto search with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (state.search !== undefined) {
+        dispatch(fetchOrders({
+          page: 1,
+          limit: state.rowsPerPage,
+          sortBy: state.sortBy,
+          sortOrder: state.sortOrder,
+          search: state.search,
+        }))
+        setState(prev => ({ ...prev, page: 0 }))
+      }
+    }, 300) // 300ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, dispatch])
+
   const loadOrders = () => {
     dispatch(fetchOrders({
       page: state.page + 1,
       limit: state.rowsPerPage,
       sortBy: state.sortBy,
       sortOrder: state.sortOrder,
+      search: state.search,
     }))
   }
 
   const handleSearch = () => {
+    // Search is now automatic via useEffect
     setState(prev => ({ ...prev, page: 0 }))
-    loadOrders()
   }
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, order: SalesOrder) => {
@@ -244,64 +263,51 @@ const OrdersPage: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              placeholder="Search orders..."
-              value={state.search}
-              onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              size="medium"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  height: '40px',
-                  fontSize: '0.875rem',
-                  '& input': {
-                    padding: '8.5px 14px',
-                    fontSize: '0.875rem'
-                  }
-                },
-                '& .MuiInputAdornment-root': {
-                  '& .MuiSvgIcon-root': {
-                    fontSize: '1.25rem',
-                    color: 'action.active'
-                  }
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button
-              variant="outlined"
-              startIcon={<SearchIcon />}
-              onClick={handleSearch}
-              fullWidth
-            >
-              Search
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={loadOrders}
-              fullWidth
-            >
-              Refresh
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+      {/* Filters and Search */}
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: 2,
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 3,
+        '& > *': {
+          alignSelf: isMobile ? 'stretch' : 'flex-start'
+        }
+      }}>
+        <TextField
+          placeholder="Search orders..."
+          value={state.search}
+          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          size="medium"
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 250,
+            flex: isMobile ? 'none' : 1,
+            maxWidth: isMobile ? 'none' : 400,
+            '& .MuiOutlinedInput-root': {
+              height: '40px',
+              fontSize: '0.875rem',
+              '& input': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            },
+            '& .MuiInputAdornment-root': {
+              '& .MuiSvgIcon-root': {
+                fontSize: '1.25rem',
+                color: 'action.active'
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       {/* Error Display */}
       {error && (
