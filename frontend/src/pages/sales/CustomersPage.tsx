@@ -408,71 +408,200 @@ const CustomersPage: React.FC = () => {
       </Box>
 
       {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={filters.type || ''}
-                label="Type"
-                onChange={(e) => dispatch(setFilters({ type: e.target.value as CustomerType }))}
-              >
-                <MenuItem value="">All Types</MenuItem>
-                <MenuItem value={CustomerType.INDIVIDUAL}>Individual</MenuItem>
-                <MenuItem value={CustomerType.BUSINESS}>Business</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={filters.status || ''}
-                label="Status"
-                onChange={(e) => dispatch(setFilters({ status: e.target.value as CustomerStatus }))}
-              >
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value={CustomerStatus.ACTIVE}>Active</MenuItem>
-                <MenuItem value={CustomerStatus.INACTIVE}>Inactive</MenuItem>
-                <MenuItem value={CustomerStatus.SUSPENDED}>Suspended</MenuItem>
-                <MenuItem value={CustomerStatus.BLACKLISTED}>Blacklisted</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Price Level</InputLabel>
-              <Select
-                value={filters.priceLevel || ''}
-                label="Price Level"
-                onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value as PriceLevel }))}
-              >
-                <MenuItem value="">All Levels</MenuItem>
-                <MenuItem value={PriceLevel.RETAIL}>Retail</MenuItem>
-                <MenuItem value={PriceLevel.WHOLESALE}>Wholesale</MenuItem>
-                <MenuItem value={PriceLevel.SPECIAL}>Special</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: 2,
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 3,
+        '& > *': {
+          alignSelf: isMobile ? 'stretch' : 'flex-start'
+        }
+      }}>
+        <TextField
+          placeholder="Search customers..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          size="medium"
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 250,
+            flex: isMobile ? 'none' : 1,
+            maxWidth: isMobile ? 'none' : 400,
+            '& .MuiOutlinedInput-root': {
+              height: '40px',
+              fontSize: '0.875rem',
+              '& input': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            },
+            '& .MuiInputAdornment-root': {
+              '& .MuiSvgIcon-root': {
+                fontSize: '1.25rem',
+                color: 'action.active'
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl 
+          size="medium" 
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 120,
+            flex: 'none'
+          }}
+        >
+          <InputLabel 
+            sx={{ 
+              fontSize: '0.875rem',
+              '&.MuiInputLabel-shrunk': {
+                fontSize: '0.75rem'
+              }
+            }}
+          >
+            Type
+          </InputLabel>
+          <Select
+            value={filters.type || ''}
+            label="Type"
+            onChange={(e) => dispatch(setFilters({ type: e.target.value as CustomerType }))}
+            sx={{
+              height: '40px',
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: '0.875rem',
+                padding: '8.5px 14px',
+                height: '40px',
+                boxSizing: 'border-box'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.23)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.87)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: theme.palette.primary.main,
+                borderWidth: 2
+              }
+            }}
+          >
+            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>All Types</MenuItem>
+            <MenuItem value={CustomerType.INDIVIDUAL} sx={{ fontSize: '0.875rem' }}>Individual</MenuItem>
+            <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: '0.875rem' }}>Business</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl 
+          size="medium" 
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 120,
+            flex: 'none'
+          }}
+        >
+          <InputLabel 
+            sx={{ 
+              fontSize: '0.875rem',
+              '&.MuiInputLabel-shrunk': {
+                fontSize: '0.75rem'
+              }
+            }}
+          >
+            Status
+          </InputLabel>
+          <Select
+            value={filters.status || ''}
+            label="Status"
+            onChange={(e) => dispatch(setFilters({ status: e.target.value as CustomerStatus }))}
+            sx={{
+              height: '40px',
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: '0.875rem',
+                padding: '8.5px 14px',
+                height: '40px',
+                boxSizing: 'border-box'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.23)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.87)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: theme.palette.primary.main,
+                borderWidth: 2
+              }
+            }}
+          >
+            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>All Statuses</MenuItem>
+            <MenuItem value={CustomerStatus.ACTIVE} sx={{ fontSize: '0.875rem' }}>Active</MenuItem>
+            <MenuItem value={CustomerStatus.INACTIVE} sx={{ fontSize: '0.875rem' }}>Inactive</MenuItem>
+            <MenuItem value={CustomerStatus.SUSPENDED} sx={{ fontSize: '0.875rem' }}>Suspended</MenuItem>
+            <MenuItem value={CustomerStatus.BLACKLISTED} sx={{ fontSize: '0.875rem' }}>Blacklisted</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl 
+          size="medium" 
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 130,
+            flex: 'none'
+          }}
+        >
+          <InputLabel 
+            sx={{ 
+              fontSize: '0.875rem',
+              '&.MuiInputLabel-shrunk': {
+                fontSize: '0.75rem'
+              }
+            }}
+          >
+            Price Level
+          </InputLabel>
+          <Select
+            value={filters.priceLevel || ''}
+            label="Price Level"
+            onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value as PriceLevel }))}
+            sx={{
+              height: '40px',
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: '0.875rem',
+                padding: '8.5px 14px',
+                height: '40px',
+                boxSizing: 'border-box'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.23)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.87)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: theme.palette.primary.main,
+                borderWidth: 2
+              }
+            }}
+          >
+            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>All Levels</MenuItem>
+            <MenuItem value={PriceLevel.RETAIL} sx={{ fontSize: '0.875rem' }}>Retail</MenuItem>
+            <MenuItem value={PriceLevel.WHOLESALE} sx={{ fontSize: '0.875rem' }}>Wholesale</MenuItem>
+            <MenuItem value={PriceLevel.SPECIAL} sx={{ fontSize: '0.875rem' }}>Special</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
       {/* Error Alert */}
       {error && (
