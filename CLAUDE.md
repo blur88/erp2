@@ -129,7 +129,7 @@ docker compose logs backend # Check specific service logs
 - **Infrastructure**: Exception filters, logging, validation pipes
 
 ### Database Architecture
-- **PostgreSQL**: Primary database with 20+ entities, TypeORM
+- **PostgreSQL**: Primary database with 20 entities, TypeORM
 - **MongoDB**: Analytics and reports data, Mongoose
 - **Redis**: Caching, queues, WebSocket state
 
@@ -245,7 +245,7 @@ When enabling disabled modules:
 - ✅ Category restore/undo functionality implemented
 - ✅ WebSocket integration for dashboard real-time updates
 
-### Categories Simplified (December 2025)
+### Categories Simplified (September 2025)
 - Removed `code` and `description` fields entirely
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
@@ -393,7 +393,7 @@ const { control, handleSubmit } = useForm<FormData>({
 - Users: `/api/users`
 - Inventory: `/api/inventory/products`, `/api/inventory/categories`  
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
-- Sales: `/api/api/v1/sales-orders` (note: double `/api`)
+- Sales: `/api/v1/sales-orders`, `/api/v1/invoices`, `/api/v1/payments` (mixed patterns: some with `/api` prefix, some without)
 - Module Info: `/api/info`
 
 ## Troubleshooting
@@ -451,8 +451,8 @@ For disabled modules (Purchasing, Reports, Plugins):
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products
 - `frontend/src/components/inventory/CategorySelector.tsx` - Hierarchical category selection component
-- `frontend/src/components/inventory/CategoryTreeView.tsx` - Tree view for category management
-- `frontend/src/components/inventory/CategoryBreadcrumb.tsx` - Navigation breadcrumbs for categories
+- `frontend/src/components/inventory/CategoryTreeView.tsx` - **UNUSED** Tree view component (exists but not imported anywhere)
+- `frontend/src/components/inventory/CategoryBreadcrumb.tsx` - **UNUSED** Navigation breadcrumbs component (exists but not imported anywhere)
 
 ### Environment Config
 - `frontend/docker-entrypoint.sh` - Runtime `window.__ENV__` injection  
