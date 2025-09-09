@@ -26,10 +26,8 @@ export class LoggingInterceptor implements NestInterceptor {
     const contentLength = headers['content-length'] || '0';
     const startTime = Date.now();
     
-    // Get user info if available
-    const user = (request as any).user;
-    const userId = user?.userId || 'anonymous';
-    const username = user?.username || 'anonymous';
+    // Get business context for ERP operations
+    const businessContext = this.getBusinessContext(url);
 
     // Create request context
     const requestContext = {
@@ -38,16 +36,15 @@ export class LoggingInterceptor implements NestInterceptor {
       ip,
       userAgent,
       contentLength,
-      userId,
-      username,
+      businessContext,
       timestamp: new Date().toISOString(),
     };
 
     // Log request (exclude sensitive data)
-    const sanitizedBody = this.sanitizeRequestBody(body, url);
+    const sanitizedBody = this.sanitizeRequestBody(body);
     
     this.logger.log(
-      `→ ${method} ${url} - User: ${username} (${userId}) - IP: ${ip} - Size: ${contentLength}B`,
+      `→ ${method} ${url} [${businessContext}] - IP: ${ip} - Size: ${contentLength}B`,
     );
 
     if (sanitizedBody && Object.keys(sanitizedBody).length > 0) {
@@ -61,7 +58,7 @@ export class LoggingInterceptor implements NestInterceptor {
         
         // Log successful response
         this.logger.log(
-          `← ${statusCode} ${method} ${url} - User: ${username} - Duration: ${duration}ms`,
+          `← ${statusCode} ${method} ${url} [${businessContext}] - Duration: ${duration}ms`,
         );
 
         // Log response body for debugging (in development only)
@@ -72,10 +69,15 @@ export class LoggingInterceptor implements NestInterceptor {
         }
 
         // Log slow requests as warnings
-        if (duration > 5000) { // 5 seconds
+        if (duration > 3000) { // 3 seconds for ERP operations
           this.logger.warn(
-            `Slow request detected: ${method} ${url} took ${duration}ms - User: ${username}`,
+            `Slow ERP operation: ${method} ${url} [${businessContext}] took ${duration}ms`,
           );
+        }
+
+        // Log large requests
+        if (parseInt(contentLength) > 1000000) { // 1MB
+          this.logger.warn(`Large request: ${url} - Size: ${contentLength}B`);
         }
       }),
       catchError((error) => {
@@ -84,7 +86,7 @@ export class LoggingInterceptor implements NestInterceptor {
         
         // Log error response
         this.logger.error(
-          `← ${statusCode} ${method} ${url} - User: ${username} - Duration: ${duration}ms - Error: ${error.message}`,
+          `← ${statusCode} ${method} ${url} [${businessContext}] - Duration: ${duration}ms - Error: ${error.message}`,
           error.stack,
         );
 
@@ -97,7 +99,7 @@ export class LoggingInterceptor implements NestInterceptor {
   /**
    * Sanitize request body to remove sensitive information
    */
-  private sanitizeRequestBody(body: any, url: string): any {
+  private sanitizeRequestBody(body: any): any {
     if (!body || typeof body !== 'object') {
       return body;
     }
@@ -125,14 +127,20 @@ export class LoggingInterceptor implements NestInterceptor {
       }
     });
 
-    // For auth endpoints, be extra cautious
-    if (url.includes('/auth/')) {
-      if (sanitized.password) sanitized.password = '[REDACTED]';
-      if (sanitized.username) {
-        // Only show first 3 characters of username for privacy
-        sanitized.username = sanitized.username.substring(0, 3) + '***';
+    // Add ERP-specific sensitive fields
+    const erpSensitiveFields = [
+      'cost',
+      'wholesalePrice',
+      'taxRate',
+      'margin',
+      'discount',
+    ];
+
+    erpSensitiveFields.forEach(field => {
+      if (sanitized[field]) {
+        sanitized[field] = '[REDACTED]';
       }
-    }
+    });
 
     return sanitized;
   }
@@ -176,16 +184,27 @@ export class LoggingInterceptor implements NestInterceptor {
   }
 
   /**
+   * Get business context for ERP operations
+   */
+  private getBusinessContext(url: string): string {
+    if (url.includes('/inventory/')) return 'INVENTORY';
+    if (url.includes('/sales/')) return 'SALES';
+    if (url.includes('/dashboard/')) return 'DASHBOARD';
+    if (url.includes('/users/')) return 'USERS';
+    return 'GENERAL';
+  }
+
+  /**
    * Determine if response body should be logged
    */
   private shouldLogResponseBody(url: string): boolean {
     // Don't log response bodies for these endpoints
     const excludePatterns = [
-      '/auth/login',
-      '/auth/refresh',
       '/users',
       '/upload',
       '/download',
+      '/inventory/products',
+      '/api/health',
     ];
 
     return !excludePatterns.some(pattern => url.includes(pattern));
