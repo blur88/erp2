@@ -212,10 +212,27 @@ const OrdersPage: React.FC = () => {
               value={state.search}
               onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              size="medium"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  height: '40px',
+                  fontSize: '0.875rem',
+                  '& input': {
+                    padding: '8.5px 14px',
+                    fontSize: '0.875rem'
+                  }
+                },
+                '& .MuiInputAdornment-root': {
+                  '& .MuiSvgIcon-root': {
+                    fontSize: '1.25rem',
+                    color: 'action.active'
+                  }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <SearchIcon fontSize="small" />
                   </InputAdornment>
                 ),
               }}
