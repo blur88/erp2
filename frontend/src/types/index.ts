@@ -183,12 +183,6 @@ export interface SalesOrder {
   customer?: Customer;
   customerId: string;
   items?: SalesOrderItem[];
-  subtotal: number;
-  taxAmount: number;
-  taxPercent?: number;
-  discountAmount?: number;
-  discountPercent?: number;
-  shippingAmount?: number;
   totalAmount: number;
   status: 'draft' | 'pending' | 'confirmed' | 'in_progress' | 'shipped' | 'delivered' | 'completed' | 'cancelled';
   priority: 'low' | 'normal' | 'high' | 'urgent';
@@ -234,9 +228,6 @@ export interface Invoice {
   customer: Customer;
   salesOrder?: SalesOrder;
   items: InvoiceItem[];
-  subtotal: number;
-  taxAmount: number;
-  discount: number;
   total: number;
   paidAmount: number;
   dueAmount: number;
@@ -292,8 +283,6 @@ export interface PurchaseOrder {
   orderNumber: string;
   supplier: Supplier;
   items: PurchaseOrderItem[];
-  subtotal: number;
-  taxAmount: number;
   total: number;
   status: 'draft' | 'sent' | 'confirmed' | 'received' | 'cancelled';
   orderDate: Date;

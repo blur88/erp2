@@ -22,7 +22,6 @@ import {
   Paper,
   Autocomplete,
   Alert,
-  Divider,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -53,9 +52,6 @@ interface CreateOrderFormData {
   customerId: string
   orderDate: string
   notes?: string
-  discountPercent: number
-  taxPercent: number
-  shippingAmount: number
   items: OrderItem[]
 }
 
@@ -63,9 +59,6 @@ const schema = yup.object({
   customerId: yup.string().required('Customer is required'),
   orderDate: yup.string().required('Order date is required'),
   notes: yup.string().optional(),
-  discountPercent: yup.number().min(0).max(100).required(),
-  taxPercent: yup.number().min(0).required(),
-  shippingAmount: yup.number().min(0).required(),
   items: yup.array().of(
     yup.object({
       productId: yup.string().required('Product is required'),
@@ -103,9 +96,6 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       customerId: '',
       orderDate: new Date().toISOString().split('T')[0],
       notes: '',
-      discountPercent: 0,
-      taxPercent: 0,
-      shippingAmount: 0,
       items: [
         {
           productId: '',
@@ -127,9 +117,6 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   })
 
   const watchedItems = watch('items')
-  const watchedDiscountPercent = watch('discountPercent')
-  const watchedTaxPercent = watch('taxPercent')
-  const watchedShippingAmount = watch('shippingAmount')
 
   useEffect(() => {
     if (open) {
@@ -265,16 +252,9 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   }
 
   const calculateOrderTotals = () => {
-    const subtotal = watchedItems.reduce((sum, item) => sum + item.totalPrice, 0)
-    const orderDiscountAmount = subtotal * (watchedDiscountPercent / 100)
-    const discountedSubtotal = subtotal - orderDiscountAmount
-    const taxAmount = discountedSubtotal * (watchedTaxPercent / 100)
-    const totalAmount = discountedSubtotal + taxAmount + watchedShippingAmount
+    const totalAmount = watchedItems.reduce((sum, item) => sum + item.totalPrice, 0)
 
     return {
-      subtotal,
-      orderDiscountAmount,
-      taxAmount,
       totalAmount,
     }
   }
@@ -806,90 +786,6 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
             <Grid item xs={12} md={4}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="h6" gutterBottom>Order Summary</Typography>
-                
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography>Subtotal:</Typography>
-                  <Typography>{formatCurrency(totals.subtotal)}</Typography>
-                </Box>
-
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid item xs={6}>
-                    <Controller
-                      name="discountPercent"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          label="Discount %"
-                          type="number"
-                          size="small"
-                          fullWidth
-                          inputProps={{
-                            step: 0.01,
-                            min: 0,
-                            max: 100
-                          }}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      -{formatCurrency(totals.orderDiscountAmount)}
-                    </Typography>
-                  </Grid>
-                </Grid>
-
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid item xs={6}>
-                    <Controller
-                      name="taxPercent"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          label="Tax %"
-                          type="number"
-                          size="small"
-                          fullWidth
-                          inputProps={{
-                            step: 0.01,
-                            min: 0
-                          }}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      {formatCurrency(totals.taxAmount)}
-                    </Typography>
-                  </Grid>
-                </Grid>
-
-                <Controller
-                  name="shippingAmount"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Shipping"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      inputProps={{
-                        step: "0.01",
-                        min: "0"
-                      }}
-                      InputProps={{
-                        startAdornment: <span style={{ marginRight: '4px', fontSize: '14px' }}>RM</span>
-                      }}
-                      sx={{ mb: 2 }}
-                    />
-                  )}
-                />
-
-                <Divider sx={{ my: 1 }} />
                 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="h6">Total:</Typography>

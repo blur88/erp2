@@ -619,33 +619,10 @@ const OrdersPage: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Order Summary</Typography>
-                    <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography>Subtotal:</Typography>
-                        <Typography>{formatCurrency(selectedOrder.subtotal || 0)}</Typography>
-                      </Box>
-                      {selectedOrder.discountAmount && selectedOrder.discountAmount > 0 && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography>Discount:</Typography>
-                          <Typography>-{formatCurrency(selectedOrder.discountAmount)}</Typography>
-                        </Box>
-                      )}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography>Tax:</Typography>
-                        <Typography>{formatCurrency(selectedOrder.taxAmount || 0)}</Typography>
-                      </Box>
-                      {selectedOrder.shippingAmount && selectedOrder.shippingAmount > 0 && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography>Shipping:</Typography>
-                          <Typography>{formatCurrency(selectedOrder.shippingAmount)}</Typography>
-                        </Box>
-                      )}
-                      <Divider />
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="h6">Total:</Typography>
-                        <Typography variant="h6">{formatCurrency(selectedOrder.totalAmount || selectedOrder.total || 0)}</Typography>
-                      </Box>
-                    </Stack>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="h6">Total:</Typography>
+                      <Typography variant="h6">{formatCurrency(selectedOrder.totalAmount || selectedOrder.total || 0)}</Typography>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>

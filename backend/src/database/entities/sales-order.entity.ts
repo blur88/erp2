@@ -86,71 +86,6 @@ export class SalesOrder extends BaseEntity {
   deliveredDate?: Date;
 
   // Financial Information
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Subtotal amount (before tax and discounts)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  subtotal: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Discount percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  discountPercent: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Discount amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  discountAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Tax percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  taxPercent: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Tax amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  taxAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Shipping/delivery charges',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  shippingAmount: number;
 
   @Column({
     type: 'decimal',
@@ -349,23 +284,9 @@ export class SalesOrder extends BaseEntity {
   calculateTotals(): void {
     // This should be called after items are loaded
     if (this.items && this.items.length > 0) {
-      this.subtotal = this.items.reduce((sum, item) => 
+      this.totalAmount = this.items.reduce((sum, item) => 
         sum + Number(item.totalAmount), 0);
     }
-
-    // Calculate discount amount
-    if (this.discountPercent > 0) {
-      this.discountAmount = (Number(this.subtotal) * Number(this.discountPercent)) / 100;
-    }
-
-    // Calculate tax amount (on subtotal after discount)
-    const taxableAmount = Number(this.subtotal) - Number(this.discountAmount);
-    if (this.taxPercent > 0) {
-      this.taxAmount = (taxableAmount * Number(this.taxPercent)) / 100;
-    }
-
-    // Calculate total
-    this.totalAmount = taxableAmount + Number(this.taxAmount) + Number(this.shippingAmount);
   }
 
   canCancel(): boolean {

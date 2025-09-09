@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsUUID,
   MaxLength,
-  IsDecimal,
   Min,
   IsArray,
   ValidateNested,
@@ -79,29 +78,6 @@ export class CreateSalesOrderDto {
   customerId: string;
 
 
-  @ApiPropertyOptional({
-    description: 'Order discount percentage',
-    example: 10.0,
-  })
-  @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  discountPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Tax percentage',
-    example: 8.5,
-  })
-  @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  taxPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Shipping/delivery charges',
-    example: 15.00,
-  })
-  @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  shippingAmount?: number;
 
   @ApiPropertyOptional({
     description: 'Shipping address',
@@ -197,35 +173,6 @@ export class CreateSalesOrderDto {
 
 export class UpdateSalesOrderDto {
 
-  @ApiPropertyOptional({
-    description: 'Order discount percentage',
-    example: 15.0,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  discountPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Tax percentage',
-    example: 8.5,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  taxPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Shipping/delivery charges',
-    example: 20.00,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  shippingAmount?: number;
 
   @ApiPropertyOptional({
     description: 'Shipping address',
@@ -449,24 +396,6 @@ export class SalesOrderResponseDto {
 
   @ApiProperty({ example: '2024-01-16', nullable: true })
   deliveredDate?: Date;
-
-  @ApiProperty({ example: 1000.00 })
-  subtotal: number;
-
-  @ApiProperty({ example: 10.0 })
-  discountPercent: number;
-
-  @ApiProperty({ example: 100.00 })
-  discountAmount: number;
-
-  @ApiProperty({ example: 8.5 })
-  taxPercent: number;
-
-  @ApiProperty({ example: 76.50 })
-  taxAmount: number;
-
-  @ApiProperty({ example: 15.00 })
-  shippingAmount: number;
 
   @ApiProperty({ example: 991.50 })
   totalAmount: number;
