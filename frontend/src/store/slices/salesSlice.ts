@@ -89,8 +89,17 @@ export const fetchOrders = createAsyncThunk(
   'sales/fetchOrders',
   async (params: { page?: number; limit?: number; customerId?: string; status?: string; priority?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }, { rejectWithValue }) => {
     try {
-      const response = await salesApi.getOrders(params)
-      return response.data
+      const apiParams = {
+        page: params.page,
+        limit: params.limit,
+        customerId: params.customerId,
+        status: params.status,
+        priority: params.priority,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() as 'ASC' | 'DESC' : undefined
+      }
+      const response = await salesApi.getOrders(apiParams as any)
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch orders')
     }
@@ -256,8 +265,18 @@ const salesSlice = createSlice({
       .addCase(fetchCustomers.fulfilled, (state, action) => {
         state.loading.customers = false
         if (action.payload) {
-          state.customers = action.payload.data
-          state.pagination.customers = action.payload.meta
+          // Handle both flat structure and nested meta structure
+          const payload = action.payload as any
+          state.customers = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.customers = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
@@ -274,8 +293,18 @@ const salesSlice = createSlice({
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading.orders = false
         if (action.payload) {
-          state.orders = action.payload.data
-          state.pagination.orders = action.payload.meta
+          // Handle both flat structure (current API) and nested meta structure
+          const payload = action.payload as any
+          state.orders = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.orders = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchOrders.rejected, (state, action) => {
@@ -292,8 +321,18 @@ const salesSlice = createSlice({
       .addCase(fetchInvoices.fulfilled, (state, action) => {
         state.loading.invoices = false
         if (action.payload) {
-          state.invoices = action.payload.data
-          state.pagination.invoices = action.payload.meta
+          // Handle both flat structure and nested meta structure
+          const payload = action.payload as any
+          state.invoices = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.invoices = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchInvoices.rejected, (state, action) => {
@@ -310,8 +349,18 @@ const salesSlice = createSlice({
       .addCase(fetchPayments.fulfilled, (state, action) => {
         state.loading.payments = false
         if (action.payload) {
-          state.payments = action.payload.data
-          state.pagination.payments = action.payload.meta
+          // Handle both flat structure and nested meta structure
+          const payload = action.payload as any
+          state.payments = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.payments = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchPayments.rejected, (state, action) => {
