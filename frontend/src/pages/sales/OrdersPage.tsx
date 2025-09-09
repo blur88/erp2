@@ -59,7 +59,7 @@ interface OrdersPageState {
   status: string
   priority: string
   sortBy: string
-  sortOrder: 'asc' | 'desc'
+  sortOrder: 'ASC' | 'DESC'
   page: number
   rowsPerPage: number
 }
@@ -76,7 +76,7 @@ const OrdersPage: React.FC = () => {
     status: '',
     priority: '',
     sortBy: 'orderDate',
-    sortOrder: 'desc',
+    sortOrder: 'DESC',
     page: 0,
     rowsPerPage: 20,
   })

@@ -294,38 +294,25 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       setLoading(true)
       setError(null)
 
-      const totals = calculateOrderTotals()
-      
       const orderData = {
         customerId: data.customerId,
-        orderDate: new Date(data.orderDate),
-        requiredDate: data.requiredDate ? new Date(data.requiredDate) : undefined,
         priority: data.priority,
-        status: data.status,
-        notes: data.notes,
-        subtotal: totals.subtotal,
-        discountPercent: data.discountPercent,
-        discountAmount: totals.orderDiscountAmount,
-        taxPercent: data.taxPercent,
-        taxAmount: totals.taxAmount,
-        shippingAmount: data.shippingAmount,
-        totalAmount: totals.totalAmount,
+        requiredDate: data.requiredDate || undefined,
+        notes: data.notes || undefined,
         items: data.items.map((item: OrderItem) => ({
-          id: '', // Backend will generate
           productId: item.productId,
-          product: item.product,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
           discountType: item.discountType,
-          discount: item.discountPercent,
-          discountAmount: item.discountAmount,
-          total: item.totalPrice,
-          description: item.description,
+          discountPercent: Number(item.discountPercent) || undefined,
+          discountAmount: Number(item.discountAmount) || undefined,
+          notes: item.description || undefined,
         })),
-      } as any
+      }
 
       const response = await salesApi.createOrder(orderData)
-      onOrderCreated(response.data)
+      // ApiService returns { data: SalesOrder } - extract the actual order
+      onOrderCreated((response as any).data)
       handleClose()
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create order')

@@ -453,9 +453,20 @@ export class InventoryIntegrationService {
     referenceId?: string,
     userId?: string,
   ): Promise<StockMovement> {
+    // Get current product stock to calculate previous balance
+    const product = await this.productRepository.findOne({ where: { id: productId } });
+    if (!product) {
+      throw new NotFoundException(`Product ${productId} not found`);
+    }
+
+    const previousBalance = Number(product.stockQuantity);
+    const newBalance = previousBalance + quantity; // quantity is negative for sales
+
     const movement = this.stockMovementRepository.create({
       productId,
       quantity,
+      previousBalance,
+      newBalance,
       movementType,
       reason,
       referenceId,

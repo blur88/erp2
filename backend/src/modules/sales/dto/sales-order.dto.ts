@@ -41,8 +41,6 @@ export class SalesOrderItemDto {
     example: 25.50,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : undefined)
   unitPrice?: number;
 
@@ -60,8 +58,6 @@ export class SalesOrderItemDto {
     example: 5.0,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : 0)
   discountPercent?: number;
 
@@ -70,8 +66,6 @@ export class SalesOrderItemDto {
     example: 12.75,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : 0)
   discountAmount?: number;
 
@@ -113,8 +107,6 @@ export class CreateSalesOrderDto {
     example: 10.0,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : 0)
   discountPercent?: number;
 
@@ -123,8 +115,6 @@ export class CreateSalesOrderDto {
     example: 8.5,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : 0)
   taxPercent?: number;
 
@@ -133,8 +123,6 @@ export class CreateSalesOrderDto {
     example: 15.00,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : 0)
   shippingAmount?: number;
 

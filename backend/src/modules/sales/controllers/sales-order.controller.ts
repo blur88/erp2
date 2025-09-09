@@ -46,8 +46,9 @@ export class SalesOrderController {
   @ApiResponse({ status: 409, description: 'Insufficient inventory or credit limit exceeded' })
   async createSalesOrder(
     @Body() createSalesOrderDto: CreateSalesOrderDto,
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.create(createSalesOrderDto, null); // Auth removed - no user tracking
+  ) {
+    const data = await this.salesOrderService.create(createSalesOrderDto, null); // Auth removed - no user tracking
+    return { data };
   }
 
   @Get()
@@ -69,7 +70,8 @@ export class SalesOrderController {
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getAllSalesOrders(@Query() query: QuerySalesOrdersDto) {
-    return this.salesOrderService.findAll(query);
+    const data = await this.salesOrderService.findAll(query);
+    return data; // findAll already returns paginated response structure
   }
 
   @Get('summary')

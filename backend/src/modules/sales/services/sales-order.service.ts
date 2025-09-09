@@ -113,10 +113,12 @@ export class SalesOrderService {
     // Create order items
     const createdItems = [];
     for (const itemData of orderItems) {
+      console.log('Creating order item with data:', JSON.stringify(itemData, null, 2));
       const orderItem = this.salesOrderItemRepository.create({
         ...itemData,
         salesOrderId: savedOrder.id,
       });
+      console.log('Created order item object:', JSON.stringify(orderItem, null, 2));
       createdItems.push(await this.salesOrderItemRepository.save(orderItem));
     }
 
@@ -613,6 +615,7 @@ export class SalesOrderService {
 
   private async validateAndProcessItems(items: any[]) {
     const processedItems = [];
+    let lineNumber = 1;
 
     for (const item of items) {
       const product = await this.productRepository.findOne({ where: { id: item.productId } });
@@ -622,13 +625,20 @@ export class SalesOrderService {
 
       const unitPrice = item.unitPrice || Number(product.retailPrice);
       const discountPercent = item.discountPercent || 0;
-      const discountAmount = (unitPrice * item.quantity * discountPercent) / 100;
+      const discountAmount = item.discountAmount || (unitPrice * item.quantity * discountPercent) / 100;
       const totalAmount = (unitPrice * item.quantity) - discountAmount;
 
       processedItems.push({
+        lineNumber: lineNumber++,
         productId: item.productId,
+        productSku: product.barcode || 'N/A',
+        productName: product.name,
+        productDescription: product.description,
+        unit: product.unit || 'pcs',
         quantity: item.quantity,
         unitPrice,
+        unitCost: Number(product.baseCost) || 0,
+        discountType: item.discountType || 'percentage',
         discountPercent,
         discountAmount,
         totalAmount,
@@ -636,6 +646,7 @@ export class SalesOrderService {
       });
     }
 
+    console.log('Processed items from validateAndProcessItems:', JSON.stringify(processedItems, null, 2));
     return processedItems;
   }
 

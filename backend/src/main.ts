@@ -30,16 +30,17 @@ async function bootstrap() {
       skipMissingProperties: false,
       skipNullProperties: false,
       skipUndefinedProperties: false,
-      disableErrorMessages: configService.get('NODE_ENV') === 'production', // Hide detailed validation errors in production
+      disableErrorMessages: false, // Always show detailed validation errors for debugging
       validationError: {
         target: false, // Don't expose the target object in error messages
         value: false, // Don't expose the invalid value in error messages
       },
       exceptionFactory: (errors) => {
-        // Custom exception factory for security
+        // Custom exception factory for debugging
+        console.log('Validation errors:', JSON.stringify(errors, null, 2));
         const messages = errors.map(error => {
           const constraints = Object.values(error.constraints || {});
-          return constraints.length > 0 ? constraints[0] : 'Validation failed';
+          return constraints.length > 0 ? constraints[0] : `Validation failed for ${error.property}`;
         });
         
         return new Error(`Validation failed: ${messages.join(', ')}`);
