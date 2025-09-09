@@ -8,6 +8,16 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
+import { randomUUID } from 'crypto';
+
+/**
+ * Interface for HTTP exception response objects
+ */
+interface HttpExceptionResponse {
+  message?: string | string[];
+  error?: string;
+  statusCode?: number;
+}
 
 /**
  * Global HTTP Exception Filter
@@ -32,8 +42,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
       
       if (typeof exceptionResponse === 'object') {
-        message = (exceptionResponse as any).message || exceptionResponse;
-        error = (exceptionResponse as any).error || exception.name;
+        const responseObj = exceptionResponse as HttpExceptionResponse;
+        message = responseObj.message || exceptionResponse;
+        error = responseObj.error || exception.name;
       } else {
         message = exceptionResponse;
         error = exception.name;
@@ -168,17 +179,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
       const message = typeof response === 'object' ? JSON.stringify(response) : response;
-      return this.isSecurityError(400, message.toString());
+      return this.isSecurityError(HttpStatus.BAD_REQUEST, message.toString());
     }
 
     return false;
   }
 
   /**
-   * Generate a unique request ID for tracking server errors
+   * Generate a cryptographically secure unique request ID for tracking server errors
    */
   private generateRequestId(): string {
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15);
+    return randomUUID();
   }
 }
