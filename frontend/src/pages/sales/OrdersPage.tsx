@@ -270,64 +270,147 @@ const OrdersPage: React.FC = () => {
 
       {/* Orders Table */}
       <Paper>
-        <TableContainer>
-          <Table>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table 
+            size="small"
+            sx={{ 
+              minWidth: 800,
+              '& .MuiTableCell-root': { 
+                borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                py: 0.75,
+                px: 1.5
+              }
+            }}
+          >
             <TableHead>
-              <TableRow>
-                <TableCell>Order #</TableCell>
-                <TableCell>Customer</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="right">Total</TableCell>
-                <TableCell>Items</TableCell>
-                <TableCell align="center">Actions</TableCell>
+              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                <TableCell sx={{ width: '15%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Order #
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ width: '25%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Customer
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ width: '18%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Date
+                  </Typography>
+                </TableCell>
+                <TableCell align="right" sx={{ width: '15%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Total
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ width: '12%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Items
+                  </Typography>
+                </TableCell>
+                <TableCell align="right" sx={{ width: '15%' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    Actions
+                  </Typography>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {orders.map((order: any) => (
-                <TableRow key={order.id} hover>
+                <TableRow 
+                  key={order.id} 
+                  hover
+                  sx={{
+                    '&:hover, &:focus-within': {
+                      backgroundColor: 'action.hover',
+                      '& .order-actions': {
+                        opacity: 1
+                      }
+                    },
+                    transition: 'background-color 0.2s ease',
+                    cursor: 'default',
+                    height: 48
+                  }}
+                >
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography variant="body2" fontWeight="medium" sx={{ fontSize: '0.8rem' }}>
                       {order.orderNumber}
                     </Typography>
                     {order.isOverdue && (
-                      <Chip label="Overdue" color="error" size="small" sx={{ mt: 0.5 }} />
+                      <Chip 
+                        label="Overdue" 
+                        color="error" 
+                        size="small" 
+                        sx={{ 
+                          mt: 0.25,
+                          fontSize: '0.65rem',
+                          height: 18
+                        }} 
+                      />
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
                       {order.customer?.name || 'Unknown Customer'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                       {order.customer?.customerCode}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                       {formatDate(order.orderDate)}
                     </Typography>
                     {order.requiredDate && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                         Due: {formatDate(order.requiredDate)}
                       </Typography>
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography variant="body2" fontWeight="medium" sx={{ fontSize: '0.8rem' }}>
                       {formatCurrency(order.totalAmount)}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
-                      {order.items?.length || 0} items
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      onClick={(e) => handleMenuOpen(e, order)}
+                    <Chip
+                      label={`${order.items?.length || 0} ${(order.items?.length || 0) === 1 ? 'item' : 'items'}`}
                       size="small"
+                      color={order.items?.length > 0 ? 'primary' : 'default'}
+                      variant="outlined"
+                      sx={{
+                        fontSize: '0.7rem',
+                        fontWeight: 500,
+                        height: 20
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Box 
+                      className="order-actions"
+                      sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'flex-end',
+                        gap: 0.25,
+                        opacity: 0.7,
+                        transition: 'opacity 0.2s ease'
+                      }}
                     >
-                      <MoreVertIcon />
-                    </IconButton>
+                      <IconButton
+                        onClick={(e) => handleMenuOpen(e, order)}
+                        size="small"
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'action.hover',
+                            color: 'primary.main'
+                          },
+                          p: 0.5
+                        }}
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
