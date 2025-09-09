@@ -11,7 +11,6 @@ import {
   IsString,
   IsBoolean,
   IsOptional,
-  IsEnum,
   MaxLength,
   IsDecimal,
   Min,
@@ -48,11 +47,8 @@ export enum SalesOrderPriority {
 @Entity('sales_orders')
 @Index(['orderNumber'], { unique: true })
 @Index(['customerId'])
-@Index(['status'])
 @Index(['orderDate'])
-@Index(['requiredDate'])
 @Index(['createdByUserId'])
-@Index(['priority'])
 export class SalesOrder extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -65,38 +61,11 @@ export class SalesOrder extends BaseEntity {
   orderNumber: string;
 
   @Column({
-    type: 'enum',
-    enum: SalesOrderStatus,
-    default: SalesOrderStatus.DRAFT,
-    comment: 'Order status',
-  })
-  @IsEnum(SalesOrderStatus)
-  status: SalesOrderStatus;
-
-  @Column({
-    type: 'enum',
-    enum: SalesOrderPriority,
-    default: SalesOrderPriority.NORMAL,
-    comment: 'Order priority',
-  })
-  @IsEnum(SalesOrderPriority)
-  priority: SalesOrderPriority;
-
-  @Column({
     type: 'date',
     comment: 'Order date',
   })
   @IsDate()
   orderDate: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Required/expected delivery date',
-  })
-  @IsOptional()
-  @IsDate()
-  requiredDate?: Date;
 
   @Column({
     type: 'date',
@@ -358,18 +327,12 @@ export class SalesOrder extends BaseEntity {
     return parts.join(', ');
   }
 
-  get isOverdue(): boolean {
-    if (!this.requiredDate) return false;
-    return new Date() > this.requiredDate && 
-           ![SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(this.status);
-  }
-
   get isShippable(): boolean {
-    return this.status === SalesOrderStatus.CONFIRMED || this.status === SalesOrderStatus.IN_PROGRESS;
+    return this.shippedDate === null;
   }
 
   get isCompleted(): boolean {
-    return [SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(this.status);
+    return this.deliveredDate !== null;
   }
 
   // Hooks
@@ -406,17 +369,15 @@ export class SalesOrder extends BaseEntity {
   }
 
   canCancel(): boolean {
-    return ![SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, 
-             SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(this.status);
+    return this.shippedDate === null;
   }
 
   canShip(): boolean {
-    return this.status === SalesOrderStatus.CONFIRMED;
+    return this.shippedDate === null;
   }
 
   markAsShipped(trackingNumber?: string): void {
     if (this.canShip()) {
-      this.status = SalesOrderStatus.SHIPPED;
       this.shippedDate = new Date();
       if (trackingNumber) {
         this.trackingNumber = trackingNumber;
@@ -425,24 +386,8 @@ export class SalesOrder extends BaseEntity {
   }
 
   markAsDelivered(): void {
-    if (this.status === SalesOrderStatus.SHIPPED) {
-      this.status = SalesOrderStatus.DELIVERED;
+    if (this.shippedDate && !this.deliveredDate) {
       this.deliveredDate = new Date();
-    }
-  }
-
-  complete(): void {
-    if (this.status === SalesOrderStatus.DELIVERED) {
-      this.status = SalesOrderStatus.COMPLETED;
-    }
-  }
-
-  cancel(reason?: string): void {
-    if (this.canCancel()) {
-      this.status = SalesOrderStatus.CANCELLED;
-      if (reason) {
-        this.internalNotes = `Cancelled: ${reason}`;
-      }
     }
   }
 }

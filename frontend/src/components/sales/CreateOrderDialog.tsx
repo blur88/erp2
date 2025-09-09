@@ -8,7 +8,6 @@ import {
   Grid,
   TextField,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Typography,
@@ -53,9 +52,6 @@ interface OrderItem {
 interface CreateOrderFormData {
   customerId: string
   orderDate: string
-  requiredDate?: string
-  priority: 'low' | 'normal' | 'high' | 'urgent'
-  status: 'draft' | 'pending'
   notes?: string
   discountPercent: number
   taxPercent: number
@@ -66,9 +62,6 @@ interface CreateOrderFormData {
 const schema = yup.object({
   customerId: yup.string().required('Customer is required'),
   orderDate: yup.string().required('Order date is required'),
-  requiredDate: yup.string().optional(),
-  priority: yup.string().oneOf(['low', 'normal', 'high', 'urgent']).required(),
-  status: yup.string().oneOf(['draft', 'pending']).required(),
   notes: yup.string().optional(),
   discountPercent: yup.number().min(0).max(100).required(),
   taxPercent: yup.number().min(0).required(),
@@ -109,9 +102,6 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
     defaultValues: {
       customerId: '',
       orderDate: new Date().toISOString().split('T')[0],
-      requiredDate: '',
-      priority: 'normal',
-      status: 'draft',
       notes: '',
       discountPercent: 0,
       taxPercent: 0,
@@ -296,8 +286,6 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
 
       const orderData = {
         customerId: data.customerId,
-        priority: data.priority,
-        requiredDate: data.requiredDate || undefined,
         notes: data.notes || undefined,
         items: data.items.map((item: OrderItem) => ({
           productId: item.productId,
@@ -389,7 +377,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={6}>
               <Controller
                 name="orderDate"
                 control={control}
@@ -408,57 +396,6 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
               />
             </Grid>
 
-            <Grid item xs={12} md={3}>
-              <Controller
-                name="requiredDate"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Required Date"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    error={!!errors.requiredDate}
-                    helperText={errors.requiredDate?.message}
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Controller
-                name="priority"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.priority}>
-                    <InputLabel>Priority</InputLabel>
-                    <Select {...field} label="Priority">
-                      <MenuItem value="low">Low</MenuItem>
-                      <MenuItem value="normal">Normal</MenuItem>
-                      <MenuItem value="high">High</MenuItem>
-                      <MenuItem value="urgent">Urgent</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Controller
-                name="status"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.status}>
-                    <InputLabel>Status</InputLabel>
-                    <Select {...field} label="Status">
-                      <MenuItem value="draft">Draft</MenuItem>
-                      <MenuItem value="pending">Pending</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Grid>
 
             <Grid item xs={12}>
               <Controller

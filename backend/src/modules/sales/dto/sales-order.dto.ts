@@ -1,23 +1,16 @@
 import {
   IsString,
   IsOptional,
-  IsEnum,
   IsUUID,
   MaxLength,
   IsDecimal,
-  IsDateString,
   Min,
   IsArray,
   ValidateNested,
   IsInt,
-  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { 
-  SalesOrderStatus, 
-  SalesOrderPriority 
-} from '../../../database/entities/sales-order.entity';
 import { DiscountType } from '../../../database/entities/sales-order-item.entity';
 
 export class SalesOrderItemDto {
@@ -50,7 +43,6 @@ export class SalesOrderItemDto {
     example: DiscountType.PERCENTAGE,
   })
   @IsOptional()
-  @IsEnum(DiscountType)
   discountType?: DiscountType;
 
   @ApiPropertyOptional({
@@ -86,21 +78,6 @@ export class CreateSalesOrderDto {
   @IsUUID()
   customerId: string;
 
-  @ApiProperty({
-    description: 'Order priority',
-    enum: SalesOrderPriority,
-    example: SalesOrderPriority.NORMAL,
-  })
-  @IsEnum(SalesOrderPriority)
-  priority: SalesOrderPriority;
-
-  @ApiPropertyOptional({
-    description: 'Required/expected delivery date',
-    example: '2024-01-15',
-  })
-  @IsOptional()
-  @IsDateString()
-  requiredDate?: string;
 
   @ApiPropertyOptional({
     description: 'Order discount percentage',
@@ -219,31 +196,6 @@ export class CreateSalesOrderDto {
 }
 
 export class UpdateSalesOrderDto {
-  @ApiPropertyOptional({
-    description: 'Order status',
-    enum: SalesOrderStatus,
-    example: SalesOrderStatus.CONFIRMED,
-  })
-  @IsOptional()
-  @IsEnum(SalesOrderStatus)
-  status?: SalesOrderStatus;
-
-  @ApiPropertyOptional({
-    description: 'Order priority',
-    enum: SalesOrderPriority,
-    example: SalesOrderPriority.HIGH,
-  })
-  @IsOptional()
-  @IsEnum(SalesOrderPriority)
-  priority?: SalesOrderPriority;
-
-  @ApiPropertyOptional({
-    description: 'Required/expected delivery date',
-    example: '2024-01-20',
-  })
-  @IsOptional()
-  @IsDateString()
-  requiredDate?: string;
 
   @ApiPropertyOptional({
     description: 'Order discount percentage',
@@ -385,30 +337,13 @@ export class QuerySalesOrdersDto {
   @IsUUID()
   customerId?: string;
 
-  @ApiPropertyOptional({
-    description: 'Filter by order status',
-    enum: SalesOrderStatus,
-    example: SalesOrderStatus.CONFIRMED,
-  })
-  @IsOptional()
-  @IsEnum(SalesOrderStatus)
-  status?: SalesOrderStatus;
-
-  @ApiPropertyOptional({
-    description: 'Filter by order priority',
-    enum: SalesOrderPriority,
-    example: SalesOrderPriority.HIGH,
-  })
-  @IsOptional()
-  @IsEnum(SalesOrderPriority)
-  priority?: SalesOrderPriority;
 
   @ApiPropertyOptional({
     description: 'Filter orders from date',
     example: '2024-01-01',
   })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   fromDate?: string;
 
   @ApiPropertyOptional({
@@ -416,17 +351,9 @@ export class QuerySalesOrdersDto {
     example: '2024-12-31',
   })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   toDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Filter by overdue orders',
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
-  overdue?: boolean;
 
   @ApiPropertyOptional({
     description: 'Sort field',
@@ -442,7 +369,7 @@ export class QuerySalesOrdersDto {
     example: 'DESC',
   })
   @IsOptional()
-  @IsEnum(['ASC', 'DESC'])
+  @IsString()
   sortOrder?: 'ASC' | 'DESC';
 
   @ApiPropertyOptional({
@@ -514,17 +441,8 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: 'SO-2024-001' })
   orderNumber: string;
 
-  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.CONFIRMED })
-  status: SalesOrderStatus;
-
-  @ApiProperty({ enum: SalesOrderPriority, example: SalesOrderPriority.NORMAL })
-  priority: SalesOrderPriority;
-
   @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
-
-  @ApiProperty({ example: '2024-01-15', nullable: true })
-  requiredDate?: Date;
 
   @ApiProperty({ example: '2024-01-14', nullable: true })
   shippedDate?: Date;
@@ -619,9 +537,6 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '456 Oak Avenue, Los Angeles, CA, 90210, United States' })
   fullShippingAddress: string;
 
-  @ApiProperty({ example: false })
-  isOverdue: boolean;
-
   @ApiProperty({ example: true })
   isShippable: boolean;
 
@@ -635,9 +550,6 @@ export class SalesOrderSummaryDto {
 
   @ApiProperty({ example: 'SO-2024-001' })
   orderNumber: string;
-
-  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.CONFIRMED })
-  status: SalesOrderStatus;
 
   @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
