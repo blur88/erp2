@@ -39,5 +39,11 @@ postgres-data/
 mongo-data/
 redis-data/
 
+# Test files for production builds
+*.spec.ts
+*.test.ts
+*.spec.js
+*.test.js
+
 # Claude Code configuration
 .claude

@@ -14,6 +14,9 @@ import {
   IsPhoneNumber,
   IsDecimal,
   Min,
+  IsObject,
+  Matches,
+  IsNotEmpty,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
@@ -58,7 +61,9 @@ export class Customer extends BaseEntity {
     comment: 'Unique customer code/number',
   })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(20)
+  @Matches(/^[A-Za-z0-9_-]+$/, { message: 'Customer code must contain only alphanumeric characters, underscores, and hyphens' })
   customerCode: string;
 
   @Column({
@@ -76,7 +81,9 @@ export class Customer extends BaseEntity {
     comment: 'Customer name or business name',
   })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
+  @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, { message: 'Name contains invalid characters' })
   name: string;
 
   @Column({
@@ -95,11 +102,12 @@ export class Customer extends BaseEntity {
     length: 100,
     nullable: true,
     unique: true,
-    comment: 'Customer email address',
+    comment: 'Customer email address - SENSITIVE PII',
   })
   @IsOptional()
-  @IsEmail()
+  @IsEmail({}, { message: 'Email must be a valid email address' })
   @MaxLength(100)
+  @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, { message: 'Email format is invalid' })
   email?: string;
 
   @Column({
@@ -109,7 +117,8 @@ export class Customer extends BaseEntity {
     comment: 'Primary phone number',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @IsPhoneNumber(null, { message: 'Phone number must be in valid international format' })
+  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Phone number must be in E.164 format or similar' })
   phone?: string;
 
   @Column({
@@ -119,18 +128,20 @@ export class Customer extends BaseEntity {
     comment: 'Alternative phone number',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @IsPhoneNumber(null, { message: 'Alternative phone number must be in valid international format' })
+  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Alternative phone number must be in E.164 format or similar' })
   alternativePhone?: string;
 
   @Column({
     type: 'varchar',
     length: 30,
     nullable: true,
-    comment: 'Tax ID or business registration number',
+    comment: 'Tax ID or business registration number - SENSITIVE DATA',
   })
   @IsOptional()
   @IsString()
   @MaxLength(30)
+  @Matches(/^[A-Za-z0-9-]{3,30}$/, { message: 'Tax ID must contain only alphanumeric characters and hyphens, 3-30 characters' })
   taxId?: string;
 
   // Address Information
@@ -345,10 +356,11 @@ export class Customer extends BaseEntity {
   @Column({
     type: 'json',
     nullable: true,
-    comment: 'Additional customer metadata',
+    comment: 'Additional customer metadata - LIMITED TO SAFE DATA ONLY',
   })
   @IsOptional()
-  metadata?: Record<string, any>;
+  @IsObject()
+  metadata?: Record<string, string | number | boolean>;
 
   // Relationships
   @OneToMany(() => SalesOrder, (salesOrder) => salesOrder.customer, {
@@ -403,16 +415,41 @@ export class Customer extends BaseEntity {
     return this.totalOrders > 0 ? Number(this.totalSales) / this.totalOrders : 0;
   }
 
-  // Helper methods
-  updateBalance(amount: number, type: 'increase' | 'decrease'): void {
+  // Helper methods - IMPORTANT: These methods should only be called after proper authorization checks
+  /**
+   * Updates customer balance - WARNING: Should only be called after authorization verification
+   * @param amount - The amount to adjust
+   * @param type - Whether to increase or decrease the balance
+   * @param authorizedBy - Who authorized this balance change (for audit trail)
+   */
+  updateBalance(amount: number, type: 'increase' | 'decrease', authorizedBy?: string): void {
+    if (amount < 0) {
+      throw new Error('Amount cannot be negative');
+    }
+    
     if (type === 'increase') {
       this.currentBalance = Number(this.currentBalance) + Number(amount);
     } else {
       this.currentBalance = Math.max(0, Number(this.currentBalance) - Number(amount));
     }
+    
+    // Note: In a production system, this should log the change for audit purposes
+    // TODO: Add audit logging with authorizedBy parameter
+    if (authorizedBy) {
+      // TODO: Implement audit logging here
+    }
   }
 
+  /**
+   * Updates sales metrics for the customer
+   * @param orderAmount - The amount of the order
+   * @param isFirstOrder - Whether this is the customer's first order
+   */
   updateSalesMetrics(orderAmount: number, isFirstOrder: boolean = false): void {
+    if (orderAmount < 0) {
+      throw new Error('Order amount cannot be negative');
+    }
+    
     this.totalSales = Number(this.totalSales) + Number(orderAmount);
     this.totalOrders += 1;
     this.lastPurchaseDate = new Date();
@@ -422,7 +459,16 @@ export class Customer extends BaseEntity {
     }
   }
 
+  /**
+   * Checks if customer can make a purchase of the given amount
+   * @param amount - The purchase amount to check
+   * @returns true if customer can purchase, false otherwise
+   */
   canPurchase(amount: number): boolean {
+    if (amount < 0) {
+      throw new Error('Purchase amount cannot be negative');
+    }
+    
     if (!this.isActive || this.status === CustomerStatus.SUSPENDED || this.status === CustomerStatus.BLACKLISTED) {
       return false;
     }
