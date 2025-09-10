@@ -26,7 +26,7 @@ async function bootstrap() {
     new ValidationPipe({
       transform: true,
       whitelist: true, // Remove non-whitelisted properties
-      forbidNonWhitelisted: true, // Throw error for non-whitelisted properties
+      forbidNonWhitelisted: false, // Allow unknown query parameters (changed from true)
       skipMissingProperties: false,
       skipNullProperties: false,
       skipUndefinedProperties: false,

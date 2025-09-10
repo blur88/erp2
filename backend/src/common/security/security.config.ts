@@ -36,12 +36,6 @@ export interface SecurityConfig {
     credentials: boolean;
     maxAge: number;
   };
-  rateLimit: {
-    windowMs: number;
-    max: number;
-    standardHeaders: boolean;
-    legacyHeaders: boolean;
-  };
 }
 
 /**
@@ -208,64 +202,7 @@ export class SecurityConfigService {
         credentials: true, // Allow cookies and auth headers
         maxAge: 86400, // Preflight cache for 24 hours
       },
-      rateLimit: {
-        windowMs: 15 * 60 * 1000, // 15 minutes
-        max: isProduction ? 100 : 1000, // Requests per window
-        standardHeaders: true, // Return rate limit info in headers
-        legacyHeaders: false, // Disable legacy headers
-      },
     };
   }
 
-  /**
-   * Get CSP violation report endpoint configuration
-   */
-  getCspReportConfig(): any {
-    return {
-      reportUri: '/api/security/csp-violation',
-      reportOnly: this.configService.get<boolean>('CSP_REPORT_ONLY', false),
-    };
-  }
-
-  /**
-   * Validate security headers in response
-   */
-  validateSecurityHeaders(headers: Record<string, string>): {
-    valid: boolean;
-    missing: string[];
-    recommendations: string[];
-  } {
-    const requiredHeaders = [
-      'x-content-type-options',
-      'x-frame-options',
-      'x-xss-protection',
-      'strict-transport-security',
-      'content-security-policy',
-      'referrer-policy',
-    ];
-
-    const missing = requiredHeaders.filter(header => !headers[header.toLowerCase()]);
-    const recommendations: string[] = [];
-
-    // Check specific header values
-    if (headers['x-frame-options'] && headers['x-frame-options'] !== 'DENY') {
-      recommendations.push('Consider using X-Frame-Options: DENY for better clickjacking protection');
-    }
-
-    if (headers['strict-transport-security']) {
-      const hstsValue = headers['strict-transport-security'];
-      if (!hstsValue.includes('max-age=31536000')) {
-        recommendations.push('HSTS max-age should be at least 1 year (31536000 seconds)');
-      }
-      if (!hstsValue.includes('includeSubDomains')) {
-        recommendations.push('HSTS should include subdomains for comprehensive protection');
-      }
-    }
-
-    return {
-      valid: missing.length === 0,
-      missing,
-      recommendations,
-    };
-  }
 }

@@ -2,81 +2,58 @@ import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
 /**
- * Input Sanitization Middleware
- * Sanitizes request data to prevent XSS and injection attacks
+ * Security Monitoring Middleware
+ * Detects and logs potential security threats without modifying data
  */
 @Injectable()
 export class InputSanitizationMiddleware implements NestMiddleware {
   private readonly logger = new Logger(InputSanitizationMiddleware.name);
 
-  // Patterns to detect and sanitize
-  private readonly xssPatterns = [
+  // Critical XSS patterns - only the most dangerous ones
+  private readonly criticalXssPatterns = [
     /<script[^>]*>.*?<\/script>/gim,
-    /<iframe[^>]*>.*?<\/iframe>/gim,
-    /<object[^>]*>.*?<\/object>/gim,
-    /<embed[^>]*>/gim,
-    /<applet[^>]*>.*?<\/applet>/gim,
-    /<meta[^>]*>/gim,
-    /<link[^>]*>/gim,
-    /javascript:/gim,
-    /vbscript:/gim,
-    /data:text\/html/gim,
-    /on\w+\s*=/gim, // Event handlers like onclick, onload, etc.
+    /<iframe[^>]*src\s*=\s*["']?javascript:/gim,
+    /javascript:\s*(alert|eval|document\.)/gim,
+    /vbscript:\s*(alert|eval|document\.)/gim,
+    /data:text\/html[^;]*;base64/gim,
+    /on(load|error|click|focus|blur)\s*=\s*["']?[^"']*\beval\b/gim,
   ];
 
-  private readonly sqlInjectionPatterns = [
-    /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)/gim,
-    /(\b(UNION|OR|AND)\b.*\b(SELECT|INSERT|UPDATE|DELETE)\b)/gim,
-    /(;|\||&|%|'|"|`)/gim, // Basic SQL injection characters
-    /(\bOR\b.*=.*)/gim,
-    /(\bAND\b.*=.*)/gim,
-    /(1=1|1\s*=\s*1)/gim,
-    /(1=0|1\s*=\s*0)/gim,
+  // High-risk SQL injection patterns - avoid false positives
+  private readonly criticalSqlPatterns = [
+    /\b(UNION\s+SELECT|DROP\s+TABLE|DELETE\s+FROM)\b/gim,
+    /('\s*OR\s*'[^']*'\s*=\s*'|'\s*OR\s*1\s*=\s*1)/gim,
+    /(;\s*(DROP|DELETE|UPDATE|INSERT|CREATE))\b/gim,
+    /\b(EXEC|EXECUTE)\s*\(/gim,
   ];
 
-  private readonly noSqlInjectionPatterns = [
-    /\$where/gim,
-    /\$ne/gim,
-    /\$gt/gim,
-    /\$lt/gim,
-    /\$gte/gim,
-    /\$lte/gim,
-    /\$in/gim,
-    /\$nin/gim,
-    /\$regex/gim,
-    /\$exists/gim,
-  ];
-
-  // Common bypass attempts
-  private readonly bypassPatterns = [
-    /(%3C|&lt;)script/gim,
-    /(%3E|&gt;)/gim,
-    /(%22|&quot;|&#34;)/gim,
-    /(%27|&#39;)/gim,
-    /(%2F|&#47;)/gim,
-    /(%5C|&#92;)/gim,
+  // MongoDB injection - specific operators only
+  private readonly criticalNoSqlPatterns = [
+    /\$where.*function/gim,
+    /\$regex.*\.\*/gim,
+    /\$ne.*null/gim,
   ];
 
   use(req: Request, res: Response, next: NextFunction): void {
     try {
-      // Skip sanitization for certain endpoints that need raw data
-      const skipPaths = ['/api/upload', '/api/webhooks'];
+      // Skip monitoring for certain endpoints
+      const skipPaths = ['/api/upload', '/api/webhooks', '/api/docs'];
       const shouldSkip = skipPaths.some(path => req.path.startsWith(path));
 
       if (!shouldSkip) {
-        // Sanitize request body
+        // Monitor request body for threats (detection only)
         if (req.body) {
-          req.body = this.sanitizeObject(req.body, 'body');
+          this.detectThreats(req.body, 'body', req);
         }
 
-        // Sanitize query parameters
+        // Monitor query parameters for threats
         if (req.query) {
-          req.query = this.sanitizeObject(req.query, 'query');
+          this.detectThreats(req.query, 'query', req);
         }
 
-        // Sanitize URL parameters
+        // Monitor URL parameters for threats
         if (req.params) {
-          req.params = this.sanitizeObject(req.params, 'params');
+          this.detectThreats(req.params, 'params', req);
         }
 
         // Check for suspicious patterns in headers
@@ -88,161 +65,89 @@ export class InputSanitizationMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
-      this.logger.error('Input sanitization error:', error);
-      // Continue processing even if sanitization fails to avoid breaking the app
+      this.logger.error('Security monitoring error:', error);
+      // Continue processing even if monitoring fails
       next();
     }
   }
 
   /**
-   * Recursively sanitize object properties
+   * Recursively detect threats in object properties (detection only)
    */
-  private sanitizeObject(obj: any, context: string): any {
+  private detectThreats(obj: any, context: string, req: Request): void {
     if (obj === null || obj === undefined) {
-      return obj;
+      return;
     }
 
     if (Array.isArray(obj)) {
-      return obj.map((item, index) => 
-        this.sanitizeObject(item, `${context}[${index}]`)
+      obj.forEach((item, index) => 
+        this.detectThreats(item, `${context}[${index}]`, req)
       );
+      return;
     }
 
     if (typeof obj === 'object') {
-      const sanitized: any = {};
       for (const [key, value] of Object.entries(obj)) {
-        const sanitizedKey = this.sanitizeString(key, `${context}.${key}`);
-        sanitized[sanitizedKey] = this.sanitizeObject(value, `${context}.${key}`);
+        // Check key for threats
+        this.checkStringForThreats(key, `${context}.${key}(key)`, req);
+        // Check value recursively
+        this.detectThreats(value, `${context}.${key}`, req);
       }
-      return sanitized;
+      return;
     }
 
     if (typeof obj === 'string') {
-      return this.sanitizeString(obj, context);
+      this.checkStringForThreats(obj, context, req);
     }
-
-    return obj;
   }
 
   /**
-   * Sanitize string values
+   * Check string for security threats (detection only - no modification)
    */
-  private sanitizeString(input: string, context: string): string {
+  private checkStringForThreats(input: string, context: string, req: Request): void {
     if (!input || typeof input !== 'string') {
-      return input;
+      return;
     }
 
-    let sanitized = input;
-    let threats: string[] = [];
+    const threats: string[] = [];
 
-    // Detect and log XSS attempts
-    for (const pattern of this.xssPatterns) {
-      if (pattern.test(sanitized)) {
-        threats.push('XSS');
-        sanitized = sanitized.replace(pattern, '');
+    // Check for critical XSS patterns
+    for (const pattern of this.criticalXssPatterns) {
+      if (pattern.test(input)) {
+        threats.push('CRITICAL_XSS');
+        break; // One detection per category is enough
       }
     }
 
-    // Detect and log SQL injection attempts
-    for (const pattern of this.sqlInjectionPatterns) {
-      if (pattern.test(sanitized)) {
-        threats.push('SQL_INJECTION');
-        // For SQL injection, we're more aggressive and encode suspicious characters
-        sanitized = this.encodeSqlCharacters(sanitized);
+    // Check for critical SQL injection patterns
+    for (const pattern of this.criticalSqlPatterns) {
+      if (pattern.test(input)) {
+        threats.push('CRITICAL_SQL_INJECTION');
+        break;
       }
     }
 
-    // Detect and log NoSQL injection attempts
-    for (const pattern of this.noSqlInjectionPatterns) {
-      if (pattern.test(sanitized)) {
-        threats.push('NOSQL_INJECTION');
-        sanitized = sanitized.replace(pattern, '');
+    // Check for critical NoSQL injection patterns
+    for (const pattern of this.criticalNoSqlPatterns) {
+      if (pattern.test(input)) {
+        threats.push('CRITICAL_NOSQL_INJECTION');
+        break;
       }
     }
 
-    // Handle bypass attempts
-    for (const pattern of this.bypassPatterns) {
-      if (pattern.test(sanitized)) {
-        threats.push('BYPASS_ATTEMPT');
-        sanitized = this.decodeAndSanitize(sanitized);
-      }
-    }
-
-    // Log threats if detected
+    // Log only if critical threats detected
     if (threats.length > 0) {
-      this.logger.warn(`Security threats detected in ${context}:`, {
+      this.logger.warn(`Critical security threat detected in ${context}:`, {
         threats: threats.join(', '),
-        original: input.substring(0, 100), // Log first 100 chars
-        sanitized: sanitized.substring(0, 100),
+        path: req.path,
+        method: req.method,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']?.substring(0, 100),
+        sample: input.substring(0, 200), // Log more context for analysis
       });
     }
-
-    // Additional HTML entity encoding for safety
-    sanitized = this.htmlEncode(sanitized);
-
-    // Limit string length to prevent DoS
-    if (sanitized.length > 10000) {
-      this.logger.warn(`String length exceeded limit in ${context}:`, {
-        length: sanitized.length,
-        truncated: true,
-      });
-      sanitized = sanitized.substring(0, 10000);
-    }
-
-    return sanitized;
   }
 
-  /**
-   * Encode HTML entities
-   */
-  private htmlEncode(input: string): string {
-    return input
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-      .replace(/\//g, '&#47;');
-  }
-
-  /**
-   * Encode SQL-specific characters
-   */
-  private encodeSqlCharacters(input: string): string {
-    return input
-      .replace(/'/g, "''") // Escape single quotes
-      .replace(/;/g, '') // Remove semicolons
-      .replace(/--/g, '') // Remove SQL comments
-      .replace(/\/\*/g, '') // Remove SQL block comments
-      .replace(/\*\//g, '');
-  }
-
-  /**
-   * Decode and sanitize bypass attempts
-   */
-  private decodeAndSanitize(input: string): string {
-    let decoded = input;
-    
-    // Decode common URL encodings
-    try {
-      decoded = decodeURIComponent(decoded);
-    } catch (e) {
-      // Invalid encoding, use original
-      decoded = input;
-    }
-
-    // Decode HTML entities
-    decoded = decoded
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&#47;/g, '/')
-      .replace(/&amp;/g, '&');
-
-    // Re-sanitize the decoded content
-    return this.htmlEncode(decoded);
-  }
 
   /**
    * Validate request headers for suspicious content
@@ -253,57 +158,49 @@ export class InputSanitizationMiddleware implements NestMiddleware {
     for (const header of suspiciousHeaders) {
       const value = req.headers[header];
       if (typeof value === 'string') {
-        // Check for header injection attempts
+        // Check for header injection attempts (detection only)
         if (value.includes('\n') || value.includes('\r')) {
           this.logger.warn('Header injection attempt detected:', {
             header,
             value: value.substring(0, 100),
             ip: req.ip,
+            path: req.path,
           });
-          // Remove newlines from headers
-          req.headers[header] = value.replace(/[\r\n]/g, '');
         }
 
-        // Check for excessively long headers
-        if (value.length > 1000) {
+        // Check for excessively long headers (detection only)
+        if (value.length > 2000) {
           this.logger.warn('Excessively long header detected:', {
             header,
             length: value.length,
             ip: req.ip,
+            path: req.path,
           });
-          // Truncate long headers
-          req.headers[header] = value.substring(0, 1000);
         }
       }
     }
   }
 
   /**
-   * Validate Content-Type header
+   * Validate Content-Type header (detection only)
    */
   private validateContentType(req: Request): void {
     const contentType = req.headers['content-type'];
     
     if (contentType && typeof contentType === 'string') {
-      // List of allowed content types
-      const allowedTypes = [
-        'application/json',
-        'application/x-www-form-urlencoded',
-        'multipart/form-data',
-        'text/plain',
-        'text/csv',
-        'application/pdf',
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
+      // Check for suspicious content types that might indicate attacks
+      const suspiciousTypes = [
+        'text/html',
+        'text/javascript',
+        'application/javascript',
+        'text/vbscript',
       ];
 
-      const isAllowed = allowedTypes.some(type => 
+      const isSuspicious = suspiciousTypes.some(type => 
         contentType.toLowerCase().includes(type.toLowerCase())
       );
 
-      if (!isAllowed && req.method !== 'GET' && req.method !== 'DELETE') {
+      if (isSuspicious && req.method !== 'GET') {
         this.logger.warn('Suspicious Content-Type detected:', {
           contentType,
           method: req.method,
@@ -315,25 +212,16 @@ export class InputSanitizationMiddleware implements NestMiddleware {
   }
 
   /**
-   * Check if string contains only safe characters
-   */
-  private isOnlySafeCharacters(input: string): boolean {
-    // Allow alphanumeric, spaces, and common punctuation
-    const safePattern = /^[a-zA-Z0-9\s\.\,\!\?\-\(\)\[\]\{\}@#$%^&*_+=:;]*$/;
-    return safePattern.test(input);
-  }
-
-  /**
-   * Get sanitization statistics
+   * Get security monitoring statistics
    */
   getStats(): {
-    threatsBlocked: number;
-    requestsProcessed: number;
+    threatsDetected: number;
+    requestsMonitored: number;
   } {
     // In a real implementation, you might track these in Redis or memory
     return {
-      threatsBlocked: 0,
-      requestsProcessed: 0,
+      threatsDetected: 0,
+      requestsMonitored: 0,
     };
   }
 }
