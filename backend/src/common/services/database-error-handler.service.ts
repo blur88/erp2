@@ -64,11 +64,31 @@ export class DatabaseErrorHandler {
   ]);
 
   /**
-   * Handle database errors securely
+   * Handle database errors securely with input validation
    */
   handleDatabaseError(error: QueryFailedError, isProduction = false): DatabaseErrorResponse {
-    const requestId = randomUUID();
-    const errorMessage = error.message.toLowerCase();
+    // Input validation
+    if (!error || typeof error.message !== 'string') {
+      return this.getGenericError(isProduction);
+    }
+
+    // Secure UUID generation with fallback
+    let requestId: string;
+    try {
+      requestId = randomUUID();
+    } catch (cryptoError) {
+      this.logger.warn('Failed to generate UUID, using fallback');
+      requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    // Sanitize and validate error message length
+    const rawMessage = error.message;
+    if (rawMessage.length > 10000) {
+      this.logger.warn(`Extremely long error message detected: ${requestId}`);
+      return this.getGenericError(isProduction, requestId);
+    }
+
+    const errorMessage = rawMessage.toLowerCase();
     
     // Log detailed error internally for debugging (sanitized)
     this.logDatabaseError(error, requestId);
@@ -85,6 +105,20 @@ export class DatabaseErrorHandler {
     return {
       ...errorResponse,
       requestId,
+    };
+  }
+
+  /**
+   * Generate generic error response for invalid inputs or exceptions
+   */
+  private getGenericError(isProduction: boolean, requestId?: string): DatabaseErrorResponse {
+    const fallbackId = requestId || `err_${Date.now()}`;
+    return {
+      code: DatabaseErrorCode.UNKNOWN_ERROR,
+      message: isProduction 
+        ? 'Database operation failed. Please try again or contact support.'
+        : 'An error occurred while processing your request.',
+      requestId: fallbackId,
     };
   }
 
@@ -115,53 +149,106 @@ export class DatabaseErrorHandler {
    * Securely log database errors without exposing sensitive information
    */
   private logDatabaseError(error: QueryFailedError, requestId: string): void {
-    // Create sanitized log entry
-    const sanitizedLog = {
-      requestId,
-      errorType: 'DatabaseError',
-      constraintType: this.getConstraintType(error.message.toLowerCase()),
-      timestamp: new Date().toISOString(),
-      // Only log error code and general type, not the full message
-      errorCode: (error as any).code || 'UNKNOWN',
-      severity: 'ERROR',
-    };
+    try {
+      // Validate inputs
+      if (!error || !requestId) {
+        this.logger.warn('Invalid parameters passed to logDatabaseError');
+        return;
+      }
 
-    this.logger.error(
-      `Database constraint violation: ${JSON.stringify(sanitizedLog)}`,
-    );
+      // Create sanitized log entry
+      const sanitizedLog = {
+        requestId,
+        errorType: 'DatabaseError',
+        constraintType: this.getConstraintType(error.message?.toLowerCase() || ''),
+        timestamp: new Date().toISOString(),
+        // Only log error code and general type, not the full message
+        errorCode: (error as any).code || 'UNKNOWN',
+        severity: 'ERROR',
+        messageLength: error.message?.length || 0,
+        hasSensitiveInfo: this.containsSensitiveInfo(error.message || ''),
+      };
 
-    // In development, log more details but still sanitized
-    if (process.env.NODE_ENV !== 'production') {
-      this.logger.debug(`Full error details for request ${requestId}:`, {
-        message: this.sanitizeErrorMessage(error.message),
-        query: error.query ? '[QUERY_PRESENT]' : '[NO_QUERY]',
-      });
+      this.logger.error(
+        `Database constraint violation: ${JSON.stringify(sanitizedLog)}`,
+      );
+
+      // In development, log more details but still sanitized and limited
+      if (process.env.NODE_ENV !== 'production') {
+        const sanitizedMessage = this.sanitizeErrorMessage(error.message || '');
+        const debugInfo = {
+          message: sanitizedMessage.substring(0, 500), // Limit debug message length
+          query: error.query ? '[QUERY_PRESENT]' : '[NO_QUERY]',
+          queryLength: error.query?.length || 0,
+        };
+        
+        this.logger.debug(`Debug details for request ${requestId}:`, debugInfo);
+      }
+    } catch (loggingError) {
+      // Prevent logging failures from crashing the error handler
+      this.logger.warn(`Failed to log database error for request ${requestId}: ${loggingError.message}`);
     }
   }
 
   /**
-   * Sanitize error messages to prevent information disclosure
+   * Sanitize error messages to prevent information disclosure using ReDoS-safe patterns
    */
   private sanitizeErrorMessage(message: string): string {
-    return message
-      .replace(/table\s+"[\w_]+"/gi, 'table "[TABLE]"')
-      .replace(/column\s+"[\w_]+"/gi, 'column "[COLUMN]"')
-      .replace(/constraint\s+"[\w_]+"/gi, 'constraint "[CONSTRAINT]"')
-      .replace(/Key\s+\([\w_,\s]+\)/gi, 'Key ([FIELDS])')
-      .replace(/=\s*\([^)]+\)/gi, '=([VALUE])');
+    if (!message || typeof message !== 'string') {
+      return '[INVALID_MESSAGE]';
+    }
+
+    // Limit processing to reasonable message length to prevent ReDoS
+    if (message.length > 5000) {
+      return '[MESSAGE_TOO_LONG]';
+    }
+
+    try {
+      // Use simple, non-backtracking regex patterns to prevent ReDoS
+      return message
+        .replace(/table\s+"[a-zA-Z0-9_]{1,64}"/gi, 'table "[TABLE]"')
+        .replace(/column\s+"[a-zA-Z0-9_]{1,64}"/gi, 'column "[COLUMN]"')
+        .replace(/constraint\s+"[a-zA-Z0-9_]{1,64}"/gi, 'constraint "[CONSTRAINT]"')
+        .replace(/Key\s+\([a-zA-Z0-9_,\s]{1,200}\)/gi, 'Key ([FIELDS])')
+        .replace(/=\s*\([^)]{1,100}\)/gi, '=([VALUE])')
+        // Additional sanitization for common database identifiers
+        .replace(/index\s+"[a-zA-Z0-9_]{1,64}"/gi, 'index "[INDEX]"')
+        .replace(/schema\s+"[a-zA-Z0-9_]{1,64}"/gi, 'schema "[SCHEMA]"')
+        .replace(/database\s+"[a-zA-Z0-9_]{1,64}"/gi, 'database "[DATABASE]"');
+    } catch (regexError) {
+      this.logger.warn('Regex processing failed during message sanitization');
+      return '[SANITIZATION_ERROR]';
+    }
   }
 
   /**
-   * Check if error contains sensitive database information
+   * Check if error contains sensitive database information using ReDoS-safe patterns
    */
   containsSensitiveInfo(message: string): boolean {
-    const sensitivePatterns = [
-      /table\s+"[\w_]+"/i,
-      /column\s+"[\w_]+"/i,
-      /constraint\s+"[\w_]+"/i,
-      /Key\s+\([\w_,\s]+\)/i,
-    ];
+    if (!message || typeof message !== 'string') {
+      return false;
+    }
 
-    return sensitivePatterns.some(pattern => pattern.test(message));
+    // Limit processing to reasonable message length
+    if (message.length > 5000) {
+      return true; // Assume sensitive if unusually long
+    }
+
+    try {
+      // Use simple, bounded regex patterns to prevent ReDoS
+      const sensitivePatterns = [
+        /table\s+"[a-zA-Z0-9_]{1,64}"/i,
+        /column\s+"[a-zA-Z0-9_]{1,64}"/i,
+        /constraint\s+"[a-zA-Z0-9_]{1,64}"/i,
+        /Key\s+\([a-zA-Z0-9_,\s]{1,200}\)/i,
+        /index\s+"[a-zA-Z0-9_]{1,64}"/i,
+        /schema\s+"[a-zA-Z0-9_]{1,64}"/i,
+      ];
+
+      return sensitivePatterns.some(pattern => pattern.test(message));
+    } catch (regexError) {
+      this.logger.warn('Regex processing failed during sensitive info check');
+      return true; // Assume sensitive on error to be safe
+    }
   }
 }
