@@ -16,6 +16,8 @@ import {
   MaxLength,
   IsInt,
   Min,
+  IsUrl,
+  Matches,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Product } from './product.entity';
@@ -51,6 +53,7 @@ export class Category extends BaseEntity {
   @IsOptional()
   @IsString()
   @MaxLength(255)
+  @IsUrl({}, { message: 'Invalid URL format for image' })
   imageUrl?: string;
 
   @Column({
@@ -78,6 +81,7 @@ export class Category extends BaseEntity {
   })
   @IsOptional()
   @IsString()
+  @Matches(/^[a-f0-9\-\.]*$/, { message: 'Path must contain only UUID characters, hyphens, and dots' })
   path?: string;
 
   @Column({
@@ -116,35 +120,74 @@ export class Category extends BaseEntity {
   products: Product[];
 
   // Computed properties
+  /**
+   * Check if this category is a root level category
+   */
   get isRoot(): boolean {
     return this.level === 0;
   }
 
+  /**
+   * Check if this category has child categories
+   */
   get hasChildren(): boolean {
     return this.children && this.children.length > 0;
   }
 
+  /**
+   * Get human-readable full path of the category hierarchy
+   * @returns Formatted path string (e.g., "Electronics > Mobile Phones")
+   */
   get fullPath(): string {
-    if (this.path) {
-      return this.path
+    if (this.path && typeof this.path === 'string') {
+      const sanitizedPath = this.sanitizePath(this.path);
+      return sanitizedPath
         .split('.')
         .filter(Boolean)
         .join(' > ');
     }
-    return this.name;
+    return this.name || 'Unnamed Category';
   }
 
   // Helper methods
+  /**
+   * Get array of ancestor category IDs from the materialized path
+   * @returns Array of UUID strings representing ancestor categories
+   */
   getAncestors(): string[] {
-    if (!this.path) return [];
-    return this.path.split('.').filter(Boolean);
+    if (!this.path || typeof this.path !== 'string') return [];
+    const sanitizedPath = this.sanitizePath(this.path);
+    return sanitizedPath.split('.').filter(Boolean);
   }
 
+  /**
+   * Check if this category is a descendant of another category
+   * @param categoryId UUID of the potential ancestor category
+   * @returns True if this category is a descendant of the given category
+   */
   isDescendantOf(categoryId: string): boolean {
+    if (!categoryId || typeof categoryId !== 'string') return false;
     return this.getAncestors().includes(categoryId);
   }
 
+  /**
+   * Check if this category is an ancestor of another category
+   * @param category The potential descendant category
+   * @returns True if this category is an ancestor of the given category
+   */
   isAncestorOf(category: Category): boolean {
+    if (!category || !category.id) return false;
     return category.isDescendantOf(this.id);
+  }
+
+  /**
+   * Sanitize path string to prevent path traversal attacks
+   * @param path Raw path string
+   * @returns Sanitized path string containing only valid UUID characters, hyphens, and dots
+   */
+  private sanitizePath(path: string): string {
+    if (!path || typeof path !== 'string') return '';
+    // Allow only UUID characters (a-f, 0-9), hyphens, and dots
+    return path.replace(/[^a-f0-9\-\.]/gi, '');
   }
 }
