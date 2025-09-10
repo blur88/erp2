@@ -246,7 +246,7 @@ export class SalesOrder extends BaseEntity {
   // Relationships
   @ManyToOne(() => Customer, (customer) => customer.salesOrders, {
     onDelete: 'RESTRICT',
-    eager: true,
+    eager: false,
   })
   @JoinColumn({ name: 'customerId' })
   customer: Customer;

@@ -149,52 +149,86 @@ export class SalesOrderService {
       limit = 20,
     } = query;
 
-    const where: FindOptionsWhere<SalesOrder> = {};
+    // Use QueryBuilder to avoid metadata issues
+    let queryBuilder = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.deletedAt IS NULL'); // Only get non-deleted orders
 
-    if (customerId) where.customerId = customerId;
-    if (status) where.status = status;
-    if (priority) where.priority = priority;
+    if (customerId) {
+      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
+    }
+    
+    if (status) {
+      queryBuilder = queryBuilder.andWhere('order.status = :status', { status });
+    }
+    
+    if (priority) {
+      queryBuilder = queryBuilder.andWhere('order.priority = :priority', { priority });
+    }
     
     if (fromDate) {
-      where.orderDate = MoreThanOrEqual(new Date(fromDate));
+      queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
+    }
+    
+    if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      queryBuilder = queryBuilder.andWhere('order.orderDate <= :toDate', { toDate: endDate });
+    }
+    
+    if (search) {
+      queryBuilder = queryBuilder.andWhere('order.orderNumber ILIKE :search', { search: `%${search}%` });
+    }
+
+    queryBuilder = queryBuilder
+      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    // Get count first
+    const countQuery = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.deletedAt IS NULL')
+      .select('COUNT(order.id)', 'count');
+    
+    if (customerId) {
+      countQuery.andWhere('order.customerId = :customerId', { customerId });
+    }
+    if (status) {
+      countQuery.andWhere('order.status = :status', { status });
+    }
+    if (priority) {
+      countQuery.andWhere('order.priority = :priority', { priority });
+    }
+    if (fromDate) {
+      countQuery.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
     }
     if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      where.orderDate = LessThanOrEqual(endDate);
+      countQuery.andWhere('order.orderDate <= :toDate', { toDate: endDate });
     }
-    if (fromDate && toDate) {
-      where.orderDate = {
-        ...MoreThanOrEqual(new Date(fromDate)),
-        ...LessThanOrEqual(new Date(toDate)),
-      } as any;
-    }
-
-    const searchConditions = [];
     if (search) {
-      searchConditions.push(
-        { orderNumber: ILike(`%${search}%`) },
-      );
+      countQuery.andWhere('order.orderNumber ILIKE :search', { search: `%${search}%` });
     }
-
-    const findOptions: FindManyOptions<SalesOrder> = {
-      where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
-      relations: ['customer', 'createdByUser', 'items'],
-      order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
-    };
-
-    let [orders, total] = await this.salesOrderRepository.findAndCount(findOptions);
-
-    // Filter overdue orders if requested
-    if (overdue !== undefined) {
-      orders = orders.filter(order => order.isOverdue === overdue);
-      total = orders.length;
-    }
+    
+    const { count } = await countQuery.getRawOne();
+    const total = parseInt(count);
+    
+    // Get orders
+    const orders = await queryBuilder.getMany();
 
     return {
-      data: orders.map(order => this.mapToResponseDto(order)),
+      data: orders.map(order => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        orderDate: order.orderDate,
+        totalAmount: Number(order.totalAmount),
+        customerId: order.customerId,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      })),
       total,
       page,
       limit,
