@@ -11,12 +11,9 @@ import { Repository } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
-import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
-import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { StockMovementService } from './stock-movement.service';
 import { ProductService } from './product.service';
 import { PricingService } from './pricing.service';
-import { AuditService } from './audit.service';
 
 export interface SalesOrderIntegration {
   orderId: string;
@@ -29,16 +26,7 @@ export interface SalesOrderIntegration {
   reserveStock?: boolean;
 }
 
-export interface PurchaseOrderIntegration {
-  orderId: string;
-  supplierId?: string;
-  items: Array<{
-    productId: string;
-    quantity: number;
-    unitCost: number;
-  }>;
-  updateCost?: boolean;
-}
+// PurchaseOrderIntegration interface removed - purchasing module disabled
 
 export interface StockReservationResult {
   success: boolean;
@@ -77,14 +65,11 @@ export class IntegrationService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(PurchaseOrder)
-    private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
     private readonly pricingService: PricingService,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -150,21 +135,7 @@ export class IntegrationService {
       );
     }
 
-    // Log integration event
-    await this.auditService.logStockEvent(
-      null,
-      'STOCK_RESERVED',
-      `Stock processed for sales order ${salesOrderData.orderId}`,
-      userId,
-      {
-        orderId: salesOrderData.orderId,
-        itemCount: salesOrderData.items.length,
-        totalValue,
-        reservationSuccess: stockReservation.success,
-        reservedItemsCount: stockReservation.reservedItems.length,
-        failedItemsCount: stockReservation.failedItems.length,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Sales order processed: ${salesOrderData.orderId}, Total: ${totalValue}`);
 
@@ -207,161 +178,9 @@ export class IntegrationService {
     // Release any remaining reservations for this order
     await this.releaseOrderReservations(orderId, userId);
 
-    // Log fulfillment event
-    await this.auditService.logStockEvent(
-      null,
-      'STOCK_MOVEMENT_CREATED',
-      `Sales order fulfilled: ${orderNumber}`,
-      userId,
-      {
-        orderId,
-        orderNumber,
-        itemCount: items.length,
-        totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Sales order fulfilled successfully: ${orderId}`);
-  }
-
-  /**
-   * Process purchase order - update product costs if requested
-   */
-  async processPurchaseOrder(
-    purchaseOrderData: PurchaseOrderIntegration,
-    userId?: string,
-  ): Promise<{
-    costUpdates: Array<{
-      productId: string;
-      oldCost: number;
-      newCost: number;
-      updated: boolean;
-    }>;
-    totalValue: number;
-  }> {
-    this.logger.log(`Processing purchase order: ${purchaseOrderData.orderId}`);
-
-    const costUpdates: Array<{
-      productId: string;
-      oldCost: number;
-      newCost: number;
-      updated: boolean;
-    }> = [];
-
-    let totalValue = 0;
-
-    // Update product costs if requested
-    if (purchaseOrderData.updateCost) {
-      for (const item of purchaseOrderData.items) {
-        const product = await this.productRepository.findOne({
-          where: { id: item.productId },
-        });
-
-        if (product) {
-          const oldCost = Number(product.baseCost);
-          const updated = oldCost !== item.unitCost;
-
-          costUpdates.push({
-            productId: item.productId,
-            oldCost,
-            newCost: item.unitCost,
-            updated,
-          });
-
-          if (updated) {
-            await this.productRepository.update(item.productId, {
-              baseCost: item.unitCost,
-            });
-
-            // Log cost update
-            await this.auditService.logProductEvent(
-              item.productId,
-              'PRODUCT_UPDATED',
-              `Base cost updated via purchase order ${purchaseOrderData.orderId}`,
-              userId,
-              {
-                oldCost,
-                newCost: item.unitCost,
-                source: 'purchase_order',
-                orderId: purchaseOrderData.orderId,
-              },
-            );
-          }
-        }
-
-        totalValue += item.unitCost * item.quantity;
-      }
-    } else {
-      // Just calculate total value without updating costs
-      totalValue = purchaseOrderData.items.reduce(
-        (sum, item) => sum + item.unitCost * item.quantity,
-        0,
-      );
-    }
-
-    // Log integration event
-    await this.auditService.logStockEvent(
-      null,
-      'STOCK_ADJUSTMENT_CREATED',
-      `Purchase order processed: ${purchaseOrderData.orderId}`,
-      userId,
-      {
-        orderId: purchaseOrderData.orderId,
-        itemCount: purchaseOrderData.items.length,
-        totalValue,
-        costUpdatesCount: costUpdates.filter(u => u.updated).length,
-      },
-    );
-
-    this.logger.log(`Purchase order processed: ${purchaseOrderData.orderId}, Total: ${totalValue}`);
-
-    return { costUpdates, totalValue };
-  }
-
-  /**
-   * Receive purchase order - create stock movements for received items
-   */
-  async receivePurchaseOrder(
-    orderId: string,
-    orderNumber: string,
-    items: Array<{
-      productId: string;
-      quantity: number;
-      unitCost: number;
-    }>,
-    userId?: string,
-  ): Promise<void> {
-    this.logger.log(`Receiving purchase order: ${orderId}`);
-
-    // Create stock movements for each received item
-    const movementPromises = items.map(item =>
-      this.stockMovementService.recordPurchaseReceipt(
-        item.productId,
-        item.quantity,
-        item.unitCost,
-        orderId,
-        orderNumber,
-        userId,
-      ),
-    );
-
-    await Promise.all(movementPromises);
-
-    // Log receipt event
-    await this.auditService.logStockEvent(
-      null,
-      'STOCK_MOVEMENT_CREATED',
-      `Purchase order received: ${orderNumber}`,
-      userId,
-      {
-        orderId,
-        orderNumber,
-        itemCount: items.length,
-        totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
-      },
-    );
-
-    this.logger.log(`Purchase order received successfully: ${orderId}`);
   }
 
   /**
@@ -388,7 +207,7 @@ export class IntegrationService {
 
       availabilityChecks.push({
         productId: product.id,
-        sku: product.sku,
+        sku: product.barcode,
         name: product.name,
         requestedQuantity: item.quantity,
         availableQuantity,
@@ -504,14 +323,7 @@ export class IntegrationService {
     // For now, this is a placeholder for the logic
     this.logger.log(`Released reservations for order: ${orderId}`);
     
-    // Log release event
-    await this.auditService.logStockEvent(
-      null,
-      'STOCK_RELEASED',
-      `Stock reservations released for order: ${orderId}`,
-      userId,
-      { orderId },
-    );
+    // Audit logging removed with authentication system
   }
 
   /**
@@ -555,7 +367,7 @@ export class IntegrationService {
 
       reorderRecommendations.push({
         productId: product.id,
-        sku: product.sku,
+        sku: product.barcode,
         name: product.name,
         currentStock: Number(product.stockQuantity),
         reorderLevel: Number(product.reorderLevel),
@@ -620,20 +432,7 @@ export class IntegrationService {
         specialPrice: newPricing.special,
       });
 
-      // Log pricing update
-      await this.auditService.logProductEvent(
-        productId,
-        'PRODUCT_PRICE_UPDATED',
-        'Pricing updated to maintain margins after cost change',
-        userId,
-        {
-          oldCost: Number(product.baseCost),
-          newCost: newBaseCost,
-          oldPricing,
-          newPricing,
-          maintainMargins: true,
-        },
-      );
+      // Audit logging removed with authentication system
     }
 
     return { oldPricing, newPricing };

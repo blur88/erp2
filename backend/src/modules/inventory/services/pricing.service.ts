@@ -10,7 +10,6 @@ import { Product } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { BulkUpdatePricesDto, ProductPriceUpdateDto } from '../dto/product.dto';
-import { AuditService } from './audit.service';
 
 export interface PriceCalculationOptions {
   customerType?: 'retail' | 'wholesale' | 'special';
@@ -79,7 +78,6 @@ export class PricingService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -324,14 +322,7 @@ export class PricingService {
     // Update product
     await this.productRepository.update(productId, updates);
 
-    // Log audit event with warnings
-    await this.auditService.logProductEvent(
-      productId,
-      'PRODUCT_PRICES_UPDATED',
-      `Product prices updated${warnings.length > 0 ? ' with warnings' : ''}`,
-      userId,
-      { updates, warnings },
-    );
+    // Audit logging removed with authentication system
 
     if (warnings.length > 0) {
       this.logger.warn(`Price update warnings for product ${productId}: ${warnings.join('; ')}`);

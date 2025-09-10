@@ -13,7 +13,7 @@ export { StockMovementService } from './services/stock-movement.service';
 export { StockAdjustmentService } from './services/stock-adjustment.service';
 export { PricingService } from './services/pricing.service';
 export { IntegrationService } from './services/integration.service';
-export { AuditService } from './services/audit.service';
+// AuditService removed with authentication system
 
 // DTOs
 export * from './dto';

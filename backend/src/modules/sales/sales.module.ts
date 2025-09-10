@@ -10,7 +10,6 @@ import { Payment } from '../../database/entities/payment.entity';
 import { Product } from '../../database/entities/product.entity';
 import { User } from '../../database/entities/user.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
-import { AuditLog } from '../../common/audit/audit-log.entity';
 
 // Controllers
 import {
@@ -34,7 +33,6 @@ import {
   InventoryIntegrationService,
   SalesAnalyticsService,
 } from './services';
-import { SalesAuditService } from './services/sales-audit.service';
 
 // External services (from other modules)
 // import { EmailService } from '../auth/services/email.service'; // Temporarily disabled
@@ -53,7 +51,6 @@ import { SalesAuditService } from './services/sales-audit.service';
       Product,
       User,
       StockMovement,
-      AuditLog,
     ]),
   ],
   controllers: [
@@ -75,7 +72,6 @@ import { SalesAuditService } from './services/sales-audit.service';
     CreditManagementService,
     InventoryIntegrationService,
     SalesAnalyticsService,
-    SalesAuditService,
     
     // External services
     // EmailService, // Temporarily disabled
@@ -90,7 +86,6 @@ import { SalesAuditService } from './services/sales-audit.service';
     CreditManagementService,
     InventoryIntegrationService,
     SalesAnalyticsService,
-    SalesAuditService,
   ],
 })
 export class SalesModule {}

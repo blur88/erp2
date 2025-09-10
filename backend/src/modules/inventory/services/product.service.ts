@@ -29,7 +29,6 @@ import {
 } from '../dto/product.dto';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
-import { AuditService } from './audit.service';
 
 @Injectable()
 export class ProductService {
@@ -44,7 +43,6 @@ export class ProductService {
     private readonly categoryService: CategoryService,
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -138,23 +136,7 @@ export class ProductService {
       }
     }
 
-    // Log audit event (temporarily disabled for system users)
-    if (userId) {
-      try {
-        await this.auditService.logProductEvent(
-          savedProduct.id,
-          'PRODUCT_CREATED',
-          `Product ${savedProduct.name} (${savedProduct.barcode}) created`,
-          userId,
-          {
-            initialStock: createProductDto.currentStock || 0,
-            category: category.name,
-          },
-        );
-      } catch (error) {
-        this.logger.warn(`Failed to log audit event: ${error.message}`);
-      }
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
     return this.toResponseDto(savedProduct);
@@ -567,13 +549,7 @@ export class ProductService {
         // Restore the product
         await this.productRepository.restore(id);
 
-        // Log audit event
-        await this.auditService.logProductEvent(
-          product.id,
-          'PRODUCT_RESTORED',
-          `Product ${product.name} (${product.barcode}) restored from soft-delete (bulk operation)`,
-          userId,
-        );
+        // Audit logging removed with authentication system
 
         restoredCount++;
         this.logger.log(`Product restored: ${id}`);
@@ -631,13 +607,7 @@ export class ProductService {
     // Hard delete the product from database
     await this.productRepository.delete(id);
 
-    // Log audit event
-    await this.auditService.logProductEvent(
-      product.id,
-      'PRODUCT_PERMANENTLY_DELETED',
-      `Product ${product.name} (${product.barcode}) permanently deleted from database`,
-      userId,
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product permanently deleted: ${id}`);
   }
@@ -700,13 +670,7 @@ export class ProductService {
         // Hard delete the product from database
         await this.productRepository.delete(id);
 
-        // Log audit event
-        await this.auditService.logProductEvent(
-          product.id,
-          'PRODUCT_PERMANENTLY_DELETED',
-          `Product ${product.name} (${product.barcode}) permanently deleted from database (bulk operation)`,
-          userId,
-        );
+        // Audit logging removed with authentication system
 
         deletedCount++;
         this.logger.log(`Product permanently deleted: ${id}`);
@@ -854,16 +818,7 @@ export class ProductService {
     console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
     console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
-    // Log audit event
-    if (Object.keys(changes).length > 0) {
-      await this.auditService.logProductEvent(
-        updatedProduct.id,
-        'PRODUCT_UPDATED',
-        `Product ${updatedProduct.name} (${updatedProduct.barcode}) updated`,
-        userId,
-        { changes },
-      );
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
     return this.toResponseDto(productWithCategory!);
@@ -894,13 +849,7 @@ export class ProductService {
     // Use TypeORM soft delete (sets deletedAt timestamp)
     await this.productRepository.softDelete(id);
 
-    // Log audit event
-    await this.auditService.logProductEvent(
-      product.id,
-      'PRODUCT_DELETED',
-      `Product ${product.name} (${product.barcode}) soft deleted`,
-      userId,
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product soft-deleted successfully: ${id}`);
   }
@@ -921,7 +870,7 @@ export class ProductService {
     }
 
     const updates: Promise<UpdateResult>[] = [];
-    const auditPromises: Promise<void>[] = [];
+    // Audit promises removed with authentication system
 
     for (const priceUpdate of bulkUpdateDto.products) {
       const product = products.find(p => p.id === priceUpdate.productId)!;
@@ -958,20 +907,11 @@ export class ProductService {
           this.productRepository.update(priceUpdate.productId, updateData)
         );
 
-        // Log audit event
-        auditPromises.push(
-          this.auditService.logProductEvent(
-            priceUpdate.productId,
-            'PRODUCT_PRICE_UPDATED',
-            `Bulk price update for ${product.name} (${product.barcode})`,
-            userId,
-            { priceChanges },
-          ),
-        );
+        // Audit logging removed with authentication system
       }
     }
 
-    await Promise.all([...updates, ...auditPromises]);
+    await Promise.all(updates);
 
     this.logger.log(`Bulk price update completed for ${updates.length} products`);
   }
@@ -1064,14 +1004,7 @@ export class ProductService {
     
     if (success) {
       await this.productRepository.save(product);
-      
-      await this.auditService.logProductEvent(
-        productId,
-        'STOCK_RESERVED',
-        `Reserved ${quantity} units: ${reason}`,
-        userId,
-        { quantity, availableAfter: product.availableQuantity },
-      );
+    // Audit logging removed with authentication system
     }
 
     return success;
@@ -1090,13 +1023,7 @@ export class ProductService {
     product.releaseReservedStock(quantity);
     await this.productRepository.save(product);
 
-    await this.auditService.logProductEvent(
-      productId,
-      'STOCK_RELEASED',
-      `Released ${quantity} reserved units: ${reason}`,
-      userId,
-      { quantity, availableAfter: product.availableQuantity },
-    );
+    // Audit logging removed with authentication system
   }
 
   /**

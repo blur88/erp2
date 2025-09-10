@@ -10,9 +10,6 @@ import { Customer } from '../../database/entities/customer.entity';
 import { User } from '../../database/entities/user.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
-import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
-import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
-import { AuditLog } from '../../common/audit/audit-log.entity';
 
 // Controllers
 import { ProductController } from './controllers/product.controller';
@@ -26,7 +23,6 @@ import { StockMovementService } from './services/stock-movement.service';
 import { StockAdjustmentService } from './services/stock-adjustment.service';
 import { PricingService } from './services/pricing.service';
 import { IntegrationService } from './services/integration.service';
-import { AuditService } from './services/audit.service';
 
 // Other modules
 import { UsersModule } from '../users/users.module';
@@ -44,10 +40,6 @@ import { UsersModule } from '../users/users.module';
       User,
       SalesOrder,
       SalesOrderItem,
-      PurchaseOrder,
-      PurchaseOrderItem,
-      // Audit entity
-      AuditLog,
     ]),
     // Import users module for user-related operations
     forwardRef(() => UsersModule),
@@ -65,7 +57,6 @@ import { UsersModule } from '../users/users.module';
     StockAdjustmentService,
     PricingService,
     IntegrationService,
-    AuditService,
   ],
   exports: [
     // Export services for use by other modules
@@ -75,7 +66,6 @@ import { UsersModule } from '../users/users.module';
     StockAdjustmentService,
     PricingService,
     IntegrationService,
-    AuditService,
     // Export TypeORM repositories for direct access if needed
     TypeOrmModule,
   ],

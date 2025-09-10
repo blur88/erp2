@@ -30,7 +30,6 @@ import {
   LowStockAlertDto,
 } from '../dto/stock.dto';
 import { ProductService } from './product.service';
-import { AuditService } from './audit.service';
 
 @Injectable()
 export class StockMovementService {
@@ -45,7 +44,6 @@ export class StockMovementService {
     private readonly userRepository: Repository<User>,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -110,20 +108,7 @@ export class StockMovementService {
       userId,
     );
 
-    // Log audit event
-    await this.auditService.logStockEvent(
-      product.id,
-      'STOCK_MOVEMENT_CREATED',
-      `Stock movement: ${savedMovement.getDescription()}`,
-      userId,
-      {
-        movementId: savedMovement.id,
-        movementType: savedMovement.movementType,
-        quantity: savedMovement.quantity,
-        previousBalance,
-        newBalance,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Stock movement created successfully: ${savedMovement.id}`);
     return this.toResponseDto(savedMovement);
@@ -215,7 +200,7 @@ export class StockMovementService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.sku ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search),',
         { search: `%${search}%` },
       );
     }
@@ -301,18 +286,7 @@ export class StockMovementService {
       userId,
     );
 
-    // Log audit event
-    await this.auditService.logStockEvent(
-      movement.product.id,
-      'STOCK_MOVEMENT_REVERSED',
-      `Stock movement reversed: ${reason}`,
-      userId,
-      {
-        originalMovementId: movement.id,
-        reversalMovementId: savedReversal.id,
-        quantity: reversalMovement.quantity,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Stock movement reversed successfully: ${savedReversal.id}`);
     return this.toResponseDto(savedReversal);
@@ -445,20 +419,7 @@ export class StockMovementService {
 
     const inMovement = await this.create(inMovementDto, userId);
 
-    // Log audit event
-    await this.auditService.logStockEvent(
-      transferDto.productId,
-      'STOCK_TRANSFERRED',
-      `Stock transferred from ${transferDto.fromLocationCode} to ${transferDto.toLocationCode}`,
-      userId,
-      {
-        quantity: transferDto.quantity,
-        fromLocation: transferDto.fromLocationCode,
-        toLocation: transferDto.toLocationCode,
-        outMovementId: outMovement.id,
-        inMovementId: inMovement.id,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(
       `Stock transfer completed: ${outMovement.id} -> ${inMovement.id}`,
@@ -531,7 +492,7 @@ export class StockMovementService {
 
     return {
       productId: product.id,
-      sku: product.sku,
+      sku: product.barcode,
       name: product.name,
       stockQuantity: Number(product.stockQuantity),
       reservedQuantity: Number(product.reservedQuantity),
@@ -663,7 +624,7 @@ export class StockMovementService {
       notes: movement.notes,
       product: {
         id: movement.product.id,
-        sku: movement.product.sku,
+        sku: movement.product.barcode,
         name: movement.product.name,
         unit: movement.product.unit,
       },

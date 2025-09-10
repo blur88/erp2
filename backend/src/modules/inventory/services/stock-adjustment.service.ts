@@ -32,7 +32,6 @@ import {
 } from '../dto/stock.dto';
 import { StockMovementService } from './stock-movement.service';
 import { ProductService } from './product.service';
-import { AuditService } from './audit.service';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 
 @Injectable()
@@ -50,7 +49,6 @@ export class StockAdjustmentService {
     private readonly stockMovementService: StockMovementService,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -104,19 +102,7 @@ export class StockAdjustmentService {
       await this.processAdjustment(savedAdjustment.id, userId);
     }
 
-    // Log audit event
-    await this.auditService.logStockEvent(
-      product.id,
-      'STOCK_ADJUSTMENT_CREATED',
-      `Stock adjustment created: ${savedAdjustment.type}`,
-      userId,
-      {
-        adjustmentId: savedAdjustment.id,
-        adjustmentNumber: savedAdjustment.adjustmentNumber,
-        adjustmentQuantity: savedAdjustment.adjustmentQuantity,
-        requiresApproval: savedAdjustment.requiresApproval(),
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Stock adjustment created successfully: ${savedAdjustment.id}`);
     return this.toResponseDto(savedAdjustment);
@@ -208,7 +194,7 @@ export class StockAdjustmentService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(adjustment.adjustmentNumber ILIKE :search OR product.name ILIKE :search OR product.sku ILIKE :search OR adjustment.reason ILIKE :search)',
+        '(adjustment.adjustmentNumber ILIKE :search OR product.name ILIKE :search OR product.barcode ILIKE :search OR adjustment.reason ILIKE :search),',
         { search: `%${search}%` },
       );
     }
@@ -321,16 +307,7 @@ export class StockAdjustmentService {
       await this.processAdjustment(updatedAdjustment.id, userId);
     }
 
-    // Log audit event
-    if (Object.keys(changes).length > 0) {
-      await this.auditService.logStockEvent(
-        adjustment.product.id,
-        'STOCK_ADJUSTMENT_UPDATED',
-        `Stock adjustment ${adjustment.adjustmentNumber} updated`,
-        userId,
-        { adjustmentId: adjustment.id, changes },
-      );
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Stock adjustment updated successfully: ${updatedAdjustment.id}`);
     return this.toResponseDto(updatedAdjustment);
@@ -374,18 +351,7 @@ export class StockAdjustmentService {
     // Process the adjustment (create stock movement and update product)
     await this.processAdjustment(approvedAdjustment.id, userId);
 
-    // Log audit event
-    await this.auditService.logStockEvent(
-      adjustment.product.id,
-      'STOCK_ADJUSTMENT_APPROVED',
-      `Stock adjustment ${adjustment.adjustmentNumber} approved`,
-      userId,
-      {
-        adjustmentId: adjustment.id,
-        approvalNotes: actionDto.notes,
-        forceApproval: actionDto.forceApproval,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Stock adjustment approved successfully: ${approvedAdjustment.id}`);
     return this.toResponseDto(approvedAdjustment);
@@ -422,17 +388,7 @@ export class StockAdjustmentService {
     adjustment.reject(userId, actionDto.notes);
     const rejectedAdjustment = await this.stockAdjustmentRepository.save(adjustment);
 
-    // Log audit event
-    await this.auditService.logStockEvent(
-      adjustment.product.id,
-      'STOCK_ADJUSTMENT_REJECTED',
-      `Stock adjustment ${adjustment.adjustmentNumber} rejected`,
-      userId,
-      {
-        adjustmentId: adjustment.id,
-        rejectionReason: actionDto.notes,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Stock adjustment rejected successfully: ${rejectedAdjustment.id}`);
     return this.toResponseDto(rejectedAdjustment);
@@ -470,17 +426,7 @@ export class StockAdjustmentService {
     adjustment.cancel(reason);
     const cancelledAdjustment = await this.stockAdjustmentRepository.save(adjustment);
 
-    // Log audit event
-    await this.auditService.logStockEvent(
-      adjustment.product.id,
-      'STOCK_ADJUSTMENT_CANCELLED',
-      `Stock adjustment ${adjustment.adjustmentNumber} cancelled`,
-      userId,
-      {
-        adjustmentId: adjustment.id,
-        cancellationReason: reason,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Stock adjustment cancelled successfully: ${cancelledAdjustment.id}`);
     return this.toResponseDto(cancelledAdjustment);
@@ -514,18 +460,7 @@ export class StockAdjustmentService {
       }
     }
 
-    // Log bulk audit event
-    await this.auditService.logStockEvent(
-      null, // No specific product for bulk operation
-      'STOCK_ADJUSTMENT_BULK_CREATED',
-      `Bulk stock adjustment created with ${results.length} items`,
-      userId,
-      {
-        totalAdjustments: bulkAdjustmentDto.adjustments.length,
-        successfulAdjustments: results.length,
-        globalReason: bulkAdjustmentDto.globalReason,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Bulk stock adjustments completed: ${results.length} created`);
     return results;
@@ -613,7 +548,7 @@ export class StockAdjustmentService {
       attachments: adjustment.attachments,
       product: {
         id: adjustment.product.id,
-        sku: adjustment.product.sku,
+        sku: adjustment.product.barcode,
         name: adjustment.product.name,
         unit: adjustment.product.unit,
       },

@@ -30,7 +30,6 @@ import {
   CategoryStatsDto,
   CategoryAncestorsDto,
 } from '../dto/category.dto';
-import { AuditService } from './audit.service';
 
 @Injectable()
 export class CategoryService {
@@ -41,7 +40,6 @@ export class CategoryService {
     private readonly categoryRepository: Repository<Category>, // Changed from TreeRepository to Repository
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -81,21 +79,7 @@ export class CategoryService {
 
     const savedCategory = await this.categoryRepository.save(category);
 
-    // Log audit event (temporarily disabled due to audit schema mismatch)
-    try {
-      await this.auditService.logCategoryEvent(
-        savedCategory.id,
-        'CATEGORY_CREATED',
-        `Category ${savedCategory.name} created`,
-        userId,
-        {
-          parentId: parent?.id,
-          level: savedCategory.level,
-        },
-      );
-    } catch (error) {
-      this.logger.warn(`Failed to log audit event: ${error.message}`);
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category created successfully with ID: ${savedCategory.id}`);
     return this.toResponseDto(savedCategory);
@@ -341,8 +325,8 @@ export class CategoryService {
     
     return {
       id: category.id,
-      ancestors: ancestors.map(ancestor => this.toResponseDto(ancestor)),
-      category: this.toResponseDto(category),
+      ancestors: await Promise.all(ancestors.map(ancestor => this.toResponseDto(ancestor))),
+      category: await this.toResponseDto(category),
       breadcrumbs: [...ancestors.map(a => a.name), category.name],
     };
   }
@@ -436,16 +420,7 @@ export class CategoryService {
       this.logger.log(`Finished updating descendant paths for category ${updatedCategory.name}`);
     }
 
-    // Log audit event
-    if (Object.keys(changes).length > 0) {
-      await this.auditService.logCategoryEvent(
-        updatedCategory.id,
-        'CATEGORY_UPDATED',
-        `Category ${updatedCategory.name} updated`,
-        userId,
-        { changes },
-      );
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category updated successfully: ${updatedCategory.id}`);
     return this.toResponseDto(updatedCategory);
@@ -498,18 +473,7 @@ export class CategoryService {
     // Update levels and paths for all descendants
     await this.updateDescendantLevelsAndPaths(movedCategory);
 
-    // Log audit event
-    await this.auditService.logCategoryEvent(
-      movedCategory.id,
-      'CATEGORY_MOVED',
-      `Category ${movedCategory.name} moved to new parent`,
-      userId,
-      {
-        oldParentId: category.parentId,
-        newParentId: moveCategoryDto.newParentId,
-        newLevel: movedCategory.level,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category moved successfully: ${movedCategory.id}`);
     return this.toResponseDto(movedCategory);
@@ -618,13 +582,7 @@ export class CategoryService {
     await this.categoryRepository.save(category);
     await this.categoryRepository.softDelete(id);
 
-    // Log audit event
-    await this.auditService.logCategoryEvent(
-      id,
-      'CATEGORY_DELETED',
-      `Category ${category.name} deleted, ${category.products?.length || 0} products uncategorized`,
-      userId,
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category deleted successfully: ${id}`);
   }
@@ -656,13 +614,7 @@ export class CategoryService {
 
     const restoredCategory = await this.categoryRepository.save(category);
 
-    // Log audit event
-    await this.auditService.logCategoryEvent(
-      restoredCategory.id,
-      'CATEGORY_RESTORED',
-      `Category ${restoredCategory.name} restored`,
-      userId,
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category restored successfully: ${restoredCategory.id}`);
     return this.toResponseDto(restoredCategory);
@@ -708,17 +660,7 @@ export class CategoryService {
     // Perform the permanent deletion
     await this.categoryRepository.remove(category);
 
-    // Log the audit event
-    try {
-      await this.auditService.logCategoryEvent(
-        id,
-        'CATEGORY_PERMANENTLY_DELETED',
-        `Category ${category.name} permanently deleted from database`,
-        userId,
-      );
-    } catch (error) {
-      this.logger.warn(`Failed to log audit event: ${error.message}`);
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category permanently deleted successfully: ${id}`);
   }
@@ -759,17 +701,7 @@ export class CategoryService {
 
         await this.categoryRepository.save(category);
 
-        // Log audit event
-        try {
-          await this.auditService.logCategoryEvent(
-            category.id,
-            'CATEGORY_RESTORED',
-            `Category ${category.name} bulk restored`,
-            null,
-          );
-        } catch (error) {
-          this.logger.warn(`Failed to log audit event: ${error.message}`);
-        }
+        // Audit logging removed with authentication system
 
         restoredCount++;
         this.logger.log(`Category restored: ${categoryId}`);
@@ -829,17 +761,7 @@ export class CategoryService {
         // Perform the permanent deletion
         await this.categoryRepository.remove(category);
 
-        // Log audit event
-        try {
-          await this.auditService.logCategoryEvent(
-            categoryId,
-            'CATEGORY_PERMANENTLY_DELETED',
-            `Category ${category.name} bulk permanently deleted`,
-            null,
-          );
-        } catch (error) {
-          this.logger.warn(`Failed to log audit event: ${error.message}`);
-        }
+        // Audit logging removed with authentication system
 
         deletedCount++;
         this.logger.log(`Category permanently deleted: ${categoryId}`);
@@ -890,16 +812,7 @@ export class CategoryService {
       
       const updatedCategory = await this.categoryRepository.save(category);
 
-      // Log audit event
-      if (Object.keys(changes).length > 0) {
-        await this.auditService.logCategoryEvent(
-          updatedCategory.id,
-          'CATEGORY_BULK_UPDATED',
-          `Category ${updatedCategory.name} bulk updated`,
-          userId,
-          { changes },
-        );
-      }
+      // Audit logging removed with authentication system
 
       return updatedCategory;
     });
