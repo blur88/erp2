@@ -5,10 +5,13 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  Injectable,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 import { randomUUID } from 'crypto';
+import { DatabaseErrorHandler } from '@common/services/database-error-handler.service';
 
 /**
  * Interface for HTTP exception response objects
@@ -20,21 +23,44 @@ interface HttpExceptionResponse {
 }
 
 /**
+ * Interface for standardized error response
+ */
+interface StandardizedErrorResponse {
+  statusCode: number;
+  timestamp: string;
+  path: string;
+  method: string;
+  error: string;
+  message: string | object;
+  code?: string;
+  requestId?: string;
+}
+
+/**
  * Global HTTP Exception Filter
  * Handles all HTTP exceptions and provides consistent error responses
  */
 @Catch()
+@Injectable()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  constructor(
+    private readonly databaseErrorHandler: DatabaseErrorHandler,
+    private readonly configService: ConfigService,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
 
     let status: number;
     let message: string | object;
     let error: string;
+    let errorCode: string | undefined;
+    let requestId: string | undefined;
 
     if (exception instanceof HttpException) {
       // Handle NestJS HTTP exceptions
@@ -50,127 +76,150 @@ export class HttpExceptionFilter implements ExceptionFilter {
         error = exception.name;
       }
     } else if (exception instanceof QueryFailedError) {
-      // Handle database query errors
+      // Handle database query errors using secure handler
       status = HttpStatus.BAD_REQUEST;
-      message = this.handleDatabaseError(exception);
+      const dbError = this.databaseErrorHandler.handleDatabaseError(exception, isProduction);
+      message = dbError.message;
       error = 'Database Error';
+      errorCode = dbError.code;
+      requestId = dbError.requestId;
     } else {
       // Handle unexpected errors
       status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = 'An unexpected error occurred';
+      requestId = this.generateRequestId();
+      message = isProduction 
+        ? 'An unexpected error occurred. Please try again or contact support.' 
+        : 'An unexpected error occurred';
       error = 'Internal Server Error';
 
-      // Log unexpected errors
-      this.logger.error(
-        `Unexpected error: ${exception}`,
-        exception instanceof Error ? exception.stack : undefined,
-      );
-    }
-
-    // Security: Don't expose sensitive information in production
-    if (process.env.NODE_ENV === 'production' && status === HttpStatus.INTERNAL_SERVER_ERROR) {
-      message = 'An unexpected error occurred';
+      // Log unexpected errors securely
+      this.logUnexpectedError(exception, requestId, request);
     }
 
     // Create standardized error response
-    const errorResponse = {
+    const errorResponse: StandardizedErrorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: this.sanitizePath(request.url),
       method: request.method,
       error,
       message,
-      ...(status >= 500 && { requestId: this.generateRequestId() }),
+      ...(errorCode && { code: errorCode }),
+      ...(requestId && { requestId }),
     };
 
-    // Log security-related errors
+    // Log security-related errors with sanitized data
     if (this.isSecurityError(status, error)) {
-      this.logger.warn(
-        `Security error: ${status} ${error} - ${request.method} ${request.url} - IP: ${request.ip} - User-Agent: ${request.get('User-Agent')}`,
-      );
+      this.logSecurityError(status, error, request, requestId);
     }
 
-    // Log all errors except validation errors (400) to avoid spam
+    // Log application errors (excluding validation spam)
     if (status !== HttpStatus.BAD_REQUEST || this.shouldLogBadRequest(exception)) {
-      this.logger.error(
-        `HTTP ${status} Error: ${JSON.stringify(message)} - ${request.method} ${request.url}`,
-        exception instanceof Error ? exception.stack : undefined,
-      );
+      this.logApplicationError(status, message, request, requestId, isProduction);
     }
 
     response.status(status).json(errorResponse);
   }
 
   /**
-   * Handle database-specific errors
+   * Log unexpected errors securely without exposing sensitive information
    */
-  private handleDatabaseError(error: QueryFailedError): string {
-    const message = error.message;
+  private logUnexpectedError(exception: unknown, requestId: string, request: Request): void {
+    const sanitizedLog = {
+      requestId,
+      errorType: 'UnexpectedError',
+      method: request.method,
+      path: this.sanitizePath(request.url),
+      userAgent: this.sanitizeUserAgent(request.get('User-Agent')),
+      timestamp: new Date().toISOString(),
+    };
 
-    // Handle common database constraint violations
-    if (message.includes('duplicate key value')) {
-      if (message.includes('users_username_key')) {
-        return 'Username already exists';
-      }
-      if (message.includes('users_email_key')) {
-        return 'Email already exists';
-      }
-      if (message.includes('products_barcode_key') || message.includes('barcode')) {
-        return 'Product barcode already exists. Please use a unique barcode.';
-      }
-      return 'Duplicate entry detected';
+    this.logger.error(`Unexpected error occurred: ${JSON.stringify(sanitizedLog)}`);
+
+    // Only log stack trace in development, and sanitize it
+    if (!this.configService.get('NODE_ENV') || this.configService.get('NODE_ENV') !== 'production') {
+      const stack = exception instanceof Error ? this.sanitizeStackTrace(exception.stack) : 'No stack available';
+      this.logger.debug(`Stack trace for request ${requestId}: ${stack}`);
     }
-
-    if (message.includes('foreign key constraint')) {
-      return 'Referenced record does not exist';
-    }
-
-    if (message.includes('not null constraint')) {
-      return 'Required field is missing';
-    }
-
-    if (message.includes('check constraint')) {
-      return 'Invalid data format';
-    }
-
-    // Don't expose raw database errors in production
-    if (process.env.NODE_ENV === 'production') {
-      return 'Database operation failed';
-    }
-
-    return message;
   }
 
   /**
-   * Check if error is security-related
+   * Log security-related errors with sanitized information
    */
+  private logSecurityError(status: number, error: string, request: Request, requestId?: string): void {
+    const securityLog = {
+      requestId,
+      type: 'SecurityError',
+      status,
+      error: this.sanitizeErrorMessage(error),
+      method: request.method,
+      path: this.sanitizePath(request.url),
+      ip: this.sanitizeIP(request.ip),
+      userAgent: this.sanitizeUserAgent(request.get('User-Agent')),
+      timestamp: new Date().toISOString(),
+    };
+
+    this.logger.warn(`Security error detected: ${JSON.stringify(securityLog)}`);
+  }
+
+  /**
+   * Log application errors with appropriate detail level
+   */
+  private logApplicationError(
+    status: number,
+    message: string | object,
+    request: Request,
+    requestId?: string,
+    isProduction = false,
+  ): void {
+    const sanitizedMessage = typeof message === 'string' 
+      ? this.sanitizeErrorMessage(message)
+      : '[OBJECT_MESSAGE]';
+
+    const errorLog = {
+      requestId,
+      status,
+      method: request.method,
+      path: this.sanitizePath(request.url),
+      message: isProduction ? '[SANITIZED]' : sanitizedMessage,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.logger.error(`HTTP ${status} Error: ${JSON.stringify(errorLog)}`);
+  }
+
+  /**
+   * Check if error is security-related using optimized lookups
+   */
+  private readonly SECURITY_STATUSES = new Set([
+    HttpStatus.UNAUTHORIZED,
+    HttpStatus.FORBIDDEN,
+    HttpStatus.TOO_MANY_REQUESTS,
+  ]);
+
+  private readonly SECURITY_KEYWORDS = new Set([
+    'unauthorized',
+    'forbidden',
+    'jwt',
+    'token',
+    'authentication',
+    'authorization',
+  ]);
+
   private isSecurityError(status: number, error: string): boolean {
-    const securityStatuses = [
-      HttpStatus.UNAUTHORIZED,
-      HttpStatus.FORBIDDEN,
-      HttpStatus.TOO_MANY_REQUESTS,
-    ];
+    if (this.SECURITY_STATUSES.has(status)) {
+      return true;
+    }
 
-    const securityErrors = [
-      'Unauthorized',
-      'Forbidden',
-      'JWT',
-      'Token',
-      'Authentication',
-      'Authorization',
-    ];
-
-    return (
-      securityStatuses.includes(status) ||
-      securityErrors.some(keyword => error.includes(keyword))
-    );
+    const lowerError = error.toLowerCase();
+    return Array.from(this.SECURITY_KEYWORDS).some(keyword => lowerError.includes(keyword));
   }
 
   /**
    * Determine if bad request should be logged
    */
   private shouldLogBadRequest(exception: unknown): boolean {
-    // Log database-related bad requests
+    // Always log database-related bad requests
     if (exception instanceof QueryFailedError) {
       return true;
     }
@@ -183,6 +232,47 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     return false;
+  }
+
+  /**
+   * Sanitization utilities for secure logging
+   */
+  private sanitizePath(path: string): string {
+    // Remove potential sensitive parameters but keep structure
+    return path.replace(/([?&])(password|token|key|secret)=[^&]*/gi, '$1$2=[REDACTED]');
+  }
+
+  private sanitizeIP(ip: string): string {
+    if (!ip) return '[UNKNOWN]';
+    // Mask last octet for IPv4, last groups for IPv6
+    if (ip.includes('.')) {
+      return ip.replace(/\d+$/, 'xxx');
+    }
+    return ip.replace(/:([^:]+):([^:]+)$/, ':xxx:xxx');
+  }
+
+  private sanitizeUserAgent(userAgent: string): string {
+    if (!userAgent) return '[UNKNOWN]';
+    // Keep browser info but remove detailed version numbers
+    return userAgent.replace(/\d+\.\d+\.\d+/g, 'x.x.x');
+  }
+
+  private sanitizeErrorMessage(message: string): string {
+    return message
+      .replace(/password\s*=\s*[^\s]+/gi, 'password=[REDACTED]')
+      .replace(/token\s*=\s*[^\s]+/gi, 'token=[REDACTED]')
+      .replace(/key\s*=\s*[^\s]+/gi, 'key=[REDACTED]')
+      .replace(/secret\s*=\s*[^\s]+/gi, 'secret=[REDACTED]');
+  }
+
+  private sanitizeStackTrace(stack: string): string {
+    if (!stack) return '[NO_STACK]';
+    // Remove potential file paths and keep only relevant error info
+    return stack
+      .split('\n')
+      .slice(0, 5) // Limit stack trace length
+      .map(line => line.replace(/\/[^\s]+\//g, '/[PATH]/'))
+      .join('\n');
   }
 
   /**

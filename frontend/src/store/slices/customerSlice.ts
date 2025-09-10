@@ -214,7 +214,8 @@ const customerSlice = createSlice({
         if (action.payload) {
           // API response structure: { data: Customer[], total, page, limit, totalPages }
           const payload = action.payload as any
-          state.customers = payload.data || []
+          // The API returns the data directly, not wrapped in another data property
+          state.customers = Array.isArray(payload.data) ? payload.data : []
           state.pagination = {
             page: payload.page || 1,
             limit: payload.limit || 20,

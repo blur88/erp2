@@ -9,6 +9,7 @@ import { DatabaseConfig } from './config/database.config';
 // Filters & Interceptors
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { DatabaseErrorHandler } from './common/services/database-error-handler.service';
 
 // Modules
 import { UsersModule } from './modules/users/users.module';
@@ -48,6 +49,9 @@ import { AppService } from './app.service';
   controllers: [AppController],
   providers: [
     AppService,
+    
+    // Database Error Handler Service
+    DatabaseErrorHandler,
     
     // Global Exception Filter
     {
