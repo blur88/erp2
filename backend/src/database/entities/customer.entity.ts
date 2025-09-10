@@ -6,12 +6,10 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsEmail,
   IsBoolean,
   IsOptional,
   IsEnum,
   MaxLength,
-  IsPhoneNumber,
   IsDecimal,
   Min,
   IsObject,
@@ -48,7 +46,6 @@ export enum PriceLevel {
  */
 @Entity('customers')
 @Index(['customerCode'], { unique: true })
-@Index(['email'], { unique: true, where: 'email IS NOT NULL' })
 @Index(['phone'])
 @Index(['type', 'status'])
 @Index(['priceLevel'])
@@ -86,29 +83,6 @@ export class Customer extends BaseEntity {
   @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, { message: 'Name contains invalid characters' })
   name: string;
 
-  @Column({
-    type: 'varchar',
-    length: 200,
-    nullable: true,
-    comment: 'Contact person name (for business customers)',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  contactPerson?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    unique: true,
-    comment: 'Customer email address - SENSITIVE PII',
-  })
-  @IsOptional()
-  @IsEmail({}, { message: 'Email must be a valid email address' })
-  @MaxLength(100)
-  @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, { message: 'Email format is invalid' })
-  email?: string;
 
   @Column({
     type: 'varchar',
@@ -117,139 +91,11 @@ export class Customer extends BaseEntity {
     comment: 'Primary phone number',
   })
   @IsOptional()
-  @IsPhoneNumber(null, { message: 'Phone number must be in valid international format' })
-  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Phone number must be in E.164 format or similar' })
+  @IsString()
+  @MaxLength(20)
   phone?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Alternative phone number',
-  })
-  @IsOptional()
-  @IsPhoneNumber(null, { message: 'Alternative phone number must be in valid international format' })
-  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Alternative phone number must be in E.164 format or similar' })
-  alternativePhone?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 30,
-    nullable: true,
-    comment: 'Tax ID or business registration number - SENSITIVE DATA',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  @Matches(/^[A-Za-z0-9-]{3,30}$/, { message: 'Tax ID must contain only alphanumeric characters and hyphens, 3-30 characters' })
-  taxId?: string;
-
-  // Address Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Billing address',
-  })
-  @IsOptional()
-  @IsString()
-  billingAddress?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Billing city',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  billingCity?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Billing state/province',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  billingState?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Billing postal code',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  billingPostalCode?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Billing country',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  billingCountry?: string;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Shipping address (if different from billing)',
-  })
-  @IsOptional()
-  @IsString()
-  shippingAddress?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping city',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCity?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping state/province',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingState?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Shipping postal code',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  shippingPostalCode?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping country',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCountry?: string;
 
   // Business Information
   @Column({
@@ -278,35 +124,6 @@ export class Customer extends BaseEntity {
   @IsEnum(PriceLevel)
   priceLevel: PriceLevel;
 
-  // Credit Management
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Credit limit for this customer',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  creditLimit: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Current outstanding balance',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  currentBalance: number;
-
-  @Column({
-    type: 'int',
-    default: 30,
-    comment: 'Payment terms in days',
-  })
-  paymentTermsDays: number;
 
   // Customer Metrics
   @Column({
@@ -379,65 +196,8 @@ export class Customer extends BaseEntity {
   payments: Payment[];
 
   // Computed properties
-  get fullAddress(): string {
-    const parts = [
-      this.billingAddress,
-      this.billingCity,
-      this.billingState,
-      this.billingPostalCode,
-      this.billingCountry,
-    ].filter(Boolean);
-    return parts.join(', ');
-  }
-
-  get fullShippingAddress(): string {
-    if (!this.shippingAddress) return this.fullAddress;
-    
-    const parts = [
-      this.shippingAddress,
-      this.shippingCity,
-      this.shippingState,
-      this.shippingPostalCode,
-      this.shippingCountry,
-    ].filter(Boolean);
-    return parts.join(', ');
-  }
-
-  get availableCredit(): number {
-    return Number(this.creditLimit) - Number(this.currentBalance);
-  }
-
-  get isOverCreditLimit(): boolean {
-    return Number(this.currentBalance) > Number(this.creditLimit);
-  }
-
   get averageOrderValue(): number {
     return this.totalOrders > 0 ? Number(this.totalSales) / this.totalOrders : 0;
-  }
-
-  // Helper methods - IMPORTANT: These methods should only be called after proper authorization checks
-  /**
-   * Updates customer balance - WARNING: Should only be called after authorization verification
-   * @param amount - The amount to adjust
-   * @param type - Whether to increase or decrease the balance
-   * @param authorizedBy - Who authorized this balance change (for audit trail)
-   */
-  updateBalance(amount: number, type: 'increase' | 'decrease', authorizedBy?: string): void {
-    if (amount < 0) {
-      throw new Error('Amount cannot be negative');
-    }
-    
-    if (type === 'increase') {
-      this.currentBalance = Number(this.currentBalance) + Number(amount);
-    } else {
-      this.currentBalance = Math.max(0, Number(this.currentBalance) - Number(amount));
-    }
-    
-    // Note: In a production system, this should log the change for audit purposes
-    // TODO: Add audit logging with authorizedBy parameter
-    if (authorizedBy) {
-      // TODO: Implement audit logging here
-    }
   }
 
   /**
@@ -460,19 +220,10 @@ export class Customer extends BaseEntity {
   }
 
   /**
-   * Checks if customer can make a purchase of the given amount
-   * @param amount - The purchase amount to check
+   * Checks if customer is allowed to make purchases
    * @returns true if customer can purchase, false otherwise
    */
-  canPurchase(amount: number): boolean {
-    if (amount < 0) {
-      throw new Error('Purchase amount cannot be negative');
-    }
-    
-    if (!this.isActive || this.status === CustomerStatus.SUSPENDED || this.status === CustomerStatus.BLACKLISTED) {
-      return false;
-    }
-    
-    return (Number(this.currentBalance) + Number(amount)) <= Number(this.creditLimit);
+  canPurchase(): boolean {
+    return this.isActive && this.status !== CustomerStatus.SUSPENDED && this.status !== CustomerStatus.BLACKLISTED;
   }
 }

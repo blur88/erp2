@@ -46,8 +46,6 @@ import {
   Business as BusinessIcon,
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
-  Email as EmailIcon,
-  LocationOn as LocationIcon,
   TrendingUp as SalesIcon,
   Block as SuspendIcon,
   CheckCircle as ActivateIcon,
@@ -84,48 +82,16 @@ import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 const customerSchema = yup.object({
   name: yup.string().required('Name is required').max(200, 'Name must be less than 200 characters'),
   type: yup.string().oneOf(['individual', 'business']).required('Type is required'),
-  contactPerson: yup.string().optional().max(200, 'Contact person must be less than 200 characters'),
-  email: yup.string().email('Invalid email').optional().max(100, 'Email must be less than 100 characters'),
-  phone: yup.string().optional(),
-  alternativePhone: yup.string().optional(),
-  taxId: yup.string().optional().max(30, 'Tax ID must be less than 30 characters'),
-  billingAddress: yup.string().optional(),
-  billingCity: yup.string().optional().max(100, 'City must be less than 100 characters'),
-  billingState: yup.string().optional().max(100, 'State must be less than 100 characters'),
-  billingPostalCode: yup.string().optional().max(20, 'Postal code must be less than 20 characters'),
-  billingCountry: yup.string().optional().max(100, 'Country must be less than 100 characters'),
-  shippingAddress: yup.string().optional(),
-  shippingCity: yup.string().optional().max(100, 'City must be less than 100 characters'),
-  shippingState: yup.string().optional().max(100, 'State must be less than 100 characters'),
-  shippingPostalCode: yup.string().optional().max(20, 'Postal code must be less than 20 characters'),
-  shippingCountry: yup.string().optional().max(100, 'Country must be less than 100 characters'),
+  phone: yup.string().optional().max(20, 'Phone must be less than 20 characters'),
   priceLevel: yup.string().oneOf(['retail', 'wholesale', 'special']).optional(),
-  creditLimit: yup.number().min(0, 'Credit limit must be positive').optional(),
-  paymentTermsDays: yup.number().min(0, 'Payment terms must be positive').optional(),
   notes: yup.string().optional(),
 })
 
 interface CustomerFormData {
-  name?: string
-  type?: CustomerType
-  contactPerson?: string
-  email?: string
+  name: string
+  type: CustomerType
   phone?: string
-  alternativePhone?: string
-  taxId?: string
-  billingAddress?: string
-  billingCity?: string
-  billingState?: string
-  billingPostalCode?: string
-  billingCountry?: string
-  shippingAddress?: string
-  shippingCity?: string
-  shippingState?: string
-  shippingPostalCode?: string
-  shippingCountry?: string
-  priceLevel?: PriceLevel
-  creditLimit?: number
-  paymentTermsDays?: number
+  priceLevel: PriceLevel
   notes?: string
 }
 
@@ -149,25 +115,16 @@ const CustomersPage: React.FC = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
-  const [copyShippingFromBilling, setCopyShippingFromBilling] = useState(false)
 
   // Form setup
-  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: yupResolver(customerSchema) as any,
     defaultValues: {
       type: CustomerType.BUSINESS,
       priceLevel: PriceLevel.RETAIL,
-      creditLimit: 0,
-      paymentTermsDays: 30,
     }
   })
 
-  // Watch billing address fields to copy to shipping
-  const billingAddress = watch('billingAddress' as any)
-  const billingCity = watch('billingCity' as any)
-  const billingState = watch('billingState' as any)
-  const billingPostalCode = watch('billingPostalCode' as any)
-  const billingCountry = watch('billingCountry' as any)
 
   // Load customers on mount
   useEffect(() => {
@@ -278,8 +235,6 @@ const CustomersPage: React.FC = () => {
       reset({
         type: CustomerType.BUSINESS,
         priceLevel: PriceLevel.RETAIL,
-        creditLimit: 0,
-        paymentTermsDays: 30,
       })
     }
     setIsFormOpen(true)
@@ -296,26 +251,6 @@ const CustomersPage: React.FC = () => {
     setIsViewOpen(true)
   }
 
-  // Copy billing to shipping
-  const handleCopyBillingToShipping = () => {
-    if (copyShippingFromBilling) {
-      setValue('shippingAddress' as any, billingAddress)
-      setValue('shippingCity' as any, billingCity)
-      setValue('shippingState' as any, billingState)
-      setValue('shippingPostalCode' as any, billingPostalCode)
-      setValue('shippingCountry' as any, billingCountry)
-    } else {
-      setValue('shippingAddress' as any, '')
-      setValue('shippingCity' as any, '')
-      setValue('shippingState' as any, '')
-      setValue('shippingPostalCode' as any, '')
-      setValue('shippingCountry' as any, '')
-    }
-  }
-
-  useEffect(() => {
-    handleCopyBillingToShipping()
-  }, [copyShippingFromBilling, billingAddress, billingCity, billingState, billingPostalCode, billingCountry])
 
   // Get status color and label
   const getStatusChip = (status: CustomerStatus, isActive: boolean) => {
@@ -651,13 +586,6 @@ const CustomersPage: React.FC = () => {
                   </TableCell>
                 )}
                 {!isMobile && (
-                  <TableCell sx={{ width: '12%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Credit
-                    </Typography>
-                  </TableCell>
-                )}
-                {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Sales
@@ -749,12 +677,6 @@ const CustomersPage: React.FC = () => {
                     )}
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                        {customer.email && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <EmailIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{customer.email}</Typography>
-                          </Box>
-                        )}
                         {customer.phone && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
@@ -772,22 +694,6 @@ const CustomersPage: React.FC = () => {
                           variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
                           sx={{ minWidth: 60, fontSize: '0.7rem', fontWeight: 500, height: 20 }}
                         />
-                      </TableCell>
-                    )}
-                    {!isMobile && (
-                      <TableCell>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                            {formatCurrency(customer.creditLimit)}
-                          </Typography>
-                          <Typography 
-                            variant="caption" 
-                            color={customer.availableCredit >= 0 ? 'success.main' : 'error.main'}
-                            sx={{ fontSize: '0.7rem' }}
-                          >
-                            Avail: {formatCurrency(customer.availableCredit)}
-                          </Typography>
-                        </Box>
                       </TableCell>
                     )}
                     {!isMobile && (
@@ -835,9 +741,6 @@ const CustomersPage: React.FC = () => {
                       {/* Mobile-only additional info */}
                       {isMobile && (
                         <Box sx={{ mt: 0.25, textAlign: 'right' }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block' }}>
-                            Credit: {formatCurrency(customer.availableCredit)}
-                          </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                             {customer.totalOrders} orders • {formatCurrency(customer.totalSales)}
                           </Typography>
@@ -984,335 +887,25 @@ const CustomersPage: React.FC = () => {
 
               <Grid item xs={12} md={6}>
                 <Controller
-                  name="contactPerson"
+                  name="phone" as any
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="Contact Person"
-                      error={!!errors.contactPerson}
-                      helperText={errors.contactPerson?.message}
+                      label="Phone"
+                      error={!!(errors as any).phone}
+                      helperText={(errors as any).phone?.message}
                     />
                   )}
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="taxId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Tax ID"
-                      error={!!errors.taxId}
-                      helperText={errors.taxId?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Contact Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Contact Information
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="email"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="email"
-                      label="Email"
-                      error={!!errors.email}
-                      helperText={errors.email?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="phone"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Primary Phone"
-                      error={!!errors.phone}
-                      helperText={errors.phone?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="alternativePhone"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Alternative Phone"
-                      error={!!errors.alternativePhone}
-                      helperText={errors.alternativePhone?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Billing Address */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Billing Address
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Controller
-                  name="billingAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="Street Address"
-                      error={!!errors.billingAddress}
-                      helperText={errors.billingAddress?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingCity"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="City"
-                      error={!!errors.billingCity}
-                      helperText={errors.billingCity?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingState"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="State/Province"
-                      error={!!errors.billingState}
-                      helperText={errors.billingState?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingPostalCode"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Postal Code"
-                      error={!!errors.billingPostalCode}
-                      helperText={errors.billingPostalCode?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingCountry"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Country"
-                      error={!!errors.billingCountry}
-                      helperText={errors.billingCountry?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Shipping Address */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-                  <Typography variant="h6">
-                    Shipping Address
-                  </Typography>
-                  <FormControl>
-                    <Button
-                      size="small"
-                      variant={copyShippingFromBilling ? "contained" : "outlined"}
-                      onClick={() => setCopyShippingFromBilling(!copyShippingFromBilling)}
-                    >
-                      Same as Billing
-                    </Button>
-                  </FormControl>
-                </Box>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Controller
-                  name="shippingAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="Street Address"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingAddress}
-                      helperText={errors.shippingAddress?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingCity"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="City"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingCity}
-                      helperText={errors.shippingCity?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingState"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="State/Province"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingState}
-                      helperText={errors.shippingState?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingPostalCode"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Postal Code"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingPostalCode}
-                      helperText={errors.shippingPostalCode?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingCountry"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Country"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingCountry}
-                      helperText={errors.shippingCountry?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Financial Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Financial Information
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="creditLimit"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="number"
-                      label="Credit Limit"
-                      inputProps={{ step: 0.01, min: 0 }}
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">RM</InputAdornment>
-                      }}
-                      error={!!errors.creditLimit}
-                      helperText={errors.creditLimit?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="paymentTermsDays"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="number"
-                      label="Payment Terms (Days)"
-                      error={!!errors.paymentTermsDays}
-                      helperText={errors.paymentTermsDays?.message}
-                    />
-                  )}
-                />
-              </Grid>
 
               {/* Notes */}
               <Grid item xs={12}>
                 <Controller
-                  name="notes"
+                  name="notes" as any
                   control={control}
                   render={({ field }) => (
                     <TextField
@@ -1321,8 +914,8 @@ const CustomersPage: React.FC = () => {
                       multiline
                       rows={3}
                       label="Notes"
-                      error={!!errors.notes}
-                      helperText={errors.notes?.message}
+                      error={!!(errors as any).notes}
+                      helperText={(errors as any).notes?.message}
                     />
                   )}
                 />
@@ -1371,51 +964,12 @@ const CustomersPage: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>Contact Information</Typography>
                 <Stack spacing={1}>
-                  {selectedCustomer.email && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                      <Typography>{selectedCustomer.email}</Typography>
-                    </Box>
-                  )}
                   {selectedCustomer.phone && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                       <Typography>{selectedCustomer.phone}</Typography>
                     </Box>
                   )}
-                  {selectedCustomer.fullAddress && (
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
-                      <Typography>{selectedCustomer.fullAddress}</Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>Financial Information</Typography>
-                <Stack spacing={1}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Credit Limit:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.creditLimit)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Current Balance:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.currentBalance)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Available Credit:</Typography>
-                    <Typography 
-                      fontWeight={600}
-                      color={selectedCustomer.availableCredit >= 0 ? 'success.main' : 'error.main'}
-                    >
-                      {formatCurrency(selectedCustomer.availableCredit)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Payment Terms:</Typography>
-                    <Typography fontWeight={600}>{selectedCustomer.paymentTermsDays} days</Typography>
-                  </Box>
                 </Stack>
               </Grid>
 
