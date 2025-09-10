@@ -38,11 +38,11 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=development
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=erp_db
-      - DATABASE_USER=erp_user
-      - DATABASE_PASSWORD=erp_password
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=erp_db
+      - DB_USERNAME=erp_user
+      - DB_PASSWORD=erp_password
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=redis_password

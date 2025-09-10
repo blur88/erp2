@@ -129,7 +129,7 @@ export abstract class BaseEntity {
         .digest('hex');
     } catch (error) {
       // Fallback if crypto is not available
-      this.auditHash = null;
+      this.auditHash = undefined;
     }
   }
 
