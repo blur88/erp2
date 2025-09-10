@@ -393,7 +393,7 @@ const { control, handleSubmit } = useForm<FormData>({
 - Users: `/api/users`
 - Inventory: `/api/inventory/products`, `/api/inventory/categories`  
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
-- Sales: `/api/v1/sales-orders`, `/api/v1/invoices`, `/api/v1/payments` (mixed patterns: some with `/api` prefix, some without)
+- Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
 - Module Info: `/api/info`
 
 ## Troubleshooting

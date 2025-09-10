@@ -31,7 +31,7 @@ import {
 } from '../dto/sales-order.dto';
 
 @ApiTags('Sales Orders')
-@Controller('v1/sales-orders')
+@Controller('api/sales-orders')
 export class SalesOrderController {
   constructor(private readonly salesOrderService: SalesOrderService) {}
 
