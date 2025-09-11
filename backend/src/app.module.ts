@@ -12,7 +12,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { 
   DatabaseErrorHandler,
   ErrorClassifierService,
-  ErrorLoggerService,
+  DatabaseErrorLoggerService,
   ErrorSanitizerService,
   IdGeneratorService 
 } from './common/services';
@@ -70,7 +70,7 @@ import { AppService } from './app.service';
     // Database Error Handler Services
     DatabaseErrorHandler,
     ErrorClassifierService,
-    ErrorLoggerService,
+    DatabaseErrorLoggerService,
     ErrorSanitizerService,
     IdGeneratorService,
     

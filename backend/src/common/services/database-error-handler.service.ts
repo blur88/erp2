@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { DatabaseErrorResponse } from './error-types';
 import { ErrorClassifierService } from './error-classifier.service';
-import { ErrorLoggerService } from './error-logger.service';
+import { DatabaseErrorLoggerService } from './error-logger.service';
 import { IdGeneratorService } from './id-generator.service';
 
 /**
@@ -14,7 +14,7 @@ export class DatabaseErrorHandler {
 
   constructor(
     private readonly errorClassifier: ErrorClassifierService,
-    private readonly errorLogger: ErrorLoggerService,
+    private readonly errorLogger: DatabaseErrorLoggerService,
     private readonly idGenerator: IdGeneratorService,
   ) {}
 

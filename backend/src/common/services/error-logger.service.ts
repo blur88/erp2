@@ -4,8 +4,8 @@ import { ErrorClassifierService } from './error-classifier.service';
 import { ErrorSanitizerService } from './error-sanitizer.service';
 
 @Injectable()
-export class ErrorLoggerService {
-  private readonly logger = new Logger(ErrorLoggerService.name);
+export class DatabaseErrorLoggerService {
+  private readonly logger = new Logger(DatabaseErrorLoggerService.name);
 
   constructor(
     private readonly errorClassifier: ErrorClassifierService,
