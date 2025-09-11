@@ -1227,7 +1227,7 @@ const ProductsPage: React.FC = () => {
                             Product Name
                           </Box>
                         </TableCell>
-                        <TableCell colSpan={2} sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.name}
@@ -1499,7 +1499,7 @@ const ProductsPage: React.FC = () => {
                               }}
                             />
                           ) : (
-                            <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
+                            <Typography sx={{ fontSize: '0.8rem' }}>
                               {formatCurrency(selectedProductForDetails.retailPrice)}
                             </Typography>
                           )}
@@ -1708,7 +1708,7 @@ const ProductsPage: React.FC = () => {
                               }}
                             />
                           ) : (
-                            <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                            <Typography variant="body1" sx={{ fontSize: '0.8rem' }}>
                               {selectedProductForDetails.stockQuantity || 0}
                             </Typography>
                           )}
