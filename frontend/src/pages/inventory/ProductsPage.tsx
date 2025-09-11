@@ -52,7 +52,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
-import CalculatorDialog from '@/components/calculator/CalculatorDialog'
+import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import {
@@ -131,8 +131,7 @@ const ProductsPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
-  const [calculatorDialogOpen, setCalculatorDialogOpen] = useState(false)
-  const [calculatorInFormOpen, setCalculatorInFormOpen] = useState(false)
+  const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
@@ -676,7 +675,7 @@ const ProductsPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <CalculateIcon /> : undefined}
-            onClick={() => setCalculatorDialogOpen(true)}
+            onClick={() => setCalculatorPanelOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
@@ -2144,7 +2143,7 @@ const ProductsPage: React.FC = () => {
               Cancel
             </Button>
             <Button
-              onClick={() => setCalculatorInFormOpen(true)}
+              onClick={() => setCalculatorPanelOpen(true)}
               startIcon={<CalculateIcon />}
               sx={{
                 color: 'primary.main',
@@ -2178,16 +2177,10 @@ const ProductsPage: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* Calculator Dialog */}
-      <CalculatorDialog
-        open={calculatorDialogOpen}
-        onClose={() => setCalculatorDialogOpen(false)}
-      />
-
-      {/* Calculator Dialog for Form */}
-      <CalculatorDialog
-        open={calculatorInFormOpen}
-        onClose={() => setCalculatorInFormOpen(false)}
+      {/* Sliding Calculator Panel */}
+      <SlidingCalculatorPanel
+        isOpen={calculatorPanelOpen}
+        onClose={() => setCalculatorPanelOpen(false)}
       />
 
       {/* Deleted Products Dialog */}
