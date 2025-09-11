@@ -3,8 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
-import { SecurityConfigService } from './common/security/security.config';
-import { InputSanitizationMiddleware } from './common/security/input-sanitization.middleware';
+import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,11 +11,11 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Apply comprehensive security configuration
-  const securityConfig = new SecurityConfigService(configService);
-  securityConfig.applySecurity(app);
+  const securityService = new SecurityApplicationService(configService);
+  securityService.applySecurity(app);
 
-  // Apply input sanitization middleware
-  app.use(new InputSanitizationMiddleware().use.bind(new InputSanitizationMiddleware()));
+  // Apply security monitoring middleware
+  app.use(new SecurityMonitoringMiddleware().use.bind(new SecurityMonitoringMiddleware()));
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
