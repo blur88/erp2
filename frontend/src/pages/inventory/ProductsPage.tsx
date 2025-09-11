@@ -53,6 +53,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
+import InlineCalculator from '@/components/calculator/InlineCalculator'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import {
@@ -132,6 +133,7 @@ const ProductsPage: React.FC = () => {
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
+  const [dialogCalculatorOpen, setDialogCalculatorOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
@@ -1825,28 +1827,64 @@ const ProductsPage: React.FC = () => {
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
             maxHeight: '90vh',
+            width: dialogCalculatorOpen ? '95vw' : '70vw',
+            maxWidth: dialogCalculatorOpen ? '1400px' : '900px',
+            transition: 'width 0.3s ease-in-out',
             '& .MuiDialogContent-root': {
               paddingTop: '8px !important'
             }
           }
         }}
       >
-        <DialogTitle sx={{ pb: 1 }}>
-          {editMode ? 'Edit Product' : 'Add New Product'}
-          {selectedProduct && editMode && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Editing: {selectedProduct.name}
-            </Typography>
-          )}
+        <DialogTitle 
+          sx={{ 
+            pb: 1,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <Box>
+            {editMode ? 'Edit Product' : 'Add New Product'}
+            {selectedProduct && editMode && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Editing: {selectedProduct.name}
+              </Typography>
+            )}
+          </Box>
+          <IconButton
+            onClick={() => setDialogCalculatorOpen(!dialogCalculatorOpen)}
+            color={dialogCalculatorOpen ? "primary" : "default"}
+            sx={{
+              transition: 'color 0.2s ease-in-out',
+            }}
+          >
+            <CalculateIcon />
+          </IconButton>
         </DialogTitle>
         <form onSubmit={handleSubmit(onSubmit as any)}>
           <DialogContent sx={{ py: 1 }}>
-            <Grid container spacing={2}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: 2,
+                minHeight: '500px',
+              }}
+            >
+              {/* Product Form Section */}
+              <Box
+                sx={{
+                  flex: dialogCalculatorOpen ? (isMobile ? '1' : '0 0 65%') : '1',
+                  transition: 'flex 0.3s ease-in-out',
+                }}
+              >
+                <Grid container spacing={2}>
               {/* Basic Information Row */}
               <Grid item xs={12} sm={6}>
                 <Controller
@@ -2174,24 +2212,41 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-            </Grid>
+                </Grid>
+              </Box>
+
+              {/* Divider */}
+              {dialogCalculatorOpen && !isMobile && (
+                <Box
+                  sx={{
+                    width: '1px',
+                    backgroundColor: 'divider',
+                    my: 2,
+                  }}
+                />
+              )}
+
+              {/* Calculator Section */}
+              {dialogCalculatorOpen && (
+                <Box
+                  sx={{
+                    flex: isMobile ? '0 0 auto' : '0 0 35%',
+                    opacity: 1,
+                    transform: 'translateX(0)',
+                    transition: 'all 0.3s ease-in-out',
+                    borderTop: isMobile ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                    pt: isMobile ? 2 : 0,
+                  }}
+                >
+                  <InlineCalculator />
+                </Box>
+              )}
+            </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={handleCloseDialog} disabled={isSubmitting}>
               Cancel
-            </Button>
-            <Button
-              onClick={() => setCalculatorPanelOpen(true)}
-              startIcon={<CalculateIcon />}
-              sx={{
-                color: 'primary.main',
-                '&:hover': {
-                  backgroundColor: 'primary.light'
-                }
-              }}
-              disabled={isSubmitting}
-            >
-              Calculator
             </Button>
             <Button
               type="submit"
