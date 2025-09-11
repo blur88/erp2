@@ -80,10 +80,15 @@ const initialState: InventoryState = {
 // Async thunks
 export const fetchProducts = createAsyncThunk(
   'inventory/fetchProducts',
-  async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; search?: string; categoryId?: string; sortBy?: string; sortOrder?: string }, { rejectWithValue }) => {
     try {
-      // Always fetch only active products (exclude soft-deleted products)
-      const response = await inventoryApi.getProducts({ ...params, isActive: true })
+      // Always fetch only active products (exclude soft-deleted products) and sort by name ascending by default
+      const response = await inventoryApi.getProducts({ 
+        ...params, 
+        isActive: true,
+        sortBy: params.sortBy || 'name',
+        sortOrder: (params.sortOrder as 'asc' | 'desc') || 'asc'
+      })
       return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch products:', error)

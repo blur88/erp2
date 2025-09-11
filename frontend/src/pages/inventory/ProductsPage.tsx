@@ -533,7 +533,10 @@ const ProductsPage: React.FC = () => {
           }
           
           // Refresh the product list to ensure consistency
-          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+          dispatch(fetchProducts({ 
+            search: searchTerm || undefined, 
+            categoryId: selectedCategory || undefined
+          }))
         } else {
           throw new Error(result.payload as string)
         }
@@ -564,7 +567,10 @@ const ProductsPage: React.FC = () => {
         if (updateProduct.fulfilled.match(result)) {
           showSuccess('Product updated successfully')
           // Refresh the product list to ensure consistency
-          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+          dispatch(fetchProducts({ 
+            search: searchTerm || undefined, 
+            categoryId: selectedCategory || undefined
+          }))
         } else {
           throw new Error(result.payload as string)
         }

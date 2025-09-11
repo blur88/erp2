@@ -156,8 +156,8 @@ export class ProductService {
       isActive,
       lowStock,
       outOfStock,
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
+      sortBy = 'name',
+      sortOrder = 'ASC',
       brand,
       minStock,
       maxStock,
@@ -224,8 +224,9 @@ export class ProductService {
 
     // Apply sorting
     const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    queryBuilder.orderBy(`product.${sortField}`, sortOrder);
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
 
     // Apply pagination
     const offset = (page - 1) * limit;
