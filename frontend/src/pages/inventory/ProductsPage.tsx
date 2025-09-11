@@ -228,8 +228,17 @@ const ProductsPage: React.FC = () => {
 
   // Calculate profit margins
   const calculateMargin = (sellingPrice: number | undefined, cost: number): number => {
-    if (!cost || cost <= 0 || !sellingPrice || sellingPrice <= 0) return 0
-    return ((sellingPrice - cost) / sellingPrice) * 100
+    const price = Number(sellingPrice) || 0
+    const baseCost = Number(cost) || 0
+    
+    // If no cost and no price, return 0
+    if (baseCost === 0 && price === 0) return 0
+    
+    // If price is 0 but cost exists, it's a 100% loss
+    if (price === 0 && baseCost > 0) return -100
+    
+    // Standard margin calculation: (price - cost) / price * 100
+    return ((price - baseCost) / price) * 100
   }
 
 
@@ -1497,7 +1506,7 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
-                            calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 0 && (
+                            (inlineEditData.retailPrice !== undefined && inlineEditData.retailPrice !== null && inlineEditData.retailPrice > 0) && (
                               <Chip
                                 label={`${calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost).toFixed(1)}%`}
                                 size="small"
@@ -1512,12 +1521,12 @@ const ProductsPage: React.FC = () => {
                               />
                             )
                           ) : (
-                            selectedProductForDetails.grossMarginRetail !== undefined && (
+                            (selectedProductForDetails.retailPrice !== undefined && selectedProductForDetails.retailPrice !== null && selectedProductForDetails.retailPrice > 0) && (
                               <Chip
                                 label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
                                 size="small"
                                 variant="outlined"
-                                color={selectedProductForDetails.grossMarginRetail > 20 ? 'success' : selectedProductForDetails.grossMarginRetail > 10 ? 'warning' : 'error'}
+                                color={(selectedProductForDetails.grossMarginRetail || 0) > 20 ? 'success' : (selectedProductForDetails.grossMarginRetail || 0) > 10 ? 'warning' : 'error'}
                                 sx={{
                                   fontSize: '0.65rem',
                                   fontWeight: 500,
@@ -1562,7 +1571,7 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
-                            calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 0 && (
+                            (inlineEditData.wholesalePrice !== undefined && inlineEditData.wholesalePrice !== null && inlineEditData.wholesalePrice > 0) && (
                               <Chip
                                 label={`${calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost).toFixed(1)}%`}
                                 size="small"
@@ -1577,12 +1586,12 @@ const ProductsPage: React.FC = () => {
                               />
                             )
                           ) : (
-                            selectedProductForDetails.grossMarginWholesale !== undefined && (
+                            (selectedProductForDetails.wholesalePrice !== undefined && selectedProductForDetails.wholesalePrice !== null && selectedProductForDetails.wholesalePrice > 0) && (
                               <Chip
                                 label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
                                 size="small"
                                 variant="outlined"
-                                color={selectedProductForDetails.grossMarginWholesale > 15 ? 'success' : selectedProductForDetails.grossMarginWholesale > 5 ? 'warning' : 'error'}
+                                color={(selectedProductForDetails.grossMarginWholesale || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginWholesale || 0) > 5 ? 'warning' : 'error'}
                                 sx={{
                                   fontSize: '0.65rem',
                                   fontWeight: 500,
@@ -1627,7 +1636,7 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
-                            calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 0 && (
+                            (inlineEditData.specialPrice !== undefined && inlineEditData.specialPrice !== null && inlineEditData.specialPrice > 0) && (
                               <Chip
                                 label={`${calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost).toFixed(1)}%`}
                                 size="small"
@@ -1642,12 +1651,12 @@ const ProductsPage: React.FC = () => {
                               />
                             )
                           ) : (
-                            selectedProductForDetails.grossMarginSpecial !== undefined && (
+                            (selectedProductForDetails.specialPrice !== undefined && selectedProductForDetails.specialPrice !== null && selectedProductForDetails.specialPrice > 0) && (
                               <Chip
                                 label={`${selectedProductForDetails.grossMarginSpecial?.toFixed(1) || '0.0'}%`}
                                 size="small"
                                 variant="outlined"
-                                color={selectedProductForDetails.grossMarginSpecial > 15 ? 'success' : selectedProductForDetails.grossMarginSpecial > 5 ? 'warning' : 'error'}
+                                color={(selectedProductForDetails.grossMarginSpecial || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginSpecial || 0) > 5 ? 'warning' : 'error'}
                                 sx={{
                                   fontSize: '0.65rem',
                                   fontWeight: 500,
