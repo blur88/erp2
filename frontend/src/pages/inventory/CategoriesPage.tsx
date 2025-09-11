@@ -30,8 +30,6 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  FolderOpen as FolderOpenIcon,
-  Folder as FolderIcon,
   Category as CategoryIcon,
   KeyboardDoubleArrowRight as DoubleArrowIcon,
   RestoreFromTrash as RestoreIcon,
@@ -228,21 +226,12 @@ const CategoriesPage: React.FC = () => {
         
         {/* Minimal Category Icon */}
         <Box sx={{ mr: 0.75, display: 'flex', alignItems: 'center' }}>
-          {indentLevel === 0 ? (
-            <FolderOpenIcon 
-              sx={{ 
-                fontSize: 18, 
-                color: 'primary.main'
-              }} 
-            />
-          ) : isParent ? (
-            <FolderIcon 
-              sx={{ 
-                fontSize: 16, 
-                color: 'secondary.main'
-              }} 
-            />
-          ) : null}
+          <CategoryIcon 
+            sx={{ 
+              fontSize: indentLevel === 0 ? 18 : 16, 
+              color: indentLevel === 0 ? 'primary.main' : isParent ? 'secondary.main' : 'text.secondary'
+            }} 
+          />
         </Box>
         
         {/* Category Name */}

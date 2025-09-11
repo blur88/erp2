@@ -10,11 +10,10 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   Divider,
   Button
 } from '@mui/material'
-import { Folder, FolderOpen, Add, Clear } from '@mui/icons-material'
+import { Add } from '@mui/icons-material'
 import { Category } from '@/types'
 import { inventoryApi } from '@/services/inventoryApi'
 
@@ -137,15 +136,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 
   const renderOption = (props: any, option: CategoryOption) => (
     <ListItem {...props} key={option.id}>
-      <ListItemIcon sx={{ minWidth: 32 }}>
-        {option.level === -1 ? (
-          <Clear fontSize="small" color="action" />
-        ) : option.hasChildren ? (
-          <FolderOpen fontSize="small" color="primary" />
-        ) : (
-          <Folder fontSize="small" color="action" />
-        )}
-      </ListItemIcon>
       <ListItemText>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography
