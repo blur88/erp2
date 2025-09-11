@@ -1172,6 +1172,7 @@ const ProductsPage: React.FC = () => {
                   <Table 
                     size="small" 
                     sx={{ 
+                      tableLayout: 'fixed',
                       '& .MuiTableCell-root': { 
                         border: 'none', 
                         py: 0.75, 
@@ -1180,14 +1181,21 @@ const ProductsPage: React.FC = () => {
                           px: 1,
                           py: 0.5,
                           fontSize: '0.75rem'
-                        })
+                        }),
+                        '&:nth-of-type(1)': { width: '35%' }, // Field name column
+                        '&:nth-of-type(2)': { width: '45%' }, // Value column
+                        '&:nth-of-type(3)': { width: '20%' }, // Extra info column (margins, status)
                       }
                     }}
                   >
                     <TableBody>
                       {/* Basic Information Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pb: 0.5, py: 0.5 }}>
+                        <TableCell colSpan={3} sx={{ 
+                          pb: 0.5, 
+                          py: 0.5, 
+                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
@@ -1210,7 +1218,7 @@ const ProductsPage: React.FC = () => {
                             Product Name
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.name}
@@ -1258,7 +1266,7 @@ const ProductsPage: React.FC = () => {
                             Barcode
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.barcode}
@@ -1295,7 +1303,7 @@ const ProductsPage: React.FC = () => {
                               }}
                             />
                           ) : (
-                            selectedProductForDetails.barcode
+                            selectedProductForDetails.barcode || 'No barcode'
                           )}
                         </TableCell>
                       </TableRow>
@@ -1306,7 +1314,7 @@ const ProductsPage: React.FC = () => {
                             Type
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
                             <FormControl fullWidth size="small">
                               <Select 
@@ -1340,7 +1348,7 @@ const ProductsPage: React.FC = () => {
                             Category
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
                             <FormControl fullWidth size="small">
                               <Select 
@@ -1388,7 +1396,7 @@ const ProductsPage: React.FC = () => {
                               Description
                             </Box>
                           </TableCell>
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                          <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                             {inlineEditMode && inlineEditData ? (
                               <TextField
                                 value={inlineEditData.description}
@@ -1412,13 +1420,17 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Pricing Information Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ pt: 1.5, pb: 0.5 }}>
+                        <TableCell colSpan={3} sx={{ 
+                          pt: 1.5, 
+                          pb: 0.5,
+                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
                             fontSize: '0.75rem'
                           }}>
-                            Pricing Information
+                            Pricing Information & Margins
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -1429,7 +1441,7 @@ const ProductsPage: React.FC = () => {
                             Base Cost
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.baseCost}
@@ -1650,7 +1662,11 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Stock Information Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ pt: 1.5, pb: 0.5 }}>
+                        <TableCell colSpan={3} sx={{ 
+                          pt: 1.5, 
+                          pb: 0.5,
+                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
@@ -1707,18 +1723,22 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Notes Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pt: 1.5, pb: 0.5 }}>
+                        <TableCell colSpan={3} sx={{ 
+                          pt: 1.5, 
+                          pb: 0.5,
+                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
                             fontSize: '0.75rem'
                           }}>
-                            Notes
+                            Notes & Additional Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell colSpan={2} sx={{ p: 1.5 }}>
+                        <TableCell colSpan={3} sx={{ p: 1.5 }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.notes}
