@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Box,
   Drawer,
@@ -43,9 +44,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const dispatch = useAppDispatch()
   const themeMode = useAppSelector(selectThemeMode)
   const unreadCount = useAppSelector(selectUnreadCount)
+  const location = useLocation()
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null)
+
+  // Close drawer on navigation to prevent overlay issues
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [location.pathname])
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -131,10 +138,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       >
         {/* Mobile drawer */}
         <Drawer
+          key={location.pathname}
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
+          ModalProps={{ 
+            keepMounted: false,
+            onBackdropClick: handleDrawerToggle,
+          }}
           sx={{
             display: { xs: 'block', lg: 'none' },
             '& .MuiDrawer-paper': {
@@ -143,7 +154,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             },
           }}
         >
-          <Sidebar onItemClick={() => setMobileOpen(false)} />
+          <Sidebar onItemClick={handleDrawerToggle} />
         </Drawer>
 
         {/* Desktop drawer */}
