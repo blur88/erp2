@@ -11,6 +11,17 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { DatabaseErrorHandler } from './common/services/database-error-handler.service';
 
+// Import missing filter dependencies
+import { 
+  SecurityDetectorService,
+  ErrorLoggerService,
+  HttpExceptionHandler,
+  DatabaseExceptionHandler,
+  UnexpectedExceptionHandler,
+  LogFormatterService,
+  DataSanitizerService,
+} from './common/filters';
+
 // Modules
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
@@ -52,6 +63,15 @@ import { AppService } from './app.service';
     
     // Database Error Handler Service
     DatabaseErrorHandler,
+    
+    // Exception filter dependencies
+    SecurityDetectorService,
+    ErrorLoggerService,
+    LogFormatterService,
+    DataSanitizerService,
+    HttpExceptionHandler,
+    DatabaseExceptionHandler,
+    UnexpectedExceptionHandler,
     
     // Global Exception Filter
     {
