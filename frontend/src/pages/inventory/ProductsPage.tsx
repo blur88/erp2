@@ -655,7 +655,9 @@ const ProductsPage: React.FC = () => {
         justifyContent: 'space-between', 
         alignItems: isMobile ? 'stretch' : 'center', 
         mb: 4,
-        gap: isMobile ? 2 : 0
+        gap: isMobile ? 2 : 0,
+        transition: 'margin-right 0.3s ease-in-out',
+        marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
           <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
@@ -684,19 +686,21 @@ const ProductsPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <CalculateIcon /> : undefined}
-            onClick={() => setCalculatorPanelOpen(true)}
+            onClick={() => setCalculatorPanelOpen(!calculatorPanelOpen)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
-              color: 'info.main',
-              borderColor: 'info.main',
+              color: calculatorPanelOpen ? 'info.dark' : 'info.main',
+              borderColor: calculatorPanelOpen ? 'info.dark' : 'info.main',
+              backgroundColor: calculatorPanelOpen ? 'info.light' : 'transparent',
               '&:hover': {
                 borderColor: 'info.dark',
                 backgroundColor: 'info.light'
-              }
+              },
+              transition: 'all 0.3s ease-in-out'
             }}
           >
-            {isMobile ? "Calculator" : "Calculator"}
+            {isMobile ? "Calculator" : calculatorPanelOpen ? "Close Calculator" : "Calculator"}
           </Button>
           <Button
             variant="outlined"
@@ -740,7 +744,9 @@ const ProductsPage: React.FC = () => {
         mb: 3,
         '& > *': {
           alignSelf: isMobile ? 'stretch' : 'flex-start'
-        }
+        },
+        transition: 'margin-right 0.3s ease-in-out',
+        marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
       }}>
         <TextField
           placeholder="Search by name, barcode, or brand..."
@@ -875,10 +881,16 @@ const ProductsPage: React.FC = () => {
       </Box>
 
       {/* Split Layout: Active Products and Product Details */}
-      <Grid container spacing={3}>
-        {/* Left Side - Active Products List */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+      <Box
+        sx={{
+          transition: 'margin-right 0.3s ease-in-out',
+          marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
+        }}
+      >
+        <Grid container spacing={3}>
+          {/* Left Side - Active Products List */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
@@ -1799,6 +1811,7 @@ const ProductsPage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
+      </Box>
 
       {/* Context Menu */}
       <Menu

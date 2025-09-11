@@ -7,6 +7,7 @@ import {
   Paper,
   IconButton,
   useTheme,
+  useMediaQuery,
   Divider,
   Grid,
   TextField,
@@ -45,6 +46,7 @@ const initialState: CalculatorState = {
 const SlidingCalculatorPanel: React.FC<SlidingCalculatorPanelProps> = ({ isOpen, onClose }) => {
   const theme = useTheme()
   const [state, setState] = useState<CalculatorState>(initialState)
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   
   const calculate = useCallback((firstOperand: number, secondOperand: number, operation: CalculatorOperation): number => {
     switch (operation) {
@@ -255,18 +257,25 @@ const SlidingCalculatorPanel: React.FC<SlidingCalculatorPanelProps> = ({ isOpen,
       anchor="right"
       open={isOpen}
       onClose={onClose}
-      variant="persistent"
+      variant={isMobile ? 'temporary' : 'persistent'}
       sx={{
+        width: isMobile ? 'auto' : (isOpen ? 320 : 0),
+        flexShrink: 0,
         '& .MuiDrawer-paper': {
           width: 320,
           boxSizing: 'border-box',
           backgroundColor: 'background.default',
           borderLeft: `1px solid ${theme.palette.divider}`,
-          zIndex: 1300,
+          zIndex: isMobile ? 1300 : 1200,
+          ...(isMobile ? {} : {
+            position: 'fixed',
+            right: 0,
+            top: 0,
+            height: '100vh',
+            transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+            transition: 'transform 0.3s ease-in-out',
+          }),
         },
-      }}
-      SlideProps={{
-        direction: 'left',
       }}
     >
       <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
