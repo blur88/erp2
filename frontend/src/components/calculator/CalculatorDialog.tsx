@@ -15,7 +15,7 @@ import {
   Close as CloseIcon,
   Calculate as CalculateIcon,
 } from '@mui/icons-material'
-import Calculator from './Calculator'
+import CalculatorCore from './CalculatorCore'
 
 const Transition = React.forwardRef(function Transition(props: any, ref: React.Ref<unknown>) {
   return <Slide direction="up" ref={ref} {...props} />
@@ -101,7 +101,7 @@ const CalculatorDialog: React.FC<CalculatorDialogProps> = ({ open, onClose }) =>
         </Box>
       </DialogTitle>
       <DialogContent sx={{ p: 0 }}>
-        <Calculator onCalculatorClose={onClose} />
+        <CalculatorCore onCalculatorClose={onClose} compact />
       </DialogContent>
     </Dialog>
   )
