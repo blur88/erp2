@@ -47,3 +47,6 @@ redis-data/
 
 # Claude Code configuration
 .claude
+
+# Binaries and executables
+code
