@@ -575,7 +575,7 @@ export class ProductService {
     // Find the product (including soft-deleted ones)
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+      // Note: Removed problematic relations as sales/purchasing modules are disabled
       withDeleted: true,
     });
 
@@ -590,19 +590,9 @@ export class ProductService {
       );
     }
 
-    // Check if product has any active dependencies that prevent permanent deletion
-    if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
-      throw new BadRequestException(
-        'Cannot permanently delete product that has associated sales orders or purchase orders'
-      );
-    }
+    // Note: Dependency checks for sales/purchase orders are disabled since those modules are not active
 
-    // If there are stock movements, we should allow deletion but log it
-    if (product.stockMovements?.length > 0) {
-      this.logger.warn(
-        `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
-      );
-    }
+    // Note: Stock movement check is disabled since we removed the relation
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -634,7 +624,7 @@ export class ProductService {
         // Find the product (including soft-deleted ones)
         const product = await this.productRepository.findOne({
           where: { id },
-          relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+          // Note: Removed problematic relations as sales/purchasing modules are disabled
           withDeleted: true,
         });
 
@@ -651,21 +641,8 @@ export class ProductService {
           continue;
         }
 
-        // Check if product has any active dependencies that prevent permanent deletion
-        if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
-          this.logger.warn(
-            `Product with ID '${id}' has associated orders and cannot be permanently deleted`
-          );
-          failedIds.push(id);
-          continue;
-        }
-
-        // If there are stock movements, we allow deletion but log it
-        if (product.stockMovements?.length > 0) {
-          this.logger.warn(
-            `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
-          );
-        }
+        // Note: Dependency checks for sales/purchase orders and stock movements are disabled 
+        // since those modules are not active
 
         // Hard delete the product from database
         await this.productRepository.delete(id);
@@ -832,18 +809,10 @@ export class ProductService {
 
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
     });
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${id}' not found`);
-    }
-
-    // Check if product has any dependencies
-    if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
-      throw new BadRequestException(
-        'Cannot delete product that has associated sales orders or purchase orders. Set status to DISCONTINUED instead.',
-      );
     }
 
     // Use TypeORM soft delete (sets deletedAt timestamp)

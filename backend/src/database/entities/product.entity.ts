@@ -19,8 +19,8 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Category } from './category.entity';
-import { SalesOrderItem } from './sales-order-item.entity';
-import { PurchaseOrderItem } from './purchase-order-item.entity';
+// import { SalesOrderItem } from './sales-order-item.entity';
+// import { PurchaseOrderItem } from './purchase-order-item.entity';
 import { StockMovement } from './stock-movement.entity';
 import { StockAdjustment } from './stock-adjustment.entity';
 
@@ -319,16 +319,7 @@ export class Product extends BaseEntity {
   @JoinColumn({ name: 'categoryId' })
   category: Category;
 
-  // Order relationships
-  @OneToMany(() => SalesOrderItem, (salesOrderItem) => salesOrderItem.product, {
-    cascade: false,
-  })
-  salesOrderItems: SalesOrderItem[];
-
-  @OneToMany(() => PurchaseOrderItem, (purchaseOrderItem) => purchaseOrderItem.product, {
-    cascade: false,
-  })
-  purchaseOrderItems: PurchaseOrderItem[];
+  // Order relationships removed to prevent TypeORM relation resolution issues
 
   // Stock tracking relationships
   @OneToMany(() => StockMovement, (stockMovement) => stockMovement.product, {

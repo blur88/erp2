@@ -230,9 +230,9 @@ export class SalesOrderItem extends BaseEntity {
   @JoinColumn({ name: 'salesOrderId' })
   salesOrder: SalesOrder;
 
-  @ManyToOne(() => Product, (product) => product.salesOrderItems, {
+  @ManyToOne(() => Product, { // Removed back-reference to avoid circular relation issues
     onDelete: 'RESTRICT',
-    eager: true,
+    eager: false, // Disabled eager loading to prevent automatic relation resolution
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
