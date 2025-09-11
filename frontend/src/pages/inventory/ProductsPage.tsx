@@ -484,9 +484,14 @@ const ProductsPage: React.FC = () => {
         return
       }
       
+      const updateData = {
+        ...inlineEditData,
+        barcode: inlineEditData.barcode && inlineEditData.barcode.trim() ? inlineEditData.barcode.trim() : undefined // Convert empty barcode to undefined
+      }
+      
       const result = await dispatch(updateProduct({ 
         id: selectedProductForDetails.id, 
-        data: inlineEditData 
+        data: updateData 
       }))
       
       if (updateProduct.fulfilled.match(result)) {
@@ -550,7 +555,10 @@ const ProductsPage: React.FC = () => {
       
       if (editMode && selectedProduct) {
         // Update existing product
-        const updateData = { ...data }
+        const updateData = { 
+          ...data,
+          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined // Convert empty barcode to undefined
+        }
         const result = await dispatch(updateProduct({ id: selectedProduct.id, data: updateData }))
         
         if (updateProduct.fulfilled.match(result)) {
@@ -564,6 +572,7 @@ const ProductsPage: React.FC = () => {
         // Add new product - transform form data to match backend DTO
         const createData = {
           ...data,
+          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined, // Convert empty barcode to undefined
           currentStock: data.currentStock, // Backend expects currentStock, not stockQuantity
           // Remove fields that shouldn't be sent to backend
           type: data.type === 'goods' || data.type === 'service' ? data.type : 'goods'
