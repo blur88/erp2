@@ -9,7 +9,13 @@ import { DatabaseConfig } from './config/database.config';
 // Filters & Interceptors
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { DatabaseErrorHandler } from './common/services/database-error-handler.service';
+import { 
+  DatabaseErrorHandler,
+  ErrorClassifierService,
+  ErrorLoggerService,
+  ErrorSanitizerService,
+  IdGeneratorService 
+} from './common/services';
 
 // Import missing filter dependencies
 import { 
@@ -61,8 +67,12 @@ import { AppService } from './app.service';
   providers: [
     AppService,
     
-    // Database Error Handler Service
+    // Database Error Handler Services
     DatabaseErrorHandler,
+    ErrorClassifierService,
+    ErrorLoggerService,
+    ErrorSanitizerService,
+    IdGeneratorService,
     
     // Exception filter dependencies
     SecurityDetectorService,
