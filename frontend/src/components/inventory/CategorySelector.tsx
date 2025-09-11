@@ -207,24 +207,47 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
         options={options}
         loading={loading}
         disabled={disabled}
+        fullWidth
         getOptionLabel={getOptionLabel}
         isOptionEqualToValue={isOptionEqualToValue}
         renderOption={renderOption}
         slotProps={{
           popper: {
-            style: {
+            disablePortal: false,
+            sx: {
               zIndex: 9999
             },
             modifiers: [
               {
                 name: 'preventOverflow',
-                enabled: false
+                enabled: true,
+                options: {
+                  boundary: 'viewport',
+                  padding: 8
+                }
               },
               {
                 name: 'flip',
                 enabled: true
+              },
+              {
+                name: 'sameWidth',
+                enabled: true,
+                phase: 'beforeWrite',
+                requires: ['computeStyles'],
+                fn: ({ state }) => {
+                  state.styles.popper.width = `${state.rects.reference.width}px`;
+                }
               }
-            ]
+            ],
+            anchorOrigin: {
+              vertical: 'bottom',
+              horizontal: 'left'
+            },
+            transformOrigin: {
+              vertical: 'top',
+              horizontal: 'left'
+            }
           }
         }}
         renderInput={(params) => (
@@ -249,10 +272,17 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
         PaperComponent={(props) => (
           <Paper 
             {...props} 
-            sx={{
+            style={{
               maxHeight: 'none',
               maxWidth: 'none',
               overflow: 'visible'
+            }}
+            sx={{
+              '& .MuiAutocomplete-listbox': {
+                maxHeight: '400px',
+                overflow: 'auto',
+                padding: 0
+              }
             }}
           >
             {/* Create category button */}
