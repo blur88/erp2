@@ -1843,10 +1843,7 @@ const ProductsPage: React.FC = () => {
       >
         <DialogTitle 
           sx={{ 
-            pb: 1,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
+            pb: 1
           }}
         >
           <Box>
@@ -1857,15 +1854,6 @@ const ProductsPage: React.FC = () => {
               </Typography>
             )}
           </Box>
-          <IconButton
-            onClick={() => setDialogCalculatorOpen(!dialogCalculatorOpen)}
-            color={dialogCalculatorOpen ? "primary" : "default"}
-            sx={{
-              transition: 'color 0.2s ease-in-out',
-            }}
-          >
-            <CalculateIcon />
-          </IconButton>
         </DialogTitle>
         <form onSubmit={handleSubmit(onSubmit as any)}>
           <DialogContent sx={{ py: 1 }}>
@@ -2247,6 +2235,23 @@ const ProductsPage: React.FC = () => {
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={handleCloseDialog} disabled={isSubmitting}>
               Cancel
+            </Button>
+            <Button
+              onClick={() => setDialogCalculatorOpen(!dialogCalculatorOpen)}
+              variant="outlined"
+              disabled={isSubmitting}
+              startIcon={<CalculateIcon />}
+              sx={{
+                color: dialogCalculatorOpen ? 'primary.main' : 'inherit',
+                borderColor: dialogCalculatorOpen ? 'primary.main' : 'inherit',
+                backgroundColor: dialogCalculatorOpen ? 'primary.light' : 'transparent',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  backgroundColor: 'primary.light'
+                }
+              }}
+            >
+              Calculator
             </Button>
             <Button
               type="submit"
