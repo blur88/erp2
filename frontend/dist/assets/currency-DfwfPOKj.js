@@ -1,2 +1,0 @@
-const o=(t,s={})=>{const{minimumFractionDigits:e=2,maximumFractionDigits:m=2,showSymbol:r=!0}=s,i=typeof t=="string"?parseFloat(t):t??0;if(isNaN(i))return r?"RM 0.00":"0.00";const n=i.toLocaleString("en-MY",{minimumFractionDigits:e,maximumFractionDigits:m,useGrouping:!0});return r?`RM ${n}`:n},a=t=>o(t,{showSymbol:!1}),u=t=>o(t,{minimumFractionDigits:0,maximumFractionDigits:0});export{u as a,a as b,o as f};
-//# sourceMappingURL=currency-DfwfPOKj.js.map
