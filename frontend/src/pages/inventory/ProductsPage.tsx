@@ -598,10 +598,12 @@ const ProductsPage: React.FC = () => {
         const createData = {
           ...data,
           barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined, // Convert empty barcode to undefined
-          currentStock: data.currentStock, // Backend expects currentStock, not stockQuantity
+          stockQuantity: data.currentStock, // Backend expects stockQuantity, not currentStock
           // Remove fields that shouldn't be sent to backend
           type: data.type === 'Stocked Product' || data.type === 'Service' ? data.type : 'Stocked Product'
         }
+        // Remove currentStock since we're sending stockQuantity instead
+        delete createData.currentStock
         
         const result = await dispatch(createProduct(createData))
         

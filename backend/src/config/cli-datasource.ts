@@ -20,5 +20,4 @@ try {
   process.exit(1);
 }
 
-export { connectionSource };
 export default connectionSource;

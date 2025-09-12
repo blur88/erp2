@@ -21,4 +21,4 @@ export class DatabaseConfig implements TypeOrmOptionsFactory {
 }
 
 // Export DataSource for CLI tools - moved to separate module
-export { connectionSource, default } from './cli-datasource';
+export { default } from './cli-datasource';
