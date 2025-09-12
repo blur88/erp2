@@ -441,11 +441,6 @@ export class ProductImportRowDto {
   @IsString()
   categoryName: string;
 
-  @ApiProperty({ description: 'Unit of measurement' })
-  @IsString()
-  @MaxLength(20)
-  unit: string;
-
   @ApiProperty({ description: 'Base cost price', minimum: 0 })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
@@ -475,32 +470,13 @@ export class ProductImportRowDto {
   @Min(0)
   stockQuantity?: number;
 
-  @ApiPropertyOptional({ description: 'Reorder level', minimum: 0, default: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  reorderLevel?: number;
-
-  @ApiPropertyOptional({ description: 'Product weight in kg', minimum: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  weight?: number;
-
-  @ApiPropertyOptional({ description: 'Product brand' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  brand?: string;
-
-  @ApiPropertyOptional({ description: 'Product model' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  model?: string;
-
   @ApiPropertyOptional({ description: 'Internal notes' })
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Whether the product is active for sales', default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

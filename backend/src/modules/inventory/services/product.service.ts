@@ -11,13 +11,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
-  FindManyOptions,
-  SelectQueryBuilder,
   UpdateResult,
   In,
   Like,
 } from 'typeorm';
-import { Product, ProductStatus, ProductType, StockStatus } from '../../../database/entities/product.entity';
+import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import {
   CreateProductDto,
@@ -29,9 +27,6 @@ import {
   ProductStockSummaryDto,
   ProductImportDto,
   ProductImportResultDto,
-  ProductImportErrorDto,
-  ProductImportWarningDto,
-  ProductImportRowDto,
 } from '../dto/product.dto';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
@@ -150,13 +145,10 @@ export class ProductService {
       search,
       categoryId,
       type,
-      status,
       isActive,
-      lowStock,
       outOfStock,
       sortBy = 'name',
       sortOrder = 'ASC',
-      brand,
       minStock,
       maxStock,
       minPrice,
@@ -723,11 +715,7 @@ export class ProductService {
     // Transform DTO fields to match entity fields FIRST
     const updateData: any = { ...updateProductDto };
     
-    // Map currentStock to stockQuantity if present
-    if (updateProductDto.hasOwnProperty('currentStock')) {
-      updateData.stockQuantity = updateProductDto.currentStock;
-      delete updateData.currentStock;
-    }
+    // stockQuantity is handled directly in the DTO
 
     // Validate pricing if being updated (use transformed data)
     if (this.hasPricingChanges(updateData)) {
@@ -757,10 +745,7 @@ export class ProductService {
     console.log('After Object.assign - product.categoryId:', product.categoryId);
     console.log('=============================');
 
-    // Update stock status if quantities changed
-    if (updateProductDto.hasOwnProperty('currentStock') || updateData.hasOwnProperty('stockQuantity')) {
-      product.updateStockStatus();
-    }
+    // Stock status is computed automatically in the entity
 
     // Use direct update for better control over what gets updated
     const updateResult = await this.productRepository.update(
@@ -885,10 +870,6 @@ export class ProductService {
         'product.barcode',
         'product.name',
         'product.stockQuantity',
-        'product.reservedQuantity',
-        'product.reorderLevel',
-        'product.stockStatus',
-        'product.unit',
         'category.name',
         'MAX(movements.movementDate) as lastMovementDate',
       ])
@@ -900,11 +881,11 @@ export class ProductService {
     }
 
     if (filters?.lowStock) {
-      queryBuilder.andWhere('product.stockQuantity <= product.reorderLevel');
+      queryBuilder.andWhere('product.stockQuantity <= 10');
     }
 
     if (filters?.outOfStock) {
-      queryBuilder.andWhere('(product.stockQuantity - product.reservedQuantity) <= 0');
+      queryBuilder.andWhere('product.stockQuantity <= 0');
     }
 
     if (filters?.isActive !== undefined) {
@@ -920,13 +901,12 @@ export class ProductService {
       barcode: result.product_barcode,
       name: result.product_name,
       stockQuantity: Number(result.product_stockQuantity),
-      availableQuantity: Number(result.product_stockQuantity) - Number(result.product_reservedQuantity),
-      reservedQuantity: Number(result.product_reservedQuantity),
-      reorderLevel: Number(result.product_reorderLevel),
-      stockStatus: result.product_stockStatus,
-      isLowStock: Number(result.product_stockQuantity) <= Number(result.product_reorderLevel),
-      isOutOfStock: (Number(result.product_stockQuantity) - Number(result.product_reservedQuantity)) <= 0,
-      unit: result.product_unit,
+      availableQuantity: Number(result.product_stockQuantity),
+      reservedQuantity: 0, // Simplified model doesn't track reserved stock
+      reorderLevel: 10, // Default threshold 
+      stockStatus: Number(result.product_stockQuantity) <= 0 ? 'out_of_stock' : Number(result.product_stockQuantity) <= 10 ? 'low_stock' : 'in_stock',
+      isLowStock: Number(result.product_stockQuantity) <= 10,
+      isOutOfStock: Number(result.product_stockQuantity) <= 0,
       categoryName: result.category_name,
       lastMovementDate: result.lastMovementDate ? new Date(result.lastMovementDate) : undefined,
     }));
@@ -956,14 +936,13 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    const success = product.reserveStock(quantity);
-    
-    if (success) {
+    if (product.stockQuantity >= quantity) {
+      product.stockQuantity = Number(product.stockQuantity) - quantity;
       await this.productRepository.save(product);
-    // Audit logging removed with authentication system
+      return true;
     }
-
-    return success;
+    
+    return false;
   }
 
   /**
@@ -976,10 +955,8 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    product.releaseReservedStock(quantity);
+    product.stockQuantity = Number(product.stockQuantity) + quantity;
     await this.productRepository.save(product);
-
-    // Audit logging removed with authentication system
   }
 
   /**
@@ -994,7 +971,6 @@ export class ProductService {
 
     const previousQuantity = product.stockQuantity;
     product.stockQuantity = newQuantity;
-    product.updateStockStatus();
     
     await this.productRepository.save(product);
 
@@ -1048,15 +1024,14 @@ export class ProductService {
     products.forEach(product => {
       const stock = Number(product.stockQuantity) || 0;
       const price = Number(product.retailPrice) || 0;
-      const reorderLevel = Number(product.reorderLevel) || 0;
       
       // Calculate inventory value
       inventoryValue += stock * price;
 
-      // Count low stock and out of stock
+      // Count low stock and out of stock (using simple threshold of 10)
       if (stock <= 0) {
         outOfStockCount++;
-      } else if (stock <= reorderLevel) {
+      } else if (stock <= 10) {
         lowStockCount++;
       }
 
@@ -1304,7 +1279,6 @@ export class ProductService {
       'barcode',
       'type*',
       'categoryName*',
-      'unit*',
       'baseCost*',
       'retailPrice',
       'wholesalePrice',
@@ -1320,7 +1294,6 @@ export class ProductService {
       '123456789',
       'goods',
       'test1',
-      'pcs',
       '10.00',
       '15.00',
       '12.00',
@@ -1336,7 +1309,6 @@ export class ProductService {
       'LAPTOP001',
       'goods',
       'test2',
-      'pcs',
       '800.00',
       '1200.00',
       '1000.00',
@@ -1352,7 +1324,6 @@ export class ProductService {
       'CHAIR001',
       'goods',
       'test3',
-      'pcs',
       '150.00',
       '250.00',
       '200.00',
@@ -1404,7 +1375,7 @@ export class ProductService {
     const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\*/g, ''));
 
     // Validate required headers
-    const requiredHeaders = ['name', 'type', 'categoryname', 'unit', 'basecost'];
+    const requiredHeaders = ['name', 'type', 'categoryname', 'basecost'];
     const missingHeaders = requiredHeaders.filter(req => !headers.includes(req));
     
     if (missingHeaders.length > 0) {
@@ -1471,7 +1442,6 @@ export class ProductService {
       name: row.name,
       type: row.type,
       categoryname: row.categoryname,
-      unit: row.unit,
       basecost: row.basecost,
     };
 
@@ -1542,13 +1512,9 @@ export class ProductService {
       retailPrice: parseNumber(row.retailprice, 'retailPrice'),
       wholesalePrice: parseNumber(row.wholesaleprice, 'wholesalePrice'),
       specialPrice: parseNumber(row.specialprice, 'specialPrice'),
-      currentStock: parseNumber(row.stockquantity, 'stockQuantity'),
-      weight: parseNumber(row.weight, 'weight'),
-      brand: row.brand?.trim() || undefined,
-      model: row.model?.trim() || undefined,
+      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
       notes: row.notes?.trim() || undefined,
-      // Add unit field if provided
-      unit: row.unit?.trim() || 'pcs', // Default to 'pcs' if not provided
+      isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true
     };
 
     return productData;
