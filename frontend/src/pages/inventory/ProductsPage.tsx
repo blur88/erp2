@@ -1873,7 +1873,7 @@ const ProductsPage: React.FC = () => {
                 }}
               >
                 <Grid container spacing={2}>
-              {/* Basic Information Row */}
+              {/* Row 1: Basic Product Information */}
               <Grid item xs={12} sm={6}>
                 <Controller
                   name="name"
@@ -1951,8 +1951,8 @@ const ProductsPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* Type and Category Row */}
-              <Grid item xs={12} sm={6}>
+              {/* Row 2: Type, Category & Base Cost */}
+              <Grid item xs={12} sm={4}>
                 <Controller
                   name="type"
                   control={control}
@@ -1972,7 +1972,7 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <Controller
                   name="categoryId"
                   control={control}
@@ -2022,9 +2022,7 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-
-              {/* Cost and Stock Row */}
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <Controller
                   name="baseCost"
                   control={control}
@@ -2045,26 +2043,8 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <Controller
-                  name="currentStock"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      size="small"
-                      label="Current Stock"
-                      type="number"
-                      inputProps={{ step: 1, min: 0 }}
-                      error={!!errors.currentStock}
-                      helperText={errors.currentStock?.message}
-                    />
-                  )}
-                />
-              </Grid>
 
-              {/* Pricing Row */}
+              {/* Row 3: Pricing with Margins */}
               <Grid item xs={12} sm={4}>
                 <Controller
                   name="retailPrice"
@@ -2162,8 +2142,32 @@ const ProductsPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* Description and Notes Row */}
+              {/* Row 4: Stock Information */}
               <Grid item xs={12} sm={6}>
+                <Controller
+                  name="currentStock"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      size="small"
+                      label="Current Stock Quantity"
+                      type="number"
+                      inputProps={{ step: 1, min: 0 }}
+                      error={!!errors.currentStock}
+                      helperText={errors.currentStock?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                {/* Empty space for balance */}
+                <Box sx={{ height: '56px' }} />
+              </Grid>
+
+              {/* Row 5: Description */}
+              <Grid item xs={12} sm={12}>
                 <Controller
                   name="description"
                   control={control}
@@ -2172,16 +2176,19 @@ const ProductsPage: React.FC = () => {
                       {...field}
                       fullWidth
                       size="small"
-                      label="Description"
+                      label="Product Description"
                       multiline
-                      rows={2}
+                      rows={4}
                       error={!!errors.description}
                       helperText={errors.description?.message}
+                      placeholder="Detailed product description for customers..."
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              {/* Row 6: Notes */}
+              <Grid item xs={12} sm={12}>
                 <Controller
                   name="notes"
                   control={control}
@@ -2190,10 +2197,10 @@ const ProductsPage: React.FC = () => {
                       {...field}
                       fullWidth
                       size="small"
-                      label="Notes"
+                      label="Internal Notes"
                       multiline
-                      rows={2}
-                      placeholder="Internal notes..."
+                      rows={4}
+                      placeholder="Internal notes for staff use only..."
                       error={!!errors.notes}
                       helperText={errors.notes?.message}
                     />
