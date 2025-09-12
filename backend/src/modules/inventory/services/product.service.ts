@@ -6,6 +6,7 @@ import {
   Logger,
   Inject,
   forwardRef,
+  StreamableFile,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -26,6 +27,11 @@ import {
   ProductListResponseDto,
   BulkUpdatePricesDto,
   ProductStockSummaryDto,
+  ProductImportDto,
+  ProductImportResultDto,
+  ProductImportErrorDto,
+  ProductImportWarningDto,
+  ProductImportRowDto,
 } from '../dto/product.dto';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
@@ -1209,5 +1215,363 @@ export class ProductService {
     return ['baseCost', 'retailPrice', 'wholesalePrice', 'specialPrice'].some(
       field => updateDto.hasOwnProperty(field)
     );
+  }
+
+  /**
+   * Import products from CSV/Excel file
+   */
+  async importProducts(
+    file: Express.Multer.File,
+    importDto: ProductImportDto,
+  ): Promise<ProductImportResultDto> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    this.logger.log(`Starting product import from ${importDto.format} file: ${file.originalname}`);
+
+    const result: ProductImportResultDto = {
+      totalRows: 0,
+      successCount: 0,
+      failureCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      errors: [],
+      warnings: [],
+      importedProductIds: [],
+    };
+
+    try {
+      // Parse the file based on format
+      const rows = await this.parseImportFile(file, importDto.format);
+      result.totalRows = rows.length;
+
+      if (rows.length === 0) {
+        throw new BadRequestException('No data rows found in file');
+      }
+
+      // Get all categories for mapping
+      const categories = await this.categoryRepository.find({
+        where: { isActive: true },
+      });
+      const categoryMap = new Map(categories.map(cat => [cat.name.toLowerCase(), cat.id]));
+
+      // Process each row
+      for (let i = 0; i < rows.length; i++) {
+        const rowNumber = i + 2; // +2 because we skip header and rows are 0-indexed
+        const row = rows[i];
+
+        try {
+          // Validate and process the row
+          const productData = await this.validateAndProcessRow(row, rowNumber, categoryMap, result);
+          
+          if (!productData) {
+            result.skippedCount++;
+            continue;
+          }
+
+          // Check for duplicates
+          const existingProduct = await this.findDuplicateProduct(productData.name, productData.barcode);
+          
+          if (existingProduct) {
+            if (importDto.updateExisting) {
+              // Update existing product
+              await this.update(existingProduct.id, productData as UpdateProductDto, 'system');
+              result.updatedCount++;
+              result.importedProductIds.push(existingProduct.id);
+              result.warnings.push({
+                row: rowNumber,
+                message: `Updated existing product: ${productData.name}`,
+              });
+            } else if (importDto.skipDuplicates) {
+              // Skip duplicate
+              result.skippedCount++;
+              result.warnings.push({
+                row: rowNumber,
+                message: `Skipped duplicate product: ${productData.name}`,
+              });
+            } else {
+              // Report error
+              result.failureCount++;
+              result.errors.push({
+                row: rowNumber,
+                field: 'name/barcode',
+                message: `Product already exists: ${productData.name}`,
+                value: productData.name,
+              });
+            }
+          } else {
+            // Create new product
+            const createdProduct = await this.create(productData as CreateProductDto, 'system');
+            result.successCount++;
+            result.importedProductIds.push(createdProduct.id);
+          }
+        } catch (error) {
+          result.failureCount++;
+          result.errors.push({
+            row: rowNumber,
+            field: 'general',
+            message: error.message || 'Unknown error occurred',
+            value: row.name || 'Unknown product',
+          });
+          this.logger.error(`Error processing row ${rowNumber}:`, error);
+        }
+      }
+
+      this.logger.log(`Import completed: ${result.successCount} created, ${result.updatedCount} updated, ${result.failureCount} failed, ${result.skippedCount} skipped`);
+      return result;
+
+    } catch (error) {
+      this.logger.error('Import failed:', error);
+      throw new BadRequestException(`Import failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate CSV template for product import
+   */
+  async generateImportTemplate(): Promise<StreamableFile> {
+    const csvHeaders = [
+      'name*',
+      'description',
+      'barcode',
+      'type*',
+      'categoryName*',
+      'unit*',
+      'baseCost*',
+      'retailPrice',
+      'wholesalePrice',
+      'specialPrice',
+      'stockQuantity',
+      'reorderLevel',
+      'weight',
+      'brand',
+      'model',
+      'notes',
+    ];
+
+    const sampleData = [
+      'Wireless Mouse',
+      'Ergonomic wireless mouse with USB receiver',
+      '123456789012',
+      'goods',
+      'Electronics',
+      'pcs',
+      '25.00',
+      '39.99',
+      '30.00',
+      '35.00',
+      '50',
+      '10',
+      '0.2',
+      'Logitech',
+      'MX Master 3',
+      'Premium wireless mouse for productivity',
+    ];
+
+    const csvContent = [
+      csvHeaders.join(','),
+      sampleData.map(field => `"${field}"`).join(','),
+    ].join('\n');
+
+    const buffer = Buffer.from(csvContent, 'utf-8');
+    return new StreamableFile(buffer);
+  }
+
+  /**
+   * Parse import file based on format
+   */
+  private async parseImportFile(file: Express.Multer.File, format: string): Promise<any[]> {
+    const fileContent = file.buffer.toString('utf-8');
+    
+    if (format === 'csv') {
+      return this.parseCsvContent(fileContent);
+    } else if (format === 'excel') {
+      // For now, treat Excel files as CSV (would need xlsx library for proper Excel support)
+      return this.parseCsvContent(fileContent);
+    } else {
+      throw new BadRequestException(`Unsupported file format: ${format}`);
+    }
+  }
+
+  /**
+   * Parse CSV content
+   */
+  private parseCsvContent(content: string): any[] {
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      throw new BadRequestException('File must contain at least a header row and one data row');
+    }
+
+    // Parse header
+    const headerLine = lines[0];
+    const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\*/g, ''));
+
+    // Validate required headers
+    const requiredHeaders = ['name', 'type', 'categoryname', 'unit', 'basecost'];
+    const missingHeaders = requiredHeaders.filter(req => !headers.includes(req));
+    
+    if (missingHeaders.length > 0) {
+      throw new BadRequestException(`Missing required headers: ${missingHeaders.join(', ')}`);
+    }
+
+    // Parse data rows
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+
+      const values = this.parseCsvLine(line);
+      const rowData: any = {};
+      
+      headers.forEach((header, index) => {
+        rowData[header] = values[index] || '';
+      });
+
+      rows.push(rowData);
+    }
+
+    return rows;
+  }
+
+  /**
+   * Parse a single CSV line handling quoted values
+   */
+  private parseCsvLine(line: string): string[] {
+    const values = [];
+    let currentValue = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"' && (i === 0 || line[i - 1] === ',')) {
+        inQuotes = true;
+      } else if (char === '"' && inQuotes && (i === line.length - 1 || line[i + 1] === ',')) {
+        inQuotes = false;
+      } else if (char === ',' && !inQuotes) {
+        values.push(currentValue.trim());
+        currentValue = '';
+      } else {
+        currentValue += char;
+      }
+    }
+    
+    values.push(currentValue.trim());
+    return values;
+  }
+
+  /**
+   * Validate and process a single import row
+   */
+  private async validateAndProcessRow(
+    row: any,
+    rowNumber: number,
+    categoryMap: Map<string, string>,
+    result: ProductImportResultDto,
+  ): Promise<CreateProductDto | null> {
+    // Check required fields
+    const requiredFields = {
+      name: row.name,
+      type: row.type,
+      categoryname: row.categoryname,
+      unit: row.unit,
+      basecost: row.basecost,
+    };
+
+    for (const [field, value] of Object.entries(requiredFields)) {
+      if (!value || value.toString().trim() === '') {
+        result.errors.push({
+          row: rowNumber,
+          field,
+          message: `${field} is required`,
+          value,
+        });
+        return null;
+      }
+    }
+
+    // Map category name to ID
+    const categoryName = row.categoryname.toLowerCase();
+    const categoryId = categoryMap.get(categoryName);
+    
+    if (!categoryId) {
+      result.errors.push({
+        row: rowNumber,
+        field: 'categoryName',
+        message: `Category '${row.categoryname}' not found`,
+        value: row.categoryname,
+      });
+      return null;
+    }
+
+    // Validate product type
+    if (!['goods', 'service'].includes(row.type.toLowerCase())) {
+      result.errors.push({
+        row: rowNumber,
+        field: 'type',
+        message: `Invalid product type. Must be 'goods' or 'service'`,
+        value: row.type,
+      });
+      return null;
+    }
+
+    // Parse numeric values
+    const parseNumber = (value: string, field: string): number | undefined => {
+      if (!value || value.trim() === '') return undefined;
+      const parsed = parseFloat(value);
+      if (isNaN(parsed) || parsed < 0) {
+        result.errors.push({
+          row: rowNumber,
+          field,
+          message: `Invalid number format or negative value`,
+          value,
+        });
+        return undefined;
+      }
+      return parsed;
+    };
+
+    const baseCost = parseNumber(row.basecost, 'baseCost');
+    if (baseCost === undefined) return null;
+
+    // Build product data (Note: unit field is handled by entity defaults)
+    const productData: any = {
+      name: row.name.trim(),
+      description: row.description?.trim() || undefined,
+      barcode: row.barcode?.trim() || undefined,
+      type: row.type.toLowerCase() as ProductType,
+      categoryId,
+      baseCost,
+      retailPrice: parseNumber(row.retailprice, 'retailPrice'),
+      wholesalePrice: parseNumber(row.wholesaleprice, 'wholesalePrice'),
+      specialPrice: parseNumber(row.specialprice, 'specialPrice'),
+      currentStock: parseNumber(row.stockquantity, 'stockQuantity'),
+      weight: parseNumber(row.weight, 'weight'),
+      brand: row.brand?.trim() || undefined,
+      model: row.model?.trim() || undefined,
+      notes: row.notes?.trim() || undefined,
+      // Add unit field if provided
+      unit: row.unit?.trim() || 'pcs', // Default to 'pcs' if not provided
+    };
+
+    return productData;
+  }
+
+  /**
+   * Find duplicate product by name or barcode
+   */
+  private async findDuplicateProduct(name: string, barcode?: string): Promise<Product | null> {
+    const whereConditions: any[] = [{ name }];
+    
+    if (barcode && barcode.trim()) {
+      whereConditions.push({ barcode: barcode.trim() });
+    }
+
+    return await this.productRepository.findOne({
+      where: whereConditions,
+      withDeleted: true, // Include soft-deleted products in duplicate check
+    });
   }
 }

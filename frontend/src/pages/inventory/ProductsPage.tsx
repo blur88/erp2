@@ -47,6 +47,7 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
   TableChart as TableChartIcon,
   PictureAsPdf as PictureAsPdfIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -55,6 +56,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
+import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import InlineCalculator from '@/components/calculator/InlineCalculator'
 import type { Product } from '@/types'
@@ -136,6 +138,7 @@ const ProductsPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
   const [dialogCalculatorOpen, setDialogCalculatorOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
@@ -758,6 +761,23 @@ const ProductsPage: React.FC = () => {
             }}
           >
             {isMobile ? "View Deleted" : "View Deleted"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <CloudUploadIcon /> : undefined}
+            onClick={() => setImportDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              color: 'success.main',
+              borderColor: 'success.main',
+              '&:hover': {
+                borderColor: 'success.dark',
+                backgroundColor: 'success.light'
+              }
+            }}
+          >
+            {isMobile ? "Import Products" : "Import"}
           </Button>
           <Button
             variant="contained"
@@ -2405,6 +2425,13 @@ const ProductsPage: React.FC = () => {
       <DeletedProductsDialog
         open={deletedProductsDialogOpen}
         onClose={() => setDeletedProductsDialogOpen(false)}
+      />
+
+      {/* Product Import Dialog */}
+      <ProductImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onImportSuccess={handleRefresh}
       />
     </Box>
   )

@@ -478,3 +478,156 @@ export class ProductStockSummaryDto {
   @ApiProperty({ description: 'Last stock movement date' })
   lastMovementDate?: Date;
 }
+
+export class ProductImportDto {
+  @ApiProperty({ description: 'Import format', enum: ['csv', 'excel'] })
+  @IsEnum(['csv', 'excel'])
+  format: 'csv' | 'excel';
+  
+  @ApiPropertyOptional({ description: 'Skip duplicate products', default: false })
+  @IsOptional()
+  @IsBoolean()
+  skipDuplicates?: boolean;
+  
+  @ApiPropertyOptional({ description: 'Update existing products', default: false })
+  @IsOptional()
+  @IsBoolean()
+  updateExisting?: boolean;
+}
+
+export class ProductImportErrorDto {
+  @ApiProperty({ description: 'Row number where error occurred' })
+  row: number;
+  
+  @ApiProperty({ description: 'Field that caused the error' })
+  field: string;
+  
+  @ApiProperty({ description: 'Error message' })
+  message: string;
+  
+  @ApiPropertyOptional({ description: 'Value that caused the error' })
+  value?: any;
+}
+
+export class ProductImportWarningDto {
+  @ApiProperty({ description: 'Row number where warning occurred' })
+  row: number;
+  
+  @ApiProperty({ description: 'Warning message' })
+  message: string;
+}
+
+export class ProductImportResultDto {
+  @ApiProperty({ description: 'Total rows processed' })
+  totalRows: number;
+  
+  @ApiProperty({ description: 'Successfully imported products' })
+  successCount: number;
+  
+  @ApiProperty({ description: 'Failed imports' })
+  failureCount: number;
+  
+  @ApiProperty({ description: 'Updated existing products' })
+  updatedCount: number;
+  
+  @ApiProperty({ description: 'Skipped duplicates' })
+  skippedCount: number;
+  
+  @ApiProperty({ description: 'Validation errors by row', type: [ProductImportErrorDto] })
+  errors: ProductImportErrorDto[];
+  
+  @ApiProperty({ description: 'Import warnings', type: [ProductImportWarningDto] })
+  warnings: ProductImportWarningDto[];
+  
+  @ApiProperty({ description: 'List of successfully imported product IDs' })
+  importedProductIds: string[];
+}
+
+export class ProductImportRowDto {
+  @ApiProperty({ description: 'Product name' })
+  @IsString()
+  @MaxLength(200)
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Product description' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Product barcode' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  barcode?: string;
+
+  @ApiProperty({ description: 'Product type', enum: ['goods', 'service'] })
+  @IsEnum(['goods', 'service'])
+  type: string;
+
+  @ApiProperty({ description: 'Category name (will be mapped to categoryId)' })
+  @IsString()
+  categoryName: string;
+
+  @ApiProperty({ description: 'Unit of measurement' })
+  @IsString()
+  @MaxLength(20)
+  unit: string;
+
+  @ApiProperty({ description: 'Base cost price', minimum: 0 })
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  baseCost: number;
+
+  @ApiPropertyOptional({ description: 'Retail selling price', minimum: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  retailPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Wholesale selling price', minimum: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  wholesalePrice?: number;
+
+  @ApiPropertyOptional({ description: 'Special selling price', minimum: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  specialPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  stockQuantity?: number;
+
+  @ApiPropertyOptional({ description: 'Reorder level', minimum: 0, default: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  reorderLevel?: number;
+
+  @ApiPropertyOptional({ description: 'Product weight in kg', minimum: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  weight?: number;
+
+  @ApiPropertyOptional({ description: 'Product brand' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  brand?: string;
+
+  @ApiPropertyOptional({ description: 'Product model' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  model?: string;
+
+  @ApiPropertyOptional({ description: 'Internal notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
