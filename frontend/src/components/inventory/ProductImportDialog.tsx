@@ -103,20 +103,7 @@ export const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await ApiService.get('/inventory/products/import-template', {
-        responseType: 'blob',
-      });
-      
-      const blob = new Blob([response.data as string], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'product-import-template.csv');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
+      await ApiService.downloadFile('/inventory/products/import-template', 'product-import-template.csv');
       showSuccess('Template downloaded successfully');
     } catch (error) {
       console.error('Template download error:', error);

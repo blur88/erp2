@@ -177,6 +177,18 @@ export class ProductController {
     return this.productService.findDeleted(query);
   }
 
+  @Get('import-template')
+  @ApiOperation({ summary: 'Download CSV template for product import' })
+  @ApiResponse({
+    status: 200,
+    description: 'CSV template downloaded successfully',
+  })
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="product-import-template.csv"')
+  async downloadImportTemplate(): Promise<StreamableFile> {
+    return this.productService.generateImportTemplate();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a product by ID' })
   @ApiResponse({
@@ -419,18 +431,6 @@ export class ProductController {
     @Body() importDto: ProductImportDto
   ): Promise<ProductImportResultDto> {
     return this.productService.importProducts(file, importDto);
-  }
-
-  @Get('import-template')
-  @ApiOperation({ summary: 'Download CSV template for product import' })
-  @ApiResponse({
-    status: 200,
-    description: 'CSV template downloaded successfully',
-  })
-  @Header('Content-Type', 'text/csv')
-  @Header('Content-Disposition', 'attachment; filename="product-import-template.csv"')
-  async downloadImportTemplate(): Promise<StreamableFile> {
-    return this.productService.generateImportTemplate();
   }
 
   @Post('bulk-permanent-delete')
