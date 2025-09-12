@@ -44,6 +44,9 @@ import {
   Save as SaveIcon,
   Close as CancelIcon,
   Calculate as CalculateIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+  TableChart as TableChartIcon,
+  PictureAsPdf as PictureAsPdfIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -56,6 +59,7 @@ import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPan
 import InlineCalculator from '@/components/calculator/InlineCalculator'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
+import { exportProducts } from '@/utils/exportUtils'
 import {
   fetchProducts,
   fetchCategories,
@@ -137,6 +141,8 @@ const ProductsPage: React.FC = () => {
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
+  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
+  const [isExporting, setIsExporting] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
 
   // Use the new duplicate check hook
@@ -647,6 +653,38 @@ const ProductsPage: React.FC = () => {
     }
   }
 
+  // Export handlers
+  const handleExportClick = (event: React.MouseEvent<HTMLElement>) => {
+    setExportMenuAnchor(event.currentTarget)
+  }
+
+  const handleExportClose = () => {
+    setExportMenuAnchor(null)
+  }
+
+  const handleExport = async (format: 'csv' | 'excel' | 'pdf') => {
+    try {
+      setIsExporting(true)
+      handleExportClose()
+      
+      const exportData = {
+        products: filteredProducts,
+        filters: {
+          search: searchTerm || undefined,
+          category: selectedCategory || undefined
+        }
+      }
+      
+      await exportProducts(format, exportData)
+      showSuccess(`Products exported successfully as ${format.toUpperCase()}`)
+    } catch (error: any) {
+      console.error('Export error:', error)
+      showError(error.message || `Failed to export as ${format.toUpperCase()}`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
 
   return (
     <Box>
@@ -866,7 +904,10 @@ const ProductsPage: React.FC = () => {
         <Button
           variant="outlined"
           startIcon={<ExportIcon />}
+          endIcon={<ArrowDropDownIcon />}
           size="medium"
+          onClick={handleExportClick}
+          disabled={isExporting || filteredProducts.length === 0}
           sx={{ 
             flex: 'none',
             height: '40px',
@@ -874,7 +915,7 @@ const ProductsPage: React.FC = () => {
             fontWeight: 500
           }}
         >
-          Export
+          {isExporting ? 'Exporting...' : 'Export'}
         </Button>
       </Box>
 
@@ -1821,6 +1862,78 @@ const ProductsPage: React.FC = () => {
           <ViewIcon sx={{ mr: 1 }} fontSize="small" />
           View Details
         </MenuItem>
+      </Menu>
+
+      {/* Export Menu */}
+      <Menu
+        anchorEl={exportMenuAnchor}
+        open={Boolean(exportMenuAnchor)}
+        onClose={handleExportClose}
+        PaperProps={{
+          sx: { minWidth: 200 }
+        }}
+      >
+        <MenuItem 
+          onClick={() => handleExport('csv')}
+          disabled={isExporting}
+        >
+          <TableChartIcon sx={{ mr: 1, fontSize: '1.1rem' }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Export as CSV
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Comma-separated values
+            </Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleExport('excel')}
+          disabled={isExporting}
+        >
+          <TableChartIcon sx={{ mr: 1, fontSize: '1.1rem', color: 'success.main' }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Export as Excel
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              With summary & formatting
+            </Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleExport('pdf')}
+          disabled={isExporting}
+        >
+          <PictureAsPdfIcon sx={{ mr: 1, fontSize: '1.1rem', color: 'error.main' }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Export as PDF
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Formatted report
+            </Typography>
+          </Box>
+        </MenuItem>
+        {filteredProducts.length > 0 && (
+          <Box sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary">
+              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} will be exported
+              {searchTerm && (
+                <>
+                  <br />
+                  Search: "{searchTerm}"
+                </>
+              )}
+              {selectedCategory && (
+                <>
+                  <br />
+                  Category filter applied
+                </>
+              )}
+            </Typography>
+          </Box>
+        )}
       </Menu>
 
       {/* Product Form Dialog */}
