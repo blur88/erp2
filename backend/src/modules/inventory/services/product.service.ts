@@ -1295,7 +1295,7 @@ export class ProductService {
   }
 
   /**
-   * Generate CSV template for product import
+   * Generate CSV template for product import 
    */
   async generateImportTemplate(): Promise<StreamableFile> {
     const csvHeaders = [
@@ -1303,7 +1303,8 @@ export class ProductService {
       'description',
       'barcode',
       'type*',
-      'categoryId*',
+      'categoryName*',
+      'unit*',
       'baseCost*',
       'retailPrice',
       'wholesalePrice',
@@ -1318,7 +1319,8 @@ export class ProductService {
       'Sample product description',
       '123456789',
       'goods',
-      'category-uuid-here',
+      'test1',
+      'pcs',
       '10.00',
       '15.00',
       '12.00',
@@ -1333,7 +1335,8 @@ export class ProductService {
       'High-performance laptop for business use',
       'LAPTOP001',
       'goods',
-      'category-uuid-here',
+      'test2',
+      'pcs',
       '800.00',
       '1200.00',
       '1000.00',
@@ -1348,7 +1351,8 @@ export class ProductService {
       'Ergonomic office chair for comfortable workspace',
       'CHAIR001',
       'goods',
-      'category-uuid-here',
+      'test3',
+      'pcs',
       '150.00',
       '250.00',
       '200.00',
