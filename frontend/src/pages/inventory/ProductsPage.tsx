@@ -78,7 +78,7 @@ interface ProductFormData {
   name: string
   description: string
   barcode?: string
-  type: 'goods' | 'service'
+  type: 'Stocked Product' | 'Service'
   categoryId: string
   baseCost: number
   retailPrice?: number
@@ -214,7 +214,7 @@ const ProductsPage: React.FC = () => {
       name: '',
       description: '',
       barcode: '',
-      type: 'goods',
+      type: 'Stocked Product',
       categoryId: '',
       baseCost: 0,
       retailPrice: undefined,
@@ -463,7 +463,7 @@ const ProductsPage: React.FC = () => {
       name: product.name,
       description: product.description || '',
       barcode: product.barcode || '',
-      type: product.type || 'goods',
+      type: product.type || 'Stocked Product',
       categoryId: product.categoryId || product.category?.id || '',
       baseCost: product.baseCost || 0,
       retailPrice: product.retailPrice || undefined,
@@ -600,7 +600,7 @@ const ProductsPage: React.FC = () => {
           barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined, // Convert empty barcode to undefined
           currentStock: data.currentStock, // Backend expects currentStock, not stockQuantity
           // Remove fields that shouldn't be sent to backend
-          type: data.type === 'goods' || data.type === 'service' ? data.type : 'goods'
+          type: data.type === 'Stocked Product' || data.type === 'Service' ? data.type : 'Stocked Product'
         }
         
         const result = await dispatch(createProduct(createData))
@@ -1408,16 +1408,16 @@ const ProductsPage: React.FC = () => {
                                   }
                                 }}
                               >
-                                <MenuItem value="goods" sx={{ fontSize: '0.8rem' }}>
+                                <MenuItem value="Stocked Product" sx={{ fontSize: '0.8rem' }}>
                                   Stocked Product
                                 </MenuItem>
-                                <MenuItem value="service" sx={{ fontSize: '0.8rem' }}>
+                                <MenuItem value="Service" sx={{ fontSize: '0.8rem' }}>
                                   Service
                                 </MenuItem>
                               </Select>
                             </FormControl>
                           ) : (
-                            selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'
+                            selectedProductForDetails.type === 'Stocked Product' ? 'Stocked Product' : 'Service'
                           )}
                         </TableCell>
                       </TableRow>
@@ -2093,8 +2093,8 @@ const ProductsPage: React.FC = () => {
                     <FormControl fullWidth size="small" error={!!errors.type}>
                       <InputLabel>Type</InputLabel>
                       <Select {...field} label="Type">
-                        <MenuItem value="goods">Stocked Product</MenuItem>
-                        <MenuItem value="service">Service</MenuItem>
+                        <MenuItem value="Stocked Product">Stocked Product</MenuItem>
+                        <MenuItem value="Service">Service</MenuItem>
                       </Select>
                       {errors.type && (
                         <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: '0.75rem' }}>

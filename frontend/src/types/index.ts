@@ -28,7 +28,7 @@ export interface Product {
   name: string;
   description?: string;
   barcode: string;
-  type: 'goods' | 'service';
+  type: 'Stocked Product' | 'Service';
   category?: Category;
   categoryId?: string;
   // Multi-level pricing

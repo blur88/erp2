@@ -1,0 +1,4 @@
+name*,description,barcode,type*,categoryName*,baseCost*,retailPrice,wholesalePrice,specialPrice,stockQuantity,notes,isActive
+"Sample Product","Sample product description","123456789","goods","test1","10.00","15.00","12.00","13.50","100","Internal notes","true"
+"Business Laptop","High-performance laptop for business use","LAPTOP001","goods","test2","800.00","1200.00","1000.00","1100.00","25","Premium business laptop","true"
+"Office Chair","Ergonomic office chair for comfortable workspace","CHAIR001","goods","test3","150.00","250.00","200.00","220.00","15","Comfortable office seating","true"

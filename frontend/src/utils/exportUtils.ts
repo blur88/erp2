@@ -49,7 +49,7 @@ const prepareExportData = (products: Product[]) => {
     '#': index + 1,
     'Product Name': product.name || '',
     'Barcode': product.barcode || '',
-    'Type': product.type === 'goods' ? 'Stocked Product' : 'Service',
+    'Type': product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
     'Category': product.category?.name || 'No Category',
     'Description': product.description || '',
     'Base Cost': formatCurrencyForExport(product.baseCost),
@@ -174,8 +174,8 @@ export const exportToExcel = ({ products, filters }: ExportData): void => {
       { Metric: 'Total Products', Value: products.length },
       { Metric: 'Active Products', Value: products.filter(p => p.isActive).length },
       { Metric: 'Inactive Products', Value: products.filter(p => !p.isActive).length },
-      { Metric: 'Stocked Products', Value: products.filter(p => p.type === 'goods').length },
-      { Metric: 'Services', Value: products.filter(p => p.type === 'service').length },
+      { Metric: 'Stocked Products', Value: products.filter(p => p.type === 'Stocked Product').length },
+      { Metric: 'Services', Value: products.filter(p => p.type === 'Service').length },
       { Metric: 'Out of Stock Items', Value: products.filter(p => (p.stockQuantity || 0) <= 0).length },
       { Metric: 'Low Stock Items', Value: products.filter(p => {
         const stock = p.stockQuantity || 0
@@ -247,7 +247,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
       index + 1,
       product.name || '',
       product.barcode || '',
-      product.type === 'goods' ? 'Product' : 'Service',
+      product.type === 'Stocked Product' ? 'Product' : 'Service',
       product.category?.name || 'No Category',
       formatCurrencyForExport(product.baseCost),
       formatCurrencyForExport(product.retailPrice),
@@ -322,8 +322,8 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
     const summaryStats = [
       `Active Products: ${products.filter(p => p.isActive).length}`,
       `Inactive Products: ${products.filter(p => !p.isActive).length}`,
-      `Stocked Products: ${products.filter(p => p.type === 'goods').length}`,
-      `Services: ${products.filter(p => p.type === 'service').length}`,
+      `Stocked Products: ${products.filter(p => p.type === 'Stocked Product').length}`,
+      `Services: ${products.filter(p => p.type === 'Service').length}`,
       `Out of Stock: ${products.filter(p => (p.stockQuantity || 0) <= 0).length}`,
       `Low Stock: ${products.filter(p => {
         const stock = p.stockQuantity || 0

@@ -1292,7 +1292,7 @@ export class ProductService {
       'Sample Product',
       'Sample product description',
       '123456789',
-      'goods',
+      'Stocked Product',
       'test1',
       '10.00',
       '15.00',
@@ -1307,7 +1307,7 @@ export class ProductService {
       'Business Laptop',
       'High-performance laptop for business use',
       'LAPTOP001',
-      'goods',
+      'Stocked Product',
       'test2',
       '800.00',
       '1200.00',
@@ -1319,17 +1319,17 @@ export class ProductService {
     ];
 
     const sampleData3 = [
-      'Office Chair',
-      'Ergonomic office chair for comfortable workspace',
-      'CHAIR001',
-      'goods',
+      'IT Consulting Service',
+      'Professional IT consulting and support services',
+      'CONSULT001',
+      'Service',
       'test3',
-      '150.00',
-      '250.00',
-      '200.00',
-      '220.00',
-      '15',
-      'Comfortable office seating',
+      '80.00',
+      '120.00',
+      '100.00',
+      '110.00',
+      '0',
+      'Hourly rate for IT support',
       'true',
     ];
 
@@ -1471,12 +1471,24 @@ export class ProductService {
       return null;
     }
 
-    // Validate product type
-    if (!['goods', 'service'].includes(row.type.toLowerCase())) {
+    // Validate product type and map to enum values
+    const normalizeProductType = (type: string): ProductType | null => {
+      const lowerType = type.toLowerCase().trim();
+      if (lowerType === 'goods' || lowerType === 'stocked product') {
+        return ProductType.GOODS;
+      }
+      if (lowerType === 'service') {
+        return ProductType.SERVICE;
+      }
+      return null;
+    };
+
+    const normalizedType = normalizeProductType(row.type);
+    if (!normalizedType) {
       result.errors.push({
         row: rowNumber,
         field: 'type',
-        message: `Invalid product type. Must be 'goods' or 'service'`,
+        message: `Invalid product type. Must be 'Stocked Product' or 'Service'`,
         value: row.type,
       });
       return null;
@@ -1506,7 +1518,7 @@ export class ProductService {
       name: row.name.trim(),
       description: row.description?.trim() || undefined,
       barcode: row.barcode?.trim() || undefined,
-      type: row.type.toLowerCase() as ProductType,
+      type: normalizedType,
       categoryId,
       baseCost,
       retailPrice: parseNumber(row.retailprice, 'retailPrice'),

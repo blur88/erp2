@@ -22,8 +22,8 @@ import { StockMovement } from './stock-movement.entity';
 import { StockAdjustment } from './stock-adjustment.entity';
 
 export enum ProductType {
-  GOODS = 'goods',
-  SERVICE = 'service',
+  GOODS = 'Stocked Product',
+  SERVICE = 'Service',
 }
 
 /**
