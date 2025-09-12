@@ -224,10 +224,12 @@ When enabling disabled modules:
 ## Recent Changes (September 2025)
 
 ### Product Fields Modernization (September 2025)
-- ✅ **LATEST**: Replaced SKU field with Barcode for better retail integration
-- **Removed Fields**: Product type, unit, initial stock, reorder level, optimal stock (simplified model)
-- **Added**: Current stock field for real-time inventory tracking
-- **Search**: Barcode field is now searchable in product lists
+- ✅ **LATEST**: Simplified product model to match frontend form (December 2025)
+- **Final Product Fields**: name, description, barcode, type, categoryId, baseCost, retailPrice, wholesalePrice, specialPrice, stockQuantity, notes, isActive
+- **Removed Fields**: status, unit, reservedQuantity, reorderLevel, optimalStockLevel, stockStatus, weight, dimensions, brand, model, imageUrl, additionalImages, attributes
+- **CSV Import**: Updated template to match simplified fields only
+- **Database Migration**: Created migration to remove unused columns from products table
+- **Search**: Simplified to search only by name and barcode
 - **Permanent Delete**: Added hard delete functionality for soft-deleted products
 
 ### Soft-Deleted Products Feature (September 2025)

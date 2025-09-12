@@ -110,18 +110,10 @@ export class ProductService {
     // Create product
     const product = this.productRepository.create({
       ...createProductDto,
-      stockQuantity: createProductDto.currentStock || 0,
-      status: createProductDto.status || ProductStatus.ACTIVE,
+      stockQuantity: createProductDto.stockQuantity || 0,
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
-      // Set default values for removed fields
-      unit: 'pcs',
-      reorderLevel: 0,
-      optimalStockLevel: 0,
     });
-
-    // Set initial stock status
-    product.updateStockStatus();
 
     const savedProduct = await this.productRepository.save(product);
 
@@ -129,11 +121,11 @@ export class ProductService {
     savedProduct.category = category;
 
     // Create initial stock movement if current stock provided (temporarily disabled for system users)
-    if (createProductDto.currentStock && createProductDto.currentStock > 0 && userId) {
+    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0 && userId) {
       try {
         await this.stockMovementService.recordInitialStock(
           savedProduct.id,
-          createProductDto.currentStock,
+          createProductDto.stockQuantity,
           createProductDto.baseCost,
           userId,
         );
@@ -179,7 +171,7 @@ export class ProductService {
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR product.brand ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -192,24 +184,12 @@ export class ProductService {
       queryBuilder.andWhere('product.type = :type', { type });
     }
 
-    if (status) {
-      queryBuilder.andWhere('product.status = :status', { status });
-    }
-
     if (isActive !== undefined) {
       queryBuilder.andWhere('product.isActive = :isActive', { isActive });
     }
 
-    if (brand) {
-      queryBuilder.andWhere('product.brand ILIKE :brand', { brand: `%${brand}%` });
-    }
-
-    if (lowStock) {
-      queryBuilder.andWhere('product.stockQuantity <= product.reorderLevel');
-    }
-
     if (outOfStock) {
-      queryBuilder.andWhere('(product.stockQuantity - product.reservedQuantity) <= 0');
+      queryBuilder.andWhere('product.stockQuantity <= 0');
     }
 
     if (minStock !== undefined) {
@@ -1142,28 +1122,16 @@ export class ProductService {
   private toResponseDto(product: Product): ProductResponseDto {
     return {
       id: product.id,
-      barcode: product.barcode,
       name: product.name,
       description: product.description,
+      barcode: product.barcode,
       type: product.type,
-      status: product.status,
       isActive: product.isActive,
-      unit: product.unit,
       baseCost: Number(product.baseCost),
-      retailPrice: Number(product.retailPrice),
-      wholesalePrice: Number(product.wholesalePrice),
-      specialPrice: Number(product.specialPrice),
+      retailPrice: product.retailPrice ? Number(product.retailPrice) : undefined,
+      wholesalePrice: product.wholesalePrice ? Number(product.wholesalePrice) : undefined,
+      specialPrice: product.specialPrice ? Number(product.specialPrice) : undefined,
       stockQuantity: Number(product.stockQuantity),
-      reservedQuantity: Number(product.reservedQuantity),
-      availableQuantity: product.availableQuantity,
-      stockStatus: product.stockStatus,
-      weight: product.weight ? Number(product.weight) : undefined,
-      dimensions: product.dimensions,
-      brand: product.brand,
-      model: product.model,
-      imageUrl: product.imageUrl,
-      additionalImages: product.additionalImages,
-      attributes: product.attributes,
       notes: product.notes,
       categoryId: product.categoryId,
       category: product.category ? {
@@ -1171,7 +1139,6 @@ export class ProductService {
         name: product.category.name,
         fullPath: product.category.fullPath,
       } : null,
-      isLowStock: product.isLowStock,
       isOutOfStock: product.isOutOfStock,
       grossMarginRetail: product.grossMarginRetail,
       grossMarginWholesale: product.grossMarginWholesale,
@@ -1336,99 +1303,59 @@ export class ProductService {
       'description',
       'barcode',
       'type*',
-      'status',
-      'isActive',
-      'unit*',
+      'categoryId*',
       'baseCost*',
       'retailPrice',
       'wholesalePrice',
       'specialPrice',
       'stockQuantity',
-      'reservedQuantity',
-      'reorderLevel',
-      'optimalStockLevel',
-      'stockStatus',
-      'weight',
-      'brand',
-      'model',
-      'imageUrl',
       'notes',
-      'categoryId*',
+      'isActive',
     ];
 
     const sampleData1 = [
-      'Product Name',
-      'Product Description',
+      'Sample Product',
+      'Sample product description',
       '123456789',
       'goods',
-      'active',
-      'true',
-      'pcs',
+      'category-uuid-here',
       '10.00',
       '15.00',
       '12.00',
       '13.50',
       '100',
-      '0',
-      '10',
-      '50',
-      'in_stock',
-      '1.5',
-      'Brand Name',
-      'Model ABC',
-      'https://example.com/image.jpg',
       'Internal notes',
-      'category-uuid-here',
+      'true',
     ];
 
     const sampleData2 = [
-      'Sample Laptop',
-      'High-performance laptop for business',
+      'Business Laptop',
+      'High-performance laptop for business use',
       'LAPTOP001',
       'goods',
-      'active',
-      'true',
-      'pcs',
+      'category-uuid-here',
       '800.00',
       '1200.00',
       '1000.00',
       '1100.00',
       '25',
-      '2',
-      '5',
-      '20',
-      'in_stock',
-      '2.3',
-      'Dell',
-      'Latitude 7420',
-      'https://example.com/laptop.jpg',
       'Premium business laptop',
-      'category-uuid-here',
+      'true',
     ];
 
     const sampleData3 = [
       'Office Chair',
-      'Ergonomic office chair',
+      'Ergonomic office chair for comfortable workspace',
       'CHAIR001',
       'goods',
-      'active',
-      'true',
-      'pcs',
+      'category-uuid-here',
       '150.00',
       '250.00',
       '200.00',
       '220.00',
       '15',
-      '1',
-      '3',
-      '12',
-      'in_stock',
-      '12.5',
-      'Herman Miller',
-      'Aeron',
-      'https://example.com/chair.jpg',
       'Comfortable office seating',
-      'category-uuid-here',
+      'true',
     ];
 
     const csvContent = [
