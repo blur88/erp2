@@ -133,7 +133,8 @@ export const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
         },
       });
 
-      const result = response.data as ImportResult;
+      // Handle both wrapped and unwrapped responses
+      const result = (response as any)?.data || response as ImportResult;
       setImportResult(result);
 
       if (result.successCount > 0 || result.updatedCount > 0) {

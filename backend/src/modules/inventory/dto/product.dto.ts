@@ -359,11 +359,13 @@ export class ProductImportDto {
   
   @ApiPropertyOptional({ description: 'Skip duplicate products', default: false })
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   skipDuplicates?: boolean;
   
   @ApiPropertyOptional({ description: 'Update existing products', default: false })
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   updateExisting?: boolean;
 }

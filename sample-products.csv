@@ -1,4 +1,0 @@
-name*,description,barcode,type*,categoryName*,unit*,baseCost*,retailPrice,wholesalePrice,specialPrice,stockQuantity,reorderLevel,weight,brand,model,notes
-"Wireless Mouse","Ergonomic wireless mouse with USB receiver","123456789012","goods","Electronics","pcs","25.00","39.99","30.00","35.00","50","10","0.2","Logitech","MX Master 3","Premium wireless mouse for productivity"
-"USB Cable","High-speed USB 3.0 cable","987654321098","goods","Electronics","pcs","5.00","12.99","8.00","10.00","100","20","0.1","Generic","USB-C","Durable USB cable"
-"Consultation Service","IT consultation hourly service","","service","Services","hour","0.00","150.00","120.00","140.00","0","0","0","TechCorp","Premium","Professional IT consultation services"
