@@ -730,25 +730,6 @@ const ProductsPage: React.FC = () => {
           </Button>
           <Button
             variant="outlined"
-            startIcon={!isMobile ? <CalculateIcon /> : undefined}
-            onClick={() => setCalculatorPanelOpen(!calculatorPanelOpen)}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-            sx={{
-              color: calculatorPanelOpen ? 'info.dark' : 'info.main',
-              borderColor: calculatorPanelOpen ? 'info.dark' : 'info.main',
-              backgroundColor: calculatorPanelOpen ? 'info.light' : 'transparent',
-              '&:hover': {
-                borderColor: 'info.dark',
-                backgroundColor: 'info.light'
-              },
-              transition: 'all 0.3s ease-in-out'
-            }}
-          >
-            {isMobile ? "Calculator" : calculatorPanelOpen ? "Close Calculator" : "Calculator"}
-          </Button>
-          <Button
-            variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setDeletedProductsDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
@@ -763,23 +744,6 @@ const ProductsPage: React.FC = () => {
             }}
           >
             {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <CloudUploadIcon /> : undefined}
-            onClick={() => setImportDialogOpen(true)}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-            sx={{
-              color: 'success.main',
-              borderColor: 'success.main',
-              '&:hover': {
-                borderColor: 'success.dark',
-                backgroundColor: 'success.light'
-              }
-            }}
-          >
-            {isMobile ? "Import Products" : "Import"}
           </Button>
           <Button
             variant="contained"
@@ -938,6 +902,48 @@ const ProductsPage: React.FC = () => {
           }}
         >
           {isExporting ? 'Exporting...' : 'Export'}
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<CloudUploadIcon />}
+          size="medium"
+          onClick={() => setImportDialogOpen(true)}
+          sx={{
+            flex: 'none',
+            height: '40px',
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            color: 'success.main',
+            borderColor: 'success.main',
+            '&:hover': {
+              borderColor: 'success.dark',
+              backgroundColor: 'success.light'
+            }
+          }}
+        >
+          Import
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<CalculateIcon />}
+          size="medium"
+          onClick={() => setCalculatorPanelOpen(!calculatorPanelOpen)}
+          sx={{
+            flex: 'none',
+            height: '40px',
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            color: calculatorPanelOpen ? 'info.dark' : 'info.main',
+            borderColor: calculatorPanelOpen ? 'info.dark' : 'info.main',
+            backgroundColor: calculatorPanelOpen ? 'info.light' : 'transparent',
+            '&:hover': {
+              borderColor: 'info.dark',
+              backgroundColor: 'info.light'
+            },
+            transition: 'all 0.3s ease-in-out'
+          }}
+        >
+          {calculatorPanelOpen ? "Close Calculator" : "Calculator"}
         </Button>
       </Box>
 
