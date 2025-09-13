@@ -31,11 +31,8 @@ export enum StockAdjustmentType {
 
 export enum StockAdjustmentStatus {
   DRAFT = 'draft',
-  PENDING_APPROVAL = 'pending_approval',
-  APPROVED = 'approved',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-  REJECTED = 'rejected',
 }
 
 /**
@@ -48,8 +45,6 @@ export enum StockAdjustmentStatus {
 @Index(['type'])
 @Index(['status'])
 @Index(['adjustmentDate'])
-@Index(['adjustedBy'])
-@Index(['approvedBy'])
 export class StockAdjustment extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -85,14 +80,6 @@ export class StockAdjustment extends BaseEntity {
   @IsDate()
   adjustmentDate: Date;
 
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Date when adjustment was approved',
-  })
-  @IsOptional()
-  @IsDate()
-  approvedDate?: Date;
 
   // Stock Quantities
   @Column({
@@ -204,14 +191,6 @@ export class StockAdjustment extends BaseEntity {
   @IsString()
   notes?: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Approval or rejection notes',
-  })
-  @IsOptional()
-  @IsString()
-  approvalNotes?: string;
 
   @Column({
     type: 'json',
@@ -276,26 +255,7 @@ export class StockAdjustment extends BaseEntity {
   })
   productId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    default: 'system',
-    comment: 'User who initiated the adjustment',
-  })
-  @IsString()
-  @MaxLength(100)
-  adjustedBy: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'User who approved the adjustment',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  approvedBy?: string;
 
   // Relationships
   @ManyToOne(() => Product, (product) => product.stockAdjustments, {
@@ -321,20 +281,13 @@ export class StockAdjustment extends BaseEntity {
   }
 
   get isPending(): boolean {
-    return [StockAdjustmentStatus.DRAFT, StockAdjustmentStatus.PENDING_APPROVAL].includes(this.status);
+    return this.status === StockAdjustmentStatus.DRAFT;
   }
 
   get isCompleted(): boolean {
     return this.status === StockAdjustmentStatus.COMPLETED;
   }
 
-  get canApprove(): boolean {
-    return this.status === StockAdjustmentStatus.PENDING_APPROVAL;
-  }
-
-  get canReject(): boolean {
-    return this.status === StockAdjustmentStatus.PENDING_APPROVAL;
-  }
 
   // Hooks
   @BeforeInsert()
@@ -359,33 +312,9 @@ export class StockAdjustment extends BaseEntity {
   }
 
   // Helper methods
-  submitForApproval(): void {
-    if (this.status === StockAdjustmentStatus.DRAFT) {
-      this.status = StockAdjustmentStatus.PENDING_APPROVAL;
-    }
-  }
-
-  approve(approvedBy: string = 'system', approvalNotes?: string): void {
-    if (this.canApprove) {
-      this.status = StockAdjustmentStatus.APPROVED;
-      this.approvedBy = approvedBy;
-      this.approvedDate = new Date();
-      if (approvalNotes) {
-        this.approvalNotes = approvalNotes;
-      }
-    }
-  }
-
-  reject(rejectedBy: string = 'system', rejectionReason: string): void {
-    if (this.canReject) {
-      this.status = StockAdjustmentStatus.REJECTED;
-      this.approvedBy = rejectedBy;
-      this.approvalNotes = `Rejected: ${rejectionReason}`;
-    }
-  }
 
   complete(): void {
-    if (this.status === StockAdjustmentStatus.APPROVED) {
+    if (this.status === StockAdjustmentStatus.DRAFT) {
       this.status = StockAdjustmentStatus.COMPLETED;
     }
   }
@@ -423,13 +352,6 @@ export class StockAdjustment extends BaseEntity {
   }
 
   // Validation methods
-  requiresApproval(): boolean {
-    const significantAmount = Math.abs(Number(this.totalValueImpact || 0)) > 100; // $100 threshold
-    const significantPercent = Math.abs(this.adjustmentPercent) > 10; // 10% threshold
-    
-    return significantAmount || significantPercent || 
-           [StockAdjustmentType.THEFT, StockAdjustmentType.WRITE_OFF].includes(this.type);
-  }
 
   validateAdjustment(): Array<string> {
     const errors: string[] = [];
@@ -462,8 +384,7 @@ export class StockAdjustment extends BaseEntity {
     systemQty: number,
     physicalQty: number,
     countedBy: string,
-    reason: string,
-    adjustedBy: string = 'system'
+    reason: string
   ): Partial<StockAdjustment> {
     return {
       productId,
@@ -474,7 +395,6 @@ export class StockAdjustment extends BaseEntity {
       countedAt: new Date(),
       reason,
       adjustmentDate: new Date(),
-      adjustedBy,
     };
   }
 
@@ -482,8 +402,7 @@ export class StockAdjustment extends BaseEntity {
     productId: string,
     systemQty: number,
     damagedQty: number,
-    reason: string,
-    adjustedBy: string = 'system'
+    reason: string
   ): Partial<StockAdjustment> {
     return {
       productId,
@@ -492,7 +411,6 @@ export class StockAdjustment extends BaseEntity {
       actualQuantity: systemQty - damagedQty,
       reason,
       adjustmentDate: new Date(),
-      adjustedBy,
     };
   }
 
@@ -513,7 +431,7 @@ export class StockAdjustment extends BaseEntity {
       quantityImpact: Number(this.adjustmentQuantity),
       valueImpact: Number(this.totalValueImpact || 0),
       percentageChange: this.adjustmentPercent,
-      requiresApproval: this.requiresApproval(),
+      requiresApproval: false,
       isSignificant,
     };
   }

@@ -328,30 +328,12 @@ export class QueryStockAdjustmentsDto {
   @IsDate()
   toDate?: Date;
 
-  @ApiPropertyOptional({ description: 'Filter by user who made the adjustment' })
-  @IsOptional()
-  @IsString()
-  adjustedBy?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by user who approved the adjustment' })
-  @IsOptional()
-  @IsString()
-  approvedBy?: string;
 
   @ApiPropertyOptional({ description: 'Filter by location code' })
   @IsOptional()
   @IsString()
   locationCode?: string;
 
-  @ApiPropertyOptional({ description: 'Show only adjustments requiring approval' })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
-  @IsBoolean()
-  requiresApproval?: boolean;
 
   @ApiPropertyOptional({ description: 'Search term (adjustment number, product name, reason)' })
   @IsOptional()
@@ -369,17 +351,6 @@ export class QueryStockAdjustmentsDto {
   sortOrder?: 'ASC' | 'DESC';
 }
 
-export class StockAdjustmentActionDto {
-  @ApiPropertyOptional({ description: 'Approval or rejection notes' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({ description: 'Force approval even if business rules suggest otherwise' })
-  @IsOptional()
-  @IsBoolean()
-  forceApproval?: boolean;
-}
 
 export class BulkStockAdjustmentDto {
   @ApiProperty({ description: 'List of stock adjustments', type: 'array' })
@@ -601,8 +572,6 @@ export class StockAdjustmentResponseDto {
   @ApiProperty({ description: 'Adjustment date' })
   adjustmentDate: Date;
 
-  @ApiPropertyOptional({ description: 'Approved date' })
-  approvedDate?: Date;
 
   @ApiProperty({ description: 'System quantity before adjustment' })
   systemQuantity: number;
@@ -637,8 +606,6 @@ export class StockAdjustmentResponseDto {
   @ApiPropertyOptional({ description: 'Additional notes' })
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Approval notes' })
-  approvalNotes?: string;
 
   @ApiPropertyOptional({ description: 'Counted by' })
   countedBy?: string;
@@ -673,14 +640,6 @@ export class StockAdjustmentResponseDto {
 
   @ApiProperty({ description: 'User who made the adjustment' })
   adjustedByUser: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  };
-
-  @ApiPropertyOptional({ description: 'User who approved the adjustment' })
-  approvedByUser?: {
     id: string;
     email: string;
     firstName?: string;

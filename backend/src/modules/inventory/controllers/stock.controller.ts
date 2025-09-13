@@ -29,7 +29,6 @@ import {
   UpdateStockAdjustmentDto,
   QueryStockAdjustmentsDto,
   StockAdjustmentResponseDto,
-  StockAdjustmentActionDto,
   BulkStockAdjustmentDto,
   StockTransferDto,
   StockReservationDto,
@@ -159,26 +158,6 @@ export class StockController {
     return this.stockAdjustmentService.findAll(query);
   }
 
-  @Get('adjustments/pending-approvals')
-  @ApiOperation({ summary: 'Get adjustments pending approval' })
-  @ApiResponse({
-    status: 200,
-    description: 'Pending adjustments retrieved successfully',
-  })
-  async getPendingAdjustments() {
-    return this.stockAdjustmentService.getAdjustmentsRequiringApproval();
-  }
-
-  @Get('adjustments/pending-count')
-  @ApiOperation({ summary: 'Get count of adjustments pending approval' })
-  @ApiResponse({
-    status: 200,
-    description: 'Pending count retrieved successfully',
-  })
-  async getPendingAdjustmentsCount(): Promise<{ count: number }> {
-    const count = await this.stockAdjustmentService.getPendingApprovalsCount();
-    return { count };
-  }
 
   @Get('adjustments/:id')
   @ApiOperation({ summary: 'Get a stock adjustment by ID' })
@@ -212,43 +191,6 @@ export class StockController {
     return this.stockAdjustmentService.update(id, updateAdjustmentDto);
   }
 
-  @Post('adjustments/:id/approve')
-  @ApiOperation({ summary: 'Approve a stock adjustment' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock adjustment approved successfully',
-    type: StockAdjustmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Adjustment cannot be approved or validation failed' })
-  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
-  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
-  @ApiBody({ type: StockAdjustmentActionDto })
-  @HttpCode(HttpStatus.OK)
-  async approveAdjustment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() actionDto: StockAdjustmentActionDto,
-  ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.approve(id, actionDto);
-  }
-
-  @Post('adjustments/:id/reject')
-  @ApiOperation({ summary: 'Reject a stock adjustment' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock adjustment rejected successfully',
-    type: StockAdjustmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Adjustment cannot be rejected or reason missing' })
-  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
-  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
-  @ApiBody({ type: StockAdjustmentActionDto })
-  @HttpCode(HttpStatus.OK)
-  async rejectAdjustment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() actionDto: StockAdjustmentActionDto,
-  ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.reject(id, actionDto);
-  }
 
   @Post('adjustments/:id/cancel')
   @ApiOperation({ summary: 'Cancel a stock adjustment (only if pending)' })

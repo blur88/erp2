@@ -16,7 +16,6 @@ import {
 } from 'typeorm';
 import {
   StockAdjustment,
-  StockAdjustmentType,
   StockAdjustmentStatus,
 } from '../../../database/entities/stock-adjustment.entity';
 import { Product } from '../../../database/entities/product.entity';
@@ -26,7 +25,6 @@ import {
   UpdateStockAdjustmentDto,
   QueryStockAdjustmentsDto,
   StockAdjustmentResponseDto,
-  StockAdjustmentActionDto,
   BulkStockAdjustmentDto,
 } from '../dto/stock.dto';
 import { StockMovementService } from './stock-movement.service';
@@ -53,7 +51,6 @@ export class StockAdjustmentService {
    */
   async create(
     createAdjustmentDto: CreateStockAdjustmentDto,
-    adjustedBy: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(
       `Creating stock adjustment for product ${createAdjustmentDto.productId}`,
@@ -81,23 +78,14 @@ export class StockAdjustmentService {
     const stockAdjustment = this.stockAdjustmentRepository.create({
       ...createAdjustmentDto,
       adjustmentDate: new Date(),
-      adjustedBy: adjustedBy,
       locationCode: createAdjustmentDto.locationCode || 'MAIN',
+      status: StockAdjustmentStatus.DRAFT,
     });
-
-    // Set initial status based on whether approval is required
-    if (stockAdjustment.requiresApproval()) {
-      stockAdjustment.status = StockAdjustmentStatus.PENDING_APPROVAL;
-    } else {
-      stockAdjustment.status = StockAdjustmentStatus.APPROVED;
-    }
 
     const savedAdjustment = await this.stockAdjustmentRepository.save(stockAdjustment);
 
-    // If auto-approved, process immediately
-    if (savedAdjustment.status === StockAdjustmentStatus.APPROVED) {
-      await this.processAdjustment(savedAdjustment.id, adjustedBy);
-    }
+    // Process adjustment immediately
+    await this.processAdjustment(savedAdjustment.id);
 
     // Audit logging removed with authentication system
 
@@ -117,10 +105,7 @@ export class StockAdjustmentService {
       status,
       fromDate,
       toDate,
-      adjustedBy: adjustedByFilter,
-      approvedBy: approvedByFilter,
       locationCode,
-      requiresApproval,
       search,
       sortBy = 'adjustmentDate',
       sortOrder = 'DESC',
@@ -155,17 +140,6 @@ export class StockAdjustmentService {
       queryBuilder.andWhere('adjustment.adjustmentDate <= :toDate', { toDate });
     }
 
-    if (adjustedByFilter) {
-      queryBuilder.andWhere('adjustment.adjustedBy = :adjustedBy', {
-        adjustedBy: adjustedByFilter,
-      });
-    }
-
-    if (approvedByFilter) {
-      queryBuilder.andWhere('adjustment.approvedBy = :approvedBy', {
-        approvedBy: approvedByFilter,
-      });
-    }
 
     if (locationCode) {
       queryBuilder.andWhere('adjustment.locationCode = :locationCode', {
@@ -173,19 +147,6 @@ export class StockAdjustmentService {
       });
     }
 
-    if (requiresApproval !== undefined) {
-      if (requiresApproval) {
-        queryBuilder.andWhere(
-          '(ABS(adjustment.totalValueImpact) > 100 OR ABS((adjustment.adjustmentQuantity / NULLIF(adjustment.systemQuantity, 0)) * 100) > 10 OR adjustment.type IN (:...significantTypes))',
-          { significantTypes: [StockAdjustmentType.THEFT, StockAdjustmentType.WRITE_OFF] },
-        );
-      } else {
-        queryBuilder.andWhere(
-          '(ABS(adjustment.totalValueImpact) <= 100 AND ABS((adjustment.adjustmentQuantity / NULLIF(adjustment.systemQuantity, 0)) * 100) <= 10 AND adjustment.type NOT IN (:...significantTypes))',
-          { significantTypes: [StockAdjustmentType.THEFT, StockAdjustmentType.WRITE_OFF] },
-        );
-      }
-    }
 
     if (search) {
       queryBuilder.andWhere(
@@ -260,8 +221,6 @@ export class StockAdjustmentService {
       throw new BadRequestException('Cannot modify adjustment that is not in pending status');
     }
 
-    // Skip user validation since we're using single user system
-
     // Track changes for audit
     const changes: Record<string, { from: any; to: any }> = {};
     Object.keys(updateAdjustmentDto).forEach(key => {
@@ -285,18 +244,11 @@ export class StockAdjustmentService {
       }
     }
 
-    // Update approval status if requirements changed
-    if (adjustment.requiresApproval()) {
-      adjustment.status = StockAdjustmentStatus.PENDING_APPROVAL;
-    } else if (adjustment.status === StockAdjustmentStatus.PENDING_APPROVAL) {
-      adjustment.status = StockAdjustmentStatus.APPROVED;
-    }
-
     const updatedAdjustment = await this.stockAdjustmentRepository.save(adjustment);
 
-    // If auto-approved after update, process immediately
-    if (updatedAdjustment.status === StockAdjustmentStatus.APPROVED && updatedAdjustment.adjustmentQuantity !== 0) {
-      await this.processAdjustment(updatedAdjustment.id, adjustedBy);
+    // Process adjustment immediately if quantity changed
+    if (updatedAdjustment.adjustmentQuantity !== 0) {
+      await this.processAdjustment(updatedAdjustment.id);
     }
 
     // Audit logging removed with authentication system
@@ -305,86 +257,6 @@ export class StockAdjustmentService {
     return this.toResponseDto(updatedAdjustment);
   }
 
-  /**
-   * Approve a stock adjustment
-   */
-  async approve(
-    id: string,
-    actionDto: StockAdjustmentActionDto,
-    adjustedBy: string = 'system',
-  ): Promise<StockAdjustmentResponseDto> {
-    this.logger.log(`Approving stock adjustment: ${id}`);
-
-    const adjustment = await this.stockAdjustmentRepository.findOne({
-      where: { id },
-      relations: ['product'],
-    });
-
-    if (!adjustment) {
-      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
-    }
-
-    if (!adjustment.canApprove) {
-      throw new BadRequestException('Stock adjustment cannot be approved');
-    }
-
-    // Validate business rules unless forced
-    if (!actionDto.forceApproval) {
-      const validationErrors = adjustment.validateAdjustment();
-      if (validationErrors.length > 0) {
-        throw new BadRequestException(`Validation failed: ${validationErrors.join(', ')}`);
-      }
-    }
-
-    // Approve the adjustment
-    adjustment.approve(adjustedBy, actionDto.notes);
-    const approvedAdjustment = await this.stockAdjustmentRepository.save(adjustment);
-
-    // Process the adjustment (create stock movement and update product)
-    await this.processAdjustment(approvedAdjustment.id, adjustedBy);
-
-    // Audit logging removed with authentication system
-
-    this.logger.log(`Stock adjustment approved successfully: ${approvedAdjustment.id}`);
-    return this.toResponseDto(approvedAdjustment);
-  }
-
-  /**
-   * Reject a stock adjustment
-   */
-  async reject(
-    id: string,
-    actionDto: StockAdjustmentActionDto,
-    adjustedBy: string = 'system',
-  ): Promise<StockAdjustmentResponseDto> {
-    this.logger.log(`Rejecting stock adjustment: ${id}`);
-
-    const adjustment = await this.stockAdjustmentRepository.findOne({
-      where: { id },
-      relations: ['product'],
-    });
-
-    if (!adjustment) {
-      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
-    }
-
-    if (!adjustment.canReject) {
-      throw new BadRequestException('Stock adjustment cannot be rejected');
-    }
-
-    if (!actionDto.notes) {
-      throw new BadRequestException('Rejection reason is required');
-    }
-
-    // Reject the adjustment
-    adjustment.reject(adjustedBy, actionDto.notes);
-    const rejectedAdjustment = await this.stockAdjustmentRepository.save(adjustment);
-
-    // Audit logging removed with authentication system
-
-    this.logger.log(`Stock adjustment rejected successfully: ${rejectedAdjustment.id}`);
-    return this.toResponseDto(rejectedAdjustment);
-  }
 
   /**
    * Cancel a stock adjustment (only if pending)
@@ -408,8 +280,6 @@ export class StockAdjustmentService {
     if (!adjustment.isPending) {
       throw new BadRequestException('Only pending adjustments can be cancelled');
     }
-
-    // Skip user validation since we're using single user system
 
     // Cancel the adjustment
     adjustment.cancel(reason);
@@ -455,38 +325,17 @@ export class StockAdjustmentService {
     return results;
   }
 
-  /**
-   * Get pending approvals count
-   */
-  async getPendingApprovalsCount(): Promise<number> {
-    return this.stockAdjustmentRepository.count({
-      where: { status: StockAdjustmentStatus.PENDING_APPROVAL },
-    });
-  }
 
   /**
-   * Get adjustments requiring approval
+   * Process an adjustment (create stock movement and update product)
    */
-  async getAdjustmentsRequiringApproval() {
-    const adjustments = await this.stockAdjustmentRepository.find({
-      where: { status: StockAdjustmentStatus.PENDING_APPROVAL },
-      relations: ['product', 'product.category'],
-      order: { adjustmentDate: 'ASC' },
-    });
-
-    return adjustments.map(adjustment => this.toResponseDto(adjustment));
-  }
-
-  /**
-   * Process an approved adjustment (create stock movement and update product)
-   */
-  private async processAdjustment(adjustmentId: string, adjustedBy: string): Promise<void> {
+  private async processAdjustment(adjustmentId: string): Promise<void> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id: adjustmentId },
       relations: ['product'],
     });
 
-    if (!adjustment || adjustment.status !== StockAdjustmentStatus.APPROVED) {
+    if (!adjustment || adjustment.status === StockAdjustmentStatus.CANCELLED) {
       return;
     }
 
@@ -497,10 +346,10 @@ export class StockAdjustmentService {
         Number(adjustment.adjustmentQuantity),
         adjustment.reason,
         adjustment.id,
-        adjustedBy,
+        'system',
       );
 
-      await this.stockMovementService.create(movementData as any, adjustedBy);
+      await this.stockMovementService.create(movementData as any, 'system');
     }
 
     // Mark adjustment as completed
@@ -518,7 +367,6 @@ export class StockAdjustmentService {
       type: adjustment.type,
       status: adjustment.status,
       adjustmentDate: adjustment.adjustmentDate,
-      approvedDate: adjustment.approvedDate,
       systemQuantity: Number(adjustment.systemQuantity),
       actualQuantity: Number(adjustment.actualQuantity),
       adjustmentQuantity: Number(adjustment.adjustmentQuantity),
@@ -530,7 +378,6 @@ export class StockAdjustmentService {
       expiryDate: adjustment.expiryDate,
       reason: adjustment.reason,
       notes: adjustment.notes,
-      approvalNotes: adjustment.approvalNotes,
       countedBy: adjustment.countedBy,
       countedAt: adjustment.countedAt,
       countDetails: adjustment.countDetails,
@@ -539,17 +386,22 @@ export class StockAdjustmentService {
         id: adjustment.product.id,
         sku: adjustment.product.barcode,
         name: adjustment.product.name,
+        unit: 'pcs',
       },
-      adjustedBy: adjustment.adjustedBy,
-      approvedBy: adjustment.approvedBy,
       isIncrease: adjustment.isIncrease,
       isDecrease: adjustment.isDecrease,
       adjustmentPercent: adjustment.adjustmentPercent,
       isPending: adjustment.isPending,
       isCompleted: adjustment.isCompleted,
-      canApprove: adjustment.canApprove,
-      canReject: adjustment.canReject,
-      requiresApproval: adjustment.requiresApproval(),
+      adjustedByUser: {
+        id: 'system',
+        email: 'system',
+        firstName: 'System',
+        lastName: 'User',
+      },
+      canApprove: false,
+      canReject: false,
+      requiresApproval: false,
       isSignificant: Math.abs(adjustment.adjustmentPercent) > 5 || Math.abs(Number(adjustment.totalValueImpact || 0)) > 50,
       createdAt: adjustment.createdAt,
       updatedAt: adjustment.updatedAt,
