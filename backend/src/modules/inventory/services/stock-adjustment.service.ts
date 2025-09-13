@@ -20,7 +20,6 @@ import {
   StockAdjustmentStatus,
 } from '../../../database/entities/stock-adjustment.entity';
 import { Product } from '../../../database/entities/product.entity';
-import { User } from '../../../database/entities/user.entity';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import {
   CreateStockAdjustmentDto,
@@ -43,8 +42,6 @@ export class StockAdjustmentService {
     private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
     @Inject(forwardRef(() => ProductService))
@@ -56,7 +53,7 @@ export class StockAdjustmentService {
    */
   async create(
     createAdjustmentDto: CreateStockAdjustmentDto,
-    userId: string = 'system',
+    adjustedBy: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(
       `Creating stock adjustment for product ${createAdjustmentDto.productId}`,
@@ -84,7 +81,7 @@ export class StockAdjustmentService {
     const stockAdjustment = this.stockAdjustmentRepository.create({
       ...createAdjustmentDto,
       adjustmentDate: new Date(),
-      adjustedByUserId: userId,
+      adjustedBy: adjustedBy,
       locationCode: createAdjustmentDto.locationCode || 'MAIN',
     });
 
@@ -99,7 +96,7 @@ export class StockAdjustmentService {
 
     // If auto-approved, process immediately
     if (savedAdjustment.status === StockAdjustmentStatus.APPROVED) {
-      await this.processAdjustment(savedAdjustment.id, userId);
+      await this.processAdjustment(savedAdjustment.id, adjustedBy);
     }
 
     // Audit logging removed with authentication system
@@ -120,8 +117,8 @@ export class StockAdjustmentService {
       status,
       fromDate,
       toDate,
-      adjustedByUserId,
-      approvedByUserId,
+      adjustedBy: adjustedByFilter,
+      approvedBy: approvedByFilter,
       locationCode,
       requiresApproval,
       search,
@@ -133,8 +130,6 @@ export class StockAdjustmentService {
       .createQueryBuilder('adjustment')
       .leftJoinAndSelect('adjustment.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('adjustment.adjustedByUser', 'adjustedBy')
-      .leftJoinAndSelect('adjustment.approvedByUser', 'approvedBy');
 
     // Apply filters
     if (productId) {
@@ -160,15 +155,15 @@ export class StockAdjustmentService {
       queryBuilder.andWhere('adjustment.adjustmentDate <= :toDate', { toDate });
     }
 
-    if (adjustedByUserId) {
-      queryBuilder.andWhere('adjustment.adjustedByUserId = :adjustedByUserId', {
-        adjustedByUserId,
+    if (adjustedByFilter) {
+      queryBuilder.andWhere('adjustment.adjustedBy = :adjustedBy', {
+        adjustedBy: adjustedByFilter,
       });
     }
 
-    if (approvedByUserId) {
-      queryBuilder.andWhere('adjustment.approvedByUserId = :approvedByUserId', {
-        approvedByUserId,
+    if (approvedByFilter) {
+      queryBuilder.andWhere('adjustment.approvedBy = :approvedBy', {
+        approvedBy: approvedByFilter,
       });
     }
 
@@ -231,7 +226,7 @@ export class StockAdjustmentService {
   async findOne(id: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['product', 'product.category', 'adjustedByUser', 'approvedByUser'],
+      relations: ['product', 'product.category'],
     });
 
     if (!adjustment) {
@@ -247,13 +242,13 @@ export class StockAdjustmentService {
   async update(
     id: string,
     updateAdjustmentDto: UpdateStockAdjustmentDto,
-    userId: string = 'system',
+    adjustedBy: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Updating stock adjustment: ${id}`);
 
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['product', 'adjustedByUser'],
+      relations: ['product'],
     });
 
     if (!adjustment) {
@@ -265,10 +260,7 @@ export class StockAdjustmentService {
       throw new BadRequestException('Cannot modify adjustment that is not in pending status');
     }
 
-    // Only allow the creator or admin to modify
-    if (adjustment.adjustedByUserId !== userId) {
-      throw new ForbiddenException('You can only modify your own adjustments');
-    }
+    // Skip user validation since we're using single user system
 
     // Track changes for audit
     const changes: Record<string, { from: any; to: any }> = {};
@@ -304,7 +296,7 @@ export class StockAdjustmentService {
 
     // If auto-approved after update, process immediately
     if (updatedAdjustment.status === StockAdjustmentStatus.APPROVED && updatedAdjustment.adjustmentQuantity !== 0) {
-      await this.processAdjustment(updatedAdjustment.id, userId);
+      await this.processAdjustment(updatedAdjustment.id, adjustedBy);
     }
 
     // Audit logging removed with authentication system
@@ -319,13 +311,13 @@ export class StockAdjustmentService {
   async approve(
     id: string,
     actionDto: StockAdjustmentActionDto,
-    userId: string = 'system',
+    adjustedBy: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Approving stock adjustment: ${id}`);
 
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['product', 'adjustedByUser'],
+      relations: ['product'],
     });
 
     if (!adjustment) {
@@ -345,11 +337,11 @@ export class StockAdjustmentService {
     }
 
     // Approve the adjustment
-    adjustment.approve(userId, actionDto.notes);
+    adjustment.approve(adjustedBy, actionDto.notes);
     const approvedAdjustment = await this.stockAdjustmentRepository.save(adjustment);
 
     // Process the adjustment (create stock movement and update product)
-    await this.processAdjustment(approvedAdjustment.id, userId);
+    await this.processAdjustment(approvedAdjustment.id, adjustedBy);
 
     // Audit logging removed with authentication system
 
@@ -363,13 +355,13 @@ export class StockAdjustmentService {
   async reject(
     id: string,
     actionDto: StockAdjustmentActionDto,
-    userId: string = 'system',
+    adjustedBy: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Rejecting stock adjustment: ${id}`);
 
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['product', 'adjustedByUser'],
+      relations: ['product'],
     });
 
     if (!adjustment) {
@@ -385,7 +377,7 @@ export class StockAdjustmentService {
     }
 
     // Reject the adjustment
-    adjustment.reject(userId, actionDto.notes);
+    adjustment.reject(adjustedBy, actionDto.notes);
     const rejectedAdjustment = await this.stockAdjustmentRepository.save(adjustment);
 
     // Audit logging removed with authentication system
@@ -400,13 +392,13 @@ export class StockAdjustmentService {
   async cancel(
     id: string,
     reason: string,
-    userId: string = 'system',
+    adjustedBy: string = 'system',
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Cancelling stock adjustment: ${id}`);
 
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['product', 'adjustedByUser'],
+      relations: ['product'],
     });
 
     if (!adjustment) {
@@ -417,10 +409,7 @@ export class StockAdjustmentService {
       throw new BadRequestException('Only pending adjustments can be cancelled');
     }
 
-    // Only allow the creator to cancel
-    if (adjustment.adjustedByUserId !== userId) {
-      throw new ForbiddenException('You can only cancel your own adjustments');
-    }
+    // Skip user validation since we're using single user system
 
     // Cancel the adjustment
     adjustment.cancel(reason);
@@ -437,7 +426,7 @@ export class StockAdjustmentService {
    */
   async createBulk(
     bulkAdjustmentDto: BulkStockAdjustmentDto,
-    userId: string = 'system',
+    adjustedBy: string = 'system',
   ): Promise<StockAdjustmentResponseDto[]> {
     this.logger.log(`Creating bulk stock adjustments: ${bulkAdjustmentDto.adjustments.length} items`);
 
@@ -452,7 +441,7 @@ export class StockAdjustmentService {
       };
 
       try {
-        const adjustment = await this.create(completeAdjustmentDto, userId);
+        const adjustment = await this.create(completeAdjustmentDto, adjustedBy);
         results.push(adjustment);
       } catch (error) {
         this.logger.error(`Failed to create adjustment for product ${adjustmentDto.productId}: ${error.message}`);
@@ -481,7 +470,7 @@ export class StockAdjustmentService {
   async getAdjustmentsRequiringApproval() {
     const adjustments = await this.stockAdjustmentRepository.find({
       where: { status: StockAdjustmentStatus.PENDING_APPROVAL },
-      relations: ['product', 'product.category', 'adjustedByUser'],
+      relations: ['product', 'product.category'],
       order: { adjustmentDate: 'ASC' },
     });
 
@@ -491,7 +480,7 @@ export class StockAdjustmentService {
   /**
    * Process an approved adjustment (create stock movement and update product)
    */
-  private async processAdjustment(adjustmentId: string, userId: string): Promise<void> {
+  private async processAdjustment(adjustmentId: string, adjustedBy: string): Promise<void> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id: adjustmentId },
       relations: ['product'],
@@ -508,10 +497,10 @@ export class StockAdjustmentService {
         Number(adjustment.adjustmentQuantity),
         adjustment.reason,
         adjustment.id,
-        userId,
+        adjustedBy,
       );
 
-      await this.stockMovementService.create(movementData as any, userId);
+      await this.stockMovementService.create(movementData as any, adjustedBy);
     }
 
     // Mark adjustment as completed
@@ -550,20 +539,9 @@ export class StockAdjustmentService {
         id: adjustment.product.id,
         sku: adjustment.product.barcode,
         name: adjustment.product.name,
-        unit: adjustment.product.unit,
       },
-      adjustedByUser: {
-        id: adjustment.adjustedByUser.id,
-        email: adjustment.adjustedByUser.email,
-        firstName: adjustment.adjustedByUser.firstName,
-        lastName: adjustment.adjustedByUser.lastName,
-      },
-      approvedByUser: adjustment.approvedByUser ? {
-        id: adjustment.approvedByUser.id,
-        email: adjustment.approvedByUser.email,
-        firstName: adjustment.approvedByUser.firstName,
-        lastName: adjustment.approvedByUser.lastName,
-      } : undefined,
+      adjustedBy: adjustment.adjustedBy,
+      approvedBy: adjustment.approvedBy,
       isIncrease: adjustment.isIncrease,
       isDecrease: adjustment.isDecrease,
       adjustmentPercent: adjustment.adjustmentPercent,

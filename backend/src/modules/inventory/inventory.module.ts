@@ -7,7 +7,6 @@ import { Category } from '../../database/entities/category.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 import { Customer } from '../../database/entities/customer.entity';
-import { User } from '../../database/entities/user.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
 
@@ -37,7 +36,6 @@ import { UsersModule } from '../users/users.module';
       StockAdjustment,
       // Related entities for integration
       Customer,
-      User,
       SalesOrder,
       SalesOrderItem,
     ]),

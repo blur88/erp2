@@ -16,7 +16,6 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Product } from './product.entity';
-import { User } from './user.entity';
 
 export enum StockAdjustmentType {
   PHYSICAL_COUNT = 'physical_count',
@@ -278,18 +277,25 @@ export class StockAdjustment extends BaseEntity {
   productId: string;
 
   @Column({
-    type: 'uuid',
+    type: 'varchar',
+    length: 100,
+    default: 'system',
     comment: 'User who initiated the adjustment',
   })
-  adjustedByUserId: string;
+  @IsString()
+  @MaxLength(100)
+  adjustedBy: string;
 
   @Column({
-    type: 'uuid',
+    type: 'varchar',
+    length: 100,
     nullable: true,
     comment: 'User who approved the adjustment',
   })
   @IsOptional()
-  approvedByUserId?: string;
+  @IsString()
+  @MaxLength(100)
+  approvedBy?: string;
 
   // Relationships
   @ManyToOne(() => Product, (product) => product.stockAdjustments, {
@@ -298,19 +304,6 @@ export class StockAdjustment extends BaseEntity {
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
-
-  @ManyToOne(() => User, (user) => user.stockAdjustments, {
-    onDelete: 'RESTRICT',
-  })
-  @JoinColumn({ name: 'adjustedByUserId' })
-  adjustedByUser: User;
-
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'approvedByUserId' })
-  approvedByUser?: User;
 
   // Computed properties
   get isIncrease(): boolean {
@@ -372,10 +365,10 @@ export class StockAdjustment extends BaseEntity {
     }
   }
 
-  approve(approvedByUserId: string, approvalNotes?: string): void {
+  approve(approvedBy: string = 'system', approvalNotes?: string): void {
     if (this.canApprove) {
       this.status = StockAdjustmentStatus.APPROVED;
-      this.approvedByUserId = approvedByUserId;
+      this.approvedBy = approvedBy;
       this.approvedDate = new Date();
       if (approvalNotes) {
         this.approvalNotes = approvalNotes;
@@ -383,10 +376,10 @@ export class StockAdjustment extends BaseEntity {
     }
   }
 
-  reject(rejectedByUserId: string, rejectionReason: string): void {
+  reject(rejectedBy: string = 'system', rejectionReason: string): void {
     if (this.canReject) {
       this.status = StockAdjustmentStatus.REJECTED;
-      this.approvedByUserId = rejectedByUserId;
+      this.approvedBy = rejectedBy;
       this.approvalNotes = `Rejected: ${rejectionReason}`;
     }
   }
@@ -470,7 +463,7 @@ export class StockAdjustment extends BaseEntity {
     physicalQty: number,
     countedBy: string,
     reason: string,
-    adjustedByUserId: string
+    adjustedBy: string = 'system'
   ): Partial<StockAdjustment> {
     return {
       productId,
@@ -481,7 +474,7 @@ export class StockAdjustment extends BaseEntity {
       countedAt: new Date(),
       reason,
       adjustmentDate: new Date(),
-      adjustedByUserId,
+      adjustedBy,
     };
   }
 
@@ -490,7 +483,7 @@ export class StockAdjustment extends BaseEntity {
     systemQty: number,
     damagedQty: number,
     reason: string,
-    adjustedByUserId: string
+    adjustedBy: string = 'system'
   ): Partial<StockAdjustment> {
     return {
       productId,
@@ -499,7 +492,7 @@ export class StockAdjustment extends BaseEntity {
       actualQuantity: systemQty - damagedQty,
       reason,
       adjustmentDate: new Date(),
-      adjustedByUserId,
+      adjustedBy,
     };
   }
 

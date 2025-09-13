@@ -330,13 +330,13 @@ export class QueryStockAdjustmentsDto {
 
   @ApiPropertyOptional({ description: 'Filter by user who made the adjustment' })
   @IsOptional()
-  @IsUUID(4)
-  adjustedByUserId?: string;
+  @IsString()
+  adjustedBy?: string;
 
   @ApiPropertyOptional({ description: 'Filter by user who approved the adjustment' })
   @IsOptional()
-  @IsUUID(4)
-  approvedByUserId?: string;
+  @IsString()
+  approvedBy?: string;
 
   @ApiPropertyOptional({ description: 'Filter by location code' })
   @IsOptional()
