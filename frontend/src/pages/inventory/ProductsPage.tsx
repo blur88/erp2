@@ -131,7 +131,7 @@ const ProductsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(20)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null)
