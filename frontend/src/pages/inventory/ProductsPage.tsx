@@ -2407,16 +2407,20 @@ const ProductsPage: React.FC = () => {
             <Button
               onClick={() => setDialogCalculatorOpen(!dialogCalculatorOpen)}
               variant="outlined"
+              size="medium"
               disabled={isSubmitting}
               startIcon={<CalculateIcon />}
               sx={{
-                color: dialogCalculatorOpen ? 'primary.main' : 'inherit',
-                borderColor: dialogCalculatorOpen ? 'primary.main' : 'inherit',
-                backgroundColor: dialogCalculatorOpen ? 'primary.light' : 'transparent',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: dialogCalculatorOpen ? 'info.dark' : 'info.main',
+                borderColor: dialogCalculatorOpen ? 'info.dark' : 'info.main',
+                backgroundColor: dialogCalculatorOpen ? 'info.light' : 'transparent',
                 '&:hover': {
-                  borderColor: 'primary.main',
-                  backgroundColor: 'primary.light'
-                }
+                  borderColor: 'info.dark',
+                  backgroundColor: 'info.light'
+                },
+                transition: 'all 0.3s ease-in-out'
               }}
             >
               Calculator
