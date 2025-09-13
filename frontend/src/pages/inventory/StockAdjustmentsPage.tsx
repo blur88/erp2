@@ -34,27 +34,19 @@ import {
   FilterList as FilterIcon,
   Refresh as RefreshIcon,
   Edit as EditIcon,
-  Check as ApproveIcon,
-  Close as RejectIcon,
-  Cancel as CancelIcon,
   Visibility as ViewIcon,
   CloudUpload as ImportIcon,
-  GetApp as ExportIcon,
   Inventory as AdjustmentIcon,
-  PendingActions as PendingIcon,
   Timeline as HistoryIcon,
   Assessment as ReportIcon,
 } from '@mui/icons-material'
-import { useNavigate } from 'react-router-dom'
 import { inventoryApi } from '@/services/inventoryApi'
-import { StockAdjustment, StockAdjustmentType, StockAdjustmentStatus, PaginatedResponse } from '@/types'
+import { StockAdjustment, StockAdjustmentType, StockAdjustmentStatus } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import StockAdjustmentDialog from './components/StockAdjustmentDialog'
-import StockAdjustmentApprovalDialog from './components/StockAdjustmentApprovalDialog'
 import BulkStockAdjustmentDialog from './components/BulkStockAdjustmentDialog'
 
 const StockAdjustmentsPage: React.FC = () => {
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,11 +57,9 @@ const StockAdjustmentsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<StockAdjustmentStatus | 'all'>('all')
   const [typeFilter, setTypeFilter] = useState<StockAdjustmentType | 'all'>('all')
-  const [pendingCount, setPendingCount] = useState(0)
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
   const [selectedAdjustment, setSelectedAdjustment] = useState<StockAdjustment | null>(null)
 
@@ -92,18 +82,11 @@ const StockAdjustmentsPage: React.FC = () => {
         sortOrder: 'desc' as const,
       }
 
-      const [adjustmentsResponse, pendingResponse] = await Promise.all([
-        inventoryApi.getStockAdjustments(params),
-        inventoryApi.getPendingAdjustmentsCount()
-      ])
+      const adjustmentsResponse = await inventoryApi.getStockAdjustments(params)
 
       if (adjustmentsResponse?.data) {
         setAdjustments(adjustmentsResponse.data.data || [])
         setTotalCount(adjustmentsResponse.data.meta?.total || 0)
-      }
-
-      if (pendingResponse?.data) {
-        setPendingCount(pendingResponse.data.count || 0)
       }
 
     } catch (err: any) {
@@ -124,7 +107,7 @@ const StockAdjustmentsPage: React.FC = () => {
     fetchAdjustments(true)
   }
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage)
   }
 
@@ -154,39 +137,8 @@ const StockAdjustmentsPage: React.FC = () => {
   }
 
   const handleEditAdjustment = (adjustment: StockAdjustment) => {
-    if (adjustment.status === StockAdjustmentStatus.PENDING) {
-      setSelectedAdjustment(adjustment)
-      setCreateDialogOpen(true)
-    }
-  }
-
-  const handleApproveAdjustment = (adjustment: StockAdjustment) => {
     setSelectedAdjustment(adjustment)
-    setApprovalDialogOpen(true)
-  }
-
-  const handleRejectAdjustment = async (adjustment: StockAdjustment) => {
-    const reason = prompt('Please provide a reason for rejection:')
-    if (!reason) return
-
-    try {
-      await inventoryApi.rejectStockAdjustment(adjustment.id, { reason })
-      fetchAdjustments(true)
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to reject adjustment')
-    }
-  }
-
-  const handleCancelAdjustment = async (adjustment: StockAdjustment) => {
-    const reason = prompt('Please provide a reason for cancellation:')
-    if (!reason) return
-
-    try {
-      await inventoryApi.cancelStockAdjustment(adjustment.id, { reason })
-      fetchAdjustments(true)
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to cancel adjustment')
-    }
+    setCreateDialogOpen(true)
   }
 
   const getStatusColor = (status: StockAdjustmentStatus) => {
@@ -201,14 +153,15 @@ const StockAdjustmentsPage: React.FC = () => {
 
   const getTypeIcon = (type: StockAdjustmentType) => {
     switch (type) {
-      case StockAdjustmentType.INCREASE: return '↗️'
-      case StockAdjustmentType.DECREASE: return '↘️'
-      case StockAdjustmentType.COUNT: return '📊'
-      case StockAdjustmentType.TRANSFER: return '↔️'
+      case StockAdjustmentType.PHYSICAL_COUNT: return '📊'
       case StockAdjustmentType.DAMAGE: return '💥'
       case StockAdjustmentType.THEFT: return '🔒'
       case StockAdjustmentType.EXPIRY: return '⏰'
-      case StockAdjustmentType.RETURN: return '↩️'
+      case StockAdjustmentType.LOSS: return '📉'
+      case StockAdjustmentType.FOUND: return '🔍'
+      case StockAdjustmentType.CORRECTION: return '🔧'
+      case StockAdjustmentType.WRITE_OFF: return '❌'
+      case StockAdjustmentType.REVALUATION: return '💰'
       default: return '📝'
     }
   }
@@ -236,19 +189,10 @@ const StockAdjustmentsPage: React.FC = () => {
             Stock Adjustments
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage inventory adjustments, approvals, and stock corrections
+            Manage inventory adjustments and stock corrections
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {pendingCount > 0 && (
-            <Chip
-              icon={<PendingIcon />}
-              label={`${pendingCount} pending`}
-              color="warning"
-              size="small"
-              sx={{ mr: 1 }}
-            />
-          )}
           <Tooltip title="Refresh">
             <IconButton 
               onClick={handleRefresh} 
@@ -285,22 +229,7 @@ const StockAdjustmentsPage: React.FC = () => {
 
       {/* Quick Stats */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Avatar sx={{ bgcolor: 'warning.main', width: 48, height: 48, mx: 'auto', mb: 2 }}>
-                <PendingIcon />
-              </Avatar>
-              <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-                {pendingCount}
-              </Typography>
-              <Typography color="text.secondary" variant="body2">
-                Pending Approval
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card>
             <CardContent sx={{ textAlign: 'center' }}>
               <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48, mx: 'auto', mb: 2 }}>
@@ -315,22 +244,22 @@ const StockAdjustmentsPage: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card>
             <CardContent sx={{ textAlign: 'center' }}>
               <Avatar sx={{ bgcolor: 'success.main', width: 48, height: 48, mx: 'auto', mb: 2 }}>
-                <ApproveIcon />
+                <AdjustmentIcon />
               </Avatar>
               <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
                 {adjustments.filter(a => a.status === StockAdjustmentStatus.APPROVED).length}
               </Typography>
               <Typography color="text.secondary" variant="body2">
-                This Page Approved
+                This Page Active
               </Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Card>
             <CardContent sx={{ textAlign: 'center' }}>
               <Avatar sx={{ bgcolor: 'info.main', width: 48, height: 48, mx: 'auto', mb: 2 }}>
@@ -376,9 +305,7 @@ const StockAdjustmentsPage: React.FC = () => {
                   label="Status"
                 >
                   <MenuItem value="all">All Statuses</MenuItem>
-                  <MenuItem value={StockAdjustmentStatus.PENDING}>Pending</MenuItem>
-                  <MenuItem value={StockAdjustmentStatus.APPROVED}>Approved</MenuItem>
-                  <MenuItem value={StockAdjustmentStatus.REJECTED}>Rejected</MenuItem>
+                  <MenuItem value={StockAdjustmentStatus.APPROVED}>Active</MenuItem>
                   <MenuItem value={StockAdjustmentStatus.CANCELLED}>Cancelled</MenuItem>
                 </Select>
               </FormControl>
@@ -392,15 +319,15 @@ const StockAdjustmentsPage: React.FC = () => {
                   label="Type"
                 >
                   <MenuItem value="all">All Types</MenuItem>
-                  <MenuItem value={StockAdjustmentType.INCREASE}>Increase</MenuItem>
-                  <MenuItem value={StockAdjustmentType.DECREASE}>Decrease</MenuItem>
-                  <MenuItem value={StockAdjustmentType.COUNT}>Count</MenuItem>
-                  <MenuItem value={StockAdjustmentType.TRANSFER}>Transfer</MenuItem>
+                  <MenuItem value={StockAdjustmentType.PHYSICAL_COUNT}>Physical Count</MenuItem>
                   <MenuItem value={StockAdjustmentType.DAMAGE}>Damage</MenuItem>
-                  <MenuItem value={StockAdjustmentType.THEFT}>Theft</MenuItem>
                   <MenuItem value={StockAdjustmentType.EXPIRY}>Expiry</MenuItem>
-                  <MenuItem value={StockAdjustmentType.RETURN}>Return</MenuItem>
-                  <MenuItem value={StockAdjustmentType.OTHER}>Other</MenuItem>
+                  <MenuItem value={StockAdjustmentType.THEFT}>Theft</MenuItem>
+                  <MenuItem value={StockAdjustmentType.LOSS}>Loss</MenuItem>
+                  <MenuItem value={StockAdjustmentType.FOUND}>Found</MenuItem>
+                  <MenuItem value={StockAdjustmentType.CORRECTION}>Correction</MenuItem>
+                  <MenuItem value={StockAdjustmentType.WRITE_OFF}>Write Off</MenuItem>
+                  <MenuItem value={StockAdjustmentType.REVALUATION}>Revaluation</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -485,7 +412,7 @@ const StockAdjustmentsPage: React.FC = () => {
                   </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2">
-                      {adjustment.totalCost ? formatCurrency(adjustment.totalCost) : '-'}
+                      {adjustment.totalValueImpact ? formatCurrency(adjustment.totalValueImpact) : '-'}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -512,41 +439,11 @@ const StockAdjustmentsPage: React.FC = () => {
                         </IconButton>
                       </Tooltip>
                       
-                      {adjustment.status === StockAdjustmentStatus.PENDING && (
-                        <>
-                          <Tooltip title="Edit">
-                            <IconButton size="small" onClick={() => handleEditAdjustment(adjustment)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Approve">
-                            <IconButton 
-                              size="small" 
-                              color="success"
-                              onClick={() => handleApproveAdjustment(adjustment)}
-                            >
-                              <ApproveIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Reject">
-                            <IconButton 
-                              size="small" 
-                              color="error"
-                              onClick={() => handleRejectAdjustment(adjustment)}
-                            >
-                              <RejectIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Cancel">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleCancelAdjustment(adjustment)}
-                            >
-                              <CancelIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => handleEditAdjustment(adjustment)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -590,19 +487,6 @@ const StockAdjustmentsPage: React.FC = () => {
         }}
       />
 
-      <StockAdjustmentApprovalDialog
-        open={approvalDialogOpen}
-        onClose={() => {
-          setApprovalDialogOpen(false)
-          setSelectedAdjustment(null)
-        }}
-        adjustment={selectedAdjustment}
-        onSuccess={() => {
-          setApprovalDialogOpen(false)
-          setSelectedAdjustment(null)
-          fetchAdjustments(true)
-        }}
-      />
 
       <BulkStockAdjustmentDialog
         open={bulkDialogOpen}
