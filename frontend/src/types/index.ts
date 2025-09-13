@@ -129,59 +129,85 @@ export interface StockMovement {
 }
 
 export enum StockAdjustmentType {
-  INCREASE = 'increase',
-  DECREASE = 'decrease',
-  COUNT = 'count',
-  TRANSFER = 'transfer',
+  PHYSICAL_COUNT = 'physical_count',
   DAMAGE = 'damage',
-  THEFT = 'theft',
   EXPIRY = 'expiry',
-  RETURN = 'return',
-  OTHER = 'other'
+  THEFT = 'theft',
+  LOSS = 'loss',
+  FOUND = 'found',
+  CORRECTION = 'correction',
+  WRITE_OFF = 'write_off',
+  REVALUATION = 'revaluation'
 }
 
 export enum StockAdjustmentStatus {
-  PENDING = 'pending',
+  DRAFT = 'draft',
+  PENDING_APPROVAL = 'pending_approval',
   APPROVED = 'approved',
-  REJECTED = 'rejected',
-  CANCELLED = 'cancelled'
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  REJECTED = 'rejected'
 }
 
 export interface StockAdjustment {
   id: string;
+  adjustmentNumber: string;
   productId: string;
   product?: Product;
   type: StockAdjustmentType;
-  adjustmentQuantity: number;
+  status: StockAdjustmentStatus;
+  adjustmentDate: Date;
+  approvedDate?: Date;
+  // Stock Quantities
   systemQuantity: number;
   actualQuantity: number;
-  varianceQuantity: number;
+  adjustmentQuantity: number;
+  // Valuation
   unitCost?: number;
-  totalCost?: number;
-  reason: string;
-  notes?: string;
-  status: StockAdjustmentStatus;
-  requiresApproval: boolean;
-  // Location tracking
-  locationCode?: string;
+  totalValueImpact?: number;
+  // Location Information
+  locationCode: string;
   binLocation?: string;
+  // Batch/Lot Information
   batchNumber?: string;
   expiryDate?: Date;
-  // Approval workflow
-  approvedBy?: string;
-  approvedAt?: Date;
-  rejectedBy?: string;
-  rejectedAt?: Date;
-  approvalReason?: string;
-  rejectionReason?: string;
+  // Reason and Documentation
+  reason: string;
+  notes?: string;
+  approvalNotes?: string;
+  attachments?: Array<{
+    filename: string;
+    url: string;
+    type: 'photo' | 'document';
+    description?: string;
+  }>;
+  // Physical Count Details
+  countedBy?: string;
+  countedAt?: Date;
+  countDetails?: {
+    countMethod: string;
+    countTeam?: string[];
+    verifiedCount?: boolean;
+    recountPerformed?: boolean;
+    discrepancyInvestigated?: boolean;
+  };
+  // Additional Information
+  metadata?: Record<string, any>;
+  // Foreign Keys
+  adjustedByUserId: string;
+  approvedByUserId?: string;
   // Audit trail
   createdAt: Date;
   updatedAt: Date;
-  createdBy: string;
-  updatedBy?: string;
-  // Related movement
-  stockMovementId?: string;
-  stockMovement?: StockMovement;
+  // Computed properties (getter methods in backend)
+  isIncrease?: boolean;
+  isDecrease?: boolean;
+  adjustmentPercent?: number;
+  isPending?: boolean;
+  isCompleted?: boolean;
+  canApprove?: boolean;
+  canReject?: boolean;
+  requiresApproval?: boolean;
 }
 
 // Sales types

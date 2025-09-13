@@ -112,7 +112,7 @@ export class StockAdjustment extends BaseEntity {
     comment: 'Actual physical quantity counted/found',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  physicalQuantity: number;
+  actualQuantity: number;
 
   @Column({
     type: 'decimal',
@@ -355,7 +355,7 @@ export class StockAdjustment extends BaseEntity {
 
   @BeforeInsert()
   calculateAdjustmentQuantity() {
-    this.adjustmentQuantity = Number(this.physicalQuantity) - Number(this.systemQuantity);
+    this.adjustmentQuantity = Number(this.actualQuantity) - Number(this.systemQuantity);
   }
 
   @BeforeInsert()
@@ -446,7 +446,7 @@ export class StockAdjustment extends BaseEntity {
       errors.push('System quantity cannot be negative');
     }
 
-    if (Number(this.physicalQuantity) < 0) {
+    if (Number(this.actualQuantity) < 0) {
       errors.push('Physical quantity cannot be negative');
     }
 
@@ -476,7 +476,7 @@ export class StockAdjustment extends BaseEntity {
       productId,
       type: StockAdjustmentType.PHYSICAL_COUNT,
       systemQuantity: systemQty,
-      physicalQuantity: physicalQty,
+      actualQuantity: physicalQty,
       countedBy,
       countedAt: new Date(),
       reason,
@@ -496,7 +496,7 @@ export class StockAdjustment extends BaseEntity {
       productId,
       type: StockAdjustmentType.DAMAGE,
       systemQuantity: systemQty,
-      physicalQuantity: systemQty - damagedQty,
+      actualQuantity: systemQty - damagedQty,
       reason,
       adjustmentDate: new Date(),
       adjustedByUserId,

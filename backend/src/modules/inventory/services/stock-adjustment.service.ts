@@ -194,7 +194,7 @@ export class StockAdjustmentService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(adjustment.adjustmentNumber ILIKE :search OR product.name ILIKE :search OR product.barcode ILIKE :search OR adjustment.reason ILIKE :search),',
+        '(adjustment.adjustmentNumber ILIKE :search OR product.name ILIKE :search OR product.barcode ILIKE :search OR adjustment.reason ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -282,12 +282,12 @@ export class StockAdjustmentService {
     Object.assign(adjustment, updateAdjustmentDto);
 
     // Recalculate if quantities changed
-    if (updateAdjustmentDto.systemQuantity || updateAdjustmentDto.physicalQuantity) {
-      adjustment.adjustmentQuantity = Number(adjustment.physicalQuantity) - Number(adjustment.systemQuantity);
+    if (updateAdjustmentDto.systemQuantity || updateAdjustmentDto.actualQuantity) {
+      adjustment.adjustmentQuantity = Number(adjustment.actualQuantity) - Number(adjustment.systemQuantity);
     }
 
     // Recalculate value impact if unit cost or quantities changed
-    if (updateAdjustmentDto.unitCost || updateAdjustmentDto.systemQuantity || updateAdjustmentDto.physicalQuantity) {
+    if (updateAdjustmentDto.unitCost || updateAdjustmentDto.systemQuantity || updateAdjustmentDto.actualQuantity) {
       if (adjustment.unitCost) {
         adjustment.totalValueImpact = Number(adjustment.adjustmentQuantity) * Number(adjustment.unitCost);
       }
@@ -531,7 +531,7 @@ export class StockAdjustmentService {
       adjustmentDate: adjustment.adjustmentDate,
       approvedDate: adjustment.approvedDate,
       systemQuantity: Number(adjustment.systemQuantity),
-      physicalQuantity: Number(adjustment.physicalQuantity),
+      actualQuantity: Number(adjustment.actualQuantity),
       adjustmentQuantity: Number(adjustment.adjustmentQuantity),
       unitCost: adjustment.unitCost ? Number(adjustment.unitCost) : undefined,
       totalValueImpact: adjustment.totalValueImpact ? Number(adjustment.totalValueImpact) : undefined,

@@ -200,7 +200,7 @@ export class CreateStockAdjustmentDto {
   @ApiProperty({ description: 'Actual physical quantity counted/found' })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  physicalQuantity: number;
+  actualQuantity: number;
 
   @ApiPropertyOptional({ description: 'Unit cost at time of adjustment' })
   @IsOptional()
@@ -608,7 +608,7 @@ export class StockAdjustmentResponseDto {
   systemQuantity: number;
 
   @ApiProperty({ description: 'Physical quantity found' })
-  physicalQuantity: number;
+  actualQuantity: number;
 
   @ApiProperty({ description: 'Adjustment quantity (difference)' })
   adjustmentQuantity: number;
