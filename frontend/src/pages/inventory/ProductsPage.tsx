@@ -71,6 +71,7 @@ import {
   selectProducts,
   selectCategories,
   selectInventoryLoading,
+  selectInventoryPagination,
 } from '@/store/slices/inventorySlice'
 
 
@@ -127,6 +128,7 @@ const ProductsPage: React.FC = () => {
   const products = useSelector(selectProducts) || []
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
+  const pagination = useSelector(selectInventoryPagination)?.products
   
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
@@ -166,11 +168,16 @@ const ProductsPage: React.FC = () => {
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+      dispatch(fetchProducts({ 
+        page: page + 1, // API expects 1-based page numbers
+        limit: rowsPerPage,
+        search: searchTerm || undefined, 
+        categoryId: selectedCategory || undefined 
+      }))
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [dispatch, searchTerm, selectedCategory])
+  }, [dispatch, searchTerm, selectedCategory, page, rowsPerPage])
 
   // Update selectedProductForDetails when products change (to reflect updates in detail view)
   useEffect(() => {
@@ -198,7 +205,12 @@ const ProductsPage: React.FC = () => {
   }, [selectedProductForDetails?.id])
 
   const handleRefresh = () => {
-    dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+    dispatch(fetchProducts({ 
+      page: page + 1, // API expects 1-based page numbers
+      limit: rowsPerPage,
+      search: searchTerm || undefined, 
+      categoryId: selectedCategory || undefined 
+    }))
     dispatch(fetchCategories({ includeProductCount: true }))
   }
 
@@ -311,38 +323,32 @@ const ProductsPage: React.FC = () => {
     return () => clearTimeout(timeoutId)
   }, [inlineEditData, selectedProductForDetails, inlineEditMode, inlineEditDuplicateCheck])
 
-  // Products are already filtered by backend search
-  const filteredProducts = products || []
-
-  // Paginated products
-  const paginatedProducts = filteredProducts.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  )
+  // Products are now paginated and filtered by the server
+  const displayProducts = products || []
 
   // Keyboard navigation handlers
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (paginatedProducts.length === 0) return
+    if (displayProducts.length === 0) return
 
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault()
         setFocusedProductIndex(prev => {
-          const nextIndex = prev < paginatedProducts.length - 1 ? prev + 1 : 0
+          const nextIndex = prev < displayProducts.length - 1 ? prev + 1 : 0
           return nextIndex
         })
         break
       case 'ArrowUp':
         event.preventDefault()
         setFocusedProductIndex(prev => {
-          const nextIndex = prev > 0 ? prev - 1 : paginatedProducts.length - 1
+          const nextIndex = prev > 0 ? prev - 1 : displayProducts.length - 1
           return nextIndex
         })
         break
       case 'Enter':
         event.preventDefault()
-        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length) {
-          setSelectedProductForDetails(paginatedProducts[focusedProductIndex])
+        if (focusedProductIndex >= 0 && focusedProductIndex < displayProducts.length) {
+          setSelectedProductForDetails(displayProducts[focusedProductIndex])
         }
         break
       case 'Home':
@@ -351,12 +357,12 @@ const ProductsPage: React.FC = () => {
         break
       case 'End':
         event.preventDefault()
-        setFocusedProductIndex(paginatedProducts.length - 1)
+        setFocusedProductIndex(displayProducts.length - 1)
         break
       case 'PageDown':
         event.preventDefault()
         setFocusedProductIndex(prev => {
-          const nextIndex = Math.min(prev + 5, paginatedProducts.length - 1)
+          const nextIndex = Math.min(prev + 5, displayProducts.length - 1)
           return nextIndex >= 0 ? nextIndex : 0
         })
         break
@@ -368,16 +374,16 @@ const ProductsPage: React.FC = () => {
         })
         break
       case 'Delete':
-        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length) {
+        if (focusedProductIndex >= 0 && focusedProductIndex < displayProducts.length) {
           event.preventDefault()
-          handleDeleteProduct(paginatedProducts[focusedProductIndex])
+          handleDeleteProduct(displayProducts[focusedProductIndex])
         }
         break
       case 'e':
       case 'E':
-        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        if (focusedProductIndex >= 0 && focusedProductIndex < displayProducts.length && !event.ctrlKey && !event.altKey && !event.metaKey) {
           event.preventDefault()
-          handleEditProduct(paginatedProducts[focusedProductIndex])
+          handleEditProduct(displayProducts[focusedProductIndex])
         }
         break
       case 'Escape':
@@ -407,7 +413,7 @@ const ProductsPage: React.FC = () => {
       default:
         break
     }
-  }, [paginatedProducts, focusedProductIndex])
+  }, [displayProducts, focusedProductIndex])
 
   // Reset focused index when products change or page changes
   useEffect(() => {
@@ -416,13 +422,13 @@ const ProductsPage: React.FC = () => {
 
   // Auto-focus the first product when the list becomes available
   useEffect(() => {
-    if (paginatedProducts.length > 0 && focusedProductIndex === -1) {
+    if (displayProducts.length > 0 && focusedProductIndex === -1) {
       // Only auto-focus if we don't have a selected product
       if (!selectedProductForDetails) {
         setFocusedProductIndex(0)
       }
     }
-  }, [paginatedProducts, focusedProductIndex, selectedProductForDetails])
+  }, [displayProducts, focusedProductIndex, selectedProductForDetails])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -516,7 +522,12 @@ const ProductsPage: React.FC = () => {
       if (updateProduct.fulfilled.match(result)) {
         showSuccess('Product updated successfully')
         // Refresh the product list to ensure consistency
-        dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+        dispatch(fetchProducts({ 
+          page: page + 1, // API expects 1-based page numbers
+          limit: rowsPerPage,
+          search: searchTerm || undefined, 
+          categoryId: selectedCategory || undefined 
+        }))
         setInlineEditMode(false)
         setInlineEditData(null)
       } else {
@@ -553,6 +564,8 @@ const ProductsPage: React.FC = () => {
           
           // Refresh the product list to ensure consistency
           dispatch(fetchProducts({ 
+            page: page + 1, // API expects 1-based page numbers
+            limit: rowsPerPage,
             search: searchTerm || undefined, 
             categoryId: selectedCategory || undefined
           }))
@@ -587,6 +600,8 @@ const ProductsPage: React.FC = () => {
           showSuccess('Product updated successfully')
           // Refresh the product list to ensure consistency
           dispatch(fetchProducts({ 
+            page: page + 1, // API expects 1-based page numbers
+            limit: rowsPerPage,
             search: searchTerm || undefined, 
             categoryId: selectedCategory || undefined
           }))
@@ -614,7 +629,12 @@ const ProductsPage: React.FC = () => {
         
         showSuccess('Product added successfully')
         // Refresh the product list to show the new product
-        dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+        dispatch(fetchProducts({ 
+          page: page + 1, // API expects 1-based page numbers
+          limit: rowsPerPage,
+          search: searchTerm || undefined, 
+          categoryId: selectedCategory || undefined 
+        }))
       }
       
       handleCloseDialog()
@@ -673,7 +693,7 @@ const ProductsPage: React.FC = () => {
       handleExportClose()
       
       const exportData = {
-        products: filteredProducts,
+        products: products,
         filters: {
           search: searchTerm || undefined,
           category: selectedCategory || undefined
@@ -709,7 +729,7 @@ const ProductsPage: React.FC = () => {
             Products
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage your product catalog and inventory ({filteredProducts.length} total)
+            Manage your product catalog and inventory ({pagination?.total || 0} total)
           </Typography>
         </Box>
         <Box sx={{ 
@@ -893,7 +913,7 @@ const ProductsPage: React.FC = () => {
           endIcon={<ArrowDropDownIcon />}
           size="medium"
           onClick={handleExportClick}
-          disabled={isExporting || filteredProducts.length === 0}
+          disabled={isExporting || products.length === 0}
           sx={{ 
             flex: 'none',
             height: '40px',
@@ -961,7 +981,7 @@ const ProductsPage: React.FC = () => {
             <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                  Product List ({filteredProducts.length})
+                  Product List ({pagination?.total || 0})
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1056,7 +1076,7 @@ const ProductsPage: React.FC = () => {
               onKeyDown={handleKeyDown}
               onFocus={() => {
                 // Auto-focus first product when the container gets focus
-                if (paginatedProducts.length > 0 && focusedProductIndex === -1) {
+                if (displayProducts.length > 0 && focusedProductIndex === -1) {
                   setFocusedProductIndex(0)
                 }
               }}
@@ -1065,7 +1085,7 @@ const ProductsPage: React.FC = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
                   <CircularProgress />
                 </Box>
-              ) : filteredProducts.length === 0 ? (
+              ) : products.length === 0 ? (
                 <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Typography variant="body1" color="text.secondary">
                     No products found. Create your first product to get started.
@@ -1086,7 +1106,7 @@ const ProductsPage: React.FC = () => {
                       }}
                     >
                       <TableBody>
-                        {paginatedProducts.map((product: any, index: number) => {
+                        {displayProducts.map((product: any, index: number) => {
                           const isSelected = selectedProductForDetails?.id === product.id
                           const isFocused = focusedProductIndex === index
                           return (
@@ -1139,7 +1159,7 @@ const ProductsPage: React.FC = () => {
                     <TablePagination
                       rowsPerPageOptions={[5, 10, 25, 50]}
                       component="div"
-                      count={filteredProducts.length}
+                      count={pagination?.total || 0}
                       rowsPerPage={rowsPerPage}
                       page={page}
                       onPageChange={(_, newPage) => setPage(newPage)}
@@ -1943,10 +1963,10 @@ const ProductsPage: React.FC = () => {
             </Typography>
           </Box>
         </MenuItem>
-        {filteredProducts.length > 0 && (
+        {products.length > 0 && (
           <Box sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" color="text.secondary">
-              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} will be exported
+              {products.length} product{products.length !== 1 ? 's' : ''} will be exported
               {searchTerm && (
                 <>
                   <br />
