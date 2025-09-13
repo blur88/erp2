@@ -620,6 +620,7 @@ const InventoryPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   fullWidth
+                  onClick={() => navigate('/inventory/stock-adjustments')}
                   startIcon={<StockIcon />}
                   sx={{ justifyContent: 'flex-start' }}
                 >

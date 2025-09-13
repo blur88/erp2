@@ -105,11 +105,83 @@ export interface ProductAttribute {
 export interface StockMovement {
   id: string;
   productId: string;
-  type: 'in' | 'out' | 'adjustment';
+  product?: Product;
+  movementType: 'stock_in' | 'stock_out' | 'adjustment' | 'transfer' | 'sale' | 'purchase' | 'initial' | 'return';
   quantity: number;
-  reference?: string;
+  unitValue?: number;
+  referenceType?: string;
+  referenceId?: string;
+  referenceNumber?: string;
+  locationCode?: string;
+  binLocation?: string;
+  batchNumber?: string;
+  expiryDate?: Date;
   reason?: string;
+  notes?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  movementDate: Date;
+  description?: string;
+  metadata?: Record<string, any>;
   createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export enum StockAdjustmentType {
+  INCREASE = 'increase',
+  DECREASE = 'decrease',
+  COUNT = 'count',
+  TRANSFER = 'transfer',
+  DAMAGE = 'damage',
+  THEFT = 'theft',
+  EXPIRY = 'expiry',
+  RETURN = 'return',
+  OTHER = 'other'
+}
+
+export enum StockAdjustmentStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  CANCELLED = 'cancelled'
+}
+
+export interface StockAdjustment {
+  id: string;
+  productId: string;
+  product?: Product;
+  type: StockAdjustmentType;
+  adjustmentQuantity: number;
+  systemQuantity: number;
+  actualQuantity: number;
+  varianceQuantity: number;
+  unitCost?: number;
+  totalCost?: number;
+  reason: string;
+  notes?: string;
+  status: StockAdjustmentStatus;
+  requiresApproval: boolean;
+  // Location tracking
+  locationCode?: string;
+  binLocation?: string;
+  batchNumber?: string;
+  expiryDate?: Date;
+  // Approval workflow
+  approvedBy?: string;
+  approvedAt?: Date;
+  rejectedBy?: string;
+  rejectedAt?: Date;
+  approvalReason?: string;
+  rejectionReason?: string;
+  // Audit trail
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  updatedBy?: string;
+  // Related movement
+  stockMovementId?: string;
+  stockMovement?: StockMovement;
 }
 
 // Sales types
