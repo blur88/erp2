@@ -48,8 +48,8 @@ export enum StockAdjustmentStatus {
 @Index(['type'])
 @Index(['status'])
 @Index(['adjustmentDate'])
-@Index(['adjustedByUserId'])
-@Index(['approvedByUserId'])
+@Index(['adjustedBy'])
+@Index(['approvedBy'])
 export class StockAdjustment extends BaseEntity {
   @Column({
     type: 'varchar',
