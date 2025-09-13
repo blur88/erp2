@@ -1128,26 +1128,8 @@ export class ProductService {
    * Validate product pricing logic
    */
   private validatePricing(productData: any): void {
-    const { baseCost, retailPrice, wholesalePrice, specialPrice } = productData;
-
-    // Only validate selling prices against base cost if they are greater than 0
-    // This allows base cost to be higher than selling prices (negative margins)
-    if (retailPrice > 0 && retailPrice < baseCost) {
-      this.logger.warn(`Retail price (${retailPrice}) is lower than base cost (${baseCost}) - negative margin`);
-    }
-
-    if (wholesalePrice > 0 && wholesalePrice < baseCost) {
-      this.logger.warn(`Wholesale price (${wholesalePrice}) is lower than base cost (${baseCost}) - negative margin`);
-    }
-
-    if (specialPrice > 0 && specialPrice < baseCost) {
-      this.logger.warn(`Special price (${specialPrice}) is lower than base cost (${baseCost}) - negative margin`);
-    }
-
-    // Keep the wholesale vs retail validation as it's a business logic rule
-    if (wholesalePrice > 0 && retailPrice > 0 && wholesalePrice > retailPrice) {
-      throw new BadRequestException('Wholesale price cannot be higher than retail price');
-    }
+    // No pricing constraints - all prices can be any value relative to each other
+    // This allows complete flexibility in pricing strategies
   }
 
   /**
