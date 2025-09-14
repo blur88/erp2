@@ -297,7 +297,7 @@ const CategoriesPage: React.FC = () => {
         <Box sx={{ 
           display: 'flex', 
           flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 2,
+          gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
           <Button
@@ -305,7 +305,7 @@ const CategoriesPage: React.FC = () => {
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
             onClick={handleRefresh}
             disabled={loading?.categories}
-            size={isMobile ? "medium" : "medium"}
+            size="medium"
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Categories" : "Refresh"}
@@ -314,7 +314,7 @@ const CategoriesPage: React.FC = () => {
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setDeletedCategoriesDialogOpen(true)}
-            size={isMobile ? "medium" : "medium"}
+            size="medium"
             fullWidth={isMobile}
             sx={{
               color: 'warning.main',
@@ -330,7 +330,7 @@ const CategoriesPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
-            size={isMobile ? "medium" : "medium"}
+            size="medium"
             onClick={() => handleAddCategory()}
             fullWidth={isMobile}
           >
