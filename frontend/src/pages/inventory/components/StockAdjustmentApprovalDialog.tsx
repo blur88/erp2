@@ -126,14 +126,15 @@ const StockAdjustmentApprovalDialog: React.FC<StockAdjustmentApprovalDialogProps
 
   const getTypeIcon = (type: StockAdjustmentType) => {
     switch (type) {
-      case StockAdjustmentType.INCREASE: return '↗️'
-      case StockAdjustmentType.DECREASE: return '↘️'
-      case StockAdjustmentType.COUNT: return '📊'
-      case StockAdjustmentType.TRANSFER: return '↔️'
+      case StockAdjustmentType.FOUND: return '🔍'
+      case StockAdjustmentType.LOSS: return '📉'
+      case StockAdjustmentType.PHYSICAL_COUNT: return '📊'
+      case StockAdjustmentType.CORRECTION: return '🔧'
       case StockAdjustmentType.DAMAGE: return '💥'
       case StockAdjustmentType.THEFT: return '🔒'
       case StockAdjustmentType.EXPIRY: return '⏰'
-      case StockAdjustmentType.RETURN: return '↩️'
+      case StockAdjustmentType.WRITE_OFF: return '❌'
+      case StockAdjustmentType.REVALUATION: return '💰'
       default: return '📝'
     }
   }

@@ -90,7 +90,7 @@ const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
     resolver: yupResolver(schema),
     defaultValues: {
       productId: '',
-      type: StockAdjustmentType.COUNT,
+      type: StockAdjustmentType.PHYSICAL_COUNT,
       systemQuantity: 0,
       actualQuantity: 0,
       adjustmentQuantity: 0,
@@ -160,7 +160,7 @@ const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
         // Create mode - reset to defaults
         reset({
           productId: '',
-          type: StockAdjustmentType.COUNT,
+          type: StockAdjustmentType.PHYSICAL_COUNT,
           systemQuantity: 0,
           actualQuantity: 0,
           adjustmentQuantity: 0,
@@ -239,15 +239,15 @@ const StockAdjustmentDialog: React.FC<StockAdjustmentDialogProps> = ({
   const totalCost = (watchedAdjustmentQty || 0) * (watchedUnitCost || 0)
 
   const adjustmentTypeOptions = [
-    { value: StockAdjustmentType.INCREASE, label: 'Increase', icon: '↗️' },
-    { value: StockAdjustmentType.DECREASE, label: 'Decrease', icon: '↘️' },
-    { value: StockAdjustmentType.COUNT, label: 'Physical Count', icon: '📊' },
-    { value: StockAdjustmentType.TRANSFER, label: 'Transfer', icon: '↔️' },
+    { value: StockAdjustmentType.PHYSICAL_COUNT, label: 'Physical Count', icon: '📊' },
+    { value: StockAdjustmentType.CORRECTION, label: 'Correction', icon: '🔧' },
     { value: StockAdjustmentType.DAMAGE, label: 'Damage', icon: '💥' },
     { value: StockAdjustmentType.THEFT, label: 'Theft', icon: '🔒' },
     { value: StockAdjustmentType.EXPIRY, label: 'Expiry', icon: '⏰' },
-    { value: StockAdjustmentType.RETURN, label: 'Return', icon: '↩️' },
-    { value: StockAdjustmentType.OTHER, label: 'Other', icon: '📝' },
+    { value: StockAdjustmentType.LOSS, label: 'Loss', icon: '📉' },
+    { value: StockAdjustmentType.FOUND, label: 'Found', icon: '🔍' },
+    { value: StockAdjustmentType.WRITE_OFF, label: 'Write Off', icon: '❌' },
+    { value: StockAdjustmentType.REVALUATION, label: 'Revaluation', icon: '💰' },
   ]
 
   return (

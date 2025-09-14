@@ -191,7 +191,7 @@ const stockAdjustmentSlice = createSlice({
       .addCase(createStockAdjustment.fulfilled, (state, action) => {
         if (action.payload) {
           state.adjustments.unshift(action.payload)
-          if (action.payload.status === StockAdjustmentStatus.PENDING) {
+          if (action.payload.status === StockAdjustmentStatus.PENDING_APPROVAL) {
             state.pendingCount += 1
           }
         }
@@ -241,7 +241,7 @@ const stockAdjustmentSlice = createSlice({
         if (action.payload && Array.isArray(action.payload)) {
           state.adjustments.unshift(...action.payload)
           const pendingAdjustments = action.payload.filter(
-            adj => adj.status === StockAdjustmentStatus.PENDING
+            adj => adj.status === StockAdjustmentStatus.PENDING_APPROVAL
           )
           state.pendingCount += pendingAdjustments.length
         }

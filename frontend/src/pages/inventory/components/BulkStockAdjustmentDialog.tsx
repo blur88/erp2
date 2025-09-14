@@ -151,9 +151,9 @@ const BulkStockAdjustmentDialog: React.FC<BulkStockAdjustmentDialogProps> = ({
           if (!productId && !barcode) continue
 
           const adjustment = countedStock - currentStock
-          const type = adjustment > 0 ? StockAdjustmentType.INCREASE : 
-                      adjustment < 0 ? StockAdjustmentType.DECREASE : 
-                      StockAdjustmentType.COUNT
+          const type = adjustment > 0 ? StockAdjustmentType.FOUND : 
+                      adjustment < 0 ? StockAdjustmentType.LOSS : 
+                      StockAdjustmentType.PHYSICAL_COUNT
 
           parsedItems.push({
             id: `temp-${i}`,

@@ -143,8 +143,10 @@ const StockAdjustmentsPage: React.FC = () => {
 
   const getStatusColor = (status: StockAdjustmentStatus) => {
     switch (status) {
-      case StockAdjustmentStatus.PENDING: return 'warning'
+      case StockAdjustmentStatus.DRAFT: return 'info'
+      case StockAdjustmentStatus.PENDING_APPROVAL: return 'warning'
       case StockAdjustmentStatus.APPROVED: return 'success'
+      case StockAdjustmentStatus.COMPLETED: return 'success'
       case StockAdjustmentStatus.REJECTED: return 'error'
       case StockAdjustmentStatus.CANCELLED: return 'default'
       default: return 'default'
@@ -251,7 +253,7 @@ const StockAdjustmentsPage: React.FC = () => {
                 <AdjustmentIcon />
               </Avatar>
               <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-                {adjustments.filter(a => a.status === StockAdjustmentStatus.APPROVED).length}
+                {adjustments.filter(a => a.status === StockAdjustmentStatus.COMPLETED).length}
               </Typography>
               <Typography color="text.secondary" variant="body2">
                 This Page Active
@@ -305,7 +307,11 @@ const StockAdjustmentsPage: React.FC = () => {
                   label="Status"
                 >
                   <MenuItem value="all">All Statuses</MenuItem>
-                  <MenuItem value={StockAdjustmentStatus.APPROVED}>Active</MenuItem>
+                  <MenuItem value={StockAdjustmentStatus.DRAFT}>Draft</MenuItem>
+                  <MenuItem value={StockAdjustmentStatus.PENDING_APPROVAL}>Pending Approval</MenuItem>
+                  <MenuItem value={StockAdjustmentStatus.APPROVED}>Approved</MenuItem>
+                  <MenuItem value={StockAdjustmentStatus.COMPLETED}>Completed</MenuItem>
+                  <MenuItem value={StockAdjustmentStatus.REJECTED}>Rejected</MenuItem>
                   <MenuItem value={StockAdjustmentStatus.CANCELLED}>Cancelled</MenuItem>
                 </Select>
               </FormControl>

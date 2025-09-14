@@ -346,10 +346,10 @@ export class StockAdjustmentService {
         Number(adjustment.adjustmentQuantity),
         adjustment.reason,
         adjustment.id,
-        'system',
+        null,
       );
 
-      await this.stockMovementService.create(movementData as any, 'system');
+      await this.stockMovementService.create(movementData as any, null);
     }
 
     // Mark adjustment as completed
