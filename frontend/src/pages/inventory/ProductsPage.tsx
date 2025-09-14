@@ -33,7 +33,6 @@ import {
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -48,6 +47,7 @@ import {
   TableChart as TableChartIcon,
   PictureAsPdf as PictureAsPdfIcon,
   CloudUpload as CloudUploadIcon,
+  Inventory2 as InventoryIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -149,6 +149,7 @@ const ProductsPage: React.FC = () => {
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
   const [isExporting, setIsExporting] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
+
 
   // Use the new duplicate check hook
   const { 
@@ -725,7 +726,8 @@ const ProductsPage: React.FC = () => {
         marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <InventoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
             Products
           </Typography>
           <Typography variant="body1" color="text.secondary">

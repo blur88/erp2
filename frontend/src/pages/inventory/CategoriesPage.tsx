@@ -94,6 +94,7 @@ const CategoriesPage: React.FC = () => {
     },
   })
 
+
   useEffect(() => {
     dispatch(fetchCategories({}))
   }, [dispatch])
@@ -285,7 +286,8 @@ const CategoriesPage: React.FC = () => {
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <CategoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
             Categories
           </Typography>
           <Typography variant="body1" color="text.secondary">

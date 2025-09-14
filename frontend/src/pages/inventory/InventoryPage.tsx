@@ -40,7 +40,6 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { inventoryApi } from '@/services/inventoryApi'
 import { formatCurrencyWhole } from '@/utils/currency'
-import { useWebSocket, useRealtimeUpdates } from '@/hooks/useWebSocket'
 
 interface LowStockAlert {
   productId: string
@@ -82,25 +81,6 @@ const InventoryPage: React.FC = () => {
   const [recentMovements, setRecentMovements] = useState<StockMovement[]>([])
   const [categoryBreakdown, setCategoryBreakdown] = useState<Array<{ category: string; count: number; value: number }>>([])
 
-  // WebSocket integration for real-time updates
-  const { isConnected } = useWebSocket()
-
-  // Handle real-time inventory updates
-  const handleInventoryUpdate = useCallback((data: any) => {
-    console.log('Real-time inventory update:', data)
-    // Refresh stats when inventory changes
-    fetchInventoryStats(true)
-  }, [])
-
-  const handleStockMovementUpdate = useCallback((data: any) => {
-    console.log('Real-time stock movement update:', data)
-    // Refresh stats and recent movements
-    fetchInventoryStats(true)
-  }, [])
-
-  // Subscribe to real-time updates
-  useRealtimeUpdates('inventory', handleInventoryUpdate)
-  useRealtimeUpdates('stock_movement', handleStockMovementUpdate)
 
   const fetchInventoryStats = async (isRefresh = false) => {
     try {
@@ -207,17 +187,6 @@ const InventoryPage: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {/* WebSocket Connection Indicator */}
-          <Tooltip title={isConnected ? 'Real-time updates active' : 'Real-time updates disconnected'}>
-            <Chip
-              icon={<TimelineIcon />}
-              label={isConnected ? 'Live' : 'Offline'}
-              size="small"
-              color={isConnected ? 'success' : 'default'}
-              variant={isConnected ? 'filled' : 'outlined'}
-              sx={{ mr: 1 }}
-            />
-          </Tooltip>
           <Tooltip title="Refresh data">
             <IconButton 
               onClick={handleRefresh} 
