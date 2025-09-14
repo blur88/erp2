@@ -783,7 +783,7 @@ const ProductsPage: React.FC = () => {
       <Box sx={{ 
         display: 'flex', 
         flexDirection: isMobile ? 'column' : 'row',
-        gap: 2,
+        gap: isMobile ? 2 : 1,
         alignItems: isMobile ? 'stretch' : 'center',
         mb: 3,
         '& > *': {
@@ -2402,7 +2402,7 @@ const ProductsPage: React.FC = () => {
               )}
             </Box>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
+          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
             <Button onClick={handleCloseDialog} disabled={isSubmitting}>
               Cancel
             </Button>
