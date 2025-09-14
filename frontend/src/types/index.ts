@@ -106,7 +106,7 @@ export interface StockMovement {
   id: string;
   productId: string;
   product?: Product;
-  movementType: 'stock_in' | 'stock_out' | 'adjustment' | 'transfer' | 'sale' | 'purchase' | 'initial' | 'return';
+  movementType: 'stock_in' | 'stock_out' | 'transfer' | 'sale' | 'purchase' | 'initial' | 'return';
   quantity: number;
   unitValue?: number;
   referenceType?: string;
@@ -128,87 +128,6 @@ export interface StockMovement {
   updatedBy?: string;
 }
 
-export enum StockAdjustmentType {
-  PHYSICAL_COUNT = 'physical_count',
-  DAMAGE = 'damage',
-  EXPIRY = 'expiry',
-  THEFT = 'theft',
-  LOSS = 'loss',
-  FOUND = 'found',
-  CORRECTION = 'correction',
-  WRITE_OFF = 'write_off',
-  REVALUATION = 'revaluation'
-}
-
-export enum StockAdjustmentStatus {
-  DRAFT = 'draft',
-  PENDING_APPROVAL = 'pending_approval',
-  APPROVED = 'approved',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  REJECTED = 'rejected'
-}
-
-export interface StockAdjustment {
-  id: string;
-  adjustmentNumber: string;
-  productId: string;
-  product?: Product;
-  type: StockAdjustmentType;
-  status: StockAdjustmentStatus;
-  adjustmentDate: Date;
-  approvedDate?: Date;
-  // Stock Quantities
-  systemQuantity: number;
-  actualQuantity: number;
-  adjustmentQuantity: number;
-  // Valuation
-  unitCost?: number;
-  totalValueImpact?: number;
-  // Location Information
-  locationCode: string;
-  binLocation?: string;
-  // Batch/Lot Information
-  batchNumber?: string;
-  expiryDate?: Date;
-  // Reason and Documentation
-  reason: string;
-  notes?: string;
-  approvalNotes?: string;
-  attachments?: Array<{
-    filename: string;
-    url: string;
-    type: 'photo' | 'document';
-    description?: string;
-  }>;
-  // Physical Count Details
-  countedBy?: string;
-  countedAt?: Date;
-  countDetails?: {
-    countMethod: string;
-    countTeam?: string[];
-    verifiedCount?: boolean;
-    recountPerformed?: boolean;
-    discrepancyInvestigated?: boolean;
-  };
-  // Additional Information
-  metadata?: Record<string, any>;
-  // Foreign Keys
-  adjustedByUserId: string;
-  approvedByUserId?: string;
-  // Audit trail
-  createdAt: Date;
-  updatedAt: Date;
-  // Computed properties (getter methods in backend)
-  isIncrease?: boolean;
-  isDecrease?: boolean;
-  adjustmentPercent?: number;
-  isPending?: boolean;
-  isCompleted?: boolean;
-  canApprove?: boolean;
-  canReject?: boolean;
-  requiresApproval?: boolean;
-}
 
 // Sales types
 export enum CustomerType {

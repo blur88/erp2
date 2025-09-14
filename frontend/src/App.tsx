@@ -13,7 +13,6 @@ const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage')
 const InventoryPage = React.lazy(() => import('./pages/inventory/InventoryPage'))
 const ProductsPage = React.lazy(() => import('./pages/inventory/ProductsPage'))
 const CategoriesPage = React.lazy(() => import('./pages/inventory/CategoriesPage'))
-const StockAdjustmentsPage = React.lazy(() => import('./pages/inventory/StockAdjustmentsPage'))
 const SalesPage = React.lazy(() => import('./pages/sales/SalesPage'))
 const CustomersPage = React.lazy(() => import('./pages/sales/CustomersPage'))
 const OrdersPage = React.lazy(() => import('./pages/sales/OrdersPage'))
@@ -62,7 +61,6 @@ function App() {
                     <Route path="/inventory" element={<InventoryPage />} />
                     <Route path="/inventory/products" element={<ProductsPage />} />
                     <Route path="/inventory/categories" element={<CategoriesPage />} />
-                    <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
 
                     {/* Sales Management */}
                     <Route path="/sales" element={<SalesPage />} />

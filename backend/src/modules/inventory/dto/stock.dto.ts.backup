@@ -10,9 +10,11 @@ import {
   MaxLength,
   Min,
   Max,
+  ValidateNested,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   StockMovementType,
   StockMovementStatus,
@@ -177,9 +179,198 @@ export class QueryStockMovementsDto {
   sortOrder?: 'ASC' | 'DESC';
 }
 
+export class CreateStockAdjustmentDto {
+  @ApiProperty({ description: 'Product ID' })
+  @IsUUID(4)
+  productId: string;
+
+  @ApiProperty({ description: 'Type of stock adjustment', enum: StockAdjustmentType })
+  @IsEnum(StockAdjustmentType)
+  type: StockAdjustmentType;
+
+  @ApiProperty({ description: 'Current system stock quantity' })
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  systemQuantity: number;
+
+  @ApiProperty({ description: 'Actual physical quantity counted/found' })
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  actualQuantity: number;
+
+  @ApiPropertyOptional({ description: 'Unit cost at time of adjustment' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  unitCost?: number;
+
+  @ApiPropertyOptional({ description: 'Warehouse/location code', default: 'MAIN' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  locationCode?: string;
+
+  @ApiPropertyOptional({ description: 'Bin/shelf location within warehouse' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  binLocation?: string;
+
+  @ApiPropertyOptional({ description: 'Batch or lot number being adjusted' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  batchNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Expiry date of batch/lot' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  expiryDate?: Date;
+
+  @ApiProperty({ description: 'Reason for adjustment' })
+  @IsString()
+  reason: string;
+
+  @ApiPropertyOptional({ description: 'Additional notes and details' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ description: 'Name of person who performed physical count' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  countedBy?: string;
+
+  @ApiPropertyOptional({ description: 'When physical count was performed' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  countedAt?: Date;
+
+  @ApiPropertyOptional({ description: 'Count verification details', type: 'object' })
+  @IsOptional()
+  countDetails?: {
+    countMethod: string;
+    countTeam?: string[];
+    verifiedCount?: boolean;
+    recountPerformed?: boolean;
+    discrepancyInvestigated?: boolean;
+  };
+
+  @ApiPropertyOptional({ description: 'Supporting documents or photos', type: 'array' })
+  @IsOptional()
+  @IsArray()
+  attachments?: Array<{
+    filename: string;
+    url: string;
+    type: 'photo' | 'document';
+    description?: string;
+  }>;
+
+  @ApiPropertyOptional({ description: 'Additional metadata', type: 'object' })
+  @IsOptional()
+  metadata?: Record<string, any>;
+}
+
+export class UpdateStockAdjustmentDto extends PartialType(CreateStockAdjustmentDto) {
+  @ApiPropertyOptional({ description: 'Approval or rejection notes' })
+  @IsOptional()
+  @IsString()
+  approvalNotes?: string;
+}
+
+export class QueryStockAdjustmentsDto {
+  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @ApiPropertyOptional({ description: 'Filter by product ID' })
+  @IsOptional()
+  @IsUUID(4)
+  productId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by adjustment type', enum: StockAdjustmentType })
+  @IsOptional()
+  @IsEnum(StockAdjustmentType)
+  type?: StockAdjustmentType;
+
+  @ApiPropertyOptional({ description: 'Filter by adjustment status', enum: StockAdjustmentStatus })
+  @IsOptional()
+  @IsEnum(StockAdjustmentStatus)
+  status?: StockAdjustmentStatus;
+
+  @ApiPropertyOptional({ description: 'Filter adjustments from this date' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  fromDate?: Date;
+
+  @ApiPropertyOptional({ description: 'Filter adjustments to this date' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  toDate?: Date;
 
 
+  @ApiPropertyOptional({ description: 'Filter by location code' })
+  @IsOptional()
+  @IsString()
+  locationCode?: string;
 
+
+  @ApiPropertyOptional({ description: 'Search term (adjustment number, product name, reason)' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['adjustmentDate', 'adjustmentQuantity', 'totalValueImpact'] })
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'] })
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+
+export class BulkStockAdjustmentDto {
+  @ApiProperty({ description: 'List of stock adjustments', type: 'array' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateStockAdjustmentDto)
+  adjustments: CreateStockAdjustmentDto[];
+
+  @ApiPropertyOptional({ description: 'Global reason for all adjustments' })
+  @IsOptional()
+  @IsString()
+  globalReason?: string;
+
+  @ApiPropertyOptional({ description: 'Global count details for all adjustments' })
+  @IsOptional()
+  globalCountDetails?: {
+    countMethod: string;
+    countTeam?: string[];
+    verifiedCount?: boolean;
+    recountPerformed?: boolean;
+    discrepancyInvestigated?: boolean;
+  };
+}
 
 export class StockTransferDto {
   @ApiProperty({ description: 'Product ID' })
@@ -348,6 +539,8 @@ export class StockMovementResponseDto {
   @ApiProperty({ description: 'Movement direction' })
   isOutward: boolean;
 
+  @ApiProperty({ description: 'Is adjustment' })
+  isAdjustment: boolean;
 
   @ApiProperty({ description: 'Movement description' })
   description: string;
@@ -359,6 +552,129 @@ export class StockMovementResponseDto {
   updatedAt: Date;
 }
 
+export class StockAdjustmentResponseDto {
+  @ApiProperty({ description: 'Adjustment ID' })
+  id: string;
+
+  @ApiProperty({ description: 'Adjustment number' })
+  adjustmentNumber: string;
+
+  @ApiProperty({ description: 'Adjustment type', enum: StockAdjustmentType })
+  type: StockAdjustmentType;
+
+  @ApiProperty({ description: 'Adjustment status', enum: StockAdjustmentStatus })
+  status: StockAdjustmentStatus;
+
+  @ApiProperty({ description: 'Adjustment date' })
+  adjustmentDate: Date;
+
+
+  @ApiProperty({ description: 'System quantity before adjustment' })
+  systemQuantity: number;
+
+  @ApiProperty({ description: 'Physical quantity found' })
+  actualQuantity: number;
+
+  @ApiProperty({ description: 'Adjustment quantity (difference)' })
+  adjustmentQuantity: number;
+
+  @ApiPropertyOptional({ description: 'Unit cost' })
+  unitCost?: number;
+
+  @ApiPropertyOptional({ description: 'Total value impact' })
+  totalValueImpact?: number;
+
+  @ApiProperty({ description: 'Location code' })
+  locationCode: string;
+
+  @ApiPropertyOptional({ description: 'Bin location' })
+  binLocation?: string;
+
+  @ApiPropertyOptional({ description: 'Batch number' })
+  batchNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Expiry date' })
+  expiryDate?: Date;
+
+  @ApiProperty({ description: 'Adjustment reason' })
+  reason: string;
+
+  @ApiPropertyOptional({ description: 'Additional notes' })
+  notes?: string;
+
+
+  @ApiPropertyOptional({ description: 'Counted by' })
+  countedBy?: string;
+
+  @ApiPropertyOptional({ description: 'Counted at' })
+  countedAt?: Date;
+
+  @ApiPropertyOptional({ description: 'Count details' })
+  countDetails?: {
+    countMethod: string;
+    countTeam?: string[];
+    verifiedCount?: boolean;
+    recountPerformed?: boolean;
+    discrepancyInvestigated?: boolean;
+  };
+
+  @ApiPropertyOptional({ description: 'Attachments' })
+  attachments?: Array<{
+    filename: string;
+    url: string;
+    type: 'photo' | 'document';
+    description?: string;
+  }>;
+
+  @ApiProperty({ description: 'Product information' })
+  product: {
+    id: string;
+    sku: string;
+    name: string;
+    unit: string;
+  };
+
+  @ApiProperty({ description: 'User who made the adjustment' })
+  adjustedByUser: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+
+  @ApiProperty({ description: 'Is increase' })
+  isIncrease: boolean;
+
+  @ApiProperty({ description: 'Is decrease' })
+  isDecrease: boolean;
+
+  @ApiProperty({ description: 'Adjustment percentage' })
+  adjustmentPercent: number;
+
+  @ApiProperty({ description: 'Is pending' })
+  isPending: boolean;
+
+  @ApiProperty({ description: 'Is completed' })
+  isCompleted: boolean;
+
+  @ApiProperty({ description: 'Can approve' })
+  canApprove: boolean;
+
+  @ApiProperty({ description: 'Can reject' })
+  canReject: boolean;
+
+  @ApiProperty({ description: 'Requires approval' })
+  requiresApproval: boolean;
+
+  @ApiProperty({ description: 'Is significant adjustment' })
+  isSignificant: boolean;
+
+  @ApiProperty({ description: 'Creation date' })
+  createdAt: Date;
+
+  @ApiProperty({ description: 'Last update date' })
+  updatedAt: Date;
+}
 
 export class StockSummaryDto {
   @ApiProperty({ description: 'Product ID' })
@@ -385,6 +701,8 @@ export class StockSummaryDto {
   @ApiProperty({ description: 'Last movement date' })
   lastMovementDate?: Date;
 
+  @ApiProperty({ description: 'Last adjustment date' })
+  lastAdjustmentDate?: Date;
 
   @ApiProperty({ description: 'Total inward movements in period' })
   totalInward: number;

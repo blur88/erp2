@@ -19,7 +19,6 @@ import {
 import { BaseEntity } from './base.entity';
 import { Category } from './category.entity';
 import { StockMovement } from './stock-movement.entity';
-import { StockAdjustment } from './stock-adjustment.entity';
 
 export enum ProductType {
   GOODS = 'Stocked Product',
@@ -173,11 +172,6 @@ export class Product extends BaseEntity {
     cascade: false,
   })
   stockMovements: StockMovement[];
-
-  @OneToMany(() => StockAdjustment, (stockAdjustment) => stockAdjustment.product, {
-    cascade: false,
-  })
-  stockAdjustments: StockAdjustment[];
 
   // Computed properties
   get isOutOfStock(): boolean {

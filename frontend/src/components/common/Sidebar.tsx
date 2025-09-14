@@ -31,7 +31,6 @@ import {
   LocalShipping as GRNIcon,
   Person as UsersIcon,
   Tune as SystemSettingsIcon,
-  SwapHoriz as StockAdjustmentIcon,
 } from '@mui/icons-material'
 import { moduleApi } from '@/services/moduleApi'
 
@@ -93,12 +92,6 @@ const menuSections: MenuSection[] = [
             title: 'Categories',
             icon: <CategoryIcon />,
             path: '/inventory/categories',
-          },
-          {
-            id: 'stock-adjustments',
-            title: 'Stock Adjustments',
-            icon: <StockAdjustmentIcon />,
-            path: '/inventory/stock-adjustments',
           },
         ],
       },

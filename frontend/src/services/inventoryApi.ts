@@ -1,5 +1,5 @@
 import { ApiService } from './api'
-import type { Product, Category, StockMovement, StockAdjustment, StockAdjustmentType, StockAdjustmentStatus, PaginatedResponse, QueryParams } from '@/types'
+import type { Product, Category, StockMovement, PaginatedResponse, QueryParams } from '@/types'
 
 export const inventoryApi = {
   // Products
@@ -212,112 +212,6 @@ export const inventoryApi = {
   // Stock management
   async getStockMovements(params?: QueryParams & { productId?: string }) {
     return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock/movements', { params })
-  },
-
-  async createStockAdjustment(data: {
-    productId: string
-    quantity: number
-    type: 'in' | 'out' | 'adjustment'
-    reason?: string
-    reference?: string
-  }) {
-    return ApiService.post<StockMovement>('/inventory/stock/movements', data)
-  },
-
-  // Stock Adjustments (Advanced)
-  async getStockAdjustments(params?: QueryParams & {
-    productId?: string
-    type?: StockAdjustmentType
-    status?: StockAdjustmentStatus
-    requiresApproval?: boolean
-  }) {
-    return ApiService.get<PaginatedResponse<StockAdjustment>>('/inventory/stock/adjustments', { params })
-  },
-
-  async getStockAdjustment(id: string) {
-    return ApiService.get<StockAdjustment>(`/inventory/stock/adjustments/${id}`)
-  },
-
-  async createStockAdjustmentAdvanced(data: {
-    productId: string
-    type: StockAdjustmentType
-    adjustmentQuantity: number
-    systemQuantity: number
-    actualQuantity: number
-    reason: string
-    notes?: string
-    unitCost?: number
-    locationCode?: string
-    binLocation?: string
-    batchNumber?: string
-    expiryDate?: Date
-  }) {
-    return ApiService.post<StockAdjustment>('/inventory/stock/adjustments', data)
-  },
-
-  async updateStockAdjustment(id: string, data: {
-    type?: StockAdjustmentType
-    adjustmentQuantity?: number
-    actualQuantity?: number
-    reason?: string
-    notes?: string
-    unitCost?: number
-    locationCode?: string
-    binLocation?: string
-    batchNumber?: string
-    expiryDate?: Date
-  }) {
-    return ApiService.patch<StockAdjustment>(`/inventory/stock/adjustments/${id}`, data)
-  },
-
-  async approveStockAdjustment(id: string, data: {
-    reason?: string
-    notes?: string
-  }) {
-    return ApiService.post<StockAdjustment>(`/inventory/stock/adjustments/${id}/approve`, data)
-  },
-
-  async rejectStockAdjustment(id: string, data: {
-    reason: string
-    notes?: string
-  }) {
-    return ApiService.post<StockAdjustment>(`/inventory/stock/adjustments/${id}/reject`, data)
-  },
-
-  async cancelStockAdjustment(id: string, data: {
-    reason: string
-  }) {
-    return ApiService.post<StockAdjustment>(`/inventory/stock/adjustments/${id}/cancel`, data)
-  },
-
-  async getPendingAdjustments() {
-    return ApiService.get<PaginatedResponse<StockAdjustment>>('/inventory/stock/adjustments/pending-approvals')
-  },
-
-  async getPendingAdjustmentsCount() {
-    return ApiService.get<{ count: number }>('/inventory/stock/adjustments/pending-count')
-  },
-
-  async createBulkStockAdjustments(data: {
-    adjustments: Array<{
-      productId: string
-      type: StockAdjustmentType
-      adjustmentQuantity: number
-      systemQuantity: number
-      actualQuantity: number
-      reason: string
-      notes?: string
-      unitCost?: number
-      locationCode?: string
-      binLocation?: string
-      batchNumber?: string
-      expiryDate?: Date
-    }>
-    globalReason?: string
-    globalNotes?: string
-    requiresApproval?: boolean
-  }) {
-    return ApiService.post<StockAdjustment[]>('/inventory/stock/adjustments/bulk', data)
   },
 
   async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {

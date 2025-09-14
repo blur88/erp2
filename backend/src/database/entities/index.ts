@@ -31,7 +31,6 @@ export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.en
 
 // Inventory Management (InventoryModule)
 export { StockMovement, StockMovementType, StockMovementStatus } from './stock-movement.entity';
-export { StockAdjustment, StockAdjustmentType, StockAdjustmentStatus } from './stock-adjustment.entity';
 
 // Import entities for array construction
 import { User } from './user.entity';
@@ -43,7 +42,6 @@ import { SalesOrderItem } from './sales-order-item.entity';
 import { Invoice } from './invoice.entity';
 import { Payment } from './payment.entity';
 import { StockMovement } from './stock-movement.entity';
-import { StockAdjustment } from './stock-adjustment.entity';
 
 /**
  * Array of active entity classes for TypeORM configuration
@@ -64,7 +62,6 @@ export const ACTIVE_ENTITIES = [
   
   // Inventory entities
   StockMovement,
-  StockAdjustment,
 ] as const;
 
 /**
@@ -74,7 +71,7 @@ export const ACTIVE_ENTITIES = [
 export const ACTIVE_ENTITY_GROUPS = {
   CORE: [User, Category, Product, Customer],
   SALES: [SalesOrder, SalesOrderItem, Invoice, Payment],
-  INVENTORY: [StockMovement, StockAdjustment],
+  INVENTORY: [StockMovement],
 } as const;
 
 /**
@@ -85,7 +82,7 @@ export const ACTIVE_ENTITY_METADATA = {
   User: {
     description: 'System users (authentication removed, audit only)',
     features: ['audit_tracking', 'user_management'],
-    relationships: ['sales_orders', 'stock_adjustments', 'payments'],
+    relationships: ['sales_orders', 'payments'],
     module: 'UsersModule',
   },
   Category: {
@@ -136,12 +133,6 @@ export const ACTIVE_ENTITY_METADATA = {
     relationships: ['product', 'moved_by_user'],
     module: 'InventoryModule',
   },
-  StockAdjustment: {
-    description: 'Manual stock corrections with audit trail',
-    features: ['stock_corrections', 'reason_tracking', 'audit_trail'],
-    relationships: ['product', 'adjusted_by_user'],
-    module: 'InventoryModule',
-  },
 } as const;
 
 /**
@@ -168,7 +159,6 @@ export const ACTIVE_PERFORMANCE_INDEXES = {
     'invoices.customerId_status_dueDate',
     'payments.customerId_invoiceId',
     'categories.parentId_isActive',
-    'stock_adjustments.productId_adjustmentDate',
   ],
   
   // Analytics indexes for dashboard and reporting
