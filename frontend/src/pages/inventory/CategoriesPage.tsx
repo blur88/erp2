@@ -330,13 +330,9 @@ const CategoriesPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
-            size={isMobile ? "medium" : "large"}
+            size={isMobile ? "medium" : "medium"}
             onClick={() => handleAddCategory()}
             fullWidth={isMobile}
-            sx={{
-              py: isMobile ? 1.5 : 1,
-              fontWeight: 600
-            }}
           >
             {isMobile ? "Add New Category" : "Add Category"}
           </Button>
