@@ -9,7 +9,7 @@ interface CustomerQueryParams extends QueryParams {
 
 interface CustomerSummary {
   id: string;
-  customerCode: string;
+  customerCode?: string;
   name: string;
   email?: string;
   phone?: string;

@@ -340,7 +340,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                 render={({ field }) => (
                   <Autocomplete
                     options={customers}
-                    getOptionLabel={(option) => `${option.name} (${option.customerCode})`}
+                    getOptionLabel={(option) => option.name}
                     value={customers.find(c => c.id === field.value) || null}
                     onChange={(_, value) => field.onChange(value?.id || '')}
                     renderInput={(params) => (

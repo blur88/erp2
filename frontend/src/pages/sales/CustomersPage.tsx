@@ -657,9 +657,6 @@ const CustomersPage: React.FC = () => {
                           <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', lineHeight: 1.2 }}>
                             {customer.name}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                            {customer.customerCode}
-                          </Typography>
                         </Box>
                       </Box>
                       {/* Mobile-only type and status indicators */}
@@ -970,9 +967,6 @@ const CustomersPage: React.FC = () => {
                   <Box>
                     <Typography variant="h5" fontWeight={600}>
                       {selectedCustomer.name}
-                    </Typography>
-                    <Typography variant="subtitle1" color="text.secondary">
-                      {selectedCustomer.customerCode}
                     </Typography>
                     {getStatusChip(selectedCustomer.status, selectedCustomer.isActive)}
                   </Box>

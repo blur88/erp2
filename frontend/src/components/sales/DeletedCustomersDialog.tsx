@@ -87,11 +87,10 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
   }, [open, dispatch])
 
   // Filter customers based on search term
-  const filteredCustomers = deletedCustomers.filter(customer => 
+  const filteredCustomers = deletedCustomers.filter(customer =>
     customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.customerCode?.toLowerCase().includes(searchTerm.toLowerCase())
+    customer.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Calculate selection state
@@ -446,9 +445,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                             <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
                               {customer.name}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              {customer.customerCode}
-                            </Typography>
                             {isMobile && (
                               <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
                                 {customer.email && (
@@ -607,15 +603,11 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                   {confirmDelete.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Customer Code: {confirmDelete.customerCode}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
                   Email: {confirmDelete.email || 'N/A'}
                 </Typography>
               </Box>
               <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
                 This will permanently remove the customer and all related data from the database.
-                The customer code "{confirmDelete.customerCode}" will become available for reuse.
               </Typography>
             </Box>
           )}
@@ -672,7 +664,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                 return customer ? (
                   <Box key={customerId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {customer.name} ({customer.customerCode})
+                      • {customer.name}
                     </Typography>
                   </Box>
                 ) : null
@@ -736,7 +728,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                 return customer ? (
                   <Box key={customerId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {customer.name} ({customer.customerCode})
+                      • {customer.name}
                     </Typography>
                   </Box>
                 ) : null
@@ -746,7 +738,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
           
           <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
             This will permanently remove all selected customers and their data from the database.
-            Their customer codes will become available for reuse.
           </Typography>
         </DialogContent>
         <DialogActions>

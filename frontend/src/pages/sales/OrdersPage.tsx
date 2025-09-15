@@ -402,9 +402,6 @@ const OrdersPage: React.FC = () => {
                     <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
                       {order.customer?.name || 'Unknown Customer'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                      {order.customer?.customerCode}
-                    </Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
@@ -587,10 +584,6 @@ const OrdersPage: React.FC = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography color="text.secondary">Name:</Typography>
                         <Typography>{selectedOrder.customer?.name}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography color="text.secondary">Code:</Typography>
-                        <Typography>{selectedOrder.customer?.customerCode}</Typography>
                       </Box>
                       {selectedOrder.customer?.email && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

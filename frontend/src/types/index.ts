@@ -149,7 +149,7 @@ export enum PriceLevel {
 
 export interface Customer {
   id: string;
-  customerCode: string;
+  customerCode?: string;
   type: CustomerType;
   name: string;
   contactPerson?: string;
