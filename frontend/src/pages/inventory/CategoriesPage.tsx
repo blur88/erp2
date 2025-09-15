@@ -387,14 +387,16 @@ const CategoriesPage: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Search Filter */}
+      {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? 2 : 1,
         alignItems: isMobile ? 'stretch' : 'center',
-        gap: 2,
         mb: 3,
-        px: 0
+        '& > *': {
+          alignSelf: isMobile ? 'stretch' : 'flex-start'
+        }
       }}>
         <TextField
           placeholder="Search categories by name..."
@@ -402,14 +404,23 @@ const CategoriesPage: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           size="medium"
           sx={{
-            minWidth: isMobile ? 'auto' : 300,
-            flexGrow: isMobile ? 1 : 0,
+            minWidth: isMobile ? 'auto' : 250,
+            flex: isMobile ? 'none' : 1,
+            maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              backgroundColor: 'background.paper',
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'primary.main',
-              },
+              height: '40px',
+              fontSize: '0.875rem',
+              '& input': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
             },
+            '& .MuiInputAdornment-root': {
+              '& .MuiSvgIcon-root': {
+                fontSize: '1.25rem',
+                color: 'action.active'
+              }
+            }
           }}
           InputProps={{
             startAdornment: (
