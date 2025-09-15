@@ -65,24 +65,34 @@ export class CustomerService {
     if (priceLevel) where.priceLevel = priceLevel;
     if (isActive !== undefined) where.isActive = isActive;
 
-    const searchConditions = [];
+
+    // Use query builder for case-insensitive sorting
+    let queryBuilder = this.customerRepository.createQueryBuilder('customer');
+
+    // Apply base where conditions
+    Object.entries(where).forEach(([key, value]) => {
+      queryBuilder.andWhere(`customer.${key} = :${key}`, { [key]: value });
+    });
+
+    // Apply search conditions
     if (search) {
-      searchConditions.push(
-        { name: ILike(`%${search}%`) },
-        { phone: ILike(`%${search}%`) },
-        { customerCode: ILike(`%${search}%`) },
+      queryBuilder.andWhere(
+        '(customer.name ILIKE :search OR customer.phone ILIKE :search OR customer.customerCode ILIKE :search)',
+        { search: `%${search}%` }
       );
     }
 
-    const findOptions: FindManyOptions<Customer> = {
-      where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
-      order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
-      withDeleted: false, // Only show active customers
-    };
+    // Apply case-insensitive sorting for name field, regular sorting for others
+    if (sortBy === 'name') {
+      queryBuilder.orderBy('UPPER(customer.name)', sortOrder);
+    } else {
+      queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
+    }
 
-    const [customers, total] = await this.customerRepository.findAndCount(findOptions);
+    // Apply pagination
+    queryBuilder.skip((page - 1) * limit).take(limit);
+
+    const [customers, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: customers.map(customer => this.mapToResponseDto(customer)),
@@ -115,8 +125,12 @@ export class CustomerService {
       );
     }
 
-    // Add ordering
-    queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
+    // Add case-insensitive ordering for name field, regular ordering for others
+    if (sortBy === 'name') {
+      queryBuilder.orderBy('UPPER(customer.name)', sortOrder);
+    } else {
+      queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
+    }
 
     // Add pagination
     queryBuilder.offset((page - 1) * limit).limit(limit);
