@@ -81,7 +81,6 @@ export interface Category {
   id: string;
   name: string;
   imageUrl?: string | null;
-  isActive: boolean;
   sortOrder: number;
   path?: string | null;
   level: number;

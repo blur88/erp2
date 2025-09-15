@@ -19,8 +19,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControlLabel,
-  Switch,
   Grid,
   useTheme,
   useMediaQuery,
@@ -56,13 +54,11 @@ import {
 
 interface CategoryFormData {
   name: string
-  isActive: boolean
   parentId?: string | null
 }
 
 const categorySchema = yup.object({
   name: yup.string().required('Category name is required').min(2, 'Name must be at least 2 characters'),
-  isActive: yup.boolean(),
   parentId: yup.string().optional().nullable(),
 })
 
@@ -71,14 +67,12 @@ const CategoriesPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [nameValidationError, setNameValidationError] = useState<string | null>(null)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
   const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -92,7 +86,6 @@ const CategoriesPage: React.FC = () => {
     resolver: yupResolver(categorySchema) as any,
     defaultValues: {
       name: '',
-      isActive: true,
       parentId: null,
     },
   })
@@ -147,13 +140,11 @@ const CategoriesPage: React.FC = () => {
     const parent = parentId ? findCategoryById(categories, parentId) : null
     reset({
       name: '',
-      isActive: true,
       parentId: parentId || null,
     })
     setEditMode(false)
     setSelectedCategory(null)
     setParentCategory(parent)
-    setNameValidationError(null)
     setDialogOpen(true)
   }
 
@@ -161,13 +152,11 @@ const CategoriesPage: React.FC = () => {
     const parent = category.parentId ? findCategoryById(categories, category.parentId) : null
     reset({
       name: category.name,
-      isActive: category.isActive,
       parentId: category.parentId,
     })
     setEditMode(true)
     setSelectedCategory(category)
     setParentCategory(parent)
-    setNameValidationError(null)
     setDialogOpen(true)
   }
 
@@ -464,26 +453,19 @@ const CategoriesPage: React.FC = () => {
                       Category Hierarchy
                     </Typography>
                   </TableCell>
-                  {!isMobile && (
-                    <TableCell sx={{ width: '12%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Status
-                      </Typography>
-                    </TableCell>
-                  )}
-                  <TableCell sx={{ width: isMobile ? '15%' : '12%' }}>
+                  <TableCell sx={{ width: isMobile ? '15%' : '15%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Products
                     </Typography>
                   </TableCell>
                   {!isMobile && (
-                    <TableCell sx={{ width: '16%' }}>
+                    <TableCell sx={{ width: '20%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Created Date
                       </Typography>
                     </TableCell>
                   )}
-                  <TableCell align="right" sx={{ width: isMobile ? '40%' : '20%' }}>
+                  <TableCell align="right" sx={{ width: isMobile ? '40%' : '25%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Actions
                     </Typography>
@@ -510,38 +492,7 @@ const CategoriesPage: React.FC = () => {
                   >
                     <TableCell>
                       {renderCategoryName(category)}
-                      {/* Mobile-only status indicator */}
-                      {isMobile && (
-                        <Box sx={{ mt: 0.25 }}>
-                          <Chip
-                            label={category.isActive ? 'Active' : 'Inactive'}
-                            color={category.isActive ? 'success' : 'default'}
-                            size="small"
-                            variant={category.isActive ? 'filled' : 'outlined'}
-                            sx={{
-                              fontSize: '0.65rem',
-                              height: 18 // More compact chip
-                            }}
-                          />
-                        </Box>
-                      )}
                     </TableCell>
-                    {!isMobile && (
-                      <TableCell>
-                        <Chip
-                          label={category.isActive ? 'Active' : 'Inactive'}
-                          color={category.isActive ? 'success' : 'default'}
-                          size="small"
-                          variant={category.isActive ? 'filled' : 'outlined'}
-                          sx={{
-                            minWidth: 60,
-                            fontSize: '0.7rem',
-                            fontWeight: 500,
-                            height: 20 // More compact chip
-                          }}
-                        />
-                      </TableCell>
-                    )}
                     <TableCell>
                       <Chip
                         label={`${category.productCount ?? 0} ${(category.productCount ?? 0) === 1 ? 'item' : 'items'}`}
@@ -666,11 +617,7 @@ const CategoriesPage: React.FC = () => {
                         label="Category Name"
                         error={hasValidationError}
                         helperText={helperText}
-                        onChange={(e) => {
-                          field.onChange(e)
-                          const error = validateCategoryName(e.target.value)
-                          setNameValidationError(error)
-                        }}
+                        onChange={field.onChange}
                         onBlur={field.onBlur}
                       />
                     )
@@ -689,23 +636,6 @@ const CategoriesPage: React.FC = () => {
                       placeholder="Select parent category (optional)"
                       allowRoot
                       excludeCategories={editMode && selectedCategory ? [selectedCategory.id] : []}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="isActive"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={field.value}
-                          onChange={field.onChange}
-                        />
-                      }
-                      label="Active Category"
                     />
                   )}
                 />

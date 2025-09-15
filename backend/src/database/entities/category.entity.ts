@@ -12,7 +12,6 @@ import {
 import {
   IsString,
   IsOptional,
-  IsBoolean,
   MaxLength,
   IsInt,
   Min,
@@ -30,7 +29,6 @@ import { Product } from './product.entity';
 @Entity('categories')
 // @Tree('materialized-path') // Temporarily disabled due to TypeORM materialized path issues
 @Index(['name', 'parentId'], { unique: true }) // Categories must be unique within same parent
-@Index(['isActive'])
 @Index(['parentId'])
 @Index(['path'])
 export class Category extends BaseEntity {
@@ -56,13 +54,6 @@ export class Category extends BaseEntity {
   @IsUrl({}, { message: 'Invalid URL format for image' })
   imageUrl?: string;
 
-  @Column({
-    type: 'boolean',
-    default: true,
-    comment: 'Whether the category is active',
-  })
-  @IsBoolean()
-  isActive: boolean;
 
   @Column({
     type: 'int',

@@ -55,7 +55,7 @@ export class CategoryService {
     let parent: Category | undefined;
     if (createCategoryDto.parentId) {
       parent = await this.categoryRepository.findOne({
-        where: { id: createCategoryDto.parentId, isActive: true },
+        where: { id: createCategoryDto.parentId },
       });
 
       if (!parent) {
@@ -73,7 +73,6 @@ export class CategoryService {
       level,
       path,
       parentId: createCategoryDto.parentId,
-      isActive: createCategoryDto.isActive ?? true,
       sortOrder: createCategoryDto.sortOrder ?? 0,
     });
 
@@ -94,7 +93,6 @@ export class CategoryService {
       limit = 20,
       search,
       parentId,
-      isActive,
       includeTree = false,
       includeProductCount = false,
       sortBy = 'name',
@@ -130,9 +128,6 @@ export class CategoryService {
       }
     }
 
-    if (isActive !== undefined) {
-      queryBuilder.andWhere('category.isActive = :isActive', { isActive });
-    }
 
     // Apply hierarchical sorting
     const validSortFields = ['name', 'createdAt', 'sortOrder'];
@@ -260,7 +255,7 @@ export class CategoryService {
     try {
       // Get all root categories (level 0)
       const rootCategories = await this.categoryRepository.find({
-        where: { level: 0, isActive: true },
+        where: { level: 0 },
         order: { sortOrder: 'ASC', name: 'ASC' },
       });
       
@@ -272,7 +267,7 @@ export class CategoryService {
       );
 
       // Calculate metadata
-      const allCategories = await this.categoryRepository.find({ where: { isActive: true } });
+      const allCategories = await this.categoryRepository.find();
       const maxDepth = allCategories.length > 0 ? Math.max(...allCategories.map(c => c.level), 0) : 0;
       const rootCategoriesCount = allCategories.filter(c => c.level === 0).length;
 
@@ -531,7 +526,6 @@ export class CategoryService {
         this.logger.log('Creating Uncategorized category');
         uncategorizedCategory = this.categoryRepository.create({
           name: 'Uncategorized',
-          isActive: true,
           sortOrder: 999,
           level: 0,
           path: null,
@@ -546,10 +540,7 @@ export class CategoryService {
       } else if (uncategorizedCategory.deletedAt) {
         // Restore soft-deleted Uncategorized category
         this.logger.log(`Restoring soft-deleted Uncategorized category with ID: ${uncategorizedCategory.id}`);
-        uncategorizedCategory.deletedAt = null;
-        uncategorizedCategory.isActive = true;
-        uncategorizedCategory.updatedBy = userId || null;
-        uncategorizedCategory.updatedAt = new Date();
+        await this.categoryRepository.restore(uncategorizedCategory.id);
         uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
         this.logger.log(`Restored Uncategorized category with ID: ${uncategorizedCategory.id}`);
       } else {
@@ -575,10 +566,7 @@ export class CategoryService {
       this.logger.log(`Remaining products with old category - Active: ${remainingActiveCount}, All: ${remainingAllCount[0]?.count || 0}`);
     }
 
-    // Use soft delete and properly update isActive flag
-    category.isActive = false;
-    category.updatedBy = userId || null;
-    category.updatedAt = new Date();
+    // Use soft delete
     await this.categoryRepository.save(category);
     await this.categoryRepository.softDelete(id);
 
@@ -607,10 +595,7 @@ export class CategoryService {
     }
 
     // Restore the category
-    category.deletedAt = null;
-    category.isActive = true;
-    category.updatedBy = userId || null;
-    category.updatedAt = new Date();
+    await this.categoryRepository.restore(id);
 
     const restoredCategory = await this.categoryRepository.save(category);
 
@@ -694,10 +679,7 @@ export class CategoryService {
         }
 
         // Restore the category
-        category.deletedAt = null;
-        category.isActive = true;
-        category.updatedBy = null;
-        category.updatedAt = new Date();
+        await this.categoryRepository.restore(categoryId);
 
         await this.categoryRepository.save(category);
 
@@ -801,7 +783,7 @@ export class CategoryService {
 
       // Track changes
       const changes: Record<string, { from: any; to: any }> = {};
-      ['name', 'isActive', 'sortOrder', 'parentId'].forEach(field => {
+      ['name', 'sortOrder', 'parentId'].forEach(field => {
         if (categoryUpdate[field] !== undefined && categoryUpdate[field] !== category[field]) {
           changes[field] = { from: category[field], to: categoryUpdate[field] };
         }
@@ -847,8 +829,8 @@ export class CategoryService {
     ] = await Promise.all([
       directProductsQuery.getMany(),
       directProductsQuery.getCount(),
-      directProductsQuery.clone().andWhere('product.isActive = true').getCount(),
-      directProductsQuery.clone().andWhere('product.isActive = false').getCount(),
+      0, // Active products - not applicable without isActive
+      0, // Inactive products - not applicable without isActive,
       directProductsQuery.clone().andWhere('product.stockQuantity <= product.reorderLevel').getCount(),
       directProductsQuery.clone().andWhere('(product.stockQuantity - product.reservedQuantity) <= 0').getCount(),
     ]);
@@ -916,7 +898,6 @@ export class CategoryService {
       id: category.id,
       name: category.name,
       imageUrl: category.imageUrl,
-      isActive: category.isActive,
       sortOrder: category.sortOrder,
       path: category.path,
       level: category.level,
@@ -981,7 +962,7 @@ export class CategoryService {
    */
   private async loadCategoryTree(category: Category): Promise<Category> {
     const children = await this.categoryRepository.find({
-      where: { parentId: category.id, isActive: true },
+      where: { parentId: category.id },
       order: { sortOrder: 'ASC', name: 'ASC' },
     });
 
