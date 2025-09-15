@@ -305,17 +305,18 @@ const CustomersPage: React.FC = () => {
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <PersonIcon sx={{ fontSize: 40, color: 'primary.main' }} />
             Customers
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Manage your customers and client information ({customers.length} total)
           </Typography>
         </Box>
-        <Box sx={{ 
-          display: 'flex', 
+        <Box sx={{
+          display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 2,
+          gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
           <Button
@@ -348,13 +349,9 @@ const CustomersPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
-            size={isMobile ? "medium" : "large"}
+            size="medium"
             onClick={() => handleOpenForm()}
             fullWidth={isMobile}
-            sx={{
-              py: isMobile ? 1.5 : 1,
-              fontWeight: 600
-            }}
           >
             {isMobile ? "Add New Customer" : "Add Customer"}
           </Button>
