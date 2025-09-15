@@ -24,6 +24,7 @@ import {
   Grid,
   useTheme,
   useMediaQuery,
+  InputAdornment,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -33,6 +34,7 @@ import {
   Category as CategoryIcon,
   KeyboardDoubleArrowRight as DoubleArrowIcon,
   RestoreFromTrash as RestoreIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -79,6 +81,7 @@ const CategoriesPage: React.FC = () => {
   const [nameValidationError, setNameValidationError] = useState<string | null>(null)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
   const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   const {
     control,
@@ -96,11 +99,48 @@ const CategoriesPage: React.FC = () => {
 
 
   useEffect(() => {
-    dispatch(fetchCategories({}))
+    dispatch(fetchCategories({ includeProductCount: true }))
   }, [dispatch])
 
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      dispatch(fetchCategories({
+        includeProductCount: true,
+        search: searchTerm || undefined
+      }))
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [dispatch, searchTerm])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'F':
+          if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+            event.preventDefault()
+            // Focus the search input
+            const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+            if (searchInput) {
+              searchInput.focus()
+              searchInput.select()
+            }
+          }
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const handleRefresh = () => {
-    dispatch(fetchCategories({}))
+    dispatch(fetchCategories({
+      includeProductCount: true,
+      search: searchTerm || undefined
+    }))
   }
 
   const handleAddCategory = (parentId?: string) => {
@@ -291,7 +331,15 @@ const CategoriesPage: React.FC = () => {
             Categories
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Organize your products with categories ({categories.length} total)
+            Organize your products with categories ({categories.length} {searchTerm ? 'found' : 'total'})
+            {searchTerm && (
+              <>
+                <br />
+                <Typography component="span" variant="body2" color="primary.main" sx={{ fontStyle: 'italic' }}>
+                  Filtered by: "{searchTerm}"
+                </Typography>
+              </>
+            )}
           </Typography>
         </Box>
         <Box sx={{ 
@@ -339,7 +387,39 @@ const CategoriesPage: React.FC = () => {
         </Box>
       </Box>
 
-
+      {/* Search Filter */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'stretch' : 'center',
+        gap: 2,
+        mb: 3,
+        px: 0
+      }}>
+        <TextField
+          placeholder="Search categories by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 300,
+            flexGrow: isMobile ? 1 : 0,
+            '& .MuiOutlinedInput-root': {
+              backgroundColor: 'background.paper',
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'primary.main',
+              },
+            },
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       {/* Categories Content */}
       <Paper>        
@@ -640,7 +720,10 @@ const CategoriesPage: React.FC = () => {
       <DeletedCategoriesDialog
         open={deletedCategoriesDialogOpen}
         onClose={() => setDeletedCategoriesDialogOpen(false)}
-        onCategoryRestored={() => dispatch(fetchCategories({}))}
+        onCategoryRestored={() => dispatch(fetchCategories({
+          includeProductCount: true,
+          search: searchTerm || undefined
+        }))}
       />
     </Box>
   )

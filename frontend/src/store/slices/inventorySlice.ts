@@ -99,7 +99,7 @@ export const fetchProducts = createAsyncThunk(
 
 export const fetchCategories = createAsyncThunk(
   'inventory/fetchCategories',
-  async (params: { includeProductCount?: boolean } = {}, { rejectWithValue }) => {
+  async (params: { includeProductCount?: boolean; search?: string } = {}, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getCategories({ includeProductCount: true, ...params })
       return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
