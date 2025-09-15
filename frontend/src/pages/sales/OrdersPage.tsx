@@ -48,6 +48,8 @@ import {
   FileCopy as DuplicateIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
+  ShoppingCart as OrderIcon,
+  RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination } from '@/store/slices/salesSlice'
@@ -215,26 +217,27 @@ const OrdersPage: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between', 
-        alignItems: isMobile ? 'stretch' : 'center', 
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'stretch' : 'center',
         mb: 4,
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <OrderIcon sx={{ fontSize: 40, color: 'primary.main' }} />
             Sales Orders
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Manage your sales orders and track delivery status ({orders.length} total)
           </Typography>
         </Box>
-        <Box sx={{ 
-          display: 'flex', 
+        <Box sx={{
+          display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 2,
+          gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
           <Button
@@ -248,15 +251,28 @@ const OrdersPage: React.FC = () => {
             {isMobile ? "Refresh Orders" : "Refresh"}
           </Button>
           <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size={isMobile ? "medium" : "large"}
-            onClick={() => setCreateDialog(true)}
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => {/* TODO: Add view deleted orders functionality */}}
+            size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
-              py: isMobile ? 1.5 : 1,
-              fontWeight: 600
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
             }}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={!isMobile ? <AddIcon /> : undefined}
+            size="medium"
+            onClick={() => setCreateDialog(true)}
+            fullWidth={isMobile}
           >
             {isMobile ? "Create New Order" : "Create Order"}
           </Button>
@@ -264,8 +280,8 @@ const OrdersPage: React.FC = () => {
       </Box>
 
       {/* Filters and Search */}
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         gap: 2,
         alignItems: isMobile ? 'stretch' : 'center',
@@ -280,7 +296,7 @@ const OrdersPage: React.FC = () => {
           onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           size="medium"
-          sx={{ 
+          sx={{
             minWidth: isMobile ? 'auto' : 250,
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
