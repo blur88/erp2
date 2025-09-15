@@ -485,37 +485,34 @@ export class CustomerService {
 
   private async generateCustomerCode(): Promise<string> {
     const year = new Date().getFullYear().toString().slice(-2);
-    let attempts = 0;
-    const maxAttempts = 10;
 
-    while (attempts < maxAttempts) {
-      try {
-        // Use the actual count from database to avoid race conditions
-        const count = await this.customerRepository.count();
-        const sequence = (count + 1 + attempts).toString().padStart(4, '0');
-        const candidateCode = `CUST${year}${sequence}`;
-        
-        // Check if this code already exists
-        const existing = await this.customerRepository.findOne({
-          where: { customerCode: candidateCode }
-        });
-        
-        if (!existing) {
-          return candidateCode;
-        }
-        
-        attempts++;
-      } catch (error) {
-        attempts++;
-        if (attempts >= maxAttempts) {
-          throw new BadRequestException('Failed to generate unique customer code after multiple attempts');
-        }
+    // Get all existing customer codes (including soft-deleted ones) for this year
+    const existingCodes = await this.customerRepository.find({
+      select: ['customerCode'],
+      withDeleted: true
+    });
+
+    const yearPrefix = `CUST${year}`;
+    const usedNumbers = existingCodes
+      .map(customer => customer.customerCode)
+      .filter(code => code && code.startsWith(yearPrefix))
+      .map(code => parseInt(code.substring(yearPrefix.length)))
+      .filter(num => !isNaN(num))
+      .sort((a, b) => a - b);
+
+    // Find the next available number (starting from 1)
+    let nextNumber = 1;
+    for (const usedNumber of usedNumbers) {
+      if (nextNumber === usedNumber) {
+        nextNumber++;
+      } else {
+        // Found a gap, use this number
+        break;
       }
     }
-    
-    // Fallback: use timestamp to ensure uniqueness
-    const timestamp = Date.now().toString().slice(-4);
-    return `CUST${year}${timestamp}`;
+
+    const sequence = nextNumber.toString().padStart(4, '0');
+    return `${yearPrefix}${sequence}`;
   }
 
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
