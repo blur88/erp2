@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
-  Autocomplete,
-  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Box,
   Typography,
   Chip,
   CircularProgress,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
   Divider,
   Button
 } from '@mui/material'
@@ -60,8 +58,8 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     try {
       const response = await inventoryApi.getCategoryTree(true)
       
-      // The API returns { data: Category[], meta: {...} } 
-      const categoryTree = response.data || []
+      // The API returns { data: Category[], meta: {...} }
+      const categoryTree = (response.data as any) || []
       const flatCategories = flattenCategoryTree(categoryTree)
       
       // Filter out excluded categories
@@ -125,208 +123,143 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     }
   }, [open, options.length, loadCategories])
 
-  const getOptionLabel = (option: CategoryOption | string) => {
-    if (typeof option === 'string') return option
-    return option.name
-  }
 
-  const isOptionEqualToValue = (option: CategoryOption, value: CategoryOption) => {
-    return option.id === value.id
-  }
-
-  const renderOption = (props: any, option: CategoryOption) => (
-    <ListItem {...props} key={option.id}>
-      <ListItemText>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography
-            variant="body2"
-            sx={{ 
-              pl: option.indentLevel * 2,
-              color: !option.isActive ? 'text.disabled' : 'inherit',
-              fontWeight: option.level === -1 ? 400 : 'inherit'
-            }}
-          >
-            {option.name}
-          </Typography>
-          
-          {option.level >= 0 && (
-            <Chip 
-              label={`L${option.level}`}
-              size="small"
-              variant="outlined"
-              sx={{ height: 18, fontSize: '0.6rem' }}
-            />
-          )}
-          
-          {option.productCount !== undefined && option.productCount > 0 && (
-            <Chip 
-              label={option.productCount}
-              size="small"
-              color="default"
-              sx={{ height: 18 }}
-            />
-          )}
-          
-          {!option.isActive && option.level >= 0 && (
-            <Chip 
-              label="Inactive"
-              size="small"
-              color="error"
-              variant="outlined"
-              sx={{ height: 18 }}
-            />
-          )}
-        </Box>
-      </ListItemText>
-    </ListItem>
-  )
-
-  const handleChange = (_event: any, newValue: CategoryOption | null) => {
-    if (!newValue || newValue.id === '') {
+  const handleSelectChange = (event: any) => {
+    const selectedId = event.target.value
+    if (!selectedId || selectedId === '') {
       onChange(null)
     } else {
-      onChange(newValue)
+      const selectedCategory = options.find(opt => opt.id === selectedId)
+      onChange(selectedCategory || null)
     }
   }
 
-  // Convert value to CategoryOption for Autocomplete
-  const autocompleteValue = value ? {
-    ...value,
-    displayName: value.name,
-    indentLevel: value.level || 0
-  } as CategoryOption : null
+  const handleCreateClick = () => {
+    if (onCreateCategory) {
+      onCreateCategory()
+    }
+  }
 
   return (
-    <Box>
-      <Autocomplete
-        open={open}
-        onOpen={() => setOpen(true)}
-        onClose={() => setOpen(false)}
-        value={autocompleteValue}
-        onChange={handleChange}
-        options={options}
-        loading={loading}
-        disabled={disabled}
-        fullWidth
-        getOptionLabel={getOptionLabel}
-        isOptionEqualToValue={isOptionEqualToValue}
-        renderOption={renderOption}
-        slotProps={{
-          popper: {
-            disablePortal: false,
-            sx: {
-              zIndex: 9999
-            },
-            modifiers: [
-              {
-                name: 'preventOverflow',
-                enabled: true,
-                options: {
-                  boundary: 'viewport',
-                  padding: 8
-                }
-              },
-              {
-                name: 'flip',
-                enabled: true
-              },
-              {
-                name: 'sameWidth',
-                enabled: true,
-                phase: 'beforeWrite',
-                requires: ['computeStyles'],
-                fn: ({ state }) => {
-                  state.styles.popper.width = `${state.rects.reference.width}px`;
-                }
-              }
-            ],
-            anchorOrigin: {
-              vertical: 'bottom',
-              horizontal: 'left'
-            },
-            transformOrigin: {
-              vertical: 'top',
-              horizontal: 'left'
-            }
+    <FormControl fullWidth error={error} disabled={disabled}>
+      <InputLabel required={required}>{label}</InputLabel>
+      <Select
+        value={value?.id || ''}
+        onChange={handleSelectChange}
+        label={label}
+        onOpen={() => {
+          setOpen(true)
+          if (options.length === 0) {
+            loadCategories()
           }
         }}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label={label}
-            placeholder={placeholder}
-            required={required}
-            error={error}
-            helperText={helperText}
-            InputProps={{
-              ...params.InputProps,
-              endAdornment: (
-                <>
-                  {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                  {params.InputProps.endAdornment}
-                </>
-              )
-            }}
-          />
-        )}
-        PaperComponent={(props) => (
-          <Paper 
-            {...props} 
-            style={{
+        onClose={() => setOpen(false)}
+        MenuProps={{
+          PaperProps: {
+            style: {
               maxHeight: 'none',
               maxWidth: 'none',
               overflow: 'visible'
-            }}
-            sx={{
-              '& .MuiAutocomplete-listbox': {
+            },
+            sx: {
+              '& .MuiList-root': {
                 maxHeight: '400px',
                 overflow: 'auto',
                 padding: 0
               }
-            }}
-          >
-            {/* Create category button */}
-            {showCreateButton && onCreateCategory && (
-              <>
-                <Box sx={{ p: 1 }}>
-                  <Button
-                    fullWidth
-                    startIcon={<Add />}
-                    onClick={onCreateCategory}
+            }
+          },
+          disablePortal: false,
+          sx: { zIndex: 9999 }
+        }}
+      >
+        {/* Create category button */}
+        {showCreateButton && onCreateCategory && (
+          <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Button
+              fullWidth
+              startIcon={<Add />}
+              onClick={handleCreateClick}
+              size="small"
+              variant="outlined"
+            >
+              Create New Category
+            </Button>
+          </Box>
+        )}
+
+        {/* Loading state */}
+        {loading && (
+          <MenuItem disabled>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CircularProgress size="1rem" />
+              <Typography variant="body2">Loading categories...</Typography>
+            </Box>
+          </MenuItem>
+        )}
+
+        {/* Category options */}
+        {!loading && options.length > 0 ? (
+          options.map((option) => (
+            <MenuItem key={option.id} value={option.id}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    pl: option.indentLevel * 2,
+                    color: !option.isActive ? 'text.disabled' : 'inherit',
+                    fontWeight: option.level === -1 ? 400 : 'inherit',
+                    flex: 1
+                  }}
+                >
+                  {option.name}
+                </Typography>
+
+                {option.level >= 0 && (
+                  <Chip
+                    label={`L${option.level}`}
                     size="small"
                     variant="outlined"
-                  >
-                    Create New Category
-                  </Button>
-                </Box>
-                <Divider />
-              </>
-            )}
-            
-            {/* Category options */}
-            <List dense sx={{ maxHeight: 400, overflow: 'auto', padding: 0 }}>
-              {props.children}
-            </List>
-          </Paper>
+                    sx={{ height: 'auto', minHeight: '1.125rem', fontSize: '0.6rem' }}
+                  />
+                )}
+
+                {option.productCount !== undefined && option.productCount > 0 && (
+                  <Chip
+                    label={option.productCount}
+                    size="small"
+                    color="default"
+                    sx={{ height: 'auto', minHeight: '1.125rem' }}
+                  />
+                )}
+
+                {!option.isActive && option.level >= 0 && (
+                  <Chip
+                    label="Inactive"
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    sx={{ height: 'auto', minHeight: '1.125rem' }}
+                  />
+                )}
+              </Box>
+            </MenuItem>
+          ))
+        ) : !loading && (
+          <MenuItem disabled>
+            <Typography variant="body2" color="text.secondary">
+              No categories found
+            </Typography>
+          </MenuItem>
         )}
-        noOptionsText={
-          <Box sx={{ textAlign: 'center', p: 2, color: 'text.secondary' }}>
-            {loading ? (
-              <>
-                <CircularProgress size={20} />
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  Loading categories...
-                </Typography>
-              </>
-            ) : (
-              <Typography variant="body2">
-                No categories found
-              </Typography>
-            )}
-          </Box>
-        }
-      />
-    </Box>
+      </Select>
+
+      {helperText && (
+        <Typography variant="caption" color={error ? 'error' : 'text.secondary'} sx={{ mt: 0.5, ml: 1.5 }}>
+          {helperText}
+        </Typography>
+      )}
+    </FormControl>
   )
 }
 
