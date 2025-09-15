@@ -82,17 +82,17 @@ import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 const customerSchema = yup.object({
   name: yup.string().required('Name is required').max(200, 'Name must be less than 200 characters'),
   type: yup.string().oneOf(['individual', 'business']).required('Type is required'),
-  phone: yup.string().optional().max(20, 'Phone must be less than 20 characters'),
+  phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
   priceLevel: yup.string().oneOf(['retail', 'wholesale', 'special']).optional(),
-  notes: yup.string().optional(),
+  notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
 interface CustomerFormData {
   name: string
   type: CustomerType
-  phone?: string
+  phone?: string | null
   priceLevel: PriceLevel
-  notes?: string
+  notes?: string | null
 }
 
 const CustomersPage: React.FC = () => {
@@ -117,11 +117,14 @@ const CustomersPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
 
   // Form setup
-  const { control, handleSubmit, reset, formState: { errors } } = useForm({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
     resolver: yupResolver(customerSchema) as any,
     defaultValues: {
+      name: '',
       type: CustomerType.BUSINESS,
       priceLevel: PriceLevel.RETAIL,
+      phone: null,
+      notes: null,
     }
   })
 
@@ -146,17 +149,24 @@ const CustomersPage: React.FC = () => {
   }
 
   // Handle form submit
-  const handleFormSubmit = async (data: any) => {
+  const handleFormSubmit = async (data: CustomerFormData) => {
     try {
+      // Ensure empty strings are converted to null for optional fields
+      const cleanedData = {
+        ...data,
+        phone: data.phone?.trim() || null,
+        notes: data.notes?.trim() || null,
+      }
+
       if (selectedCustomer) {
-        await dispatch(updateCustomer({ id: selectedCustomer.id, data })).unwrap()
+        await dispatch(updateCustomer({ id: selectedCustomer.id, data: cleanedData })).unwrap()
         dispatch(addNotification({
           message: 'Customer updated successfully',
           type: 'success',
           title: 'Success'
         }))
       } else {
-        await dispatch(createCustomer(data)).unwrap()
+        await dispatch(createCustomer(cleanedData)).unwrap()
         dispatch(addNotification({
           message: 'Customer created successfully',
           type: 'success',
@@ -229,12 +239,21 @@ const CustomersPage: React.FC = () => {
   const handleOpenForm = (customer?: Customer) => {
     if (customer) {
       setSelectedCustomer(customer)
-      reset(customer)
+      reset({
+        name: customer.name,
+        type: customer.type,
+        priceLevel: customer.priceLevel,
+        phone: customer.phone || null,
+        notes: customer.notes || null,
+      })
     } else {
       setSelectedCustomer(null)
       reset({
+        name: '',
         type: CustomerType.BUSINESS,
         priceLevel: PriceLevel.RETAIL,
+        phone: null,
+        notes: null,
       })
     }
     setIsFormOpen(true)
@@ -871,15 +890,15 @@ const CustomersPage: React.FC = () => {
 
               <Grid item xs={12}>
                 <Controller
-                  name={"name" as any}
+                  name="name"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
                       label="Customer Name"
-                      error={!!(errors as any).name}
-                      helperText={(errors as any).name?.message}
+                      error={!!errors.name}
+                      helperText={errors.name?.message}
                     />
                   )}
                 />
@@ -887,15 +906,16 @@ const CustomersPage: React.FC = () => {
 
               <Grid item xs={12} md={6}>
                 <Controller
-                  name="phone" as any
+                  name="phone"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
+                      value={field.value || ''}
                       fullWidth
                       label="Phone"
-                      error={!!(errors as any).phone}
-                      helperText={(errors as any).phone?.message}
+                      error={!!errors.phone}
+                      helperText={errors.phone?.message}
                     />
                   )}
                 />
@@ -905,17 +925,18 @@ const CustomersPage: React.FC = () => {
               {/* Notes */}
               <Grid item xs={12}>
                 <Controller
-                  name="notes" as any
+                  name="notes"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
+                      value={field.value || ''}
                       fullWidth
                       multiline
                       rows={3}
                       label="Notes"
-                      error={!!(errors as any).notes}
-                      helperText={(errors as any).notes?.message}
+                      error={!!errors.notes}
+                      helperText={errors.notes?.message}
                     />
                   )}
                 />

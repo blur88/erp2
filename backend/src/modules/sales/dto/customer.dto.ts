@@ -217,7 +217,6 @@ export class CustomerResponseDto {
   @ApiProperty({ example: '+1234567890', nullable: true })
   phone?: string;
 
-
   @ApiProperty({ enum: CustomerStatus, example: CustomerStatus.ACTIVE })
   status: CustomerStatus;
 
@@ -226,7 +225,6 @@ export class CustomerResponseDto {
 
   @ApiProperty({ enum: PriceLevel, example: PriceLevel.WHOLESALE })
   priceLevel: PriceLevel;
-
 
   @ApiProperty({ example: 50000.00 })
   totalSales: number;

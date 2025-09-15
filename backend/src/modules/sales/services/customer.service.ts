@@ -16,7 +16,6 @@ import {
   QueryCustomersDto,
   CustomerResponseDto,
   CustomerSummaryDto,
-  CreditCheckResponseDto,
 } from '../dto/customer.dto';
 
 @Injectable()
@@ -33,16 +32,6 @@ export class CustomerService {
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
-    // Check if customer with email already exists
-    if (createCustomerDto.email) {
-      const existingCustomer = await this.customerRepository.findOne({
-        where: { email: createCustomerDto.email },
-      });
-      if (existingCustomer) {
-        throw new ConflictException('Customer with this email already exists');
-      }
-    }
-
     // Generate customer code
     const customerCode = await this.generateCustomerCode();
 
@@ -50,8 +39,6 @@ export class CustomerService {
       ...createCustomerDto,
       customerCode,
       priceLevel: createCustomerDto.priceLevel || PriceLevel.RETAIL,
-      creditLimit: createCustomerDto.creditLimit || 0,
-      paymentTermsDays: createCustomerDto.paymentTermsDays || 30,
     });
 
     const savedCustomer = await this.customerRepository.save(customer);
@@ -82,7 +69,6 @@ export class CustomerService {
     if (search) {
       searchConditions.push(
         { name: ILike(`%${search}%`) },
-        { email: ILike(`%${search}%`) },
         { phone: ILike(`%${search}%`) },
         { customerCode: ILike(`%${search}%`) },
       );
@@ -124,7 +110,7 @@ export class CustomerService {
     // Add search conditions
     if (search) {
       queryBuilder.andWhere(
-        '(customer.name ILIKE :search OR customer.email ILIKE :search OR customer.phone ILIKE :search OR customer.customerCode ILIKE :search)',
+        '(customer.name ILIKE :search OR customer.phone ILIKE :search OR customer.customerCode ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -150,19 +136,15 @@ export class CustomerService {
     const customers = await this.customerRepository.find({
       where: { isActive: true },
       order: { name: 'ASC' },
-      select: ['id', 'customerCode', 'name', 'email', 'phone', 'status', 'currentBalance', 'creditLimit'],
+      select: ['id', 'customerCode', 'name', 'phone', 'status'],
     });
 
     return customers.map(customer => ({
       id: customer.id,
       customerCode: customer.customerCode,
       name: customer.name,
-      email: customer.email,
       phone: customer.phone,
       status: customer.status,
-      currentBalance: Number(customer.currentBalance),
-      creditLimit: Number(customer.creditLimit),
-      availableCredit: customer.availableCredit,
     }));
   }
 
@@ -186,16 +168,6 @@ export class CustomerService {
     const customer = await this.customerRepository.findOne({ where: { id } });
     if (!customer) {
       throw new NotFoundException('Customer not found');
-    }
-
-    // Check email uniqueness if email is being updated
-    if (updateCustomerDto.email && updateCustomerDto.email !== customer.email) {
-      const existingCustomer = await this.customerRepository.findOne({
-        where: { email: updateCustomerDto.email },
-      });
-      if (existingCustomer) {
-        throw new ConflictException('Customer with this email already exists');
-      }
     }
 
     Object.assign(customer, updateCustomerDto);
@@ -230,31 +202,7 @@ export class CustomerService {
     return this.mapToResponseDto(customer);
   }
 
-  async checkCredit(customerId: string, amount: number): Promise<CreditCheckResponseDto> {
-    const customer = await this.findCustomerEntity(customerId);
-
-    const approved = customer.canPurchase(amount);
-    const remainingCreditAfterPurchase = Number(customer.availableCredit) - amount;
-
-    return {
-      approved,
-      creditLimit: Number(customer.creditLimit),
-      currentBalance: Number(customer.currentBalance),
-      availableCredit: customer.availableCredit,
-      requestedAmount: amount,
-      remainingCreditAfterPurchase,
-      message: approved 
-        ? 'Credit approved' 
-        : `Credit limit exceeded. Available credit: ${customer.availableCredit.toFixed(2)}`,
-    };
-  }
-
-  async updateCreditLimit(id: string, creditLimit: number): Promise<CustomerResponseDto> {
-    const customer = await this.findCustomerEntity(id);
-    customer.creditLimit = creditLimit;
-    const savedCustomer = await this.customerRepository.save(customer);
-    return this.mapToResponseDto(savedCustomer);
-  }
+  // Credit management methods removed - fields don't exist in current entity
 
   async activate(id: string): Promise<CustomerResponseDto> {
     const customer = await this.findCustomerEntity(id);
@@ -384,9 +332,6 @@ export class CustomerService {
         name: customer.name,
         customerCode: customer.customerCode,
         status: customer.status,
-        creditLimit: Number(customer.creditLimit),
-        currentBalance: Number(customer.currentBalance),
-        availableCredit: customer.availableCredit,
       },
       orders: {
         totalOrders: parseInt(orderStats.totalOrders) || 0,
@@ -579,27 +524,10 @@ export class CustomerService {
       customerCode: customer.customerCode,
       type: customer.type,
       name: customer.name,
-      contactPerson: customer.contactPerson,
-      email: customer.email,
       phone: customer.phone,
-      alternativePhone: customer.alternativePhone,
-      taxId: customer.taxId,
-      billingAddress: customer.billingAddress,
-      billingCity: customer.billingCity,
-      billingState: customer.billingState,
-      billingPostalCode: customer.billingPostalCode,
-      billingCountry: customer.billingCountry,
-      shippingAddress: customer.shippingAddress,
-      shippingCity: customer.shippingCity,
-      shippingState: customer.shippingState,
-      shippingPostalCode: customer.shippingPostalCode,
-      shippingCountry: customer.shippingCountry,
       status: customer.status,
       isActive: customer.isActive,
       priceLevel: customer.priceLevel,
-      creditLimit: Number(customer.creditLimit),
-      currentBalance: Number(customer.currentBalance),
-      paymentTermsDays: customer.paymentTermsDays,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,
@@ -607,10 +535,6 @@ export class CustomerService {
       notes: customer.notes,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
-      fullAddress: customer.fullAddress,
-      fullShippingAddress: customer.fullShippingAddress,
-      availableCredit: customer.availableCredit,
-      isOverCreditLimit: customer.isOverCreditLimit,
       averageOrderValue: customer.averageOrderValue,
     };
   }
