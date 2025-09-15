@@ -48,7 +48,7 @@ import {
   FileCopy as DuplicateIcon,
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
-  ShoppingCart as OrderIcon,
+  Receipt as OrderIcon,
   RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
