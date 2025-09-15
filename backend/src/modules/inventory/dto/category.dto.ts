@@ -4,6 +4,7 @@ import {
   IsUUID,
   IsNumber,
   IsArray,
+  IsBoolean,
   MaxLength,
   Min,
   Max,
