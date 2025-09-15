@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -129,9 +129,15 @@ const CustomersPage: React.FC = () => {
   })
 
   // Search and filter functionality
+  const searchHookInitialized = useRef(false)
   const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
     initialSearchTerm: filters.search || '',
     onSearchChange: (searchTerm) => {
+      // Prevent initial trigger from hook
+      if (!searchHookInitialized.current) {
+        searchHookInitialized.current = true
+        return
+      }
       dispatch(setFilters({ search: searchTerm }))
     },
   })
@@ -146,7 +152,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters])
+  }, [dispatch, filters.search, filters.type, filters.status, filters.priceLevel, filters.sortBy, filters.sortOrder])
 
   // Handle pagination
   const handleChangePage = (event: unknown, newPage: number) => {

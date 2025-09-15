@@ -37,10 +37,7 @@ const initialState: CustomerState = {
     total: 0,
     totalPages: 0,
   },
-  filters: {
-    sortBy: 'name',
-    sortOrder: 'ASC',
-  }
+  filters: {}
 }
 
 // Async thunks
@@ -193,10 +190,7 @@ const customerSlice = createSlice({
       state.filters = { ...state.filters, ...action.payload }
     },
     clearFilters: (state) => {
-      state.filters = {
-        sortBy: 'name',
-        sortOrder: 'ASC',
-      }
+      state.filters = {}
     },
     setCurrentCustomer: (state, action: PayloadAction<Customer | null>) => {
       state.currentCustomer = action.payload
@@ -476,6 +470,6 @@ export const selectCurrentCustomer = (state: any) => state.customers?.currentCus
 export const selectCustomersLoading = (state: any) => state.customers?.loading || false
 export const selectCustomersError = (state: any) => state.customers?.error
 export const selectCustomersPagination = (state: any) => state.customers?.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }
-export const selectCustomersFilters = (state: any) => state.customers?.filters || { sortBy: 'name', sortOrder: 'ASC' }
+export const selectCustomersFilters = (state: any) => state.customers?.filters || {}
 
 export default customerSlice.reducer
