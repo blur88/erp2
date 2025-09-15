@@ -56,6 +56,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
   fetchCustomers,
   createCustomer,
@@ -108,7 +109,6 @@ const CustomersPage: React.FC = () => {
   const filters = useAppSelector(selectCustomersFilters)
 
   // Local state
-  const [searchTerm, setSearchTerm] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
@@ -128,24 +128,33 @@ const CustomersPage: React.FC = () => {
     }
   })
 
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: filters.search || '',
+    onSearchChange: (searchTerm) => {
+      dispatch(setFilters({ search: searchTerm }))
+    },
+  })
 
-  // Load customers on mount
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: () => handleOpenForm(),
+    onRefresh: () => dispatch(fetchCustomers({ ...filters })),
+  })
+
+  // Load customers on mount and when filters change
   useEffect(() => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm }))
-  }, [dispatch, filters, searchTerm])
-
-  // Handle search
-  const handleSearch = useCallback(() => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm }))
-  }, [dispatch, filters, searchTerm])
+    dispatch(fetchCustomers({ ...filters }))
+  }, [dispatch, filters])
 
   // Handle pagination
   const handleChangePage = (event: unknown, newPage: number) => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm, page: newPage + 1 }))
+    dispatch(fetchCustomers({ ...filters, page: newPage + 1 }))
   }
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm, page: 1, limit: parseInt(event.target.value) }))
+    dispatch(fetchCustomers({ ...filters, page: 1, limit: parseInt(event.target.value) }))
   }
 
   // Handle form submit
@@ -174,7 +183,7 @@ const CustomersPage: React.FC = () => {
         }))
       }
       handleCloseForm()
-      dispatch(fetchCustomers({ ...filters, search: searchTerm }))
+      dispatch(fetchCustomers({ ...filters }))
     } catch (error) {
       dispatch(addNotification({
         message: `Failed to ${selectedCustomer ? 'update' : 'create'} customer: ${error}`,
@@ -224,7 +233,7 @@ const CustomersPage: React.FC = () => {
         type: 'success',
         title: 'Success'
       }))
-      dispatch(fetchCustomers({ ...filters, search: searchTerm }))
+      dispatch(fetchCustomers({ ...filters }))
     } catch (error) {
       dispatch(addNotification({
         message: `Failed to ${action} customer: ${error}`,
@@ -373,7 +382,6 @@ const CustomersPage: React.FC = () => {
           placeholder="Search customers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           size="medium"
           sx={{ 
             minWidth: isMobile ? 'auto' : 250,

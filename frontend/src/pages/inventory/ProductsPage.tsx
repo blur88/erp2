@@ -54,6 +54,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
@@ -72,6 +73,8 @@ import {
   selectCategories,
   selectInventoryLoading,
   selectInventoryPagination,
+  setProductFilters,
+  selectProductFilters,
 } from '@/store/slices/inventorySlice'
 
 
@@ -129,9 +132,7 @@ const ProductsPage: React.FC = () => {
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
   const pagination = useSelector(selectInventoryPagination)?.products
-  
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('')
+  const productFilters = useSelector(selectProductFilters) || { search: '', categoryId: '', lowStock: false, inStock: true }
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(20)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
@@ -163,22 +164,34 @@ const ProductsPage: React.FC = () => {
   // Inline edit duplicate checking
   const inlineEditDuplicateCheck = useDuplicateCheck()
 
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: productFilters.search,
+    onSearchChange: (searchTerm) => {
+      dispatch(setProductFilters({ search: searchTerm }))
+    },
+  })
+
+  // Local state for category filter (will be moved to Redux)
+  const [selectedCategory, setSelectedCategory] = useState(productFilters.categoryId || '')
+
+  // Update Redux when local category changes
+  useEffect(() => {
+    dispatch(setProductFilters({ categoryId: selectedCategory || undefined }))
+  }, [dispatch, selectedCategory])
+
   useEffect(() => {
     dispatch(fetchCategories({ includeProductCount: true }))
   }, [dispatch])
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      dispatch(fetchProducts({ 
-        page: page + 1, // API expects 1-based page numbers
-        limit: rowsPerPage,
-        search: searchTerm || undefined, 
-        categoryId: selectedCategory || undefined 
-      }))
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [dispatch, searchTerm, selectedCategory, page, rowsPerPage])
+    dispatch(fetchProducts({
+      page: page + 1, // API expects 1-based page numbers
+      limit: rowsPerPage,
+      search: productFilters.search || undefined,
+      categoryId: productFilters.categoryId || undefined
+    }))
+  }, [dispatch, productFilters.search, productFilters.categoryId, page, rowsPerPage])
 
   // Update selectedProductForDetails when products change (to reflect updates in detail view)
   useEffect(() => {
@@ -206,11 +219,11 @@ const ProductsPage: React.FC = () => {
   }, [selectedProductForDetails?.id])
 
   const handleRefresh = () => {
-    dispatch(fetchProducts({ 
+    dispatch(fetchProducts({
       page: page + 1, // API expects 1-based page numbers
       limit: rowsPerPage,
-      search: searchTerm || undefined, 
-      categoryId: selectedCategory || undefined 
+      search: productFilters.search || undefined,
+      categoryId: productFilters.categoryId || undefined
     }))
     dispatch(fetchCategories({ includeProductCount: true }))
   }
@@ -419,7 +432,7 @@ const ProductsPage: React.FC = () => {
   // Reset focused index when products change or page changes
   useEffect(() => {
     setFocusedProductIndex(-1)
-  }, [page, rowsPerPage, searchTerm, selectedCategory])
+  }, [page, rowsPerPage, productFilters.search, productFilters.categoryId])
 
   // Auto-focus the first product when the list becomes available
   useEffect(() => {
@@ -456,6 +469,13 @@ const ProductsPage: React.FC = () => {
     setSelectedProduct(null)
     setDialogOpen(true)
   }
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: handleAddProduct,
+    onRefresh: handleRefresh,
+  })
 
   const handleCloseDialog = () => {
     setDialogOpen(false)
@@ -523,11 +543,11 @@ const ProductsPage: React.FC = () => {
       if (updateProduct.fulfilled.match(result)) {
         showSuccess('Product updated successfully')
         // Refresh the product list to ensure consistency
-        dispatch(fetchProducts({ 
+        dispatch(fetchProducts({
           page: page + 1, // API expects 1-based page numbers
           limit: rowsPerPage,
-          search: searchTerm || undefined, 
-          categoryId: selectedCategory || undefined 
+          search: productFilters.search || undefined,
+          categoryId: productFilters.categoryId || undefined
         }))
         setInlineEditMode(false)
         setInlineEditData(null)
@@ -564,11 +584,11 @@ const ProductsPage: React.FC = () => {
           }
           
           // Refresh the product list to ensure consistency
-          dispatch(fetchProducts({ 
+          dispatch(fetchProducts({
             page: page + 1, // API expects 1-based page numbers
             limit: rowsPerPage,
-            search: searchTerm || undefined, 
-            categoryId: selectedCategory || undefined
+            search: productFilters.search || undefined,
+            categoryId: productFilters.categoryId || undefined
           }))
         } else {
           throw new Error(result.payload as string)
@@ -600,11 +620,11 @@ const ProductsPage: React.FC = () => {
         if (updateProduct.fulfilled.match(result)) {
           showSuccess('Product updated successfully')
           // Refresh the product list to ensure consistency
-          dispatch(fetchProducts({ 
+          dispatch(fetchProducts({
             page: page + 1, // API expects 1-based page numbers
             limit: rowsPerPage,
-            search: searchTerm || undefined, 
-            categoryId: selectedCategory || undefined
+            search: productFilters.search || undefined,
+            categoryId: productFilters.categoryId || undefined
           }))
         } else {
           throw new Error(result.payload as string)
@@ -630,11 +650,11 @@ const ProductsPage: React.FC = () => {
         
         showSuccess('Product added successfully')
         // Refresh the product list to show the new product
-        dispatch(fetchProducts({ 
+        dispatch(fetchProducts({
           page: page + 1, // API expects 1-based page numbers
           limit: rowsPerPage,
-          search: searchTerm || undefined, 
-          categoryId: selectedCategory || undefined 
+          search: productFilters.search || undefined,
+          categoryId: productFilters.categoryId || undefined
         }))
       }
       
@@ -696,8 +716,8 @@ const ProductsPage: React.FC = () => {
       const exportData = {
         products: products,
         filters: {
-          search: searchTerm || undefined,
-          category: selectedCategory || undefined
+          search: productFilters.search || undefined,
+          category: productFilters.categoryId || undefined
         }
       }
       
@@ -1969,13 +1989,13 @@ const ProductsPage: React.FC = () => {
           <Box sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" color="text.secondary">
               {products.length} product{products.length !== 1 ? 's' : ''} will be exported
-              {searchTerm && (
+              {productFilters.search && (
                 <>
                   <br />
-                  Search: "{searchTerm}"
+                  Search: "{productFilters.search}"
                 </>
               )}
-              {selectedCategory && (
+              {productFilters.categoryId && (
                 <>
                   <br />
                   Category filter applied

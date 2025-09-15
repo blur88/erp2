@@ -33,10 +33,15 @@ interface InventoryState {
     }
   }
   filters: {
-    search: string
-    categoryId?: string
-    lowStock: boolean
-    inStock: boolean
+    products: {
+      search: string
+      categoryId?: string
+      lowStock: boolean
+      inStock: boolean
+    }
+    categories: {
+      search: string
+    }
   }
 }
 
@@ -71,9 +76,14 @@ const initialState: InventoryState = {
     },
   },
   filters: {
-    search: '',
-    lowStock: false,
-    inStock: true,
+    products: {
+      search: '',
+      lowStock: false,
+      inStock: true,
+    },
+    categories: {
+      search: '',
+    },
   },
 }
 
@@ -357,8 +367,14 @@ const inventorySlice = createSlice({
     setSelectedCategory: (state, action: PayloadAction<Category | null>) => {
       state.selectedCategory = action.payload
     },
-    setFilters: (state, action: PayloadAction<Partial<typeof initialState.filters>>) => {
-      state.filters = { ...state.filters, ...action.payload }
+    setProductFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.products>>) => {
+      state.filters.products = { ...state.filters.products, ...action.payload }
+    },
+    setCategoryFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.categories>>) => {
+      state.filters.categories = { ...state.filters.categories, ...action.payload }
+    },
+    resetFilters: (state) => {
+      state.filters = initialState.filters
     },
     clearError: (state) => {
       state.error = null
@@ -595,7 +611,9 @@ const inventorySlice = createSlice({
 export const {
   setSelectedProduct,
   setSelectedCategory,
-  setFilters,
+  setProductFilters,
+  setCategoryFilters,
+  resetFilters,
   clearError,
   resetProducts,
 } = inventorySlice.actions
@@ -612,5 +630,7 @@ export const selectInventoryLoading = (state: any) => state.inventory?.loading
 export const selectInventoryError = (state: any) => state.inventory?.error
 export const selectInventoryPagination = (state: any) => state.inventory?.pagination
 export const selectInventoryFilters = (state: any) => state.inventory?.filters
+export const selectProductFilters = (state: any) => state.inventory?.filters?.products
+export const selectCategoryFilters = (state: any) => state.inventory?.filters?.categories
 
 export default inventorySlice.reducer

@@ -39,6 +39,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
 import type { Category } from '@/types'
@@ -49,6 +50,8 @@ import {
   deleteCategory,
   selectCategories,
   selectInventoryLoading,
+  setCategoryFilters,
+  selectCategoryFilters,
 } from '@/store/slices/inventorySlice'
 
 
@@ -69,13 +72,13 @@ const CategoriesPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
+  const categoryFilters = useSelector(selectCategoryFilters) || { search: '' }
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
   const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
 
   const {
     control,
@@ -90,49 +93,25 @@ const CategoriesPage: React.FC = () => {
     },
   })
 
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: categoryFilters.search,
+    onSearchChange: (searchTerm) => {
+      dispatch(setCategoryFilters({ search: searchTerm }))
+    },
+  })
 
   useEffect(() => {
-    dispatch(fetchCategories({ includeProductCount: true }))
-  }, [dispatch])
-
-  // Debounced search effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      dispatch(fetchCategories({
-        includeProductCount: true,
-        search: searchTerm || undefined
-      }))
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [dispatch, searchTerm])
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'F':
-          if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-            event.preventDefault()
-            // Focus the search input
-            const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
-            if (searchInput) {
-              searchInput.focus()
-              searchInput.select()
-            }
-          }
-          break
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])
+    dispatch(fetchCategories({
+      includeProductCount: true,
+      search: categoryFilters.search || undefined
+    }))
+  }, [dispatch, categoryFilters.search])
 
   const handleRefresh = () => {
     dispatch(fetchCategories({
       includeProductCount: true,
-      search: searchTerm || undefined
+      search: categoryFilters.search || undefined
     }))
   }
 
@@ -147,6 +126,13 @@ const CategoriesPage: React.FC = () => {
     setParentCategory(parent)
     setDialogOpen(true)
   }
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: () => handleAddCategory(),
+    onRefresh: handleRefresh,
+  })
 
   const handleEditCategory = (category: Category) => {
     const parent = category.parentId ? findCategoryById(categories, category.parentId) : null
@@ -320,12 +306,12 @@ const CategoriesPage: React.FC = () => {
             Categories
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Organize your products with categories ({categories.length} {searchTerm ? 'found' : 'total'})
-            {searchTerm && (
+            Organize your products with categories ({categories.length} {categoryFilters.search ? 'found' : 'total'})
+            {categoryFilters.search && (
               <>
                 <br />
                 <Typography component="span" variant="body2" color="primary.main" sx={{ fontStyle: 'italic' }}>
-                  Filtered by: "{searchTerm}"
+                  Filtered by: "{categoryFilters.search}"
                 </Typography>
               </>
             )}
@@ -663,7 +649,7 @@ const CategoriesPage: React.FC = () => {
         onClose={() => setDeletedCategoriesDialogOpen(false)}
         onCategoryRestored={() => dispatch(fetchCategories({
           includeProductCount: true,
-          search: searchTerm || undefined
+          search: categoryFilters.search || undefined
         }))}
       />
     </Box>
