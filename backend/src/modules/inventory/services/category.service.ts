@@ -134,14 +134,18 @@ export class CategoryService {
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     
     // For hierarchical ordering, sort by path first (maintains parent-child relationships)
-    // Use COALESCE to handle null paths and fall back to name
-    queryBuilder.orderBy('COALESCE(category.path, category.name)', 'ASC');
-    
+    // Use COALESCE to handle null paths and fall back to name - make case-insensitive
+    queryBuilder.orderBy('UPPER(COALESCE(category.path, category.name))', 'ASC');
+
     // Then sort by level to ensure proper nesting
     queryBuilder.addOrderBy('category.level', 'ASC');
-    
-    // Finally apply the requested sort within each level
-    queryBuilder.addOrderBy(`category.${sortField}`, sortOrder);
+
+    // Finally apply the requested sort within each level - make case-insensitive for name field
+    if (sortField === 'name') {
+      queryBuilder.addOrderBy('UPPER(category.name)', sortOrder);
+    } else {
+      queryBuilder.addOrderBy(`category.${sortField}`, sortOrder);
+    }
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -253,11 +257,13 @@ export class CategoryService {
    */
   async getTree(includeProductCount = false): Promise<CategoryTreeResponseDto> {
     try {
-      // Get all root categories (level 0)
-      const rootCategories = await this.categoryRepository.find({
-        where: { level: 0 },
-        order: { sortOrder: 'ASC', name: 'ASC' },
-      });
+      // Get all root categories (level 0) with case-insensitive name sorting
+      const rootCategories = await this.categoryRepository
+        .createQueryBuilder('category')
+        .where('category.level = 0')
+        .orderBy('category.sortOrder', 'ASC')
+        .addOrderBy('UPPER(category.name)', 'ASC')
+        .getMany();
       
       const data = await Promise.all(
         rootCategories.map(async (category) => {
@@ -961,10 +967,12 @@ export class CategoryService {
    * Load category tree with all children recursively
    */
   private async loadCategoryTree(category: Category): Promise<Category> {
-    const children = await this.categoryRepository.find({
-      where: { parentId: category.id },
-      order: { sortOrder: 'ASC', name: 'ASC' },
-    });
+    const children = await this.categoryRepository
+      .createQueryBuilder('category')
+      .where('category.parentId = :parentId', { parentId: category.id })
+      .orderBy('category.sortOrder', 'ASC')
+      .addOrderBy('UPPER(category.name)', 'ASC')
+      .getMany();
 
     if (children.length > 0) {
       const childrenWithSubchildren = await Promise.all(
