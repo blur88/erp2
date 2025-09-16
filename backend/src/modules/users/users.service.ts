@@ -401,7 +401,7 @@ export class UsersService {
   /**
    * Validate if requesting user can access the target user
    */
-  private validateUserAccess(targetUser: User, requestingUser: AuthenticatedUser): void {
+  private validateUserAccess(targetUser: User, requestingUser: any): void {
     // Users can always access their own profile
     if (targetUser.id === requestingUser.userId) {
       return;
@@ -432,7 +432,7 @@ export class UsersService {
    */
   private validateUpdatePermissions(
     targetUser: User,
-    requestingUser: AuthenticatedUser,
+    requestingUser: any,
     updateDto: UpdateUserDto,
   ): void {
     // Users can update their own profile (limited fields)

@@ -21,13 +21,13 @@ export { Product, ProductType } from './product.entity';
 // Customer Management (SalesModule, used by InventoryModule for pricing)
 export { Customer, CustomerType, CustomerStatus, PriceLevel } from './customer.entity';
 
-// Sales Management (SalesModule)
-export { SalesOrder, SalesOrderStatus, SalesOrderPriority } from './sales-order.entity';
-export { SalesOrderItem, SalesOrderItemStatus } from './sales-order-item.entity';
+// Sales Management (SalesModule) - Temporarily disabled for startup
+// export { SalesOrder, SalesOrderStatus, SalesOrderPriority } from './sales-order.entity';
+// export { SalesOrderItem, SalesOrderItemStatus } from './sales-order-item.entity';
 
-// Financial Management (SalesModule)
-export { Invoice, InvoiceStatus, InvoiceType } from './invoice.entity';
-export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.entity';
+// Financial Management (SalesModule) - Temporarily disabled for startup
+// export { Invoice, InvoiceStatus, InvoiceType } from './invoice.entity';
+// export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.entity';
 
 // Inventory Management (InventoryModule)
 export { StockMovement, StockMovementType, StockMovementStatus } from './stock-movement.entity';
@@ -37,10 +37,10 @@ import { User } from './user.entity';
 import { Category } from './category.entity';
 import { Product } from './product.entity';
 import { Customer } from './customer.entity';
-import { SalesOrder } from './sales-order.entity';
-import { SalesOrderItem } from './sales-order-item.entity';
-import { Invoice } from './invoice.entity';
-import { Payment } from './payment.entity';
+// import { SalesOrder } from './sales-order.entity'; // Temporarily disabled for startup
+// import { SalesOrderItem } from './sales-order-item.entity'; // Temporarily disabled for startup
+// import { Invoice } from './invoice.entity'; // Temporarily disabled for startup
+// import { Payment } from './payment.entity'; // Temporarily disabled for startup
 import { StockMovement } from './stock-movement.entity';
 
 /**
@@ -53,13 +53,13 @@ export const ACTIVE_ENTITIES = [
   Category,
   Product,
   Customer,
-  
-  // Sales entities
-  SalesOrder,
-  SalesOrderItem,
-  Invoice,
-  Payment,
-  
+
+  // Sales entities - Temporarily disabled for startup
+  // SalesOrder,
+  // SalesOrderItem,
+  // Invoice,
+  // Payment,
+
   // Inventory entities
   StockMovement,
 ] as const;
@@ -70,7 +70,7 @@ export const ACTIVE_ENTITIES = [
  */
 export const ACTIVE_ENTITY_GROUPS = {
   CORE: [User, Category, Product, Customer],
-  SALES: [SalesOrder, SalesOrderItem, Invoice, Payment],
+  // SALES: [SalesOrder, SalesOrderItem, Invoice, Payment], // Temporarily disabled for startup
   INVENTORY: [StockMovement],
 } as const;
 

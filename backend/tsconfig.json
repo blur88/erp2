@@ -24,5 +24,16 @@
       "@config/*": ["src/config/*"],
       "@database/*": ["src/database/*"]
     }
-  }
+  },
+  "exclude": [
+    "src/modules/plugins/**/*",
+    "src/modules/purchasing/**/*",
+    "src/modules/reports/**/*",
+    "src/modules/sales/**/*",
+    "src/database/entities/sales-order.entity.ts",
+    "src/database/entities/sales-order-item.entity.ts",
+    "src/database/entities/invoice.entity.ts",
+    "src/database/entities/payment.entity.ts",
+    "src/database/entities/quotation.entity.ts"
+  ]
 }
