@@ -31,7 +31,7 @@ import {
 // Modules
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
-// import { SalesModule } from './modules/sales/sales.module'; // Temporarily disabled for startup
+import { SalesModule } from './modules/sales/sales.module';
 // import { PurchasingModule } from './modules/purchasing/purchasing.module'; // Disabled due to auth compilation issues
 // import { ReportsModule } from './modules/reports/reports.module'; // Disabled due to auth compilation issues
 import { DashboardModule } from './modules/dashboard/dashboard-module';
@@ -57,7 +57,7 @@ import { AppService } from './app.service';
     // Core Modules
     UsersModule,
     InventoryModule,
-    // SalesModule, // Temporarily disabled for startup
+    SalesModule,
     // PurchasingModule, // Re-enable after fixing compilation issues
     // ReportsModule, // Re-enable after fixing compilation issues
     DashboardModule, // Re-enabled - WebSocket support

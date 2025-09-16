@@ -29,11 +29,11 @@ import {
 } from '../dto/customer.dto';
 
 @ApiTags('Customers')
-@Controller()
+@Controller('customers')
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
-  @Post('customers')
+  @Post()
   @ApiOperation({ summary: 'Create a new customer' })
   @ApiResponse({
     status: 201,
@@ -46,7 +46,7 @@ export class CustomerController {
     return this.customerService.create(createCustomerDto);
   }
 
-  @Get('customers')
+  @Get()
   @ApiOperation({ summary: 'Get all customers with filtering and pagination' })
   @ApiResponse({
     status: 200,
