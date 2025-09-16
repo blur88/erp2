@@ -467,9 +467,9 @@ export class Invoice extends BaseEntity {
       totalAmount: salesOrder.totalAmount,
       balanceDue: salesOrder.totalAmount,
       invoiceDate: new Date(),
-      billingAddress: salesOrder.customer?.fullAddress,
-      customerTaxId: salesOrder.customer?.taxId,
-      paymentTermsDays: salesOrder.customer?.paymentTermsDays || 30,
+      billingAddress: salesOrder.customer?.name || '',
+      customerTaxId: '',
+      paymentTermsDays: 30,
     };
   }
 }

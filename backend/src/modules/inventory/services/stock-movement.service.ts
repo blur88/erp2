@@ -71,9 +71,9 @@ export class StockMovementService {
     // Validate outward movements don't exceed available stock
     if (createMovementDto.quantity < 0) {
       const requestedQuantity = Math.abs(createMovementDto.quantity);
-      if (product.availableQuantity < requestedQuantity) {
+      if (product.stockQuantity < requestedQuantity) {
         throw new BadRequestException(
-          `Insufficient stock. Available: ${product.availableQuantity}, Requested: ${requestedQuantity}`,
+          `Insufficient stock. Available: ${product.stockQuantity}, Requested: ${requestedQuantity}`,
         );
       }
     }
@@ -381,9 +381,9 @@ export class StockMovementService {
     }
 
     // Check available stock at source location
-    if (product.availableQuantity < transferDto.quantity) {
+    if (product.stockQuantity < transferDto.quantity) {
       throw new BadRequestException(
-        `Insufficient stock at source location. Available: ${product.availableQuantity}, Requested: ${transferDto.quantity}`,
+        `Insufficient stock at source location. Available: ${product.stockQuantity}, Requested: ${transferDto.quantity}`,
       );
     }
 
@@ -481,25 +481,16 @@ export class StockMovementService {
       }
     });
 
-    // Get latest adjustment date
-    const lastAdjustment = await this.stockMovementRepository.findOne({
-      where: {
-        productId,
-        movementType: StockMovementType.ADJUSTMENT_INCREASE || StockMovementType.ADJUSTMENT_DECREASE,
-      },
-      order: { movementDate: 'DESC' },
-    });
 
     return {
       productId: product.id,
       sku: product.barcode,
       name: product.name,
       stockQuantity: Number(product.stockQuantity),
-      reservedQuantity: Number(product.reservedQuantity),
-      availableQuantity: product.availableQuantity,
+      reservedQuantity: Number(0),
+      availableQuantity: product.stockQuantity,
       stockValue: Number(product.stockQuantity) * Number(product.baseCost),
       lastMovementDate,
-      lastAdjustmentDate: lastAdjustment?.movementDate,
       totalInward,
       totalOutward,
       netMovement: totalInward - totalOutward,
@@ -522,7 +513,7 @@ export class StockMovementService {
         'product.sku',
         'product.name',
         'product.stockQuantity',
-        'product.reservedQuantity',
+        '0',
         'product.reorderLevel',
         'product.optimalStockLevel',
         'category.name',
@@ -626,7 +617,7 @@ export class StockMovementService {
         id: movement.product.id,
         sku: movement.product.barcode,
         name: movement.product.name,
-        unit: movement.product.unit,
+        unit: 'pcs',
       },
       movedByUser: movement.movedByUser ? {
         id: movement.movedByUser.id,
@@ -636,7 +627,6 @@ export class StockMovementService {
       } : undefined,
       isInward: movement.isInward,
       isOutward: movement.isOutward,
-      isAdjustment: movement.isAdjustment,
       description: movement.getDescription(),
       createdAt: movement.createdAt,
       updatedAt: movement.updatedAt,

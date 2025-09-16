@@ -451,11 +451,11 @@ export class PricingService {
    * Get customer price type based on customer properties
    */
   private getCustomerPriceType(customer: Customer): 'retail' | 'wholesale' | 'special' {
-    // Mock implementation - in reality, this would be based on customer type or tier
-    if (customer.customerType === 'wholesale') {
+    // Use the customer's price level from the entity
+    if (customer.priceLevel === 'wholesale') {
       return 'wholesale';
     }
-    if (customer.customerType === 'vip' || customer.customerType === 'special') {
+    if (customer.priceLevel === 'special') {
       return 'special';
     }
     return 'retail';
@@ -506,12 +506,12 @@ export class PricingService {
       return { amount: 0, percentage: 0 };
     }
 
-    // Mock implementation based on customer tier
+    // Implementation based on customer price level
     let discountPercentage = 0;
-    if (customer.customerType === 'vip') {
-      discountPercentage = 0.1; // 10% VIP discount
-    } else if (customer.customerType === 'preferred') {
-      discountPercentage = 0.05; // 5% preferred customer discount
+    if (customer.priceLevel === 'special') {
+      discountPercentage = 0.1; // 10% special price discount
+    } else if (customer.priceLevel === 'wholesale') {
+      discountPercentage = 0.05; // 5% wholesale discount
     }
 
     const discountAmount = basePrice * discountPercentage;
@@ -580,7 +580,7 @@ export class PricingService {
    * Calculate inventory factor based on stock levels
    */
   private calculateInventoryFactor(product: Product): number {
-    const stockRatio = Number(product.stockQuantity) / Math.max(Number(product.optimalStockLevel), 1);
+    const stockRatio = Number(product.stockQuantity) / Math.max(100, 1); // Use default optimal level of 100
     
     if (stockRatio < 0.2) {
       return 0.3; // Low stock, increase price

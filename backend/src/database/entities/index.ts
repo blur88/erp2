@@ -16,7 +16,7 @@ export { User, UserRole, UserStatus } from './user.entity';
 
 // Product Management (InventoryModule)
 export { Category } from './category.entity';
-export { Product, ProductType, ProductStatus, StockStatus } from './product.entity';
+export { Product, ProductType } from './product.entity';
 
 // Customer Management (SalesModule, used by InventoryModule for pricing)
 export { Customer, CustomerType, CustomerStatus, PriceLevel } from './customer.entity';

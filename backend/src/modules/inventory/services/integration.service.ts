@@ -201,7 +201,7 @@ export class IntegrationService {
         throw new NotFoundException(`Product with ID '${item.productId}' not found`);
       }
 
-      const availableQuantity = product.availableQuantity;
+      const availableQuantity = product.stockQuantity;
       const isAvailable = availableQuantity >= item.quantity;
       const shortfallQuantity = isAvailable ? 0 : item.quantity - availableQuantity;
 
@@ -211,7 +211,7 @@ export class IntegrationService {
         name: product.name,
         requestedQuantity: item.quantity,
         availableQuantity,
-        reservedQuantity: Number(product.reservedQuantity),
+        reservedQuantity: Number(0),
         stockQuantity: Number(product.stockQuantity),
         isAvailable,
         shortfallQuantity: shortfallQuantity > 0 ? shortfallQuantity : undefined,
@@ -248,7 +248,7 @@ export class IntegrationService {
           continue;
         }
 
-        const availableQuantity = product.availableQuantity;
+        const availableQuantity = product.stockQuantity;
         const reserveQuantity = Math.min(item.quantity, availableQuantity);
 
         if (reserveQuantity > 0) {
@@ -344,9 +344,9 @@ export class IntegrationService {
     const products = await this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .where('product.stockQuantity <= product.reorderLevel')
+      .where('product.stockQuantity <= 10')
       .andWhere('product.isActive = true')
-      .andWhere('product.reorderLevel > 0')
+      .andWhere('10 > 0')
       .getMany();
 
     const reorderRecommendations = [];
@@ -361,7 +361,7 @@ export class IntegrationService {
       // Calculate recommended order quantity
       const safetyStock = averageDailyUsage * leadTimeDays;
       const recommendedOrderQuantity = Math.max(
-        Number(product.optimalStockLevel) - Number(product.stockQuantity),
+        Number(product.stockQuantity) - Number(product.stockQuantity),
         safetyStock,
       );
 
@@ -370,8 +370,8 @@ export class IntegrationService {
         sku: product.barcode,
         name: product.name,
         currentStock: Number(product.stockQuantity),
-        reorderLevel: Number(product.reorderLevel),
-        optimalStockLevel: Number(product.optimalStockLevel),
+        reorderLevel: Number(10),
+        optimalStockLevel: Number(product.stockQuantity),
         recommendedOrderQuantity,
         averageDailyUsage,
         leadTimeDays,

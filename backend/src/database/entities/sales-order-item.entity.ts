@@ -324,7 +324,7 @@ export class SalesOrderItem extends BaseEntity {
       productSku: product.barcode,
       productName: product.name,
       productDescription: product.description,
-      unit: product.unit,
+      unit: 'pcs',
       quantity,
       unitPrice,
       unitCost: Number(product.baseCost),

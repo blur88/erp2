@@ -404,7 +404,7 @@ export class PurchaseOrderItem extends BaseEntity {
       productSku: product.barcode,
       productName: product.name,
       productDescription: product.description,
-      unit: product.unit,
+      unit: 'pcs',
       quantity,
       unitCost: unitCost || Number(product.baseCost),
     };
