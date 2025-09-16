@@ -27,8 +27,6 @@ export class CustomerService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
-    // @InjectRepository(Payment) // Temporarily removed to fix startup
-    // private readonly paymentRepository: Repository<Payment>,
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {

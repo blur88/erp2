@@ -205,12 +205,8 @@ export class ProductService {
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // Use case-insensitive sorting for text fields (like categories do)
-    if (sortField === 'name' || sortField === 'barcode') {
-      queryBuilder.orderBy(`UPPER(product.${sortField})`, safeSortOrder);
-    } else {
-      queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
-    }
+    // Apply sorting - simplified without UPPER() function to avoid TypeORM issues
+    queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
 
     // Apply pagination
     const offset = (page - 1) * limit;
