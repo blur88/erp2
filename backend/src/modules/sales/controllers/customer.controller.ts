@@ -26,16 +26,14 @@ import {
   QueryCustomersDto,
   CustomerResponseDto,
   CustomerSummaryDto,
-  CreditCheckDto,
-  CreditCheckResponseDto,
 } from '../dto/customer.dto';
 
 @ApiTags('Customers')
-@Controller('customers')
+@Controller()
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
-  @Post()
+  @Post('customers')
   @ApiOperation({ summary: 'Create a new customer' })
   @ApiResponse({
     status: 201,
@@ -48,7 +46,7 @@ export class CustomerController {
     return this.customerService.create(createCustomerDto);
   }
 
-  @Get()
+  @Get('customers')
   @ApiOperation({ summary: 'Get all customers with filtering and pagination' })
   @ApiResponse({
     status: 200,
@@ -92,6 +90,7 @@ export class CustomerController {
   async getDeletedCustomers(@Query() query: QueryCustomersDto) {
     return this.customerService.findDeleted(query);
   }
+
 
   @Get(':id')
   @ApiOperation({ summary: 'Get customer by ID' })
@@ -147,33 +146,7 @@ export class CustomerController {
     return this.customerService.delete(id);
   }
 
-  @Post('credit-check')
-  @ApiOperation({ summary: 'Check customer credit limit' })
-  @ApiResponse({
-    status: 200,
-    description: 'Credit check completed',
-    type: CreditCheckResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async checkCredit(@Body() creditCheckDto: CreditCheckDto): Promise<CreditCheckResponseDto> {
-    return this.customerService.checkCredit(creditCheckDto.customerId, creditCheckDto.amount);
-  }
 
-  @Put(':id/credit-limit')
-  @ApiOperation({ summary: 'Update customer credit limit' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Credit limit updated successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async updateCreditLimit(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('creditLimit') creditLimit: number,
-  ): Promise<CustomerResponseDto> {
-    return this.customerService.updateCreditLimit(id, creditLimit);
-  }
 
   @Put(':id/activate')
   @ApiOperation({ summary: 'Activate customer' })

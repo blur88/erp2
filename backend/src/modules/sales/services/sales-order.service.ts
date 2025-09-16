@@ -24,7 +24,7 @@ import {
   SalesOrderSummaryDto,
   ShipOrderDto,
 } from '../dto/sales-order.dto';
-import { CustomerService } from './customer.service';
+// import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 
 @Injectable()
@@ -42,7 +42,7 @@ export class SalesOrderService {
     private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly customerService: CustomerService,
+    // private readonly customerService: CustomerService,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
   ) {}
 
