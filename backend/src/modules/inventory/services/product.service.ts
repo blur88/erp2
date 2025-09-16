@@ -13,7 +13,6 @@ import {
   Repository,
   UpdateResult,
   In,
-  Like,
 } from 'typeorm';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
@@ -205,8 +204,14 @@ export class ProductService {
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // Apply sorting - simplified without UPPER() function to avoid TypeORM issues
-    queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
+    // Use case-insensitive sorting for text fields
+    if (sortField === 'name') {
+      // Use PostgreSQL ILIKE for case-insensitive sorting by adding a computed column
+      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
+      queryBuilder.orderBy('name_upper', safeSortOrder);
+    } else {
+      queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
+    }
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -367,60 +372,50 @@ export class ProductService {
       sortOrder = 'DESC',
     } = query;
 
-    // Build where clause for filtering
-    const where: any = {};
-    
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-    
-    if (type) {
-      where.type = type;
+    // Use QueryBuilder for consistent case-insensitive search
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .withDeleted()
+      .where('product.deletedAt IS NOT NULL');
+
+    // Apply filters
+    if (search) {
+      queryBuilder.andWhere(
+        '(product.name ILIKE :search OR product.barcode ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
-    if (search) {
-      where.name = Like(`%${search}%`);
+    if (categoryId) {
+      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('product.type = :type', { type });
     }
 
     // Sorting
-    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt'];
+    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt', 'retailPrice', 'stockQuantity'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    // Use case-insensitive sorting for text fields
+    if (safeSortBy === 'name') {
+      // Use PostgreSQL ILIKE for case-insensitive sorting by adding a computed column
+      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
+      queryBuilder.orderBy('name_upper', safeSortOrder);
+    } else {
+      queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
+    }
 
-    // Get ALL products that match criteria (without pagination first)
-    const allProducts = await this.productRepository.find({
-      where,
-      relations: ['category'],
-      withDeleted: true,
-    });
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
 
-    // Filter only soft-deleted products
-    const deletedProducts = allProducts.filter(product => product.deletedAt !== null);
+    // Get products and total count
+    const [deletedProducts, total] = await queryBuilder.getManyAndCount();
 
-    // Apply sorting to filtered results
-    deletedProducts.sort((a: any, b: any) => {
-      let aValue = a[safeSortBy];
-      let bValue = b[safeSortBy];
-
-      // Use case-insensitive comparison for text fields
-      if (safeSortBy === 'name' || safeSortBy === 'barcode') {
-        aValue = aValue ? String(aValue).toUpperCase() : '';
-        bValue = bValue ? String(bValue).toUpperCase() : '';
-      }
-
-      if (safeSortOrder === 'ASC') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    // Apply pagination to the filtered and sorted results
-    const total = deletedProducts.length;
-    const skip = (page - 1) * limit;
-    const paginatedProducts = deletedProducts.slice(skip, skip + limit);
-
-    const productDtos = paginatedProducts.map(product => this.toResponseDto(product));
+    const productDtos = deletedProducts.map(product => this.toResponseDto(product));
 
     return {
       data: productDtos,

@@ -9,7 +9,6 @@ import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'type
 import { Customer, CustomerStatus, PriceLevel } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
-import { Payment } from '../../../database/entities/payment.entity';
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -318,19 +317,7 @@ export class CustomerService {
       ])
       .getRawOne();
 
-    // Get payment statistics - temporarily disabled
-    // const paymentStats = await this.paymentRepository
-    //   .createQueryBuilder('payment')
-    //   .where('payment.customerId = :customerId', { customerId })
-    //   .andWhere('payment.status = :status', { status: 'completed' })
-    //   .select([
-    //     'COUNT(*) as totalPayments',
-    //     'COALESCE(SUM(payment.amount), 0) as totalPaid',
-    //     'COALESCE(AVG(payment.amount), 0) as averagePaymentAmount',
-    //     'MAX(payment.paymentDate) as lastPaymentDate',
-    //   ])
-    //   .getRawOne();
-
+    // Payment statistics temporarily disabled (Payment entity not available)
     const paymentStats = {
       totalPayments: 0,
       totalPaid: 0,
@@ -360,9 +347,9 @@ export class CustomerService {
         lastOrderDate: orderStats.lastOrderDate,
       },
       payments: {
-        totalPayments: parseInt(paymentStats.totalPayments) || 0,
-        totalPaid: parseFloat(paymentStats.totalPaid) || 0,
-        averagePaymentAmount: parseFloat(paymentStats.averagePaymentAmount) || 0,
+        totalPayments: paymentStats.totalPayments || 0,
+        totalPaid: paymentStats.totalPaid || 0,
+        averagePaymentAmount: paymentStats.averagePaymentAmount || 0,
         lastPaymentDate: paymentStats.lastPaymentDate,
       },
       invoices: {
@@ -436,9 +423,7 @@ export class CustomerService {
           where: { customerId },
         });
 
-        // const hasActivePayments = await this.paymentRepository.count({
-        //   where: { customerId },
-        // });
+        // Payment count check temporarily disabled (Payment entity not available)
         const hasActivePayments = 0;
 
         if (hasActiveOrders > 0 || hasActiveInvoices > 0 || hasActivePayments > 0) {
@@ -481,9 +466,7 @@ export class CustomerService {
       where: { customerId: id },
     });
 
-    // const hasActivePayments = await this.paymentRepository.count({
-    //   where: { customerId: id },
-    // });
+    // Payment count check temporarily disabled (Payment entity not available)
     const hasActivePayments = 0;
 
     if (hasActiveOrders > 0 || hasActiveInvoices > 0 || hasActivePayments > 0) {
