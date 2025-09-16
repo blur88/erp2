@@ -204,7 +204,13 @@ export class ProductService {
     const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
+
+    // Use case-insensitive sorting for text fields (like categories do)
+    if (sortField === 'name' || sortField === 'barcode') {
+      queryBuilder.orderBy(`UPPER(product.${sortField})`, safeSortOrder);
+    } else {
+      queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
+    }
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -397,9 +403,15 @@ export class ProductService {
 
     // Apply sorting to filtered results
     deletedProducts.sort((a: any, b: any) => {
-      const aValue = a[safeSortBy];
-      const bValue = b[safeSortBy];
-      
+      let aValue = a[safeSortBy];
+      let bValue = b[safeSortBy];
+
+      // Use case-insensitive comparison for text fields
+      if (safeSortBy === 'name' || safeSortBy === 'barcode') {
+        aValue = aValue ? String(aValue).toUpperCase() : '';
+        bValue = bValue ? String(bValue).toUpperCase() : '';
+      }
+
       if (safeSortOrder === 'ASC') {
         return aValue > bValue ? 1 : -1;
       } else {
