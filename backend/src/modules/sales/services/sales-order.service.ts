@@ -196,23 +196,100 @@ export class SalesOrderService {
     };
   }
 
-  async findSummaries(): Promise<SalesOrderSummaryDto[]> {
-    const orders = await this.salesOrderRepository.find({
-      relations: ['customer', 'items'],
-      order: { orderDate: 'DESC' },
-      take: 100, // Limit to recent orders
-    });
+  async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
+    const {
+      search,
+      customerId,
+      fromDate,
+      toDate,
+      sortBy = 'orderDate',
+      sortOrder = 'DESC',
+      page = 1,
+      limit = 20,
+    } = query;
 
-    return orders.map(order => ({
+    // Build find options with filters
+    const where: any = { deletedAt: null };
+
+    if (customerId) {
+      where.customerId = customerId;
+    }
+
+    if (fromDate) {
+      where.orderDate = { ...where.orderDate, ...{ $gte: new Date(fromDate) } };
+    }
+
+    if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      where.orderDate = { ...where.orderDate, ...{ $lte: endDate } };
+    }
+
+    // Use QueryBuilder for complex filtering
+    let queryBuilder = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoinAndSelect('order.items', 'items')
+      .where('order.deletedAt IS NULL');
+
+    if (customerId) {
+      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
+    }
+
+    if (fromDate) {
+      queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
+    }
+
+    if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      queryBuilder = queryBuilder.andWhere('order.orderDate <= :toDate', { toDate: endDate });
+    }
+
+    if (search) {
+      queryBuilder = queryBuilder.andWhere(
+        '(order.orderNumber ILIKE :search OR customer.name ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Get total count first
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination and sorting
+    queryBuilder = queryBuilder
+      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const orders = await queryBuilder.getMany();
+
+    const data = orders.map(order => ({
       id: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
       orderDate: order.orderDate,
-      customerName: order.customer?.name || 'Unknown',
       totalAmount: Number(order.totalAmount),
-      isOverdue: false, // Placeholder since no requiredDate property exists
+      customerId: order.customerId,
+      customer: order.customer ? {
+        id: order.customer.id,
+        name: order.customer.name
+      } : null,
+      customerName: order.customer?.name || 'Unknown Customer',
+      items: order.items || [],
       itemsCount: order.items?.length || 0,
+      isOverdue: false, // Placeholder since no requiredDate property exists
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
     }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async getDashboardStats() {
