@@ -293,12 +293,6 @@ const ProductsPage: React.FC = () => {
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
       if ((watchedName && watchedName.trim().length >= 2) || (watchedBarcode && watchedBarcode.trim().length >= 1)) {
-        console.log('Checking duplicates for:', { 
-          name: watchedName?.trim(), 
-          barcode: watchedBarcode?.trim(),
-          excludeId: editMode && selectedProduct ? selectedProduct.id : undefined
-        })
-        
         await checkDuplicate({
           name: watchedName && watchedName.trim().length >= 2 ? watchedName.trim() : undefined,
           barcode: watchedBarcode && watchedBarcode.trim().length >= 1 ? watchedBarcode.trim() : undefined,
@@ -602,10 +596,21 @@ const ProductsPage: React.FC = () => {
   }
 
   const onSubmit = async (data: ProductFormData) => {
-    try {      
+    try {
       // Validate categoryId is present and valid
       if (!data.categoryId || data.categoryId.trim() === '') {
         showError('Please select a category')
+        return
+      }
+
+      // Check for duplicate validation before submitting
+      if (isDuplicateName) {
+        showError(duplicateNameError)
+        return
+      }
+
+      if (isDuplicateBarcode) {
+        showError(duplicateBarcodeError)
         return
       }
       

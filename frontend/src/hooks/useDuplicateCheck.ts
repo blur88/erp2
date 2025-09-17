@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useDispatch } from 'react-redux'
 import { checkProductDuplicate } from '@/store/slices/inventorySlice'
 import { AppDispatch } from '@/store'
@@ -43,7 +43,7 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
   const [hasNameDuplicate, setHasNameDuplicate] = useState(false)
   const [hasBarcodeDuplicate, setHasBarcodeDuplicate] = useState(false)
 
-  const checkDuplicate = async (params: {
+  const checkDuplicate = useCallback(async (params: {
     name?: string
     barcode?: string
     excludeId?: string
@@ -61,7 +61,7 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
 
     try {
       const result = await dispatch(checkProductDuplicate(params)).unwrap()
-      
+
       // Handle name duplicates
       if (result.nameExists && result.nameConflict) {
         const conflict = result.nameConflict
@@ -96,7 +96,7 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
     } finally {
       setIsChecking(false)
     }
-  }
+  }, [dispatch])
 
   return {
     checkDuplicate,
