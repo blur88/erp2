@@ -50,3 +50,6 @@ redis-data/
 
 # Binaries and executables
 code
+
+# Generated documentation
+ERROR.md

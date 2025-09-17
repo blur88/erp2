@@ -12,11 +12,11 @@ import { User } from '../../database/entities/user.entity';
 
 // Controllers
 import { CustomerController } from './controllers/customer.controller';
-// import { SalesOrderController } from './controllers/sales-order.controller'; // Temporarily disabled due to TypeScript errors
+import { SalesOrderController } from './controllers/sales-order.controller'; // Temporarily disabled due to TypeScript errors
 
 // Services
 import { CustomerService } from './services/customer.service';
-// import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
+import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
 // import { InventoryIntegrationService } from './services/inventory-integration.service'; // Temporarily disabled due to TypeScript errors
 
 @Module({
@@ -33,16 +33,16 @@ import { CustomerService } from './services/customer.service';
   ],
   controllers: [
     CustomerController,
-    // SalesOrderController, // Temporarily disabled due to TypeScript errors
+    SalesOrderController, // Temporarily disabled due to TypeScript errors
   ],
   providers: [
     CustomerService,
-    // SalesOrderService, // Temporarily disabled due to TypeScript errors
+    SalesOrderService, // Temporarily disabled due to TypeScript errors
     // InventoryIntegrationService, // Temporarily disabled due to TypeScript errors
   ],
   exports: [
     CustomerService,
-    // SalesOrderService, // Temporarily disabled due to TypeScript errors
+    SalesOrderService, // Temporarily disabled due to TypeScript errors
   ],
 })
 export class SalesModule {}

@@ -62,20 +62,7 @@ export class SalesOrderService {
 
     // Validate and calculate order totals
     const orderItems = await this.validateAndProcessItems(items);
-    const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
-    
-    // Calculate discount amount
-    const discountPercent = orderData.discountPercent || 0;
-    const discountAmount = (subtotal * discountPercent) / 100;
-    
-    // Calculate tax amount
-    const taxPercent = orderData.taxPercent || 0;
-    const taxableAmount = subtotal - discountAmount;
-    const taxAmount = (taxableAmount * taxPercent) / 100;
-    
-    // Calculate total amount
-    const shippingAmount = orderData.shippingAmount || 0;
-    const totalAmount = taxableAmount + taxAmount + shippingAmount;
+    const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
 
     // Check credit limit
     const creditCheck = await this.customerService.checkCredit(customerId, totalAmount);
@@ -98,12 +85,6 @@ export class SalesOrderService {
       customerId,
       createdByUserId: userId,
       orderDate: new Date(),
-      subtotal,
-      discountPercent,
-      discountAmount,
-      taxPercent,
-      taxAmount,
-      shippingAmount,
       totalAmount,
       status: SalesOrderStatus.DRAFT,
     });
@@ -138,11 +119,8 @@ export class SalesOrderService {
     const {
       search,
       customerId,
-      status,
-      priority,
       fromDate,
       toDate,
-      overdue,
       sortBy = 'orderDate',
       sortOrder = 'DESC',
       page = 1,
@@ -162,9 +140,6 @@ export class SalesOrderService {
       queryBuilder = queryBuilder.andWhere('order.status = :status', { status });
     }
     
-    if (priority) {
-      queryBuilder = queryBuilder.andWhere('order.priority = :priority', { priority });
-    }
     
     if (fromDate) {
       queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
@@ -196,9 +171,6 @@ export class SalesOrderService {
     }
     if (status) {
       countQuery.andWhere('order.status = :status', { status });
-    }
-    if (priority) {
-      countQuery.andWhere('order.priority = :priority', { priority });
     }
     if (fromDate) {
       countQuery.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
@@ -350,12 +322,8 @@ export class SalesOrderService {
 
     Object.assign(order, updateSalesOrderDto);
 
-    // Recalculate totals if financial data changed
-    if (updateSalesOrderDto.discountPercent !== undefined || 
-        updateSalesOrderDto.taxPercent !== undefined || 
-        updateSalesOrderDto.shippingAmount !== undefined) {
-      await this.recalculateOrderTotals(order);
-    }
+    // Recalculate totals if items changed
+    await this.recalculateOrderTotals(order);
 
     const savedOrder = await this.salesOrderRepository.save(order);
     return this.findById(savedOrder.id);
@@ -515,10 +483,6 @@ export class SalesOrderService {
 
     const duplicateData: CreateSalesOrderDto = {
       customerId: originalOrder.customerId,
-      priority: originalOrder.priority,
-      discountPercent: Number(originalOrder.discountPercent),
-      taxPercent: Number(originalOrder.taxPercent),
-      shippingAmount: Number(originalOrder.shippingAmount),
       shippingAddress: originalOrder.shippingAddress,
       shippingCity: originalOrder.shippingCity,
       shippingState: originalOrder.shippingState,
@@ -702,15 +666,8 @@ export class SalesOrderService {
       status: order.status,
       priority: order.priority,
       orderDate: order.orderDate,
-      requiredDate: order.requiredDate,
       shippedDate: order.shippedDate,
       deliveredDate: order.deliveredDate,
-      subtotal: Number(order.subtotal),
-      discountPercent: Number(order.discountPercent),
-      discountAmount: Number(order.discountAmount),
-      taxPercent: Number(order.taxPercent),
-      taxAmount: Number(order.taxAmount),
-      shippingAmount: Number(order.shippingAmount),
       totalAmount: Number(order.totalAmount),
       shippingAddress: order.shippingAddress,
       shippingCity: order.shippingCity,
