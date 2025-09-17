@@ -135,12 +135,7 @@ export class SalesOrderService {
     if (customerId) {
       queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
     }
-    
-    if (status) {
-      queryBuilder = queryBuilder.andWhere('order.status = :status', { status });
-    }
-    
-    
+
     if (fromDate) {
       queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
     }
@@ -168,9 +163,6 @@ export class SalesOrderService {
     
     if (customerId) {
       countQuery.andWhere('order.customerId = :customerId', { customerId });
-    }
-    if (status) {
-      countQuery.andWhere('order.status = :status', { status });
     }
     if (fromDate) {
       countQuery.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
