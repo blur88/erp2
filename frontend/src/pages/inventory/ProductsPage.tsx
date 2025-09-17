@@ -163,6 +163,7 @@ const ProductsPage: React.FC = () => {
 
   // Inline edit duplicate checking
   const inlineEditDuplicateCheck = useDuplicateCheck()
+  const { checkDuplicate: checkInlineEditDuplicate } = inlineEditDuplicateCheck
 
   // Search and filter functionality
   const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
@@ -293,12 +294,7 @@ const ProductsPage: React.FC = () => {
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
       if ((watchedName && watchedName.trim().length >= 2) || (watchedBarcode && watchedBarcode.trim().length >= 1)) {
-        console.log('Checking duplicates for:', { 
-          name: watchedName?.trim(), 
-          barcode: watchedBarcode?.trim(),
-          excludeId: editMode && selectedProduct ? selectedProduct.id : undefined
-        })
-        
+
         await checkDuplicate({
           name: watchedName && watchedName.trim().length >= 2 ? watchedName.trim() : undefined,
           barcode: watchedBarcode && watchedBarcode.trim().length >= 1 ? watchedBarcode.trim() : undefined,
@@ -317,16 +313,11 @@ const ProductsPage: React.FC = () => {
     }
 
     const timeoutId = setTimeout(async () => {
-      if ((inlineEditData.name && inlineEditData.name.trim().length >= 2) || 
+      if ((inlineEditData.name && inlineEditData.name.trim().length >= 2) ||
           (inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1)) {
-        
-        console.log('Checking duplicates for inline edit:', { 
-          name: inlineEditData.name?.trim(), 
-          barcode: inlineEditData.barcode?.trim(),
-          excludeId: selectedProductForDetails.id
-        })
 
-        await inlineEditDuplicateCheck.checkDuplicate({
+
+        await checkInlineEditDuplicate({
           name: inlineEditData.name && inlineEditData.name.trim().length >= 2 ? inlineEditData.name.trim() : undefined,
           barcode: inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 ? inlineEditData.barcode.trim() : undefined,
           excludeId: selectedProductForDetails.id,
@@ -335,7 +326,7 @@ const ProductsPage: React.FC = () => {
     }, 500) // Debounce API calls
 
     return () => clearTimeout(timeoutId)
-  }, [inlineEditData, selectedProductForDetails, inlineEditMode, inlineEditDuplicateCheck])
+  }, [inlineEditData, selectedProductForDetails, inlineEditMode, checkInlineEditDuplicate])
 
   // Products are now paginated and filtered by the server
   const displayProducts = products || []
@@ -470,6 +461,7 @@ const ProductsPage: React.FC = () => {
     setDialogOpen(true)
   }
 
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
@@ -602,10 +594,21 @@ const ProductsPage: React.FC = () => {
   }
 
   const onSubmit = async (data: ProductFormData) => {
-    try {      
+    try {
       // Validate categoryId is present and valid
       if (!data.categoryId || data.categoryId.trim() === '') {
         showError('Please select a category')
+        return
+      }
+
+      // Check for duplicate validation before submitting
+      if (isDuplicateName) {
+        showError(duplicateNameError)
+        return
+      }
+
+      if (isDuplicateBarcode) {
+        showError(duplicateBarcodeError)
         return
       }
       
@@ -1357,9 +1360,9 @@ const ProductsPage: React.FC = () => {
                               fullWidth
                               error={inlineEditDuplicateCheck.hasNameDuplicate}
                               helperText={
-                                inlineEditDuplicateCheck.hasNameDuplicate 
-                                  ? inlineEditDuplicateCheck.nameError 
-                                  : inlineEditData.name && inlineEditData.name.trim().length >= 2 && !inlineEditDuplicateCheck.hasNameDuplicate
+                                inlineEditDuplicateCheck.hasNameDuplicate
+                                  ? inlineEditDuplicateCheck.nameError
+                                  : inlineEditData.name && inlineEditData.name.trim().length >= 2 && inlineEditDuplicateCheck.hasCheckedName && !inlineEditDuplicateCheck.hasNameDuplicate
                                     ? 'Name is available'
                                     : ''
                               }
@@ -1405,9 +1408,9 @@ const ProductsPage: React.FC = () => {
                               fullWidth
                               error={inlineEditDuplicateCheck.hasBarcodeDuplicate}
                               helperText={
-                                inlineEditDuplicateCheck.hasBarcodeDuplicate 
-                                  ? inlineEditDuplicateCheck.barcodeError 
-                                  : inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 && !inlineEditDuplicateCheck.hasBarcodeDuplicate
+                                inlineEditDuplicateCheck.hasBarcodeDuplicate
+                                  ? inlineEditDuplicateCheck.barcodeError
+                                  : inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 && inlineEditDuplicateCheck.hasCheckedBarcode && !inlineEditDuplicateCheck.hasBarcodeDuplicate
                                     ? 'Barcode is available'
                                     : ''
                               }
