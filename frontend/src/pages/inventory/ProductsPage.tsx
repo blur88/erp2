@@ -524,8 +524,11 @@ const ProductsPage: React.FC = () => {
       
       const updateData = {
         ...inlineEditData,
-        barcode: inlineEditData.barcode && inlineEditData.barcode.trim() ? inlineEditData.barcode.trim() : undefined // Convert empty barcode to undefined
+        barcode: inlineEditData.barcode && inlineEditData.barcode.trim() ? inlineEditData.barcode.trim() : undefined, // Convert empty barcode to undefined
+        stockQuantity: inlineEditData.currentStock, // Backend expects stockQuantity, not currentStock
       }
+      // Remove currentStock since we're sending stockQuantity instead
+      delete updateData.currentStock
       
       const result = await dispatch(updateProduct({ 
         id: selectedProductForDetails.id, 
@@ -613,11 +616,14 @@ const ProductsPage: React.FC = () => {
       }
       
       if (editMode && selectedProduct) {
-        // Update existing product
-        const updateData = { 
+        // Update existing product - transform form data to match backend DTO
+        const updateData = {
           ...data,
-          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined // Convert empty barcode to undefined
+          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined, // Convert empty barcode to undefined
+          stockQuantity: data.currentStock, // Backend expects stockQuantity, not currentStock
         }
+        // Remove currentStock since we're sending stockQuantity instead
+        delete updateData.currentStock
         const result = await dispatch(updateProduct({ id: selectedProduct.id, data: updateData }))
         
         if (updateProduct.fulfilled.match(result)) {

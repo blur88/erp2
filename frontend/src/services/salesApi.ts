@@ -198,6 +198,22 @@ export const salesApi = {
     return ApiService.post(`sales-orders/${id}/create-invoice`)
   },
 
+  async getDeletedOrders(params?: QueryParams & {
+    customerId?: string;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
+  }) {
+    return ApiService.get<PaginatedResponse<SalesOrder>>('sales-orders/deleted', { params })
+  },
+
+  async restoreOrder(id: string) {
+    return ApiService.post<SalesOrder>(`sales-orders/${id}/restore`)
+  },
+
+  async bulkRestoreOrders(orderIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('sales-orders/bulk-restore', { ids: orderIds })
+  },
+
   // Invoices
   async getInvoices(params?: QueryParams & { customerId?: string; status?: string }) {
     return ApiService.get<PaginatedResponse<Invoice>>('/sales/invoices', { params })

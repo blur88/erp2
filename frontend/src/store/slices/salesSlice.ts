@@ -6,6 +6,7 @@ interface SalesState {
   customers: Customer[]
   deletedCustomers: Customer[]
   orders: SalesOrder[]
+  deletedOrders: SalesOrder[]
   invoices: Invoice[]
   payments: Payment[]
   selectedCustomer: Customer | null
@@ -15,6 +16,7 @@ interface SalesState {
     customers: boolean
     deletedCustomers: boolean
     orders: boolean
+    deletedOrders: boolean
     invoices: boolean
     payments: boolean
   }
@@ -51,6 +53,7 @@ const initialState: SalesState = {
   customers: [],
   deletedCustomers: [],
   orders: [],
+  deletedOrders: [],
   invoices: [],
   payments: [],
   selectedCustomer: null,
@@ -60,6 +63,7 @@ const initialState: SalesState = {
     customers: false,
     deletedCustomers: false,
     orders: false,
+    deletedOrders: false,
     invoices: false,
     payments: false,
   },
@@ -103,6 +107,50 @@ export const fetchOrders = createAsyncThunk(
       return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch orders')
+    }
+  }
+)
+
+export const fetchDeletedOrders = createAsyncThunk(
+  'sales/fetchDeletedOrders',
+  async (params: { page?: number; limit?: number; customerId?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string }, { rejectWithValue }) => {
+    try {
+      const apiParams = {
+        page: params.page,
+        limit: params.limit,
+        customerId: params.customerId,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() as 'ASC' | 'DESC' : undefined,
+        search: params.search
+      }
+      const response = await salesApi.getDeletedOrders(apiParams as any)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted orders')
+    }
+  }
+)
+
+export const restoreOrder = createAsyncThunk(
+  'sales/restoreOrder',
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.restoreOrder(orderId)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore order')
+    }
+  }
+)
+
+export const bulkRestoreOrders = createAsyncThunk(
+  'sales/bulkRestoreOrders',
+  async (orderIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await salesApi.bulkRestoreOrders(orderIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore orders')
     }
   }
 )
@@ -313,6 +361,48 @@ const salesSlice = createSlice({
         state.error = action.payload as string
       })
 
+    // Fetch Deleted Orders
+    builder
+      .addCase(fetchDeletedOrders.pending, (state) => {
+        state.loading.deletedOrders = true
+        state.error = null
+      })
+      .addCase(fetchDeletedOrders.fulfilled, (state, action) => {
+        state.loading.deletedOrders = false
+        if (action.payload) {
+          const payload = action.payload as any
+          state.deletedOrders = payload.data || []
+        }
+      })
+      .addCase(fetchDeletedOrders.rejected, (state, action) => {
+        state.loading.deletedOrders = false
+        state.error = action.payload as string
+      })
+
+    // Restore Order
+    builder
+      .addCase(restoreOrder.pending, (state) => {
+        state.error = null
+      })
+      .addCase(restoreOrder.fulfilled, (state, action) => {
+        // Order will be removed from deletedOrders when refetched
+      })
+      .addCase(restoreOrder.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Bulk Restore Orders
+    builder
+      .addCase(bulkRestoreOrders.pending, (state) => {
+        state.error = null
+      })
+      .addCase(bulkRestoreOrders.fulfilled, (state, action) => {
+        // Orders will be removed from deletedOrders when refetched
+      })
+      .addCase(bulkRestoreOrders.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
     // Fetch Invoices
     builder
       .addCase(fetchInvoices.pending, (state) => {
@@ -463,6 +553,7 @@ export const {
 export const selectCustomers = (state: any) => state.sales?.customers
 export const selectDeletedCustomers = (state: any) => state.sales?.deletedCustomers
 export const selectOrders = (state: any) => state.sales?.orders
+export const selectDeletedOrders = (state: any) => state.sales?.deletedOrders
 export const selectInvoices = (state: any) => state.sales?.invoices
 export const selectPayments = (state: any) => state.sales?.payments
 export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
