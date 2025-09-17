@@ -40,6 +40,7 @@ import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
 import type { Category } from '@/types'
@@ -84,6 +85,7 @@ const CategoriesPage: React.FC = () => {
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<CategoryFormData>({
     resolver: yupResolver(categorySchema) as any,
@@ -100,6 +102,32 @@ const CategoriesPage: React.FC = () => {
       dispatch(setCategoryFilters({ search: searchTerm }))
     },
   })
+
+  // Duplicate check functionality
+  const {
+    checkDuplicate,
+    nameError: duplicateNameError,
+    hasNameDuplicate: isDuplicateName
+  } = useCategoryDuplicateCheck()
+
+  // Watch form fields for real-time validation
+  const watchedName = watch('name')
+  const watchedParentId = watch('parentId')
+
+  // Real-time duplicate checking for form fields
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      if (watchedName && watchedName.trim().length >= 2) {
+        await checkDuplicate({
+          name: watchedName.trim(),
+          parentId: watchedParentId || undefined,
+          excludeId: editMode && selectedCategory ? selectedCategory.id : undefined,
+        })
+      }
+    }, 500) // Debounce API calls
+
+    return () => clearTimeout(timeoutId)
+  }, [watchedName, watchedParentId, editMode, selectedCategory, checkDuplicate])
 
   useEffect(() => {
     dispatch(fetchCategories({
@@ -167,15 +195,10 @@ const CategoriesPage: React.FC = () => {
   const onSubmit = async (data: CategoryFormData) => {
     try {
       setSubmitting(true)
-      
-      // Client-side validation to check for duplicates
-      const existingCategory = categories.find(cat => 
-        cat.name.toLowerCase() === data.name.toLowerCase() && 
-        (!editMode || cat.id !== selectedCategory?.id)
-      )
-      
-      if (existingCategory) {
-        showError(`A category named "${data.name}" already exists. Please choose a different name.`)
+
+      // Check for duplicate errors from real-time validation
+      if (isDuplicateName) {
+        showError(duplicateNameError || 'Category name already exists')
         return
       }
 
@@ -271,23 +294,6 @@ const CategoriesPage: React.FC = () => {
     return cats.find(cat => cat.id === id) || null
   }
 
-
-  const validateCategoryName = (name: string) => {
-    if (!name || name.length < 2) {
-      return null // Let yup handle basic validation
-    }
-    
-    const existingCategory = categories.find(cat => 
-      cat.name.toLowerCase() === name.toLowerCase() && 
-      (!editMode || cat.id !== selectedCategory?.id)
-    )
-    
-    if (existingCategory) {
-      return `A category named "${name}" already exists`
-    }
-    
-    return null
-  }
 
   return (
     <Box>
@@ -592,9 +598,8 @@ const CategoriesPage: React.FC = () => {
                   name="name"
                   control={control}
                   render={({ field }) => {
-                    const validationError = validateCategoryName(field.value)
-                    const hasValidationError = !!errors.name || !!validationError
-                    const helperText = errors.name?.message || validationError || ''
+                    const hasValidationError = !!errors.name || isDuplicateName
+                    const helperText = errors.name?.message || duplicateNameError || ''
                     
                     return (
                       <TextField

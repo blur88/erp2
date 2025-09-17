@@ -113,6 +113,22 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/categories/${id}`)
   },
 
+  async checkCategoryDuplicate(params: {
+    name?: string
+    parentId?: string
+    excludeId?: string
+  }) {
+    return ApiService.get<{
+      nameExists: boolean
+      nameConflict?: {
+        id: string
+        name: string
+        isDeleted: boolean
+        parentId?: string
+      }
+    }>('/inventory/categories/check-duplicate', { params })
+  },
+
   async getDeletedCategories(params?: QueryParams) {
     return ApiService.get<PaginatedResponse<Category>>('/inventory/categories/deleted', { params })
   },
