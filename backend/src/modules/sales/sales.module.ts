@@ -9,6 +9,7 @@ import { Product } from '../../database/entities/product.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { User } from '../../database/entities/user.entity';
+import { StockMovement } from '../../database/entities/stock-movement.entity';
 
 // Controllers
 import { CustomerController } from './controllers/customer.controller';
@@ -17,7 +18,7 @@ import { SalesOrderController } from './controllers/sales-order.controller'; // 
 // Services
 import { CustomerService } from './services/customer.service';
 import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
-// import { InventoryIntegrationService } from './services/inventory-integration.service'; // Temporarily disabled due to TypeScript errors
+import { InventoryIntegrationService } from './services/inventory-integration.service';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { SalesOrderService } from './services/sales-order.service'; // Temporari
       Invoice,
       Payment,
       User,
+      StockMovement,
     ]),
   ],
   controllers: [
@@ -37,8 +39,8 @@ import { SalesOrderService } from './services/sales-order.service'; // Temporari
   ],
   providers: [
     CustomerService,
-    SalesOrderService, // Temporarily disabled due to TypeScript errors
-    // InventoryIntegrationService, // Temporarily disabled due to TypeScript errors
+    SalesOrderService,
+    InventoryIntegrationService,
   ],
   exports: [
     CustomerService,
