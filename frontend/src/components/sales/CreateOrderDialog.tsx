@@ -476,7 +476,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                             render={({ field: productField }) => (
                               <Autocomplete
                                 options={products}
-                                getOptionLabel={(option) => `${option.name} (${option.barcode})`}
+                                getOptionLabel={(option) => option.name}
                                 value={products.find(p => p.id === productField.value) || null}
                                 onChange={(_, value) => handleProductSelect(index, value)}
                                 size="small"
