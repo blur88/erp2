@@ -32,6 +32,8 @@ interface UseDuplicateCheckReturn {
   barcodeError: string
   hasNameDuplicate: boolean
   hasBarcodeDuplicate: boolean
+  hasCheckedName: boolean
+  hasCheckedBarcode: boolean
 }
 
 export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
@@ -42,6 +44,8 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
   const [barcodeError, setBarcodeError] = useState('')
   const [hasNameDuplicate, setHasNameDuplicate] = useState(false)
   const [hasBarcodeDuplicate, setHasBarcodeDuplicate] = useState(false)
+  const [hasCheckedName, setHasCheckedName] = useState(false)
+  const [hasCheckedBarcode, setHasCheckedBarcode] = useState(false)
 
   const checkDuplicate = useCallback(async (params: {
     name?: string
@@ -58,6 +62,8 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
     setBarcodeError('')
     setHasNameDuplicate(false)
     setHasBarcodeDuplicate(false)
+    setHasCheckedName(false)
+    setHasCheckedBarcode(false)
 
     try {
       const result = await dispatch(checkProductDuplicate(params)).unwrap()
@@ -88,6 +94,14 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
         setHasBarcodeDuplicate(true)
       }
 
+      // Mark as checked after processing results
+      if (params.name) {
+        setHasCheckedName(true)
+      }
+      if (params.barcode) {
+        setHasCheckedBarcode(true)
+      }
+
       return result
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to check for duplicates'
@@ -106,5 +120,7 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
     barcodeError,
     hasNameDuplicate,
     hasBarcodeDuplicate,
+    hasCheckedName,
+    hasCheckedBarcode,
   }
 }
