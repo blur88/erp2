@@ -718,6 +718,98 @@ export class SalesOrderService {
     order.calculateTotals();
   }
 
+  async findDeleted(query: QuerySalesOrdersDto = {}): Promise<any> {
+    const {
+      search,
+      customerId,
+      sortBy = 'deletedAt',
+      sortOrder = 'DESC',
+      page = 1,
+      limit = 20,
+    } = query;
+
+    let queryBuilder = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoinAndSelect('order.items', 'items')
+      .where('order.deletedAt IS NOT NULL'); // Only get soft-deleted orders
+
+    if (customerId) {
+      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
+    }
+
+    if (search) {
+      queryBuilder = queryBuilder.andWhere(
+        '(order.orderNumber ILIKE :search OR customer.name ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Add sorting
+    queryBuilder = queryBuilder.orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+
+    // Add pagination
+    const offset = (page - 1) * limit;
+    queryBuilder = queryBuilder.skip(offset).take(limit);
+
+    const [orders, total] = await queryBuilder.getManyAndCount();
+
+    const data = orders.map(order => this.mapToResponseDto(order));
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async restore(id: string): Promise<SalesOrderResponseDto> {
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      withDeleted: true, // Include soft-deleted records
+      relations: ['customer', 'items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    if (!order.deletedAt) {
+      throw new ConflictException('Sales order is not deleted');
+    }
+
+    // Restore the order
+    await this.salesOrderRepository.restore(id);
+
+    // Return the restored order
+    const restoredOrder = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'items', 'items.product'],
+    });
+
+    return this.mapToResponseDto(restoredOrder);
+  }
+
+  async bulkRestore(ids: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    for (const id of ids) {
+      try {
+        await this.restore(id);
+        restoredCount++;
+      } catch (error) {
+        failedIds.push(id);
+      }
+    }
+
+    return { restoredCount, failedIds };
+  }
+
   private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {
     return {
       id: order.id,

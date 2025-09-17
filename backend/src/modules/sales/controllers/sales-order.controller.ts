@@ -51,6 +51,24 @@ export class SalesOrderController {
     return { data };
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get deleted sales orders with filtering and pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of deleted sales orders retrieved successfully',
+    type: [SalesOrderResponseDto],
+  })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by order number or customer name' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  async getDeletedSalesOrders(@Query() query: QuerySalesOrdersDto) {
+    const data = await this.salesOrderService.findDeleted(query);
+    return data;
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all sales orders with filtering and pagination' })
   @ApiResponse({
@@ -291,5 +309,31 @@ export class SalesOrderController {
   @ApiResponse({ status: 409, description: 'Cannot create invoice for order in current status' })
   async createInvoiceFromOrder(@Param('id', ParseUUIDPipe) id: string) {
     return this.salesOrderService.createInvoiceFromOrder(id);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore deleted sales order' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sales order restored successfully',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Sales order is not deleted' })
+  async restoreSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.restore(id);
+  }
+
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Restore multiple deleted sales orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk restore operation completed',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  async bulkRestoreSalesOrders(@Body() body: { ids: string[] }) {
+    const result = await this.salesOrderService.bulkRestore(body.ids);
+    return { data: result };
   }
 }

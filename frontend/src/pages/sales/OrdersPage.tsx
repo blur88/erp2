@@ -57,6 +57,7 @@ import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
+import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 
 interface OrdersPageState {
   search: string
@@ -87,6 +88,7 @@ const OrdersPage: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
   const [viewDialog, setViewDialog] = useState(false)
   const [createDialog, setCreateDialog] = useState(false)
+  const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
 
   useEffect(() => {
     loadOrders()
@@ -253,7 +255,7 @@ const OrdersPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => {/* TODO: Add view deleted orders functionality */}}
+            onClick={() => setDeletedOrdersDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
@@ -715,6 +717,12 @@ const OrdersPage: React.FC = () => {
         open={createDialog}
         onClose={() => setCreateDialog(false)}
         onOrderCreated={handleOrderCreated}
+      />
+
+      {/* Deleted Orders Dialog */}
+      <DeletedOrdersDialog
+        open={deletedOrdersDialogOpen}
+        onClose={() => setDeletedOrdersDialogOpen(false)}
       />
     </Box>
   )
