@@ -962,6 +962,63 @@ export class CategoryService {
     }
   }
 
+  /**
+   * Check for duplicate category names (including soft-deleted)
+   */
+  async checkDuplicate(params: {
+    name?: string;
+    parentId?: string;
+    excludeId?: string;
+  }): Promise<{
+    nameExists: boolean;
+    nameConflict?: {
+      id: string;
+      name: string;
+      isDeleted: boolean;
+      parentId?: string;
+    };
+  }> {
+    this.logger.log(`Checking duplicate for category name: "${params.name}", parentId: "${params.parentId}"`);
+
+    const result = {
+      nameExists: false,
+      nameConflict: undefined as any,
+    };
+
+    // Check name duplicate
+    if (params.name && params.name.trim()) {
+      const nameQuery = this.categoryRepository
+        .createQueryBuilder('category')
+        .where('LOWER(category.name) = LOWER(:name)', { name: params.name.trim() })
+        .withDeleted();
+
+      if (params.parentId) {
+        nameQuery.andWhere('category.parentId = :parentId', { parentId: params.parentId });
+      } else {
+        nameQuery.andWhere('category.parentId IS NULL');
+      }
+
+      if (params.excludeId) {
+        nameQuery.andWhere('category.id != :excludeId', { excludeId: params.excludeId });
+      }
+
+      const existingByName = await nameQuery.getOne();
+
+      if (existingByName) {
+        result.nameExists = true;
+        result.nameConflict = {
+          id: existingByName.id,
+          name: existingByName.name,
+          isDeleted: !!existingByName.deletedAt,
+          parentId: existingByName.parentId,
+        };
+      }
+    }
+
+    this.logger.log(`Duplicate check result: nameExists=${result.nameExists}`);
+    return result;
+  }
+
 
   /**
    * Load category tree with all children recursively

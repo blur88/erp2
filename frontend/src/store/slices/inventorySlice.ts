@@ -345,6 +345,25 @@ export const bulkPermanentDeleteCategories = createAsyncThunk(
   }
 )
 
+export const checkCategoryDuplicate = createAsyncThunk(
+  'inventory/checkCategoryDuplicate',
+  async (params: { name?: string; parentId?: string; excludeId?: string }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.checkCategoryDuplicate(params)
+      // Handle both direct response and wrapped response structures
+      if (response && typeof response === 'object' && 'nameExists' in response) {
+        return response as any
+      } else if (response && 'data' in response) {
+        return (response as any).data
+      }
+      return response as any
+    } catch (error: any) {
+      console.error('Redux: Category duplicate check API call failed:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to check for duplicate category')
+    }
+  }
+)
+
 export const fetchStockMovements = createAsyncThunk(
   'inventory/fetchStockMovements',
   async (params: { page?: number; limit?: number; productId?: string }, { rejectWithValue }) => {

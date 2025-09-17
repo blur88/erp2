@@ -123,6 +123,23 @@ export class CategoryController {
     });
   }
 
+  @Get('check-duplicate')
+  @ApiOperation({ summary: 'Check if category name already exists (including soft-deleted)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Duplicate check completed',
+  })
+  @ApiQuery({ name: 'name', required: false, description: 'Category name to check' })
+  @ApiQuery({ name: 'parentId', required: false, description: 'Parent category ID' })
+  @ApiQuery({ name: 'excludeId', required: false, description: 'Category ID to exclude from check (for updates)' })
+  async checkDuplicate(
+    @Query('name') name?: string,
+    @Query('parentId') parentId?: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    return this.categoryService.checkDuplicate({ name, parentId, excludeId });
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a category by ID' })
   @ApiResponse({
