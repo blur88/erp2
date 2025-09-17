@@ -645,8 +645,6 @@ export class SalesOrderService {
     return {
       id: order.id,
       orderNumber: order.orderNumber,
-      status: order.status,
-      priority: order.priority,
       orderDate: order.orderDate,
       shippedDate: order.shippedDate,
       deliveredDate: order.deliveredDate,

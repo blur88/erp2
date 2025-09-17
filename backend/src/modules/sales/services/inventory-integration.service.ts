@@ -398,8 +398,8 @@ export class InventoryIntegrationService {
       const stockValue = Number(product.stockQuantity) * Number(product.baseCost || 0);
       totalStockValue += stockValue;
 
-      // Check if low stock
-      if (Number(product.stockQuantity) <= Number(product.reorderLevel || 0)) {
+      // Check if low stock (using simple threshold since reorderLevel was removed)
+      if (Number(product.stockQuantity) <= 10) {
         lowStockProducts++;
       }
 
