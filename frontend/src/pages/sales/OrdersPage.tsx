@@ -44,6 +44,7 @@ import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 
 interface OrdersPageState {
   search: string
@@ -75,6 +76,9 @@ const OrdersPage: React.FC = () => {
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
+  const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
 
   useEffect(() => {
     loadOrders()
@@ -141,14 +145,41 @@ const OrdersPage: React.FC = () => {
           await salesApi.duplicateOrder(orderId)
           break
         case 'delete':
-          await salesApi.deleteOrder(orderId)
+          // Show confirmation dialog instead of deleting immediately
+          const order = orders.find(o => o.id === orderId)
+          if (order) {
+            setOrderToDelete(orderId)
+            setOrderToDeleteName(order.orderNumber || order.id)
+            setDeleteConfirmOpen(true)
+            return // Don't proceed with deletion yet
+          }
           break
       }
-      
+
       loadOrders()
     } catch (err: any) {
       console.error(`Failed to ${action} order:`, err)
     }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (orderToDelete) {
+      try {
+        await salesApi.deleteOrder(orderToDelete)
+        loadOrders()
+        setDeleteConfirmOpen(false)
+        setOrderToDelete(null)
+        setOrderToDeleteName('')
+      } catch (err: any) {
+        console.error('Failed to delete order:', err)
+      }
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setOrderToDelete(null)
+    setOrderToDeleteName('')
   }
 
   const handleOrderCreated = (_order: SalesOrder) => {
@@ -744,6 +775,18 @@ const OrdersPage: React.FC = () => {
       <DeletedOrdersDialog
         open={deletedOrdersDialogOpen}
         onClose={() => setDeletedOrdersDialogOpen(false)}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete order #${orderToDeleteName}? This will move it to deleted orders.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        severity="warning"
       />
     </Box>
   )

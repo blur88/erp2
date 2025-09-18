@@ -78,6 +78,7 @@ import type { Customer } from '@/types'
 import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 
 // Form validation schema
 const customerSchema = yup.object({
@@ -1052,28 +1053,17 @@ const CustomersPage: React.FC = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete customer "{selectedCustomer?.name}"? 
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsDeleteConfirmOpen(false)}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleDelete} 
-            color="error" 
-            variant="contained"
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={20} /> : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmationDialog
+        open={isDeleteConfirmOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete customer "${selectedCustomer?.name}"? This will move them to deleted customers.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDelete}
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+        severity="warning"
+        loading={loading}
+      />
 
       {/* Deleted Customers Dialog */}
       <DeletedCustomersDialog

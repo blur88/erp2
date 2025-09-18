@@ -43,6 +43,7 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { Category } from '@/types'
 import {
   fetchCategories,
@@ -80,6 +81,8 @@ const CategoriesPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
   const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
 
   const {
     control,
@@ -174,21 +177,29 @@ const CategoriesPage: React.FC = () => {
     setDialogOpen(true)
   }
 
-  const handleDeleteCategory = async (category: Category) => {
-    const productCount = category.productCount ?? 0
-    const confirmMessage = productCount > 0 
-      ? `Category "${category.name}" contains ${productCount} product${productCount === 1 ? '' : 's'}. Products will be moved to "Uncategorized". Continue?`
-      : `Are you sure you want to delete the category "${category.name}"?`
-      
-    if (window.confirm(confirmMessage)) {
+  const handleDeleteCategory = (category: Category) => {
+    setCategoryToDelete(category)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (categoryToDelete) {
       try {
-        await dispatch(deleteCategory(category.id))
-        showSuccess(`Category "${category.name}" deleted successfully.`)
+        await dispatch(deleteCategory(categoryToDelete.id))
+        showSuccess(`Category "${categoryToDelete.name}" deleted successfully.`)
       } catch (error: any) {
         const errorMessage = error.response?.data?.message || 'Failed to delete category'
         showError(errorMessage)
+      } finally {
+        setDeleteConfirmOpen(false)
+        setCategoryToDelete(null)
       }
     }
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setCategoryToDelete(null)
   }
 
 
@@ -656,6 +667,22 @@ const CategoriesPage: React.FC = () => {
           includeProductCount: true,
           search: categoryFilters.search || undefined
         }))}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        title="Confirm Delete"
+        message={
+          categoryToDelete?.productCount && categoryToDelete.productCount > 0
+            ? `Category "${categoryToDelete?.name}" contains ${categoryToDelete.productCount} product${categoryToDelete.productCount === 1 ? '' : 's'}. Products will be moved to "Uncategorized". Continue?`
+            : `Are you sure you want to delete the category "${categoryToDelete?.name}"?`
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        severity="warning"
       />
     </Box>
   )

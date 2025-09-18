@@ -58,6 +58,7 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import InlineCalculator from '@/components/calculator/InlineCalculator'
 import type { Product } from '@/types'
@@ -143,6 +144,8 @@ const ProductsPage: React.FC = () => {
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [dialogCalculatorOpen, setDialogCalculatorOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
@@ -565,19 +568,25 @@ const ProductsPage: React.FC = () => {
     }
   }
 
-  const handleDeleteProduct = async (product: Product) => {
-    if (window.confirm(`Are you sure you want to delete ${product.name}?`)) {
+  const handleDeleteProduct = (product: Product) => {
+    setProductToDelete(product)
+    setDeleteConfirmOpen(true)
+    handleMenuClose()
+  }
+
+  const handleConfirmDelete = async () => {
+    if (productToDelete) {
       try {
-        const result = await dispatch(deleteProduct(product.id))
-        
+        const result = await dispatch(deleteProduct(productToDelete.id))
+
         if (deleteProduct.fulfilled.match(result)) {
-          showSuccess(`Product ${product.name} deleted successfully`)
-          
+          showSuccess(`Product ${productToDelete.name} deleted successfully`)
+
           // If the deleted product was selected for details, clear the selection
-          if (selectedProductForDetails?.id === product.id) {
+          if (selectedProductForDetails?.id === productToDelete.id) {
             setSelectedProductForDetails(null)
           }
-          
+
           // Refresh the product list to ensure consistency
           dispatch(fetchProducts({
             page: page + 1, // API expects 1-based page numbers
@@ -591,9 +600,16 @@ const ProductsPage: React.FC = () => {
       } catch (error: any) {
         const errorMessage = error?.message || 'Failed to delete product. Please try again.'
         showError(errorMessage)
+      } finally {
+        setDeleteConfirmOpen(false)
+        setProductToDelete(null)
       }
     }
-    handleMenuClose()
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setProductToDelete(null)
   }
 
   const onSubmit = async (data: ProductFormData) => {
@@ -2495,6 +2511,18 @@ const ProductsPage: React.FC = () => {
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onImportSuccess={handleRefresh}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete "${productToDelete?.name}"? This will move it to deleted items.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        severity="warning"
       />
     </Box>
   )
