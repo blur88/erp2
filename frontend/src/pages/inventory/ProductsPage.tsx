@@ -857,17 +857,17 @@ const ProductsPage: React.FC = () => {
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: '40px',
-              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& input': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
               }
             },
             '& .MuiInputAdornment-root': {
               '& .MuiSvgIcon-root': {
-                fontSize: '1.25rem',
-                color: 'action.active'
+                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.searchField.icon.color
               }
             }
           }}
@@ -886,11 +886,11 @@ const ProductsPage: React.FC = () => {
             flex: 'none'
           }}
         >
-          <InputLabel 
-            sx={{ 
-              fontSize: '0.875rem',
+          <InputLabel
+            sx={{
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '&.MuiInputLabel-shrunk': {
-                fontSize: '0.75rem'
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
             }}
           >
@@ -932,14 +932,14 @@ const ProductsPage: React.FC = () => {
               }
             }}
             sx={{
-              height: '40px',
-              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
-                fontSize: '0.875rem',
-                padding: '8.5px 14px',
-                height: '40px',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
                 boxSizing: 'border-box'
               },
               '& .MuiOutlinedInput-notchedOutline': {
@@ -954,11 +954,11 @@ const ProductsPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>
+            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
               All Categories
             </MenuItem>
             {categories.map((category: any) => (
-              <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.875rem' }}>
+              <MenuItem key={category.id} value={category.id} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
                 {category.name}
               </MenuItem>
             ))}
@@ -971,11 +971,11 @@ const ProductsPage: React.FC = () => {
           size="medium"
           onClick={handleExportClick}
           disabled={isExporting || products.length === 0}
-          sx={{ 
+          sx={{
             flex: 'none',
-            height: '40px',
-            fontSize: '0.875rem',
-            fontWeight: 500
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
           }}
         >
           {isExporting ? 'Exporting...' : 'Export'}
@@ -987,9 +987,9 @@ const ProductsPage: React.FC = () => {
           onClick={() => setImportDialogOpen(true)}
           sx={{
             flex: 'none',
-            height: '40px',
-            fontSize: '0.875rem',
-            fontWeight: 500,
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
             color: 'success.main',
             borderColor: 'success.main',
             '&:hover': {
@@ -1007,9 +1007,9 @@ const ProductsPage: React.FC = () => {
           onClick={() => setCalculatorPanelOpen(!calculatorPanelOpen)}
           sx={{
             flex: 'none',
-            height: '40px',
-            fontSize: '0.875rem',
-            fontWeight: 500,
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
             color: calculatorPanelOpen ? 'info.dark' : 'info.main',
             borderColor: calculatorPanelOpen ? 'info.dark' : 'info.main',
             backgroundColor: calculatorPanelOpen ? 'info.light' : 'transparent',
@@ -1037,7 +1037,7 @@ const ProductsPage: React.FC = () => {
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
                   Product List ({pagination?.total || 0})
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1049,13 +1049,13 @@ const ProductsPage: React.FC = () => {
                       py: 0.2, 
                       backgroundColor: 'grey.100', 
                       borderRadius: 0.5, 
-                      fontSize: '0.6rem',
+                      fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
                       fontFamily: 'monospace',
                       color: 'text.secondary'
                     }}>
                       ↑↓
                     </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, color: 'text.secondary' }}>
                       Navigate
                     </Typography>
                   </Box>
@@ -1067,13 +1067,13 @@ const ProductsPage: React.FC = () => {
                       py: 0.2, 
                       backgroundColor: 'grey.100', 
                       borderRadius: 0.5, 
-                      fontSize: '0.6rem',
+                      fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
                       fontFamily: 'monospace',
                       color: 'text.secondary'
                     }}>
                       Enter
                     </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, color: 'text.secondary' }}>
                       Select
                     </Typography>
                   </Box>
@@ -1085,13 +1085,13 @@ const ProductsPage: React.FC = () => {
                       py: 0.2, 
                       backgroundColor: 'grey.100', 
                       borderRadius: 0.5, 
-                      fontSize: '0.6rem',
+                      fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
                       fontFamily: 'monospace',
                       color: 'text.secondary'
                     }}>
                       E
                     </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, color: 'text.secondary' }}>
                       Edit
                     </Typography>
                   </Box>
@@ -1103,13 +1103,13 @@ const ProductsPage: React.FC = () => {
                       py: 0.2, 
                       backgroundColor: 'grey.100', 
                       borderRadius: 0.5, 
-                      fontSize: '0.6rem',
+                      fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
                       fontFamily: 'monospace',
                       color: 'text.secondary'
                     }}>
                       Del
                     </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, color: 'text.secondary' }}>
                       Delete
                     </Typography>
                   </Box>
@@ -1144,7 +1144,7 @@ const ProductsPage: React.FC = () => {
                 </Box>
               ) : products.length === 0 ? (
                 <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="text.secondary">
                     No products found. Create your first product to get started.
                   </Typography>
                 </Box>
@@ -1200,8 +1200,8 @@ const ProductsPage: React.FC = () => {
                             >
                               <TableCell sx={{ py: 0.5 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '0.875rem' }} />
-                                  <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.1 }}>
+                                  <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight }}>
                                     {product.name}
                                   </Typography>
                                 </Box>
@@ -1345,7 +1345,7 @@ const ProductsPage: React.FC = () => {
                         ...(isMobile && {
                           px: 1,
                           py: 0.5,
-                          fontSize: '0.75rem'
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
                         }),
                         '&:nth-of-type(1)': { width: '35%' }, // Field name column
                         '&:nth-of-type(2)': { width: '45%' }, // Value column
@@ -1364,7 +1364,7 @@ const ProductsPage: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.75rem'
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
                           }}>
                             Basic Information
                           </Typography>
@@ -1376,14 +1376,14 @@ const ProductsPage: React.FC = () => {
                           color: 'text.secondary', 
                           width: isMobile ? '40%' : '35%',
                           minWidth: isMobile ? 'auto' : '120px',
-                          fontSize: '0.75rem'
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
                         }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Product Name
                           </Box>
                         </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.name}
@@ -1400,7 +1400,7 @@ const ProductsPage: React.FC = () => {
                               }
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px',
                                   '&.Mui-error': {
                                     '& fieldset': {
@@ -1409,7 +1409,7 @@ const ProductsPage: React.FC = () => {
                                   }
                                 },
                                 '& .MuiFormHelperText-root': {
-                                  fontSize: '0.7rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                                   margin: '2px 0 0 0',
                                   color: inlineEditDuplicateCheck.hasNameDuplicate 
                                     ? 'error.main' 
@@ -1425,13 +1425,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Barcode
                           </Box>
                         </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.barcode}
@@ -1448,7 +1448,7 @@ const ProductsPage: React.FC = () => {
                               }
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px',
                                   '&.Mui-error': {
                                     '& fieldset': {
@@ -1457,7 +1457,7 @@ const ProductsPage: React.FC = () => {
                                   }
                                 },
                                 '& .MuiFormHelperText-root': {
-                                  fontSize: '0.7rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                                   margin: '2px 0 0 0',
                                   color: inlineEditDuplicateCheck.hasBarcodeDuplicate 
                                     ? 'error.main' 
@@ -1473,30 +1473,30 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Type
                           </Box>
                         </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <FormControl fullWidth size="small">
                               <Select 
                                 value={inlineEditData.type}
                                 onChange={(e) => handleInlineEditChange('type', e.target.value)}
                                 sx={{
-                                  '& .MuiSelect-select': { 
-                                    fontSize: '0.8rem',
+                                  '& .MuiSelect-select': {
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                     height: '28px',
                                     padding: '4px 8px'
                                   }
                                 }}
                               >
-                                <MenuItem value="Stocked Product" sx={{ fontSize: '0.8rem' }}>
+                                <MenuItem value="Stocked Product" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                   Stocked Product
                                 </MenuItem>
-                                <MenuItem value="Service" sx={{ fontSize: '0.8rem' }}>
+                                <MenuItem value="Service" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                   Service
                                 </MenuItem>
                               </Select>
@@ -1507,13 +1507,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Category
                           </Box>
                         </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <FormControl fullWidth size="small">
                               <Select 
@@ -1528,8 +1528,8 @@ const ProductsPage: React.FC = () => {
                                   }
                                 }}
                                 sx={{
-                                  '& .MuiSelect-select': { 
-                                    fontSize: '0.8rem',
+                                  '& .MuiSelect-select': {
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                     height: '28px',
                                     padding: '4px 8px'
                                   }
@@ -1537,12 +1537,12 @@ const ProductsPage: React.FC = () => {
                               >
                                 {categories && categories.length > 0 ? (
                                   categories.map((category: any) => (
-                                    <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.8rem' }}>
+                                    <MenuItem key={category.id} value={category.id} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                       {category.name}
                                     </MenuItem>
                                   ))
                                 ) : (
-                                  <MenuItem value="" disabled sx={{ fontSize: '0.8rem' }}>
+                                  <MenuItem value="" disabled sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                     No categories available
                                   </MenuItem>
                                 )}
@@ -1555,13 +1555,13 @@ const ProductsPage: React.FC = () => {
                       </TableRow>
                       {selectedProductForDetails.description && (
                         <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                          <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                              <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                               Description
                             </Box>
                           </TableCell>
-                          <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
+                          <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                             {inlineEditMode && inlineEditData ? (
                               <TextField
                                 value={inlineEditData.description}
@@ -1572,7 +1572,7 @@ const ProductsPage: React.FC = () => {
                                 rows={2}
                                 sx={{
                                   '& .MuiOutlinedInput-root': {
-                                    fontSize: '0.8rem'
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                                   }
                                 }}
                               />
@@ -1593,20 +1593,20 @@ const ProductsPage: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.75rem'
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
                           }}>
                             Pricing Information & Margins
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Base Cost
                           </Box>
                         </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.baseCost}
@@ -1619,7 +1619,7 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
@@ -1630,13 +1630,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Retail Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.retailPrice}
@@ -1649,18 +1649,18 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography sx={{ fontSize: '0.8rem' }}>
+                            <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatCurrency(selectedProductForDetails.retailPrice)}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             (inlineEditData.retailPrice !== undefined && inlineEditData.retailPrice !== null && inlineEditData.retailPrice > 0) && (
                               <Chip
@@ -1669,9 +1669,9 @@ const ProductsPage: React.FC = () => {
                                 variant="outlined"
                                 color={calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 20 ? 'success' : calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 10 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1684,9 +1684,9 @@ const ProductsPage: React.FC = () => {
                                 variant="outlined"
                                 color={(selectedProductForDetails.grossMarginRetail || 0) > 20 ? 'success' : (selectedProductForDetails.grossMarginRetail || 0) > 10 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1695,13 +1695,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Wholesale Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.wholesalePrice}
@@ -1714,18 +1714,18 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography sx={{ fontSize: '0.8rem' }}>
+                            <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatCurrency(selectedProductForDetails.wholesalePrice)}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             (inlineEditData.wholesalePrice !== undefined && inlineEditData.wholesalePrice !== null && inlineEditData.wholesalePrice > 0) && (
                               <Chip
@@ -1734,9 +1734,9 @@ const ProductsPage: React.FC = () => {
                                 variant="outlined"
                                 color={calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1749,9 +1749,9 @@ const ProductsPage: React.FC = () => {
                                 variant="outlined"
                                 color={(selectedProductForDetails.grossMarginWholesale || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginWholesale || 0) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1760,13 +1760,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Special Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.specialPrice}
@@ -1779,18 +1779,18 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography sx={{ fontSize: '0.8rem' }}>
+                            <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatCurrency(selectedProductForDetails.specialPrice)}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             (inlineEditData.specialPrice !== undefined && inlineEditData.specialPrice !== null && inlineEditData.specialPrice > 0) && (
                               <Chip
@@ -1799,9 +1799,9 @@ const ProductsPage: React.FC = () => {
                                 variant="outlined"
                                 color={calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1814,9 +1814,9 @@ const ProductsPage: React.FC = () => {
                                 variant="outlined"
                                 color={(selectedProductForDetails.grossMarginSpecial || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginSpecial || 0) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1835,20 +1835,20 @@ const ProductsPage: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.75rem'
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
                           }}>
                             Stock Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Current Stock
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.currentStock}
@@ -1858,18 +1858,18 @@ const ProductsPage: React.FC = () => {
                               inputProps={{ step: 1, min: 0 }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography variant="body1" sx={{ fontSize: '0.8rem' }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {selectedProductForDetails.stockQuantity || 0}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {!inlineEditMode && (
                             <Chip
                               label={getStockStatus(selectedProductForDetails).label}
@@ -1877,7 +1877,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               sx={{
-                                fontSize: '0.7rem',
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                                 fontWeight: 500,
                                 height: 20
                               }}
@@ -1896,7 +1896,7 @@ const ProductsPage: React.FC = () => {
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
                             color: 'primary.main', 
-                            fontSize: '0.75rem'
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
                           }}>
                             Notes & Additional Information
                           </Typography>
@@ -1914,7 +1914,7 @@ const ProductsPage: React.FC = () => {
                               placeholder="Add notes about this product..."
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   backgroundColor: 'background.paper'
                                 }
                               }}
@@ -1932,14 +1932,14 @@ const ProductsPage: React.FC = () => {
                             }}>
                               {selectedProductForDetails.notes ? (
                                 <Typography variant="body2" sx={{ 
-                                  fontSize: '0.8rem', 
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, 
                                   lineHeight: 1.4,
                                   whiteSpace: 'pre-wrap'
                                 }}>
                                   {selectedProductForDetails.notes}
                                 </Typography>
                               ) : (
-                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, fontStyle: 'italic' }}>
                                   No notes available
                                 </Typography>
                               )}
@@ -1982,7 +1982,7 @@ const ProductsPage: React.FC = () => {
           onClick={() => handleExport('csv')}
           disabled={isExporting}
         >
-          <TableChartIcon sx={{ mr: 1, fontSize: '1.1rem' }} />
+          <TableChartIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as CSV
@@ -1996,7 +1996,7 @@ const ProductsPage: React.FC = () => {
           onClick={() => handleExport('excel')}
           disabled={isExporting}
         >
-          <TableChartIcon sx={{ mr: 1, fontSize: '1.1rem', color: 'success.main' }} />
+          <TableChartIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, color: 'success.main' }} />
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as Excel
@@ -2010,7 +2010,7 @@ const ProductsPage: React.FC = () => {
           onClick={() => handleExport('pdf')}
           disabled={isExporting}
         >
-          <PictureAsPdfIcon sx={{ mr: 1, fontSize: '1.1rem', color: 'error.main' }} />
+          <PictureAsPdfIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, color: 'error.main' }} />
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as PDF
@@ -2182,7 +2182,7 @@ const ProductsPage: React.FC = () => {
                         <MenuItem value="Service">Service</MenuItem>
                       </Select>
                       {errors.type && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: '0.75rem' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                           {errors.type.message}
                         </Typography>
                       )}
@@ -2232,7 +2232,7 @@ const ProductsPage: React.FC = () => {
                         )}
                       </Select>
                       {errors.categoryId && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: '0.75rem' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                           {errors.categoryId.message}
                         </Typography>
                       )}
@@ -2284,7 +2284,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               color={retailMargin > 20 ? 'success' : retailMargin > 10 ? 'warning' : 'error'}
-                              sx={{ fontSize: '0.65rem', height: 18, minWidth: 35 }}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize, height: TYPOGRAPHY_STYLES.chip.extraSmall.height, minWidth: 35 }}
                             />
                           </InputAdornment>
                         )
@@ -2316,7 +2316,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               color={wholesaleMargin > 15 ? 'success' : wholesaleMargin > 5 ? 'warning' : 'error'}
-                              sx={{ fontSize: '0.65rem', height: 18, minWidth: 35 }}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize, height: TYPOGRAPHY_STYLES.chip.extraSmall.height, minWidth: 35 }}
                             />
                           </InputAdornment>
                         )
@@ -2348,7 +2348,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               color={specialMargin > 15 ? 'success' : specialMargin > 5 ? 'warning' : 'error'}
-                              sx={{ fontSize: '0.65rem', height: 18, minWidth: 35 }}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize, height: TYPOGRAPHY_STYLES.chip.extraSmall.height, minWidth: 35 }}
                             />
                           </InputAdornment>
                         )
@@ -2468,8 +2468,8 @@ const ProductsPage: React.FC = () => {
               disabled={isSubmitting}
               startIcon={<CalculateIcon />}
               sx={{
-                fontSize: '0.875rem',
-                fontWeight: 500,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                 color: dialogCalculatorOpen ? 'info.dark' : 'info.main',
                 borderColor: dialogCalculatorOpen ? 'info.dark' : 'info.main',
                 backgroundColor: dialogCalculatorOpen ? 'info.light' : 'transparent',

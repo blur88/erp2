@@ -405,17 +405,17 @@ const CustomersPage: React.FC = () => {
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: '40px',
-              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& input': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
               }
             },
             '& .MuiInputAdornment-root': {
               '& .MuiSvgIcon-root': {
-                fontSize: '1.25rem',
-                color: 'action.active'
+                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.searchField.icon.color
               }
             }
           }}
@@ -436,7 +436,7 @@ const CustomersPage: React.FC = () => {
         >
           <InputLabel 
             sx={{ 
-              fontSize: '0.875rem',
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '&.MuiInputLabel-shrunk': {
                 fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
@@ -450,11 +450,11 @@ const CustomersPage: React.FC = () => {
             onChange={(e) => dispatch(setFilters({ type: e.target.value as CustomerType }))}
             sx={{
               height: '40px',
-              fontSize: '0.875rem',
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 padding: '8.5px 14px',
                 height: '40px',
                 boxSizing: 'border-box'
@@ -471,9 +471,9 @@ const CustomersPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>All Types</MenuItem>
-            <MenuItem value={CustomerType.INDIVIDUAL} sx={{ fontSize: '0.875rem' }}>Individual</MenuItem>
-            <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: '0.875rem' }}>Business</MenuItem>
+            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All Types</MenuItem>
+            <MenuItem value={CustomerType.INDIVIDUAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Individual</MenuItem>
+            <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
           </Select>
         </FormControl>
         <FormControl 
@@ -485,7 +485,7 @@ const CustomersPage: React.FC = () => {
         >
           <InputLabel 
             sx={{ 
-              fontSize: '0.875rem',
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '&.MuiInputLabel-shrunk': {
                 fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
@@ -499,11 +499,11 @@ const CustomersPage: React.FC = () => {
             onChange={(e) => dispatch(setFilters({ status: e.target.value as CustomerStatus }))}
             sx={{
               height: '40px',
-              fontSize: '0.875rem',
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 padding: '8.5px 14px',
                 height: '40px',
                 boxSizing: 'border-box'
@@ -520,11 +520,11 @@ const CustomersPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>All Statuses</MenuItem>
-            <MenuItem value={CustomerStatus.ACTIVE} sx={{ fontSize: '0.875rem' }}>Active</MenuItem>
-            <MenuItem value={CustomerStatus.INACTIVE} sx={{ fontSize: '0.875rem' }}>Inactive</MenuItem>
-            <MenuItem value={CustomerStatus.SUSPENDED} sx={{ fontSize: '0.875rem' }}>Suspended</MenuItem>
-            <MenuItem value={CustomerStatus.BLACKLISTED} sx={{ fontSize: '0.875rem' }}>Blacklisted</MenuItem>
+            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All Statuses</MenuItem>
+            <MenuItem value={CustomerStatus.ACTIVE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Active</MenuItem>
+            <MenuItem value={CustomerStatus.INACTIVE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Inactive</MenuItem>
+            <MenuItem value={CustomerStatus.SUSPENDED} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Suspended</MenuItem>
+            <MenuItem value={CustomerStatus.BLACKLISTED} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Blacklisted</MenuItem>
           </Select>
         </FormControl>
         <FormControl 
@@ -536,7 +536,7 @@ const CustomersPage: React.FC = () => {
         >
           <InputLabel 
             sx={{ 
-              fontSize: '0.875rem',
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '&.MuiInputLabel-shrunk': {
                 fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
@@ -550,11 +550,11 @@ const CustomersPage: React.FC = () => {
             onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value as PriceLevel }))}
             sx={{
               height: '40px',
-              fontSize: '0.875rem',
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 padding: '8.5px 14px',
                 height: '40px',
                 boxSizing: 'border-box'
@@ -571,10 +571,10 @@ const CustomersPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>All Levels</MenuItem>
-            <MenuItem value={PriceLevel.RETAIL} sx={{ fontSize: '0.875rem' }}>Retail</MenuItem>
-            <MenuItem value={PriceLevel.WHOLESALE} sx={{ fontSize: '0.875rem' }}>Wholesale</MenuItem>
-            <MenuItem value={PriceLevel.SPECIAL} sx={{ fontSize: '0.875rem' }}>Special</MenuItem>
+            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All Levels</MenuItem>
+            <MenuItem value={PriceLevel.RETAIL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Retail</MenuItem>
+            <MenuItem value={PriceLevel.WHOLESALE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Wholesale</MenuItem>
+            <MenuItem value={PriceLevel.SPECIAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Special</MenuItem>
           </Select>
         </FormControl>
       </Box>

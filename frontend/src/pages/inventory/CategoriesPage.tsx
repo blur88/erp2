@@ -410,17 +410,17 @@ const CategoriesPage: React.FC = () => {
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: '40px',
-              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& input': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
               }
             },
             '& .MuiInputAdornment-root': {
               '& .MuiSvgIcon-root': {
-                fontSize: '1.25rem',
-                color: 'action.active'
+                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.searchField.icon.color
               }
             }
           }}
