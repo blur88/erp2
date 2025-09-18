@@ -429,8 +429,9 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
-    if (![SalesOrderStatus.DRAFT, SalesOrderStatus.PENDING].includes(order.status)) {
-      throw new ConflictException('Cannot delete order in current status');
+    // Allow deletion of orders that haven't been shipped yet
+    if ([SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status)) {
+      throw new ConflictException('Cannot delete order that has been shipped, delivered, or completed');
     }
 
     // Release reserved inventory
