@@ -29,8 +29,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  Category as CategoryIcon,
-  KeyboardDoubleArrowRight as DoubleArrowIcon,
+  DragIndicator as DragIndicatorIcon,
   RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
@@ -248,51 +247,37 @@ const CategoriesPage: React.FC = () => {
 
   const renderCategoryName = (category: Category) => {
     const indentLevel = category.level
-    const isParent = category.hasChildren
     const indentSize = 1.5 // Reduced indentation for more compact display
-    
+
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
+      <Box
+        sx={{
+          display: 'flex',
           alignItems: 'center',
           ml: indentLevel * indentSize,
-          minHeight: 32 // Compact row height
+          minHeight: 32, // Compact row height
+          gap: 0.5
         }}
         aria-level={indentLevel + 1}
         role="treeitem"
-        aria-expanded={isParent ? true : undefined}
-        aria-label={`${category.name} ${indentLevel === 0 ? 'root category' : `level ${indentLevel} category`} ${isParent ? 'with subcategories' : ''}`}
-      >        
-        {/* Hierarchy indicator with DoubleArrow for child categories */}
-        {indentLevel > 0 && (
-          <DoubleArrowIcon 
-            sx={{ 
-              mr: 0.5,
-              color: 'text.disabled',
-              fontSize: 20
-            }}
-          />
-        )}
-        
-        {/* Minimal Category Icon */}
-        <Box sx={{ mr: 0.75, display: 'flex', alignItems: 'center' }}>
-          <CategoryIcon 
-            sx={{ 
-              fontSize: indentLevel === 0 ? 18 : 16, 
-              color: indentLevel === 0 ? 'primary.main' : isParent ? 'secondary.main' : 'text.secondary'
-            }} 
-          />
-        </Box>
-        
+        aria-label={`${category.name} ${indentLevel === 0 ? 'root category' : `level ${indentLevel} category`}`}
+      >
+        {/* DragIndicator Icon for all categories */}
+        <DragIndicatorIcon
+          sx={{
+            color: 'text.secondary',
+            fontSize: '0.8rem'
+          }}
+        />
+
         {/* Category Name */}
         <Typography
           variant="body2"
           sx={{
             fontWeight: 400,
-            color: indentLevel === 0 ? 'primary.dark' : 'text.primary',
-            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+            color: 'text.primary',
+            fontSize: '0.8rem',
+            lineHeight: 1.2,
             wordBreak: 'break-word'
           }}
         >
@@ -326,7 +311,7 @@ const CategoriesPage: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <CategoryIcon sx={{
+            <DragIndicatorIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
