@@ -436,11 +436,8 @@ export class SalesOrderService {
     // Release reserved inventory
     await this.inventoryIntegrationService.releaseReservation(id);
 
-    // Soft delete by setting status to cancelled
-    order.status = SalesOrderStatus.CANCELLED;
-    order.internalNotes = `${order.internalNotes || ''}\nDeleted on ${new Date().toISOString()}`;
-    
-    await this.salesOrderRepository.save(order);
+    // Soft delete using TypeORM's built-in soft delete
+    await this.salesOrderRepository.softDelete(id);
   }
 
   async confirmOrder(id: string): Promise<SalesOrderResponseDto> {
@@ -759,6 +756,7 @@ export class SalesOrderService {
 
     let queryBuilder = this.salesOrderRepository
       .createQueryBuilder('order')
+      .withDeleted() // Include soft-deleted records
       .leftJoinAndSelect('order.customer', 'customer')
       .leftJoinAndSelect('order.items', 'items')
       .where('order.deletedAt IS NOT NULL'); // Only get soft-deleted orders
