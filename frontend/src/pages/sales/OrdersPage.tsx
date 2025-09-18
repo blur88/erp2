@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -85,6 +85,7 @@ const OrdersPage: React.FC = () => {
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
+  const orderListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadOrders()
@@ -207,6 +208,31 @@ const OrdersPage: React.FC = () => {
     }
   }
 
+  // Auto-focus first order when orders load
+  useEffect(() => {
+    if (orders.length > 0 && focusedOrderIndex === -1) {
+      // Only auto-focus if we don't have a selected order
+      if (!selectedOrder) {
+        setFocusedOrderIndex(0)
+        // Automatically show order details for the first order
+        setSelectedOrder(orders[0])
+      }
+    }
+  }, [orders, focusedOrderIndex, selectedOrder])
+
+  // Auto-scroll to keep focused item visible
+  useEffect(() => {
+    if (focusedOrderIndex >= 0 && orderListRef.current) {
+      const focusedRow = orderListRef.current.querySelector(`[data-order-index="${focusedOrderIndex}"]`)
+      if (focusedRow) {
+        focusedRow.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        })
+      }
+    }
+  }, [focusedOrderIndex])
+
   // Keyboard navigation functions
   const focusSearchInput = () => {
     const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
@@ -216,36 +242,58 @@ const OrdersPage: React.FC = () => {
     }
   }
 
-  const handleNavigateUp = () => {
+  const handleNavigateUp = useCallback(() => {
     if (focusedOrderIndex > 0) {
       const newIndex = focusedOrderIndex - 1
       setFocusedOrderIndex(newIndex)
       setSelectedOrder(orders[newIndex])
     }
-  }
+  }, [focusedOrderIndex, orders])
 
-  const handleNavigateDown = () => {
+  const handleNavigateDown = useCallback(() => {
     if (focusedOrderIndex < orders.length - 1) {
       const newIndex = focusedOrderIndex + 1
       setFocusedOrderIndex(newIndex)
       setSelectedOrder(orders[newIndex])
     }
-  }
+  }, [focusedOrderIndex, orders])
 
-  const handleNavigateToFirst = () => {
+  const handleNavigateToFirst = useCallback(() => {
     if (orders.length > 0) {
       setFocusedOrderIndex(0)
       setSelectedOrder(orders[0])
     }
-  }
+  }, [orders])
 
-  const handleNavigateToLast = () => {
+  const handleNavigateToLast = useCallback(() => {
     if (orders.length > 0) {
       const lastIndex = orders.length - 1
       setFocusedOrderIndex(lastIndex)
       setSelectedOrder(orders[lastIndex])
     }
-  }
+  }, [orders])
+
+  const handlePageUpNavigation = useCallback(() => {
+    const newIndex = Math.max(0, focusedOrderIndex - state.rowsPerPage)
+    setFocusedOrderIndex(newIndex)
+    if (orders[newIndex]) {
+      setSelectedOrder(orders[newIndex])
+    }
+  }, [focusedOrderIndex, state.rowsPerPage, orders])
+
+  const handlePageDownNavigation = useCallback(() => {
+    const newIndex = Math.min(orders.length - 1, focusedOrderIndex + state.rowsPerPage)
+    setFocusedOrderIndex(newIndex)
+    if (orders[newIndex]) {
+      setSelectedOrder(orders[newIndex])
+    }
+  }, [focusedOrderIndex, state.rowsPerPage, orders])
+
+  const handleEnterAction = useCallback(() => {
+    if (focusedOrderIndex >= 0 && orders[focusedOrderIndex]) {
+      setEditDialog(true)
+    }
+  }, [focusedOrderIndex, orders])
 
   const handleEditAction = () => {
     if (selectedOrder) {
@@ -271,6 +319,17 @@ const OrdersPage: React.FC = () => {
     setCreateDialog(true)
   }
 
+  const handleEscapeAction = useCallback(() => {
+    setFocusedOrderIndex(-1)
+    setSelectedOrder(null)
+    setCreateDialog(false)
+    setEditDialog(false)
+    setViewDialog(false)
+    setDeletedOrdersDialogOpen(false)
+    setDeleteConfirmOpen(false)
+    setKeyboardHelpOpen(false)
+  }, [])
+
   const clearDialogs = () => {
     setCreateDialog(false)
     setEditDialog(false)
@@ -290,10 +349,12 @@ const OrdersPage: React.FC = () => {
     onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
+    onEnter: handleEnterAction,
+    onPageUp: handlePageUpNavigation,
+    onPageDown: handlePageDownNavigation,
     onHome: handleNavigateToFirst,
     onEnd: handleNavigateToLast,
-    onEnter: handleEditAction,
-    onEscape: clearDialogs,
+    onEscape: handleEscapeAction,
   })
 
 
@@ -486,7 +547,7 @@ const OrdersPage: React.FC = () => {
             </Box>
 
             {/* Order List Table */}
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={orderListRef}>
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                 <Table
                   size={TABLE_STYLES.size}
@@ -504,6 +565,7 @@ const OrdersPage: React.FC = () => {
                         key={order.id}
                         hover
                         onClick={() => handleOrderSelect(order)}
+                        data-order-index={index}
                         sx={{
                           cursor: 'pointer',
                           backgroundColor: selectedOrder?.id === order.id ? 'action.selected' :
