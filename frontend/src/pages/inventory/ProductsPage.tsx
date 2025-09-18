@@ -1201,7 +1201,7 @@ const ProductsPage: React.FC = () => {
                               <TableCell sx={{ py: TABLE_STYLES.cell.padding.py }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                   <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
-                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight }}>
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: '0.8rem', lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight, fontWeight: 400 }}>
                                     {product.name}
                                   </Typography>
                                 </Box>

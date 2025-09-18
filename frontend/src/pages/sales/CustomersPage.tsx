@@ -704,7 +704,7 @@ const CustomersPage: React.FC = () => {
                         </Avatar>
                         <Box>
                           <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                            fontWeight: 400,
                             fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                             lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                           }}>

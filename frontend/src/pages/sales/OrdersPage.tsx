@@ -410,7 +410,7 @@ const OrdersPage: React.FC = () => {
                         }}
                       >
                         <TableCell>
-                          <Typography variant="body2" fontWeight="medium" sx={{ fontSize: '0.8rem' }}>
+                          <Typography variant="body2" fontWeight={400} sx={{ fontSize: '0.8rem' }}>
                             {order.orderNumber}
                           </Typography>
                           {order.isOverdue && (

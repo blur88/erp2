@@ -289,7 +289,7 @@ const CategoriesPage: React.FC = () => {
         <Typography
           variant="body2"
           sx={{
-            fontWeight: indentLevel === 0 ? TYPOGRAPHY_STYLES.tableCell.primary.fontWeight : TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+            fontWeight: 400,
             color: indentLevel === 0 ? 'primary.dark' : 'text.primary',
             fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
             lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
