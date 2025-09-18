@@ -77,7 +77,7 @@ import {
   setProductFilters,
   selectProductFilters,
 } from '@/store/slices/inventorySlice'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 
 interface ProductFormData {
@@ -1035,7 +1035,7 @@ const ProductsPage: React.FC = () => {
           {/* Left Side - Active Products List */}
           <Grid item xs={12} md={6}>
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
+            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
                   Product List ({pagination?.total || 0})
@@ -1151,14 +1151,14 @@ const ProductsPage: React.FC = () => {
               ) : (
                 <>
                   <TableContainer sx={{ flex: 1, overflowX: 'auto' }}>
-                    <Table 
-                      size="small" 
+                    <Table
+                      size={TABLE_STYLES.size}
                       stickyHeader
-                      sx={{ 
-                        '& .MuiTableCell-root': { 
-                          borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                          py: 0.5,
-                          px: 1
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          borderBottom: TABLE_STYLES.cell.border,
+                          py: TABLE_STYLES.cell.padding.py,
+                          px: TABLE_STYLES.cell.padding.px
                         }
                       }}
                     >
@@ -1198,7 +1198,7 @@ const ProductsPage: React.FC = () => {
                                 })
                               }}
                             >
-                              <TableCell sx={{ py: 0.5 }}>
+                              <TableCell sx={{ py: TABLE_STYLES.cell.padding.py }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                   <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                                   <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight }}>
@@ -1236,8 +1236,8 @@ const ProductsPage: React.FC = () => {
         {/* Right Side - Product Details View */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 {selectedProductForDetails ? 'Product Details' : 'Select Product'}
               </Typography>
               {selectedProductForDetails && (
@@ -1325,7 +1325,7 @@ const ProductsPage: React.FC = () => {
                 </Box>
               )}
             </Box>
-            <Box sx={{ flex: 1, overflow: 'auto', p: 1.5 }}>
+            <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
               {!selectedProductForDetails ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                   <Typography variant="body1" color="text.secondary" textAlign="center">
@@ -1334,18 +1334,18 @@ const ProductsPage: React.FC = () => {
                 </Box>
               ) : (
                 <TableContainer>
-                  <Table 
-                    size="small" 
-                    sx={{ 
+                  <Table
+                    size={TABLE_STYLES.size}
+                    sx={{
                       tableLayout: 'fixed',
-                      '& .MuiTableCell-root': { 
-                        border: 'none', 
-                        py: 0.75, 
-                        px: 1.5,
+                      '& .MuiTableCell-root': {
+                        border: 'none',
+                        py: TABLE_STYLES.cell.padding.py,
+                        px: TABLE_STYLES.cell.padding.px,
                         ...(isMobile && {
-                          px: 1,
-                          py: 0.5,
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                          px: TABLE_STYLES.cell.padding.px * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize
                         }),
                         '&:nth-of-type(1)': { width: '35%' }, // Field name column
                         '&:nth-of-type(2)': { width: '45%' }, // Value column
@@ -1356,10 +1356,10 @@ const ProductsPage: React.FC = () => {
                     <TableBody>
                       {/* Basic Information Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ 
-                          pb: 0.5, 
-                          py: 0.5, 
-                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        <TableCell colSpan={3} sx={{
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
                         }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
@@ -1585,10 +1585,10 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Pricing Information Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ 
-                          pt: 1.5, 
-                          pb: 0.5,
-                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        <TableCell colSpan={3} sx={{
+                          pt: TABLE_STYLES.cell.padding.py * 2,
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
                         }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
@@ -1827,10 +1827,10 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Stock Information Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ 
-                          pt: 1.5, 
-                          pb: 0.5,
-                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        <TableCell colSpan={3} sx={{
+                          pt: TABLE_STYLES.cell.padding.py * 2,
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
                         }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
@@ -1888,10 +1888,10 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Notes Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ 
-                          pt: 1.5, 
-                          pb: 0.5,
-                          borderTop: '1px solid rgba(224, 224, 224, 0.4)'
+                        <TableCell colSpan={3} sx={{
+                          pt: TABLE_STYLES.cell.padding.py * 2,
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
                         }}>
                           <Typography variant="h6" sx={{ 
                             fontWeight: 600, 
@@ -1903,7 +1903,7 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell colSpan={3} sx={{ p: 1.5 }}>
+                        <TableCell colSpan={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.notes}
