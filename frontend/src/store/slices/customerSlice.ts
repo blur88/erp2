@@ -232,7 +232,7 @@ const customerSlice = createSlice({
       .addCase(fetchCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          state.currentCustomer = (action.payload as any).data || action.payload as Customer
+          state.currentCustomer = ((action.payload as any).data || action.payload) as Customer
         }
       })
       .addCase(fetchCustomer.rejected, (state, action) => {
@@ -249,7 +249,7 @@ const customerSlice = createSlice({
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const customer = (action.payload as any).data || action.payload as Customer
+          const customer = ((action.payload as any).data || action.payload) as Customer
           state.customers.unshift(customer)
           state.pagination.total += 1
         }
@@ -268,7 +268,7 @@ const customerSlice = createSlice({
       .addCase(updateCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
+          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -308,7 +308,7 @@ const customerSlice = createSlice({
     builder
       .addCase(activateCustomer.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
+          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -323,7 +323,7 @@ const customerSlice = createSlice({
     builder
       .addCase(deactivateCustomer.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
+          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -338,7 +338,7 @@ const customerSlice = createSlice({
     builder
       .addCase(suspendCustomer.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
+          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -353,7 +353,7 @@ const customerSlice = createSlice({
     builder
       .addCase(updateCreditLimit.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
+          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -392,7 +392,7 @@ const customerSlice = createSlice({
       .addCase(restoreCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const restoredCustomer = (action.payload as any).data || action.payload as Customer
+          const restoredCustomer = ((action.payload as any).data || action.payload) as Customer
           // Remove from deleted customers
           state.deletedCustomers = state.deletedCustomers.filter(c => c.id !== restoredCustomer.id)
           // Add to regular customers if not already there

@@ -15,6 +15,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
   InputAdornment,
   Table,
   TableBody,
@@ -112,6 +113,7 @@ const CustomersPage: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
