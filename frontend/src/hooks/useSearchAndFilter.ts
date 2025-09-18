@@ -63,19 +63,33 @@ export const useSearchAndFilter = ({
   }
 }
 
-// Keyboard shortcuts hook
+// Enhanced keyboard shortcuts hook with table navigation
 export const useKeyboardShortcuts = (callbacks: {
   onSearch?: () => void
   onAdd?: () => void
   onRefresh?: () => void
   onEscape?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+  onExport?: () => void
+  onImport?: () => void
+  onViewDeleted?: () => void
+  onArrowUp?: () => void
+  onArrowDown?: () => void
+  onEnter?: () => void
+  onPageUp?: () => void
+  onPageDown?: () => void
+  onHome?: () => void
+  onEnd?: () => void
 }) => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't trigger shortcuts when user is typing in inputs
+      // Don't trigger shortcuts when user is typing in inputs, except for specific navigation keys
       const target = event.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        // Allow Ctrl+F even in inputs
+      const isInInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+
+      if (isInInput) {
+        // Allow certain shortcuts even in inputs
         if (event.key === 'f' || event.key === 'F') {
           if ((event.ctrlKey || event.metaKey) && !event.altKey && callbacks.onSearch) {
             event.preventDefault()
@@ -85,29 +99,137 @@ export const useKeyboardShortcuts = (callbacks: {
         return
       }
 
+      // Handle modifiers
+      const isCtrl = event.ctrlKey || event.metaKey
+      const isShift = event.shiftKey
+      const isAlt = event.altKey
+
       switch (event.key) {
+        // Search functionality
         case 'f':
         case 'F':
-          if ((event.ctrlKey || event.metaKey) && !event.altKey && callbacks.onSearch) {
+          if (isCtrl && !isAlt && callbacks.onSearch) {
             event.preventDefault()
             callbacks.onSearch()
           }
           break
+
+        // Add new item
         case '+':
         case 'n':
         case 'N':
-          if (!event.ctrlKey && !event.altKey && !event.metaKey && callbacks.onAdd) {
+          if (!isCtrl && !isAlt && !isShift && callbacks.onAdd) {
             event.preventDefault()
             callbacks.onAdd()
           }
           break
+
+        // Refresh
         case 'r':
         case 'R':
-          if ((event.ctrlKey || event.metaKey) && !event.altKey && callbacks.onRefresh) {
+          if (isCtrl && !isAlt && callbacks.onRefresh) {
             event.preventDefault()
             callbacks.onRefresh()
           }
           break
+
+        // Edit selected item
+        case 'e':
+        case 'E':
+          if (!isCtrl && !isAlt && !isShift && callbacks.onEdit) {
+            event.preventDefault()
+            callbacks.onEdit()
+          }
+          break
+
+        // Delete selected item
+        case 'Delete':
+        case 'd':
+        case 'D':
+          if ((event.key === 'Delete' || (!isCtrl && !isAlt && !isShift)) && callbacks.onDelete) {
+            event.preventDefault()
+            callbacks.onDelete()
+          }
+          break
+
+        // Export
+        case 'x':
+        case 'X':
+          if (isCtrl && !isAlt && callbacks.onExport) {
+            event.preventDefault()
+            callbacks.onExport()
+          }
+          break
+
+        // Import
+        case 'i':
+        case 'I':
+          if (isCtrl && !isAlt && callbacks.onImport) {
+            event.preventDefault()
+            callbacks.onImport()
+          }
+          break
+
+        // View deleted items
+        case 't':
+        case 'T':
+          if (!isCtrl && !isAlt && !isShift && callbacks.onViewDeleted) {
+            event.preventDefault()
+            callbacks.onViewDeleted()
+          }
+          break
+
+        // Table navigation
+        case 'ArrowUp':
+          if (callbacks.onArrowUp) {
+            event.preventDefault()
+            callbacks.onArrowUp()
+          }
+          break
+
+        case 'ArrowDown':
+          if (callbacks.onArrowDown) {
+            event.preventDefault()
+            callbacks.onArrowDown()
+          }
+          break
+
+        case 'Enter':
+          if (callbacks.onEnter) {
+            event.preventDefault()
+            callbacks.onEnter()
+          }
+          break
+
+        case 'PageUp':
+          if (callbacks.onPageUp) {
+            event.preventDefault()
+            callbacks.onPageUp()
+          }
+          break
+
+        case 'PageDown':
+          if (callbacks.onPageDown) {
+            event.preventDefault()
+            callbacks.onPageDown()
+          }
+          break
+
+        case 'Home':
+          if (callbacks.onHome) {
+            event.preventDefault()
+            callbacks.onHome()
+          }
+          break
+
+        case 'End':
+          if (callbacks.onEnd) {
+            event.preventDefault()
+            callbacks.onEnd()
+          }
+          break
+
+        // Escape to clear selection or close dialogs
         case 'Escape':
           if (callbacks.onEscape) {
             event.preventDefault()

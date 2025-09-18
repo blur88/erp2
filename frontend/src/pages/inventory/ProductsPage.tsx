@@ -48,6 +48,7 @@ import {
   PictureAsPdf as PictureAsPdfIcon,
   CloudUpload as CloudUploadIcon,
   Inventory2 as InventoryIcon,
+  HelpOutline as HelpIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -59,6 +60,7 @@ import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import InlineCalculator from '@/components/calculator/InlineCalculator'
 import type { Product } from '@/types'
@@ -144,6 +146,7 @@ const ProductsPage: React.FC = () => {
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
@@ -335,119 +338,6 @@ const ProductsPage: React.FC = () => {
   // Products are now paginated and filtered by the server
   const displayProducts = products || []
 
-  // Keyboard navigation handlers
-  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (displayProducts.length === 0) return
-
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = prev < displayProducts.length - 1 ? prev + 1 : 0
-          // Automatically show product details for the focused product
-          if (nextIndex >= 0 && nextIndex < displayProducts.length) {
-            setSelectedProductForDetails(displayProducts[nextIndex])
-          }
-          return nextIndex
-        })
-        break
-      case 'ArrowUp':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = prev > 0 ? prev - 1 : displayProducts.length - 1
-          // Automatically show product details for the focused product
-          if (nextIndex >= 0 && nextIndex < displayProducts.length) {
-            setSelectedProductForDetails(displayProducts[nextIndex])
-          }
-          return nextIndex
-        })
-        break
-      case 'Enter':
-        event.preventDefault()
-        if (focusedProductIndex >= 0 && focusedProductIndex < displayProducts.length) {
-          setSelectedProductForDetails(displayProducts[focusedProductIndex])
-        }
-        break
-      case 'Home':
-        event.preventDefault()
-        setFocusedProductIndex(0)
-        // Automatically show product details for the first product
-        if (displayProducts.length > 0) {
-          setSelectedProductForDetails(displayProducts[0])
-        }
-        break
-      case 'End':
-        event.preventDefault()
-        setFocusedProductIndex(displayProducts.length - 1)
-        // Automatically show product details for the last product
-        if (displayProducts.length > 0) {
-          setSelectedProductForDetails(displayProducts[displayProducts.length - 1])
-        }
-        break
-      case 'PageDown':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = Math.min(prev + 5, displayProducts.length - 1)
-          const finalIndex = nextIndex >= 0 ? nextIndex : 0
-          // Automatically show product details for the focused product
-          if (finalIndex >= 0 && finalIndex < displayProducts.length) {
-            setSelectedProductForDetails(displayProducts[finalIndex])
-          }
-          return finalIndex
-        })
-        break
-      case 'PageUp':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = Math.max(prev - 5, 0)
-          // Automatically show product details for the focused product
-          if (nextIndex >= 0 && nextIndex < displayProducts.length) {
-            setSelectedProductForDetails(displayProducts[nextIndex])
-          }
-          return nextIndex
-        })
-        break
-      case 'Delete':
-        if (focusedProductIndex >= 0 && focusedProductIndex < displayProducts.length) {
-          event.preventDefault()
-          handleDeleteProduct(displayProducts[focusedProductIndex])
-        }
-        break
-      case 'e':
-      case 'E':
-        if (focusedProductIndex >= 0 && focusedProductIndex < displayProducts.length && !event.ctrlKey && !event.altKey && !event.metaKey) {
-          event.preventDefault()
-          handleEditProduct(displayProducts[focusedProductIndex])
-        }
-        break
-      case 'Escape':
-        event.preventDefault()
-        setFocusedProductIndex(-1)
-        break
-      case 'f':
-      case 'F':
-        if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-          event.preventDefault()
-          // Focus the search input
-          const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
-          if (searchInput) {
-            searchInput.focus()
-            searchInput.select()
-          }
-        }
-        break
-      case '+':
-      case 'n':
-      case 'N':
-        if (!event.ctrlKey && !event.altKey && !event.metaKey) {
-          event.preventDefault()
-          handleAddProduct()
-        }
-        break
-      default:
-        break
-    }
-  }, [displayProducts, focusedProductIndex])
 
   // Reset focused index when products change or page changes
   useEffect(() => {
@@ -493,11 +383,113 @@ const ProductsPage: React.FC = () => {
   }
 
 
-  // Keyboard shortcuts
+  // Enhanced keyboard shortcuts with table navigation
+  const handleNavigateUp = useCallback(() => {
+    if (focusedProductIndex > 0) {
+      const newIndex = focusedProductIndex - 1
+      setFocusedProductIndex(newIndex)
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleNavigateDown = useCallback(() => {
+    if (focusedProductIndex < products.length - 1) {
+      const newIndex = focusedProductIndex + 1
+      setFocusedProductIndex(newIndex)
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleNavigateHome = useCallback(() => {
+    if (products.length > 0) {
+      setFocusedProductIndex(0)
+      setSelectedProductForDetails(products[0])
+    }
+  }, [products])
+
+  const handleNavigateEnd = useCallback(() => {
+    if (products.length > 0) {
+      const lastIndex = products.length - 1
+      setFocusedProductIndex(lastIndex)
+      setSelectedProductForDetails(products[lastIndex])
+    }
+  }, [products])
+
+  const handlePageUpNavigation = useCallback(() => {
+    const newIndex = Math.max(0, focusedProductIndex - rowsPerPage)
+    setFocusedProductIndex(newIndex)
+    if (products[newIndex]) {
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, rowsPerPage, products])
+
+  const handlePageDownNavigation = useCallback(() => {
+    const newIndex = Math.min(products.length - 1, focusedProductIndex + rowsPerPage)
+    setFocusedProductIndex(newIndex)
+    if (products[newIndex]) {
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, rowsPerPage, products])
+
+  const handleEnterAction = useCallback(() => {
+    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
+      handleEditProduct(products[focusedProductIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleEditAction = useCallback(() => {
+    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
+      handleEditProduct(products[focusedProductIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleDeleteAction = useCallback(() => {
+    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
+      handleDeleteProduct(products[focusedProductIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleExportAction = useCallback(() => {
+    if (products.length > 0) {
+      handleExport('csv')
+    }
+  }, [products])
+
+  const handleImportAction = useCallback(() => {
+    setImportDialogOpen(true)
+  }, [])
+
+  const handleViewDeletedAction = useCallback(() => {
+    setDeletedProductsDialogOpen(true)
+  }, [])
+
+  const handleEscapeAction = useCallback(() => {
+    setFocusedProductIndex(-1)
+    setSelectedProductForDetails(null)
+    setDialogOpen(false)
+    setDeletedProductsDialogOpen(false)
+    setImportDialogOpen(false)
+    setDeleteConfirmOpen(false)
+    setKeyboardHelpOpen(false)
+  }, [])
+
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
     onAdd: handleAddProduct,
     onRefresh: handleRefresh,
+    onEdit: handleEditAction,
+    onDelete: handleDeleteAction,
+    onExport: handleExportAction,
+    onImport: handleImportAction,
+    onViewDeleted: handleViewDeletedAction,
+    onArrowUp: handleNavigateUp,
+    onArrowDown: handleNavigateDown,
+    onEnter: handleEnterAction,
+    onPageUp: handlePageUpNavigation,
+    onPageDown: handlePageDownNavigation,
+    onHome: handleNavigateHome,
+    onEnd: handleNavigateEnd,
+    onEscape: handleEscapeAction,
   })
 
   const handleCloseDialog = () => {
@@ -858,6 +850,23 @@ const ProductsPage: React.FC = () => {
           >
             {isMobile ? "Add New Product" : "Add Product"}
           </Button>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <HelpIcon /> : undefined}
+            size={isMobile ? "medium" : "medium"}
+            onClick={() => setKeyboardHelpOpen(true)}
+            fullWidth={isMobile}
+            sx={{
+              borderColor: 'info.main',
+              color: 'info.main',
+              '&:hover': {
+                borderColor: 'info.dark',
+                backgroundColor: 'info.light'
+              }
+            }}
+          >
+            {isMobile ? "Keyboard Shortcuts" : "Shortcuts"}
+          </Button>
         </Box>
       </Box>
 
@@ -1157,7 +1166,6 @@ const ProductsPage: React.FC = () => {
               }}
               ref={productListRef}
               tabIndex={0}
-              onKeyDown={handleKeyDown}
               onFocus={() => {
                 // Auto-focus first product when the container gets focus
                 if (displayProducts.length > 0 && focusedProductIndex === -1) {
@@ -2562,6 +2570,11 @@ const ProductsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         severity="warning"
+      />
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsHelp
+        open={keyboardHelpOpen}
+        onClose={() => setKeyboardHelpOpen(false)}
       />
     </Box>
   )
