@@ -344,6 +344,10 @@ const ProductsPage: React.FC = () => {
         event.preventDefault()
         setFocusedProductIndex(prev => {
           const nextIndex = prev < displayProducts.length - 1 ? prev + 1 : 0
+          // Automatically show product details for the focused product
+          if (nextIndex >= 0 && nextIndex < displayProducts.length) {
+            setSelectedProductForDetails(displayProducts[nextIndex])
+          }
           return nextIndex
         })
         break
@@ -351,6 +355,10 @@ const ProductsPage: React.FC = () => {
         event.preventDefault()
         setFocusedProductIndex(prev => {
           const nextIndex = prev > 0 ? prev - 1 : displayProducts.length - 1
+          // Automatically show product details for the focused product
+          if (nextIndex >= 0 && nextIndex < displayProducts.length) {
+            setSelectedProductForDetails(displayProducts[nextIndex])
+          }
           return nextIndex
         })
         break
@@ -363,22 +371,39 @@ const ProductsPage: React.FC = () => {
       case 'Home':
         event.preventDefault()
         setFocusedProductIndex(0)
+        // Automatically show product details for the first product
+        if (displayProducts.length > 0) {
+          setSelectedProductForDetails(displayProducts[0])
+        }
         break
       case 'End':
         event.preventDefault()
         setFocusedProductIndex(displayProducts.length - 1)
+        // Automatically show product details for the last product
+        if (displayProducts.length > 0) {
+          setSelectedProductForDetails(displayProducts[displayProducts.length - 1])
+        }
         break
       case 'PageDown':
         event.preventDefault()
         setFocusedProductIndex(prev => {
           const nextIndex = Math.min(prev + 5, displayProducts.length - 1)
-          return nextIndex >= 0 ? nextIndex : 0
+          const finalIndex = nextIndex >= 0 ? nextIndex : 0
+          // Automatically show product details for the focused product
+          if (finalIndex >= 0 && finalIndex < displayProducts.length) {
+            setSelectedProductForDetails(displayProducts[finalIndex])
+          }
+          return finalIndex
         })
         break
       case 'PageUp':
         event.preventDefault()
         setFocusedProductIndex(prev => {
           const nextIndex = Math.max(prev - 5, 0)
+          // Automatically show product details for the focused product
+          if (nextIndex >= 0 && nextIndex < displayProducts.length) {
+            setSelectedProductForDetails(displayProducts[nextIndex])
+          }
           return nextIndex
         })
         break
@@ -435,6 +460,8 @@ const ProductsPage: React.FC = () => {
       // Only auto-focus if we don't have a selected product
       if (!selectedProductForDetails) {
         setFocusedProductIndex(0)
+        // Automatically show product details for the first product
+        setSelectedProductForDetails(displayProducts[0])
       }
     }
   }, [displayProducts, focusedProductIndex, selectedProductForDetails])
@@ -1135,6 +1162,8 @@ const ProductsPage: React.FC = () => {
                 // Auto-focus first product when the container gets focus
                 if (displayProducts.length > 0 && focusedProductIndex === -1) {
                   setFocusedProductIndex(0)
+                  // Automatically show product details for the first product
+                  setSelectedProductForDetails(displayProducts[0])
                 }
               }}
             >
