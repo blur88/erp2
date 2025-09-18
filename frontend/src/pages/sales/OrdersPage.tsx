@@ -45,7 +45,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface OrdersPageState {
   search: string
@@ -361,8 +361,13 @@ const OrdersPage: React.FC = () => {
         {/* Left Side - Order List */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
                 Order List ({pagination?.total || 0})
               </Typography>
             </Box>
@@ -371,28 +376,15 @@ const OrdersPage: React.FC = () => {
             <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                 <Table
-                  size="small"
+                  size={TABLE_STYLES.size}
                   sx={{
                     '& .MuiTableCell-root': {
-                      borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                      py: 0.75,
-                      px: 1.5
+                      borderBottom: TABLE_STYLES.cell.border,
+                      py: TABLE_STYLES.cell.padding.py,
+                      px: TABLE_STYLES.cell.padding.px
                     }
                   }}
                 >
-                  <TableHead>
-                    <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                      <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                          color: TYPOGRAPHY_STYLES.tableHeader.color,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                        }}>
-                          Order #
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
                   <TableBody>
                     {orders.map((order: any) => (
                       <TableRow
@@ -406,11 +398,18 @@ const OrdersPage: React.FC = () => {
                             backgroundColor: selectedOrder?.id === order.id ? 'action.selected' : 'action.hover'
                           },
                           transition: 'background-color 0.2s ease',
-                          height: 48
+                          height: TABLE_STYLES.row.height
                         }}
                       >
                         <TableCell>
-                          <Typography variant="body2" fontWeight={400} sx={{ fontSize: '0.8rem' }}>
+                          <Typography
+                            variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                            sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                            }}
+                          >
                             {order.orderNumber}
                           </Typography>
                           {order.isOverdue && (
@@ -420,8 +419,8 @@ const OrdersPage: React.FC = () => {
                               size="small"
                               sx={{
                                 mt: 0.25,
-                                fontSize: '0.65rem',
-                                height: 18
+                                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                height: TYPOGRAPHY_STYLES.chip.extraSmall.height
                               }}
                             />
                           )}
