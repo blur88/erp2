@@ -91,7 +91,7 @@ export const TABLE_STYLES = {
     border: '1px solid rgba(224, 224, 224, 0.4)'
   },
   row: {
-    height: 48
+    height: 36
   },
   header: {
     backgroundColor: 'grey.50',

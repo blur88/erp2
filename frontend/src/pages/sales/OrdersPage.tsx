@@ -325,7 +325,7 @@ const OrdersPage: React.FC = () => {
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: '40px',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem',
               '& input': {
                 padding: '8.5px 14px',
@@ -342,7 +342,7 @@ const OrdersPage: React.FC = () => {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
+                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
               </InputAdornment>
             ),
           }}
@@ -467,7 +467,7 @@ const OrdersPage: React.FC = () => {
                       title="Edit Order"
                       onClick={handleEditOrder}
                     >
-                      <EditIcon />
+                      <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                     </IconButton>
                     <IconButton
                       size="small"
@@ -475,7 +475,7 @@ const OrdersPage: React.FC = () => {
                       title="Delete Order"
                       onClick={() => handleOrderAction('delete', selectedOrder.id)}
                     >
-                      <DeleteIcon />
+                      <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                     </IconButton>
                   </Box>
                 </Box>

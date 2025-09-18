@@ -255,7 +255,6 @@ const CategoriesPage: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           ml: indentLevel * indentSize,
-          minHeight: 32, // Compact row height
           gap: 0.5
         }}
         aria-level={indentLevel + 1}
@@ -266,18 +265,18 @@ const CategoriesPage: React.FC = () => {
         <DragIndicatorIcon
           sx={{
             color: 'text.secondary',
-            fontSize: '0.8rem'
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
           }}
         />
 
         {/* Category Name */}
         <Typography
-          variant="body2"
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
           sx={{
+            fontSize: '0.8rem',
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
             fontWeight: 400,
             color: 'text.primary',
-            fontSize: '0.8rem',
-            lineHeight: 1.2,
             wordBreak: 'break-word'
           }}
         >
@@ -433,14 +432,14 @@ const CategoriesPage: React.FC = () => {
           </Box>
         ) : (
           <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table 
-              size="small" // Use compact table size
-              sx={{ 
+            <Table
+              size={TABLE_STYLES.size}
+              sx={{
                 minWidth: isMobile ? 650 : 800,
-                '& .MuiTableCell-root': { 
-                  borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                  py: 0.75, // Reduced padding for compact display
-                  px: 1.5 // Consistent horizontal padding
+                '& .MuiTableCell-root': {
+                  borderBottom: TABLE_STYLES.cell.border,
+                  py: TABLE_STYLES.cell.padding.py,
+                  px: TABLE_STYLES.cell.padding.px
                 }
               }}
             >
@@ -501,7 +500,7 @@ const CategoriesPage: React.FC = () => {
                       },
                       transition: 'background-color 0.2s ease',
                       cursor: 'default',
-                      height: 48 // Fixed compact row height
+                      height: TABLE_STYLES.row.height
                     }}
                   >
                     <TableCell>
@@ -515,8 +514,7 @@ const CategoriesPage: React.FC = () => {
                         variant="outlined"
                         sx={{
                           fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                          fontWeight: 500,
-                          height: 20
+                          fontWeight: 500
                         }}
                       />
                     </TableCell>
@@ -555,7 +553,7 @@ const CategoriesPage: React.FC = () => {
                             p: 0.5 // Reduced padding
                           }}
                         >
-                          <EditIcon fontSize="small" />
+                          <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                         </IconButton>
                         <IconButton 
                           size="small" // Always use small size for compactness
@@ -570,7 +568,7 @@ const CategoriesPage: React.FC = () => {
                             p: 0.5 // Reduced padding
                           }}
                         >
-                          <DeleteIcon fontSize="small" />
+                          <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                         </IconButton>
                       </Box>
                       {/* Mobile-only date indicator */}

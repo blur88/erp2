@@ -8,8 +8,6 @@ import {
   Grid,
   Chip,
   IconButton,
-  Menu,
-  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -31,13 +29,11 @@ import {
   useMediaQuery,
   Avatar,
   Tooltip,
-  Divider,
   Stack,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -79,7 +75,7 @@ import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 // Form validation schema
 const customerSchema = yup.object({
@@ -116,7 +112,6 @@ const CustomersPage: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
@@ -307,7 +302,9 @@ const CustomersPage: React.FC = () => {
   }
 
   const getCustomerTypeIcon = (type: CustomerType) => {
-    return type === CustomerType.BUSINESS ? <BusinessIcon /> : <PersonIcon />
+    return type === CustomerType.BUSINESS
+      ? <BusinessIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+      : <PersonIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
   }
 
   return (
@@ -449,14 +446,14 @@ const CustomersPage: React.FC = () => {
             label="Type"
             onChange={(e) => dispatch(setFilters({ type: e.target.value as CustomerType }))}
             sx={{
-              height: '40px',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
                 fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 padding: '8.5px 14px',
-                height: '40px',
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
                 boxSizing: 'border-box'
               },
               '& .MuiOutlinedInput-notchedOutline': {
@@ -498,14 +495,14 @@ const CustomersPage: React.FC = () => {
             label="Status"
             onChange={(e) => dispatch(setFilters({ status: e.target.value as CustomerStatus }))}
             sx={{
-              height: '40px',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
                 fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 padding: '8.5px 14px',
-                height: '40px',
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
                 boxSizing: 'border-box'
               },
               '& .MuiOutlinedInput-notchedOutline': {
@@ -549,14 +546,14 @@ const CustomersPage: React.FC = () => {
             label="Price Level"
             onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value as PriceLevel }))}
             sx={{
-              height: '40px',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
                 fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 padding: '8.5px 14px',
-                height: '40px',
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
                 boxSizing: 'border-box'
               },
               '& .MuiOutlinedInput-notchedOutline': {
@@ -589,14 +586,14 @@ const CustomersPage: React.FC = () => {
       {/* Customer Table */}
       <Paper>
         <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table 
-            size="small" // Use compact table size
-            sx={{ 
+          <Table
+            size={TABLE_STYLES.size}
+            sx={{
               minWidth: isMobile ? 650 : 800,
-              '& .MuiTableCell-root': { 
-                borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                py: 0.75, // Reduced padding for compact display
-                px: 1.5 // Consistent horizontal padding
+              '& .MuiTableCell-root': {
+                borderBottom: TABLE_STYLES.cell.border,
+                py: TABLE_STYLES.cell.padding.py,
+                px: TABLE_STYLES.cell.padding.px
               }
             }}
           >
@@ -694,7 +691,7 @@ const CustomersPage: React.FC = () => {
                       },
                       transition: 'background-color 0.2s ease',
                       cursor: 'default',
-                      height: 48 // Fixed compact row height
+                      height: TABLE_STYLES.row.height
                     }}
                   >
                     <TableCell>
@@ -719,14 +716,14 @@ const CustomersPage: React.FC = () => {
                             label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
                             size="small"
                             variant="outlined"
-                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, height: 18 }}
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                           <Chip
                             label={customer.status === CustomerStatus.ACTIVE ? 'Active' : customer.status}
                             size="small"
                             color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
                             variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
-                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, height: 18 }}
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                         </Box>
                       )}
@@ -786,13 +783,10 @@ const CustomersPage: React.FC = () => {
                         }}
                       >
                         <IconButton
-                          size="small"
-                          title={`Actions for ${customer.name}`}
-                          aria-label={`Actions for customer ${customer.name}`}
-                          onClick={(e) => {
-                            setSelectedCustomer(customer)
-                            setAnchorEl(e.currentTarget)
-                          }}
+                          size="small" // Always use small size for compactness
+                          title={`Edit ${customer.name}`}
+                          aria-label={`Edit customer ${customer.name}`}
+                          onClick={() => handleOpenForm(customer)}
                           sx={{
                             '&:hover': {
                               backgroundColor: 'action.hover',
@@ -801,7 +795,40 @@ const CustomersPage: React.FC = () => {
                             p: 0.5 // Reduced padding
                           }}
                         >
-                          <MoreIcon fontSize="small" />
+                          <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                        </IconButton>
+                        <IconButton
+                          size="small" // Always use small size for compactness
+                          title={`Delete ${customer.name}`}
+                          aria-label={`Delete customer ${customer.name}`}
+                          onClick={() => {
+                            setSelectedCustomer(customer)
+                            setIsDeleteConfirmOpen(true)
+                          }}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'error.light',
+                              color: 'error.main'
+                            },
+                            p: 0.5 // Reduced padding
+                          }}
+                        >
+                          <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                        </IconButton>
+                        <IconButton
+                          size="small" // Always use small size for compactness
+                          title={`View ${customer.name} details`}
+                          aria-label={`View customer ${customer.name} details`}
+                          onClick={() => handleViewCustomer(customer)}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                              color: 'primary.main'
+                            },
+                            p: 0.5 // Reduced padding
+                          }}
+                        >
+                          <ViewIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                         </IconButton>
                       </Box>
                       {/* Mobile-only additional info */}
@@ -832,54 +859,6 @@ const CustomersPage: React.FC = () => {
         />
       </Paper>
 
-      {/* Actions Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-      >
-        <MenuItem onClick={() => selectedCustomer && handleViewCustomer(selectedCustomer)}>
-          <ViewIcon sx={{ mr: 1 }} />
-          View Details
-        </MenuItem>
-        <MenuItem onClick={() => {
-          setAnchorEl(null)
-          selectedCustomer && handleOpenForm(selectedCustomer)
-        }}>
-          <EditIcon sx={{ mr: 1 }} />
-          Edit
-        </MenuItem>
-        <Divider />
-        {selectedCustomer?.status !== CustomerStatus.ACTIVE && (
-          <MenuItem onClick={() => selectedCustomer && handleStatusAction(selectedCustomer, 'activate')}>
-            <ActivateIcon sx={{ mr: 1 }} />
-            Activate
-          </MenuItem>
-        )}
-        {selectedCustomer?.isActive && selectedCustomer?.status === CustomerStatus.ACTIVE && (
-          <MenuItem onClick={() => selectedCustomer && handleStatusAction(selectedCustomer, 'deactivate')}>
-            <DeactivateIcon sx={{ mr: 1 }} />
-            Deactivate
-          </MenuItem>
-        )}
-        {selectedCustomer?.status !== CustomerStatus.SUSPENDED && (
-          <MenuItem onClick={() => selectedCustomer && handleStatusAction(selectedCustomer, 'suspend')}>
-            <SuspendIcon sx={{ mr: 1 }} />
-            Suspend
-          </MenuItem>
-        )}
-        <Divider />
-        <MenuItem
-          onClick={() => {
-            setAnchorEl(null)
-            setIsDeleteConfirmOpen(true)
-          }}
-          sx={{ color: 'error.main' }}
-        >
-          <DeleteIcon sx={{ mr: 1 }} />
-          Delete
-        </MenuItem>
-      </Menu>
 
       {/* Customer Form Dialog */}
       <Dialog 

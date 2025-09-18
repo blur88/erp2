@@ -1220,7 +1220,7 @@ const ProductsPage: React.FC = () => {
                                       : 'action.hover'
                                 },
                                 transition: 'background-color 0.2s ease',
-                                height: 36,
+                                height: TABLE_STYLES.row.height,
                                 ...(isFocused && {
                                   outline: `2px solid ${theme.palette.primary.main}`,
                                   outlineOffset: '-2px'
@@ -1332,7 +1332,7 @@ const ProductsPage: React.FC = () => {
                           p: 0.5
                         }}
                       >
-                        <EditIcon fontSize="small" />
+                        <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                       </IconButton>
                       <IconButton
                         size="small"
@@ -1347,7 +1347,7 @@ const ProductsPage: React.FC = () => {
                           p: 0.5
                         }}
                       >
-                        <DeleteIcon fontSize="small" />
+                        <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
                       </IconButton>
                     </>
                   )}
