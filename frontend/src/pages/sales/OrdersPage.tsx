@@ -36,6 +36,7 @@ import {
   Refresh as RefreshIcon,
   Receipt as OrderIcon,
   RestoreFromTrash as RestoreIcon,
+  Keyboard as KeyboardIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination } from '@/store/slices/salesSlice'
@@ -45,6 +46,8 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface OrdersPageState {
@@ -80,6 +83,8 @@ const OrdersPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
+  const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
 
   useEffect(() => {
     loadOrders()
@@ -121,6 +126,8 @@ const OrdersPage: React.FC = () => {
   // Select order when clicked
   const handleOrderSelect = (order: SalesOrder) => {
     setSelectedOrder(order)
+    const orderIndex = orders.findIndex(o => o.id === order.id)
+    setFocusedOrderIndex(orderIndex)
   }
 
 
@@ -200,6 +207,95 @@ const OrdersPage: React.FC = () => {
     }
   }
 
+  // Keyboard navigation functions
+  const focusSearchInput = () => {
+    const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+    if (searchInput) {
+      searchInput.focus()
+      searchInput.select()
+    }
+  }
+
+  const handleNavigateUp = () => {
+    if (focusedOrderIndex > 0) {
+      const newIndex = focusedOrderIndex - 1
+      setFocusedOrderIndex(newIndex)
+      setSelectedOrder(orders[newIndex])
+    }
+  }
+
+  const handleNavigateDown = () => {
+    if (focusedOrderIndex < orders.length - 1) {
+      const newIndex = focusedOrderIndex + 1
+      setFocusedOrderIndex(newIndex)
+      setSelectedOrder(orders[newIndex])
+    }
+  }
+
+  const handleNavigateToFirst = () => {
+    if (orders.length > 0) {
+      setFocusedOrderIndex(0)
+      setSelectedOrder(orders[0])
+    }
+  }
+
+  const handleNavigateToLast = () => {
+    if (orders.length > 0) {
+      const lastIndex = orders.length - 1
+      setFocusedOrderIndex(lastIndex)
+      setSelectedOrder(orders[lastIndex])
+    }
+  }
+
+  const handleEditAction = () => {
+    if (selectedOrder) {
+      setEditDialog(true)
+    }
+  }
+
+  const handleDeleteAction = () => {
+    if (selectedOrder) {
+      handleOrderAction('delete', selectedOrder.id)
+    }
+  }
+
+  const handleRefreshAction = () => {
+    loadOrders()
+  }
+
+  const handleViewDeletedAction = () => {
+    setDeletedOrdersDialogOpen(true)
+  }
+
+  const handleAddOrder = () => {
+    setCreateDialog(true)
+  }
+
+  const clearDialogs = () => {
+    setCreateDialog(false)
+    setEditDialog(false)
+    setViewDialog(false)
+    setDeletedOrdersDialogOpen(false)
+    setDeleteConfirmOpen(false)
+    setKeyboardHelpOpen(false)
+  }
+
+  // Setup keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: handleAddOrder,
+    onRefresh: handleRefreshAction,
+    onEdit: handleEditAction,
+    onDelete: handleDeleteAction,
+    onViewDeleted: handleViewDeletedAction,
+    onArrowUp: handleNavigateUp,
+    onArrowDown: handleNavigateDown,
+    onHome: handleNavigateToFirst,
+    onEnd: handleNavigateToLast,
+    onEnter: handleEditAction,
+    onEscape: clearDialogs,
+  })
+
 
 
   if (loading && orders.length === 0) {
@@ -264,6 +360,23 @@ const OrdersPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <KeyboardIcon /> : undefined}
+            onClick={() => setKeyboardHelpOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              color: 'info.main',
+              borderColor: 'info.main',
+              '&:hover': {
+                borderColor: 'info.dark',
+                backgroundColor: 'info.light'
+              }
+            }}
+          >
+            {isMobile ? "Keyboard Shortcuts" : "Shortcuts"}
+          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
@@ -386,19 +499,25 @@ const OrdersPage: React.FC = () => {
                   }}
                 >
                   <TableBody>
-                    {orders.map((order: any) => (
+                    {orders.map((order: any, index: number) => (
                       <TableRow
                         key={order.id}
                         hover
                         onClick={() => handleOrderSelect(order)}
                         sx={{
                           cursor: 'pointer',
-                          backgroundColor: selectedOrder?.id === order.id ? 'action.selected' : 'inherit',
+                          backgroundColor: selectedOrder?.id === order.id ? 'action.selected' :
+                                         index === focusedOrderIndex ? 'action.focus' : 'inherit',
                           '&:hover': {
                             backgroundColor: selectedOrder?.id === order.id ? 'action.selected' : 'action.hover'
                           },
                           transition: 'background-color 0.2s ease',
-                          height: TABLE_STYLES.row.height
+                          height: TABLE_STYLES.row.height,
+                          ...(index === focusedOrderIndex && {
+                            outline: '2px solid',
+                            outlineColor: 'primary.main',
+                            outlineOffset: '-2px'
+                          })
                         }}
                       >
                         <TableCell>
@@ -812,6 +931,12 @@ const OrdersPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         severity="warning"
+      />
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsHelp
+        open={keyboardHelpOpen}
+        onClose={() => setKeyboardHelpOpen(false)}
       />
     </Box>
   )

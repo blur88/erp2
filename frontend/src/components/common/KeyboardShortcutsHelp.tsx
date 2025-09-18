@@ -97,7 +97,7 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
         },
         {
           keys: ['N', '+'],
-          description: 'Add new product',
+          description: 'Add new item',
           icon: <AddIcon fontSize="small" />,
         },
         {
@@ -178,7 +178,7 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
 
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Use these keyboard shortcuts to navigate and interact with the products page more efficiently.
+          Use these keyboard shortcuts to navigate and interact with the page more efficiently.
         </Typography>
 
         <Grid container spacing={3}>
