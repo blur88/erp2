@@ -1037,7 +1037,7 @@ const ProductsPage: React.FC = () => {
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Product List ({pagination?.total || 0})
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1361,22 +1361,22 @@ const ProductsPage: React.FC = () => {
                           py: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             Basic Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ 
-                          fontWeight: 500, 
-                          color: 'text.secondary', 
+                        <TableCell sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                          color: 'text.secondary',
                           width: isMobile ? '40%' : '35%',
                           minWidth: isMobile ? 'auto' : '120px',
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                         }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
@@ -1590,10 +1590,10 @@ const ProductsPage: React.FC = () => {
                           pb: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             Pricing Information & Margins
                           </Typography>
@@ -1832,10 +1832,10 @@ const ProductsPage: React.FC = () => {
                           pb: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             Stock Information
                           </Typography>
@@ -1893,10 +1893,10 @@ const ProductsPage: React.FC = () => {
                           pb: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             Notes & Additional Information
                           </Typography>
