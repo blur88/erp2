@@ -46,6 +46,31 @@ export class SalesOrderService {
     private readonly inventoryIntegrationService: InventoryIntegrationService,
   ) {}
 
+  private async generateSequentialOrderNumber(): Promise<string> {
+    // Get all existing order numbers that match the sequential format
+    const orders = await this.salesOrderRepository.find({
+      select: ['orderNumber']
+    });
+
+    let maxNumber = 0;
+    for (const order of orders) {
+      // Extract number from format SO-000001 (only sequential format)
+      const match = order.orderNumber.match(/^SO-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    // Next sequential number
+    const nextNumber = maxNumber + 1;
+
+    // Format with leading zeros (6 digits)
+    return `SO-${nextNumber.toString().padStart(6, '0')}`;
+  }
+
   async create(createSalesOrderDto: CreateSalesOrderDto, userId: string | null): Promise<SalesOrderResponseDto> {
     const { customerId, items, ...orderData } = createSalesOrderDto;
 
@@ -75,9 +100,13 @@ export class SalesOrderService {
       throw new ConflictException(`Insufficient inventory: ${inventoryCheck.message}`);
     }
 
+    // Generate sequential order number
+    const orderNumber = await this.generateSequentialOrderNumber();
+
     // Create sales order
     const salesOrder = this.salesOrderRepository.create({
       ...orderData,
+      orderNumber,
       customerId,
       createdByUserId: userId,
       orderDate: new Date(),

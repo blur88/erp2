@@ -289,15 +289,7 @@ export class SalesOrder extends BaseEntity {
     return this.deliveredDate !== null;
   }
 
-  // Hooks
-  @BeforeInsert()
-  generateOrderNumber() {
-    if (!this.orderNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-      this.orderNumber = `SO-${timestamp}-${random}`;
-    }
-  }
+  // Note: Order number generation moved to service layer for better async handling
 
   // Helper methods
   calculateTotals(): void {
