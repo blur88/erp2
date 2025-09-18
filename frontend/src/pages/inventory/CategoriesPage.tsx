@@ -45,6 +45,7 @@ import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { Category } from '@/types'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import {
   fetchCategories,
   createCategory,
@@ -285,13 +286,13 @@ const CategoriesPage: React.FC = () => {
         </Box>
         
         {/* Category Name */}
-        <Typography 
+        <Typography
           variant="body2"
-          sx={{ 
-            fontWeight: indentLevel === 0 ? 600 : isParent ? 500 : 400,
+          sx={{
+            fontWeight: indentLevel === 0 ? TYPOGRAPHY_STYLES.tableCell.primary.fontWeight : TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
             color: indentLevel === 0 ? 'primary.dark' : 'text.primary',
-            fontSize: indentLevel === 0 ? '0.9rem' : '0.8rem',
-            lineHeight: 1.2,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
             wordBreak: 'break-word'
           }}
         >
@@ -318,11 +319,20 @@ const CategoriesPage: React.FC = () => {
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <CategoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <CategoryIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Categories
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             Organize your products with categories ({categories.length} {categoryFilters.search ? 'found' : 'total'})
             {categoryFilters.search && (
               <>
@@ -452,24 +462,40 @@ const CategoriesPage: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                   <TableCell sx={{ width: isMobile ? '45%' : '40%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}>
                       Category Hierarchy
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: isMobile ? '15%' : '15%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}>
                       Products
                     </Typography>
                   </TableCell>
                   {!isMobile && (
                     <TableCell sx={{ width: '20%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}>
                         Created Date
                       </Typography>
                     </TableCell>
                   )}
                   <TableCell align="right" sx={{ width: isMobile ? '40%' : '25%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}>
                       Actions
                     </Typography>
                   </TableCell>
@@ -503,7 +529,7 @@ const CategoriesPage: React.FC = () => {
                         color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
                         variant="outlined"
                         sx={{
-                          fontSize: '0.7rem',
+                          fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                           fontWeight: 500,
                           height: 20
                         }}
@@ -511,7 +537,7 @@ const CategoriesPage: React.FC = () => {
                     </TableCell>
                     {!isMobile && (
                       <TableCell>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                           {new Date(category.createdAt).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'short',
@@ -568,7 +594,7 @@ const CategoriesPage: React.FC = () => {
                           display: 'block', 
                           textAlign: 'right', 
                           mt: 0.25, // Reduced margin
-                          fontSize: '0.65rem'
+                          fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize
                         }}>
                           {new Date(category.createdAt).toLocaleDateString('en-US', {
                             month: 'short',

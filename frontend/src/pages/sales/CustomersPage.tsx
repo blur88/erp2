@@ -79,6 +79,7 @@ import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 // Form validation schema
 const customerSchema = yup.object({
@@ -321,11 +322,20 @@ const CustomersPage: React.FC = () => {
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <PersonIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <PersonIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Customers
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             Manage your customers and client information ({customers.length} total)
           </Typography>
         </Box>
@@ -428,7 +438,7 @@ const CustomersPage: React.FC = () => {
             sx={{ 
               fontSize: '0.875rem',
               '&.MuiInputLabel-shrunk': {
-                fontSize: '0.75rem'
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
             }}
           >
@@ -477,7 +487,7 @@ const CustomersPage: React.FC = () => {
             sx={{ 
               fontSize: '0.875rem',
               '&.MuiInputLabel-shrunk': {
-                fontSize: '0.75rem'
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
             }}
           >
@@ -528,7 +538,7 @@ const CustomersPage: React.FC = () => {
             sx={{ 
               fontSize: '0.875rem',
               '&.MuiInputLabel-shrunk': {
-                fontSize: '0.75rem'
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
             }}
           >
@@ -593,38 +603,62 @@ const CustomersPage: React.FC = () => {
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                 <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
                     Customer
                   </Typography>
                 </TableCell>
                 {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
                       Type
                     </Typography>
                   </TableCell>
                 )}
                 <TableCell sx={{ width: isMobile ? '25%' : '18%' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
                     Contact
                   </Typography>
                 </TableCell>
                 {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
                       Status
                     </Typography>
                   </TableCell>
                 )}
                 {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
                       Sales
                     </Typography>
                   </TableCell>
                 )}
                 <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
                     Actions
                   </Typography>
                 </TableCell>
@@ -669,7 +703,11 @@ const CustomersPage: React.FC = () => {
                           {getCustomerTypeIcon(customer.type)}
                         </Avatar>
                         <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', lineHeight: 1.2 }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                          }}>
                             {customer.name}
                           </Typography>
                         </Box>
@@ -681,14 +719,14 @@ const CustomersPage: React.FC = () => {
                             label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
                             size="small"
                             variant="outlined"
-                            sx={{ fontSize: '0.65rem', height: 18 }}
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, height: 18 }}
                           />
                           <Chip
                             label={customer.status === CustomerStatus.ACTIVE ? 'Active' : customer.status}
                             size="small"
                             color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
                             variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
-                            sx={{ fontSize: '0.65rem', height: 18 }}
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize, height: 18 }}
                           />
                         </Box>
                       )}
@@ -699,7 +737,7 @@ const CustomersPage: React.FC = () => {
                           label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
                           size="small"
                           variant="outlined"
-                          sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
+                          sx={{ fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize, fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight, height: TYPOGRAPHY_STYLES.chip.small.height }}
                         />
                       </TableCell>
                     )}
@@ -708,7 +746,7 @@ const CustomersPage: React.FC = () => {
                         {customer.phone && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{customer.phone}</Typography>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>{customer.phone}</Typography>
                           </Box>
                         )}
                       </Box>
@@ -720,17 +758,17 @@ const CustomersPage: React.FC = () => {
                           size="small"
                           color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
                           variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
-                          sx={{ minWidth: 60, fontSize: '0.7rem', fontWeight: 500, height: 20 }}
+                          sx={{ minWidth: 60, fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize, fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight, height: TYPOGRAPHY_STYLES.chip.small.height }}
                         />
                       </TableCell>
                     )}
                     {!isMobile && (
                       <TableCell>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                             {customer.totalOrders} orders
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                             {formatCurrency(customer.totalSales)}
                           </Typography>
                         </Box>
@@ -769,7 +807,7 @@ const CustomersPage: React.FC = () => {
                       {/* Mobile-only additional info */}
                       {isMobile && (
                         <Box sx={{ mt: 0.25, textAlign: 'right' }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}>
                             {customer.totalOrders} orders • {formatCurrency(customer.totalSales)}
                           </Typography>
                         </Box>

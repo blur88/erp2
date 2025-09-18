@@ -45,6 +45,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface OrdersPageState {
   search: string
@@ -204,7 +205,19 @@ const OrdersPage: React.FC = () => {
   if (loading && orders.length === 0) {
     return (
       <Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 4 }}>Sales Orders</Typography>
+        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+          fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+          mb: 4,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <OrderIcon sx={{
+            fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+            color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+          }} />
+          Sales Orders
+        </Typography>
         <Paper>
           <Box sx={{ p: 3 }}>
             {[...Array(10)].map((_, i) => (
@@ -228,11 +241,20 @@ const OrdersPage: React.FC = () => {
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <OrderIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <OrderIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Sales Orders
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             Manage your sales orders and track delivery status ({orders.length} total)
           </Typography>
         </Box>
@@ -361,7 +383,11 @@ const OrdersPage: React.FC = () => {
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          color: TYPOGRAPHY_STYLES.tableHeader.color,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                        }}>
                           Order #
                         </Typography>
                       </TableCell>

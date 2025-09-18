@@ -77,6 +77,7 @@ import {
   setProductFilters,
   selectProductFilters,
 } from '@/store/slices/inventorySlice'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 
 interface ProductFormData {
@@ -771,11 +772,20 @@ const ProductsPage: React.FC = () => {
         marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <InventoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <InventoryIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Products
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             Manage your product catalog and inventory ({pagination?.total || 0} total)
           </Typography>
         </Box>
