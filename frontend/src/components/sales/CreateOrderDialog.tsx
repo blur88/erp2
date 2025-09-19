@@ -77,12 +77,14 @@ interface CreateOrderDialogProps {
   open: boolean
   onClose: () => void
   onOrderCreated: (order: SalesOrder) => void
+  editOrder?: SalesOrder | null // For edit mode
 }
 
 const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   open,
   onClose,
   onOrderCreated,
+  editOrder = null,
 }) => {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<any[]>([])
@@ -124,6 +126,51 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       loadProducts()
     }
   }, [open])
+
+  // Populate form when in edit mode
+  useEffect(() => {
+    if (editOrder && open) {
+      // Populate the form with order data
+      setValue('customerId', editOrder.customerId || '')
+      setValue('orderDate', editOrder.orderDate ? new Date(editOrder.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+      setValue('notes', editOrder.notes || '')
+
+      // Populate items
+      if (editOrder.items && editOrder.items.length > 0) {
+        const formattedItems = editOrder.items.map((item: any) => ({
+          productId: item.productId || '',
+          product: item.product,
+          quantity: item.quantity || 1,
+          unitPrice: item.unitPrice || 0,
+          discountType: (item.discountType || 'percentage') as 'percentage' | 'amount',
+          discountPercent: item.discountPercent || 0,
+          discountAmount: item.discountAmount || 0,
+          totalPrice: item.totalPrice || (item.quantity * item.unitPrice) || 0,
+          description: item.description || item.notes || '',
+        }))
+        setValue('items', formattedItems)
+      }
+    } else if (!editOrder && open) {
+      // Reset form for create mode
+      reset({
+        customerId: '',
+        orderDate: new Date().toISOString().split('T')[0],
+        notes: '',
+        items: [
+          {
+            productId: '',
+            quantity: 1,
+            unitPrice: 0,
+            discountType: 'percentage' as const,
+            discountPercent: 0,
+            discountAmount: 0,
+            totalPrice: 0,
+            description: '',
+          }
+        ],
+      })
+    }
+  }, [editOrder, open, setValue, reset])
 
   useEffect(() => {
     // Recalculate totals when items change
@@ -278,12 +325,20 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
         })),
       }
 
-      const response = await salesApi.createOrder(orderData)
+      let response
+      if (editOrder) {
+        // Update existing order
+        response = await salesApi.updateOrder(editOrder.id, orderData)
+      } else {
+        // Create new order
+        response = await salesApi.createOrder(orderData)
+      }
+
       // ApiService returns { data: SalesOrder } - extract the actual order
       onOrderCreated((response as any).data)
       handleClose()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create order')
+      setError(err.response?.data?.message || `Failed to ${editOrder ? 'update' : 'create'} order`)
     } finally {
       setLoading(false)
     }
@@ -318,7 +373,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
       maxWidth="xl"
       fullWidth
     >
-      <DialogTitle>Create New Order</DialogTitle>
+      <DialogTitle>{editOrder ? 'Edit Order' : 'Create New Order'}</DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           {error && (
@@ -798,12 +853,12 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
 
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             variant="contained"
             disabled={loading}
           >
-            {loading ? 'Creating...' : 'Create Order'}
+            {loading ? (editOrder ? 'Updating...' : 'Creating...') : (editOrder ? 'Update Order' : 'Create Order')}
           </Button>
         </DialogActions>
       </form>

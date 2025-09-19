@@ -1092,6 +1092,7 @@ const OrdersPage: React.FC = () => {
           open={editDialog}
           onClose={() => setEditDialog(false)}
           onOrderCreated={handleOrderUpdated}
+          editOrder={selectedOrder}
         />
       )}
 
