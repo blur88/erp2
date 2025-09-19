@@ -686,7 +686,6 @@ export class CategoryService {
         // Also update isActive to true since this project uses both soft delete approaches
         await this.categoryRepository.update(categoryId, {
           isActive: true,
-          updatedBy: 'system',
         });
 
         successCount++;

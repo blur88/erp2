@@ -177,11 +177,11 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
       const payload = result.payload as any
       const restoredCount = payload?.restoredCount || 0
       const failedIds = payload?.failedIds || []
-      
+
       if (restoredCount > 0) {
         showSuccess(`Successfully restored ${restoredCount} categories`)
       }
-      
+
       if (failedIds.length > 0) {
         showError(`Failed to restore ${failedIds.length} categories`)
       }
