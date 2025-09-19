@@ -431,23 +431,6 @@ const OrdersPage: React.FC = () => {
         }}>
           <Button
             variant="outlined"
-            startIcon={!isMobile ? <KeyboardIcon /> : undefined}
-            onClick={() => setKeyboardHelpOpen(true)}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-            sx={{
-              color: 'info.main',
-              borderColor: 'info.main',
-              '&:hover': {
-                borderColor: 'info.dark',
-                backgroundColor: 'info.light'
-              }
-            }}
-          >
-            {isMobile ? "Keyboard Shortcuts" : "Shortcuts"}
-          </Button>
-          <Button
-            variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
             onClick={loadOrders}
             disabled={loading}
@@ -586,6 +569,25 @@ const OrdersPage: React.FC = () => {
             Clear Dates
           </Button>
         )}
+        <Button
+          variant="outlined"
+          startIcon={<KeyboardIcon />}
+          size="medium"
+          onClick={() => setKeyboardHelpOpen(true)}
+          sx={{
+            flex: 'none',
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: '0.875rem',
+            color: 'info.main',
+            borderColor: 'info.main',
+            '&:hover': {
+              borderColor: 'info.dark',
+              backgroundColor: 'info.light'
+            }
+          }}
+        >
+          Shortcuts
+        </Button>
       </Box>
 
       {/* Error Display */}

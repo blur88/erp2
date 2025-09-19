@@ -850,23 +850,6 @@ const ProductsPage: React.FC = () => {
           >
             {isMobile ? "Add New Product" : "Add Product"}
           </Button>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <HelpIcon /> : undefined}
-            size={isMobile ? "medium" : "medium"}
-            onClick={() => setKeyboardHelpOpen(true)}
-            fullWidth={isMobile}
-            sx={{
-              borderColor: 'info.main',
-              color: 'info.main',
-              '&:hover': {
-                borderColor: 'info.dark',
-                backgroundColor: 'info.light'
-              }
-            }}
-          >
-            {isMobile ? "Keyboard Shortcuts" : "Shortcuts"}
-          </Button>
         </Box>
       </Box>
 
@@ -1035,6 +1018,26 @@ const ProductsPage: React.FC = () => {
           }}
         >
           Import
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<HelpIcon />}
+          size="medium"
+          onClick={() => setKeyboardHelpOpen(true)}
+          sx={{
+            flex: 'none',
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+            color: 'info.main',
+            borderColor: 'info.main',
+            '&:hover': {
+              borderColor: 'info.dark',
+              backgroundColor: 'info.light'
+            }
+          }}
+        >
+          Shortcuts
         </Button>
         <Button
           variant="outlined"
