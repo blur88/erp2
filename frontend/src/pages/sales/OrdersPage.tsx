@@ -37,6 +37,9 @@ import {
   Receipt as OrderIcon,
   RestoreFromTrash as RestoreIcon,
   Keyboard as KeyboardIcon,
+  Sort as SortIcon,
+  ArrowUpward as ArrowUpIcon,
+  ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination } from '@/store/slices/salesSlice'
@@ -130,6 +133,18 @@ const OrdersPage: React.FC = () => {
   const handleSearch = () => {
     // Search is now automatic via useEffect
     setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
+  }
+
+  const handleSort = (field: string) => {
+    setState((prev: OrdersPageState) => {
+      const newSortOrder = prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc'
+      return {
+        ...prev,
+        sortBy: field,
+        sortOrder: newSortOrder,
+        page: 0
+      }
+    })
   }
 
   // Select order when clicked
@@ -569,6 +584,20 @@ const OrdersPage: React.FC = () => {
             Clear Dates
           </Button>
         )}
+        <Button
+          variant={state.sortBy === 'orderNumber' ? 'contained' : 'outlined'}
+          size="medium"
+          startIcon={state.sortBy === 'orderNumber' ? (state.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          onClick={() => handleSort('orderNumber')}
+          sx={{
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: '0.875rem',
+            minWidth: 'auto',
+            px: 2
+          }}
+        >
+          Sort by Number
+        </Button>
         <Button
           variant="outlined"
           startIcon={<KeyboardIcon />}
