@@ -157,6 +157,18 @@ export const bulkRestoreOrders = createAsyncThunk(
   }
 )
 
+export const bulkDeleteOrders = createAsyncThunk(
+  'sales/bulkDeleteOrders',
+  async (orderIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await salesApi.bulkDeleteOrders(orderIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk delete orders')
+    }
+  }
+)
+
 export const fetchInvoices = createAsyncThunk(
   'sales/fetchInvoices',
   async (params: { page?: number; limit?: number; customerId?: string; status?: string }, { rejectWithValue }) => {
@@ -402,6 +414,18 @@ const salesSlice = createSlice({
         // Orders will be removed from deletedOrders when refetched
       })
       .addCase(bulkRestoreOrders.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Bulk Delete Orders
+    builder
+      .addCase(bulkDeleteOrders.pending, (state) => {
+        state.error = null
+      })
+      .addCase(bulkDeleteOrders.fulfilled, (state, action) => {
+        // Orders will be removed from deletedOrders when refetched
+      })
+      .addCase(bulkDeleteOrders.rejected, (state, action) => {
         state.error = action.payload as string
       })
 

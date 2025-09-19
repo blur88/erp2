@@ -214,6 +214,10 @@ export const salesApi = {
     return ApiService.post<{ restoredCount: number; failedIds: string[] }>('sales-orders/bulk-restore', { ids: orderIds })
   },
 
+  async bulkDeleteOrders(orderIds: string[]) {
+    return ApiService.delete<{ deletedCount: number; failedIds: string[] }>('sales-orders/bulk-delete', { data: { ids: orderIds } })
+  },
+
   // Invoices
   async getInvoices(params?: QueryParams & { customerId?: string; status?: string }) {
     return ApiService.get<PaginatedResponse<Invoice>>('/sales/invoices', { params })

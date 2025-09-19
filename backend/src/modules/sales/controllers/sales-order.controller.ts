@@ -336,4 +336,17 @@ export class SalesOrderController {
     const result = await this.salesOrderService.bulkRestore(body.ids);
     return { data: result };
   }
+
+  @Delete('bulk-delete')
+  @ApiOperation({ summary: 'Permanently delete multiple deleted sales orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk delete operation completed',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @HttpCode(HttpStatus.OK)
+  async bulkDeleteSalesOrders(@Body() body: { ids: string[] }) {
+    const result = await this.salesOrderService.bulkPermanentDelete(body.ids);
+    return { data: result };
+  }
 }

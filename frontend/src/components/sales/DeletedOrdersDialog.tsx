@@ -29,6 +29,7 @@ import {
 import {
   Search as SearchIcon,
   Restore as RestoreIcon,
+  Delete as DeleteIcon,
   Close as CloseIcon,
   Receipt as OrderIcon,
 } from '@mui/icons-material'
@@ -37,6 +38,7 @@ import {
   fetchDeletedOrders,
   restoreOrder,
   bulkRestoreOrders,
+  bulkDeleteOrders,
   selectDeletedOrders,
   selectSalesLoading,
   fetchOrders
@@ -64,7 +66,9 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
   const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
   const [bulkRestoring, setBulkRestoring] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -163,6 +167,41 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
     }
   }
 
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true)
+    try {
+      const orderIds = Array.from(selectedOrders)
+      const result = await dispatch(bulkDeleteOrders(orderIds))
+
+      if (bulkDeleteOrders.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+
+      const payload = result.payload as any
+      const deletedCount = payload?.deletedCount || 0
+      const failedIds = payload?.failedIds || []
+
+      if (deletedCount > 0) {
+        showSuccess(`Successfully permanently deleted ${deletedCount} orders`)
+      }
+
+      if (failedIds.length > 0) {
+        showError(`Failed to delete ${failedIds.length} orders`)
+      }
+
+      // Refresh deleted orders list and clear selections
+      dispatch(fetchDeletedOrders({}))
+      setSelectedOrders(new Set())
+    } catch (error: any) {
+      console.error('Bulk delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete orders'
+      showError(errorMessage)
+    } finally {
+      setBulkDeleting(false)
+      setShowBulkDeleteConfirm(false)
+    }
+  }
+
   return (
     <Dialog
       open={open}
@@ -211,16 +250,28 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
             />
 
             {selectedCount > 0 && (
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<RestoreIcon />}
-                onClick={() => setShowBulkRestoreConfirm(true)}
-                disabled={bulkRestoring}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                Restore Selected ({selectedCount})
-              </Button>
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<RestoreIcon />}
+                  onClick={() => setShowBulkRestoreConfirm(true)}
+                  disabled={bulkRestoring || bulkDeleting}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Restore Selected ({selectedCount})
+                </Button>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                  disabled={bulkRestoring || bulkDeleting}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Delete Selected ({selectedCount})
+                </Button>
+              </>
             )}
           </Box>
         </Box>
@@ -487,6 +538,70 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
             startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
           >
             {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Orders`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog
+        open={showBulkDeleteConfirm}
+        onClose={() => !bulkDeleting && setShowBulkDeleteConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">
+          <Box display="flex" alignItems="center" gap={1}>
+            <DeleteIcon color="error" />
+            Permanent Delete Orders
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <strong>Warning:</strong> This action cannot be undone. The selected sales orders will be permanently deleted from the system.
+          </Alert>
+
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected orders?
+          </Typography>
+
+          {selectedCount <= 5 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Orders to be deleted:
+              </Typography>
+              {Array.from(selectedOrders).slice(0, 5).map(orderId => {
+                const order = filteredOrders.find((o: SalesOrder) => o.id === orderId)
+                return order ? (
+                  <Box key={orderId} sx={{ mb: 0.5 }}>
+                    <Typography variant="body2">
+                      • {order.orderNumber} ({order.customer?.name || 'Unknown Customer'})
+                    </Typography>
+                  </Box>
+                ) : null
+              })}
+            </Box>
+          )}
+
+          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+            These orders will be permanently removed from the database and cannot be recovered.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowBulkDeleteConfirm(false)}
+            variant="outlined"
+            disabled={bulkDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleBulkDelete}
+            variant="contained"
+            color="error"
+            disabled={bulkDeleting}
+            startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Orders`}
           </Button>
         </DialogActions>
       </Dialog>
