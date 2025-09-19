@@ -186,7 +186,7 @@ export const bulkRestoreProducts = createAsyncThunk(
   async (productIds: string[], { rejectWithValue }) => {
     try {
       const response = await inventoryApi.bulkRestoreProducts(productIds)
-      return response.data
+      return response // ApiService already returns response.data, no need to access .data again
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore products')
     }
@@ -210,7 +210,7 @@ export const bulkPermanentDeleteProducts = createAsyncThunk(
   async (productIds: string[], { rejectWithValue }) => {
     try {
       const response = await inventoryApi.bulkPermanentDeleteProducts(productIds)
-      return response.data
+      return response // ApiService already returns response.data, no need to access .data again
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk delete products')
     }
