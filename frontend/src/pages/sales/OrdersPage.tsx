@@ -74,8 +74,8 @@ const OrdersPage: React.FC = () => {
 
   const [state, setState] = useState<OrdersPageState>({
     search: '',
-    sortBy: 'orderDate',
-    sortOrder: 'desc',
+    sortBy: 'orderNumber',
+    sortOrder: 'asc',
     page: 0,
     rowsPerPage: 20,
     fromDate: '',

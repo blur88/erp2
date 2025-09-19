@@ -146,8 +146,8 @@ export class SalesOrderService {
       customerId,
       fromDate,
       toDate,
-      sortBy = 'orderDate',
-      sortOrder = 'DESC',
+      sortBy = 'orderNumber',
+      sortOrder = 'ASC',
       page = 1,
       limit = 20,
     } = query;
@@ -231,8 +231,8 @@ export class SalesOrderService {
       customerId,
       fromDate,
       toDate,
-      sortBy = 'orderDate',
-      sortOrder = 'DESC',
+      sortBy = 'orderNumber',
+      sortOrder = 'ASC',
       page = 1,
       limit = 20,
     } = query;
@@ -750,7 +750,7 @@ export class SalesOrderService {
       search,
       customerId,
       sortBy = 'deletedAt',
-      sortOrder = 'DESC',
+      sortOrder = 'ASC',
       page = 1,
       limit = 20,
     } = query;
