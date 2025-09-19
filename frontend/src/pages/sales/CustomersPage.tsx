@@ -725,7 +725,11 @@ const CustomersPage: React.FC = () => {
                           sx={{
                             fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                             fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: `${Math.min(TYPOGRAPHY_STYLES.chip.small.height, TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2))}px` // Auto-scale with row height
+                            height: `${TABLE_STYLES.row.height * 0.65}px`, // Scale to 65% of row height for better proportion
+                            '& .MuiChip-label': {
+                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`, // Scale font size with row height
+                              lineHeight: 1
+                            }
                           }}
                         />
                       </TableCell>
@@ -748,10 +752,14 @@ const CustomersPage: React.FC = () => {
                           color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
                           variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
                           sx={{
-                            minWidth: 60,
+                            minWidth: `${TABLE_STYLES.row.height * 1.8}px`, // Scale min width proportionally
                             fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                             fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: `${Math.min(TYPOGRAPHY_STYLES.chip.small.height, TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2))}px` // Auto-scale with row height
+                            height: `${TABLE_STYLES.row.height * 0.65}px`, // Scale to 65% of row height for better proportion
+                            '& .MuiChip-label': {
+                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`, // Scale font size with row height
+                              lineHeight: 1
+                            }
                           }}
                         />
                       </TableCell>
@@ -789,11 +797,11 @@ const CustomersPage: React.FC = () => {
                                 size="small"
                                 onClick={() => handleStatusAction(customer, 'suspend')}
                                 sx={{
-                                  height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                  width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                  minHeight: 24,
-                                  minWidth: 24,
-                                  p: 0.25,
+                                  height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                                  width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                                  minHeight: 20,
+                                  minWidth: 20,
+                                  p: 0.125, // Reduce padding for better proportion
                                   '&:hover': {
                                     backgroundColor: 'warning.light',
                                     color: 'warning.main'
@@ -801,7 +809,7 @@ const CustomersPage: React.FC = () => {
                                 }}
                               >
                                 <SuspendIcon sx={{
-                                  fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                                  fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
                                 }} />
                               </IconButton>
                             </Tooltip>
@@ -810,11 +818,11 @@ const CustomersPage: React.FC = () => {
                                 size="small"
                                 onClick={() => handleStatusAction(customer, 'deactivate')}
                                 sx={{
-                                  height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                  width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                  minHeight: 24,
-                                  minWidth: 24,
-                                  p: 0.25,
+                                  height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                                  width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                                  minHeight: 20,
+                                  minWidth: 20,
+                                  p: 0.125, // Reduce padding for better proportion
                                   '&:hover': {
                                     backgroundColor: 'error.light',
                                     color: 'error.main'
@@ -822,7 +830,7 @@ const CustomersPage: React.FC = () => {
                                 }}
                               >
                                 <DeactivateIcon sx={{
-                                  fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                                  fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
                                 }} />
                               </IconButton>
                             </Tooltip>
@@ -834,11 +842,11 @@ const CustomersPage: React.FC = () => {
                               size="small"
                               onClick={() => handleStatusAction(customer, 'activate')}
                               sx={{
-                                height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                minHeight: 24,
-                                minWidth: 24,
-                                p: 0.25,
+                                height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                                width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                                minHeight: 20,
+                                minWidth: 20,
+                                p: 0.125, // Reduce padding for better proportion
                                 '&:hover': {
                                   backgroundColor: 'success.light',
                                   color: 'success.main'
@@ -846,7 +854,7 @@ const CustomersPage: React.FC = () => {
                               }}
                             >
                               <ActivateIcon sx={{
-                                fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                                fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
                               }} />
                             </IconButton>
                           </Tooltip>
@@ -857,11 +865,11 @@ const CustomersPage: React.FC = () => {
                               size="small"
                               onClick={() => handleStatusAction(customer, 'activate')}
                               sx={{
-                                height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
-                                minHeight: 24,
-                                minWidth: 24,
-                                p: 0.25,
+                                height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                                width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                                minHeight: 20,
+                                minWidth: 20,
+                                p: 0.125, // Reduce padding for better proportion
                                 '&:hover': {
                                   backgroundColor: 'success.light',
                                   color: 'success.main'
@@ -869,7 +877,7 @@ const CustomersPage: React.FC = () => {
                               }}
                             >
                               <ActivateIcon sx={{
-                                fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                                fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
                               }} />
                             </IconButton>
                           </Tooltip>
@@ -882,11 +890,11 @@ const CustomersPage: React.FC = () => {
                           aria-label={`Edit customer ${customer.name}`}
                           onClick={() => handleOpenForm(customer)}
                           sx={{
-                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                            minHeight: 24, // Minimum usable size
-                            minWidth: 24,
-                            p: 0.25, // Minimal padding for better fit
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
                             '&:hover': {
                               backgroundColor: 'action.hover',
                               color: 'primary.main'
@@ -894,7 +902,7 @@ const CustomersPage: React.FC = () => {
                           }}
                         >
                           <EditIcon sx={{
-                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                           }} />
                         </IconButton>
                         <IconButton
@@ -906,11 +914,11 @@ const CustomersPage: React.FC = () => {
                             setIsDeleteConfirmOpen(true)
                           }}
                           sx={{
-                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                            minHeight: 24, // Minimum usable size
-                            minWidth: 24,
-                            p: 0.25, // Minimal padding for better fit
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
                             '&:hover': {
                               backgroundColor: 'error.light',
                               color: 'error.main'
@@ -918,7 +926,7 @@ const CustomersPage: React.FC = () => {
                           }}
                         >
                           <DeleteIcon sx={{
-                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                           }} />
                         </IconButton>
                         <IconButton
@@ -927,11 +935,11 @@ const CustomersPage: React.FC = () => {
                           aria-label={`View customer ${customer.name} details`}
                           onClick={() => handleViewCustomer(customer)}
                           sx={{
-                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                            minHeight: 24, // Minimum usable size
-                            minWidth: 24,
-                            p: 0.25, // Minimal padding for better fit
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
                             '&:hover': {
                               backgroundColor: 'action.hover',
                               color: 'primary.main'
@@ -939,7 +947,7 @@ const CustomersPage: React.FC = () => {
                           }}
                         >
                           <ViewIcon sx={{
-                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                           }} />
                         </IconButton>
                       </Box>

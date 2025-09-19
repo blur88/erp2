@@ -1227,11 +1227,11 @@ const ProductsPage: React.FC = () => {
                         onClick={handleInlineEditSave}
                         disabled={inlineEditDuplicateCheck.hasNameDuplicate || inlineEditDuplicateCheck.hasBarcodeDuplicate}
                         sx={{
-                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                          minHeight: 24, // Minimum usable size
-                          minWidth: 24,
-                          p: 0.25, // Minimal padding for better fit
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'success.light',
                             color: 'success.main'
@@ -1243,7 +1243,7 @@ const ProductsPage: React.FC = () => {
                         }}
                       >
                         <SaveIcon sx={{
-                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                         }} />
                       </IconButton>
                       <IconButton
@@ -1252,11 +1252,11 @@ const ProductsPage: React.FC = () => {
                         aria-label="Cancel editing"
                         onClick={handleInlineEditCancel}
                         sx={{
-                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                          minHeight: 24, // Minimum usable size
-                          minWidth: 24,
-                          p: 0.25, // Minimal padding for better fit
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'error.light',
                             color: 'error.main'
@@ -1264,7 +1264,7 @@ const ProductsPage: React.FC = () => {
                         }}
                       >
                         <CancelIcon sx={{
-                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                         }} />
                       </IconButton>
                     </>
@@ -1276,11 +1276,11 @@ const ProductsPage: React.FC = () => {
                         aria-label={`Edit product ${selectedProductForDetails.name}`}
                         onClick={() => handleEditProduct(selectedProductForDetails)}
                         sx={{
-                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                          minHeight: 24, // Minimum usable size
-                          minWidth: 24,
-                          p: 0.25, // Minimal padding for better fit
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'action.hover',
                             color: 'primary.main'
@@ -1288,7 +1288,7 @@ const ProductsPage: React.FC = () => {
                         }}
                       >
                         <EditIcon sx={{
-                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                         }} />
                       </IconButton>
                       <IconButton
@@ -1297,11 +1297,11 @@ const ProductsPage: React.FC = () => {
                         aria-label={`Delete product ${selectedProductForDetails.name}`}
                         onClick={() => handleDeleteProduct(selectedProductForDetails)}
                         sx={{
-                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                          minHeight: 24, // Minimum usable size
-                          minWidth: 24,
-                          p: 0.25, // Minimal padding for better fit
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'error.light',
                             color: 'error.main'
@@ -1309,7 +1309,7 @@ const ProductsPage: React.FC = () => {
                         }}
                       >
                         <DeleteIcon sx={{
-                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                         }} />
                       </IconButton>
                     </>

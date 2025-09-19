@@ -748,15 +748,15 @@ const OrdersPage: React.FC = () => {
                       title="Edit Order"
                       onClick={handleEditOrder}
                       sx={{
-                        height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                        width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                        minHeight: 24, // Minimum usable size
-                        minWidth: 24,
-                        p: 0.25 // Minimal padding for better fit
+                        height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                        width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                        minHeight: 20, // Reduced minimum size for better scaling
+                        minWidth: 20,
+                        p: 0.125 // Reduced padding for better proportion
                       }}
                     >
                       <EditIcon sx={{
-                        fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                        fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                       }} />
                     </IconButton>
                     <IconButton
@@ -765,15 +765,15 @@ const OrdersPage: React.FC = () => {
                       title="Delete Order"
                       onClick={() => handleOrderAction('delete', selectedOrder.id)}
                       sx={{
-                        height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                        width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                        minHeight: 24, // Minimum usable size
-                        minWidth: 24,
-                        p: 0.25 // Minimal padding for better fit
+                        height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                        width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                        minHeight: 20, // Reduced minimum size for better scaling
+                        minWidth: 20,
+                        p: 0.125 // Reduced padding for better proportion
                       }}
                     >
                       <DeleteIcon sx={{
-                        fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                        fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                       }} />
                     </IconButton>
                   </Box>

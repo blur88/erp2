@@ -514,7 +514,13 @@ const CategoriesPage: React.FC = () => {
                         variant="outlined"
                         sx={{
                           fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                          fontWeight: 500
+                          fontWeight: 500,
+                          height: `${TABLE_STYLES.row.height * 0.65}px`, // Scale to 65% of row height for better proportion
+                          minWidth: `${TABLE_STYLES.row.height * 1.8}px`, // Scale min width proportionally
+                          '& .MuiChip-label': {
+                            fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`, // Scale font size with row height
+                            lineHeight: 1
+                          }
                         }}
                       />
                     </TableCell>
@@ -548,11 +554,11 @@ const CategoriesPage: React.FC = () => {
                           aria-label={`Edit category ${category.name}`}
                           onClick={() => handleEditCategory(category)}
                           sx={{
-                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                            minHeight: 24, // Minimum usable size
-                            minWidth: 24,
-                            p: 0.25, // Minimal padding for better fit
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
                             '&:hover': {
                               backgroundColor: 'action.hover',
                               color: 'primary.main'
@@ -560,7 +566,7 @@ const CategoriesPage: React.FC = () => {
                           }}
                         >
                           <EditIcon sx={{
-                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                           }} />
                         </IconButton>
                         <IconButton
@@ -569,11 +575,11 @@ const CategoriesPage: React.FC = () => {
                           aria-label={`Delete category ${category.name}`}
                           onClick={() => handleDeleteCategory(category)}
                           sx={{
-                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
-                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
-                            minHeight: 24, // Minimum usable size
-                            minWidth: 24,
-                            p: 0.25, // Minimal padding for better fit
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
                             '&:hover': {
                               backgroundColor: 'error.light',
                               color: 'error.main'
@@ -581,7 +587,7 @@ const CategoriesPage: React.FC = () => {
                           }}
                         >
                           <DeleteIcon sx={{
-                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                           }} />
                         </IconButton>
                       </Box>
