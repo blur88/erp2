@@ -15,6 +15,8 @@ import {
   SelectQueryBuilder,
   In,
   Like,
+  Not,
+  IsNull,
 } from 'typeorm';
 import { Category } from '../../../database/entities/category.entity';
 import { Product } from '../../../database/entities/product.entity';
@@ -216,26 +218,18 @@ export class CategoryService {
     const skip = (page - 1) * limit;
 
     const [categories, total] = await this.categoryRepository.findAndCount({
-      where,
+      where: {
+        ...where,
+        deletedAt: Not(IsNull()), // Only include deleted categories
+      },
       withDeleted: true,
       order: { [safeSortBy]: safeSortOrder },
       skip,
       take: limit,
     });
 
-    // Filter only soft-deleted categories
-    const deletedCategories = categories.filter(cat => cat.deletedAt !== null);
-    const deletedTotal = await this.categoryRepository.count({
-      where,
-      withDeleted: true,
-    }).then(count => 
-      // We need to count manually since TypeORM doesn't filter in count
-      this.categoryRepository.find({ where, withDeleted: true })
-        .then(all => all.filter(cat => cat.deletedAt !== null).length)
-    );
-
     const data = await Promise.all(
-      deletedCategories.map(async (category) => 
+      categories.map(async (category) =>
         await this.toResponseDto(category, false, false)
       ),
     );
@@ -245,9 +239,9 @@ export class CategoryService {
       meta: {
         page,
         limit,
-        total: deletedTotal,
-        totalPages: Math.ceil(deletedTotal / limit),
-        hasNextPage: page < Math.ceil(deletedTotal / limit),
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
         hasPreviousPage: page > 1,
       },
     };
@@ -596,10 +590,19 @@ export class CategoryService {
     // Use standardized validation
     ValidationUtil.validateForRestore(category, 'Category', id);
 
-    // Restore the category
+    // Restore the category (clears deletedAt)
     await this.categoryRepository.restore(id);
 
-    const restoredCategory = await this.categoryRepository.save(category);
+    // Also update isActive to true since this project uses both soft delete approaches
+    await this.categoryRepository.update(id, {
+      isActive: true,
+      updatedBy: userId || null,
+    });
+
+    // Fetch the updated category after restore
+    const restoredCategory = await this.categoryRepository.findOne({
+      where: { id },
+    });
 
     // Audit logging removed with authentication system
 
@@ -677,10 +680,14 @@ export class CategoryService {
           continue;
         }
 
-        // Restore the category
+        // Restore the category (clears deletedAt)
         await this.categoryRepository.restore(categoryId);
 
-        await this.categoryRepository.save(category);
+        // Also update isActive to true since this project uses both soft delete approaches
+        await this.categoryRepository.update(categoryId, {
+          isActive: true,
+          updatedBy: 'system',
+        });
 
         successCount++;
         this.logger.log(`Category restored: ${categoryId}`);
