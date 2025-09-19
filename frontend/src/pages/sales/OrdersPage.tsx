@@ -737,22 +737,44 @@ const OrdersPage: React.FC = () => {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Order Details - {selectedOrder.orderNumber}
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.25
+                  }}>
                     <IconButton
                       size="small"
                       color="primary"
                       title="Edit Order"
                       onClick={handleEditOrder}
+                      sx={{
+                        height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                        width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                        minHeight: 24, // Minimum usable size
+                        minWidth: 24,
+                        p: 0.25 // Minimal padding for better fit
+                      }}
                     >
-                      <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                      <EditIcon sx={{
+                        fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                      }} />
                     </IconButton>
                     <IconButton
                       size="small"
                       color="error"
                       title="Delete Order"
                       onClick={() => handleOrderAction('delete', selectedOrder.id)}
+                      sx={{
+                        height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                        width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                        minHeight: 24, // Minimum usable size
+                        minWidth: 24,
+                        p: 0.25 // Minimal padding for better fit
+                      }}
                     >
-                      <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                      <DeleteIcon sx={{
+                        fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                      }} />
                     </IconButton>
                   </Box>
                 </Box>

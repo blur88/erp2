@@ -305,8 +305,8 @@ const CustomersPage: React.FC = () => {
 
   const getCustomerTypeIcon = (type: CustomerType) => {
     return type === CustomerType.BUSINESS
-      ? <BusinessIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
-      : <PersonIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+      ? <BusinessIcon sx={{ fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` }} />
+      : <PersonIcon sx={{ fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` }} />
   }
 
   return (
@@ -732,11 +732,15 @@ const CustomersPage: React.FC = () => {
                     </TableCell>
                     {!isMobile && (
                       <TableCell>
-                        <Chip 
+                        <Chip
                           label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
                           size="small"
                           variant="outlined"
-                          sx={{ fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize, fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight, height: TYPOGRAPHY_STYLES.chip.small.height }}
+                          sx={{
+                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                            height: `${Math.min(TYPOGRAPHY_STYLES.chip.small.height, TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2))}px` // Auto-scale with row height
+                          }}
                         />
                       </TableCell>
                     )}
@@ -757,7 +761,12 @@ const CustomersPage: React.FC = () => {
                           size="small"
                           color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
                           variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
-                          sx={{ minWidth: 60, fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize, fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight, height: TYPOGRAPHY_STYLES.chip.small.height }}
+                          sx={{
+                            minWidth: 60,
+                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                            height: `${Math.min(TYPOGRAPHY_STYLES.chip.small.height, TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2))}px` // Auto-scale with row height
+                          }}
                         />
                       </TableCell>
                     )}
@@ -774,33 +783,41 @@ const CustomersPage: React.FC = () => {
                       </TableCell>
                     )}
                     <TableCell align="right">
-                      <Box 
+                      <Box
                         className="customer-actions"
-                        sx={{ 
-                          display: 'flex', 
+                        sx={{
+                          display: 'flex',
                           justifyContent: 'flex-end',
-                          gap: 0.25, // Tight spacing for compact display
+                          alignItems: 'center',
+                          height: '100%', // Fill the full cell height
+                          gap: 0.25,
                           opacity: isMobile ? 1 : 0.7,
                           transition: 'opacity 0.2s ease'
                         }}
                       >
                         <IconButton
-                          size="small" // Always use small size for compactness
+                          size="small"
                           title={`Edit ${customer.name}`}
                           aria-label={`Edit customer ${customer.name}`}
                           onClick={() => handleOpenForm(customer)}
                           sx={{
+                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                            minHeight: 24, // Minimum usable size
+                            minWidth: 24,
+                            p: 0.25, // Minimal padding for better fit
                             '&:hover': {
                               backgroundColor: 'action.hover',
                               color: 'primary.main'
-                            },
-                            p: 0.5 // Reduced padding
+                            }
                           }}
                         >
-                          <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                          <EditIcon sx={{
+                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          }} />
                         </IconButton>
                         <IconButton
-                          size="small" // Always use small size for compactness
+                          size="small"
                           title={`Delete ${customer.name}`}
                           aria-label={`Delete customer ${customer.name}`}
                           onClick={() => {
@@ -808,29 +825,41 @@ const CustomersPage: React.FC = () => {
                             setIsDeleteConfirmOpen(true)
                           }}
                           sx={{
+                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                            minHeight: 24, // Minimum usable size
+                            minWidth: 24,
+                            p: 0.25, // Minimal padding for better fit
                             '&:hover': {
                               backgroundColor: 'error.light',
                               color: 'error.main'
-                            },
-                            p: 0.5 // Reduced padding
+                            }
                           }}
                         >
-                          <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                          <DeleteIcon sx={{
+                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          }} />
                         </IconButton>
                         <IconButton
-                          size="small" // Always use small size for compactness
+                          size="small"
                           title={`View ${customer.name} details`}
                           aria-label={`View customer ${customer.name} details`}
                           onClick={() => handleViewCustomer(customer)}
                           sx={{
+                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                            minHeight: 24, // Minimum usable size
+                            minWidth: 24,
+                            p: 0.25, // Minimal padding for better fit
                             '&:hover': {
                               backgroundColor: 'action.hover',
                               color: 'primary.main'
-                            },
-                            p: 0.5 // Reduced padding
+                            }
                           }}
                         >
-                          <ViewIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                          <ViewIcon sx={{
+                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          }} />
                         </IconButton>
                       </Box>
                       {/* Mobile-only additional info */}

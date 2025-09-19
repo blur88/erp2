@@ -530,45 +530,59 @@ const CategoriesPage: React.FC = () => {
                       </TableCell>
                     )}
                     <TableCell align="right">
-                      <Box 
+                      <Box
                         className="category-actions"
-                        sx={{ 
-                          display: 'flex', 
+                        sx={{
+                          display: 'flex',
                           justifyContent: 'flex-end',
-                          gap: 0.25, // Tight spacing for compact display
+                          alignItems: 'center',
+                          height: '100%', // Fill the full cell height
+                          gap: 0.25,
                           opacity: isMobile ? 1 : 0.7,
                           transition: 'opacity 0.2s ease'
                         }}
                       >
-                        <IconButton 
-                          size="small" // Always use small size for compactness
+                        <IconButton
+                          size="small"
                           title={`Edit ${category.name}`}
                           aria-label={`Edit category ${category.name}`}
                           onClick={() => handleEditCategory(category)}
                           sx={{
+                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                            minHeight: 24, // Minimum usable size
+                            minWidth: 24,
+                            p: 0.25, // Minimal padding for better fit
                             '&:hover': {
                               backgroundColor: 'action.hover',
                               color: 'primary.main'
-                            },
-                            p: 0.5 // Reduced padding
+                            }
                           }}
                         >
-                          <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                          <EditIcon sx={{
+                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          }} />
                         </IconButton>
-                        <IconButton 
-                          size="small" // Always use small size for compactness
+                        <IconButton
+                          size="small"
                           title={`Delete ${category.name}`}
                           aria-label={`Delete category ${category.name}`}
                           onClick={() => handleDeleteCategory(category)}
                           sx={{
+                            height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                            width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                            minHeight: 24, // Minimum usable size
+                            minWidth: 24,
+                            p: 0.25, // Minimal padding for better fit
                             '&:hover': {
                               backgroundColor: 'error.light',
                               color: 'error.main'
-                            },
-                            p: 0.5 // Reduced padding
+                            }
                           }}
                         >
-                          <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                          <DeleteIcon sx={{
+                            fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                          }} />
                         </IconButton>
                       </Box>
                       {/* Mobile-only date indicator */}

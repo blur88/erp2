@@ -1207,10 +1207,12 @@ const ProductsPage: React.FC = () => {
                 {selectedProductForDetails ? 'Product Details' : 'Select Product'}
               </Typography>
               {selectedProductForDetails && (
-                <Box 
+                <Box
                   className="product-actions"
-                  sx={{ 
-                    display: 'flex', 
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    height: '100%', // Fill the full container height
                     gap: 0.25,
                     opacity: 0.7,
                     transition: 'opacity 0.2s ease'
@@ -1225,6 +1227,11 @@ const ProductsPage: React.FC = () => {
                         onClick={handleInlineEditSave}
                         disabled={inlineEditDuplicateCheck.hasNameDuplicate || inlineEditDuplicateCheck.hasBarcodeDuplicate}
                         sx={{
+                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                          minHeight: 24, // Minimum usable size
+                          minWidth: 24,
+                          p: 0.25, // Minimal padding for better fit
                           '&:hover': {
                             backgroundColor: 'success.light',
                             color: 'success.main'
@@ -1232,11 +1239,12 @@ const ProductsPage: React.FC = () => {
                           '&.Mui-disabled': {
                             backgroundColor: 'grey.300',
                             color: 'grey.500'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <SaveIcon fontSize="small" />
+                        <SaveIcon sx={{
+                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                        }} />
                       </IconButton>
                       <IconButton
                         size="small"
@@ -1244,14 +1252,20 @@ const ProductsPage: React.FC = () => {
                         aria-label="Cancel editing"
                         onClick={handleInlineEditCancel}
                         sx={{
+                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                          minHeight: 24, // Minimum usable size
+                          minWidth: 24,
+                          p: 0.25, // Minimal padding for better fit
                           '&:hover': {
                             backgroundColor: 'error.light',
                             color: 'error.main'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <CancelIcon fontSize="small" />
+                        <CancelIcon sx={{
+                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                        }} />
                       </IconButton>
                     </>
                   ) : (
@@ -1262,14 +1276,20 @@ const ProductsPage: React.FC = () => {
                         aria-label={`Edit product ${selectedProductForDetails.name}`}
                         onClick={() => handleEditProduct(selectedProductForDetails)}
                         sx={{
+                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                          minHeight: 24, // Minimum usable size
+                          minWidth: 24,
+                          p: 0.25, // Minimal padding for better fit
                           '&:hover': {
                             backgroundColor: 'action.hover',
                             color: 'primary.main'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <EditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                        <EditIcon sx={{
+                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                        }} />
                       </IconButton>
                       <IconButton
                         size="small"
@@ -1277,14 +1297,20 @@ const ProductsPage: React.FC = () => {
                         aria-label={`Delete product ${selectedProductForDetails.name}`}
                         onClick={() => handleDeleteProduct(selectedProductForDetails)}
                         sx={{
+                          height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Auto-calculate height based on row height minus padding
+                          width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`, // Square aspect ratio
+                          minHeight: 24, // Minimum usable size
+                          minWidth: 24,
+                          p: 0.25, // Minimal padding for better fit
                           '&:hover': {
                             backgroundColor: 'error.light',
                             color: 'error.main'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <DeleteIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                        <DeleteIcon sx={{
+                          fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` // Icon size scales with row height, max 16px
+                        }} />
                       </IconButton>
                     </>
                   )}
