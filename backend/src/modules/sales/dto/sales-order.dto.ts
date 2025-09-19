@@ -172,83 +172,13 @@ export class CreateSalesOrderDto {
 }
 
 export class UpdateSalesOrderDto {
-
-
   @ApiPropertyOptional({
-    description: 'Shipping address',
-    example: '789 Pine Street',
+    description: 'Customer ID',
+    example: 'uuid-string',
   })
   @IsOptional()
-  @IsString()
-  shippingAddress?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping city',
-    maxLength: 100,
-    example: 'San Francisco',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCity?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping state/province',
-    maxLength: 100,
-    example: 'CA',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingState?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping postal code',
-    maxLength: 20,
-    example: '94105',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  shippingPostalCode?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping country',
-    maxLength: 100,
-    example: 'United States',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCountry?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping method',
-    maxLength: 100,
-    example: 'Express Delivery',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingMethod?: string;
-
-  @ApiPropertyOptional({
-    description: 'Tracking number',
-    maxLength: 50,
-    example: 'TRK123456789',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  trackingNumber?: string;
-
-  @ApiPropertyOptional({
-    description: 'Customer purchase order number',
-    example: 'PO-2024-002',
-  })
-  @IsOptional()
-  @IsString()
-  customerPoNumber?: string;
+  @IsUUID()
+  customerId?: string;
 
   @ApiPropertyOptional({
     description: 'Special instructions or notes',
@@ -259,12 +189,14 @@ export class UpdateSalesOrderDto {
   notes?: string;
 
   @ApiPropertyOptional({
-    description: 'Internal notes',
-    example: 'Priority customer, expedite shipping',
+    description: 'Order items',
+    type: [SalesOrderItemDto],
   })
   @IsOptional()
-  @IsString()
-  internalNotes?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SalesOrderItemDto)
+  items?: SalesOrderItemDto[];
 }
 
 export class QuerySalesOrdersDto {

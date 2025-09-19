@@ -404,7 +404,10 @@ export class SalesOrderService {
   }
 
   async update(id: string, updateSalesOrderDto: UpdateSalesOrderDto): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['items']
+    });
     if (!order) {
       throw new NotFoundException('Sales order not found');
     }
@@ -414,10 +417,41 @@ export class SalesOrderService {
       throw new ConflictException('Cannot update order in current status');
     }
 
-    Object.assign(order, updateSalesOrderDto);
+    const { items, customerId, ...orderData } = updateSalesOrderDto;
 
-    // Recalculate totals if items changed
-    await this.recalculateOrderTotals(order);
+    // Update basic order fields
+    Object.assign(order, orderData);
+
+    // Update customer if provided
+    if (customerId) {
+      const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+      order.customerId = customerId;
+    }
+
+    // Update items if provided
+    if (items && items.length > 0) {
+      // Delete existing items
+      await this.salesOrderItemRepository.delete({ salesOrderId: id });
+
+      // Validate and process new items
+      const orderItems = await this.validateAndProcessItems(items);
+      const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+
+      // Create new order items
+      for (const itemData of orderItems) {
+        const orderItem = this.salesOrderItemRepository.create({
+          ...itemData,
+          salesOrderId: order.id,
+        });
+        await this.salesOrderItemRepository.save(orderItem);
+      }
+
+      // Update order total
+      order.totalAmount = totalAmount;
+    }
 
     const savedOrder = await this.salesOrderRepository.save(order);
     return this.findById(savedOrder.id);
@@ -734,16 +768,6 @@ export class SalesOrderService {
     return processedItems;
   }
 
-  private async recalculateOrderTotals(order: SalesOrder): Promise<void> {
-    // Load items if not already loaded
-    if (!order.items) {
-      order.items = await this.salesOrderItemRepository.find({
-        where: { salesOrderId: order.id },
-      });
-    }
-
-    order.calculateTotals();
-  }
 
   async findDeleted(query: QuerySalesOrdersDto = {}): Promise<any> {
     const {
