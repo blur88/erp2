@@ -1,6 +1,7 @@
 import { DataSource, EntityManager, QueryRunner } from 'typeorm';
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { Customer } from '../../database/entities/customer.entity';
 
 /**
  * Transaction manager for financial operations requiring atomicity
@@ -105,8 +106,11 @@ export class TransactionManager {
     const discrepancies: string[] = [];
 
     try {
-      // Get customer current totals
-      const customer = await em.findOne('Customer', { where: { id: customerId } });
+      // Get customer current totals (including soft-deleted customers)
+      const customer = await em.getRepository(Customer).findOne({
+        where: { id: customerId },
+        withDeleted: true
+      });
       if (!customer) {
         return { isValid: false, discrepancies: ['Customer not found'] };
       }
@@ -160,7 +164,10 @@ export class TransactionManager {
    */
   async correctCustomerTotals(customerId: string): Promise<void> {
     await this.executeInTransaction(async (manager) => {
-      const customer = await manager.findOne('Customer', { where: { id: customerId } });
+      const customer = await manager.getRepository(Customer).findOne({
+        where: { id: customerId },
+        withDeleted: true
+      });
       if (!customer) {
         throw new BadRequestException(`Customer ${customerId} not found`);
       }

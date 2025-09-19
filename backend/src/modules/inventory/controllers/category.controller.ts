@@ -296,9 +296,9 @@ export class CategoryController {
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     const result = await this.categoryService.bulkRestore(body.categoryIds);
     return {
-      message: `Successfully restored ${result.restoredCount} of ${body.categoryIds.length} categories`,
-      restoredCount: result.restoredCount,
-      failedIds: result.failedIds,
+      message: `Successfully restored ${result.successCount} of ${body.categoryIds.length} categories`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -344,9 +344,9 @@ export class CategoryController {
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
     const result = await this.categoryService.bulkPermanentDelete(body.categoryIds);
     return {
-      message: `Successfully permanently deleted ${result.deletedCount} of ${body.categoryIds.length} categories`,
-      deletedCount: result.deletedCount,
-      failedIds: result.failedIds,
+      message: `Successfully permanently deleted ${result.successCount} of ${body.categoryIds.length} categories`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 

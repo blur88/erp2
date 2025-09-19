@@ -364,9 +364,9 @@ export class ProductController {
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     const result = await this.productService.bulkRestore(body.productIds, null);
     return {
-      message: `Successfully restored ${result.restoredCount} of ${body.productIds.length} products`,
-      restoredCount: result.restoredCount,
-      failedIds: result.failedIds,
+      message: `Successfully restored ${result.successCount} of ${body.productIds.length} products`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -459,9 +459,9 @@ export class ProductController {
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
     const result = await this.productService.bulkPermanentDelete(body.productIds, null);
     return {
-      message: `Successfully permanently deleted ${result.deletedCount} of ${body.productIds.length} products`,
-      deletedCount: result.deletedCount,
-      failedIds: result.failedIds,
+      message: `Successfully permanently deleted ${result.successCount} of ${body.productIds.length} products`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 

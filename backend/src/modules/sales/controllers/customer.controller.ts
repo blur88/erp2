@@ -255,9 +255,9 @@ export class CustomerController {
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     const result = await this.customerService.bulkRestore(body.customerIds);
     return {
-      message: `Successfully restored ${result.restoredCount} of ${body.customerIds.length} customers`,
-      restoredCount: result.restoredCount,
-      failedIds: result.failedIds,
+      message: `Successfully restored ${result.successCount} of ${body.customerIds.length} customers`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -287,9 +287,9 @@ export class CustomerController {
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
     const result = await this.customerService.bulkPermanentDelete(body.customerIds);
     return {
-      message: `Successfully permanently deleted ${result.deletedCount} of ${body.customerIds.length} customers`,
-      deletedCount: result.deletedCount,
-      failedIds: result.failedIds,
+      message: `Successfully permanently deleted ${result.successCount} of ${body.customerIds.length} customers`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 

@@ -18,6 +18,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { SalesOrderService } from '../services/sales-order.service';
 import {
@@ -326,27 +327,66 @@ export class SalesOrderController {
   }
 
   @Post('bulk-restore')
-  @ApiOperation({ summary: 'Restore multiple deleted sales orders' })
+  @ApiOperation({ summary: 'Bulk restore soft-deleted sales orders' })
   @ApiResponse({
     status: 200,
-    description: 'Bulk restore operation completed',
+    description: 'Sales orders restored successfully',
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  async bulkRestoreSalesOrders(@Body() body: { ids: string[] }) {
-    const result = await this.salesOrderService.bulkRestore(body.ids);
-    return { data: result };
+  @ApiResponse({ status: 400, description: 'Invalid sales order IDs or sales orders are not deleted' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        salesOrderIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of sales order IDs to restore'
+        }
+      },
+      required: ['salesOrderIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkRestore(
+    @Body() body: { salesOrderIds: string[] },
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    const result = await this.salesOrderService.bulkRestore(body.salesOrderIds);
+    return {
+      message: `Successfully restored ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
+    };
   }
 
-  @Delete('bulk-delete')
-  @ApiOperation({ summary: 'Permanently delete multiple deleted sales orders' })
+  @Post('bulk-permanent-delete')
+  @ApiOperation({ summary: 'Bulk permanently delete sales orders from database' })
   @ApiResponse({
     status: 200,
-    description: 'Bulk delete operation completed',
+    description: 'Sales orders permanently deleted successfully',
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 400, description: 'Invalid sales order IDs or sales orders have active references' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        salesOrderIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of sales order IDs to permanently delete'
+        }
+      },
+      required: ['salesOrderIds']
+    }
+  })
   @HttpCode(HttpStatus.OK)
-  async bulkDeleteSalesOrders(@Body() body: { ids: string[] }) {
-    const result = await this.salesOrderService.bulkPermanentDelete(body.ids);
-    return { data: result };
+  async bulkPermanentDelete(
+    @Body() body: { salesOrderIds: string[] },
+  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
+    const result = await this.salesOrderService.bulkPermanentDelete(body.salesOrderIds);
+    return {
+      message: `Successfully permanently deleted ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
+    };
   }
 }
