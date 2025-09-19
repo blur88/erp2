@@ -472,7 +472,7 @@ const OrdersPage: React.FC = () => {
       <Box sx={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        gap: 2,
+        gap: isMobile ? 2 : 1,
         alignItems: isMobile ? 'stretch' : 'center',
         mb: 3,
         '& > *': {

@@ -48,7 +48,7 @@ import {
   PictureAsPdf as PictureAsPdfIcon,
   CloudUpload as CloudUploadIcon,
   Inventory2 as InventoryIcon,
-  HelpOutline as HelpIcon,
+  Keyboard as KeyboardIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -854,8 +854,8 @@ const ProductsPage: React.FC = () => {
       </Box>
 
       {/* Filters and Search */}
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         gap: isMobile ? 2 : 1,
         alignItems: isMobile ? 'stretch' : 'center',
@@ -1021,7 +1021,7 @@ const ProductsPage: React.FC = () => {
         </Button>
         <Button
           variant="outlined"
-          startIcon={<HelpIcon />}
+          startIcon={<KeyboardIcon />}
           size="medium"
           onClick={() => setKeyboardHelpOpen(true)}
           sx={{
