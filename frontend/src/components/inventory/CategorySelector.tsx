@@ -207,7 +207,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
                   variant="body2"
                   sx={{
                     pl: option.indentLevel * 2,
-                    color: !option.isActive ? 'text.disabled' : 'inherit',
                     fontWeight: option.level === -1 ? 400 : 'inherit',
                     flex: 1
                   }}
@@ -233,15 +232,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
                   />
                 )}
 
-                {!option.isActive && option.level >= 0 && (
-                  <Chip
-                    label="Inactive"
-                    size="small"
-                    color="error"
-                    variant="outlined"
-                    sx={{ height: 'auto', minHeight: '1.125rem' }}
-                  />
-                )}
               </Box>
             </MenuItem>
           ))
