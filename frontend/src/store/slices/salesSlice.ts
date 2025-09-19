@@ -91,7 +91,7 @@ export const fetchCustomers = createAsyncThunk(
 
 export const fetchOrders = createAsyncThunk(
   'sales/fetchOrders',
-  async (params: { page?: number; limit?: number; customerId?: string; status?: string; priority?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string }, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; customerId?: string; status?: string; priority?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string; fromDate?: string; toDate?: string }, { rejectWithValue }) => {
     try {
       const apiParams = {
         page: params.page,
@@ -101,7 +101,9 @@ export const fetchOrders = createAsyncThunk(
         priority: params.priority,
         sortBy: params.sortBy,
         sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() as 'ASC' | 'DESC' : undefined,
-        search: params.search
+        search: params.search,
+        fromDate: params.fromDate,
+        toDate: params.toDate
       }
       const response = await salesApi.getOrders(apiParams as any)
       return response

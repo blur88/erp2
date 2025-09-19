@@ -56,6 +56,8 @@ interface OrdersPageState {
   sortOrder: 'asc' | 'desc'
   page: number
   rowsPerPage: number
+  fromDate: string
+  toDate: string
 }
 
 const OrdersPage: React.FC = () => {
@@ -73,6 +75,8 @@ const OrdersPage: React.FC = () => {
     sortOrder: 'desc',
     page: 0,
     rowsPerPage: 20,
+    fromDate: '',
+    toDate: '',
   })
 
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
@@ -89,7 +93,7 @@ const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     loadOrders()
-  }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder])
+  }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder, state.fromDate, state.toDate])
 
   // Auto search with debounce
   useEffect(() => {
@@ -101,13 +105,15 @@ const OrdersPage: React.FC = () => {
           sortBy: state.sortBy,
           sortOrder: state.sortOrder,
           search: state.search,
+          fromDate: state.fromDate || undefined,
+          toDate: state.toDate || undefined,
         }))
         setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
       }
     }, 300) // 300ms debounce
 
     return () => clearTimeout(timeoutId)
-  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, dispatch])
+  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, state.fromDate, state.toDate, dispatch])
 
   const loadOrders = () => {
     dispatch(fetchOrders({
@@ -116,6 +122,8 @@ const OrdersPage: React.FC = () => {
       sortBy: state.sortBy,
       sortOrder: state.sortOrder,
       search: state.search,
+      fromDate: state.fromDate || undefined,
+      toDate: state.toDate || undefined,
     }))
   }
 
@@ -521,6 +529,63 @@ const OrdersPage: React.FC = () => {
             ),
           }}
         />
+        <TextField
+          label="From Date"
+          type="date"
+          value={state.fromDate}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: OrdersPageState) => ({ ...prev, fromDate: e.target.value }))}
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 180,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem',
+              '& input': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }
+          }}
+          InputLabelProps={{
+            shrink: true,
+          }}
+        />
+        <TextField
+          label="To Date"
+          type="date"
+          value={state.toDate}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: OrdersPageState) => ({ ...prev, toDate: e.target.value }))}
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 180,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem',
+              '& input': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }
+          }}
+          InputLabelProps={{
+            shrink: true,
+          }}
+        />
+        {(state.fromDate || state.toDate) && (
+          <Button
+            variant="outlined"
+            size="medium"
+            onClick={() => setState((prev: OrdersPageState) => ({ ...prev, fromDate: '', toDate: '' }))}
+            sx={{
+              minWidth: 'auto',
+              px: 2,
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }}
+          >
+            Clear Dates
+          </Button>
+        )}
       </Box>
 
       {/* Error Display */}
