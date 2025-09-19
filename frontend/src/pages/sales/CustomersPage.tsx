@@ -28,7 +28,6 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
-  Avatar,
   Tooltip,
   Stack,
 } from '@mui/material'
@@ -40,7 +39,6 @@ import {
   Visibility as ViewIcon,
   RestoreFromTrash as RestoreIcon,
   Person as PersonIcon,
-  Business as BusinessIcon,
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
   TrendingUp as SalesIcon,
@@ -303,11 +301,6 @@ const CustomersPage: React.FC = () => {
     }
   }
 
-  const getCustomerTypeIcon = (type: CustomerType) => {
-    return type === CustomerType.BUSINESS
-      ? <BusinessIcon sx={{ fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` }} />
-      : <PersonIcon sx={{ fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px` }} />
-  }
 
   return (
     <Box>
@@ -697,19 +690,14 @@ const CustomersPage: React.FC = () => {
                     }}
                   >
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-                          {getCustomerTypeIcon(customer.type)}
-                        </Avatar>
-                        <Box>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                            fontWeight: 400,
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
-                          }}>
-                            {customer.name}
-                          </Typography>
-                        </Box>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                          fontWeight: 400,
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                        }}>
+                          {customer.name}
+                        </Typography>
                       </Box>
                       {/* Mobile-only type and status indicators */}
                       {isMobile && (
@@ -1023,16 +1011,11 @@ const CustomersPage: React.FC = () => {
           {selectedCustomer && (
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
-                    {getCustomerTypeIcon(selectedCustomer.type)}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h5" fontWeight={600}>
-                      {selectedCustomer.name}
-                    </Typography>
-                    {getStatusChip(selectedCustomer.status, selectedCustomer.isActive)}
-                  </Box>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+                    {selectedCustomer.name}
+                  </Typography>
+                  {getStatusChip(selectedCustomer.status, selectedCustomer.isActive)}
                 </Box>
               </Grid>
 
