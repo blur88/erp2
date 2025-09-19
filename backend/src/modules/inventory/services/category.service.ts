@@ -476,21 +476,22 @@ export class CategoryService {
   }
 
   /**
-   * Delete a category
+   * Delete a category with hybrid approach
    */
-  async remove(id: string, userId?: string): Promise<void> {
-    this.logger.log(`Deleting category with ID: ${id}`);
+  async remove(id: string, userId?: string, options?: {
+    force?: boolean;
+    moveToUncategorized?: boolean;
+  }): Promise<{ message: string; moved?: number }> {
+    this.logger.log(`Deleting category with ID: ${id}`, { options });
 
     const category = await this.categoryRepository.findOne({
       where: { id },
-      relations: ['children', 'products'],
+      relations: ['children'],
     });
 
     if (!category) {
       throw new NotFoundException(`Category with ID '${id}' not found`);
     }
-
-    this.logger.log(`Found category: ${category.name} with ${category.products?.length || 0} products and ${category.children?.length || 0} children`);
 
     // Check if category has children
     if (category.children && category.children.length > 0) {
@@ -503,77 +504,48 @@ export class CategoryService {
     const activeProductCount = await this.productRepository.count({
       where: { categoryId: id }
     });
-    
-    // Also check for soft-deleted products that still reference this category
-    const allProductCount = await this.productRepository
-      .createQueryBuilder('product')
-      .where('product.categoryId = :categoryId', { categoryId: id })
-      .withDeleted() // Include soft-deleted records
-      .getCount();
-    
-    this.logger.log(`Active product count: ${activeProductCount}, All products (including deleted): ${allProductCount}`);
 
-    // Handle all products (including soft-deleted ones) that reference this category
-    if (allProductCount > 0) {
-      this.logger.log(`Moving ${allProductCount} products (including deleted) to Uncategorized category`);
-      
-      // Find or create "Uncategorized" category (including soft-deleted ones)
-      let uncategorizedCategory = await this.categoryRepository.findOne({
-        where: { name: 'Uncategorized' },
-        withDeleted: true // Include soft-deleted records
-      });
-      
-      if (!uncategorizedCategory) {
-        this.logger.log('Creating Uncategorized category');
-        uncategorizedCategory = this.categoryRepository.create({
-          name: 'Uncategorized',
-          sortOrder: 999,
-          level: 0,
-          path: null,
-          fullPath: 'Uncategorized',
-          isRoot: true,
-          parentId: null,
-          createdBy: userId || null,
-          updatedBy: userId || null,
+    this.logger.log(`Found category: ${category.name} with ${activeProductCount} active products and ${category.children?.length || 0} children`);
+
+    // Handle categories with products
+    if (activeProductCount > 0) {
+      if (!options?.force) {
+        // Default behavior: prevent deletion with detailed error
+        throw new BadRequestException({
+          message: `Cannot delete category '${category.name}' because it contains ${activeProductCount} product${activeProductCount === 1 ? '' : 's'}.`,
+          productCount: activeProductCount,
+          categoryName: category.name,
+          suggestions: [
+            'Move products to another category first',
+            'Delete products individually',
+            'Force delete and move products to Uncategorized category'
+          ]
         });
-        uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
-        this.logger.log(`Created Uncategorized category with ID: ${uncategorizedCategory.id}`);
-      } else if (uncategorizedCategory.deletedAt) {
-        // Restore soft-deleted Uncategorized category
-        this.logger.log(`Restoring soft-deleted Uncategorized category with ID: ${uncategorizedCategory.id}`);
-        await this.categoryRepository.restore(uncategorizedCategory.id);
-        uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
-        this.logger.log(`Restored Uncategorized category with ID: ${uncategorizedCategory.id}`);
-      } else {
-        this.logger.log(`Found existing active Uncategorized category with ID: ${uncategorizedCategory.id}`);
       }
-      
-      // Update all products (including soft-deleted ones) to reference the Uncategorized category
-      this.logger.log(`Updating products from category ${id} to ${uncategorizedCategory.id}`);
-      const updateResult = await this.productRepository.manager.query(
-        'UPDATE products SET "categoryId" = $1, "updatedBy" = $2, "updatedAt" = NOW() WHERE "categoryId" = $3',
-        [uncategorizedCategory.id, userId || null, id]
-      );
-      this.logger.log(`Update result executed successfully`);
-      
-      // Verify the update worked (check both active and soft-deleted)
-      const remainingActiveCount = await this.productRepository.count({
-        where: { categoryId: id }
-      });
-      const remainingAllCount = await this.productRepository.manager.query(
-        'SELECT COUNT(*) as count FROM products WHERE "categoryId" = $1',
-        [id]
-      );
-      this.logger.log(`Remaining products with old category - Active: ${remainingActiveCount}, All: ${remainingAllCount[0]?.count || 0}`);
+
+      if (options.moveToUncategorized) {
+        // Move products to Uncategorized before deletion
+        const movedCount = await this.moveProductsToUncategorized(id, userId);
+        await this.categoryRepository.softDelete(id);
+
+        this.logger.log(`Category deleted successfully with ${movedCount} products moved to Uncategorized`);
+        return {
+          moved: movedCount,
+          message: `Category '${category.name}' deleted. ${movedCount} product${movedCount === 1 ? '' : 's'} moved to Uncategorized.`
+        };
+      } else {
+        // Force delete without moving (this would orphan products, but we'll prevent this)
+        throw new BadRequestException(
+          'Force deletion without moving products is not allowed. Use moveToUncategorized option.'
+        );
+      }
     }
 
-    // Use soft delete
-    await this.categoryRepository.save(category);
+    // Normal deletion (no products)
     await this.categoryRepository.softDelete(id);
 
-    // Audit logging removed with authentication system
-
     this.logger.log(`Category deleted successfully: ${id}`);
+    return { message: `Category '${category.name}' deleted successfully.` };
   }
 
   /**
@@ -1102,18 +1074,89 @@ export class CategoryService {
    */
   private async updateDescendantLevelsAndPaths(category: Category): Promise<void> {
     const descendants = await this.loadAllDescendants(category);
-    
+
     const updates = descendants.map(async (descendant) => {
       // Recalculate level and path
       const ancestors = await this.loadAncestors(descendant);
       descendant.level = ancestors.length;
-      descendant.path = ancestors.length > 0 
+      descendant.path = ancestors.length > 0
         ? `${ancestors.map(a => a.name).join('.')}.${descendant.name}`
         : descendant.name;
-      
+
       return this.categoryRepository.save(descendant);
     });
 
     await Promise.all(updates);
+  }
+
+  /**
+   * Move all products from a category to Uncategorized category
+   */
+  private async moveProductsToUncategorized(categoryId: string, userId?: string): Promise<number> {
+    this.logger.log(`Moving products from category ${categoryId} to Uncategorized`);
+
+    // Find or create "Uncategorized" category
+    let uncategorizedCategory = await this.categoryRepository.findOne({
+      where: { name: 'Uncategorized' },
+      withDeleted: true // Include soft-deleted records
+    });
+
+    if (!uncategorizedCategory) {
+      this.logger.log('Creating Uncategorized category');
+      uncategorizedCategory = this.categoryRepository.create({
+        name: 'Uncategorized',
+        sortOrder: 999,
+        level: 0,
+        path: 'Uncategorized',
+        fullPath: 'Uncategorized',
+        isRoot: true,
+        parentId: null,
+      });
+      uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
+      this.logger.log(`Created Uncategorized category with ID: ${uncategorizedCategory.id}`);
+    } else if (uncategorizedCategory.deletedAt) {
+      // Restore soft-deleted Uncategorized category
+      this.logger.log(`Restoring soft-deleted Uncategorized category with ID: ${uncategorizedCategory.id}`);
+      await this.categoryRepository.restore(uncategorizedCategory.id);
+      // Update isActive to true since this project uses both soft delete approaches
+      await this.categoryRepository.update(uncategorizedCategory.id, {
+        isActive: true,
+      });
+      uncategorizedCategory = await this.categoryRepository.findOne({
+        where: { id: uncategorizedCategory.id }
+      });
+      this.logger.log(`Restored Uncategorized category with ID: ${uncategorizedCategory.id}`);
+    } else {
+      this.logger.log(`Found existing active Uncategorized category with ID: ${uncategorizedCategory.id}`);
+    }
+
+    // Count products to be moved (both active and soft-deleted)
+    const totalProductCount = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.categoryId = :categoryId', { categoryId })
+      .withDeleted() // Include soft-deleted records
+      .getCount();
+
+    if (totalProductCount === 0) {
+      this.logger.log('No products to move');
+      return 0;
+    }
+
+    // Update all products (including soft-deleted ones) to reference the Uncategorized category
+    this.logger.log(`Updating ${totalProductCount} products from category ${categoryId} to ${uncategorizedCategory.id}`);
+    await this.productRepository.manager.query(
+      'UPDATE products SET "categoryId" = $1, "updatedAt" = NOW() WHERE "categoryId" = $2',
+      [uncategorizedCategory.id, categoryId]
+    );
+
+    // Verify the update worked
+    const remainingCount = await this.productRepository.manager.query(
+      'SELECT COUNT(*) as count FROM products WHERE "categoryId" = $1',
+      [categoryId]
+    );
+
+    this.logger.log(`Products moved successfully. Remaining products in old category: ${remainingCount[0]?.count || 0}`);
+
+    return totalProductCount;
   }
 }

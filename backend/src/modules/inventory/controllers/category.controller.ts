@@ -370,21 +370,45 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a category' })
+  @ApiOperation({ summary: 'Delete a category with optional force and move options' })
   @ApiResponse({
-    status: 204,
+    status: 200,
     description: 'Category deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        moved: { type: 'number', description: 'Number of products moved (if applicable)' }
+      }
+    }
   })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Cannot delete category with subcategories or products' 
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete category with subcategories or products (use force options)'
   })
   @ApiParam({ name: 'id', description: 'Category ID' })
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiQuery({
+    name: 'force',
+    required: false,
+    description: 'Force deletion even if category has products',
+    type: 'boolean'
+  })
+  @ApiQuery({
+    name: 'moveToUncategorized',
+    required: false,
+    description: 'Move products to Uncategorized category before deletion (requires force=true)',
+    type: 'boolean'
+  })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<void> {
-    await this.categoryService.remove(id);
+    @Query('force') force?: boolean,
+    @Query('moveToUncategorized') moveToUncategorized?: boolean,
+  ): Promise<{ message: string; moved?: number }> {
+    const result = await this.categoryService.remove(id, 'system', {
+      force: force === true,
+      moveToUncategorized: moveToUncategorized === true
+    });
+    return result;
   }
 }

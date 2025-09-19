@@ -42,6 +42,7 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
+import { SmartCategoryDeleteDialog } from '@/components/inventory/SmartCategoryDeleteDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { Category } from '@/types'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -83,6 +84,8 @@ const CategoriesPage: React.FC = () => {
   const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [smartDeleteOpen, setSmartDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<any>(null)
 
   const {
     control,
@@ -177,21 +180,41 @@ const CategoriesPage: React.FC = () => {
     setDialogOpen(true)
   }
 
-  const handleDeleteCategory = (category: Category) => {
+  const handleDeleteCategory = async (category: Category) => {
     setCategoryToDelete(category)
-    setDeleteConfirmOpen(true)
+    setDeleteError(null)
+
+    try {
+      // First, try normal delete
+      await dispatch(deleteCategory(category.id)).unwrap()
+      showSuccess(`Category "${category.name}" deleted successfully.`)
+    } catch (error: any) {
+      console.error('Delete category error:', error)
+
+      // Check if this is a "category has products" error
+      if (error?.productCount || (error?.includes && error.includes('contains'))) {
+        // Show smart delete dialog for categories with products
+        setDeleteError({
+          message: error?.message || error,
+          productCount: error?.productCount,
+          categoryName: category.name,
+          suggestions: error?.suggestions
+        })
+        setSmartDeleteOpen(true)
+      } else {
+        // Show regular confirmation for categories without products or other errors
+        setDeleteConfirmOpen(true)
+      }
+    }
   }
 
   const handleConfirmDelete = async () => {
     if (categoryToDelete) {
       try {
-        // Use unwrap() to properly handle Redux Toolkit async thunk errors
         await dispatch(deleteCategory(categoryToDelete.id)).unwrap()
         showSuccess(`Category "${categoryToDelete.name}" deleted successfully.`)
       } catch (error: any) {
-        // Debug logging to see what error we're getting
         console.error('Delete category error:', error)
-        // This will now properly catch the rejected action's payload
         const errorMessage = error || 'Failed to delete category'
         showError(errorMessage)
       } finally {
@@ -201,9 +224,58 @@ const CategoriesPage: React.FC = () => {
     }
   }
 
+  const handleSmartDelete = async (moveToUncategorized: boolean) => {
+    if (!categoryToDelete) return
+
+    try {
+      const params = new URLSearchParams()
+      params.set('force', 'true')
+      if (moveToUncategorized) {
+        params.set('moveToUncategorized', 'true')
+      }
+
+      // Call delete API with force parameters
+      const response = await fetch(`/api/inventory/categories/${categoryToDelete.id}?${params.toString()}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete category: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      // Show success message
+      if (result.moved && result.moved > 0) {
+        showSuccess(`Category "${categoryToDelete.name}" deleted. ${result.moved} product${result.moved === 1 ? '' : 's'} moved to Uncategorized.`)
+      } else {
+        showSuccess(result.message || `Category "${categoryToDelete.name}" deleted successfully.`)
+      }
+
+      // Refresh the categories list
+      dispatch(fetchCategories({
+        includeProductCount: true,
+        search: categoryFilters.search || undefined
+      }))
+    } catch (error: any) {
+      console.error('Smart delete error:', error)
+      showError(error.message || 'Failed to delete category')
+      throw error // Re-throw to let the dialog handle loading state
+    }
+  }
+
   const handleCancelDelete = () => {
     setDeleteConfirmOpen(false)
     setCategoryToDelete(null)
+  }
+
+  const handleSmartDeleteClose = () => {
+    setSmartDeleteOpen(false)
+    setCategoryToDelete(null)
+    setDeleteError(null)
   }
 
 
@@ -702,15 +774,20 @@ const CategoriesPage: React.FC = () => {
         }))}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Smart Delete Dialog */}
+      <SmartCategoryDeleteDialog
+        open={smartDeleteOpen}
+        category={categoryToDelete}
+        error={deleteError}
+        onClose={handleSmartDeleteClose}
+        onConfirm={handleSmartDelete}
+      />
+
+      {/* Fallback Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
         title="Confirm Delete"
-        message={
-          categoryToDelete?.productCount && categoryToDelete.productCount > 0
-            ? `Category "${categoryToDelete?.name}" contains ${categoryToDelete.productCount} product${categoryToDelete.productCount === 1 ? '' : 's'}. Products will be moved to "Uncategorized". Continue?`
-            : `Are you sure you want to delete the category "${categoryToDelete?.name}"?`
-        }
+        message={`Are you sure you want to delete the category "${categoryToDelete?.name}"?`}
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={handleConfirmDelete}
