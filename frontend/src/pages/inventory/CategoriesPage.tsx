@@ -185,10 +185,14 @@ const CategoriesPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (categoryToDelete) {
       try {
-        await dispatch(deleteCategory(categoryToDelete.id))
+        // Use unwrap() to properly handle Redux Toolkit async thunk errors
+        await dispatch(deleteCategory(categoryToDelete.id)).unwrap()
         showSuccess(`Category "${categoryToDelete.name}" deleted successfully.`)
       } catch (error: any) {
-        const errorMessage = error.response?.data?.message || 'Failed to delete category'
+        // Debug logging to see what error we're getting
+        console.error('Delete category error:', error)
+        // This will now properly catch the rejected action's payload
+        const errorMessage = error || 'Failed to delete category'
         showError(errorMessage)
       } finally {
         setDeleteConfirmOpen(false)
