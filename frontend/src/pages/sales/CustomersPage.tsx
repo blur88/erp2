@@ -111,7 +111,6 @@ const CustomersPage: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
@@ -244,7 +243,6 @@ const CustomersPage: React.FC = () => {
         title: 'Error'
       }))
     }
-    setAnchorEl(null)
   }
 
   // Form helpers
@@ -783,6 +781,101 @@ const CustomersPage: React.FC = () => {
                           transition: 'opacity 0.2s ease'
                         }}
                       >
+                        {/* Status Action Buttons */}
+                        {customer.isActive && customer.status === CustomerStatus.ACTIVE && (
+                          <>
+                            <Tooltip title={`Suspend ${customer.name}`}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleStatusAction(customer, 'suspend')}
+                                sx={{
+                                  height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                  width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                  minHeight: 24,
+                                  minWidth: 24,
+                                  p: 0.25,
+                                  '&:hover': {
+                                    backgroundColor: 'warning.light',
+                                    color: 'warning.main'
+                                  }
+                                }}
+                              >
+                                <SuspendIcon sx={{
+                                  fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                                }} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title={`Deactivate ${customer.name}`}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleStatusAction(customer, 'deactivate')}
+                                sx={{
+                                  height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                  width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                  minHeight: 24,
+                                  minWidth: 24,
+                                  p: 0.25,
+                                  '&:hover': {
+                                    backgroundColor: 'error.light',
+                                    color: 'error.main'
+                                  }
+                                }}
+                              >
+                                <DeactivateIcon sx={{
+                                  fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                                }} />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                        {customer.isActive && customer.status === CustomerStatus.SUSPENDED && (
+                          <Tooltip title={`Activate ${customer.name}`}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleStatusAction(customer, 'activate')}
+                              sx={{
+                                height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                minHeight: 24,
+                                minWidth: 24,
+                                p: 0.25,
+                                '&:hover': {
+                                  backgroundColor: 'success.light',
+                                  color: 'success.main'
+                                }
+                              }}
+                            >
+                              <ActivateIcon sx={{
+                                fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                              }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {!customer.isActive && (
+                          <Tooltip title={`Activate ${customer.name}`}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleStatusAction(customer, 'activate')}
+                              sx={{
+                                height: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                width: `${TABLE_STYLES.row.height - (TABLE_STYLES.cell.padding.py * 8 * 2)}px`,
+                                minHeight: 24,
+                                minWidth: 24,
+                                p: 0.25,
+                                '&:hover': {
+                                  backgroundColor: 'success.light',
+                                  color: 'success.main'
+                                }
+                              }}
+                            >
+                              <ActivateIcon sx={{
+                                fontSize: `${Math.min(16, TABLE_STYLES.row.height * 0.4)}px`
+                              }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        {/* Standard Action Buttons */}
                         <IconButton
                           size="small"
                           title={`Edit ${customer.name}`}
