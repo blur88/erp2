@@ -19,6 +19,7 @@ import { SalesOrderController } from './controllers/sales-order.controller'; // 
 import { CustomerService } from './services/customer.service';
 import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
 import { InventoryIntegrationService } from './services/inventory-integration.service';
+import { TransactionManager } from '../../common/utils/transaction.util';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { InventoryIntegrationService } from './services/inventory-integration.se
     CustomerService,
     SalesOrderService,
     InventoryIntegrationService,
+    TransactionManager,
   ],
   exports: [
     CustomerService,

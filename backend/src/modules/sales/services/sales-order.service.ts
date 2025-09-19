@@ -6,10 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, ILike } from 'typeorm';
-import { 
-  SalesOrder, 
-  SalesOrderStatus, 
-  SalesOrderPriority 
+import {
+  SalesOrder,
+  SalesOrderStatus,
+  SalesOrderPriority
 } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -26,6 +26,7 @@ import {
 } from '../dto/sales-order.dto';
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
+import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 
 @Injectable()
 export class SalesOrderService {
@@ -826,13 +827,8 @@ export class SalesOrderService {
       relations: ['customer', 'items', 'items.product'],
     });
 
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (!order.deletedAt) {
-      throw new ConflictException('Sales order is not deleted');
-    }
+    // Use standardized validation
+    ValidationUtil.validateForRestore(order, 'Sales order', id);
 
     // Restore the order
     await this.salesOrderRepository.restore(id);
@@ -846,20 +842,149 @@ export class SalesOrderService {
     return this.mapToResponseDto(restoredOrder);
   }
 
-  async bulkRestore(ids: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
-    const failedIds: string[] = [];
-    let restoredCount = 0;
+  async bulkRestore(ids: string[]): Promise<BulkOperationResponse> {
+    if (!ids || ids.length === 0) {
+      return BulkOperationUtil.createResponse('restored', 'sales order', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
 
     for (const id of ids) {
       try {
         await this.restore(id);
-        restoredCount++;
+        successCount++;
       } catch (error) {
-        failedIds.push(id);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          id,
+          error.message,
+          'RESTORE_ERROR'
+        );
       }
     }
 
-    return { restoredCount, failedIds };
+    return BulkOperationUtil.createResponse('restored', 'sales order', successCount, failedItems);
+  }
+
+  async permanentDelete(id: string, userId?: string): Promise<void> {
+    // Find the order (including soft-deleted ones)
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'items'],
+      withDeleted: true,
+    });
+
+    // Use standardized validation
+    ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
+
+    // Check for financial dependencies and business rules
+    const invoiceCount = await this.invoiceRepository.count({
+      where: { salesOrderId: id },
+    });
+
+    const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+
+    // Use standardized financial entity validation
+    ValidationUtil.validateFinancialEntityDeletion('sales order', invoiceCount > 0, false, isCompleted);
+
+    // Revert customer metrics if order was confirmed
+    if (order.status === SalesOrderStatus.CONFIRMED && order.customer) {
+      const customer = order.customer;
+      customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
+      customer.totalOrders = Math.max(0, customer.totalOrders - 1);
+      await this.customerRepository.save(customer);
+    }
+
+    // Hard delete order items first (foreign key constraint)
+    await this.salesOrderItemRepository.delete({ salesOrderId: id });
+
+    // Hard delete the order from database
+    await this.salesOrderRepository.delete(id);
+
+    // Note: Audit logging removed with authentication system
+  }
+
+  async bulkPermanentDelete(
+    orderIds: string[],
+    userId?: string
+  ): Promise<BulkOperationResponse> {
+    if (!orderIds || orderIds.length === 0) {
+      return BulkOperationUtil.createResponse('permanently deleted', 'sales order', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
+
+    // Process each order individually to handle failures gracefully
+    for (const id of orderIds) {
+      try {
+        // Find the order (including soft-deleted ones)
+        const order = await this.salesOrderRepository.findOne({
+          where: { id },
+          relations: ['customer', 'items'],
+          withDeleted: true,
+        });
+
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            error.message,
+            'VALIDATION_ERROR'
+          );
+          continue;
+        }
+
+        // Check for financial dependencies and business rules
+        const invoiceCount = await this.invoiceRepository.count({
+          where: { salesOrderId: id },
+        });
+
+        const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+
+        // Use standardized financial entity validation
+        try {
+          ValidationUtil.validateFinancialEntityDeletion('sales order', invoiceCount > 0, false, isCompleted);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            error.message,
+            'BUSINESS_RULE_ERROR'
+          );
+          continue;
+        }
+
+        // Revert customer metrics if order was confirmed
+        if (order.status === SalesOrderStatus.CONFIRMED && order.customer) {
+          const customer = order.customer;
+          customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
+          customer.totalOrders = Math.max(0, customer.totalOrders - 1);
+          await this.customerRepository.save(customer);
+        }
+
+        // Hard delete order items first
+        await this.salesOrderItemRepository.delete({ salesOrderId: id });
+
+        // Hard delete the order
+        await this.salesOrderRepository.delete(id);
+
+        successCount++;
+      } catch (error) {
+        BulkOperationUtil.addFailure(
+          failedItems,
+          id,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
+      }
+    }
+
+    return BulkOperationUtil.createResponse('permanently deleted', 'sales order', successCount, failedItems);
   }
 
   private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {

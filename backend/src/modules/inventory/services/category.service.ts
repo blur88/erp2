@@ -30,6 +30,7 @@ import {
   CategoryStatsDto,
   CategoryAncestorsDto,
 } from '../dto/category.dto';
+import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 
 @Injectable()
 export class CategoryService {
@@ -592,13 +593,8 @@ export class CategoryService {
       withDeleted: true, // Include soft-deleted records
     });
 
-    if (!category) {
-      throw new NotFoundException(`Category with ID '${id}' not found`);
-    }
-
-    if (!category.deletedAt) {
-      throw new BadRequestException(`Category '${category.name}' is not deleted`);
-    }
+    // Use standardized validation
+    ValidationUtil.validateForRestore(category, 'Category', id);
 
     // Restore the category
     await this.categoryRepository.restore(id);
@@ -616,7 +612,7 @@ export class CategoryService {
    */
   async permanentDelete(id: string, userId?: string): Promise<void> {
     this.logger.log(`Permanently deleting category with ID: ${id}`);
-    
+
     // Find the category (including soft-deleted ones)
     const category = await this.categoryRepository.findOne({
       where: { id },
@@ -624,27 +620,19 @@ export class CategoryService {
       withDeleted: true,
     });
 
-    if (!category) {
-      throw new NotFoundException(`Category with ID '${id}' not found`);
-    }
+    // Use standardized validation
+    ValidationUtil.validateForPermanentDelete(category, 'Category', id);
 
-    // Ensure category is already soft-deleted
-    if (!category.deletedAt) {
-      throw new BadRequestException(
-        'Category must be soft-deleted first before permanent deletion. Use regular delete endpoint first.'
-      );
-    }
+    // Check comprehensive dependencies with standardized error messaging
+    const dependencies = [
+      { name: 'subcategory', count: category.children?.length || 0 },
+      { name: 'product', count: category.products?.length || 0 },
+    ];
 
-    // Check if category has any active dependencies that prevent permanent deletion
-    if (category.children?.length > 0) {
+    const activeDependencies = dependencies.filter(dep => dep.count > 0);
+    if (activeDependencies.length > 0) {
       throw new BadRequestException(
-        'Cannot permanently delete category that has subcategories'
-      );
-    }
-
-    if (category.products?.length > 0) {
-      throw new BadRequestException(
-        'Cannot permanently delete category that has products assigned to it'
+        ValidationUtil.createDependencyErrorMessage('category', activeDependencies)
       );
     }
 
@@ -659,11 +647,15 @@ export class CategoryService {
   /**
    * Bulk restore soft-deleted categories
    */
-  async bulkRestore(categoryIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(categoryIds: string[]): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk restoring ${categoryIds.length} categories`);
 
-    const failedIds: string[] = [];
-    let restoredCount = 0;
+    if (!categoryIds || categoryIds.length === 0) {
+      return BulkOperationUtil.createResponse('restored', 'category', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
 
     for (const categoryId of categoryIds) {
       try {
@@ -672,15 +664,16 @@ export class CategoryService {
           withDeleted: true,
         });
 
-        if (!category) {
-          this.logger.warn(`Category not found: ${categoryId}`);
-          failedIds.push(categoryId);
-          continue;
-        }
-
-        if (!category.deletedAt) {
-          this.logger.warn(`Category is not deleted: ${categoryId}`);
-          failedIds.push(categoryId);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForRestore(category, 'Category', categoryId);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            categoryId,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
@@ -689,28 +682,34 @@ export class CategoryService {
 
         await this.categoryRepository.save(category);
 
-        // Audit logging removed with authentication system
-
-        restoredCount++;
+        successCount++;
         this.logger.log(`Category restored: ${categoryId}`);
       } catch (error) {
         this.logger.error(`Failed to restore category ${categoryId}: ${error.message}`);
-        failedIds.push(categoryId);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          categoryId,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`);
-    return { restoredCount, failedIds };
+    return BulkOperationUtil.createResponse('restored', 'category', successCount, failedItems);
   }
 
   /**
    * Bulk permanently delete categories from database
    */
-  async bulkPermanentDelete(categoryIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(categoryIds: string[]): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk permanently deleting ${categoryIds.length} categories`);
 
-    const failedIds: string[] = [];
-    let deletedCount = 0;
+    if (!categoryIds || categoryIds.length === 0) {
+      return BulkOperationUtil.createResponse('permanently deleted', 'category', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
 
     for (const categoryId of categoryIds) {
       try {
@@ -720,47 +719,53 @@ export class CategoryService {
           withDeleted: true,
         });
 
-        if (!category) {
-          this.logger.warn(`Category not found: ${categoryId}`);
-          failedIds.push(categoryId);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForPermanentDelete(category, 'Category', categoryId);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            categoryId,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
-        // Ensure category is already soft-deleted
-        if (!category.deletedAt) {
-          this.logger.warn(`Category must be soft-deleted first: ${categoryId}`);
-          failedIds.push(categoryId);
-          continue;
-        }
+        // Check dependencies with standardized error messaging
+        const dependencies = [
+          { name: 'subcategory', count: category.children?.length || 0 },
+          { name: 'product', count: category.products?.length || 0 },
+        ];
 
-        // Check if category has any active dependencies
-        if (category.children?.length > 0) {
-          this.logger.warn(`Category has subcategories: ${categoryId}`);
-          failedIds.push(categoryId);
-          continue;
-        }
-
-        if (category.products?.length > 0) {
-          this.logger.warn(`Category has products: ${categoryId}`);
-          failedIds.push(categoryId);
+        const activeDependencies = dependencies.filter(dep => dep.count > 0);
+        if (activeDependencies.length > 0) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            categoryId,
+            ValidationUtil.createDependencyErrorMessage('category', activeDependencies),
+            'DEPENDENCY_ERROR'
+          );
           continue;
         }
 
         // Perform the permanent deletion
         await this.categoryRepository.remove(category);
 
-        // Audit logging removed with authentication system
-
-        deletedCount++;
+        successCount++;
         this.logger.log(`Category permanently deleted: ${categoryId}`);
       } catch (error) {
         this.logger.error(`Failed to permanently delete category ${categoryId}: ${error.message}`);
-        failedIds.push(categoryId);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          categoryId,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
-    return { deletedCount, failedIds };
+    return BulkOperationUtil.createResponse('permanently deleted', 'category', successCount, failedItems);
   }
 
   /**

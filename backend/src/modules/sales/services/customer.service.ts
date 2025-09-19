@@ -16,6 +16,8 @@ import {
   CustomerResponseDto,
   CustomerSummaryDto,
 } from '../dto/customer.dto';
+import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 
 @Injectable()
 export class CustomerService {
@@ -26,6 +28,7 @@ export class CustomerService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    private readonly transactionManager: TransactionManager,
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
@@ -197,18 +200,17 @@ export class CustomerService {
   }
 
   async restore(id: string): Promise<CustomerResponseDto> {
-    // First, restore the customer
-    await this.customerRepository.restore(id);
-    
-    // Then find and return the restored customer
-    const customer = await this.customerRepository.findOne({ 
+    // Find the customer first to validate
+    const customer = await this.customerRepository.findOne({
       where: { id },
-      withDeleted: true 
+      withDeleted: true
     });
-    
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
+
+    // Use standardized validation
+    ValidationUtil.validateForRestore(customer, 'Customer', id);
+
+    // Restore the customer
+    await this.customerRepository.restore(id);
 
     return this.mapToResponseDto(customer);
   }
@@ -358,9 +360,13 @@ export class CustomerService {
     };
   }
 
-  async bulkRestore(customerIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
-    const failedIds: string[] = [];
-    let restoredCount = 0;
+  async bulkRestore(customerIds: string[]): Promise<BulkOperationResponse> {
+    if (!customerIds || customerIds.length === 0) {
+      return BulkOperationUtil.createResponse('restored', 'customer', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
 
     for (const customerId of customerIds) {
       try {
@@ -370,30 +376,41 @@ export class CustomerService {
           withDeleted: true,
         });
 
-        if (!customer) {
-          failedIds.push(customerId);
-          continue;
-        }
-
-        if (!customer.deletedAt) {
-          // Customer is not deleted, skip
-          failedIds.push(customerId);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForRestore(customer, 'Customer', customerId);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            customerId,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
         await this.customerRepository.restore(customerId);
-        restoredCount++;
+        successCount++;
       } catch (error) {
-        failedIds.push(customerId);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          customerId,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    return { restoredCount, failedIds };
+    return BulkOperationUtil.createResponse('restored', 'customer', successCount, failedItems);
   }
 
-  async bulkPermanentDelete(customerIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
-    const failedIds: string[] = [];
-    let deletedCount = 0;
+  async bulkPermanentDelete(customerIds: string[]): Promise<BulkOperationResponse> {
+    if (!customerIds || customerIds.length === 0) {
+      return BulkOperationUtil.createResponse('permanently deleted', 'customer', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
 
     for (const customerId of customerIds) {
       try {
@@ -403,45 +420,62 @@ export class CustomerService {
           withDeleted: true,
         });
 
-        if (!customer) {
-          failedIds.push(customerId);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForPermanentDelete(customer, 'Customer', customerId);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            customerId,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
-        if (!customer.deletedAt) {
-          // Customer is not soft-deleted, cannot permanently delete
-          failedIds.push(customerId);
-          continue;
-        }
-
-        // Check for active references (orders, invoices, payments)
-        const hasActiveOrders = await this.salesOrderRepository.count({
-          where: { customerId },
-        });
-
-        const hasActiveInvoices = await this.invoiceRepository.count({
-          where: { customerId },
-        });
+        // Check for active references with comprehensive dependency checking
+        const [orderCount, invoiceCount] = await Promise.all([
+          this.salesOrderRepository.count({ where: { customerId } }),
+          this.invoiceRepository.count({ where: { customerId } }),
+        ]);
 
         // Payment count check temporarily disabled (Payment entity not available)
-        const hasActivePayments = 0;
+        const paymentCount = 0;
 
-        if (hasActiveOrders > 0 || hasActiveInvoices > 0 || hasActivePayments > 0) {
-          failedIds.push(customerId);
+        const dependencies = [
+          { name: 'order', count: orderCount },
+          { name: 'invoice', count: invoiceCount },
+          { name: 'payment', count: paymentCount },
+        ];
+
+        const activeDependencies = dependencies.filter(dep => dep.count > 0);
+        if (activeDependencies.length > 0) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            customerId,
+            ValidationUtil.createDependencyErrorMessage('customer', activeDependencies),
+            'DEPENDENCY_ERROR'
+          );
           continue;
         }
 
         // Perform hard delete
         await this.customerRepository.delete(customerId);
-        deletedCount++;
+        successCount++;
       } catch (error) {
-        failedIds.push(customerId);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          customerId,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    return { deletedCount, failedIds };
+    return BulkOperationUtil.createResponse('permanently deleted', 'customer', successCount, failedItems);
   }
 
+  @Transactional('Customer permanent deletion with financial integrity validation')
   async permanentDelete(id: string): Promise<void> {
     // Verify customer exists and is soft-deleted
     const customer = await this.customerRepository.findOne({
@@ -449,32 +483,72 @@ export class CustomerService {
       withDeleted: true,
     });
 
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
+    // Use standardized validation
+    ValidationUtil.validateForPermanentDelete(customer, 'Customer', id);
 
-    if (!customer.deletedAt) {
-      throw new BadRequestException('Customer must be soft-deleted first');
-    }
-
-    // Check for active references
-    const hasActiveOrders = await this.salesOrderRepository.count({
-      where: { customerId: id },
-    });
-
-    const hasActiveInvoices = await this.invoiceRepository.count({
-      where: { customerId: id },
-    });
+    // Check for active references with comprehensive dependency checking
+    const [orderCount, invoiceCount] = await Promise.all([
+      this.salesOrderRepository.count({ where: { customerId: id } }),
+      this.invoiceRepository.count({ where: { customerId: id } }),
+    ]);
 
     // Payment count check temporarily disabled (Payment entity not available)
-    const hasActivePayments = 0;
+    const paymentCount = 0;
 
-    if (hasActiveOrders > 0 || hasActiveInvoices > 0 || hasActivePayments > 0) {
-      throw new BadRequestException('Cannot permanently delete customer with active orders, invoices, or payments');
+    const dependencies = [
+      { name: 'order', count: orderCount },
+      { name: 'invoice', count: invoiceCount },
+      { name: 'payment', count: paymentCount },
+    ];
+
+    const activeDependencies = dependencies.filter(dep => dep.count > 0);
+    if (activeDependencies.length > 0) {
+      throw new BadRequestException(
+        ValidationUtil.createDependencyErrorMessage('customer', activeDependencies)
+      );
+    }
+
+    // Validate financial consistency before deletion
+    const consistencyCheck = await this.transactionManager.validateFinancialConsistency(id);
+    if (!consistencyCheck.isValid) {
+      throw new BadRequestException(
+        `Customer financial data inconsistency detected: ${consistencyCheck.discrepancies.join(', ')}`
+      );
     }
 
     // Perform hard delete
     await this.customerRepository.delete(id);
+  }
+
+  /**
+   * Validate and correct customer financial totals
+   * Use for data integrity maintenance
+   */
+  async validateCustomerFinancials(customerId: string): Promise<{ isValid: boolean; discrepancies: string[] }> {
+    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    return this.transactionManager.validateFinancialConsistency(customerId);
+  }
+
+  /**
+   * Correct customer financial totals based on actual sales data
+   * Use when data inconsistencies are detected
+   */
+  @Transactional('Customer financial totals correction')
+  async correctCustomerFinancials(customerId: string): Promise<CustomerResponseDto> {
+    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    await this.transactionManager.correctCustomerTotals(customerId);
+
+    // Return updated customer
+    const updatedCustomer = await this.customerRepository.findOne({ where: { id: customerId } });
+    return this.mapToResponseDto(updatedCustomer);
   }
 
   // Internal helper methods

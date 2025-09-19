@@ -29,6 +29,7 @@ import {
 } from '../dto/product.dto';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
+import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 
 @Injectable()
 export class ProductService {
@@ -442,24 +443,22 @@ export class ProductService {
       withDeleted: true,
     });
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${id}' not found`);
-    }
-
-    if (!product.deletedAt) {
-      throw new BadRequestException(`Product with ID '${id}' is not deleted`);
-    }
+    // Use standardized validation
+    ValidationUtil.validateForRestore(product, 'Product', id);
 
     // Check if barcode is still unique (case-insensitive, another product might have been created with the same barcode)
-    const existingProduct = await this.productRepository
-      .createQueryBuilder('product')
-      .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
-      .andWhere('product.id != :id', { id: product.id })
-      .getOne();
+    if (product.barcode) {
+      const existingProduct = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+        .andWhere('product.id != :id', { id: product.id })
+        .getOne();
 
-    if (existingProduct) {
-      throw new ConflictException(
-        `Cannot restore product: barcode '${product.barcode}' is now used by another active product`
+      ValidationUtil.validateUniquenessForRestore(
+        existingProduct,
+        'barcode',
+        product.barcode,
+        'Product'
       );
     }
 
@@ -479,17 +478,17 @@ export class ProductService {
    * Bulk restore soft-deleted products
    */
   async bulkRestore(
-    productIds: string[], 
+    productIds: string[],
     userId?: string
-  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+  ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk restoring ${productIds.length} products`);
-    
+
     if (!productIds || productIds.length === 0) {
-      return { restoredCount: 0, failedIds: [] };
+      return BulkOperationUtil.createResponse('restored', 'product', 0, []);
     }
 
-    const failedIds: string[] = [];
-    let restoredCount = 0;
+    const failedItems = [];
+    let successCount = 0;
 
     // Process each product individually to handle failures gracefully
     for (const id of productIds) {
@@ -501,51 +500,55 @@ export class ProductService {
           withDeleted: true,
         });
 
-        if (!product) {
-          this.logger.warn(`Product with ID '${id}' not found`);
-          failedIds.push(id);
-          continue;
-        }
-
-        if (!product.deletedAt) {
-          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
-          failedIds.push(id);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForRestore(product, 'Product', id);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
         // Check if barcode is still unique (case-insensitive)
-        const existingProduct = await this.productRepository
-          .createQueryBuilder('product')
-          .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
-          .andWhere('product.id != :id', { id: product.id })
-          .getOne();
+        if (product.barcode) {
+          const existingProduct = await this.productRepository
+            .createQueryBuilder('product')
+            .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+            .andWhere('product.id != :id', { id: product.id })
+            .getOne();
 
-        if (existingProduct) {
-          this.logger.warn(
-            `Cannot restore product with ID '${id}': barcode '${product.barcode}' is now used by another active product`
-          );
-          failedIds.push(id);
-          continue;
+          if (existingProduct) {
+            BulkOperationUtil.addFailure(
+              failedItems,
+              id,
+              `Barcode '${product.barcode}' is now used by another active product`,
+              'BARCODE_CONFLICT'
+            );
+            continue;
+          }
         }
 
         // Restore the product
         await this.productRepository.restore(id);
 
-        // Audit logging removed with authentication system
-
-        restoredCount++;
+        successCount++;
         this.logger.log(`Product restored: ${id}`);
       } catch (error) {
         this.logger.error(`Failed to restore product ${id}: ${error.message}`);
-        failedIds.push(id);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          id,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(
-      `Bulk restore completed: ${restoredCount} succeeded, ${failedIds.length} failed`
-    );
-
-    return { restoredCount, failedIds };
+    return BulkOperationUtil.createResponse('restored', 'product', successCount, failedItems);
   }
 
   /**
@@ -561,19 +564,10 @@ export class ProductService {
       withDeleted: true,
     });
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${id}' not found`);
-    }
-
-    // Ensure product is already soft-deleted
-    if (!product.deletedAt) {
-      throw new BadRequestException(
-        'Product must be soft-deleted first before permanent deletion. Use regular delete endpoint first.'
-      );
-    }
+    // Use standardized validation
+    ValidationUtil.validateForPermanentDelete(product, 'Product', id);
 
     // Note: Dependency checks for sales/purchase orders are disabled since those modules are not active
-
     // Note: Stock movement check is disabled since we removed the relation
 
     // Hard delete the product from database
@@ -588,17 +582,17 @@ export class ProductService {
    * Bulk permanently delete products from database
    */
   async bulkPermanentDelete(
-    productIds: string[], 
+    productIds: string[],
     userId?: string
-  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+  ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk permanently deleting ${productIds.length} products`);
-    
+
     if (!productIds || productIds.length === 0) {
-      return { deletedCount: 0, failedIds: [] };
+      return BulkOperationUtil.createResponse('permanently deleted', 'product', 0, []);
     }
 
-    const failedIds: string[] = [];
-    let deletedCount = 0;
+    const failedItems = [];
+    let successCount = 0;
 
     // Process each product individually to handle failures gracefully
     for (const id of productIds) {
@@ -610,40 +604,39 @@ export class ProductService {
           withDeleted: true,
         });
 
-        if (!product) {
-          this.logger.warn(`Product with ID '${id}' not found`);
-          failedIds.push(id);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForPermanentDelete(product, 'Product', id);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
-        // Ensure product is already soft-deleted
-        if (!product.deletedAt) {
-          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
-          failedIds.push(id);
-          continue;
-        }
-
-        // Note: Dependency checks for sales/purchase orders and stock movements are disabled 
+        // Note: Dependency checks for sales/purchase orders and stock movements are disabled
         // since those modules are not active
 
         // Hard delete the product from database
         await this.productRepository.delete(id);
 
-        // Audit logging removed with authentication system
-
-        deletedCount++;
+        successCount++;
         this.logger.log(`Product permanently deleted: ${id}`);
       } catch (error) {
         this.logger.error(`Failed to permanently delete product ${id}: ${error.message}`);
-        failedIds.push(id);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          id,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(
-      `Bulk permanent delete completed: ${deletedCount} succeeded, ${failedIds.length} failed`
-    );
-
-    return { deletedCount, failedIds };
+    return BulkOperationUtil.createResponse('permanently deleted', 'product', successCount, failedItems);
   }
 
   /**
