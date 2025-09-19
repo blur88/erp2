@@ -169,6 +169,18 @@ export const bulkDeleteOrders = createAsyncThunk(
   }
 )
 
+export const permanentDeleteOrder = createAsyncThunk(
+  'sales/permanentDeleteOrder',
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.permanentDeleteOrder(orderId)
+      return { orderId }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete order')
+    }
+  }
+)
+
 export const fetchInvoices = createAsyncThunk(
   'sales/fetchInvoices',
   async (params: { page?: number; limit?: number; customerId?: string; status?: string }, { rejectWithValue }) => {
@@ -426,6 +438,18 @@ const salesSlice = createSlice({
         // Orders will be removed from deletedOrders when refetched
       })
       .addCase(bulkDeleteOrders.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+      .addCase(permanentDeleteOrder.pending, (state) => {
+        state.error = null
+      })
+      .addCase(permanentDeleteOrder.fulfilled, (state, action) => {
+        // Remove the permanently deleted order from deletedOrders
+        if (action.payload && state.deletedOrders) {
+          state.deletedOrders = state.deletedOrders.filter(order => order.id !== action.payload.orderId)
+        }
+      })
+      .addCase(permanentDeleteOrder.rejected, (state, action) => {
         state.error = action.payload as string
       })
 

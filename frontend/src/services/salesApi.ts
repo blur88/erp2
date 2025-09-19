@@ -211,11 +211,15 @@ export const salesApi = {
   },
 
   async bulkRestoreOrders(orderIds: string[]) {
-    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('sales-orders/bulk-restore', { ids: orderIds })
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('sales-orders/bulk-restore', { salesOrderIds: orderIds })
+  },
+
+  async permanentDeleteOrder(id: string) {
+    return ApiService.delete(`sales-orders/${id}/permanent`)
   },
 
   async bulkDeleteOrders(orderIds: string[]) {
-    return ApiService.delete<{ deletedCount: number; failedIds: string[] }>('sales-orders/bulk-delete', { data: { ids: orderIds } })
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('sales-orders/bulk-permanent-delete', { salesOrderIds: orderIds })
   },
 
   // Invoices

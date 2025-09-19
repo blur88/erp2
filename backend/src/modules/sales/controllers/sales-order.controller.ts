@@ -389,4 +389,23 @@ export class SalesOrderController {
       failedIds: result.failedItems.map(item => item.id),
     };
   }
+
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a sales order from database' })
+  @ApiResponse({
+    status: 204,
+    description: 'Sales order permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({
+    status: 400,
+    description: 'Sales order must be soft-deleted first or has active references'
+  })
+  @ApiParam({ name: 'id', description: 'Sales order ID' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.salesOrderService.permanentDelete(id);
+  }
 }

@@ -39,6 +39,7 @@ import {
   restoreOrder,
   bulkRestoreOrders,
   bulkDeleteOrders,
+  permanentDeleteOrder,
   selectDeletedOrders,
   selectSalesLoading,
   fetchOrders
@@ -64,9 +65,11 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
 
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
   const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<SalesOrder | null>(null)
   const [bulkRestoring, setBulkRestoring] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
@@ -164,6 +167,27 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
     } finally {
       setBulkRestoring(false)
       setShowBulkRestoreConfirm(false)
+    }
+  }
+
+  const handlePermanentDelete = async (order: SalesOrder) => {
+    setDeletingId(order.id)
+    try {
+      const result = await dispatch(permanentDeleteOrder(order.id))
+
+      if (permanentDeleteOrder.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+
+      showSuccess(`Order "${order.orderNumber}" permanently deleted`)
+      // No need to refresh as the Redux reducer removes it from the list
+    } catch (error: any) {
+      console.error('Order permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete order'
+      showError(errorMessage)
+    } finally {
+      setDeletingId(null)
+      setShowDeleteConfirm(null)
     }
   }
 
@@ -434,7 +458,7 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                           <Tooltip title="Restore Order">
                             <IconButton
                               onClick={() => handleRestore(order)}
-                              disabled={restoringId === order.id}
+                              disabled={restoringId === order.id || deletingId === order.id}
                               size="small"
                               sx={{
                                 '&:hover': {
@@ -445,6 +469,22 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                               }}
                             >
                               <RestoreIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Permanently Delete Order">
+                            <IconButton
+                              onClick={() => setShowDeleteConfirm(order)}
+                              disabled={restoringId === order.id || deletingId === order.id}
+                              size="small"
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.main'
+                                },
+                                p: 0.5
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </Box>
@@ -602,6 +642,71 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
             startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteIcon />}
           >
             {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Orders`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Individual Delete Confirmation Dialog */}
+      <Dialog
+        open={!!showDeleteConfirm}
+        onClose={() => !deletingId && setShowDeleteConfirm(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">
+          <Box display="flex" alignItems="center" gap={1}>
+            <DeleteIcon color="error" />
+            Permanent Delete Order
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <strong>Warning:</strong> This action cannot be undone. The sales order will be permanently deleted from the system.
+          </Alert>
+
+          {showDeleteConfirm && (
+            <>
+              <Typography variant="body1" gutterBottom>
+                Are you sure you want to permanently delete order <strong>{showDeleteConfirm.orderNumber}</strong>?
+              </Typography>
+
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                  Order Details:
+                </Typography>
+                <Typography variant="body2">
+                  • Customer: {showDeleteConfirm.customer?.name || 'Unknown Customer'}
+                </Typography>
+                <Typography variant="body2">
+                  • Order Date: {formatDate(showDeleteConfirm.orderDate)}
+                </Typography>
+                <Typography variant="body2">
+                  • Total Amount: {formatCurrency(showDeleteConfirm.totalAmount)}
+                </Typography>
+              </Box>
+
+              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+                This order will be permanently removed from the database and cannot be recovered.
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowDeleteConfirm(null)}
+            variant="outlined"
+            disabled={!!deletingId}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => showDeleteConfirm && handlePermanentDelete(showDeleteConfirm)}
+            variant="contained"
+            color="error"
+            disabled={!!deletingId}
+            startIcon={deletingId ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            {deletingId ? 'Deleting...' : 'Permanently Delete'}
           </Button>
         </DialogActions>
       </Dialog>
