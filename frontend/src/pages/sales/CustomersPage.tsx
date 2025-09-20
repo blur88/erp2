@@ -42,9 +42,6 @@ import {
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
   TrendingUp as SalesIcon,
-  Block as SuspendIcon,
-  CheckCircle as ActivateIcon,
-  Cancel as DeactivateIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
@@ -58,9 +55,6 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
-  activateCustomer,
-  deactivateCustomer,
-  suspendCustomer,
   selectCustomers,
   selectCustomersLoading,
   selectCustomersError,
@@ -286,26 +280,6 @@ const CustomersPage: React.FC = () => {
     }
   }
 
-  // Handle customer status actions
-  const handleStatusAction = async (customer: Customer, action: 'activate' | 'deactivate' | 'suspend') => {
-    try {
-      switch (action) {
-        case 'activate':
-          await dispatch(activateCustomer(customer.id)).unwrap()
-          break
-        case 'deactivate':
-          await dispatch(deactivateCustomer(customer.id)).unwrap()
-          break
-        case 'suspend':
-          await dispatch(suspendCustomer({ id: customer.id })).unwrap()
-          break
-      }
-      showSuccess(`Customer ${action}d successfully`)
-      dispatch(fetchCustomers({ ...filters }))
-    } catch (error) {
-      showError(`Failed to ${action} customer: ${error}`)
-    }
-  }
 
   // Form helpers
   const handleOpenForm = (customer?: Customer) => {
@@ -858,99 +832,6 @@ const CustomersPage: React.FC = () => {
                           transition: 'opacity 0.2s ease'
                         }}
                       >
-                        {/* Status Action Buttons */}
-                        {customer.isActive && customer.status === CustomerStatus.ACTIVE && (
-                          <>
-                            <Tooltip title={`Suspend ${customer.name}`}>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleStatusAction(customer, 'suspend')}
-                                sx={{
-                                  height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                                  width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                                  minHeight: 20,
-                                  minWidth: 20,
-                                  p: 0.125, // Reduce padding for better proportion
-                                  '&:hover': {
-                                    backgroundColor: 'warning.light',
-                                    color: 'warning.main'
-                                  }
-                                }}
-                              >
-                                <SuspendIcon sx={{
-                                  fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
-                                }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={`Deactivate ${customer.name}`}>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleStatusAction(customer, 'deactivate')}
-                                sx={{
-                                  height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                                  width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                                  minHeight: 20,
-                                  minWidth: 20,
-                                  p: 0.125, // Reduce padding for better proportion
-                                  '&:hover': {
-                                    backgroundColor: 'error.light',
-                                    color: 'error.main'
-                                  }
-                                }}
-                              >
-                                <DeactivateIcon sx={{
-                                  fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
-                                }} />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                        {customer.isActive && customer.status === CustomerStatus.SUSPENDED && (
-                          <Tooltip title={`Activate ${customer.name}`}>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleStatusAction(customer, 'activate')}
-                              sx={{
-                                height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                                width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                                minHeight: 20,
-                                minWidth: 20,
-                                p: 0.125, // Reduce padding for better proportion
-                                '&:hover': {
-                                  backgroundColor: 'success.light',
-                                  color: 'success.main'
-                                }
-                              }}
-                            >
-                              <ActivateIcon sx={{
-                                fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
-                              }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {!customer.isActive && (
-                          <Tooltip title={`Activate ${customer.name}`}>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleStatusAction(customer, 'activate')}
-                              sx={{
-                                height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                                width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                                minHeight: 20,
-                                minWidth: 20,
-                                p: 0.125, // Reduce padding for better proportion
-                                '&:hover': {
-                                  backgroundColor: 'success.light',
-                                  color: 'success.main'
-                                }
-                              }}
-                            >
-                              <ActivateIcon sx={{
-                                fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height
-                              }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
 
                         {/* Standard Action Buttons */}
                         <IconButton

@@ -148,47 +148,8 @@ export class CustomerController {
 
 
 
-  @Put(':id/activate')
-  @ApiOperation({ summary: 'Activate customer' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer activated successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async activateCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
-    return this.customerService.activate(id);
-  }
 
-  @Put(':id/deactivate')
-  @ApiOperation({ summary: 'Deactivate customer' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer deactivated successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async deactivateCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
-    return this.customerService.deactivate(id);
-  }
 
-  @Put(':id/suspend')
-  @ApiOperation({ summary: 'Suspend customer' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer suspended successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async suspendCustomer(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason?: string,
-  ): Promise<CustomerResponseDto> {
-    return this.customerService.suspend(id, reason);
-  }
 
   @Get(':id/sales-history')
   @ApiOperation({ summary: 'Get customer sales history' })

@@ -100,29 +100,8 @@ export const deleteCustomer = createAsyncThunk(
   }
 )
 
-export const activateCustomer = createAsyncThunk(
-  'customers/activateCustomer',
-  async (id: string) => {
-    const response = await salesApi.activateCustomer(id)
-    return response  // Return the full response
-  }
-)
 
-export const deactivateCustomer = createAsyncThunk(
-  'customers/deactivateCustomer',
-  async (id: string) => {
-    const response = await salesApi.deactivateCustomer(id)
-    return response  // Return the full response
-  }
-)
 
-export const suspendCustomer = createAsyncThunk(
-  'customers/suspendCustomer',
-  async ({ id, reason }: { id: string; reason?: string }) => {
-    const response = await salesApi.suspendCustomer(id, reason)
-    return response  // Return the full response
-  }
-)
 
 export const updateCreditLimit = createAsyncThunk(
   'customers/updateCreditLimit',
@@ -308,50 +287,8 @@ const customerSlice = createSlice({
         state.error = action.error.message || 'Failed to delete customer'
       })
 
-    // Activate customer
-    builder
-      .addCase(activateCustomer.fulfilled, (state, action) => {
-        if (action.payload) {
-          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
-          const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
-          if (index !== -1) {
-            state.customers[index] = updatedCustomer
-          }
-          if (state.currentCustomer?.id === updatedCustomer.id) {
-            state.currentCustomer = updatedCustomer
-          }
-        }
-      })
 
-    // Deactivate customer
-    builder
-      .addCase(deactivateCustomer.fulfilled, (state, action) => {
-        if (action.payload) {
-          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
-          const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
-          if (index !== -1) {
-            state.customers[index] = updatedCustomer
-          }
-          if (state.currentCustomer?.id === updatedCustomer.id) {
-            state.currentCustomer = updatedCustomer
-          }
-        }
-      })
 
-    // Suspend customer
-    builder
-      .addCase(suspendCustomer.fulfilled, (state, action) => {
-        if (action.payload) {
-          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
-          const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
-          if (index !== -1) {
-            state.customers[index] = updatedCustomer
-          }
-          if (state.currentCustomer?.id === updatedCustomer.id) {
-            state.currentCustomer = updatedCustomer
-          }
-        }
-      })
 
     // Update credit limit
     builder

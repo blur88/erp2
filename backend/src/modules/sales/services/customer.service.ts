@@ -227,32 +227,8 @@ export class CustomerService {
 
   // Credit management methods removed - fields don't exist in current entity
 
-  async activate(id: string): Promise<CustomerResponseDto> {
-    const customer = await this.findCustomerEntity(id);
-    customer.isActive = true;
-    customer.status = CustomerStatus.ACTIVE;
-    const savedCustomer = await this.customerRepository.save(customer);
-    return this.mapToResponseDto(savedCustomer);
-  }
 
-  async deactivate(id: string): Promise<CustomerResponseDto> {
-    const customer = await this.findCustomerEntity(id);
-    customer.isActive = false;
-    customer.status = CustomerStatus.INACTIVE;
-    const savedCustomer = await this.customerRepository.save(customer);
-    return this.mapToResponseDto(savedCustomer);
-  }
 
-  async suspend(id: string, reason?: string): Promise<CustomerResponseDto> {
-    const customer = await this.findCustomerEntity(id);
-    customer.status = CustomerStatus.SUSPENDED;
-    customer.isActive = false;
-    if (reason) {
-      customer.notes = customer.notes ? `${customer.notes}\nSuspended: ${reason}` : `Suspended: ${reason}`;
-    }
-    const savedCustomer = await this.customerRepository.save(customer);
-    return this.mapToResponseDto(savedCustomer);
-  }
 
   async getSalesHistory(customerId: string, limit: number = 10) {
     await this.findCustomerEntity(customerId); // Verify customer exists

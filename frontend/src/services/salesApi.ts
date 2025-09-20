@@ -72,17 +72,8 @@ export const salesApi = {
     return ApiService.put<Customer>(`customers/${id}/credit-limit`, { creditLimit })
   },
 
-  async activateCustomer(id: string) {
-    return ApiService.put<Customer>(`customers/${id}/activate`)
-  },
 
-  async deactivateCustomer(id: string) {
-    return ApiService.put<Customer>(`customers/${id}/deactivate`)
-  },
 
-  async suspendCustomer(id: string, reason?: string) {
-    return ApiService.put<Customer>(`customers/${id}/suspend`, { reason })
-  },
 
   async getCustomerSalesHistory(id: string, limit?: number) {
     return ApiService.get(`customers/${id}/sales-history`, { params: { limit } })
