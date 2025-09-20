@@ -426,24 +426,19 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                         />
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-                            {getCustomerTypeIcon(customer.type)}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                              {customer.name}
-                            </Typography>
-                            {isMobile && (
-                              <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                                {customer.email && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                    {customer.email}
-                                  </Typography>
-                                )}
-                              </Box>
-                            )}
-                          </Box>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                            {customer.name}
+                          </Typography>
+                          {isMobile && (
+                            <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                              {customer.email && (
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                  {customer.email}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
                         </Box>
                       </TableCell>
                       <TableCell>
