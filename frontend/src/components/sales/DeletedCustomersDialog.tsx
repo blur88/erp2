@@ -246,12 +246,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
     return type === CustomerType.BUSINESS ? <BusinessIcon /> : <PersonIcon />
   }
 
-  const getActiveStatusChip = (isActive: boolean) => {
-    return isActive
-      ? <Chip label="Active" size="small" color="success" />
-      : <Chip label="Inactive" size="small" color="default" />
-  }
-
   return (
     <Dialog
       open={open}
@@ -373,13 +367,8 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                       </Typography>
                     </TableCell>
                   )}
-                  <TableCell sx={{ width: isMobile ? '20%' : '15%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Status
-                    </Typography>
-                  </TableCell>
                   {!isMobile && (
-                    <TableCell sx={{ width: '15%' }}>
+                    <TableCell sx={{ width: '20%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Deleted Date
                       </Typography>
@@ -395,7 +384,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
               <TableBody>
                 {filteredCustomers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isMobile ? 6 : 7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 5 : 6} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary">
                         {searchTerm ? 'No deleted customers match your search.' : 'No deleted customers found.'}
                       </Typography>
@@ -471,9 +460,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                           </Stack>
                         </TableCell>
                       )}
-                      <TableCell>
-                        {getActiveStatusChip(customer.isActive)}
-                      </TableCell>
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
