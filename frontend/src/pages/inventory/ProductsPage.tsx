@@ -241,6 +241,7 @@ const ProductsPage: React.FC = () => {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
@@ -292,10 +293,17 @@ const ProductsPage: React.FC = () => {
   const specialMargin = calculateMargin(specialPrice, baseCost)
 
   // Check if all mandatory fields are filled
-  const isMandatoryFieldsComplete = watchedName?.trim().length >= 2 && 
-    watchedType && 
-    watchedCategoryId?.trim().length >= 1 && 
+  const isMandatoryFieldsComplete = watchedName?.trim().length >= 2 &&
+    watchedType &&
+    watchedCategoryId?.trim().length >= 1 &&
     (baseCost !== null && baseCost !== undefined && baseCost >= 0)
+
+  // Clear stock field when type changes to 'Service'
+  useEffect(() => {
+    if (watchedType === 'Service') {
+      setValue('currentStock', undefined)
+    }
+  }, [watchedType, setValue])
 
   // Real-time duplicate checking for form fields
   useEffect(() => {
@@ -1848,6 +1856,8 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               type="number"
                               inputProps={{ step: 1, min: 0 }}
+                              disabled={inlineEditData.type === 'Service'}
+                              placeholder={inlineEditData.type === 'Service' ? 'N/A for services' : ''}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
@@ -2365,8 +2375,9 @@ const ProductsPage: React.FC = () => {
                       label="Current Stock Quantity"
                       type="number"
                       inputProps={{ step: 1, min: 0 }}
+                      disabled={watchedType === 'Service'}
                       error={!!errors.currentStock}
-                      helperText={errors.currentStock?.message}
+                      helperText={watchedType === 'Service' ? 'Not applicable for services' : errors.currentStock?.message}
                     />
                   )}
                 />
