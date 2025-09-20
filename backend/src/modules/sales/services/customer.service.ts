@@ -646,11 +646,11 @@ export class CustomerService {
       return; // Skip validation for empty phone numbers
     }
 
-    // Get all active customers to check phone duplicates
+    // Get ALL customers (including soft-deleted) to check phone duplicates
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
-      .where('customer.isActive = :isActive', { isActive: true })
-      .andWhere('customer.phone IS NOT NULL')
+      .withDeleted() // Include soft-deleted records
+      .where('customer.phone IS NOT NULL')
       .andWhere('customer.phone != :empty', { empty: '' });
 
     // Exclude current customer when updating

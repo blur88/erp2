@@ -167,14 +167,25 @@ const CustomersPage: React.FC = () => {
     setPhoneError(null)
 
     try {
-      // Search for customers with similar phone numbers
-      const response = await salesApi.getCustomers({ search: phone })
+      // Search for customers with similar phone numbers in BOTH active and deleted customers
+      const [activeResponse, deletedResponse] = await Promise.all([
+        salesApi.getCustomers({ search: phone }),
+        salesApi.getDeletedCustomers({ search: phone })
+      ])
 
       // Cast to any to handle type mismatch between interface and actual API response
-      const apiResponse = response as any
-      if (apiResponse.data && apiResponse.data.length > 0) {
+      const activeApiResponse = activeResponse as any
+      const deletedApiResponse = deletedResponse as any
+
+      // Combine both active and deleted customers for duplicate checking
+      const allCustomers = [
+        ...(activeApiResponse.data || []),
+        ...(deletedApiResponse.data || [])
+      ]
+
+      if (allCustomers.length > 0) {
         // Check if any customer has the same normalized phone
-        const duplicateCustomer = apiResponse.data.find((customer: Customer) => {
+        const duplicateCustomer = allCustomers.find((customer: Customer) => {
           if (!customer.phone) return false
           const existingNormalizedPhone = customer.phone.replace(/[\s\-\(\)\+]/g, '')
           return existingNormalizedPhone === normalizedPhone &&
