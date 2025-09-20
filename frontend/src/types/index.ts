@@ -134,12 +134,6 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-export enum CustomerStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  SUSPENDED = 'suspended',
-  BLACKLISTED = 'blacklisted',
-}
 
 export enum PriceLevel {
   RETAIL = 'retail',
@@ -169,7 +163,6 @@ export interface Customer {
   shippingPostalCode?: string;
   shippingCountry?: string;
   // Business Information
-  status: CustomerStatus;
   isActive: boolean;
   priceLevel: PriceLevel;
   // Credit Management

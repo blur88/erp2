@@ -19,7 +19,7 @@ export { Category } from './category.entity';
 export { Product, ProductType } from './product.entity';
 
 // Customer Management (SalesModule, used by InventoryModule for pricing)
-export { Customer, CustomerType, CustomerStatus, PriceLevel } from './customer.entity';
+export { Customer, CustomerType, PriceLevel } from './customer.entity';
 
 // Sales Management (SalesModule) - Temporarily disabled for startup
 // export { SalesOrder, SalesOrderStatus, SalesOrderPriority } from './sales-order.entity';

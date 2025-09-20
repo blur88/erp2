@@ -82,8 +82,8 @@ export class SalesOrderService {
     }
 
     // Check customer status
-    if (!customer.isActive || customer.status === 'suspended' || customer.status === 'blacklisted') {
-      throw new ConflictException('Customer is not active or is suspended/blacklisted');
+    if (!customer.isActive) {
+      throw new ConflictException('Customer is not active');
     }
 
     // Validate and calculate order totals

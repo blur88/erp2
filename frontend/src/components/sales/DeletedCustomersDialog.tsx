@@ -51,7 +51,7 @@ import {
 } from '@/store/slices/customerSlice'
 import { useNotification } from '@/hooks/useNotification'
 import type { Customer } from '@/types'
-import { CustomerType, CustomerStatus } from '@/types'
+import { CustomerType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 
 interface DeletedCustomersDialogProps {
@@ -246,21 +246,10 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
     return type === CustomerType.BUSINESS ? <BusinessIcon /> : <PersonIcon />
   }
 
-  const getStatusChip = (status: CustomerStatus, isActive: boolean) => {
-    if (!isActive) {
-      return <Chip label="Inactive" size="small" color="default" />
-    }
-    
-    switch (status) {
-      case CustomerStatus.ACTIVE:
-        return <Chip label="Active" size="small" color="success" />
-      case CustomerStatus.SUSPENDED:
-        return <Chip label="Suspended" size="small" color="warning" />
-      case CustomerStatus.BLACKLISTED:
-        return <Chip label="Blacklisted" size="small" color="error" />
-      default:
-        return <Chip label="Inactive" size="small" color="default" />
-    }
+  const getActiveStatusChip = (isActive: boolean) => {
+    return isActive
+      ? <Chip label="Active" size="small" color="success" />
+      : <Chip label="Inactive" size="small" color="default" />
   }
 
   return (
@@ -488,7 +477,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                         </TableCell>
                       )}
                       <TableCell>
-                        {getStatusChip(customer.status, customer.isActive)}
+                        {getActiveStatusChip(customer.isActive)}
                       </TableCell>
                       {!isMobile && (
                         <TableCell>

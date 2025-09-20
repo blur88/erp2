@@ -1,9 +1,8 @@
 import { ApiService } from './api'
-import type { Customer, CustomerType, CustomerStatus, PriceLevel, SalesOrder, Invoice, Payment, PaginatedResponse, QueryParams } from '@/types'
+import type { Customer, CustomerType, PriceLevel, SalesOrder, Invoice, Payment, PaginatedResponse, QueryParams } from '@/types'
 
 interface CustomerQueryParams extends QueryParams {
   type?: CustomerType;
-  status?: CustomerStatus;
   priceLevel?: PriceLevel;
 }
 
@@ -13,7 +12,6 @@ interface CustomerSummary {
   name: string;
   email?: string;
   phone?: string;
-  status: CustomerStatus;
   currentBalance: number;
   creditLimit: number;
   availableCredit: number;

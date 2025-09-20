@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
-import { Customer, CustomerStatus, PriceLevel } from '../../../database/entities/customer.entity';
+import { Customer, PriceLevel } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
@@ -54,7 +54,6 @@ export class CustomerService {
     const {
       search,
       type,
-      status,
       priceLevel,
       isActive,
       sortBy = 'name',
@@ -66,7 +65,6 @@ export class CustomerService {
     const where: FindOptionsWhere<Customer> = {};
 
     if (type) where.type = type;
-    if (status) where.status = status;
     if (priceLevel) where.priceLevel = priceLevel;
     if (isActive !== undefined) where.isActive = isActive;
 
@@ -155,7 +153,7 @@ export class CustomerService {
     const customers = await this.customerRepository.find({
       where: { isActive: true },
       order: { name: 'ASC' },
-      select: ['id', 'customerCode', 'name', 'phone', 'status'],
+      select: ['id', 'customerCode', 'name', 'phone'],
     });
 
     return customers.map(customer => ({
@@ -163,7 +161,6 @@ export class CustomerService {
       customerCode: customer.customerCode,
       name: customer.name,
       phone: customer.phone,
-      status: customer.status,
     }));
   }
 
@@ -325,7 +322,6 @@ export class CustomerService {
       customer: {
         name: customer.name,
         customerCode: customer.customerCode,
-        status: customer.status,
       },
       orders: {
         totalOrders: parseInt(orderStats.totalOrders) || 0,
@@ -697,7 +693,6 @@ export class CustomerService {
       type: customer.type,
       name: customer.name,
       phone: customer.phone,
-      status: customer.status,
       isActive: customer.isActive,
       priceLevel: customer.priceLevel,
       totalSales: Number(customer.totalSales),

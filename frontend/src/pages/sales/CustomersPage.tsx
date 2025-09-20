@@ -64,7 +64,7 @@ import {
   clearError,
 } from '@/store/slices/customerSlice'
 import type { Customer } from '@/types'
-import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
+import { CustomerType, PriceLevel } from '@/types'
 import { salesApi } from '@/services/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
@@ -213,7 +213,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.status, filters.priceLevel, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.priceLevel, filters.sortBy, filters.sortOrder])
 
   // Handle pagination
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -265,7 +265,6 @@ const CustomersPage: React.FC = () => {
           limit: pagination.limit,
           search: filters.search || undefined,
           type: filters.type || undefined,
-          status: filters.status || undefined,
           priceLevel: filters.priceLevel || undefined,
           isActive: filters.isActive,
           sortBy: filters.sortBy || undefined,
@@ -324,22 +323,11 @@ const CustomersPage: React.FC = () => {
   }
 
 
-  // Get status color and label
-  const getStatusChip = (status: CustomerStatus, isActive: boolean) => {
-    if (!isActive) {
-      return <Chip label="Inactive" size="small" color="default" />
-    }
-    
-    switch (status) {
-      case CustomerStatus.ACTIVE:
-        return <Chip label="Active" size="small" color="success" />
-      case CustomerStatus.SUSPENDED:
-        return <Chip label="Suspended" size="small" color="warning" />
-      case CustomerStatus.BLACKLISTED:
-        return <Chip label="Blacklisted" size="small" color="error" />
-      default:
-        return <Chip label="Inactive" size="small" color="default" />
-    }
+  // Get active status chip
+  const getActiveStatusChip = (isActive: boolean) => {
+    return isActive
+      ? <Chip label="Active" size="small" color="success" />
+      : <Chip label="Inactive" size="small" color="default" />
   }
 
 
@@ -512,57 +500,6 @@ const CustomersPage: React.FC = () => {
         <FormControl 
           size="medium" 
           sx={{ 
-            minWidth: isMobile ? 'auto' : 120,
-            flex: 'none'
-          }}
-        >
-          <InputLabel 
-            sx={{ 
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Status
-          </InputLabel>
-          <Select
-            value={filters.status || ''}
-            label="Status"
-            onChange={(e) => dispatch(setFilters({ status: e.target.value as CustomerStatus }))}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                padding: '8.5px 14px',
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                boxSizing: 'border-box'
-              },
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(0, 0, 0, 0.23)'
-              },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(0, 0, 0, 0.87)'
-              },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: theme.palette.primary.main,
-                borderWidth: 2
-              }
-            }}
-          >
-            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All Statuses</MenuItem>
-            <MenuItem value={CustomerStatus.ACTIVE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Active</MenuItem>
-            <MenuItem value={CustomerStatus.INACTIVE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Inactive</MenuItem>
-            <MenuItem value={CustomerStatus.SUSPENDED} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Suspended</MenuItem>
-            <MenuItem value={CustomerStatus.BLACKLISTED} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Blacklisted</MenuItem>
-          </Select>
-        </FormControl>
-        <FormControl 
-          size="medium" 
-          sx={{ 
             minWidth: isMobile ? 'auto' : 130,
             flex: 'none'
           }}
@@ -671,17 +608,6 @@ const CustomersPage: React.FC = () => {
                     color: TYPOGRAPHY_STYLES.tableHeader.color,
                     fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                   }}>
-                      Status
-                    </Typography>
-                  </TableCell>
-                )}
-                {!isMobile && (
-                  <TableCell sx={{ width: '10%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
                       Sales
                     </Typography>
                   </TableCell>
@@ -740,22 +666,16 @@ const CustomersPage: React.FC = () => {
                           {customer.name}
                         </Typography>
                       </Box>
-                      {/* Mobile-only type and status indicators */}
+                      {/* Mobile-only type and active status indicators */}
                       {isMobile && (
                         <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5 }}>
-                          <Chip 
+                          <Chip
                             label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
                             size="small"
                             variant="outlined"
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
-                          <Chip
-                            label={customer.status === CustomerStatus.ACTIVE ? 'Active' : customer.status}
-                            size="small"
-                            color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
-                            variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
-                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
-                          />
+                          {getActiveStatusChip(customer.isActive)}
                         </Box>
                       )}
                     </TableCell>
@@ -787,26 +707,6 @@ const CustomersPage: React.FC = () => {
                         )}
                       </Box>
                     </TableCell>
-                    {!isMobile && (
-                      <TableCell>
-                        <Chip
-                          label={customer.status === CustomerStatus.ACTIVE ? 'Active' : customer.status}
-                          size="small"
-                          color={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'success' : customer.status === CustomerStatus.SUSPENDED ? 'warning' : 'default'}
-                          variant={customer.isActive && customer.status === CustomerStatus.ACTIVE ? 'filled' : 'outlined'}
-                          sx={{
-                            minWidth: `${TABLE_STYLES.row.height * 1.8}px`, // Scale min width proportionally
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: `${TABLE_STYLES.row.height * 0.65}px`, // Scale to 65% of row height for better proportion
-                            '& .MuiChip-label': {
-                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`, // Scale font size with row height
-                              lineHeight: 1
-                            }
-                          }}
-                        />
-                      </TableCell>
-                    )}
                     {!isMobile && (
                       <TableCell>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
@@ -1078,7 +978,7 @@ const CustomersPage: React.FC = () => {
                   <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
                     {selectedCustomer.name}
                   </Typography>
-                  {getStatusChip(selectedCustomer.status, selectedCustomer.isActive)}
+                  {getActiveStatusChip(selectedCustomer.isActive)}
                 </Box>
               </Grid>
 

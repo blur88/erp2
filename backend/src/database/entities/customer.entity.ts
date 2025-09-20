@@ -26,12 +26,6 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-export enum CustomerStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  SUSPENDED = 'suspended',
-  BLACKLISTED = 'blacklisted',
-}
 
 export enum PriceLevel {
   RETAIL = 'retail',
@@ -47,7 +41,7 @@ export enum PriceLevel {
 @Entity('customers')
 @Index(['customerCode'], { unique: true })
 @Index(['phone'])
-@Index(['type', 'status'])
+@Index(['type'])
 @Index(['priceLevel'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
@@ -98,14 +92,6 @@ export class Customer extends BaseEntity {
 
 
   // Business Information
-  @Column({
-    type: 'enum',
-    enum: CustomerStatus,
-    default: CustomerStatus.ACTIVE,
-    comment: 'Customer status',
-  })
-  @IsEnum(CustomerStatus)
-  status: CustomerStatus;
 
   @Column({
     type: 'boolean',
@@ -224,6 +210,6 @@ export class Customer extends BaseEntity {
    * @returns true if customer can purchase, false otherwise
    */
   canPurchase(): boolean {
-    return this.isActive && this.status !== CustomerStatus.SUSPENDED && this.status !== CustomerStatus.BLACKLISTED;
+    return this.isActive;
   }
 }

@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { CustomerType, CustomerStatus, PriceLevel } from '../../../database/entities/customer.entity';
+import { CustomerType, PriceLevel } from '../../../database/entities/customer.entity';
 
 export class CreateCustomerDto {
   @ApiProperty({
@@ -87,14 +87,6 @@ export class UpdateCustomerDto {
   phone?: string;
 
 
-  @ApiPropertyOptional({
-    description: 'Customer status',
-    enum: CustomerStatus,
-    example: CustomerStatus.ACTIVE,
-  })
-  @IsOptional()
-  @IsEnum(CustomerStatus)
-  status?: CustomerStatus;
 
   @ApiPropertyOptional({
     description: 'Whether the customer is active',
@@ -141,14 +133,6 @@ export class QueryCustomersDto {
   @IsEnum(CustomerType)
   type?: CustomerType;
 
-  @ApiPropertyOptional({
-    description: 'Filter by customer status',
-    enum: CustomerStatus,
-    example: CustomerStatus.ACTIVE,
-  })
-  @IsOptional()
-  @IsEnum(CustomerStatus)
-  status?: CustomerStatus;
 
   @ApiPropertyOptional({
     description: 'Filter by price level',
@@ -224,8 +208,6 @@ export class CustomerResponseDto {
   @ApiProperty({ example: '+1234567890', nullable: true })
   phone?: string;
 
-  @ApiProperty({ enum: CustomerStatus, example: CustomerStatus.ACTIVE })
-  status: CustomerStatus;
 
   @ApiProperty({ example: true })
   isActive: boolean;
@@ -275,7 +257,5 @@ export class CustomerSummaryDto {
   @ApiProperty({ example: '+1234567890', nullable: true })
   phone?: string;
 
-  @ApiProperty({ enum: CustomerStatus, example: CustomerStatus.ACTIVE })
-  status: CustomerStatus;
 }
 
