@@ -32,6 +32,11 @@ export class CustomerService {
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
+    // Check for phone number duplicate if phone is provided
+    if (createCustomerDto.phone) {
+      await this.validatePhoneUniqueness(createCustomerDto.phone);
+    }
+
     // Generate customer code
     const customerCode = await this.generateCustomerCode();
 
@@ -182,6 +187,11 @@ export class CustomerService {
     const customer = await this.customerRepository.findOne({ where: { id } });
     if (!customer) {
       throw new NotFoundException('Customer not found');
+    }
+
+    // Check for phone number duplicate if phone is being updated
+    if (updateCustomerDto.phone && updateCustomerDto.phone !== customer.phone) {
+      await this.validatePhoneUniqueness(updateCustomerDto.phone, id);
     }
 
     Object.assign(customer, updateCustomerDto);
@@ -627,6 +637,42 @@ export class CustomerService {
   }
 
   // Internal helper methods
+
+  private async validatePhoneUniqueness(phone: string, excludeId?: string): Promise<void> {
+    // Normalize phone number by removing common formatting characters
+    const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+
+    if (!normalizedPhone) {
+      return; // Skip validation for empty phone numbers
+    }
+
+    // Get all active customers to check phone duplicates
+    const queryBuilder = this.customerRepository
+      .createQueryBuilder('customer')
+      .where('customer.isActive = :isActive', { isActive: true })
+      .andWhere('customer.phone IS NOT NULL')
+      .andWhere('customer.phone != :empty', { empty: '' });
+
+    // Exclude current customer when updating
+    if (excludeId) {
+      queryBuilder.andWhere('customer.id != :excludeId', { excludeId });
+    }
+
+    const existingCustomers = await queryBuilder.getMany();
+
+    // Check for normalized phone number matches
+    const duplicateCustomer = existingCustomers.find(customer => {
+      if (!customer.phone) return false;
+      const existingNormalizedPhone = customer.phone.replace(/[\s\-\(\)\+]/g, '');
+      return existingNormalizedPhone === normalizedPhone;
+    });
+
+    if (duplicateCustomer) {
+      throw new ConflictException(
+        `A customer with phone number "${phone}" already exists (Customer: ${duplicateCustomer.name} - ${duplicateCustomer.customerCode})`
+      );
+    }
+  }
 
   private async findCustomerEntity(id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({ where: { id } });

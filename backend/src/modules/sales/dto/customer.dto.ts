@@ -7,6 +7,7 @@ import {
   IsInt,
   Min,
   ValidateIf,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
@@ -37,6 +38,9 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @Matches(/^[\+]?[\d\s\-\(\)]+$/, {
+    message: 'Phone number must contain only digits, spaces, hyphens, parentheses, and an optional plus sign'
+  })
   phone?: string;
 
 
@@ -77,6 +81,9 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @Matches(/^[\+]?[\d\s\-\(\)]+$/, {
+    message: 'Phone number must contain only digits, spaces, hyphens, parentheses, and an optional plus sign'
+  })
   phone?: string;
 
 

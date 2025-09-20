@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -71,6 +71,7 @@ import {
 import { addNotification } from '@/store/slices/notificationSlice'
 import type { Customer } from '@/types'
 import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
+import { salesApi } from '@/services/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -111,6 +112,9 @@ const CustomersPage: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
+  const [phoneValue, setPhoneValue] = useState<string>('')
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
@@ -144,6 +148,61 @@ const CustomersPage: React.FC = () => {
     onAdd: () => handleOpenForm(),
     onRefresh: () => dispatch(fetchCustomers({ ...filters })),
   })
+
+  // Phone duplicate validation
+  const checkPhoneDuplicate = useCallback(async (phone: string) => {
+    if (!phone || phone.trim().length === 0) {
+      setPhoneError(null)
+      return
+    }
+
+    // Normalize phone for comparison (remove spaces, hyphens, parentheses, plus)
+    const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '')
+    if (normalizedPhone.length === 0) {
+      setPhoneError(null)
+      return
+    }
+
+    setIsCheckingPhone(true)
+    setPhoneError(null)
+
+    try {
+      // Search for customers with similar phone numbers
+      const response = await salesApi.getCustomers({ search: phone })
+
+      // Cast to any to handle type mismatch between interface and actual API response
+      const apiResponse = response as any
+      if (apiResponse.data && apiResponse.data.length > 0) {
+        // Check if any customer has the same normalized phone
+        const duplicateCustomer = apiResponse.data.find((customer: Customer) => {
+          if (!customer.phone) return false
+          const existingNormalizedPhone = customer.phone.replace(/[\s\-\(\)\+]/g, '')
+          return existingNormalizedPhone === normalizedPhone &&
+                 (!selectedCustomer || customer.id !== selectedCustomer.id)
+        })
+
+        if (duplicateCustomer) {
+          setPhoneError(`Phone number already exists for customer: ${duplicateCustomer.name} (${duplicateCustomer.customerCode})`)
+        }
+      }
+    } catch (error) {
+      console.error('Error checking phone duplicate:', error)
+    } finally {
+      setIsCheckingPhone(false)
+    }
+  }, [selectedCustomer])
+
+  // Debounced phone validation
+  const debouncedPhoneCheck = useMemo(
+    () => {
+      let timeoutId: NodeJS.Timeout
+      return (phone: string) => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => checkPhoneDuplicate(phone), 500)
+      }
+    },
+    [checkPhoneDuplicate]
+  )
 
   // Load customers on mount and when filters change
   useEffect(() => {
@@ -247,8 +306,11 @@ const CustomersPage: React.FC = () => {
 
   // Form helpers
   const handleOpenForm = (customer?: Customer) => {
+    setPhoneError(null)
+    setIsCheckingPhone(false)
     if (customer) {
       setSelectedCustomer(customer)
+      setPhoneValue(customer.phone || '')
       reset({
         name: customer.name,
         type: customer.type,
@@ -258,6 +320,7 @@ const CustomersPage: React.FC = () => {
       })
     } else {
       setSelectedCustomer(null)
+      setPhoneValue('')
       reset({
         name: '',
         type: CustomerType.BUSINESS,
@@ -272,6 +335,9 @@ const CustomersPage: React.FC = () => {
   const handleCloseForm = () => {
     setIsFormOpen(false)
     setSelectedCustomer(null)
+    setPhoneError(null)
+    setIsCheckingPhone(false)
+    setPhoneValue('')
     reset()
   }
 
@@ -1060,8 +1126,20 @@ const CustomersPage: React.FC = () => {
                       value={field.value || ''}
                       fullWidth
                       label="Phone"
-                      error={!!errors.phone}
-                      helperText={errors.phone?.message}
+                      error={!!errors.phone || !!phoneError}
+                      helperText={errors.phone?.message || phoneError}
+                      onChange={(e) => {
+                        field.onChange(e)
+                        setPhoneValue(e.target.value)
+                        debouncedPhoneCheck(e.target.value)
+                      }}
+                      InputProps={{
+                        endAdornment: isCheckingPhone ? (
+                          <InputAdornment position="end">
+                            <CircularProgress size={20} />
+                          </InputAdornment>
+                        ) : undefined,
+                      }}
                     />
                   )}
                 />
@@ -1093,7 +1171,7 @@ const CustomersPage: React.FC = () => {
             <Button onClick={handleCloseForm}>
               Cancel
             </Button>
-            <Button type="submit" variant="contained" disabled={loading}>
+            <Button type="submit" variant="contained" disabled={loading || !!phoneError || isCheckingPhone}>
               {loading ? <CircularProgress size={20} /> : (selectedCustomer ? 'Update' : 'Create')}
             </Button>
           </DialogActions>
