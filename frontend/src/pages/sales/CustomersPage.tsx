@@ -51,6 +51,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
   fetchCustomers,
@@ -68,7 +69,6 @@ import {
   setFilters,
   clearError,
 } from '@/store/slices/customerSlice'
-import { addNotification } from '@/store/slices/notificationSlice'
 import type { Customer } from '@/types'
 import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
 import { salesApi } from '@/services/salesApi'
@@ -98,6 +98,7 @@ const CustomersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const dispatch = useAppDispatch()
+  const { showSuccess, showError } = useNotification()
 
   // Redux state
   const customers = useAppSelector(selectCustomers)
@@ -241,27 +242,15 @@ const CustomersPage: React.FC = () => {
 
       if (selectedCustomer) {
         await dispatch(updateCustomer({ id: selectedCustomer.id, data: cleanedData })).unwrap()
-        dispatch(addNotification({
-          message: 'Customer updated successfully',
-          type: 'success',
-          title: 'Success'
-        }))
+        showSuccess('Customer updated successfully')
       } else {
         await dispatch(createCustomer(cleanedData)).unwrap()
-        dispatch(addNotification({
-          message: 'Customer created successfully',
-          type: 'success',
-          title: 'Success'
-        }))
+        showSuccess('Customer created successfully')
       }
       handleCloseForm()
       dispatch(fetchCustomers({ ...filters }))
     } catch (error) {
-      dispatch(addNotification({
-        message: `Failed to ${selectedCustomer ? 'update' : 'create'} customer: ${error}`,
-        type: 'error',
-        title: 'Error'
-      }))
+      showError(`Failed to ${selectedCustomer ? 'update' : 'create'} customer: ${error}`)
     }
   }
 
@@ -269,20 +258,31 @@ const CustomersPage: React.FC = () => {
   const handleDelete = async () => {
     if (!selectedCustomer) return
     try {
-      await dispatch(deleteCustomer(selectedCustomer.id)).unwrap()
-      dispatch(addNotification({
-        message: 'Customer deleted successfully',
-        type: 'success',
-        title: 'Success'
-      }))
-      setIsDeleteConfirmOpen(false)
-      setSelectedCustomer(null)
-    } catch (error) {
-      dispatch(addNotification({
-        message: `Failed to delete customer: ${error}`,
-        type: 'error',
-        title: 'Error'
-      }))
+      const result = await dispatch(deleteCustomer(selectedCustomer.id))
+
+      if (deleteCustomer.fulfilled.match(result)) {
+        showSuccess(`Customer "${selectedCustomer.name}" deleted successfully`)
+        setIsDeleteConfirmOpen(false)
+        setSelectedCustomer(null)
+
+        // Refresh the customer list to ensure consistency
+        dispatch(fetchCustomers({
+          page: pagination.page,
+          limit: pagination.limit,
+          search: filters.search || undefined,
+          type: filters.type || undefined,
+          status: filters.status || undefined,
+          priceLevel: filters.priceLevel || undefined,
+          isActive: filters.isActive,
+          sortBy: filters.sortBy || undefined,
+          sortOrder: filters.sortOrder || undefined
+        }))
+      } else {
+        throw new Error(result.payload as string)
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to delete customer. Please try again.'
+      showError(errorMessage)
     }
   }
 
@@ -300,18 +300,10 @@ const CustomersPage: React.FC = () => {
           await dispatch(suspendCustomer({ id: customer.id })).unwrap()
           break
       }
-      dispatch(addNotification({
-        message: `Customer ${action}d successfully`,
-        type: 'success',
-        title: 'Success'
-      }))
+      showSuccess(`Customer ${action}d successfully`)
       dispatch(fetchCustomers({ ...filters }))
     } catch (error) {
-      dispatch(addNotification({
-        message: `Failed to ${action} customer: ${error}`,
-        type: 'error',
-        title: 'Error'
-      }))
+      showError(`Failed to ${action} customer: ${error}`)
     }
   }
 

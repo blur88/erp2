@@ -90,9 +90,13 @@ export const updateCustomer = createAsyncThunk(
 
 export const deleteCustomer = createAsyncThunk(
   'customers/deleteCustomer',
-  async (id: string) => {
-    await salesApi.deleteCustomer(id)
-    return id
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await salesApi.deleteCustomer(id)
+      return id
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete customer')
+    }
   }
 )
 
