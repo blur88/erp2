@@ -1553,35 +1553,33 @@ const ProductsPage: React.FC = () => {
                           )}
                         </TableCell>
                       </TableRow>
-                      {selectedProductForDetails.description && (
-                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                              Description
-                            </Box>
-                          </TableCell>
-                          <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {inlineEditMode && inlineEditData ? (
-                              <TextField
-                                value={inlineEditData.description}
-                                onChange={(e) => handleInlineEditChange('description', e.target.value)}
-                                size="small"
-                                fullWidth
-                                multiline
-                                rows={2}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                                  }
-                                }}
-                              />
-                            ) : (
-                              selectedProductForDetails.description
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )}
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
+                            Description
+                          </Box>
+                        </TableCell>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.description}
+                              onChange={(e) => handleInlineEditChange('description', e.target.value)}
+                              size="small"
+                              fullWidth
+                              multiline
+                              rows={2}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                                }
+                              }}
+                            />
+                          ) : (
+                            selectedProductForDetails.description || 'No description'
+                          )}
+                        </TableCell>
+                      </TableRow>
                       
                       {/* Pricing Information Section */}
                       <TableRow>
