@@ -32,6 +32,7 @@ import {
   DragIndicator as DragIndicatorIcon,
   RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
+  Category as CategoryIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -386,7 +387,7 @@ const CategoriesPage: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <DragIndicatorIcon sx={{
+            <CategoryIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
