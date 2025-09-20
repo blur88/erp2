@@ -254,6 +254,9 @@ export class CustomerResponseDto {
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   updatedAt: Date;
 
+  @ApiProperty({ example: '2023-12-15T00:00:00Z', nullable: true })
+  deletedAt?: Date;
+
   // Computed properties
   @ApiProperty({ example: 2000.00 })
   averageOrderValue: number;

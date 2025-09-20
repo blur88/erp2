@@ -185,6 +185,7 @@ export interface Customer {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date; // Soft delete timestamp from BaseEntity
   // Computed properties
   fullAddress: string;
   fullShippingAddress: string;

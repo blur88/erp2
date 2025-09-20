@@ -493,7 +493,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            {(customer as any).deletedAt ? formatDate((customer as any).deletedAt) : 'Unknown'}
+                            {customer.deletedAt ? formatDate(customer.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
                       )}
@@ -545,14 +545,14 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        {isMobile && (customer as any).deletedAt && (
-                          <Typography variant="caption" color="text.secondary" sx={{ 
-                            display: 'block', 
-                            textAlign: 'right', 
+                        {isMobile && customer.deletedAt && (
+                          <Typography variant="caption" color="text.secondary" sx={{
+                            display: 'block',
+                            textAlign: 'right',
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date((customer as any).deletedAt).toLocaleDateString('en-US', {
+                            {new Date(customer.deletedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: '2-digit'

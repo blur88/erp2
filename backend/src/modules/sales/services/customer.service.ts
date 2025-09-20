@@ -707,6 +707,7 @@ export class CustomerService {
       notes: customer.notes,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
+      deletedAt: customer.deletedAt,
       averageOrderValue: customer.averageOrderValue,
     };
   }
