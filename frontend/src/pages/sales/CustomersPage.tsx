@@ -274,7 +274,27 @@ const CustomersPage: React.FC = () => {
         throw new Error(result.payload as string)
       }
     } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to delete customer. Please try again.'
+      // Handle structured error responses with detailed information
+      let errorMessage = 'Failed to delete customer. Please try again.'
+
+      if (error?.message) {
+        try {
+          // Try to parse if it's a JSON string with structured error info
+          const errorData = JSON.parse(error.message)
+          if (errorData.message) {
+            errorMessage = errorData.message
+
+            // If there are suggestions, show them in the error message
+            if (errorData.suggestions && Array.isArray(errorData.suggestions)) {
+              errorMessage += '\n\nSuggestions:\n• ' + errorData.suggestions.join('\n• ')
+            }
+          }
+        } catch {
+          // If parsing fails, use the message as-is
+          errorMessage = error.message
+        }
+      }
+
       showError(errorMessage)
     }
   }

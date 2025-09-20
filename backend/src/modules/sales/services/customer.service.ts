@@ -202,6 +202,40 @@ export class CustomerService {
       throw new NotFoundException('Customer not found');
     }
 
+    // Check if customer has active orders
+    const activeOrderCount = await this.salesOrderRepository.count({
+      where: { customerId: id }
+    });
+
+    // Check if customer has active invoices
+    const activeInvoiceCount = await this.invoiceRepository.count({
+      where: { customerId: id }
+    });
+
+    // Prevent deletion if there are related records
+    if (activeOrderCount > 0 || activeInvoiceCount > 0) {
+      const relatedRecords = [];
+      if (activeOrderCount > 0) {
+        relatedRecords.push(`${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}`);
+      }
+      if (activeInvoiceCount > 0) {
+        relatedRecords.push(`${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'}`);
+      }
+
+      throw new BadRequestException({
+        message: `Cannot delete customer '${customer.name}' because they have ${relatedRecords.join(' and ')}.`,
+        customerName: customer.name,
+        orderCount: activeOrderCount,
+        invoiceCount: activeInvoiceCount,
+        suggestions: [
+          'Remove or reassign orders to other customers first',
+          'Remove or reassign invoices to other customers first',
+          'Cancel or complete all pending orders',
+          'Ensure all invoices are paid and archived'
+        ]
+      });
+    }
+
     // Use soft delete instead of hard delete
     await this.customerRepository.softDelete(id);
   }
