@@ -903,58 +903,176 @@ const OrdersPage: React.FC = () => {
 
               {/* Order Details Section */}
               <Grid container spacing={3} sx={{ mb: 3 }}>
+                {/* Primary Information Card */}
                 <Grid item xs={12} md={6}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Customer Name
+                  <Paper variant="outlined" sx={{ p: 2.5, height: '100%', borderRadius: 2 }}>
+                    <Typography variant="h6" sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight + 100,
+                      mb: 2,
+                      color: 'primary.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      Order Information
                     </Typography>
-                    <Typography variant="body1" fontWeight="medium">
-                      {selectedOrder.customer?.name || 'Unknown Customer'}
-                    </Typography>
-                  </Box>
 
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Order Date
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatDate(selectedOrder.orderDate)}
-                    </Typography>
-                  </Box>
-                </Grid>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          color: 'text.secondary',
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          mb: 0.5
+                        }}>
+                          Customer Name
+                        </Typography>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight + 100,
+                          fontSize: '0.9rem',
+                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+                          color: 'text.primary'
+                        }}>
+                          {selectedOrder.customer?.name || 'Unknown Customer'}
+                        </Typography>
+                      </Box>
 
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Total Amount
-                    </Typography>
-                    <Typography variant="h6" color="primary">
-                      {formatCurrency(selectedOrder.totalAmount)}
-                    </Typography>
-                  </Box>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          color: 'text.secondary',
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          mb: 0.5
+                        }}>
+                          Order Date
+                        </Typography>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                          fontSize: '0.85rem',
+                          lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                          color: 'text.primary'
+                        }}>
+                          {formatDate(selectedOrder.orderDate)}
+                        </Typography>
+                      </Box>
 
-                  {selectedOrder.requiredDate && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        Required Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(selectedOrder.requiredDate)}
-                      </Typography>
+                      {selectedOrder.requiredDate && (
+                        <Box>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'text.secondary',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            mb: 0.5
+                          }}>
+                            Required Date
+                          </Typography>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                            fontSize: '0.85rem',
+                            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                            color: 'text.primary'
+                          }}>
+                            {formatDate(selectedOrder.requiredDate)}
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
-                  )}
+                  </Paper>
                 </Grid>
 
+                {/* Financial Information Card */}
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2.5, height: '100%', borderRadius: 2 }}>
+                    <Typography variant="h6" sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight + 100,
+                      mb: 2,
+                      color: 'success.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      Financial Summary
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          color: 'text.secondary',
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          mb: 0.5
+                        }}>
+                          Total Amount
+                        </Typography>
+                        <Typography variant="h5" sx={{
+                          fontWeight: 700,
+                          color: 'primary.main',
+                          lineHeight: 1.2
+                        }}>
+                          {formatCurrency(selectedOrder.totalAmount)}
+                        </Typography>
+                      </Box>
+
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          color: 'text.secondary',
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          mb: 0.5
+                        }}>
+                          Item Count
+                        </Typography>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight + 100,
+                          fontSize: '0.9rem',
+                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+                          color: 'text.primary'
+                        }}>
+                          {selectedOrder.items?.length || 0} item{(selectedOrder.items?.length || 0) !== 1 ? 's' : ''}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Paper>
+                </Grid>
+
+                {/* Additional Notes Section */}
                 {selectedOrder.notes && (
                   <Grid item xs={12}>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        Notes
+                    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+                      <Typography variant="h6" sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight + 100,
+                        mb: 2,
+                        color: 'info.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                      }}>
+                        Order Notes
                       </Typography>
-                      <Typography variant="body1">
+                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                        fontSize: '0.85rem',
+                        lineHeight: 1.4,
+                        color: 'text.primary',
+                        bgcolor: 'grey.50',
+                        p: 1.5,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'grey.200'
+                      }}>
                         {selectedOrder.notes}
                       </Typography>
-                    </Box>
+                    </Paper>
                   </Grid>
                 )}
               </Grid>
