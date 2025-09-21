@@ -968,51 +968,137 @@ const OrdersPage: React.FC = () => {
 
                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
                   <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                    <Table size="small">
+                    <Table
+                      size={TABLE_STYLES.size}
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          borderBottom: TABLE_STYLES.cell.border,
+                          py: TABLE_STYLES.cell.padding.py,
+                          px: TABLE_STYLES.cell.padding.px
+                        }
+                      }}
+                    >
                       <TableHead>
-                        <TableRow>
-                          <TableCell>Product</TableCell>
-                          <TableCell align="right">Quantity</TableCell>
-                          <TableCell align="right">Unit Price</TableCell>
-                          <TableCell align="right">Discount</TableCell>
-                          <TableCell align="right">Total</TableCell>
+                        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+                          <TableCell sx={{ width: '40%' }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            }}>
+                              Product
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center" sx={{ width: '12%' }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            }}>
+                              Quantity
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '16%' }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            }}>
+                              Unit Price
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '16%' }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            }}>
+                              Discount
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '16%' }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            }}>
+                              Total
+                            </Typography>
+                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {selectedOrder.items.map((item: any, index: number) => (
-                          <TableRow key={index}>
+                          <TableRow
+                            key={index}
+                            hover
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'action.hover'
+                              },
+                              transition: 'background-color 0.2s ease',
+                              height: TABLE_STYLES.row.height
+                            }}
+                          >
                             <TableCell>
-                              <Typography variant="body2" fontWeight="medium">
+                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                              }}>
                                 {item.product?.name || item.productName || 'Unknown Product'}
                               </Typography>
                               {item.description && (
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                  color: 'text.secondary'
+                                }}>
                                   {item.description}
                                 </Typography>
                               )}
                             </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2">
+                            <TableCell align="center">
+                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                              }}>
                                 {item.quantity || 0}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">
-                              <Typography variant="body2">
+                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                              }}>
                                 {formatCurrency(item.unitPrice || 0)}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">
-                              <Typography variant="body2">
+                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                              }}>
                                 {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
                               </Typography>
                               {item.discountType === 'percentage' && item.discountPercent && (
-                                <Typography variant="caption" color="text.secondary" display="block">
+                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                  color: 'text.secondary',
+                                  display: 'block'
+                                }}>
                                   ({item.discountPercent}%)
                                 </Typography>
                               )}
                             </TableCell>
                             <TableCell align="right">
-                              <Typography variant="body2" fontWeight="medium">
+                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                              }}>
                                 {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
                               </Typography>
                             </TableCell>
@@ -1111,62 +1197,162 @@ const OrdersPage: React.FC = () => {
                     <Typography variant="h6" gutterBottom>Order Items</Typography>
                     {selectedOrder.items && selectedOrder.items.length > 0 ? (
                       <TableContainer>
-                        <Table size="small">
+                        <Table
+                          size={TABLE_STYLES.size}
+                          sx={{
+                            '& .MuiTableCell-root': {
+                              borderBottom: TABLE_STYLES.cell.border,
+                              py: TABLE_STYLES.cell.padding.py,
+                              px: TABLE_STYLES.cell.padding.px
+                            }
+                          }}
+                        >
                           <TableHead>
-                            <TableRow>
-                              <TableCell>Product</TableCell>
-                              <TableCell>SKU/Barcode</TableCell>
-                              <TableCell align="right">Quantity</TableCell>
-                              <TableCell align="right">Unit Price</TableCell>
-                              <TableCell align="right">Discount</TableCell>
-                              <TableCell align="right">Total</TableCell>
+                            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+                              <TableCell sx={{ width: '30%' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
+                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                }}>
+                                  Product
+                                </Typography>
+                              </TableCell>
+                              <TableCell sx={{ width: '15%' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
+                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                }}>
+                                  SKU/Barcode
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center" sx={{ width: '11%' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
+                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                }}>
+                                  Quantity
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right" sx={{ width: '11%' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
+                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                }}>
+                                  Unit Price
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right" sx={{ width: '16%' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
+                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                }}>
+                                  Discount
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right" sx={{ width: '17%' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
+                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                }}>
+                                  Total
+                                </Typography>
+                              </TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
                             {selectedOrder.items.map((item: any, index: number) => (
-                              <TableRow key={index}>
+                              <TableRow
+                                key={index}
+                                hover
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: 'action.hover'
+                                  },
+                                  transition: 'background-color 0.2s ease',
+                                  height: TABLE_STYLES.row.height
+                                }}
+                              >
                                 <TableCell>
-                                  <Typography variant="body2" fontWeight="medium">
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                                  }}>
                                     {item.product?.name || item.productName || 'Unknown Product'}
                                   </Typography>
                                   {item.description && (
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                      color: 'text.secondary'
+                                    }}>
                                       {item.description}
                                     </Typography>
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <Typography variant="body2">
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                  }}>
                                     {item.product?.barcode || item.product?.sku || 'N/A'}
                                   </Typography>
                                 </TableCell>
-                                <TableCell align="right">
-                                  <Typography variant="body2">
+                                <TableCell align="center">
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                  }}>
                                     {item.quantity || 0}
                                   </Typography>
                                 </TableCell>
                                 <TableCell align="right">
-                                  <Typography variant="body2">
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                  }}>
                                     {formatCurrency(item.unitPrice || 0)}
                                   </Typography>
                                 </TableCell>
                                 <TableCell align="right">
-                                  <Typography variant="body2">
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
+                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                  }}>
                                     {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
                                   </Typography>
                                   {item.discountType === 'percentage' && item.discountPercent && (
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                      color: 'text.secondary'
+                                    }}>
                                       ({item.discountPercent}%)
                                     </Typography>
                                   )}
                                   {item.discountType === 'amount' && item.discountAmount && (
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                      color: 'text.secondary'
+                                    }}>
                                       (Fixed)
                                     </Typography>
                                   )}
                                 </TableCell>
                                 <TableCell align="right">
-                                  <Typography variant="body2" fontWeight="medium">
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                                  }}>
                                     {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
                                   </Typography>
                                 </TableCell>
