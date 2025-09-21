@@ -621,7 +621,7 @@ const CustomersPage: React.FC = () => {
                     </Typography>
                   </TableCell>
                 )}
-                <TableCell sx={{ width: isMobile ? '25%' : '18%' }}>
+                <TableCell sx={{ width: isMobile ? '25%' : '15%' }}>
                   <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                     fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                     color: TYPOGRAPHY_STYLES.tableHeader.color,
@@ -630,6 +630,17 @@ const CustomersPage: React.FC = () => {
                     Contact
                   </Typography>
                 </TableCell>
+                {!isMobile && (
+                  <TableCell sx={{ width: '12%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
+                      Price Level
+                    </Typography>
+                  </TableCell>
+                )}
                 {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
                     <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -655,13 +666,13 @@ const CustomersPage: React.FC = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : customers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No customers found
                     </Typography>
@@ -695,13 +706,21 @@ const CustomersPage: React.FC = () => {
                           {customer.name}
                         </Typography>
                       </Box>
-                      {/* Mobile-only type and active status indicators */}
+                      {/* Mobile-only type, price level, and active status indicators */}
                       {isMobile && (
-                        <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5 }}>
+                        <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                           <Chip
                             label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
                             size="small"
                             variant="outlined"
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
+                          />
+                          <Chip
+                            label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
+                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                            size="small"
+                            color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
+                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                           {getActiveStatusChip(customer.isActive)}
@@ -736,6 +755,26 @@ const CustomersPage: React.FC = () => {
                         )}
                       </Box>
                     </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Chip
+                          label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
+                                customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                          size="small"
+                          color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
+                                customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
+                          sx={{
+                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                            height: `${TABLE_STYLES.row.height * 0.65}px`,
+                            '& .MuiChip-label': {
+                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`,
+                              lineHeight: 1
+                            }
+                          }}
+                        />
+                      </TableCell>
+                    )}
                     {!isMobile && (
                       <TableCell>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
