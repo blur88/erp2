@@ -16,6 +16,8 @@ import {
 } from 'typeorm';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -40,6 +42,10 @@ export class ProductService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(SalesOrderItem)
+    private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+    @InjectRepository(StockMovement)
+    private readonly stockMovementRepository: Repository<StockMovement>,
     @Inject(forwardRef(() => CategoryService))
     private readonly categoryService: CategoryService,
     @Inject(forwardRef(() => StockMovementService))
@@ -770,6 +776,37 @@ export class ProductService {
   }
 
   /**
+   * Check if product has dependencies that prevent deletion
+   */
+  async checkProductDependencies(productId: string): Promise<{
+    hasDependencies: boolean;
+    dependencies: Array<{ type: string; count: number }>;
+  }> {
+    const dependencies = [];
+
+    // Check sales order items
+    const salesOrderItemCount = await this.salesOrderItemRepository.count({
+      where: { productId }
+    });
+    if (salesOrderItemCount > 0) {
+      dependencies.push({ type: 'sales orders', count: salesOrderItemCount });
+    }
+
+    // Check stock movements
+    const stockMovementCount = await this.stockMovementRepository.count({
+      where: { productId }
+    });
+    if (stockMovementCount > 0) {
+      dependencies.push({ type: 'stock movements', count: stockMovementCount });
+    }
+
+    return {
+      hasDependencies: dependencies.length > 0,
+      dependencies
+    };
+  }
+
+  /**
    * Delete a product (soft delete using TypeORM)
    */
   async remove(id: string, userId?: string): Promise<void> {
@@ -781,6 +818,17 @@ export class ProductService {
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${id}' not found`);
+    }
+
+    // Check for dependencies that prevent deletion
+    const dependencyCheck = await this.checkProductDependencies(id);
+    if (dependencyCheck.hasDependencies) {
+      const dependencyList = dependencyCheck.dependencies
+        .map(dep => `${dep.count} ${dep.type}`)
+        .join(', ');
+      throw new ConflictException(
+        `Cannot delete '${product.name}' - used in: ${dependencyList}`
+      );
     }
 
     // Use TypeORM soft delete (sets deletedAt timestamp)
