@@ -88,13 +88,13 @@ export const updateCustomer = createAsyncThunk(
 
 export const deleteCustomer = createAsyncThunk(
   'customers/deleteCustomer',
-  async (id: string) => {
+  async (id: string, { rejectWithValue }) => {
     try {
       await salesApi.deleteCustomer(id)
       return id
     } catch (error: any) {
-      // Let the component handle error notifications
-      throw error
+      // Pass the full error object to the component for detailed error handling
+      return rejectWithValue(error)
     }
   }
 )

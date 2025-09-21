@@ -277,45 +277,31 @@ const CustomersPage: React.FC = () => {
 
       console.log('Delete error:', error) // Debug log
 
+      // Handle both direct errors and Redux rejection values
+      const actualError = error?.payload || error
+
       // Handle axios error responses - check multiple possible error structures
-      if (error?.response?.data) {
-        const backendError = error.response.data
+      if (actualError?.response?.data) {
+        const backendError = actualError.response.data
         console.log('Backend error:', backendError) // Debug log
 
         if (backendError.message) {
+          // Use a concise error message that focuses on the key issue
           errorMessage = backendError.message
 
-          // Add detailed context if available
-          if (backendError.details) {
-            errorMessage += `\n\n${backendError.details}`
-          }
-
-          // Add dependency information if available
-          if (backendError.dependencies) {
-            const deps = backendError.dependencies
-            let depInfo = '\n\nDependency Details:'
-            if (deps.orders > 0) {
-              depInfo += `\n• ${deps.orders} active order${deps.orders === 1 ? '' : 's'}`
-            }
-            if (deps.invoices > 0) {
-              depInfo += `\n• ${deps.invoices} active invoice${deps.invoices === 1 ? '' : 's'}`
-            }
-            errorMessage += depInfo
-          }
-
-          // Add suggestions if available
-          if (backendError.suggestions && Array.isArray(backendError.suggestions)) {
-            errorMessage += '\n\nTo resolve this issue:\n• ' + backendError.suggestions.join('\n• ')
+          // Add the most important suggestion (first one) if available
+          if (backendError.suggestions && Array.isArray(backendError.suggestions) && backendError.suggestions.length > 0) {
+            errorMessage += `\n\nSuggestion: ${backendError.suggestions[0]}`
           }
 
           // Customize title based on error type
           if (backendError.error === 'DELETION_PREVENTED_BY_DEPENDENCIES') {
-            errorTitle = 'Customer Deletion Blocked'
+            errorTitle = 'Cannot Delete Customer'
           }
         }
-      } else if (error?.message && error.message !== 'Request failed with status code 400') {
+      } else if (actualError?.message && actualError.message !== 'Request failed with status code 400') {
         // Use the error message if it's meaningful
-        errorMessage = error.message
+        errorMessage = actualError.message
       }
 
       showError(errorMessage)

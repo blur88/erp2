@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
@@ -226,15 +228,17 @@ export class CustomerService {
       const suggestions = [];
 
       if (activeOrderCount > 0) {
-        suggestions.push(`Remove or reassign the ${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'} first`);
+        suggestions.push(`Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`);
       }
       if (activeInvoiceCount > 0) {
-        suggestions.push(`Remove or reassign the ${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'} first`);
+        suggestions.push(`Resolve the ${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'} first`);
       }
-      suggestions.push('Complete or cancel all pending orders before deletion');
-      suggestions.push('Ensure all invoices are paid and properly archived');
+      if (suggestions.length === 0) {
+        suggestions.push('Complete all pending business transactions first');
+      }
 
-      throw new BadRequestException({
+      // Create detailed error response
+      const errorResponse = {
         message: errorMessage,
         error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
@@ -246,7 +250,10 @@ export class CustomerService {
         },
         suggestions,
         details: `Customer '${customer.name}' (${customer.customerCode}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`
-      });
+      };
+
+      // Use BadRequestException with the full error object
+      throw new BadRequestException(errorResponse);
     }
 
     // Use soft delete instead of hard delete
@@ -591,7 +598,7 @@ export class CustomerService {
         `${dep.count} active ${dep.name}${dep.count > 1 ? 's' : ''}`
       ).join(', ');
 
-      throw new BadRequestException({
+      const errorResponse = {
         message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
         error: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
@@ -609,7 +616,10 @@ export class CustomerService {
           'Remove any payment references or reassign to other customers',
           'Consider using soft delete instead if you need to hide the customer'
         ]
-      });
+      };
+
+      // Use BadRequestException with the full error object
+      throw new BadRequestException(errorResponse);
     }
 
     // Validate financial consistency before deletion

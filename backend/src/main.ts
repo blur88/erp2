@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
+import { DetailedErrorFilter } from './common/filters/detailed-error.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,6 +20,9 @@ async function bootstrap() {
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
+
+  // Apply custom exception filter for detailed error responses
+  app.useGlobalFilters(new DetailedErrorFilter());
 
   // Enhanced Global Validation Pipe with Security Features
   app.useGlobalPipes(
@@ -41,7 +45,7 @@ async function bootstrap() {
           const constraints = Object.values(error.constraints || {});
           return constraints.length > 0 ? constraints[0] : `Validation failed for ${error.property}`;
         });
-        
+
         return new Error(`Validation failed: ${messages.join(', ')}`);
       },
     }),
