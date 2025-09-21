@@ -463,21 +463,6 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
             </Grid>
 
 
-            <Grid item xs={12}>
-              <Controller
-                name="notes"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Notes"
-                    multiline
-                    rows={3}
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
 
             {/* Order Items */}
             <Grid item xs={12}>
@@ -868,11 +853,25 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
             </Grid>
 
             {/* Order Totals */}
-            <Grid item xs={12} md={8} />
+            <Grid item xs={12} md={8}>
+              <Controller
+                name="notes"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Notes"
+                    multiline
+                    rows={3}
+                    fullWidth
+                  />
+                )}
+              />
+            </Grid>
             <Grid item xs={12} md={4}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="h6" gutterBottom>Order Summary</Typography>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="h6">Total:</Typography>
                   <Typography variant="h6">{formatCurrency(totals.totalAmount)}</Typography>
