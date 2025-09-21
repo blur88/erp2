@@ -150,7 +150,7 @@ export const bulkRestoreOrders = createAsyncThunk(
   async (orderIds: string[], { rejectWithValue }) => {
     try {
       const response = await salesApi.bulkRestoreOrders(orderIds)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore orders')
     }
@@ -162,7 +162,7 @@ export const bulkDeleteOrders = createAsyncThunk(
   async (orderIds: string[], { rejectWithValue }) => {
     try {
       const response = await salesApi.bulkDeleteOrders(orderIds)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk delete orders')
     }
