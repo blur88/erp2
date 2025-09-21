@@ -634,7 +634,7 @@ const OrdersPage: React.FC = () => {
             px: 2
           }}
         >
-          Sort by Number
+          Sort
         </Button>
         <Button
           variant="outlined"
