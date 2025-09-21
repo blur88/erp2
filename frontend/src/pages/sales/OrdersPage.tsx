@@ -15,6 +15,13 @@ import {
   TablePagination,
   TextField,
   InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Menu,
+  ListSubheader,
+  Divider,
   Skeleton,
   Alert,
   Dialog,
@@ -60,8 +67,9 @@ interface OrdersPageState {
   sortOrder: 'asc' | 'desc'
   page: number
   rowsPerPage: number
-  fromDate: string
-  toDate: string
+  dateFilter: string
+  customFromDate: string
+  customToDate: string
 }
 
 const OrdersPage: React.FC = () => {
@@ -81,8 +89,9 @@ const OrdersPage: React.FC = () => {
     sortOrder: 'asc',
     page: 0,
     rowsPerPage: 20,
-    fromDate: '',
-    toDate: '',
+    dateFilter: 'all',
+    customFromDate: '',
+    customToDate: '',
   })
 
   const [viewDialog, setViewDialog] = useState(false)
@@ -97,39 +106,73 @@ const OrdersPage: React.FC = () => {
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
 
+  // Helper function to calculate date ranges
+  const getDateRange = (filter: string) => {
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay())
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+    const formatDate = (date: Date) => date.toISOString().split('T')[0]
+
+    switch (filter) {
+      case 'today':
+        return { fromDate: formatDate(today), toDate: formatDate(today) }
+      case 'yesterday':
+        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
+      case 'this_week':
+        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
+      case 'this_month':
+        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
+      case 'this_year':
+        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
+      case 'custom':
+        return { fromDate: state.customFromDate, toDate: state.customToDate }
+      default: // 'all'
+        return { fromDate: undefined, toDate: undefined }
+    }
+  }
+
   useEffect(() => {
     loadOrders()
-  }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder, state.fromDate, state.toDate])
+  }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate])
 
   // Auto search with debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (state.search !== undefined) {
+        const dateRange = getDateRange(state.dateFilter)
         dispatch(fetchOrders({
           page: 1,
           limit: state.rowsPerPage,
           sortBy: state.sortBy,
           sortOrder: state.sortOrder,
           search: state.search,
-          fromDate: state.fromDate || undefined,
-          toDate: state.toDate || undefined,
+          fromDate: dateRange.fromDate,
+          toDate: dateRange.toDate,
         }))
         setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
       }
     }, 300) // 300ms debounce
 
     return () => clearTimeout(timeoutId)
-  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, state.fromDate, state.toDate, dispatch])
+  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate, dispatch])
 
   const loadOrders = () => {
+    const dateRange = getDateRange(state.dateFilter)
     dispatch(fetchOrders({
       page: state.page + 1,
       limit: state.rowsPerPage,
       sortBy: state.sortBy,
       sortOrder: state.sortOrder,
       search: state.search,
-      fromDate: state.fromDate || undefined,
-      toDate: state.toDate || undefined,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
     }))
   }
 
@@ -565,53 +608,112 @@ const OrdersPage: React.FC = () => {
             ),
           }}
         />
-        <TextField
-          label="From Date"
-          type="date"
-          value={state.fromDate}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: OrdersPageState) => ({ ...prev, fromDate: e.target.value }))}
+        <FormControl
           size="medium"
           sx={{
             minWidth: isMobile ? 'auto' : 180,
             '& .MuiOutlinedInput-root': {
               height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Date Filter</InputLabel>
+          <Select
+            value={state.dateFilter}
+            label="Date Filter"
+            onChange={(e) => setState((prev: OrdersPageState) => ({ ...prev, dateFilter: e.target.value, page: 0 }))}
+            sx={{
               fontSize: '0.875rem',
-              '& input': {
+              '& .MuiSelect-select': {
                 padding: '8.5px 14px',
                 fontSize: '0.875rem'
               }
-            }
-          }}
-          InputLabelProps={{
-            shrink: true,
-          }}
-        />
-        <TextField
-          label="To Date"
-          type="date"
-          value={state.toDate}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: OrdersPageState) => ({ ...prev, toDate: e.target.value }))}
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 180,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem',
-              '& input': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
               }
-            }
-          }}
-          InputLabelProps={{
-            shrink: true,
-          }}
-        />
-        {(state.fromDate || state.toDate) && (
+            }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="today">Today</MenuItem>
+            <MenuItem value="yesterday">Yesterday</MenuItem>
+            <MenuItem value="this_week">This Week</MenuItem>
+            <MenuItem value="this_month">This Month</MenuItem>
+            <MenuItem value="this_year">This Year</MenuItem>
+            <Divider />
+            <ListSubheader sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>
+              Custom Date Range
+            </ListSubheader>
+            <MenuItem
+              value="custom"
+              sx={{
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                gap: 1.5,
+                py: 2,
+                '&:hover': {
+                  backgroundColor: 'transparent'
+                }
+              }}
+              onClick={(e) => {
+                e.preventDefault()
+                setState((prev: OrdersPageState) => ({ ...prev, dateFilter: 'custom', page: 0 }))
+              }}
+            >
+              <TextField
+                label="From Date"
+                type="date"
+                value={state.customFromDate}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  e.stopPropagation()
+                  setState((prev: OrdersPageState) => ({ ...prev, customFromDate: e.target.value }))
+                }}
+                onClick={(e) => e.stopPropagation()}
+                size="small"
+                fullWidth
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '0.875rem'
+                  }
+                }}
+              />
+              <TextField
+                label="To Date"
+                type="date"
+                value={state.customToDate}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  e.stopPropagation()
+                  setState((prev: OrdersPageState) => ({ ...prev, customToDate: e.target.value }))
+                }}
+                onClick={(e) => e.stopPropagation()}
+                size="small"
+                fullWidth
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '0.875rem'
+                  }
+                }}
+              />
+            </MenuItem>
+          </Select>
+        </FormControl>
+        {state.dateFilter !== 'all' && (
           <Button
             variant="outlined"
             size="medium"
-            onClick={() => setState((prev: OrdersPageState) => ({ ...prev, fromDate: '', toDate: '' }))}
+            onClick={() => setState((prev: OrdersPageState) => ({ ...prev, dateFilter: 'all', customFromDate: '', customToDate: '', page: 0 }))}
             sx={{
               minWidth: 'auto',
               px: 2,
@@ -619,7 +721,7 @@ const OrdersPage: React.FC = () => {
               fontSize: '0.875rem'
             }}
           >
-            Clear Dates
+            Clear Filter
           </Button>
         )}
         <Button
