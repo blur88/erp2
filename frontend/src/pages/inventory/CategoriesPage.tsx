@@ -181,32 +181,10 @@ const CategoriesPage: React.FC = () => {
     setDialogOpen(true)
   }
 
-  const handleDeleteCategory = async (category: Category) => {
+  const handleDeleteCategory = (category: Category) => {
     setCategoryToDelete(category)
     setDeleteError(null)
-
-    try {
-      // First, try normal delete
-      await dispatch(deleteCategory(category.id)).unwrap()
-      showSuccess(`Category "${category.name}" deleted successfully.`)
-    } catch (error: any) {
-      console.error('Delete category error:', error)
-
-      // Check if this is a "category has products" error
-      if (error?.productCount || (error?.includes && error.includes('contains'))) {
-        // Show smart delete dialog for categories with products
-        setDeleteError({
-          message: error?.message || error,
-          productCount: error?.productCount,
-          categoryName: category.name,
-          suggestions: error?.suggestions
-        })
-        setSmartDeleteOpen(true)
-      } else {
-        // Show regular confirmation for categories without products or other errors
-        setDeleteConfirmOpen(true)
-      }
-    }
+    setDeleteConfirmOpen(true)
   }
 
   const handleConfirmDelete = async () => {
@@ -214,13 +192,29 @@ const CategoriesPage: React.FC = () => {
       try {
         await dispatch(deleteCategory(categoryToDelete.id)).unwrap()
         showSuccess(`Category "${categoryToDelete.name}" deleted successfully.`)
-      } catch (error: any) {
-        console.error('Delete category error:', error)
-        const errorMessage = error || 'Failed to delete category'
-        showError(errorMessage)
-      } finally {
         setDeleteConfirmOpen(false)
         setCategoryToDelete(null)
+      } catch (error: any) {
+        console.error('Delete category error:', error)
+
+        // Check if this is a "category has products" error
+        if (error?.productCount || (error?.includes && error.includes('contains'))) {
+          // Close the basic confirmation dialog and show smart delete dialog
+          setDeleteConfirmOpen(false)
+          setDeleteError({
+            message: error?.message || error,
+            productCount: error?.productCount,
+            categoryName: categoryToDelete.name,
+            suggestions: error?.suggestions
+          })
+          setSmartDeleteOpen(true)
+        } else {
+          // For other errors, show error message and close dialog
+          const errorMessage = error || 'Failed to delete category'
+          showError(errorMessage)
+          setDeleteConfirmOpen(false)
+          setCategoryToDelete(null)
+        }
       }
     }
   }
