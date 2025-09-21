@@ -158,14 +158,59 @@ export class SalesOrderController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete sales order (soft delete)' })
+  @ApiOperation({ summary: 'Delete sales order and automatically show previous order details' })
   @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({ status: 204, description: 'Sales order deleted successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sales order deleted successfully, returns previous order details to display',
+    schema: {
+      oneOf: [
+        {
+          type: 'object',
+          properties: {
+            data: { $ref: '#/components/schemas/SalesOrderResponseDto' },
+            message: { type: 'string' },
+            deletedOrderNumber: { type: 'string' }
+          }
+        },
+        {
+          type: 'object',
+          properties: {
+            data: { type: 'null' },
+            message: { type: 'string' },
+            deletedOrderNumber: { type: 'string' },
+            redirect: { type: 'string' }
+          }
+        }
+      ]
+    }
+  })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot delete order in current status' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.salesOrderService.delete(id);
+  async deleteSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<{
+    data: SalesOrderResponseDto | null;
+    message: string;
+    deletedOrderNumber: string;
+    redirect?: string;
+  }> {
+    const result = await this.salesOrderService.delete(id);
+
+    if (result.previousOrder) {
+      // Return the previous order as the main data to display
+      return {
+        data: result.previousOrder,
+        message: `Sales order ${result.deletedOrderNumber} deleted successfully. Now showing previous order: ${result.previousOrder.orderNumber}`,
+        deletedOrderNumber: result.deletedOrderNumber
+      };
+    } else {
+      // No previous order exists, suggest redirecting to order list
+      return {
+        data: null,
+        message: `Sales order ${result.deletedOrderNumber} deleted successfully. No previous orders available.`,
+        deletedOrderNumber: result.deletedOrderNumber,
+        redirect: '/sales-orders'
+      };
+    }
   }
 
   @Put(':id/confirm')

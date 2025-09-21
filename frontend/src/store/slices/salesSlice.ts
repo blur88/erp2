@@ -169,6 +169,19 @@ export const bulkDeleteOrders = createAsyncThunk(
   }
 )
 
+export const deleteOrder = createAsyncThunk(
+  'sales/deleteOrder',
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.deleteOrder(orderId)
+      // The API now returns: { data: previousOrder | null, message: string, deletedOrderNumber: string, redirect?: string }
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete order')
+    }
+  }
+)
+
 export const permanentDeleteOrder = createAsyncThunk(
   'sales/permanentDeleteOrder',
   async (orderId: string, { rejectWithValue }) => {
@@ -426,6 +439,32 @@ const salesSlice = createSlice({
         // Orders will be removed from deletedOrders when refetched
       })
       .addCase(bulkRestoreOrders.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Delete Order (Soft Delete)
+    builder
+      .addCase(deleteOrder.pending, (state) => {
+        state.error = null
+      })
+      .addCase(deleteOrder.fulfilled, (state, action) => {
+        if (action.payload) {
+          const payload = action.payload as any
+
+          // Remove the deleted order from the orders list
+          const deletedOrderNumber = payload.deletedOrderNumber
+          state.orders = state.orders.filter(order => order.orderNumber !== deletedOrderNumber)
+
+          // If there's a previous order, set it as the selected order
+          if (payload.data) {
+            state.selectedOrder = payload.data
+          } else {
+            // No previous order available, clear selection
+            state.selectedOrder = null
+          }
+        }
+      })
+      .addCase(deleteOrder.rejected, (state, action) => {
         state.error = action.payload as string
       })
 

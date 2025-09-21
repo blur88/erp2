@@ -72,6 +72,32 @@ export class SalesOrderService {
     return `SO-${nextNumber.toString().padStart(6, '0')}`;
   }
 
+  private async findPreviousOrder(currentOrderNumber: string): Promise<SalesOrderResponseDto | null> {
+    // Extract number from current order number (format: SO-000003)
+    const match = currentOrderNumber.match(/^SO-(\d+)$/);
+    if (!match) {
+      return null; // Invalid format
+    }
+
+    const currentNumber = parseInt(match[1]);
+    if (currentNumber <= 1) {
+      return null; // No previous order possible
+    }
+
+    // Calculate previous sequential number
+    const previousNumber = currentNumber - 1;
+    const previousOrderNumber = `SO-${previousNumber.toString().padStart(6, '0')}`;
+
+    // Check if the previous order exists in database and get full details
+    const previousOrder = await this.salesOrderRepository.findOne({
+      where: { orderNumber: previousOrderNumber },
+      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      withDeleted: true // Include soft-deleted orders
+    });
+
+    return previousOrder ? this.mapToResponseDto(previousOrder) : null;
+  }
+
   async create(createSalesOrderDto: CreateSalesOrderDto, userId: string | null): Promise<SalesOrderResponseDto> {
     const { customerId, items, ...orderData } = createSalesOrderDto;
 
@@ -458,7 +484,7 @@ export class SalesOrderService {
     return this.findById(savedOrder.id);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string): Promise<{ deletedOrderNumber: string; previousOrder: SalesOrderResponseDto | null }> {
     const order = await this.salesOrderRepository.findOne({ where: { id } });
     if (!order) {
       throw new NotFoundException('Sales order not found');
@@ -469,11 +495,19 @@ export class SalesOrderService {
       throw new ConflictException('Cannot delete order that has been shipped, delivered, or completed');
     }
 
+    // Find previous order details before deletion
+    const previousOrder = await this.findPreviousOrder(order.orderNumber);
+
     // Release reserved inventory
     await this.inventoryIntegrationService.releaseReservation(id);
 
     // Soft delete using TypeORM's built-in soft delete
     await this.salesOrderRepository.softDelete(id);
+
+    return {
+      deletedOrderNumber: order.orderNumber,
+      previousOrder
+    };
   }
 
   async confirmOrder(id: string): Promise<SalesOrderResponseDto> {
@@ -867,7 +901,7 @@ export class SalesOrderService {
     return BulkOperationUtil.createResponse('restored', 'sales order', successCount, failedItems);
   }
 
-  async permanentDelete(id: string, userId?: string): Promise<void> {
+  async permanentDelete(id: string): Promise<void> {
     // Find the order (including soft-deleted ones)
     const order = await this.salesOrderRepository.findOne({
       where: { id },
@@ -906,8 +940,7 @@ export class SalesOrderService {
   }
 
   async bulkPermanentDelete(
-    orderIds: string[],
-    userId?: string
+    orderIds: string[]
   ): Promise<BulkOperationResponse> {
     if (!orderIds || orderIds.length === 0) {
       return BulkOperationUtil.createResponse('permanently deleted', 'sales order', 0, []);

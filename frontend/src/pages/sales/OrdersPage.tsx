@@ -42,7 +42,7 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination } from '@/store/slices/salesSlice'
+import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder } from '@/store/slices/salesSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -71,6 +71,7 @@ const OrdersPage: React.FC = () => {
   const loading = useAppSelector(selectSalesLoading)?.orders || false
   const error = useAppSelector(selectSalesError)
   const pagination = useAppSelector(selectSalesPagination)?.orders
+  const selectedOrder = useAppSelector(selectSelectedOrder)
 
   const [state, setState] = useState<OrdersPageState>({
     search: '',
@@ -82,7 +83,6 @@ const OrdersPage: React.FC = () => {
     toDate: '',
   })
 
-  const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
   const [viewDialog, setViewDialog] = useState(false)
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
@@ -150,7 +150,7 @@ const OrdersPage: React.FC = () => {
 
   // Select order when clicked
   const handleOrderSelect = (order: SalesOrder) => {
-    setSelectedOrder(order)
+    dispatch(setSelectedOrder(order))
     const orderIndex = orders.findIndex(o => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
   }
@@ -198,8 +198,14 @@ const OrdersPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (orderToDelete) {
       try {
-        await salesApi.deleteOrder(orderToDelete)
-        loadOrders()
+        // Use Redux deleteOrder thunk which handles the new API response
+        const result = await dispatch(deleteOrder(orderToDelete))
+
+        if (deleteOrder.fulfilled.match(result)) {
+          // The Redux action automatically updates the state and selects the previous order
+          console.log('Order deleted successfully. Previous order auto-selected.')
+        }
+
         setDeleteConfirmOpen(false)
         setOrderToDelete(null)
         setOrderToDeleteName('')
@@ -220,7 +226,7 @@ const OrdersPage: React.FC = () => {
     setCreateDialog(false)
 
     // Auto-select the newly created order immediately (using the fresh data from API)
-    setSelectedOrder(order)
+    dispatch(setSelectedOrder(order))
 
     // Set the pending order ID to focus on after orders reload
     setPendingOrderToSelect(order.id)
@@ -232,7 +238,7 @@ const OrdersPage: React.FC = () => {
   const handleOrderUpdated = (order: SalesOrder) => {
     loadOrders()
     setEditDialog(false)
-    setSelectedOrder(order) // Update selected order with new data
+    dispatch(setSelectedOrder(order)) // Update selected order with new data
   }
 
   const handleEditOrder = () => {
@@ -248,7 +254,7 @@ const OrdersPage: React.FC = () => {
       if (!selectedOrder) {
         setFocusedOrderIndex(0)
         // Automatically show order details for the first order
-        setSelectedOrder(orders[0])
+        dispatch(setSelectedOrder(orders[0]))
       }
     }
   }, [orders, focusedOrderIndex, selectedOrder])
@@ -258,7 +264,7 @@ const OrdersPage: React.FC = () => {
     if (pendingOrderToSelect && orders.length > 0) {
       const orderIndex = orders.findIndex(o => o.id === pendingOrderToSelect)
       if (orderIndex >= 0) {
-        setSelectedOrder(orders[orderIndex])
+        dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)
         setPendingOrderToSelect(null)
       }
@@ -291,38 +297,38 @@ const OrdersPage: React.FC = () => {
     if (focusedOrderIndex > 0) {
       const newIndex = focusedOrderIndex - 1
       setFocusedOrderIndex(newIndex)
-      setSelectedOrder(orders[newIndex])
+      dispatch(setSelectedOrder(orders[newIndex]))
     }
-  }, [focusedOrderIndex, orders])
+  }, [focusedOrderIndex, orders, dispatch])
 
   const handleNavigateDown = useCallback(() => {
     if (focusedOrderIndex < orders.length - 1) {
       const newIndex = focusedOrderIndex + 1
       setFocusedOrderIndex(newIndex)
-      setSelectedOrder(orders[newIndex])
+      dispatch(setSelectedOrder(orders[newIndex]))
     }
-  }, [focusedOrderIndex, orders])
+  }, [focusedOrderIndex, orders, dispatch])
 
   const handleNavigateToFirst = useCallback(() => {
     if (orders.length > 0) {
       setFocusedOrderIndex(0)
-      setSelectedOrder(orders[0])
+      dispatch(setSelectedOrder(orders[0]))
     }
-  }, [orders])
+  }, [orders, dispatch])
 
   const handleNavigateToLast = useCallback(() => {
     if (orders.length > 0) {
       const lastIndex = orders.length - 1
       setFocusedOrderIndex(lastIndex)
-      setSelectedOrder(orders[lastIndex])
+      dispatch(setSelectedOrder(orders[lastIndex]))
     }
-  }, [orders])
+  }, [orders, dispatch])
 
   const handlePageUpNavigation = useCallback(() => {
     const newIndex = Math.max(0, focusedOrderIndex - state.rowsPerPage)
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
-      setSelectedOrder(orders[newIndex])
+      dispatch(setSelectedOrder(orders[newIndex]))
     }
   }, [focusedOrderIndex, state.rowsPerPage, orders])
 
@@ -330,7 +336,7 @@ const OrdersPage: React.FC = () => {
     const newIndex = Math.min(orders.length - 1, focusedOrderIndex + state.rowsPerPage)
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
-      setSelectedOrder(orders[newIndex])
+      dispatch(setSelectedOrder(orders[newIndex]))
     }
   }, [focusedOrderIndex, state.rowsPerPage, orders])
 
@@ -338,7 +344,7 @@ const OrdersPage: React.FC = () => {
     if (focusedOrderIndex >= 0 && orders[focusedOrderIndex]) {
       setEditDialog(true)
     }
-  }, [focusedOrderIndex, orders])
+  }, [focusedOrderIndex, orders, dispatch])
 
   const handleEditAction = () => {
     if (selectedOrder) {
@@ -366,14 +372,14 @@ const OrdersPage: React.FC = () => {
 
   const handleEscapeAction = useCallback(() => {
     setFocusedOrderIndex(-1)
-    setSelectedOrder(null)
+    dispatch(setSelectedOrder(null))
     setCreateDialog(false)
     setEditDialog(false)
     setViewDialog(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
     setKeyboardHelpOpen(false)
-  }, [])
+  }, [dispatch])
 
   const clearDialogs = () => {
     setCreateDialog(false)
