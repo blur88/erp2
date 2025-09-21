@@ -92,6 +92,7 @@ const OrdersPage: React.FC = () => {
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
+  const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -214,9 +215,18 @@ const OrdersPage: React.FC = () => {
     setOrderToDeleteName('')
   }
 
-  const handleOrderCreated = (_order: SalesOrder) => {
-    loadOrders()
+  const handleOrderCreated = (order: SalesOrder) => {
+    // Close dialog first
     setCreateDialog(false)
+
+    // Auto-select the newly created order immediately (using the fresh data from API)
+    setSelectedOrder(order)
+
+    // Set the pending order ID to focus on after orders reload
+    setPendingOrderToSelect(order.id)
+
+    // Reload orders to get the updated list
+    loadOrders()
   }
 
   const handleOrderUpdated = (order: SalesOrder) => {
@@ -242,6 +252,18 @@ const OrdersPage: React.FC = () => {
       }
     }
   }, [orders, focusedOrderIndex, selectedOrder])
+
+  // Handle pending order selection after orders load
+  useEffect(() => {
+    if (pendingOrderToSelect && orders.length > 0) {
+      const orderIndex = orders.findIndex(o => o.id === pendingOrderToSelect)
+      if (orderIndex >= 0) {
+        setSelectedOrder(orders[orderIndex])
+        setFocusedOrderIndex(orderIndex)
+        setPendingOrderToSelect(null)
+      }
+    }
+  }, [orders, pendingOrderToSelect])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
