@@ -272,7 +272,8 @@ const CustomersPage: React.FC = () => {
       }))
     } catch (error: any) {
       // Handle error responses with detailed information
-      let errorMessage = 'Failed to delete customer. Please try again.'
+      let errorTitle = 'Failed to Delete Customer'
+      let errorMessage = 'An unexpected error occurred. Please try again.'
 
       console.log('Delete error:', error) // Debug log
 
@@ -284,9 +285,32 @@ const CustomersPage: React.FC = () => {
         if (backendError.message) {
           errorMessage = backendError.message
 
-          // If there are suggestions, show them in the error message
+          // Add detailed context if available
+          if (backendError.details) {
+            errorMessage += `\n\n${backendError.details}`
+          }
+
+          // Add dependency information if available
+          if (backendError.dependencies) {
+            const deps = backendError.dependencies
+            let depInfo = '\n\nDependency Details:'
+            if (deps.orders > 0) {
+              depInfo += `\n• ${deps.orders} active order${deps.orders === 1 ? '' : 's'}`
+            }
+            if (deps.invoices > 0) {
+              depInfo += `\n• ${deps.invoices} active invoice${deps.invoices === 1 ? '' : 's'}`
+            }
+            errorMessage += depInfo
+          }
+
+          // Add suggestions if available
           if (backendError.suggestions && Array.isArray(backendError.suggestions)) {
-            errorMessage += '\n\nSuggestions:\n• ' + backendError.suggestions.join('\n• ')
+            errorMessage += '\n\nTo resolve this issue:\n• ' + backendError.suggestions.join('\n• ')
+          }
+
+          // Customize title based on error type
+          if (backendError.error === 'DELETION_PREVENTED_BY_DEPENDENCIES') {
+            errorTitle = 'Customer Deletion Blocked'
           }
         }
       } else if (error?.message && error.message !== 'Request failed with status code 400') {
@@ -1068,9 +1092,9 @@ const CustomersPage: React.FC = () => {
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={isDeleteConfirmOpen}
-        title="Confirm Delete"
-        message={`Are you sure you want to delete customer "${selectedCustomer?.name}"? This will move them to deleted customers.`}
-        confirmText="Delete"
+        title="Confirm Customer Deletion"
+        message={`Are you sure you want to delete customer "${selectedCustomer?.name}"?\n\nThis action will:\n• Move the customer to deleted customers\n• Preserve order and invoice history\n• Allow restoration later if needed\n\nNote: If the customer has active orders or unpaid invoices, deletion will be prevented.`}
+        confirmText="Delete Customer"
         cancelText="Cancel"
         onConfirm={handleDelete}
         onCancel={() => setIsDeleteConfirmOpen(false)}

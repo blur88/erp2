@@ -222,17 +222,30 @@ export class CustomerService {
         relatedRecords.push(`${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'}`);
       }
 
+      const errorMessage = `Cannot delete customer '${customer.name}' because they have ${relatedRecords.join(' and ')}.`;
+      const suggestions = [];
+
+      if (activeOrderCount > 0) {
+        suggestions.push(`Remove or reassign the ${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'} first`);
+      }
+      if (activeInvoiceCount > 0) {
+        suggestions.push(`Remove or reassign the ${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'} first`);
+      }
+      suggestions.push('Complete or cancel all pending orders before deletion');
+      suggestions.push('Ensure all invoices are paid and properly archived');
+
       throw new BadRequestException({
-        message: `Cannot delete customer '${customer.name}' because they have ${relatedRecords.join(' and ')}.`,
+        message: errorMessage,
+        error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
-        orderCount: activeOrderCount,
-        invoiceCount: activeInvoiceCount,
-        suggestions: [
-          'Remove or reassign orders to other customers first',
-          'Remove or reassign invoices to other customers first',
-          'Cancel or complete all pending orders',
-          'Ensure all invoices are paid and archived'
-        ]
+        customerId: customer.id,
+        customerCode: customer.customerCode,
+        dependencies: {
+          orders: activeOrderCount,
+          invoices: activeInvoiceCount
+        },
+        suggestions,
+        details: `Customer '${customer.name}' (${customer.customerCode}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`
       });
     }
 
@@ -475,11 +488,24 @@ export class CustomerService {
 
         const activeDependencies = dependencies.filter(dep => dep.count > 0);
         if (activeDependencies.length > 0) {
+          const dependencyDetails = activeDependencies.map(dep =>
+            `${dep.count} ${dep.name}${dep.count > 1 ? 's' : ''}`
+          ).join(', ');
+
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
-            ValidationUtil.createDependencyErrorMessage('customer', activeDependencies),
-            'DEPENDENCY_ERROR'
+            `Cannot permanently delete customer '${customer.name}' (${customer.customerCode}) due to active dependencies: ${dependencyDetails}. Complete all business transactions first.`,
+            'DEPENDENCY_ERROR',
+            {
+              customerName: customer.name,
+              customerCode: customer.customerCode,
+              dependencies: {
+                orders: orderCount,
+                invoices: invoiceCount,
+                payments: paymentCount
+              }
+            }
           );
           continue;
         }
@@ -561,9 +587,29 @@ export class CustomerService {
 
     const activeDependencies = dependencies.filter(dep => dep.count > 0);
     if (activeDependencies.length > 0) {
-      throw new BadRequestException(
-        ValidationUtil.createDependencyErrorMessage('customer', activeDependencies)
-      );
+      const dependencyDetails = activeDependencies.map(dep =>
+        `${dep.count} active ${dep.name}${dep.count > 1 ? 's' : ''}`
+      ).join(', ');
+
+      throw new BadRequestException({
+        message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
+        error: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
+        customerName: customer.name,
+        customerId: customer.id,
+        customerCode: customer.customerCode,
+        dependencies: {
+          orders: orderCount,
+          invoices: invoiceCount,
+          payments: paymentCount
+        },
+        details: `Customer '${customer.name}' (${customer.customerCode}) has ${dependencyDetails}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
+        suggestions: [
+          'Complete and archive all pending orders first',
+          'Ensure all invoices are fully paid and closed',
+          'Remove any payment references or reassign to other customers',
+          'Consider using soft delete instead if you need to hide the customer'
+        ]
+      });
     }
 
     // Validate financial consistency before deletion

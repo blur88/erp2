@@ -140,7 +140,33 @@ export class CustomerController {
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
   @ApiResponse({ status: 204, description: 'Customer deleted successfully' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @ApiResponse({ status: 409, description: 'Cannot delete customer with existing orders' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete customer with active orders, invoices, or other dependencies',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Cannot delete customer \'John Doe\' because they have 3 orders and 2 invoices.' },
+        error: { type: 'string', example: 'DELETION_PREVENTED_BY_DEPENDENCIES' },
+        customerName: { type: 'string', example: 'John Doe' },
+        customerId: { type: 'string', example: 'uuid' },
+        customerCode: { type: 'string', example: 'CUST2401' },
+        dependencies: {
+          type: 'object',
+          properties: {
+            orders: { type: 'number', example: 3 },
+            invoices: { type: 'number', example: 2 }
+          }
+        },
+        suggestions: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['Remove or reassign the 3 orders first', 'Remove or reassign the 2 invoices first']
+        },
+        details: { type: 'string', example: 'Customer \'John Doe\' (CUST2401) cannot be deleted due to existing business relationships.' }
+      }
+    }
+  })
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.customerService.delete(id);
@@ -274,9 +300,33 @@ export class CustomerController {
     description: 'Customer permanently deleted successfully',
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Customer must be soft-deleted first or has active references' 
+  @ApiResponse({
+    status: 400,
+    description: 'Customer must be soft-deleted first or has active dependencies',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Cannot permanently delete customer \'John Doe\' due to active business relationships' },
+        error: { type: 'string', example: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES' },
+        customerName: { type: 'string', example: 'John Doe' },
+        customerId: { type: 'string', example: 'uuid' },
+        customerCode: { type: 'string', example: 'CUST2401' },
+        dependencies: {
+          type: 'object',
+          properties: {
+            orders: { type: 'number', example: 2 },
+            invoices: { type: 'number', example: 1 },
+            payments: { type: 'number', example: 0 }
+          }
+        },
+        suggestions: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['Complete and archive all pending orders first', 'Ensure all invoices are fully paid and closed']
+        },
+        details: { type: 'string', example: 'Customer \'John Doe\' (CUST2401) has 2 active orders, 1 active invoice. Permanent deletion is blocked to preserve financial audit trails and data integrity.' }
+      }
+    }
   })
   @ApiParam({ name: 'id', description: 'Customer ID' })
   @HttpCode(HttpStatus.NO_CONTENT)
