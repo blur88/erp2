@@ -856,7 +856,12 @@ const OrdersPage: React.FC = () => {
             <Paper sx={{ p: 3, height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Order Info and Actions */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
                   Order Details - {selectedOrder.orderNumber}
                 </Typography>
                 <Box sx={{
