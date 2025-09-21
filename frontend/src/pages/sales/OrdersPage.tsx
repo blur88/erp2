@@ -51,6 +51,7 @@ import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface OrdersPageState {
@@ -67,6 +68,7 @@ const OrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const dispatch = useAppDispatch()
+  const { showSuccess, showError } = useNotification()
   const orders = useAppSelector(selectOrders) || []
   const loading = useAppSelector(selectSalesLoading)?.orders || false
   const error = useAppSelector(selectSalesError)
@@ -203,7 +205,10 @@ const OrdersPage: React.FC = () => {
 
         if (deleteOrder.fulfilled.match(result)) {
           // The Redux action automatically updates the state and selects the previous order
-          console.log('Order deleted successfully. Previous order auto-selected.')
+          showSuccess(`Order "${orderToDeleteName}" has been deleted successfully`)
+        } else if (deleteOrder.rejected.match(result)) {
+          const errorMessage = result.payload as string || 'Failed to delete order'
+          showError(errorMessage)
         }
 
         setDeleteConfirmOpen(false)
@@ -211,6 +216,11 @@ const OrdersPage: React.FC = () => {
         setOrderToDeleteName('')
       } catch (err: any) {
         console.error('Failed to delete order:', err)
+        const errorMessage = err?.response?.data?.message || err?.message || 'Failed to delete order'
+        showError(errorMessage)
+        setDeleteConfirmOpen(false)
+        setOrderToDelete(null)
+        setOrderToDeleteName('')
       }
     }
   }
