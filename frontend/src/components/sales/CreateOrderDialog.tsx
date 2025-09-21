@@ -296,6 +296,37 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
     // Parse the formatted value back to number for storage
     const numericValue = parseFloat(value.replace(/,/g, '')) || 0
     setValue(`items.${index}.unitPrice`, numericValue)
+
+    // Trigger immediate total recalculation
+    const currentItem = watchedItems[index]
+    const quantity = currentItem?.quantity || 0
+
+    if (quantity && numericValue) {
+      const subtotal = Number(quantity) * Number(numericValue)
+      let discountAmount = 0
+      let discountPercent = Number(currentItem?.discountPercent) || 0
+
+      if (currentItem?.discountType === 'percentage' && discountPercent > 0) {
+        discountAmount = subtotal * (discountPercent / 100)
+        setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+      } else if (currentItem?.discountType === 'amount' && currentItem?.discountAmount > 0) {
+        discountAmount = Math.min(Number(currentItem.discountAmount), subtotal)
+        // Recalculate percentage to match the amount
+        discountPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0
+        setValue(`items.${index}.discountPercent`, Number(discountPercent.toFixed(2)))
+        setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
+      }
+
+      const totalPrice = subtotal - discountAmount
+      setValue(`items.${index}.totalPrice`, Number(totalPrice.toFixed(2)))
+
+      // Clear any display value override
+      setDiscountDisplayValues(prev => {
+        const updated = { ...prev }
+        delete updated[index]
+        return updated
+      })
+    }
   }
 
   const calculateOrderTotals = () => {
