@@ -88,12 +88,13 @@ export const updateCustomer = createAsyncThunk(
 
 export const deleteCustomer = createAsyncThunk(
   'customers/deleteCustomer',
-  async (id: string, { rejectWithValue }) => {
+  async (id: string) => {
     try {
       await salesApi.deleteCustomer(id)
       return id
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to delete customer')
+      // Let the component handle error notifications
+      throw error
     }
   }
 )
@@ -282,7 +283,7 @@ const customerSlice = createSlice({
       })
       .addCase(deleteCustomer.rejected, (state, action) => {
         state.loading = false
-        state.error = action.error.message || 'Failed to delete customer'
+        // Don't set error state - let component handle notifications
       })
 
 

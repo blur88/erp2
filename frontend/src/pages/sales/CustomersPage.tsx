@@ -252,47 +252,46 @@ const CustomersPage: React.FC = () => {
   const handleDelete = async () => {
     if (!selectedCustomer) return
     try {
-      const result = await dispatch(deleteCustomer(selectedCustomer.id))
+      await dispatch(deleteCustomer(selectedCustomer.id)).unwrap()
 
-      if (deleteCustomer.fulfilled.match(result)) {
-        showSuccess(`Customer "${selectedCustomer.name}" deleted successfully`)
-        setIsDeleteConfirmOpen(false)
-        setSelectedCustomer(null)
+      // If we get here, deletion was successful
+      showSuccess(`Customer "${selectedCustomer.name}" deleted successfully`)
+      setIsDeleteConfirmOpen(false)
+      setSelectedCustomer(null)
 
-        // Refresh the customer list to ensure consistency
-        dispatch(fetchCustomers({
-          page: pagination.page,
-          limit: pagination.limit,
-          search: filters.search || undefined,
-          type: filters.type || undefined,
-          priceLevel: filters.priceLevel || undefined,
-          isActive: filters.isActive,
-          sortBy: filters.sortBy || undefined,
-          sortOrder: filters.sortOrder || undefined
-        }))
-      } else {
-        throw new Error(result.payload as string)
-      }
+      // Refresh the customer list to ensure consistency
+      dispatch(fetchCustomers({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: filters.search || undefined,
+        type: filters.type || undefined,
+        priceLevel: filters.priceLevel || undefined,
+        isActive: filters.isActive,
+        sortBy: filters.sortBy || undefined,
+        sortOrder: filters.sortOrder || undefined
+      }))
     } catch (error: any) {
-      // Handle structured error responses with detailed information
+      // Handle error responses with detailed information
       let errorMessage = 'Failed to delete customer. Please try again.'
 
-      if (error?.message) {
-        try {
-          // Try to parse if it's a JSON string with structured error info
-          const errorData = JSON.parse(error.message)
-          if (errorData.message) {
-            errorMessage = errorData.message
+      console.log('Delete error:', error) // Debug log
 
-            // If there are suggestions, show them in the error message
-            if (errorData.suggestions && Array.isArray(errorData.suggestions)) {
-              errorMessage += '\n\nSuggestions:\n• ' + errorData.suggestions.join('\n• ')
-            }
+      // Handle axios error responses - check multiple possible error structures
+      if (error?.response?.data) {
+        const backendError = error.response.data
+        console.log('Backend error:', backendError) // Debug log
+
+        if (backendError.message) {
+          errorMessage = backendError.message
+
+          // If there are suggestions, show them in the error message
+          if (backendError.suggestions && Array.isArray(backendError.suggestions)) {
+            errorMessage += '\n\nSuggestions:\n• ' + backendError.suggestions.join('\n• ')
           }
-        } catch {
-          // If parsing fails, use the message as-is
-          errorMessage = error.message
         }
+      } else if (error?.message && error.message !== 'Request failed with status code 400') {
+        // Use the error message if it's meaningful
+        errorMessage = error.message
       }
 
       showError(errorMessage)
