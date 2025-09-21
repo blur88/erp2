@@ -647,68 +647,51 @@ const OrdersPage: React.FC = () => {
             <MenuItem value="this_month">This Month</MenuItem>
             <MenuItem value="this_year">This Year</MenuItem>
             <Divider />
-            <ListSubheader sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>
-              Custom Date Range
-            </ListSubheader>
-            <MenuItem
-              value="custom"
-              sx={{
-                flexDirection: 'column',
-                alignItems: 'stretch',
-                gap: 1.5,
-                py: 2,
-                '&:hover': {
-                  backgroundColor: 'transparent'
-                }
-              }}
-              onClick={(e) => {
-                e.preventDefault()
-                setState((prev: OrdersPageState) => ({ ...prev, dateFilter: 'custom', page: 0 }))
-              }}
-            >
-              <TextField
-                label="From Date"
-                type="date"
-                value={state.customFromDate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  e.stopPropagation()
-                  setState((prev: OrdersPageState) => ({ ...prev, customFromDate: e.target.value }))
-                }}
-                onClick={(e) => e.stopPropagation()}
-                size="small"
-                fullWidth
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    fontSize: '0.875rem'
-                  }
-                }}
-              />
-              <TextField
-                label="To Date"
-                type="date"
-                value={state.customToDate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  e.stopPropagation()
-                  setState((prev: OrdersPageState) => ({ ...prev, customToDate: e.target.value }))
-                }}
-                onClick={(e) => e.stopPropagation()}
-                size="small"
-                fullWidth
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    fontSize: '0.875rem'
-                  }
-                }}
-              />
-            </MenuItem>
+            <MenuItem value="custom">Custom Date Range</MenuItem>
           </Select>
         </FormControl>
+        {state.dateFilter === 'custom' && (
+          <>
+            <TextField
+              label="From Date"
+              type="date"
+              value={state.customFromDate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setState((prev: OrdersPageState) => ({ ...prev, customFromDate: e.target.value }))
+              }}
+              size="medium"
+              sx={{
+                minWidth: 150,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem'
+                }
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+            <TextField
+              label="To Date"
+              type="date"
+              value={state.customToDate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setState((prev: OrdersPageState) => ({ ...prev, customToDate: e.target.value }))
+              }}
+              size="medium"
+              sx={{
+                minWidth: 150,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem'
+                }
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          </>
+        )}
         {state.dateFilter !== 'all' && (
           <Button
             variant="outlined"
