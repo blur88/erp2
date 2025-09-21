@@ -1092,8 +1092,8 @@ const CustomersPage: React.FC = () => {
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={isDeleteConfirmOpen}
-        title="Confirm Customer Deletion"
-        message={`Are you sure you want to delete customer "${selectedCustomer?.name}"?\n\nThis action will:\n• Move the customer to deleted customers\n• Preserve order and invoice history\n• Allow restoration later if needed\n\nNote: If the customer has active orders or unpaid invoices, deletion will be prevented.`}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete "${selectedCustomer?.name}"? This will move it to deleted items.`}
         confirmText="Delete Customer"
         cancelText="Cancel"
         onConfirm={handleDelete}
