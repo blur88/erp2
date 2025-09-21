@@ -146,8 +146,8 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
 
       const payload = result.payload as any
       console.log('Bulk restore payload:', payload) // Debug log
-      const restoredCount = payload?.data?.restoredCount || payload?.restoredCount || 0
-      const failedIds = payload?.data?.failedIds || payload?.failedIds || []
+      const restoredCount = payload?.restoredCount || 0
+      const failedIds = payload?.failedIds || []
 
       if (restoredCount > 0) {
         showSuccess(`Successfully restored ${restoredCount} orders`)
@@ -204,8 +204,8 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
 
       const payload = result.payload as any
       console.log('Bulk delete payload:', payload) // Debug log
-      const deletedCount = payload?.data?.deletedCount || payload?.deletedCount || 0
-      const failedIds = payload?.data?.failedIds || payload?.failedIds || []
+      const deletedCount = payload?.deletedCount || 0
+      const failedIds = payload?.failedIds || []
 
       if (deletedCount > 0) {
         showSuccess(`Successfully permanently deleted ${deletedCount} orders`)
