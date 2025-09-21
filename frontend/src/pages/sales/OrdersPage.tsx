@@ -853,115 +853,117 @@ const OrdersPage: React.FC = () => {
         {/* Right Side - Order Details */}
         <Grid item xs={12} md={8}>
           {selectedOrder ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: 'calc(100vh - 300px)' }}>
-              {/* Top Box - Customer Info, Order Date, Notes */}
-              <Paper sx={{ p: 3, minHeight: '200px' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Order Details - {selectedOrder.orderNumber}
-                  </Typography>
-                  <Box sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.25
-                  }}>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      title="Edit Order"
-                      onClick={handleEditOrder}
-                      sx={{
-                        height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                        width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                        minHeight: 20, // Reduced minimum size for better scaling
-                        minWidth: 20,
-                        p: 0.125 // Reduced padding for better proportion
-                      }}
-                    >
-                      <EditIcon sx={{
-                        fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
-                      }} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      title="Delete Order"
-                      onClick={() => handleOrderAction('delete', selectedOrder.id)}
-                      sx={{
-                        height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                        width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                        minHeight: 20, // Reduced minimum size for better scaling
-                        minWidth: 20,
-                        p: 0.125 // Reduced padding for better proportion
-                      }}
-                    >
-                      <DeleteIcon sx={{
-                        fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
-                      }} />
-                    </IconButton>
-                  </Box>
+            <Paper sx={{ p: 3, height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+              {/* Header with Order Info and Actions */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Order Details - {selectedOrder.orderNumber}
+                </Typography>
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.25
+                }}>
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    title="Edit Order"
+                    onClick={handleEditOrder}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                      width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                      minHeight: 20, // Reduced minimum size for better scaling
+                      minWidth: 20,
+                      p: 0.125 // Reduced padding for better proportion
+                    }}
+                  >
+                    <EditIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                    }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    title="Delete Order"
+                    onClick={() => handleOrderAction('delete', selectedOrder.id)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                      width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                      minHeight: 20, // Reduced minimum size for better scaling
+                      minWidth: 20,
+                      p: 0.125 // Reduced padding for better proportion
+                    }}
+                  >
+                    <DeleteIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                    }} />
+                  </IconButton>
                 </Box>
+              </Box>
 
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
+              {/* Order Details Section */}
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Customer Name
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {selectedOrder.customer?.name || 'Unknown Customer'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Order Date
+                    </Typography>
+                    <Typography variant="body1">
+                      {formatDate(selectedOrder.orderDate)}
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Total Amount
+                    </Typography>
+                    <Typography variant="h6" color="primary">
+                      {formatCurrency(selectedOrder.totalAmount)}
+                    </Typography>
+                  </Box>
+
+                  {selectedOrder.requiredDate && (
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        Customer Name
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {selectedOrder.customer?.name || 'Unknown Customer'}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        Order Date
+                        Required Date
                       </Typography>
                       <Typography variant="body1">
-                        {formatDate(selectedOrder.orderDate)}
+                        {formatDate(selectedOrder.requiredDate)}
                       </Typography>
                     </Box>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        Total Amount
-                      </Typography>
-                      <Typography variant="h6" color="primary">
-                        {formatCurrency(selectedOrder.totalAmount)}
-                      </Typography>
-                    </Box>
-
-                    {selectedOrder.requiredDate && (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                          Required Date
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatDate(selectedOrder.requiredDate)}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Grid>
-
-                  {selectedOrder.notes && (
-                    <Grid item xs={12}>
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                          Notes
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedOrder.notes}
-                        </Typography>
-                      </Box>
-                    </Grid>
                   )}
                 </Grid>
-              </Paper>
 
-              {/* Bottom Box - Order Items */}
-              <Paper sx={{ p: 3, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {selectedOrder.notes && (
+                  <Grid item xs={12}>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        Notes
+                      </Typography>
+                      <Typography variant="body1">
+                        {selectedOrder.notes}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
+
+              {/* Divider */}
+              <Divider sx={{ mb: 3 }} />
+
+              {/* Order Items Section */}
+              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                   Order Items ({selectedOrder.items?.length || 0})
                 </Typography>
@@ -1110,8 +1112,8 @@ const OrdersPage: React.FC = () => {
                 ) : (
                   <Alert severity="info">No items in this order</Alert>
                 )}
-              </Paper>
-            </Box>
+              </Box>
+            </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="h6" color="text.secondary">
