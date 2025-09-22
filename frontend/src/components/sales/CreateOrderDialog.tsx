@@ -401,8 +401,15 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="xl"
+      maxWidth="lg"
       fullWidth
+      PaperProps={{
+        sx: {
+          maxHeight: '90vh',
+          width: '70vw',
+          maxWidth: '900px',
+        }
+      }}
     >
       <DialogTitle>{editOrder ? 'Edit Order' : 'Create New Order'}</DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
