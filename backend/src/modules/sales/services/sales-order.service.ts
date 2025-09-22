@@ -815,7 +815,15 @@ export class SalesOrderService {
 
       const unitPrice = Number(item.unitPrice) || Number(product.retailPrice) || 0;
       const discountPercent = Number(item.discountPercent) || 0;
-      const discountAmount = Number(item.discountAmount) || (unitPrice * item.quantity * discountPercent) / 100;
+
+      // Calculate discount amount based on discount type
+      let discountAmount = 0;
+      if (item.discountType === DiscountType.PERCENTAGE && discountPercent > 0) {
+        discountAmount = (unitPrice * item.quantity * discountPercent) / 100;
+      } else if (item.discountType === DiscountType.AMOUNT && item.discountAmount > 0) {
+        discountAmount = Math.min(Number(item.discountAmount), unitPrice * item.quantity);
+      }
+
       const totalAmount = (unitPrice * item.quantity) - discountAmount;
 
       processedItems.push({

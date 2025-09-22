@@ -1187,7 +1187,7 @@ const OrdersPage: React.FC = () => {
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                             }}>
-                              {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
+                              {formatCurrency(item.totalAmount || (item.quantity * item.unitPrice) || 0)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1401,7 +1401,7 @@ const OrdersPage: React.FC = () => {
                                   fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                                 }}>
-                                  {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
+                                  {formatCurrency(item.totalAmount || (item.quantity * item.unitPrice) || 0)}
                                 </TableCell>
                               </TableRow>
                             ))}

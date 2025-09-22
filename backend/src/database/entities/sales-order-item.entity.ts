@@ -270,16 +270,19 @@ export class SalesOrderItem extends BaseEntity {
   @BeforeUpdate()
   calculateTotals() {
     const lineTotal = this.lineTotal;
-    
+
     // Calculate discount amount based on discount type
     if (this.discountType === DiscountType.PERCENTAGE && this.discountPercent > 0) {
       this.discountAmount = (lineTotal * Number(this.discountPercent)) / 100;
-    } else if (this.discountType === DiscountType.AMOUNT) {
+    } else if (this.discountType === DiscountType.AMOUNT && this.discountAmount > 0) {
       // For fixed amount, use the discountAmount as is
       // Ensure discount doesn't exceed line total
       this.discountAmount = Math.min(Number(this.discountAmount), lineTotal);
+    } else {
+      // No discount or invalid values
+      this.discountAmount = 0;
     }
-    
+
     // Calculate total amount
     this.totalAmount = lineTotal - Number(this.discountAmount);
   }
