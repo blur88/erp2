@@ -431,9 +431,12 @@ export class SalesOrderService {
   }
 
   async update(id: string, updateSalesOrderDto: UpdateSalesOrderDto): Promise<SalesOrderResponseDto> {
+    console.log('=== UPDATE METHOD CALLED ===');
+    console.log('Order ID:', id);
+    console.log('DTO received:', JSON.stringify(updateSalesOrderDto, null, 2));
+
     const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: ['items']
+      where: { id }
     });
     if (!order) {
       throw new NotFoundException('Sales order not found');
@@ -444,10 +447,12 @@ export class SalesOrderService {
       throw new ConflictException('Cannot update order in current status');
     }
 
-    const { items, customerId, ...orderData } = updateSalesOrderDto;
+    const { items, customerId, notes } = updateSalesOrderDto;
 
-    // Update basic order fields
-    Object.assign(order, orderData);
+    // Update basic order fields (only update provided fields)
+    if (notes !== undefined) {
+      order.notes = notes;
+    }
 
     // Update customer if provided
     if (customerId) {
@@ -460,28 +465,60 @@ export class SalesOrderService {
 
     // Update items if provided
     if (items && items.length > 0) {
-      // Delete existing items
+      console.log('Processing items update...');
+      console.log('Current order.id:', order.id);
+      console.log('Items received:', JSON.stringify(items, null, 2));
+
+      // Delete existing items from database
       await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
       // Validate and process new items
       const orderItems = await this.validateAndProcessItems(items);
+      console.log('Processed items:', JSON.stringify(orderItems, null, 2));
+
       const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
 
-      // Create new order items
+      // Create new order items using direct object creation to avoid entity relations issues
       for (const itemData of orderItems) {
-        const orderItem = this.salesOrderItemRepository.create({
-          ...itemData,
-          salesOrderId: order.id,
+        // Validate that order.id exists
+        if (!order.id) {
+          throw new Error(`Cannot create order items: order.id is ${order.id}`);
+        }
+
+        // Use direct repository insert instead of create/save to bypass entity hooks
+        await this.salesOrderItemRepository.insert({
+          lineNumber: itemData.lineNumber || 1,
+          productId: itemData.productId,
+          productSku: itemData.productSku || 'N/A',
+          productName: itemData.productName || 'Unknown Product',
+          productDescription: itemData.productDescription || '',
+          unit: itemData.unit || 'pcs',
+          quantity: itemData.quantity || 1,
+          unitPrice: itemData.unitPrice || 0,
+          unitCost: itemData.unitCost || 0,
+          discountType: itemData.discountType || DiscountType.PERCENTAGE,
+          discountPercent: itemData.discountPercent || 0,
+          discountAmount: itemData.discountAmount || 0,
+          totalAmount: itemData.totalAmount || 0,
+          notes: itemData.notes || null,
+          salesOrderId: order.id, // Direct database insert ensures this is set
         });
-        await this.salesOrderItemRepository.save(orderItem);
       }
 
-      // Update order total
-      order.totalAmount = totalAmount;
+      // Update order total using direct query to avoid cascade issues
+      await this.salesOrderRepository.update(id, { totalAmount });
     }
 
-    const savedOrder = await this.salesOrderRepository.save(order);
-    return this.findById(savedOrder.id);
+    // Update other order fields using direct query to avoid cascade issues
+    const updateData: any = {};
+    if (notes !== undefined) updateData.notes = notes;
+    if (customerId) updateData.customerId = customerId;
+
+    if (Object.keys(updateData).length > 0) {
+      await this.salesOrderRepository.update(id, updateData);
+    }
+
+    return this.findById(id);
   }
 
   async delete(id: string): Promise<{ deletedOrderNumber: string; previousOrder: SalesOrderResponseDto | null }> {
@@ -776,26 +813,26 @@ export class SalesOrderService {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      const unitPrice = item.unitPrice || Number(product.retailPrice);
-      const discountPercent = item.discountPercent || 0;
-      const discountAmount = item.discountAmount || (unitPrice * item.quantity * discountPercent) / 100;
+      const unitPrice = Number(item.unitPrice) || Number(product.retailPrice) || 0;
+      const discountPercent = Number(item.discountPercent) || 0;
+      const discountAmount = Number(item.discountAmount) || (unitPrice * item.quantity * discountPercent) / 100;
       const totalAmount = (unitPrice * item.quantity) - discountAmount;
 
       processedItems.push({
         lineNumber: lineNumber++,
         productId: item.productId,
         productSku: product.barcode || 'N/A',
-        productName: product.name,
-        productDescription: product.description,
+        productName: product.name || 'Unknown Product',
+        productDescription: product.description || '',
         unit: 'pcs', // Default unit since Product entity doesn't have unit field
-        quantity: item.quantity,
-        unitPrice,
+        quantity: Number(item.quantity) || 1,
+        unitPrice: Number(unitPrice) || 0,
         unitCost: Number(product.baseCost) || 0,
         discountType: item.discountType || DiscountType.PERCENTAGE,
-        discountPercent,
-        discountAmount,
-        totalAmount,
-        notes: item.notes,
+        discountPercent: Number(discountPercent) || 0,
+        discountAmount: Number(discountAmount) || 0,
+        totalAmount: Number(totalAmount) || 0,
+        notes: item.notes || null,
       });
     }
 

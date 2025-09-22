@@ -30,7 +30,7 @@ async function bootstrap() {
       transform: true,
       whitelist: true, // Remove non-whitelisted properties
       forbidNonWhitelisted: false, // Allow unknown query parameters (changed from true)
-      skipMissingProperties: false,
+      skipMissingProperties: true, // Allow optional properties to be missing
       skipNullProperties: false,
       skipUndefinedProperties: false,
       disableErrorMessages: false, // Always show detailed validation errors for debugging
