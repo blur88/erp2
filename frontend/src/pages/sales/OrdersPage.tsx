@@ -912,10 +912,14 @@ const OrdersPage: React.FC = () => {
                   <Table
                     size={TABLE_STYLES.size}
                     sx={{
+                      tableLayout: 'fixed',
                       '& .MuiTableCell-root': {
-                        borderBottom: TABLE_STYLES.cell.border,
+                        border: 'none',
                         py: TABLE_STYLES.cell.padding.py,
-                        px: TABLE_STYLES.cell.padding.px
+                        px: TABLE_STYLES.cell.padding.px,
+                        '&:nth-of-type(1)': { width: '35%' }, // Field name column
+                        '&:nth-of-type(2)': { width: '45%' }, // Value column
+                        '&:nth-of-type(3)': { width: '20%' }, // Extra info column
                       }
                     }}
                   >
@@ -923,8 +927,8 @@ const OrdersPage: React.FC = () => {
                       {/* Order Information Section */}
                       <TableRow>
                         <TableCell colSpan={3} sx={{
-                          pt: TABLE_STYLES.cell.padding.py * 2,
                           pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
                           <Typography variant="h6" sx={{
@@ -937,7 +941,11 @@ const OrdersPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, width: '35%' }}>
+                        <TableCell sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                          color: 'text.secondary',
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                        }}>
                           Customer Name
                         </TableCell>
                         <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
@@ -966,8 +974,8 @@ const OrdersPage: React.FC = () => {
                       {/* Financial Summary Section */}
                       <TableRow>
                         <TableCell colSpan={3} sx={{
-                          pt: TABLE_STYLES.cell.padding.py * 2,
                           pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
                           <Typography variant="h6" sx={{
@@ -1014,18 +1022,22 @@ const OrdersPage: React.FC = () => {
                     <Table
                       size={TABLE_STYLES.size}
                       sx={{
+                        tableLayout: 'fixed',
                         '& .MuiTableCell-root': {
-                          borderBottom: TABLE_STYLES.cell.border,
+                          border: 'none',
                           py: TABLE_STYLES.cell.padding.py,
-                          px: TABLE_STYLES.cell.padding.px
+                          px: TABLE_STYLES.cell.padding.px,
+                          '&:nth-of-type(1)': { width: '35%' }, // Field name column
+                          '&:nth-of-type(2)': { width: '45%' }, // Value column
+                          '&:nth-of-type(3)': { width: '20%' }, // Extra info column
                         }
                       }}
                     >
                       <TableBody>
                         <TableRow>
                           <TableCell colSpan={3} sx={{
-                            pt: TABLE_STYLES.cell.padding.py * 2,
                             pb: TABLE_STYLES.cell.padding.py * 0.67,
+                            py: TABLE_STYLES.cell.padding.py * 0.67,
                             borderTop: TABLE_STYLES.cell.border
                           }}>
                             <Typography variant="h6" sx={{
