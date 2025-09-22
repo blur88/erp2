@@ -295,6 +295,9 @@ const OrdersPage: React.FC = () => {
     // Update the selected order immediately with the updated data from the API
     dispatch(setSelectedOrder(order))
 
+    // Set the pending order ID to maintain selection after orders reload
+    setPendingOrderToSelect(order.id)
+
     // Reload the orders list to ensure consistency with the backend
     // This will also update the order in the list with the latest data
     loadOrders()
