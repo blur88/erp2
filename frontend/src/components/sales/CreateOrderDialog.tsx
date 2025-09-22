@@ -91,6 +91,7 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [discountDisplayValues, setDiscountDisplayValues] = useState<{[key: number]: string}>({})
+  const [productSearchTerms, setProductSearchTerms] = useState<{[key: number]: string}>({})
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -220,10 +221,28 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
     }
   }
 
-  const loadProducts = async () => {
+  const loadProducts = async (searchTerm: string = '', rowIndex?: number) => {
     try {
-      const response = await ApiService.get('/inventory/products', { params: { limit: 100 } })
-      setProducts((response as any).data || [])
+      const params: any = { limit: 100 }
+      if (searchTerm && searchTerm.trim().length >= 1) {
+        params.search = searchTerm.trim()
+      }
+      const response = await ApiService.get('/inventory/products', { params })
+      const productData = (response as any).data || []
+
+      // If this is for a specific row and we have search results, track them
+      if (rowIndex !== undefined && searchTerm) {
+        setProductSearchTerms(prev => ({ ...prev, [rowIndex]: searchTerm }))
+      } else if (rowIndex !== undefined && !searchTerm) {
+        // Clear search term for this row
+        setProductSearchTerms(prev => {
+          const updated = { ...prev }
+          delete updated[rowIndex]
+          return updated
+        })
+      }
+
+      setProducts(productData)
     } catch (err) {
       console.error('Failed to load products:', err)
     }
@@ -556,12 +575,34 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
                                 options={products}
                                 getOptionLabel={(option) => option.name}
                                 value={products.find(p => p.id === productField.value) || null}
-                                onChange={(_, value) => handleProductSelect(index, value)}
+                                onChange={(_, value) => {
+                                  handleProductSelect(index, value)
+                                  // Clear search term when product is selected
+                                  setProductSearchTerms(prev => {
+                                    const updated = { ...prev }
+                                    delete updated[index]
+                                    return updated
+                                  })
+                                }}
+                                onInputChange={(_, value, reason) => {
+                                  // Only search when user is typing, not when clearing or selecting
+                                  if (reason === 'input') {
+                                    if (value.trim().length >= 1) {
+                                      loadProducts(value, index)
+                                    } else {
+                                      loadProducts('', index)
+                                    }
+                                  }
+                                }}
+                                filterOptions={(options) => {
+                                  // Let the backend handle filtering, just return all options
+                                  return options
+                                }}
                                 size="small"
                                 renderInput={(params) => (
                                   <TextField
                                     {...params}
-                                    placeholder="Select product..."
+                                    placeholder="Search by name or barcode..."
                                     variant="outlined"
                                     error={!!errors.items?.[index]?.productId}
                                     sx={{
