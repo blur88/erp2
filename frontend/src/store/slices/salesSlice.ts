@@ -242,6 +242,18 @@ export const createOrder = createAsyncThunk(
   }
 )
 
+export const updateOrder = createAsyncThunk(
+  'sales/updateOrder',
+  async ({ id, orderData }: { id: string; orderData: Partial<SalesOrder> }, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.updateOrder(id, orderData)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update order')
+    }
+  }
+)
+
 export const createInvoice = createAsyncThunk(
   'sales/createInvoice',
   async (invoiceData: Partial<Invoice>, { rejectWithValue }) => {
@@ -561,6 +573,22 @@ const salesSlice = createSlice({
       .addCase(createOrder.fulfilled, (state, action) => {
         if (action.payload) {
           state.orders.unshift(action.payload)
+        }
+      })
+
+    // Update Order
+    builder
+      .addCase(updateOrder.fulfilled, (state, action) => {
+        if (action.payload) {
+          // Find and update the order in the list
+          const index = state.orders.findIndex(order => order.id === action.payload.id)
+          if (index !== -1) {
+            state.orders[index] = action.payload
+          }
+          // Update selected order if it's the same one
+          if (state.selectedOrder?.id === action.payload.id) {
+            state.selectedOrder = action.payload
+          }
         }
       })
 
