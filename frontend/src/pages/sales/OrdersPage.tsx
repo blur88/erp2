@@ -941,27 +941,15 @@ const OrdersPage: React.FC = () => {
                           Customer Name
                         </TableCell>
                         <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
-                          }}>
-                            {selectedOrder.customer?.name || 'Unknown Customer'}
-                          </Typography>
+                          {selectedOrder.customer?.name || 'Unknown Customer'}
                         </TableCell>
                       </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                      <TableRow>
                         <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           Order Date
                         </TableCell>
                         <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                          }}>
-                            {formatDate(selectedOrder.orderDate)}
-                          </Typography>
+                          {formatDate(selectedOrder.orderDate)}
                         </TableCell>
                       </TableRow>
                       {selectedOrder.requiredDate && (
@@ -970,13 +958,7 @@ const OrdersPage: React.FC = () => {
                             Required Date
                           </TableCell>
                           <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                            }}>
-                              {formatDate(selectedOrder.requiredDate)}
-                            </Typography>
+                            {formatDate(selectedOrder.requiredDate)}
                           </TableCell>
                         </TableRow>
                       )}
@@ -1005,24 +987,19 @@ const OrdersPage: React.FC = () => {
                           <Typography variant="h5" sx={{
                             fontWeight: 700,
                             color: 'primary.main',
-                            lineHeight: 1.2
+                            lineHeight: 1.2,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             {formatCurrency(selectedOrder.totalAmount)}
                           </Typography>
                         </TableCell>
                       </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                      <TableRow>
                         <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           Item Count
                         </TableCell>
                         <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
-                          }}>
-                            {selectedOrder.items?.length || 0} item{(selectedOrder.items?.length || 0) !== 1 ? 's' : ''}
-                          </Typography>
+                          {selectedOrder.items?.length || 0} item{(selectedOrder.items?.length || 0) !== 1 ? 's' : ''}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -1061,18 +1038,17 @@ const OrdersPage: React.FC = () => {
                           </TableCell>
                         </TableRow>
                         <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell colSpan={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
+                          <TableCell colSpan={3} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                             <Box sx={{
                               minHeight: 60,
                               display: 'flex',
                               alignItems: 'flex-start',
                               justifyContent: 'flex-start',
-                              backgroundColor: 'grey.50',
                               p: 1
                             }}>
-                              <Typography variant="body2" sx={{
+                              <Typography sx={{
                                 fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: 1.4,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
                                 whiteSpace: 'pre-wrap'
                               }}>
                                 {selectedOrder.notes}
@@ -1091,7 +1067,11 @@ const OrdersPage: React.FC = () => {
 
               {/* Order Items Section */}
               <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                <Typography variant="h6" sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  mb: 2
+                }}>
                   Order Items ({selectedOrder.items?.length || 0})
                 </Typography>
 
@@ -1108,51 +1088,26 @@ const OrdersPage: React.FC = () => {
                       }}
                     >
                       <TableHead>
-                        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+                        <TableRow sx={{ '& .MuiTableCell-head': {
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          backgroundColor: 'grey.50',
+                          color: TYPOGRAPHY_STYLES.tableHeader.color,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                        } }}>
                           <TableCell sx={{ width: '40%' }}>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: TYPOGRAPHY_STYLES.tableHeader.color,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                            }}>
-                              Product
-                            </Typography>
+                            Product
                           </TableCell>
                           <TableCell align="center" sx={{ width: '12%' }}>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: TYPOGRAPHY_STYLES.tableHeader.color,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                            }}>
-                              Quantity
-                            </Typography>
+                            Quantity
                           </TableCell>
                           <TableCell align="right" sx={{ width: '16%' }}>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: TYPOGRAPHY_STYLES.tableHeader.color,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                            }}>
-                              Unit Price
-                            </Typography>
+                            Unit Price
                           </TableCell>
                           <TableCell align="right" sx={{ width: '16%' }}>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: TYPOGRAPHY_STYLES.tableHeader.color,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                            }}>
-                              Discount
-                            </Typography>
+                            Discount
                           </TableCell>
                           <TableCell align="right" sx={{ width: '16%' }}>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: TYPOGRAPHY_STYLES.tableHeader.color,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                            }}>
-                              Total
-                            </Typography>
+                            Total
                           </TableCell>
                         </TableRow>
                       </TableHead>
@@ -1169,51 +1124,44 @@ const OrdersPage: React.FC = () => {
                               height: TABLE_STYLES.row.height
                             }}
                           >
-                            <TableCell>
-                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
-                              }}>
-                                {item.product?.name || item.productName || 'Unknown Product'}
-                              </Typography>
+                            <TableCell sx={{
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                            }}>
+                              {item.product?.name || item.productName || 'Unknown Product'}
                               {item.description && (
-                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                <Typography sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                  color: 'text.secondary'
+                                  color: 'text.secondary',
+                                  display: 'block'
                                 }}>
                                   {item.description}
                                 </Typography>
                               )}
                             </TableCell>
-                            <TableCell align="center">
-                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                              }}>
-                                {item.quantity || 0}
-                              </Typography>
+                            <TableCell align="center" sx={{
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                            }}>
+                              {item.quantity || 0}
                             </TableCell>
-                            <TableCell align="right">
-                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                              }}>
-                                {formatCurrency(item.unitPrice || 0)}
-                              </Typography>
+                            <TableCell align="right" sx={{
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                            }}>
+                              {formatCurrency(item.unitPrice || 0)}
                             </TableCell>
-                            <TableCell align="right">
-                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                              }}>
-                                {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                              </Typography>
+                            <TableCell align="right" sx={{
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                            }}>
+                              {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
                               {item.discountType === 'percentage' && item.discountPercent && (
-                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                <Typography sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                                   color: 'text.secondary',
                                   display: 'block'
@@ -1222,14 +1170,12 @@ const OrdersPage: React.FC = () => {
                                 </Typography>
                               )}
                             </TableCell>
-                            <TableCell align="right">
-                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
-                              }}>
-                                {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
-                              </Typography>
+                            <TableCell align="right" sx={{
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                            }}>
+                              {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1337,60 +1283,29 @@ const OrdersPage: React.FC = () => {
                           }}
                         >
                           <TableHead>
-                            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+                            <TableRow sx={{ '& .MuiTableCell-head': {
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              backgroundColor: 'grey.50',
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            } }}>
                               <TableCell sx={{ width: '30%' }}>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
-                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                                }}>
-                                  Product
-                                </Typography>
+                                Product
                               </TableCell>
                               <TableCell sx={{ width: '15%' }}>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
-                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                                }}>
-                                  SKU/Barcode
-                                </Typography>
+                                SKU/Barcode
                               </TableCell>
                               <TableCell align="center" sx={{ width: '11%' }}>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
-                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                                }}>
-                                  Quantity
-                                </Typography>
+                                Quantity
                               </TableCell>
                               <TableCell align="right" sx={{ width: '11%' }}>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
-                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                                }}>
-                                  Unit Price
-                                </Typography>
+                                Unit Price
                               </TableCell>
                               <TableCell align="right" sx={{ width: '16%' }}>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
-                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                                }}>
-                                  Discount
-                                </Typography>
+                                Discount
                               </TableCell>
                               <TableCell align="right" sx={{ width: '17%' }}>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                  color: TYPOGRAPHY_STYLES.tableHeader.color,
-                                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                                }}>
-                                  Total
-                                </Typography>
+                                Total
                               </TableCell>
                             </TableRow>
                           </TableHead>
@@ -1407,83 +1322,74 @@ const OrdersPage: React.FC = () => {
                                   height: TABLE_STYLES.row.height
                                 }}
                               >
-                                <TableCell>
-                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
-                                  }}>
-                                    {item.product?.name || item.productName || 'Unknown Product'}
-                                  </Typography>
+                                <TableCell sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                                }}>
+                                  {item.product?.name || item.productName || 'Unknown Product'}
                                   {item.description && (
-                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                    <Typography sx={{
                                       fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary'
+                                      color: 'text.secondary',
+                                      display: 'block'
                                     }}>
                                       {item.description}
                                     </Typography>
                                   )}
                                 </TableCell>
-                                <TableCell>
-                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                                  }}>
-                                    {item.product?.barcode || item.product?.sku || 'N/A'}
-                                  </Typography>
+                                <TableCell sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                  lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                }}>
+                                  {item.product?.barcode || item.product?.sku || 'N/A'}
                                 </TableCell>
-                                <TableCell align="center">
-                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                                  }}>
-                                    {item.quantity || 0}
-                                  </Typography>
+                                <TableCell align="center" sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                  lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                }}>
+                                  {item.quantity || 0}
                                 </TableCell>
-                                <TableCell align="right">
-                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                                  }}>
-                                    {formatCurrency(item.unitPrice || 0)}
-                                  </Typography>
+                                <TableCell align="right" sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                  lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                }}>
+                                  {formatCurrency(item.unitPrice || 0)}
                                 </TableCell>
-                                <TableCell align="right">
-                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                    fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                                  }}>
-                                    {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                                  </Typography>
+                                <TableCell align="right" sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                  lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                }}>
+                                  {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
                                   {item.discountType === 'percentage' && item.discountPercent && (
-                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                    <Typography sx={{
                                       fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary'
+                                      color: 'text.secondary',
+                                      display: 'block'
                                     }}>
                                       ({item.discountPercent}%)
                                     </Typography>
                                   )}
                                   {item.discountType === 'amount' && item.discountAmount && (
-                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{
+                                    <Typography sx={{
                                       fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary'
+                                      color: 'text.secondary',
+                                      display: 'block'
                                     }}>
                                       (Fixed)
                                     </Typography>
                                   )}
                                 </TableCell>
-                                <TableCell align="right">
-                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                    lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
-                                  }}>
-                                    {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
-                                  </Typography>
+                                <TableCell align="right" sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                                }}>
+                                  {formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0)}
                                 </TableCell>
                               </TableRow>
                             ))}
