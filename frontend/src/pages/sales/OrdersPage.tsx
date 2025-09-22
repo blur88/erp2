@@ -49,7 +49,7 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, updateOrder, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder } from '@/store/slices/salesSlice'
+import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder } from '@/store/slices/salesSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -289,14 +289,15 @@ const OrdersPage: React.FC = () => {
   }
 
   const handleOrderUpdated = async (order: SalesOrder) => {
-    // Use the updateOrder Redux action which automatically updates the state
-    // The order is already updated on the backend, so we just need to update our local state
+    // Close the dialog first
     setEditDialog(false)
 
-    // Update the order in the Redux state directly
-    dispatch(updateOrder.fulfilled(order, '', { id: order.id, orderData: {} }))
+    // Update the selected order immediately with the updated data from the API
+    dispatch(setSelectedOrder(order))
 
-    // The selected order will be automatically updated by the reducer
+    // Reload the orders list to ensure consistency with the backend
+    // This will also update the order in the list with the latest data
+    loadOrders()
   }
 
   const handleEditOrder = () => {
