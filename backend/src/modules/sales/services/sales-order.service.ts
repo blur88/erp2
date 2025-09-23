@@ -431,10 +431,6 @@ export class SalesOrderService {
   }
 
   async update(id: string, updateSalesOrderDto: UpdateSalesOrderDto): Promise<SalesOrderResponseDto> {
-    console.log('=== UPDATE METHOD CALLED ===');
-    console.log('Order ID:', id);
-    console.log('DTO received:', JSON.stringify(updateSalesOrderDto, null, 2));
-
     const order = await this.salesOrderRepository.findOne({
       where: { id }
     });
@@ -449,10 +445,8 @@ export class SalesOrderService {
 
     const { items, customerId, notes } = updateSalesOrderDto;
 
-    // Update basic order fields (only update provided fields)
-    if (notes !== undefined) {
-      order.notes = notes;
-    }
+    // Prepare update data for the sales order
+    const updateData: any = {};
 
     // Update customer if provided
     if (customerId) {
@@ -460,21 +454,21 @@ export class SalesOrderService {
       if (!customer) {
         throw new NotFoundException('Customer not found');
       }
-      order.customerId = customerId;
+      updateData.customerId = customerId;
+    }
+
+    // Update notes if provided (including empty string to clear notes)
+    if (notes !== undefined) {
+      updateData.notes = notes;
     }
 
     // Update items if provided
     if (items && items.length > 0) {
-      console.log('Processing items update...');
-      console.log('Current order.id:', order.id);
-      console.log('Items received:', JSON.stringify(items, null, 2));
-
       // Delete existing items from database
       await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
       // Validate and process new items
       const orderItems = await this.validateAndProcessItems(items);
-      console.log('Processed items:', JSON.stringify(orderItems, null, 2));
 
       const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
 
@@ -505,15 +499,11 @@ export class SalesOrderService {
         });
       }
 
-      // Update order total using direct query to avoid cascade issues
-      await this.salesOrderRepository.update(id, { totalAmount });
+      // Add total amount to update data
+      updateData.totalAmount = totalAmount;
     }
 
-    // Update other order fields using direct query to avoid cascade issues
-    const updateData: any = {};
-    if (notes !== undefined) updateData.notes = notes;
-    if (customerId) updateData.customerId = customerId;
-
+    // Perform all updates in a single database call
     if (Object.keys(updateData).length > 0) {
       await this.salesOrderRepository.update(id, updateData);
     }
