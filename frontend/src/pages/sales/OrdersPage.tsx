@@ -912,107 +912,148 @@ const OrdersPage: React.FC = () => {
             <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
               {/* Order Details Section */}
               <Box>
-                <TableContainer>
-                  <Table
-                    size={TABLE_STYLES.size}
-                    sx={{
-                      tableLayout: 'fixed',
-                      '& .MuiTableCell-root': {
-                        border: 'none',
-                        py: TABLE_STYLES.cell.padding.py,
-                        px: TABLE_STYLES.cell.padding.px,
-                        '&:nth-of-type(1)': { width: '35%' }, // Field name column
-                        '&:nth-of-type(2)': { width: '45%' }, // Value column
-                        '&:nth-of-type(3)': { width: '20%' }, // Extra info column
-                      }
-                    }}
-                  >
-                    <TableBody>
-                      {/* Order Information Section */}
-                      <TableRow>
-                        <TableCell colSpan={3} sx={{
-                          pb: TABLE_STYLES.cell.padding.py * 0.67,
-                          py: TABLE_STYLES.cell.padding.py * 0.67,
-                          borderTop: TABLE_STYLES.cell.border
-                        }}>
-                          <Typography variant="h6" sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'primary.main',
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          }}>
-                            Order Information
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                          color: 'text.secondary',
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                        }}>
-                          Customer Name
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {selectedOrder.customer?.name || 'Unknown Customer'}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          Order Date
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {formatDate(selectedOrder.orderDate)}
-                        </TableCell>
-                      </TableRow>
-                      {selectedOrder.requiredDate && (
-                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            Required Date
-                          </TableCell>
-                          <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {formatDate(selectedOrder.requiredDate)}
-                          </TableCell>
-                        </TableRow>
-                      )}
-
-                      {/* Financial Summary Section */}
-                      <TableRow>
-                        <TableCell colSpan={3} sx={{
-                          pb: TABLE_STYLES.cell.padding.py * 0.67,
-                          py: TABLE_STYLES.cell.padding.py * 0.67,
-                          borderTop: TABLE_STYLES.cell.border
-                        }}>
-                          <Typography variant="h6" sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'primary.main',
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          }}>
-                            Financial Summary
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          Total Amount
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {formatCurrency(selectedOrder.totalAmount)}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          Item Count
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {selectedOrder.items?.length || 0} item{(selectedOrder.items?.length || 0) !== 1 ? 's' : ''}
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Order Notes Section - integrated into same table */}
-                      {selectedOrder.notes && (
-                        <>
+                <Grid container spacing={3}>
+                  {/* Left Column - Order Information */}
+                  <Grid item xs={12} md={6}>
+                    <TableContainer>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          tableLayout: 'fixed',
+                          '& .MuiTableCell-root': {
+                            border: 'none',
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px,
+                            '&:nth-of-type(1)': { width: '40%' }, // Field name column
+                            '&:nth-of-type(2)': { width: '60%' }, // Value column
+                          }
+                        }}
+                      >
+                        <TableBody>
+                          {/* Order Information Section */}
                           <TableRow>
-                            <TableCell colSpan={3} sx={{
+                            <TableCell colSpan={2} sx={{
+                              pb: TABLE_STYLES.cell.padding.py * 0.67,
+                              py: TABLE_STYLES.cell.padding.py * 0.67,
+                              borderTop: TABLE_STYLES.cell.border
+                            }}>
+                              <Typography variant="h6" sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                color: 'primary.main',
+                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                              }}>
+                                Order Information
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Customer Name
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {selectedOrder.customer?.name || 'Unknown Customer'}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Order Date
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatDate(selectedOrder.orderDate)}
+                            </TableCell>
+                          </TableRow>
+                          {selectedOrder.requiredDate && (
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                Required Date
+                              </TableCell>
+                              <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                {formatDate(selectedOrder.requiredDate)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+
+                  {/* Right Column - Financial Summary */}
+                  <Grid item xs={12} md={6}>
+                    <TableContainer>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          tableLayout: 'fixed',
+                          '& .MuiTableCell-root': {
+                            border: 'none',
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px,
+                            '&:nth-of-type(1)': { width: '40%' }, // Field name column
+                            '&:nth-of-type(2)': { width: '60%' }, // Value column
+                          }
+                        }}
+                      >
+                        <TableBody>
+                          {/* Financial Summary Section */}
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{
+                              pb: TABLE_STYLES.cell.padding.py * 0.67,
+                              py: TABLE_STYLES.cell.padding.py * 0.67,
+                              borderTop: TABLE_STYLES.cell.border
+                            }}>
+                              <Typography variant="h6" sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                color: 'primary.main',
+                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                              }}>
+                                Financial Summary
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Total Amount
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatCurrency(selectedOrder.totalAmount)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Item Count
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {selectedOrder.items?.length || 0} item{(selectedOrder.items?.length || 0) !== 1 ? 's' : ''}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                </Grid>
+
+                {/* Order Notes Section - below both columns if notes exist */}
+                {selectedOrder.notes && (
+                  <Box sx={{ mt: 3 }}>
+                    <TableContainer>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          tableLayout: 'fixed',
+                          '& .MuiTableCell-root': {
+                            border: 'none',
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px,
+                          }
+                        }}
+                      >
+                        <TableBody>
+                          <TableRow>
+                            <TableCell sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
                               py: TABLE_STYLES.cell.padding.py * 0.67,
                               borderTop: TABLE_STYLES.cell.border
@@ -1027,7 +1068,7 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell colSpan={3} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               <Typography sx={{
                                 fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                 lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
@@ -1037,11 +1078,11 @@ const OrdersPage: React.FC = () => {
                               </Typography>
                             </TableCell>
                           </TableRow>
-                        </>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
 
               </Box>
 
