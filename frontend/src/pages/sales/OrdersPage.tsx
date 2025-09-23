@@ -984,7 +984,7 @@ const OrdersPage: React.FC = () => {
                         }}>
                           <Typography variant="h6" sx={{
                             fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'success.main',
+                            color: 'primary.main',
                             fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             Financial Summary
@@ -996,14 +996,7 @@ const OrdersPage: React.FC = () => {
                           Total Amount
                         </TableCell>
                         <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography variant="h5" sx={{
-                            fontWeight: 700,
-                            color: 'primary.main',
-                            lineHeight: 1.2,
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          }}>
-                            {formatCurrency(selectedOrder.totalAmount)}
-                          </Typography>
+                          {formatCurrency(selectedOrder.totalAmount)}
                         </TableCell>
                       </TableRow>
                       <TableRow>
