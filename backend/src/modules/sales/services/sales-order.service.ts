@@ -284,6 +284,17 @@ export class SalesOrderService {
     // Use QueryBuilder for complex filtering
     let queryBuilder = this.salesOrderRepository
       .createQueryBuilder('order')
+      .select([
+        'order.id',
+        'order.orderNumber',
+        'order.status',
+        'order.orderDate',
+        'order.totalAmount',
+        'order.customerId',
+        'order.notes',
+        'order.createdAt',
+        'order.updatedAt'
+      ])
       .leftJoinAndSelect('order.customer', 'customer')
       .leftJoinAndSelect('order.items', 'items')
       .where('order.deletedAt IS NULL');
@@ -335,6 +346,7 @@ export class SalesOrderService {
       items: order.items || [],
       itemsCount: order.items?.length || 0,
       isOverdue: false, // Placeholder since no requiredDate property exists
+      notes: order.notes, // Include notes field in summary response
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     }));
