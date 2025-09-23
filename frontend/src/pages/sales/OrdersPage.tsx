@@ -856,9 +856,9 @@ const OrdersPage: React.FC = () => {
         {/* Right Side - Order Details */}
         <Grid item xs={12} md={8}>
           {selectedOrder ? (
-            <Paper sx={{ p: 3, height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Order Info and Actions */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                   fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -909,8 +909,9 @@ const OrdersPage: React.FC = () => {
                 </Box>
               </Box>
 
+            <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
               {/* Order Details Section */}
-              <Box sx={{ mb: 3 }}>
+              <Box>
                 <TableContainer>
                   <Table
                     size={TABLE_STYLES.size}
@@ -1048,20 +1049,14 @@ const OrdersPage: React.FC = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
+
               </Box>
 
               {/* Divider */}
-              <Divider sx={{ mb: 2 }} />
+              <Divider />
 
-              {/* Order Items Section */}
-              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="h6" sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                  mb: 2
-                }}>
-                  Order Items ({selectedOrder.items?.length || 0})
-                </Typography>
+              {/* Order Items Table */}
+              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 2 }}>
 
                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
                   <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
@@ -1174,6 +1169,7 @@ const OrdersPage: React.FC = () => {
                   <Alert severity="info">No items in this order</Alert>
                 )}
               </Box>
+            </Box>
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
