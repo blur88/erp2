@@ -351,6 +351,18 @@ const salesSlice = createSlice({
     setSelectedInvoice: (state, action: PayloadAction<Invoice | null>) => {
       state.selectedInvoice = action.payload
     },
+    updateOrderInPlace: (state, action: PayloadAction<SalesOrder>) => {
+      const updatedOrder = action.payload
+      // Find and update the order in the list
+      const index = state.orders.findIndex(order => order.id === updatedOrder.id)
+      if (index !== -1) {
+        state.orders[index] = updatedOrder
+      }
+      // Update selected order if it's the same one
+      if (state.selectedOrder?.id === updatedOrder.id) {
+        state.selectedOrder = updatedOrder
+      }
+    },
     clearError: (state) => {
       state.error = null
     },
@@ -663,6 +675,7 @@ export const {
   setSelectedCustomer,
   setSelectedOrder,
   setSelectedInvoice,
+  updateOrderInPlace,
   clearError,
 } = salesSlice.actions
 
