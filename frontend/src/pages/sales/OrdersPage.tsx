@@ -1013,54 +1013,27 @@ const OrdersPage: React.FC = () => {
                           {selectedOrder.items?.length || 0} item{(selectedOrder.items?.length || 0) !== 1 ? 's' : ''}
                         </TableCell>
                       </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
 
-              {/* Additional Notes Section */}
-              {selectedOrder.notes && (
-                <Box sx={{ mb: 3 }}>
-                  <TableContainer>
-                    <Table
-                      size={TABLE_STYLES.size}
-                      sx={{
-                        tableLayout: 'fixed',
-                        '& .MuiTableCell-root': {
-                          border: 'none',
-                          py: TABLE_STYLES.cell.padding.py,
-                          px: TABLE_STYLES.cell.padding.px,
-                          '&:nth-of-type(1)': { width: '35%' }, // Field name column
-                          '&:nth-of-type(2)': { width: '45%' }, // Value column
-                          '&:nth-of-type(3)': { width: '20%' }, // Extra info column
-                        }
-                      }}
-                    >
-                      <TableBody>
-                        <TableRow>
-                          <TableCell colSpan={3} sx={{
-                            pb: TABLE_STYLES.cell.padding.py * 0.67,
-                            py: TABLE_STYLES.cell.padding.py * 0.67,
-                            borderTop: TABLE_STYLES.cell.border
-                          }}>
-                            <Typography variant="h6" sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: 'info.main',
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      {/* Order Notes Section - integrated into same table */}
+                      {selectedOrder.notes && (
+                        <>
+                          <TableRow>
+                            <TableCell colSpan={3} sx={{
+                              pb: TABLE_STYLES.cell.padding.py * 0.67,
+                              py: TABLE_STYLES.cell.padding.py * 0.67,
+                              borderTop: TABLE_STYLES.cell.border
                             }}>
-                              Order Notes
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell colSpan={3} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            <Box sx={{
-                              minHeight: 60,
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              justifyContent: 'flex-start',
-                              p: 1
-                            }}>
+                              <Typography variant="h6" sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                color: 'info.main',
+                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                              }}>
+                                Order Notes
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell colSpan={3} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               <Typography sx={{
                                 fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                 lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
@@ -1068,17 +1041,17 @@ const OrdersPage: React.FC = () => {
                               }}>
                                 {selectedOrder.notes}
                               </Typography>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-              )}
+                            </TableCell>
+                          </TableRow>
+                        </>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
 
               {/* Divider */}
-              <Divider sx={{ mb: 3 }} />
+              <Divider sx={{ mb: 2 }} />
 
               {/* Order Items Section */}
               <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
