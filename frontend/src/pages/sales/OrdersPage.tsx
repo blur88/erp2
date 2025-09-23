@@ -49,7 +49,7 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder, updateOrderInPlace } from '@/store/slices/salesSlice'
+import { fetchOrders, deleteOrder, fetchCustomers, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder, updateOrderInPlace } from '@/store/slices/salesSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -70,6 +70,7 @@ interface OrdersPageState {
   dateFilter: string
   customFromDate: string
   customToDate: string
+  customerId: string
 }
 
 const OrdersPage: React.FC = () => {
@@ -78,6 +79,7 @@ const OrdersPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const orders = useAppSelector(selectOrders) || []
+  const customers = useAppSelector((state: any) => state.sales.customers) || []
   const loading = useAppSelector(selectSalesLoading)?.orders || false
   const error = useAppSelector(selectSalesError)
   const pagination = useAppSelector(selectSalesPagination)?.orders
@@ -92,6 +94,7 @@ const OrdersPage: React.FC = () => {
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
+    customerId: '',
   })
 
   const [viewDialog, setViewDialog] = useState(false)
@@ -140,7 +143,12 @@ const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     loadOrders()
-  }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate])
+  }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate, state.customerId])
+
+  // Fetch customers on component mount
+  useEffect(() => {
+    dispatch(fetchCustomers({ limit: 1000 })) // Get all customers for dropdown
+  }, [])
 
   // Auto search with debounce
   useEffect(() => {
@@ -153,6 +161,7 @@ const OrdersPage: React.FC = () => {
           sortBy: state.sortBy,
           sortOrder: state.sortOrder,
           search: state.search,
+          customerId: state.customerId || undefined,
           fromDate: dateRange.fromDate,
           toDate: dateRange.toDate,
         }))
@@ -161,7 +170,7 @@ const OrdersPage: React.FC = () => {
     }, 300) // 300ms debounce
 
     return () => clearTimeout(timeoutId)
-  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate, dispatch])
+  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate, state.customerId, dispatch])
 
   const loadOrders = () => {
     const dateRange = getDateRange(state.dateFilter)
@@ -171,6 +180,7 @@ const OrdersPage: React.FC = () => {
       sortBy: state.sortBy,
       sortOrder: state.sortOrder,
       search: state.search,
+      customerId: state.customerId || undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
     }))
@@ -653,6 +663,46 @@ const OrdersPage: React.FC = () => {
             <MenuItem value="custom">Custom Date Range</MenuItem>
           </Select>
         </FormControl>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 200,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Customer</InputLabel>
+          <Select
+            value={state.customerId}
+            label="Customer"
+            onChange={(e) => setState((prev: OrdersPageState) => ({ ...prev, customerId: e.target.value, page: 0 }))}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
+          >
+            <MenuItem value="">All Customers</MenuItem>
+            {customers.map((customer: any) => (
+              <MenuItem key={customer.id} value={customer.id}>
+                {customer.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         {state.dateFilter === 'custom' && (
           <>
             <TextField
@@ -695,11 +745,11 @@ const OrdersPage: React.FC = () => {
             />
           </>
         )}
-        {state.dateFilter !== 'all' && (
+        {(state.dateFilter !== 'all' || state.customerId) && (
           <Button
             variant="outlined"
             size="medium"
-            onClick={() => setState((prev: OrdersPageState) => ({ ...prev, dateFilter: 'all', customFromDate: '', customToDate: '', page: 0 }))}
+            onClick={() => setState((prev: OrdersPageState) => ({ ...prev, dateFilter: 'all', customFromDate: '', customToDate: '', customerId: '', page: 0 }))}
             sx={{
               minWidth: 'auto',
               px: 2,
@@ -707,7 +757,7 @@ const OrdersPage: React.FC = () => {
               fontSize: '0.875rem'
             }}
           >
-            Clear Filter
+            Clear Filters
           </Button>
         )}
         <Button
