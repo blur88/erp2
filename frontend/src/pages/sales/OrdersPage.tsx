@@ -1116,10 +1116,11 @@ const OrdersPage: React.FC = () => {
                           py: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
-                          <Typography variant="h6" sx={{
+                          <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                             fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'primary.main',
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
                           }}>
                             Order Items
                           </Typography>
