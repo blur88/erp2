@@ -49,7 +49,8 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, deleteOrder, fetchCustomers, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder, updateOrderInPlace } from '@/store/slices/salesSlice'
+import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder, updateOrderInPlace } from '@/store/slices/salesSlice'
+import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -79,7 +80,8 @@ const OrdersPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const orders = useAppSelector(selectOrders) || []
-  const customers = useAppSelector((state: any) => state.sales.customers) || []
+  const customers = useAppSelector((state: any) => state.customers.customers) || []
+
   const loading = useAppSelector(selectSalesLoading)?.orders || false
   const error = useAppSelector(selectSalesError)
   const pagination = useAppSelector(selectSalesPagination)?.orders

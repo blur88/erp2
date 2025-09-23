@@ -363,6 +363,9 @@ const salesSlice = createSlice({
         state.selectedOrder = updatedOrder
       }
     },
+    setCustomers: (state, action: PayloadAction<Customer[]>) => {
+      state.customers = action.payload
+    },
     clearError: (state) => {
       state.error = null
     },
@@ -675,6 +678,7 @@ export const {
   setSelectedCustomer,
   setSelectedOrder,
   setSelectedInvoice,
+  setCustomers,
   updateOrderInPlace,
   clearError,
 } = salesSlice.actions
