@@ -1045,11 +1045,51 @@ const OrdersPage: React.FC = () => {
 
               </Box>
 
-              {/* Divider */}
-              <Divider />
+              {/* Page Break */}
+              <Box sx={{
+                borderTop: '2px solid',
+                borderColor: 'divider',
+                my: 3,
+                pageBreakBefore: 'always' // CSS page break for printing
+              }} />
 
-              {/* Order Items Table */}
-              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', pt: 2 }}>
+              {/* Order Items Section */}
+              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {/* Order Items Header */}
+                <TableContainer>
+                  <Table
+                    size={TABLE_STYLES.size}
+                    sx={{
+                      tableLayout: 'fixed',
+                      '& .MuiTableCell-root': {
+                        border: 'none',
+                        py: TABLE_STYLES.cell.padding.py,
+                        px: TABLE_STYLES.cell.padding.px,
+                      }
+                    }}
+                  >
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                          }}>
+                            Order Items
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                {/* Order Items Table */}
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
                   <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
@@ -1161,6 +1201,7 @@ const OrdersPage: React.FC = () => {
                 ) : (
                   <Alert severity="info">No items in this order</Alert>
                 )}
+                </Box>
               </Box>
             </Box>
             </Paper>
