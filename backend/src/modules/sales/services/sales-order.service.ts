@@ -306,6 +306,7 @@ export class SalesOrderService {
         'order.orderDate',
         'order.totalAmount',
         'order.paidAmount',
+        'order.isFulfilled',
         'order.customerId',
         'order.notes',
         'order.createdAt',
@@ -364,6 +365,8 @@ export class SalesOrderService {
         paidAmount: paidAmount,
         balanceDue: balanceDue,
         isPaidInFull: isPaidInFull,
+        isFulfilled: order.isFulfilled || false,
+        canFulfill: isPaidInFull && !order.isFulfilled,
         customerId: order.customerId,
         customer: order.customer ? {
           id: order.customer.id,
