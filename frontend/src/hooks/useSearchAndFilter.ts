@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, RefObject } from 'react'
 import { useDispatch } from 'react-redux'
 
 interface UseSearchAndFilterOptions {
@@ -6,6 +6,7 @@ interface UseSearchAndFilterOptions {
   initialSearchTerm?: string
   onSearchChange?: (searchTerm: string) => void
   onFilterChange?: (filters: any) => void
+  searchInputRef?: RefObject<HTMLInputElement>
 }
 
 interface UseSearchAndFilterReturn {
@@ -21,6 +22,7 @@ export const useSearchAndFilter = ({
   initialSearchTerm = '',
   onSearchChange,
   onFilterChange,
+  searchInputRef,
 }: UseSearchAndFilterOptions = {}): UseSearchAndFilterReturn => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm)
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(initialSearchTerm)
@@ -47,12 +49,18 @@ export const useSearchAndFilter = ({
 
   // Focus search input utility
   const focusSearchInput = useCallback(() => {
-    const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
-    if (searchInput) {
-      searchInput.focus()
-      searchInput.select()
+    if (searchInputRef?.current) {
+      searchInputRef.current.focus()
+      searchInputRef.current.select()
+    } else {
+      // Fallback to querySelector if ref is not provided
+      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+      if (searchInput) {
+        searchInput.focus()
+        searchInput.select()
+      }
     }
-  }, [])
+  }, [searchInputRef])
 
   return {
     searchTerm,

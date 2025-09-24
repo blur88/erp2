@@ -169,6 +169,7 @@ const OrdersPage: React.FC = () => {
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -179,6 +180,7 @@ const OrdersPage: React.FC = () => {
   const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
     initialSearchTerm: orderFilters.search,
     onSearchChange,
+    searchInputRef,
   })
 
 
@@ -627,6 +629,7 @@ const OrdersPage: React.FC = () => {
         }
       }}>
         <TextField
+          inputRef={searchInputRef}
           placeholder="Search orders..."
           value={searchTerm}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
