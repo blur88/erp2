@@ -182,6 +182,17 @@ export class SalesOrderService {
     // Use QueryBuilder to avoid metadata issues
     let queryBuilder = this.salesOrderRepository
       .createQueryBuilder('order')
+      .select([
+        'order.id',
+        'order.orderNumber',
+        'order.status',
+        'order.orderDate',
+        'order.totalAmount',
+        'order.paidAmount',
+        'order.customerId',
+        'order.createdAt',
+        'order.updatedAt'
+      ])
       .where('order.deletedAt IS NULL'); // Only get non-deleted orders
 
     if (customerId) {
@@ -241,6 +252,9 @@ export class SalesOrderService {
         status: order.status,
         orderDate: order.orderDate,
         totalAmount: Number(order.totalAmount),
+        paidAmount: Number(order.paidAmount || 0),
+        balanceDue: Math.max(0, Number(order.totalAmount) - Number(order.paidAmount || 0)),
+        isPaidInFull: Number(order.paidAmount || 0) >= Number(order.totalAmount),
         customerId: order.customerId,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
@@ -253,6 +267,7 @@ export class SalesOrderService {
   }
 
   async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
+    console.log('🚀 findSummaries called with query:', query);
     const {
       search,
       customerId,
@@ -290,6 +305,7 @@ export class SalesOrderService {
         'order.status',
         'order.orderDate',
         'order.totalAmount',
+        'order.paidAmount',
         'order.customerId',
         'order.notes',
         'order.createdAt',
@@ -331,25 +347,37 @@ export class SalesOrderService {
 
     const orders = await queryBuilder.getMany();
 
-    const data = orders.map(order => ({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      orderDate: order.orderDate,
-      totalAmount: Number(order.totalAmount),
-      customerId: order.customerId,
-      customer: order.customer ? {
-        id: order.customer.id,
-        name: order.customer.name
-      } : null,
-      customerName: order.customer?.name || 'Unknown Customer',
-      items: order.items || [],
-      itemsCount: order.items?.length || 0,
-      isOverdue: false, // Placeholder since no requiredDate property exists
-      notes: order.notes, // Include notes field in summary response
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-    }));
+    const data = orders.map(order => {
+      const paidAmount = Number(order.paidAmount || 0);
+      const totalAmount = Number(order.totalAmount);
+      const balanceDue = Math.max(0, totalAmount - paidAmount);
+      const isPaidInFull = paidAmount >= totalAmount;
+
+      console.log(`Order ${order.orderNumber}: totalAmount=${totalAmount}, paidAmount=${paidAmount}, balanceDue=${balanceDue}, isPaidInFull=${isPaidInFull}`);
+
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        orderDate: order.orderDate,
+        totalAmount: totalAmount,
+        paidAmount: paidAmount,
+        balanceDue: balanceDue,
+        isPaidInFull: isPaidInFull,
+        customerId: order.customerId,
+        customer: order.customer ? {
+          id: order.customer.id,
+          name: order.customer.name
+        } : null,
+        customerName: order.customer?.name || 'Unknown Customer',
+        items: order.items || [],
+        itemsCount: order.items?.length || 0,
+        isOverdue: false, // Placeholder since no requiredDate property exists
+        notes: order.notes, // Include notes field in summary response
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      };
+    });
 
     return {
       data,

@@ -1462,14 +1462,14 @@ const OrdersPage: React.FC = () => {
                         </TableCell>
                         <TableCell sx={{
                           fontWeight: 500,
-                          color: (selectedOrder.balanceDue || 0) > 0 ? 'error.main' : 'success.main'
+                          color: (selectedOrder.balanceDue || Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))) > 0 ? 'error.main' : 'success.main'
                         }}>
-                          {formatCurrency(selectedOrder.balanceDue || 0)}
+                          {formatCurrency(selectedOrder.balanceDue || Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={selectedOrder.isPaidInFull ? 'Paid in Full' : 'Payment Pending'}
-                            color={selectedOrder.isPaidInFull ? 'success' : 'warning'}
+                            label={(selectedOrder.isPaidInFull || (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0)) ? 'Paid in Full' : 'Payment Pending'}
+                            color={(selectedOrder.isPaidInFull || (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0)) ? 'success' : 'warning'}
                             size="small"
                           />
                         </TableCell>
