@@ -418,6 +418,41 @@ export class InventoryIntegrationService {
     };
   }
 
+  async adjustStock(
+    productId: string,
+    quantityChange: number,
+    reason: string,
+    referenceId?: string,
+    userId?: string,
+  ): Promise<void> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product ${productId} not found`);
+    }
+
+    // Update product stock quantity (allow negative for GOODS products)
+    const newStockQuantity = Number(product.stockQuantity) + quantityChange;
+    product.stockQuantity = newStockQuantity;
+    await this.productRepository.save(product);
+
+    // Create stock movement record
+    const movementType = quantityChange > 0
+      ? StockMovementType.ADJUSTMENT_INCREASE
+      : StockMovementType.SALE; // Use SALE for negative adjustments (fulfillment)
+
+    await this.createStockMovement(
+      productId,
+      quantityChange,
+      movementType,
+      reason,
+      referenceId,
+      userId,
+    );
+  }
+
   // Private helper methods
 
   private getReservedQuantity(productId: string): number {
