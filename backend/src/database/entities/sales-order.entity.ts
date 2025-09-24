@@ -320,6 +320,10 @@ export class SalesOrder extends BaseEntity {
     return this.isPaidInFull && !this.isFulfilled;
   }
 
+  get canUnfulfill(): boolean {
+    return this.isFulfilled;
+  }
+
   // Note: Order number generation moved to service layer for better async handling
 
   // Helper methods

@@ -471,6 +471,35 @@ const OrdersPage: React.FC = () => {
     }
   }
 
+  const handleUnfulfillOrder = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unfulfilled successfully - inventory restored')
+      } else {
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to unfulfill order'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      console.error('Error unfulfilling order:', error)
+      showError('Error unfulfilling order. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Auto-focus first order when orders load (only if search input is not focused)
   useEffect(() => {
     if (orders.length > 0 && focusedOrderIndex === -1) {
@@ -1580,6 +1609,17 @@ const OrdersPage: React.FC = () => {
                               startIcon={<OrderIcon />}
                             >
                               Confirm Payment & Fulfill Order
+                            </Button>
+                          )}
+                          {selectedOrder.canUnfulfill && (
+                            <Button
+                              variant="contained"
+                              color="warning"
+                              onClick={handleUnfulfillOrder}
+                              disabled={isLoading}
+                              startIcon={<RestoreIcon />}
+                            >
+                              Unfulfill Order
                             </Button>
                           )}
                           {!selectedOrder.canFulfill && !selectedOrder.isFulfilled && (

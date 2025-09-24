@@ -194,6 +194,12 @@ export interface SalesOrder {
   customerId: string;
   items?: SalesOrderItem[];
   totalAmount: number;
+  paidAmount?: number;
+  balanceDue?: number;
+  isFulfilled?: boolean;
+  isPaidInFull?: boolean;
+  canFulfill?: boolean;
+  canUnfulfill?: boolean;
   orderDate: Date;
   requiredDate?: Date;
   shippedDate?: Date;

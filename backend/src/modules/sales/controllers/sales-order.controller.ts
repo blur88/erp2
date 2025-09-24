@@ -420,6 +420,21 @@ export class SalesOrderController {
     return { data };
   }
 
+  @Post(':id/unfulfill-order')
+  @ApiOperation({ summary: 'Unfulfill order (reverse fulfillment and restore inventory)' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order unfulfilled successfully, inventory restored',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Cannot unfulfill order - order is not fulfilled' })
+  async unfulfillOrder(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.salesOrderService.unfulfillOrder(id);
+    return { data };
+  }
+
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore deleted sales order' })
   @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })

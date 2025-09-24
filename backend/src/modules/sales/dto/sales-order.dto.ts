@@ -347,6 +347,9 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: false })
   canFulfill: boolean;
 
+  @ApiProperty({ example: false })
+  canUnfulfill: boolean;
+
   @ApiProperty({ example: '456 Oak Avenue', nullable: true })
   shippingAddress?: string;
 

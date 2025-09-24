@@ -367,6 +367,7 @@ export class SalesOrderService {
         isPaidInFull: isPaidInFull,
         isFulfilled: order.isFulfilled || false,
         canFulfill: isPaidInFull && !order.isFulfilled,
+        canUnfulfill: order.isFulfilled || false,
         customerId: order.customerId,
         customer: order.customer ? {
           id: order.customer.id,
@@ -1183,6 +1184,41 @@ export class SalesOrderService {
     return this.mapToResponseDto(savedOrder);
   }
 
+  async unfulfillOrder(id: string): Promise<SalesOrderResponseDto> {
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    if (!order.isFulfilled) {
+      throw new ConflictException('Order is not fulfilled');
+    }
+
+    // Add inventory back for each item
+    for (const item of order.items) {
+      if (item.product) {
+        await this.inventoryIntegrationService.adjustStock(
+          item.productId,
+          item.quantity,
+          `Sales order unfulfillment: ${order.orderNumber}`
+        );
+      }
+    }
+
+    // Mark as unfulfilled and revert to confirmed status
+    order.isFulfilled = false;
+    order.status = SalesOrderStatus.CONFIRMED;
+    order.deliveredDate = null;
+
+    const savedOrder = await this.salesOrderRepository.save(order);
+
+    return this.mapToResponseDto(savedOrder);
+  }
+
   private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {
     return {
       id: order.id,
@@ -1196,6 +1232,7 @@ export class SalesOrderService {
       isPaidInFull: order.isPaidInFull,
       balanceDue: order.balanceDue,
       canFulfill: order.canFulfill,
+      canUnfulfill: order.canUnfulfill,
       shippingAddress: order.shippingAddress,
       shippingCity: order.shippingCity,
       shippingState: order.shippingState,
