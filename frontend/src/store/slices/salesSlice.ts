@@ -12,6 +12,15 @@ interface SalesState {
   selectedCustomer: Customer | null
   selectedOrder: SalesOrder | null
   selectedInvoice: Invoice | null
+  orderFilters: {
+    search: string
+    sortBy: string
+    sortOrder: 'asc' | 'desc'
+    dateFilter: string
+    customFromDate: string
+    customToDate: string
+    customerId: string
+  }
   loading: {
     customers: boolean
     deletedCustomers: boolean
@@ -59,6 +68,15 @@ const initialState: SalesState = {
   selectedCustomer: null,
   selectedOrder: null,
   selectedInvoice: null,
+  orderFilters: {
+    search: '',
+    sortBy: 'orderNumber',
+    sortOrder: 'asc',
+    dateFilter: 'all',
+    customFromDate: '',
+    customToDate: '',
+    customerId: '',
+  },
   loading: {
     customers: false,
     deletedCustomers: false,
@@ -350,6 +368,9 @@ const salesSlice = createSlice({
     },
     setSelectedInvoice: (state, action: PayloadAction<Invoice | null>) => {
       state.selectedInvoice = action.payload
+    },
+    setOrderFilters: (state, action: PayloadAction<Partial<SalesState['orderFilters']>>) => {
+      state.orderFilters = { ...state.orderFilters, ...action.payload }
     },
     updateOrderInPlace: (state, action: PayloadAction<SalesOrder>) => {
       const updatedOrder = action.payload
@@ -678,6 +699,7 @@ export const {
   setSelectedCustomer,
   setSelectedOrder,
   setSelectedInvoice,
+  setOrderFilters,
   setCustomers,
   updateOrderInPlace,
   clearError,
@@ -693,6 +715,7 @@ export const selectPayments = (state: any) => state.sales?.payments
 export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
 export const selectSelectedOrder = (state: any) => state.sales?.selectedOrder
 export const selectSelectedInvoice = (state: any) => state.sales?.selectedInvoice
+export const selectOrderFilters = (state: any) => state.sales?.orderFilters
 export const selectSalesLoading = (state: any) => state.sales?.loading
 export const selectSalesError = (state: any) => state.sales?.error
 export const selectSalesPagination = (state: any) => state.sales?.pagination

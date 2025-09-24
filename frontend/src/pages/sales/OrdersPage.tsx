@@ -49,7 +49,7 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, setSelectedOrder, updateOrderInPlace } from '@/store/slices/salesSlice'
+import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
@@ -63,15 +63,8 @@ import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface OrdersPageState {
-  search: string
-  sortBy: string
-  sortOrder: 'asc' | 'desc'
   page: number
   rowsPerPage: number
-  dateFilter: string
-  customFromDate: string
-  customToDate: string
-  customerId: string
 }
 
 const OrdersPage: React.FC = () => {
@@ -86,17 +79,19 @@ const OrdersPage: React.FC = () => {
   const error = useAppSelector(selectSalesError)
   const pagination = useAppSelector(selectSalesPagination)?.orders
   const selectedOrder = useAppSelector(selectSelectedOrder)
-
-  const [state, setState] = useState<OrdersPageState>({
+  const orderFilters = useAppSelector(selectOrderFilters) || {
     search: '',
     sortBy: 'orderNumber',
     sortOrder: 'asc',
-    page: 0,
-    rowsPerPage: 20,
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
     customerId: '',
+  }
+
+  const [state, setState] = useState<OrdersPageState>({
+    page: 0,
+    rowsPerPage: 20,
   })
 
   const [viewDialog, setViewDialog] = useState(false)
@@ -110,6 +105,14 @@ const OrdersPage: React.FC = () => {
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
+
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: orderFilters.search,
+    onSearchChange: (searchTerm) => {
+      dispatch(setOrderFilters({ search: searchTerm }))
+    },
+  })
 
   // Helper function to calculate date ranges
   const getDateRange = (filter: string) => {
@@ -137,7 +140,7 @@ const OrdersPage: React.FC = () => {
       case 'this_year':
         return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
       case 'custom':
-        return { fromDate: state.customFromDate, toDate: state.customToDate }
+        return { fromDate: orderFilters.customFromDate, toDate: orderFilters.customToDate }
       default: // 'all'
         return { fromDate: undefined, toDate: undefined }
     }
@@ -145,64 +148,35 @@ const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     loadOrders()
-  }, [state.page, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate, state.customerId])
+  }, [state.page, state.rowsPerPage, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search])
 
   // Fetch customers on component mount
   useEffect(() => {
     dispatch(fetchCustomers({ limit: 1000 })) // Get all customers for dropdown
   }, [])
 
-  // Auto search with debounce
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (state.search !== undefined) {
-        const dateRange = getDateRange(state.dateFilter)
-        dispatch(fetchOrders({
-          page: 1,
-          limit: state.rowsPerPage,
-          sortBy: state.sortBy,
-          sortOrder: state.sortOrder,
-          search: state.search,
-          customerId: state.customerId || undefined,
-          fromDate: dateRange.fromDate,
-          toDate: dateRange.toDate,
-        }))
-        setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
-      }
-    }, 300) // 300ms debounce
-
-    return () => clearTimeout(timeoutId)
-  }, [state.search, state.rowsPerPage, state.sortBy, state.sortOrder, state.dateFilter, state.customFromDate, state.customToDate, state.customerId, dispatch])
-
   const loadOrders = () => {
-    const dateRange = getDateRange(state.dateFilter)
+    const dateRange = getDateRange(orderFilters.dateFilter)
     dispatch(fetchOrders({
       page: state.page + 1,
       limit: state.rowsPerPage,
-      sortBy: state.sortBy,
-      sortOrder: state.sortOrder,
-      search: state.search,
-      customerId: state.customerId || undefined,
+      sortBy: orderFilters.sortBy,
+      sortOrder: orderFilters.sortOrder,
+      search: orderFilters.search,
+      customerId: orderFilters.customerId || undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
     }))
   }
 
-  const handleSearch = () => {
-    // Search is now automatic via useEffect
-    setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
-  }
 
   const handleSort = (field: string) => {
-    setState((prev: OrdersPageState) => {
-      const newSortOrder = prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc'
-      return {
-        ...prev,
-        sortBy: field,
-        sortOrder: newSortOrder,
-        page: 0
-      }
-    })
+    const newSortOrder = orderFilters.sortBy === field && orderFilters.sortOrder === 'desc' ? 'asc' : 'desc'
+    dispatch(setOrderFilters({
+      sortBy: field,
+      sortOrder: newSortOrder
+    }))
+    setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
   }
 
   // Select order when clicked
@@ -353,13 +327,6 @@ const OrdersPage: React.FC = () => {
   }, [focusedOrderIndex])
 
   // Keyboard navigation functions
-  const focusSearchInput = () => {
-    const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
-    if (searchInput) {
-      searchInput.focus()
-      searchInput.select()
-    }
-  }
 
   const handleNavigateUp = useCallback(() => {
     if (focusedOrderIndex > 0) {
@@ -592,9 +559,8 @@ const OrdersPage: React.FC = () => {
       }}>
         <TextField
           placeholder="Search orders..."
-          value={state.search}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: OrdersPageState) => ({ ...prev, search: e.target.value }))}
-          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleSearch()}
+          value={searchTerm}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
           size="medium"
           sx={{
             minWidth: isMobile ? 'auto' : 250,
@@ -635,9 +601,12 @@ const OrdersPage: React.FC = () => {
         >
           <InputLabel>Date Filter</InputLabel>
           <Select
-            value={state.dateFilter}
+            value={orderFilters.dateFilter}
             label="Date Filter"
-            onChange={(e) => setState((prev: OrdersPageState) => ({ ...prev, dateFilter: e.target.value, page: 0 }))}
+            onChange={(e) => {
+              dispatch(setOrderFilters({ dateFilter: e.target.value }))
+              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
+            }}
             sx={{
               fontSize: '0.875rem',
               '& .MuiSelect-select': {
@@ -677,9 +646,12 @@ const OrdersPage: React.FC = () => {
         >
           <InputLabel>Customer</InputLabel>
           <Select
-            value={state.customerId}
+            value={orderFilters.customerId}
             label="Customer"
-            onChange={(e) => setState((prev: OrdersPageState) => ({ ...prev, customerId: e.target.value, page: 0 }))}
+            onChange={(e) => {
+              dispatch(setOrderFilters({ customerId: e.target.value }))
+              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
+            }}
             sx={{
               fontSize: '0.875rem',
               '& .MuiSelect-select': {
@@ -705,14 +677,14 @@ const OrdersPage: React.FC = () => {
             ))}
           </Select>
         </FormControl>
-        {state.dateFilter === 'custom' && (
+        {orderFilters.dateFilter === 'custom' && (
           <>
             <TextField
               label="From Date"
               type="date"
-              value={state.customFromDate}
+              value={orderFilters.customFromDate}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setState((prev: OrdersPageState) => ({ ...prev, customFromDate: e.target.value }))
+                dispatch(setOrderFilters({ customFromDate: e.target.value }))
               }}
               size="medium"
               sx={{
@@ -729,9 +701,9 @@ const OrdersPage: React.FC = () => {
             <TextField
               label="To Date"
               type="date"
-              value={state.customToDate}
+              value={orderFilters.customToDate}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setState((prev: OrdersPageState) => ({ ...prev, customToDate: e.target.value }))
+                dispatch(setOrderFilters({ customToDate: e.target.value }))
               }}
               size="medium"
               sx={{
@@ -747,11 +719,19 @@ const OrdersPage: React.FC = () => {
             />
           </>
         )}
-        {(state.dateFilter !== 'all' || state.customerId) && (
+        {(orderFilters.dateFilter !== 'all' || orderFilters.customerId) && (
           <Button
             variant="outlined"
             size="medium"
-            onClick={() => setState((prev: OrdersPageState) => ({ ...prev, dateFilter: 'all', customFromDate: '', customToDate: '', customerId: '', page: 0 }))}
+            onClick={() => {
+              dispatch(setOrderFilters({
+                dateFilter: 'all',
+                customFromDate: '',
+                customToDate: '',
+                customerId: ''
+              }))
+              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
+            }}
             sx={{
               minWidth: 'auto',
               px: 2,
@@ -763,9 +743,9 @@ const OrdersPage: React.FC = () => {
           </Button>
         )}
         <Button
-          variant={state.sortBy === 'orderNumber' ? 'contained' : 'outlined'}
+          variant={orderFilters.sortBy === 'orderNumber' ? 'contained' : 'outlined'}
           size="medium"
-          startIcon={state.sortBy === 'orderNumber' ? (state.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          startIcon={orderFilters.sortBy === 'orderNumber' ? (orderFilters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
           onClick={() => handleSort('orderNumber')}
           sx={{
             height: TYPOGRAPHY_STYLES.searchField.input.height,
