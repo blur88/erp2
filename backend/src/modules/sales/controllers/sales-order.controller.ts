@@ -385,8 +385,9 @@ export class SalesOrderController {
   async recordPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { amount: number }
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.recordPayment(id, body.amount);
+  ) {
+    const data = await this.salesOrderService.recordPayment(id, body.amount);
+    return { data };
   }
 
   @Post(':id/unpay')
@@ -399,8 +400,9 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot unpay fulfilled order' })
-  async unpayOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.unpayOrder(id);
+  async unpayOrder(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.salesOrderService.unpayOrder(id);
+    return { data };
   }
 
   @Post(':id/fulfill-order')
@@ -413,8 +415,9 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot fulfill order - payment insufficient or already fulfilled' })
-  async fulfillOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.fulfillOrder(id);
+  async fulfillOrder(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.salesOrderService.fulfillOrder(id);
+    return { data };
   }
 
   @Post(':id/restore')
