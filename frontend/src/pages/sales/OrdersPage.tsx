@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
 import {
   Box,
   Typography,
@@ -67,6 +67,70 @@ interface OrdersPageState {
   rowsPerPage: number
 }
 
+// Memoized Order Row Component to prevent unnecessary re-renders
+interface OrderRowProps {
+  order: any
+  index: number
+  selectedOrderId?: string
+  focusedOrderIndex: number
+  onOrderSelect: (order: any) => void
+}
+
+const OrderRow = memo(({ order, index, selectedOrderId, focusedOrderIndex, onOrderSelect }: OrderRowProps) => {
+  const isSelected = selectedOrderId === order.id
+  const isFocused = index === focusedOrderIndex
+
+  return (
+    <TableRow
+      key={order.id}
+      hover
+      onClick={() => onOrderSelect(order)}
+      data-order-index={index}
+      sx={{
+        cursor: 'pointer',
+        backgroundColor: isSelected ? 'action.selected' : isFocused ? 'action.focus' : 'inherit',
+        '&:hover': {
+          backgroundColor: isSelected ? 'action.selected' : 'action.hover'
+        },
+        transition: 'background-color 0.2s ease',
+        height: TABLE_STYLES.row.height,
+        ...(isFocused && {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: '-2px'
+        })
+      }}
+    >
+      <TableCell>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          sx={{
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+          }}
+        >
+          {order.orderNumber}
+        </Typography>
+        {order.isOverdue && (
+          <Chip
+            label="Overdue"
+            color="error"
+            size="small"
+            sx={{
+              mt: 0.25,
+              fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+              height: TYPOGRAPHY_STYLES.chip.extraSmall.height
+            }}
+          />
+        )}
+      </TableCell>
+    </TableRow>
+  )
+})
+
+OrderRow.displayName = 'OrderRow'
+
 const OrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
@@ -106,16 +170,44 @@ const OrdersPage: React.FC = () => {
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
 
+  // Memoize search change callback to prevent unnecessary re-renders
+  const onSearchChange = useCallback((searchTerm: string) => {
+    dispatch(setOrderFilters({ search: searchTerm }))
+  }, [dispatch])
+
   // Search and filter functionality
   const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
     initialSearchTerm: orderFilters.search,
-    onSearchChange: (searchTerm) => {
-      dispatch(setOrderFilters({ search: searchTerm }))
-    },
+    onSearchChange,
   })
 
-  // Helper function to calculate date ranges
-  const getDateRange = (filter: string) => {
+
+  // Memoize loadOrders function to prevent unnecessary re-renders
+  const loadOrders = useCallback(() => {
+    const dateRange = getDateRange(orderFilters.dateFilter)
+    dispatch(fetchOrders({
+      page: state.page + 1,
+      limit: state.rowsPerPage,
+      sortBy: orderFilters.sortBy,
+      sortOrder: orderFilters.sortOrder,
+      search: orderFilters.search,
+      customerId: orderFilters.customerId || undefined,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
+    }))
+  }, [dispatch, state.page, state.rowsPerPage, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search])
+
+  useEffect(() => {
+    loadOrders()
+  }, [loadOrders])
+
+  // Fetch customers on component mount - memoized to prevent re-fetching
+  useEffect(() => {
+    dispatch(fetchCustomers({ limit: 1000 })) // Get all customers for dropdown
+  }, [dispatch])
+
+  // Helper function to calculate date ranges - memoized for performance
+  const getDateRange = useCallback((filter: string) => {
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
@@ -144,47 +236,24 @@ const OrdersPage: React.FC = () => {
       default: // 'all'
         return { fromDate: undefined, toDate: undefined }
     }
-  }
-
-  useEffect(() => {
-    loadOrders()
-  }, [state.page, state.rowsPerPage, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search])
-
-  // Fetch customers on component mount
-  useEffect(() => {
-    dispatch(fetchCustomers({ limit: 1000 })) // Get all customers for dropdown
-  }, [])
-
-  const loadOrders = () => {
-    const dateRange = getDateRange(orderFilters.dateFilter)
-    dispatch(fetchOrders({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
-      sortBy: orderFilters.sortBy,
-      sortOrder: orderFilters.sortOrder,
-      search: orderFilters.search,
-      customerId: orderFilters.customerId || undefined,
-      fromDate: dateRange.fromDate,
-      toDate: dateRange.toDate,
-    }))
-  }
+  }, [orderFilters.customFromDate, orderFilters.customToDate])
 
 
-  const handleSort = (field: string) => {
+  const handleSort = useCallback((field: string) => {
     const newSortOrder = orderFilters.sortBy === field && orderFilters.sortOrder === 'desc' ? 'asc' : 'desc'
     dispatch(setOrderFilters({
       sortBy: field,
       sortOrder: newSortOrder
     }))
     setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
-  }
+  }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder])
 
-  // Select order when clicked
-  const handleOrderSelect = (order: SalesOrder) => {
+  // Select order when clicked - memoized to prevent re-renders
+  const handleOrderSelect = useCallback((order: SalesOrder) => {
     dispatch(setSelectedOrder(order))
     const orderIndex = orders.findIndex(o => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
-  }
+  }, [dispatch, orders])
 
 
   const handleOrderAction = async (action: string, orderId: string, data?: any) => {
@@ -815,52 +884,14 @@ const OrdersPage: React.FC = () => {
                 >
                   <TableBody>
                     {orders.map((order: any, index: number) => (
-                      <TableRow
+                      <OrderRow
                         key={order.id}
-                        hover
-                        onClick={() => handleOrderSelect(order)}
-                        data-order-index={index}
-                        sx={{
-                          cursor: 'pointer',
-                          backgroundColor: selectedOrder?.id === order.id ? 'action.selected' :
-                                         index === focusedOrderIndex ? 'action.focus' : 'inherit',
-                          '&:hover': {
-                            backgroundColor: selectedOrder?.id === order.id ? 'action.selected' : 'action.hover'
-                          },
-                          transition: 'background-color 0.2s ease',
-                          height: TABLE_STYLES.row.height,
-                          ...(index === focusedOrderIndex && {
-                            outline: '2px solid',
-                            outlineColor: 'primary.main',
-                            outlineOffset: '-2px'
-                          })
-                        }}
-                      >
-                        <TableCell>
-                          <Typography
-                            variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-                            sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                            }}
-                          >
-                            {order.orderNumber}
-                          </Typography>
-                          {order.isOverdue && (
-                            <Chip
-                              label="Overdue"
-                              color="error"
-                              size="small"
-                              sx={{
-                                mt: 0.25,
-                                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                                height: TYPOGRAPHY_STYLES.chip.extraSmall.height
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                      </TableRow>
+                        order={order}
+                        index={index}
+                        selectedOrderId={selectedOrder?.id}
+                        focusedOrderIndex={focusedOrderIndex}
+                        onOrderSelect={handleOrderSelect}
+                      />
                     ))}
                   </TableBody>
                 </Table>
