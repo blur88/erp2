@@ -399,11 +399,15 @@ const OrdersPage: React.FC = () => {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         setPaymentAmount('')
+        showSuccess(`Payment of ${formatCurrency(parseFloat(paymentAmount))} recorded successfully`)
       } else {
-        console.error('Failed to record payment')
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to record payment'
+        showError(errorMessage)
       }
     } catch (error) {
       console.error('Error recording payment:', error)
+      showError('Error recording payment. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -424,11 +428,15 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Payment cleared successfully')
       } else {
-        console.error('Failed to unpay order')
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to clear payment'
+        showError(errorMessage)
       }
     } catch (error) {
       console.error('Error unpaying order:', error)
+      showError('Error clearing payment. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -449,11 +457,15 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order fulfilled successfully')
       } else {
-        console.error('Failed to fulfill order')
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to fulfill order'
+        showError(errorMessage)
       }
     } catch (error) {
       console.error('Error fulfilling order:', error)
+      showError('Error fulfilling order. Please try again.')
     } finally {
       setIsLoading(false)
     }
