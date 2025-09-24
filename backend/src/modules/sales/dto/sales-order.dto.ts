@@ -332,6 +332,21 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: 991.50 })
   totalAmount: number;
 
+  @ApiProperty({ example: 500.00 })
+  paidAmount: number;
+
+  @ApiProperty({ example: false })
+  isFulfilled: boolean;
+
+  @ApiProperty({ example: false })
+  isPaidInFull: boolean;
+
+  @ApiProperty({ example: 491.50 })
+  balanceDue: number;
+
+  @ApiProperty({ example: false })
+  canFulfill: boolean;
+
   @ApiProperty({ example: '456 Oak Avenue', nullable: true })
   shippingAddress?: string;
 

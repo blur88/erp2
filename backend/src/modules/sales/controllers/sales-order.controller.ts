@@ -357,6 +357,50 @@ export class SalesOrderController {
     return this.salesOrderService.createInvoiceFromOrder(id);
   }
 
+  @Post(':id/record-payment')
+  @ApiOperation({ summary: 'Record payment amount for sales order' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        amount: {
+          type: 'number',
+          minimum: 0,
+          description: 'Payment amount received'
+        }
+      },
+      required: ['amount']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment recorded successfully',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 400, description: 'Invalid payment amount' })
+  async recordPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { amount: number }
+  ): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.recordPayment(id, body.amount);
+  }
+
+  @Post(':id/fulfill-order')
+  @ApiOperation({ summary: 'Fulfill order (confirm payment and deduct inventory)' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order fulfilled successfully, inventory deducted',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Cannot fulfill order - payment insufficient or already fulfilled' })
+  async fulfillOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.fulfillOrder(id);
+  }
+
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore deleted sales order' })
   @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })

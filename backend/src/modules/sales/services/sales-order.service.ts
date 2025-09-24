@@ -1067,6 +1067,71 @@ export class SalesOrderService {
     return BulkOperationUtil.createResponse('permanently deleted', 'sales order', successCount, failedItems);
   }
 
+  async recordPayment(id: string, amount: number): Promise<SalesOrderResponseDto> {
+    if (amount < 0) {
+      throw new BadRequestException('Payment amount must be positive');
+    }
+
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    if (order.isFulfilled) {
+      throw new ConflictException('Cannot modify payment for fulfilled order');
+    }
+
+    order.paidAmount = Number(amount);
+    const savedOrder = await this.salesOrderRepository.save(order);
+
+    return this.mapToResponseDto(savedOrder);
+  }
+
+  async fulfillOrder(id: string): Promise<SalesOrderResponseDto> {
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    if (order.isFulfilled) {
+      throw new ConflictException('Order is already fulfilled');
+    }
+
+    if (!order.isPaidInFull) {
+      throw new ConflictException(
+        `Cannot fulfill order. Payment required: ${order.balanceDue}. Received: ${order.paidAmount}`
+      );
+    }
+
+    // Deduct inventory for each item
+    for (const item of order.items) {
+      if (item.product) {
+        await this.inventoryIntegrationService.adjustStock(
+          item.productId,
+          -item.quantity,
+          `Sales order fulfillment: ${order.orderNumber}`
+        );
+      }
+    }
+
+    // Mark as fulfilled and completed
+    order.isFulfilled = true;
+    order.status = SalesOrderStatus.COMPLETED;
+    order.deliveredDate = new Date();
+
+    const savedOrder = await this.salesOrderRepository.save(order);
+
+    return this.mapToResponseDto(savedOrder);
+  }
+
   private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {
     return {
       id: order.id,
@@ -1075,6 +1140,11 @@ export class SalesOrderService {
       shippedDate: order.shippedDate,
       deliveredDate: order.deliveredDate,
       totalAmount: Number(order.totalAmount),
+      paidAmount: Number(order.paidAmount),
+      isFulfilled: order.isFulfilled,
+      isPaidInFull: order.isPaidInFull,
+      balanceDue: order.balanceDue,
+      canFulfill: order.canFulfill,
       shippingAddress: order.shippingAddress,
       shippingCity: order.shippingCity,
       shippingState: order.shippingState,

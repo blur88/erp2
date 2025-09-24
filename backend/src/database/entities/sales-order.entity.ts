@@ -117,6 +117,25 @@ export class SalesOrder extends BaseEntity {
   @Min(0)
   totalAmount: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    default: 0,
+    comment: 'Amount received from customer',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  paidAmount: number;
+
+  @Column({
+    type: 'boolean',
+    default: false,
+    comment: 'Whether order is fulfilled (inventory deducted)',
+  })
+  @IsBoolean()
+  isFulfilled: boolean;
+
   // Shipping Information
   @Column({
     type: 'text',
@@ -287,6 +306,18 @@ export class SalesOrder extends BaseEntity {
 
   get isCompleted(): boolean {
     return this.deliveredDate !== null;
+  }
+
+  get isPaidInFull(): boolean {
+    return Number(this.paidAmount) >= Number(this.totalAmount);
+  }
+
+  get balanceDue(): number {
+    return Math.max(0, Number(this.totalAmount) - Number(this.paidAmount));
+  }
+
+  get canFulfill(): boolean {
+    return this.isPaidInFull && !this.isFulfilled;
   }
 
   // Note: Order number generation moved to service layer for better async handling

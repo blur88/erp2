@@ -169,6 +169,8 @@ const OrdersPage: React.FC = () => {
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -377,6 +379,58 @@ const OrdersPage: React.FC = () => {
   const handleEditOrder = () => {
     if (selectedOrder) {
       setEditDialog(true)
+    }
+  }
+
+  const handleRecordPayment = async () => {
+    if (!selectedOrder || !paymentAmount) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/record-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: parseFloat(paymentAmount) }),
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        setPaymentAmount('')
+      } else {
+        console.error('Failed to record payment')
+      }
+    } catch (error) {
+      console.error('Error recording payment:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleFulfillOrder = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/fulfill-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+      } else {
+        console.error('Failed to fulfill order')
+      }
+    } catch (error) {
+      console.error('Error fulfilling order:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -1328,6 +1382,189 @@ const OrdersPage: React.FC = () => {
                   <Alert severity="info">No items in this order</Alert>
                 )}
                 </Box>
+              </Box>
+
+              {/* Payment Tracking Section */}
+              <Box sx={{ mt: 3 }}>
+                <TableContainer>
+                  <Table
+                    size={TABLE_STYLES.size}
+                    sx={{
+                      tableLayout: 'fixed',
+                      '& .MuiTableCell-root': {
+                        border: 'none',
+                        py: TABLE_STYLES.cell.padding.py,
+                        px: TABLE_STYLES.cell.padding.px,
+                      }
+                    }}
+                  >
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                            color: 'primary.main',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            💳 Payment Tracking
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ width: '25%', fontWeight: 600, color: 'text.secondary' }}>
+                          Order Total:
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>
+                          {formatCurrency(selectedOrder.totalAmount || 0)}
+                        </TableCell>
+                        <TableCell sx={{ width: '30%' }} />
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                          Amount Received:
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>
+                          {formatCurrency(selectedOrder.paidAmount || 0)}
+                        </TableCell>
+                        <TableCell>
+                          {!selectedOrder.isFulfilled && (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <TextField
+                                size="small"
+                                type="number"
+                                placeholder="Enter amount"
+                                inputProps={{ min: 0, step: 0.01 }}
+                                sx={{ width: '120px' }}
+                                value={paymentAmount}
+                                onChange={(e) => setPaymentAmount(e.target.value)}
+                              />
+                              <Button
+                                variant="contained"
+                                size="small"
+                                onClick={handleRecordPayment}
+                                disabled={!paymentAmount || isLoading}
+                              >
+                                Record Payment
+                              </Button>
+                            </Stack>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                          Balance Due:
+                        </TableCell>
+                        <TableCell sx={{
+                          fontWeight: 500,
+                          color: (selectedOrder.balanceDue || 0) > 0 ? 'error.main' : 'success.main'
+                        }}>
+                          {formatCurrency(selectedOrder.balanceDue || 0)}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={selectedOrder.isPaidInFull ? 'Paid in Full' : 'Payment Pending'}
+                            color={selectedOrder.isPaidInFull ? 'success' : 'warning'}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+
+              {/* Fulfillment Section */}
+              <Box sx={{ mt: 3 }}>
+                <TableContainer>
+                  <Table
+                    size={TABLE_STYLES.size}
+                    sx={{
+                      tableLayout: 'fixed',
+                      '& .MuiTableCell-root': {
+                        border: 'none',
+                        py: TABLE_STYLES.cell.padding.py,
+                        px: TABLE_STYLES.cell.padding.px,
+                      }
+                    }}
+                  >
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                            color: 'primary.main',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            ✅ Order Fulfillment
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ width: '25%', fontWeight: 600, color: 'text.secondary' }}>
+                          Fulfillment Status:
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>
+                          <Chip
+                            label={selectedOrder.isFulfilled ? 'Fulfilled' : 'Pending Fulfillment'}
+                            color={selectedOrder.isFulfilled ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ width: '30%' }}>
+                          {selectedOrder.canFulfill && (
+                            <Button
+                              variant="contained"
+                              color="success"
+                              onClick={handleFulfillOrder}
+                              disabled={isLoading}
+                              startIcon={<OrderIcon />}
+                            >
+                              Confirm Payment & Fulfill Order
+                            </Button>
+                          )}
+                          {!selectedOrder.canFulfill && !selectedOrder.isFulfilled && (
+                            <Typography variant="caption" color="text.secondary">
+                              {selectedOrder.isPaidInFull
+                                ? 'Order can be fulfilled'
+                                : 'Payment required before fulfillment'
+                              }
+                            </Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                      {selectedOrder.isFulfilled && (
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                            Fulfilled Date:
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 500 }}>
+                            {selectedOrder.deliveredDate
+                              ? new Date(selectedOrder.deliveredDate).toLocaleDateString()
+                              : 'N/A'
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="caption" color="success.main">
+                              ✓ Inventory has been deducted
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               </Box>
             </Box>
             </Paper>
