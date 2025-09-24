@@ -1119,6 +1119,26 @@ export class SalesOrderService {
     return this.mapToResponseDto(savedOrder);
   }
 
+  async unpayOrder(id: string): Promise<SalesOrderResponseDto> {
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    if (order.isFulfilled) {
+      throw new ConflictException('Cannot unpay fulfilled order - order has already been fulfilled');
+    }
+
+    order.paidAmount = 0;
+    const savedOrder = await this.salesOrderRepository.save(order);
+
+    return this.mapToResponseDto(savedOrder);
+  }
+
   async fulfillOrder(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },

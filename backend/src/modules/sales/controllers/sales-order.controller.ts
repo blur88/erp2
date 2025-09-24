@@ -389,6 +389,20 @@ export class SalesOrderController {
     return this.salesOrderService.recordPayment(id, body.amount);
   }
 
+  @Post(':id/unpay')
+  @ApiOperation({ summary: 'Remove payment from sales order (reset to unpaid)' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment removed successfully',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Cannot unpay fulfilled order' })
+  async unpayOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.unpayOrder(id);
+  }
+
   @Post(':id/fulfill-order')
   @ApiOperation({ summary: 'Fulfill order (confirm payment and deduct inventory)' })
   @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })

@@ -409,6 +409,31 @@ const OrdersPage: React.FC = () => {
     }
   }
 
+  const handleUnpayOrder = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+      } else {
+        console.error('Failed to unpay order')
+      }
+    } catch (error) {
+      console.error('Error unpaying order:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleFulfillOrder = async () => {
     if (!selectedOrder) return
 
@@ -1452,6 +1477,17 @@ const OrdersPage: React.FC = () => {
                               >
                                 Record Payment
                               </Button>
+                              {(selectedOrder.paidAmount > 0) && (
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  color="warning"
+                                  onClick={handleUnpayOrder}
+                                  disabled={isLoading}
+                                >
+                                  Unpay
+                                </Button>
+                              )}
                             </Stack>
                           )}
                         </TableCell>
