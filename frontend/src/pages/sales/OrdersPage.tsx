@@ -168,6 +168,7 @@ const OrdersPage: React.FC = () => {
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
+  const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -177,11 +178,30 @@ const OrdersPage: React.FC = () => {
   }, [dispatch])
 
   // Search and filter functionality
-  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+  const { searchTerm, setSearchTerm: originalSetSearchTerm, focusSearchInput } = useSearchAndFilter({
     initialSearchTerm: orderFilters.search,
     onSearchChange,
     searchInputRef,
   })
+
+  // Enhanced search term setter that preserves focus
+  const setSearchTerm = useCallback((value: string) => {
+    setShouldPreserveSearchFocus(true)
+    originalSetSearchTerm(value)
+  }, [originalSetSearchTerm])
+
+  // Effect to restore search input focus when needed
+  useEffect(() => {
+    if (shouldPreserveSearchFocus && searchInputRef.current && document.activeElement !== searchInputRef.current) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus()
+        setShouldPreserveSearchFocus(false)
+      }, 0)
+      return () => clearTimeout(timer)
+    } else if (shouldPreserveSearchFocus) {
+      setShouldPreserveSearchFocus(false)
+    }
+  }, [shouldPreserveSearchFocus, loading])
 
 
   // Memoize loadOrders function to prevent unnecessary re-renders
@@ -360,11 +380,11 @@ const OrdersPage: React.FC = () => {
     }
   }
 
-  // Auto-focus first order when orders load
+  // Auto-focus first order when orders load (only if search input is not focused)
   useEffect(() => {
     if (orders.length > 0 && focusedOrderIndex === -1) {
-      // Only auto-focus if we don't have a selected order
-      if (!selectedOrder) {
+      // Only auto-focus if we don't have a selected order AND search input is not focused
+      if (!selectedOrder && searchInputRef.current !== document.activeElement) {
         setFocusedOrderIndex(0)
         // Automatically show order details for the first order
         dispatch(setSelectedOrder(orders[0]))
@@ -516,32 +536,7 @@ const OrdersPage: React.FC = () => {
 
 
 
-  if (loading && orders.length === 0) {
-    return (
-      <Box>
-        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-          fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-          mb: 4,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2
-        }}>
-          <OrderIcon sx={{
-            fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-            color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-          }} />
-          Sales Orders
-        </Typography>
-        <Paper>
-          <Box sx={{ p: 3 }}>
-            {[...Array(10)].map((_, i) => (
-              <Skeleton key={i} height={60} sx={{ mb: 1 }} />
-            ))}
-          </Box>
-        </Paper>
-      </Box>
-    )
-  }
+  // Don't conditionally render the entire component during loading to preserve search input focus
 
   return (
     <Box>
@@ -862,14 +857,26 @@ const OrdersPage: React.FC = () => {
         <Grid item xs={12} md={4}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Order List ({pagination?.total || 0})
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Order List ({pagination?.total || 0})
+                </Typography>
+                {loading && orders.length > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Searching...
+                    </Typography>
+                    <Box sx={{ width: 16, height: 16 }}>
+                      <Skeleton variant="circular" width={16} height={16} />
+                    </Box>
+                  </Box>
+                )}
+              </Box>
             </Box>
 
             {/* Order List Table */}
@@ -886,16 +893,27 @@ const OrdersPage: React.FC = () => {
                   }}
                 >
                   <TableBody>
-                    {orders.map((order: any, index: number) => (
-                      <OrderRow
-                        key={order.id}
-                        order={order}
-                        index={index}
-                        selectedOrderId={selectedOrder?.id}
-                        focusedOrderIndex={focusedOrderIndex}
-                        onOrderSelect={handleOrderSelect}
-                      />
-                    ))}
+                    {loading && orders.length === 0 ? (
+                      // Show skeleton rows when loading with no existing orders
+                      [...Array(10)].map((_, i) => (
+                        <TableRow key={`skeleton-${i}`}>
+                          <TableCell>
+                            <Skeleton height={40} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      orders.map((order: any, index: number) => (
+                        <OrderRow
+                          key={order.id}
+                          order={order}
+                          index={index}
+                          selectedOrderId={selectedOrder?.id}
+                          focusedOrderIndex={focusedOrderIndex}
+                          onOrderSelect={handleOrderSelect}
+                        />
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>
