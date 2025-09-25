@@ -1230,7 +1230,6 @@ const OrdersPage: React.FC = () => {
                               Paid:
                             </TableCell>
                             <TableCell>
-                              {formatCurrency(selectedOrder.paidAmount || 0)}
                             </TableCell>
                             <TableCell>
                               {!selectedOrder.isFulfilled && (
