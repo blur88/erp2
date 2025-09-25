@@ -307,6 +307,7 @@ export class SalesOrderService {
         'order.totalAmount',
         'order.paidAmount',
         'order.isFulfilled',
+        'order.fulfilledDate',
         'order.customerId',
         'order.notes',
         'order.createdAt',
@@ -366,6 +367,7 @@ export class SalesOrderService {
         balanceDue: balanceDue,
         isPaidInFull: isPaidInFull,
         isFulfilled: order.isFulfilled || false,
+        fulfilledDate: order.fulfilledDate,
         canFulfill: isPaidInFull && !order.isFulfilled,
         canUnfulfill: order.isFulfilled || false,
         customerId: order.customerId,
@@ -1176,8 +1178,8 @@ export class SalesOrderService {
 
     // Mark as fulfilled and completed
     order.isFulfilled = true;
+    order.fulfilledDate = new Date();
     order.status = SalesOrderStatus.COMPLETED;
-    order.deliveredDate = new Date();
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
@@ -1211,8 +1213,8 @@ export class SalesOrderService {
 
     // Mark as unfulfilled and revert to confirmed status
     order.isFulfilled = false;
+    order.fulfilledDate = null;
     order.status = SalesOrderStatus.CONFIRMED;
-    order.deliveredDate = null;
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
@@ -1226,6 +1228,7 @@ export class SalesOrderService {
       orderDate: order.orderDate,
       shippedDate: order.shippedDate,
       deliveredDate: order.deliveredDate,
+      fulfilledDate: order.fulfilledDate,
       totalAmount: Number(order.totalAmount),
       paidAmount: Number(order.paidAmount),
       isFulfilled: order.isFulfilled,

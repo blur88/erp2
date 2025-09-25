@@ -329,6 +329,9 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '2024-01-16', nullable: true })
   deliveredDate?: Date;
 
+  @ApiProperty({ example: '2024-01-10', nullable: true })
+  fulfilledDate?: Date;
+
   @ApiProperty({ example: 991.50 })
   totalAmount: number;
 

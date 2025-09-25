@@ -5,7 +5,6 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-  BeforeInsert,
 } from 'typeorm';
 import {
   IsString,
@@ -135,6 +134,15 @@ export class SalesOrder extends BaseEntity {
   })
   @IsBoolean()
   isFulfilled: boolean;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    comment: 'Date when order was fulfilled',
+  })
+  @IsOptional()
+  @IsDate()
+  fulfilledDate?: Date;
 
   // Shipping Information
   @Column({
