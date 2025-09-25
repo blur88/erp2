@@ -1230,37 +1230,18 @@ const OrdersPage: React.FC = () => {
                               Paid:
                             </TableCell>
                             <TableCell>
-                              {!selectedOrder.isFulfilled && (
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                  <TextField
-                                    size="small"
-                                    type="number"
-                                    placeholder="Enter amount"
-                                    inputProps={{ min: 0, step: 0.01 }}
-                                    sx={{ width: '120px' }}
-                                    value={paymentAmount}
-                                    onChange={(e) => setPaymentAmount(e.target.value)}
-                                  />
-                                  <Button
-                                    variant="contained"
-                                    size="small"
-                                    onClick={handleRecordPayment}
-                                    disabled={!paymentAmount || isLoading}
-                                  >
-                                    Record Payment
-                                  </Button>
-                                  {(selectedOrder.paidAmount > 0) && (
-                                    <Button
-                                      variant="outlined"
-                                      size="small"
-                                      color="warning"
-                                      onClick={handleUnpayOrder}
-                                      disabled={isLoading}
-                                    >
-                                      Unpay
-                                    </Button>
-                                  )}
-                                </Stack>
+                              {!selectedOrder.isFulfilled ? (
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  placeholder="Enter amount"
+                                  inputProps={{ min: 0, step: 0.01 }}
+                                  sx={{ width: '120px' }}
+                                  value={paymentAmount}
+                                  onChange={(e) => setPaymentAmount(e.target.value)}
+                                />
+                              ) : (
+                                formatCurrency(selectedOrder.paidAmount || 0)
                               )}
                             </TableCell>
                             <TableCell sx={{ width: '30%' }} />
@@ -1282,6 +1263,34 @@ const OrdersPage: React.FC = () => {
                               />
                             </TableCell>
                           </TableRow>
+                          {!selectedOrder.isFulfilled && (
+                            <TableRow>
+                              <TableCell />
+                              <TableCell colSpan={2}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={handleRecordPayment}
+                                    disabled={!paymentAmount || isLoading}
+                                  >
+                                    Record Payment
+                                  </Button>
+                                  {(selectedOrder.paidAmount > 0) && (
+                                    <Button
+                                      variant="outlined"
+                                      size="small"
+                                      color="warning"
+                                      onClick={handleUnpayOrder}
+                                      disabled={isLoading}
+                                    >
+                                      Unpay
+                                    </Button>
+                                  )}
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
