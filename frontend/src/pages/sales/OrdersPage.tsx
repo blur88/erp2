@@ -1301,8 +1301,12 @@ const OrdersPage: React.FC = () => {
                                   color={selectedOrder.isPaidInFull ? "warning" : "primary"}
                                   onClick={selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment}
                                   disabled={isLoading}
+                                  sx={{ minWidth: 110 }}
                                 >
-                                  {selectedOrder.isPaidInFull ? "Unpay" : "Pay"}
+                                  {selectedOrder.isPaidInFull
+                                    ? "Unpay"
+                                    : (selectedOrder.paidAmount > 0 ? "Pay Remaining" : "Pay")
+                                  }
                                 </Button>
                                 <Button
                                   variant="contained"
