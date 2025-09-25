@@ -1236,7 +1236,28 @@ const OrdersPage: React.FC = () => {
                                   type="number"
                                   placeholder="Enter amount"
                                   inputProps={{ min: 0, step: 0.01 }}
-                                  sx={{ width: '120px' }}
+                                  sx={{
+                                    width: '120px',
+                                    '& .MuiInputBase-root': {
+                                      height: '24px',
+                                      fontSize: '0.875rem'
+                                    },
+                                    '& .MuiInputBase-input': {
+                                      padding: '4px 8px',
+                                      fontSize: '0.875rem'
+                                    },
+                                    '& input[type=number]': {
+                                      MozAppearance: 'textfield'
+                                    },
+                                    '& input[type=number]::-webkit-outer-spin-button': {
+                                      WebkitAppearance: 'none',
+                                      margin: 0
+                                    },
+                                    '& input[type=number]::-webkit-inner-spin-button': {
+                                      WebkitAppearance: 'none',
+                                      margin: 0
+                                    }
+                                  }}
                                   value={paymentAmount}
                                   onChange={(e) => setPaymentAmount(e.target.value)}
                                 />
