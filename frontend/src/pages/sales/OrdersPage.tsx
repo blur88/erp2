@@ -1285,11 +1285,11 @@ const OrdersPage: React.FC = () => {
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  color={(selectedOrder.paidAmount > 0) ? "warning" : "primary"}
-                                  onClick={(selectedOrder.paidAmount > 0) ? handleUnpayOrder : handleRecordPayment}
-                                  disabled={((selectedOrder.paidAmount > 0) ? false : !paymentAmount) || isLoading}
+                                  color={selectedOrder.isPaidInFull ? "warning" : "primary"}
+                                  onClick={selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment}
+                                  disabled={(selectedOrder.isPaidInFull ? false : !paymentAmount) || isLoading}
                                 >
-                                  {(selectedOrder.paidAmount > 0) ? "Unpay" : "Pay"}
+                                  {selectedOrder.isPaidInFull ? "Unpay" : "Pay"}
                                 </Button>
                                 <Button
                                   variant="contained"
