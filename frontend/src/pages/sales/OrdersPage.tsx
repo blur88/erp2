@@ -56,6 +56,7 @@ import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
+import UnfulfillOrderDialog from '@/components/sales/UnfulfillOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -161,6 +162,7 @@ const OrdersPage: React.FC = () => {
   const [viewDialog, setViewDialog] = useState(false)
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
+  const [unfulfillDialogOpen, setUnfulfillDialogOpen] = useState(false)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
@@ -378,7 +380,12 @@ const OrdersPage: React.FC = () => {
 
   const handleEditOrder = () => {
     if (selectedOrder) {
-      setEditDialog(true)
+      // Check if order is fulfilled before allowing edit
+      if (selectedOrder.isFulfilled) {
+        setUnfulfillDialogOpen(true)
+      } else {
+        setEditDialog(true)
+      }
     }
   }
 
@@ -500,6 +507,67 @@ const OrdersPage: React.FC = () => {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         showSuccess('Order unfulfilled successfully - inventory restored')
+      } else {
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to unfulfill order'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      console.error('Error unfulfilling order:', error)
+      showError('Error unfulfilling order. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnfulfillAndEdit = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unfulfilled successfully')
+        setUnfulfillDialogOpen(false)
+        setEditDialog(true)
+      } else {
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to unfulfill order'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      console.error('Error unfulfilling order:', error)
+      showError('Error unfulfilling order. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnfulfillOnly = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unfulfilled successfully - inventory restored')
+        setUnfulfillDialogOpen(false)
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to unfulfill order'
@@ -635,6 +703,7 @@ const OrdersPage: React.FC = () => {
     setCreateDialog(false)
     setEditDialog(false)
     setViewDialog(false)
+    setUnfulfillDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
     setKeyboardHelpOpen(false)
@@ -644,6 +713,7 @@ const OrdersPage: React.FC = () => {
     setCreateDialog(false)
     setEditDialog(false)
     setViewDialog(false)
+    setUnfulfillDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
     setKeyboardHelpOpen(false)
@@ -1807,6 +1877,18 @@ const OrdersPage: React.FC = () => {
           onClose={() => setEditDialog(false)}
           onOrderCreated={handleOrderUpdated}
           editOrder={selectedOrder}
+        />
+      )}
+
+      {/* Unfulfill Order Dialog */}
+      {selectedOrder && (
+        <UnfulfillOrderDialog
+          open={unfulfillDialogOpen}
+          orderNumber={selectedOrder.orderNumber || selectedOrder.id}
+          onClose={() => setUnfulfillDialogOpen(false)}
+          onUnfulfillAndEdit={handleUnfulfillAndEdit}
+          onUnfulfillOnly={handleUnfulfillOnly}
+          loading={isLoading}
         />
       )}
 
