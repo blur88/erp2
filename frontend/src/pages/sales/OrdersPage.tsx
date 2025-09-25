@@ -1220,39 +1220,44 @@ const OrdersPage: React.FC = () => {
                             border: 'none',
                             py: TABLE_STYLES.cell.padding.py,
                             px: TABLE_STYLES.cell.padding.px,
+                            '&:nth-of-type(1)': { width: '40%' }, // Field name column
+                            '&:nth-of-type(2)': { width: '60%' }, // Value column
                           }
                         }}
                       >
                         <TableBody>
                           <TableRow>
-                            <TableCell colSpan={3} sx={{
+                            <TableCell colSpan={2} sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
                               py: TABLE_STYLES.cell.padding.py * 0.67,
                               borderTop: TABLE_STYLES.cell.border
                             }}>
                               <Typography variant="h6" sx={{
                                 fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                                color: 'primary.main'
+                                color: 'primary.main',
+                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                               }}>
                                 Payment and Fulfillment
                               </Typography>
                             </TableCell>
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ width: '25%', fontWeight: 600, color: 'text.secondary' }}>
-                              Total:
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Total
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatCurrency(selectedOrder.totalAmount || 0)}
                             </TableCell>
-                            <TableCell sx={{ width: '30%' }} />
                           </TableRow>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                              Paid:
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Paid
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {!selectedOrder.isFulfilled ? (
                                 <TextField
                                   size="small"
@@ -1288,13 +1293,13 @@ const OrdersPage: React.FC = () => {
                                 formatCurrency(selectedOrder.paidAmount || 0)
                               )}
                             </TableCell>
-                            <TableCell sx={{ width: '30%' }} />
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                              Balance:
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Balance
                             </TableCell>
                             <TableCell sx={{
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                               color: (() => {
                                 const currentPaid = paymentAmount
                                   ? (selectedOrder.paidAmount || 0) + parseFloat(paymentAmount)
@@ -1311,11 +1316,10 @@ const OrdersPage: React.FC = () => {
                                 return formatCurrency(balance)
                               })()}
                             </TableCell>
-                            <TableCell sx={{ width: '30%' }} />
                           </TableRow>
                           <TableRow>
                             <TableCell />
-                            <TableCell colSpan={2}>
+                            <TableCell>
                               <Stack direction="row" spacing={1} alignItems="center">
                                 <Button
                                   variant="contained"
