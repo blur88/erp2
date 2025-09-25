@@ -383,7 +383,12 @@ const OrdersPage: React.FC = () => {
   }
 
   const handleRecordPayment = async () => {
-    if (!selectedOrder || !paymentAmount) return
+    if (!selectedOrder) return
+
+    // Auto-fill behavior: if payment field is blank, use the remaining balance
+    const paymentAmountToUse = paymentAmount || (selectedOrder.totalAmount - (selectedOrder.paidAmount || 0)).toString()
+
+    if (!paymentAmountToUse || parseFloat(paymentAmountToUse) <= 0) return
 
     setIsLoading(true)
     try {
@@ -392,14 +397,14 @@ const OrdersPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ amount: parseFloat(paymentAmount) }),
+        body: JSON.stringify({ amount: parseFloat(paymentAmountToUse) }),
       })
 
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         setPaymentAmount('')
-        showSuccess(`Payment of ${formatCurrency(parseFloat(paymentAmount))} recorded successfully`)
+        showSuccess(`Payment of ${formatCurrency(parseFloat(paymentAmountToUse))} recorded successfully`)
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to record payment'
@@ -1234,10 +1239,10 @@ const OrdersPage: React.FC = () => {
                                 <TextField
                                   size="small"
                                   type="number"
-                                  placeholder="Enter amount"
+                                  placeholder={`Auto-fill: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
                                   inputProps={{ min: 0, step: 0.01 }}
                                   sx={{
-                                    width: '120px',
+                                    width: '140px',
                                     '& .MuiInputBase-root': {
                                       height: '24px',
                                       fontSize: '0.875rem'
@@ -1272,9 +1277,17 @@ const OrdersPage: React.FC = () => {
                               Balance:
                             </TableCell>
                             <TableCell sx={{
-                              color: (selectedOrder.balanceDue || Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))) > 0 ? 'error.main' : 'success.main'
+                              color: (() => {
+                                const currentPaid = paymentAmount ? parseFloat(paymentAmount) : (selectedOrder.paidAmount || 0)
+                                const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
+                                return balance > 0 ? 'error.main' : 'success.main'
+                              })()
                             }}>
-                              {formatCurrency(selectedOrder.balanceDue || Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}
+                              {(() => {
+                                const currentPaid = paymentAmount ? parseFloat(paymentAmount) : (selectedOrder.paidAmount || 0)
+                                const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
+                                return formatCurrency(balance)
+                              })()}
                             </TableCell>
                             <TableCell sx={{ width: '30%' }} />
                           </TableRow>
@@ -1287,7 +1300,7 @@ const OrdersPage: React.FC = () => {
                                   size="small"
                                   color={selectedOrder.isPaidInFull ? "warning" : "primary"}
                                   onClick={selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment}
-                                  disabled={(selectedOrder.isPaidInFull ? false : !paymentAmount) || isLoading}
+                                  disabled={isLoading}
                                 >
                                   {selectedOrder.isPaidInFull ? "Unpay" : "Pay"}
                                 </Button>
