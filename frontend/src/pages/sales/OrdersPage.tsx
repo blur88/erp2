@@ -1184,12 +1184,22 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           {selectedOrder.requiredDate && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableRow>
                               <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                 Required Date
                               </TableCell>
                               <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                 {formatDate(selectedOrder.requiredDate)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {selectedOrder.deliveredDate && (
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                Fulfillment Date
+                              </TableCell>
+                              <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                {formatDate(selectedOrder.deliveredDate)}
                               </TableCell>
                             </TableRow>
                           )}
