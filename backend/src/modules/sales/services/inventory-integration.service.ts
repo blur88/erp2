@@ -434,8 +434,13 @@ export class InventoryIntegrationService {
     }
 
     // Update product stock quantity (allow negative for GOODS products)
-    const newStockQuantity = Number(product.stockQuantity) + quantityChange;
-    product.stockQuantity = newStockQuantity;
+    // Ensure both values are properly converted to numbers to avoid string concatenation
+    const currentStock = Number(product.stockQuantity);
+    const changeAmount = Number(quantityChange);
+    const newStockQuantity = currentStock + changeAmount;
+
+    // Explicitly set as number to ensure TypeORM handles it correctly
+    product.stockQuantity = Number(newStockQuantity);
     await this.productRepository.save(product);
 
     // Create stock movement record
