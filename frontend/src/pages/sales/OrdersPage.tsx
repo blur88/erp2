@@ -385,10 +385,17 @@ const OrdersPage: React.FC = () => {
   const handleRecordPayment = async () => {
     if (!selectedOrder) return
 
-    // Auto-fill behavior: if payment field is blank, use the remaining balance
-    const paymentAmountToUse = paymentAmount || (selectedOrder.totalAmount - (selectedOrder.paidAmount || 0)).toString()
+    // Calculate the new total paid amount
+    let newPaidAmount
+    if (paymentAmount) {
+      // If user entered an amount, add it to existing paid amount
+      newPaidAmount = (selectedOrder.paidAmount || 0) + parseFloat(paymentAmount)
+    } else {
+      // Auto-fill behavior: if payment field is blank, pay the full total amount
+      newPaidAmount = selectedOrder.totalAmount
+    }
 
-    if (!paymentAmountToUse || parseFloat(paymentAmountToUse) <= 0) return
+    if (newPaidAmount <= (selectedOrder.paidAmount || 0)) return
 
     setIsLoading(true)
     try {
@@ -397,14 +404,15 @@ const OrdersPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ amount: parseFloat(paymentAmountToUse) }),
+        body: JSON.stringify({ amount: newPaidAmount }),
       })
 
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         setPaymentAmount('')
-        showSuccess(`Payment of ${formatCurrency(parseFloat(paymentAmountToUse))} recorded successfully`)
+        const additionalPayment = newPaidAmount - (selectedOrder.paidAmount || 0)
+        showSuccess(`Payment of ${formatCurrency(additionalPayment)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to record payment'
@@ -1278,13 +1286,17 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{
                               color: (() => {
-                                const currentPaid = paymentAmount ? parseFloat(paymentAmount) : (selectedOrder.paidAmount || 0)
+                                const currentPaid = paymentAmount
+                                  ? (selectedOrder.paidAmount || 0) + parseFloat(paymentAmount)
+                                  : (selectedOrder.paidAmount || 0)
                                 const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
                                 return balance > 0 ? 'error.main' : 'success.main'
                               })()
                             }}>
                               {(() => {
-                                const currentPaid = paymentAmount ? parseFloat(paymentAmount) : (selectedOrder.paidAmount || 0)
+                                const currentPaid = paymentAmount
+                                  ? (selectedOrder.paidAmount || 0) + parseFloat(paymentAmount)
+                                  : (selectedOrder.paidAmount || 0)
                                 const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
                                 return formatCurrency(balance)
                               })()}
