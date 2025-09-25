@@ -1326,6 +1326,7 @@ const OrdersPage: React.FC = () => {
                                   color={selectedOrder.isFulfilled ? "warning" : "success"}
                                   onClick={selectedOrder.isFulfilled ? handleUnfulfillOrder : handleFulfillOrder}
                                   disabled={isLoading || (!selectedOrder.isFulfilled && !selectedOrder.isPaidInFull)}
+                                  sx={{ minWidth: 110 }}
                                 >
                                   {selectedOrder.isFulfilled ? "Unfulfill" : "Fulfill"}
                                 </Button>
