@@ -1187,7 +1187,7 @@ const OrdersPage: React.FC = () => {
 
                   {/* Right Column - Payment & Fulfillment */}
                   <Grid item xs={12} md={6}>
-                    {/* Payment Tracking Section */}
+                    {/* Payment and Fulfillment Section */}
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1214,7 +1214,7 @@ const OrdersPage: React.FC = () => {
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.5px'
                               }}>
-                                💳 Payment Tracking
+                                Payment and Fulfillment
                               </Typography>
                             </TableCell>
                           </TableRow>
