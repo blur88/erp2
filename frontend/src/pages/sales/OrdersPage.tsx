@@ -1347,7 +1347,7 @@ const OrdersPage: React.FC = () => {
 
                 {/* Order Notes Section - below both columns if notes exist */}
                 {selectedOrder.notes && (
-                  <Box sx={{ mt: 3 }}>
+                  <Box sx={{ mt: 1 }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
