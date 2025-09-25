@@ -1278,10 +1278,10 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ width: '30%' }} />
                           </TableRow>
-                          {!selectedOrder.isFulfilled && (
-                            <TableRow>
-                              <TableCell />
-                              <TableCell colSpan={2}>
+                          <TableRow>
+                            <TableCell />
+                            <TableCell colSpan={2}>
+                              <Stack direction="row" spacing={1} alignItems="center">
                                 <Button
                                   variant="contained"
                                   size="small"
@@ -1291,9 +1291,18 @@ const OrdersPage: React.FC = () => {
                                 >
                                   {(selectedOrder.paidAmount > 0) ? "Unpay" : "Pay"}
                                 </Button>
-                              </TableCell>
-                            </TableRow>
-                          )}
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  color={selectedOrder.isFulfilled ? "warning" : "success"}
+                                  onClick={selectedOrder.isFulfilled ? handleUnfulfillOrder : handleFulfillOrder}
+                                  disabled={isLoading || (!selectedOrder.isFulfilled && !selectedOrder.isPaidInFull)}
+                                >
+                                  {selectedOrder.isFulfilled ? "Unfulfill" : "Fulfill"}
+                                </Button>
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -1342,28 +1351,6 @@ const OrdersPage: React.FC = () => {
                                 />
                               </TableCell>
                               <TableCell sx={{ width: '30%' }}>
-                                {selectedOrder.canFulfill && (
-                                  <Button
-                                    variant="contained"
-                                    color="success"
-                                    onClick={handleFulfillOrder}
-                                    disabled={isLoading}
-                                    startIcon={<OrderIcon />}
-                                  >
-                                    Confirm Payment & Fulfill Order
-                                  </Button>
-                                )}
-                                {selectedOrder.canUnfulfill && (
-                                  <Button
-                                    variant="contained"
-                                    color="warning"
-                                    onClick={handleUnfulfillOrder}
-                                    disabled={isLoading}
-                                    startIcon={<RestoreIcon />}
-                                  >
-                                    Unfulfill Order
-                                  </Button>
-                                )}
                                 {!selectedOrder.canFulfill && !selectedOrder.isFulfilled && (
                                   <Typography variant="caption" color="text.secondary">
                                     {selectedOrder.isPaidInFull
