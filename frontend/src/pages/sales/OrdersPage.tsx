@@ -1289,7 +1289,7 @@ const OrdersPage: React.FC = () => {
                                     onClick={handleRecordPayment}
                                     disabled={!paymentAmount || isLoading}
                                   >
-                                    Record Payment
+                                    Pay
                                   </Button>
                                   {(selectedOrder.paidAmount > 0) && (
                                     <Button
