@@ -1230,8 +1230,6 @@ const OrdersPage: React.FC = () => {
                               Paid:
                             </TableCell>
                             <TableCell>
-                            </TableCell>
-                            <TableCell>
                               {!selectedOrder.isFulfilled && (
                                 <Stack direction="row" spacing={1} alignItems="center">
                                   <TextField
@@ -1265,6 +1263,7 @@ const OrdersPage: React.FC = () => {
                                 </Stack>
                               )}
                             </TableCell>
+                            <TableCell sx={{ width: '30%' }} />
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
