@@ -1282,27 +1282,15 @@ const OrdersPage: React.FC = () => {
                             <TableRow>
                               <TableCell />
                               <TableCell colSpan={2}>
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                  <Button
-                                    variant="contained"
-                                    size="small"
-                                    onClick={handleRecordPayment}
-                                    disabled={!paymentAmount || isLoading}
-                                  >
-                                    Pay
-                                  </Button>
-                                  {(selectedOrder.paidAmount > 0) && (
-                                    <Button
-                                      variant="outlined"
-                                      size="small"
-                                      color="warning"
-                                      onClick={handleUnpayOrder}
-                                      disabled={isLoading}
-                                    >
-                                      Unpay
-                                    </Button>
-                                  )}
-                                </Stack>
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  color={(selectedOrder.paidAmount > 0) ? "warning" : "primary"}
+                                  onClick={(selectedOrder.paidAmount > 0) ? handleUnpayOrder : handleRecordPayment}
+                                  disabled={((selectedOrder.paidAmount > 0) ? false : !paymentAmount) || isLoading}
+                                >
+                                  {(selectedOrder.paidAmount > 0) ? "Unpay" : "Pay"}
+                                </Button>
                               </TableCell>
                             </TableRow>
                           )}
