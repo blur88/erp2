@@ -1220,18 +1220,18 @@ const OrdersPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ width: '25%', fontWeight: 600, color: 'text.secondary' }}>
-                              Order Total:
+                              Total:
                             </TableCell>
-                            <TableCell sx={{ fontWeight: 500 }}>
+                            <TableCell>
                               {formatCurrency(selectedOrder.totalAmount || 0)}
                             </TableCell>
                             <TableCell sx={{ width: '30%' }} />
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                              Amount Received:
+                              Paid:
                             </TableCell>
-                            <TableCell sx={{ fontWeight: 500 }}>
+                            <TableCell>
                               {formatCurrency(selectedOrder.paidAmount || 0)}
                             </TableCell>
                             <TableCell>
@@ -1271,10 +1271,9 @@ const OrdersPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                              Balance Due:
+                              Balance:
                             </TableCell>
                             <TableCell sx={{
-                              fontWeight: 500,
                               color: (selectedOrder.balanceDue || Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))) > 0 ? 'error.main' : 'success.main'
                             }}>
                               {formatCurrency(selectedOrder.balanceDue || Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}
