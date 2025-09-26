@@ -906,10 +906,10 @@ const ProductsPage: React.FC = () => {
             ),
           }}
         />
-        <FormControl 
-          size="medium" 
-          sx={{ 
-            minWidth: isMobile ? 'auto' : 180,
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
             flex: 'none'
           }}
         >

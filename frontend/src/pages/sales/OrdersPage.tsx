@@ -1014,7 +1014,7 @@ const OrdersPage: React.FC = () => {
         <FormControl
           size="medium"
           sx={{
-            minWidth: isMobile ? 'auto' : 140,
+            minWidth: isMobile ? 'auto' : 120,
             '& .MuiOutlinedInput-root': {
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem'

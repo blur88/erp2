@@ -526,10 +526,10 @@ const CustomersPage: React.FC = () => {
             <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
           </Select>
         </FormControl>
-        <FormControl 
-          size="medium" 
-          sx={{ 
-            minWidth: isMobile ? 'auto' : 130,
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
             flex: 'none'
           }}
         >
