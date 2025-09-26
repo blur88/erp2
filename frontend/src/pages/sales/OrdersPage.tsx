@@ -969,6 +969,48 @@ const OrdersPage: React.FC = () => {
             <MenuItem value="custom">Custom Date Range</MenuItem>
           </Select>
         </FormControl>
+        {orderFilters.dateFilter === 'custom' && (
+          <>
+            <TextField
+              label="From Date"
+              type="date"
+              value={orderFilters.customFromDate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                dispatch(setOrderFilters({ customFromDate: e.target.value }))
+              }}
+              size="medium"
+              sx={{
+                minWidth: 150,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem'
+                }
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+            <TextField
+              label="To Date"
+              type="date"
+              value={orderFilters.customToDate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                dispatch(setOrderFilters({ customToDate: e.target.value }))
+              }}
+              size="medium"
+              sx={{
+                minWidth: 150,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem'
+                }
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          </>
+        )}
         <FormControl
           size="medium"
           sx={{
@@ -1094,48 +1136,6 @@ const OrdersPage: React.FC = () => {
             <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
           </Select>
         </FormControl>
-        {orderFilters.dateFilter === 'custom' && (
-          <>
-            <TextField
-              label="From Date"
-              type="date"
-              value={orderFilters.customFromDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                dispatch(setOrderFilters({ customFromDate: e.target.value }))
-              }}
-              size="medium"
-              sx={{
-                minWidth: 150,
-                '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
-                  fontSize: '0.875rem'
-                }
-              }}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-            <TextField
-              label="To Date"
-              type="date"
-              value={orderFilters.customToDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                dispatch(setOrderFilters({ customToDate: e.target.value }))
-              }}
-              size="medium"
-              sx={{
-                minWidth: 150,
-                '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
-                  fontSize: '0.875rem'
-                }
-              }}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-          </>
-        )}
         {(orderFilters.dateFilter !== 'all' || orderFilters.customerId || orderFilters.paymentStatus !== 'all' || orderFilters.fulfillmentStatus !== 'all') && (
           <Button
             variant="outlined"
