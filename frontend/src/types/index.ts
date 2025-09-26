@@ -28,7 +28,7 @@ export interface Product {
   name: string;
   description?: string;
   barcode: string;
-  type: 'goods' | 'service';
+  type: 'Stocked Product' | 'Service';
   category?: Category;
   categoryId?: string;
   // Multi-level pricing
@@ -81,7 +81,6 @@ export interface Category {
   id: string;
   name: string;
   imageUrl?: string | null;
-  isActive: boolean;
   sortOrder: number;
   path?: string | null;
   level: number;
@@ -105,12 +104,29 @@ export interface ProductAttribute {
 export interface StockMovement {
   id: string;
   productId: string;
-  type: 'in' | 'out' | 'adjustment';
+  product?: Product;
+  movementType: 'stock_in' | 'stock_out' | 'transfer' | 'sale' | 'purchase' | 'initial' | 'return';
   quantity: number;
-  reference?: string;
+  unitValue?: number;
+  referenceType?: string;
+  referenceId?: string;
+  referenceNumber?: string;
+  locationCode?: string;
+  binLocation?: string;
+  batchNumber?: string;
+  expiryDate?: Date;
   reason?: string;
+  notes?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  movementDate: Date;
+  description?: string;
+  metadata?: Record<string, any>;
   createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  updatedBy?: string;
 }
+
 
 // Sales types
 export enum CustomerType {
@@ -118,12 +134,6 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-export enum CustomerStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  SUSPENDED = 'suspended',
-  BLACKLISTED = 'blacklisted',
-}
 
 export enum PriceLevel {
   RETAIL = 'retail',
@@ -133,7 +143,7 @@ export enum PriceLevel {
 
 export interface Customer {
   id: string;
-  customerCode: string;
+  customerCode?: string;
   type: CustomerType;
   name: string;
   contactPerson?: string;
@@ -153,7 +163,6 @@ export interface Customer {
   shippingPostalCode?: string;
   shippingCountry?: string;
   // Business Information
-  status: CustomerStatus;
   isActive: boolean;
   priceLevel: PriceLevel;
   // Credit Management
@@ -169,6 +178,7 @@ export interface Customer {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date; // Soft delete timestamp from BaseEntity
   // Computed properties
   fullAddress: string;
   fullShippingAddress: string;
@@ -180,18 +190,42 @@ export interface Customer {
 export interface SalesOrder {
   id: string;
   orderNumber: string;
-  customer: Customer;
-  items: SalesOrderItem[];
-  subtotal: number;
-  taxAmount: number;
-  discount: number;
-  total: number;
-  status: 'draft' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  customer?: Customer;
+  customerId: string;
+  items?: SalesOrderItem[];
+  totalAmount: number;
+  paidAmount?: number;
+  balanceDue?: number;
+  isFulfilled?: boolean;
+  isPaidInFull?: boolean;
+  canFulfill?: boolean;
+  canUnfulfill?: boolean;
   orderDate: Date;
-  deliveryDate?: Date;
+  requiredDate?: Date;
+  shippedDate?: Date;
+  deliveredDate?: Date;
+  fulfilledDate?: Date;
+  shippingAddress?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostalCode?: string;
+  shippingCountry?: string;
+  shippingMethod?: string;
+  trackingNumber?: string;
+  customerPoNumber?: string;
   notes?: string;
+  internalNotes?: string;
+  createdByUserId?: string;
   createdAt: Date;
   updatedAt: Date;
+  isOverdue?: boolean;
+  isShippable?: boolean;
+  isCompleted?: boolean;
+  fullShippingAddress?: string;
+  // Legacy compatibility
+  total?: number;
+  discount?: number;
+  deliveryDate?: Date;
 }
 
 export interface SalesOrderItem {
@@ -209,9 +243,6 @@ export interface Invoice {
   customer: Customer;
   salesOrder?: SalesOrder;
   items: InvoiceItem[];
-  subtotal: number;
-  taxAmount: number;
-  discount: number;
   total: number;
   paidAmount: number;
   dueAmount: number;
@@ -267,8 +298,6 @@ export interface PurchaseOrder {
   orderNumber: string;
   supplier: Supplier;
   items: PurchaseOrderItem[];
-  subtotal: number;
-  taxAmount: number;
   total: number;
   status: 'draft' | 'sent' | 'confirmed' | 'received' | 'cancelled';
   orderDate: Date;

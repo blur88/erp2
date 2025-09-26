@@ -26,8 +26,6 @@ import {
   QueryCustomersDto,
   CustomerResponseDto,
   CustomerSummaryDto,
-  CreditCheckDto,
-  CreditCheckResponseDto,
 } from '../dto/customer.dto';
 
 @ApiTags('Customers')
@@ -93,6 +91,7 @@ export class CustomerController {
     return this.customerService.findDeleted(query);
   }
 
+
   @Get(':id')
   @ApiOperation({ summary: 'Get customer by ID' })
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
@@ -141,81 +140,42 @@ export class CustomerController {
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
   @ApiResponse({ status: 204, description: 'Customer deleted successfully' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @ApiResponse({ status: 409, description: 'Cannot delete customer with existing orders' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete customer with active orders, invoices, or other dependencies',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Cannot delete customer \'John Doe\' because they have 3 orders and 2 invoices.' },
+        error: { type: 'string', example: 'DELETION_PREVENTED_BY_DEPENDENCIES' },
+        customerName: { type: 'string', example: 'John Doe' },
+        customerId: { type: 'string', example: 'uuid' },
+        customerCode: { type: 'string', example: 'CUST2401' },
+        dependencies: {
+          type: 'object',
+          properties: {
+            orders: { type: 'number', example: 3 },
+            invoices: { type: 'number', example: 2 }
+          }
+        },
+        suggestions: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['Remove or reassign the 3 orders first', 'Remove or reassign the 2 invoices first']
+        },
+        details: { type: 'string', example: 'Customer \'John Doe\' (CUST2401) cannot be deleted due to existing business relationships.' }
+      }
+    }
+  })
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.customerService.delete(id);
   }
 
-  @Post('credit-check')
-  @ApiOperation({ summary: 'Check customer credit limit' })
-  @ApiResponse({
-    status: 200,
-    description: 'Credit check completed',
-    type: CreditCheckResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async checkCredit(@Body() creditCheckDto: CreditCheckDto): Promise<CreditCheckResponseDto> {
-    return this.customerService.checkCredit(creditCheckDto.customerId, creditCheckDto.amount);
-  }
 
-  @Put(':id/credit-limit')
-  @ApiOperation({ summary: 'Update customer credit limit' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Credit limit updated successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async updateCreditLimit(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('creditLimit') creditLimit: number,
-  ): Promise<CustomerResponseDto> {
-    return this.customerService.updateCreditLimit(id, creditLimit);
-  }
 
-  @Put(':id/activate')
-  @ApiOperation({ summary: 'Activate customer' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer activated successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async activateCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
-    return this.customerService.activate(id);
-  }
 
-  @Put(':id/deactivate')
-  @ApiOperation({ summary: 'Deactivate customer' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer deactivated successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async deactivateCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
-    return this.customerService.deactivate(id);
-  }
 
-  @Put(':id/suspend')
-  @ApiOperation({ summary: 'Suspend customer' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer suspended successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async suspendCustomer(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason?: string,
-  ): Promise<CustomerResponseDto> {
-    return this.customerService.suspend(id, reason);
-  }
 
   @Get(':id/sales-history')
   @ApiOperation({ summary: 'Get customer sales history' })
@@ -282,9 +242,9 @@ export class CustomerController {
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     const result = await this.customerService.bulkRestore(body.customerIds);
     return {
-      message: `Successfully restored ${result.restoredCount} of ${body.customerIds.length} customers`,
-      restoredCount: result.restoredCount,
-      failedIds: result.failedIds,
+      message: `Successfully restored ${result.successCount} of ${body.customerIds.length} customers`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -314,9 +274,9 @@ export class CustomerController {
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
     const result = await this.customerService.bulkPermanentDelete(body.customerIds);
     return {
-      message: `Successfully permanently deleted ${result.deletedCount} of ${body.customerIds.length} customers`,
-      deletedCount: result.deletedCount,
-      failedIds: result.failedIds,
+      message: `Successfully permanently deleted ${result.successCount} of ${body.customerIds.length} customers`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -340,9 +300,33 @@ export class CustomerController {
     description: 'Customer permanently deleted successfully',
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Customer must be soft-deleted first or has active references' 
+  @ApiResponse({
+    status: 400,
+    description: 'Customer must be soft-deleted first or has active dependencies',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Cannot permanently delete customer \'John Doe\' due to active business relationships' },
+        error: { type: 'string', example: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES' },
+        customerName: { type: 'string', example: 'John Doe' },
+        customerId: { type: 'string', example: 'uuid' },
+        customerCode: { type: 'string', example: 'CUST2401' },
+        dependencies: {
+          type: 'object',
+          properties: {
+            orders: { type: 'number', example: 2 },
+            invoices: { type: 'number', example: 1 },
+            payments: { type: 'number', example: 0 }
+          }
+        },
+        suggestions: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['Complete and archive all pending orders first', 'Ensure all invoices are fully paid and closed']
+        },
+        details: { type: 'string', example: 'Customer \'John Doe\' (CUST2401) has 2 active orders, 1 active invoice. Permanent deletion is blocked to preserve financial audit trails and data integrity.' }
+      }
+    }
   })
   @ApiParam({ name: 'id', description: 'Customer ID' })
   @HttpCode(HttpStatus.NO_CONTENT)

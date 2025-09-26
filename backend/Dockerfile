@@ -39,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 RUN npm install @nestjs/microservices class-transformer --legacy-peer-deps || true
 
 # Alternative: start with node and transpile-only option to bypass webpack
-CMD ["npx", "ts-node", "--transpile-only", "src/main.ts"]
+CMD ["npx", "ts-node", "-r", "tsconfig-paths/register", "--transpile-only", "src/main.ts"]

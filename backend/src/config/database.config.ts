@@ -1,46 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { TypeOrmOptionsFactory, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { createDatabaseConfig } from './database-config.factory';
 
 @Injectable()
 export class DatabaseConfig implements TypeOrmOptionsFactory {
   constructor(private configService: ConfigService) {}
 
   createTypeOrmOptions(): TypeOrmModuleOptions {
-    return {
-      type: 'postgres',
-      host: this.configService.get('DATABASE_HOST', 'localhost'),
-      port: this.configService.get('DATABASE_PORT', 5432),
-      username: this.configService.get('DATABASE_USER', 'erp_user'),
-      password: this.configService.get('DATABASE_PASSWORD', 'erp_password'),
-      database: this.configService.get('DATABASE_NAME', 'erp_db'),
-      entities: [__dirname + '/../database/entities/*.entity{.ts,.js}'],
-      migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-      synchronize: this.configService.get('NODE_ENV') === 'development',
-      logging: this.configService.get('NODE_ENV') === 'development',
-      ssl: false,
-      extra: {
-        connectionLimit: 10,
-        family: 4,
-      },
-    };
+    try {
+      return createDatabaseConfig(this.configService, false);
+    } catch (error) {
+      // Security: Log error internally without exposing sensitive details
+      console.error('Database configuration failed - check environment variables and security settings');
+      
+      // Re-throw with generic message to prevent information disclosure
+      throw new Error('Database configuration error - check server logs');
+    }
   }
 }
 
-// Export DataSource for CLI tools
-const config = new ConfigService();
-
-export const connectionSource = new DataSource({
-  type: 'postgres',
-  host: config.get('DATABASE_HOST', 'localhost'),
-  port: config.get('DATABASE_PORT', 5432),
-  username: config.get('DATABASE_USER', 'erp_user'),
-  password: config.get('DATABASE_PASSWORD', 'erp_password'),
-  database: config.get('DATABASE_NAME', 'erp_db'),
-  entities: [__dirname + '/../database/entities/*.entity{.ts,.js}'],
-  migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-  logging: config.get('NODE_ENV') === 'development',
-} as DataSourceOptions);
-
-export default connectionSource;
+// Export DataSource for CLI tools - moved to separate module
+export { default } from './cli-datasource';

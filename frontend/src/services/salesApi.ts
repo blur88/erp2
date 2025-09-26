@@ -1,19 +1,17 @@
 import { ApiService } from './api'
-import type { Customer, CustomerType, CustomerStatus, PriceLevel, SalesOrder, Invoice, Payment, PaginatedResponse, QueryParams } from '@/types'
+import type { Customer, CustomerType, PriceLevel, SalesOrder, Invoice, Payment, PaginatedResponse, QueryParams } from '@/types'
 
 interface CustomerQueryParams extends QueryParams {
   type?: CustomerType;
-  status?: CustomerStatus;
   priceLevel?: PriceLevel;
 }
 
 interface CustomerSummary {
   id: string;
-  customerCode: string;
+  customerCode?: string;
   name: string;
   email?: string;
   phone?: string;
-  status: CustomerStatus;
   currentBalance: number;
   creditLimit: number;
   availableCredit: number;
@@ -72,17 +70,8 @@ export const salesApi = {
     return ApiService.put<Customer>(`customers/${id}/credit-limit`, { creditLimit })
   },
 
-  async activateCustomer(id: string) {
-    return ApiService.put<Customer>(`customers/${id}/activate`)
-  },
 
-  async deactivateCustomer(id: string) {
-    return ApiService.put<Customer>(`customers/${id}/deactivate`)
-  },
 
-  async suspendCustomer(id: string, reason?: string) {
-    return ApiService.put<Customer>(`customers/${id}/suspend`, { reason })
-  },
 
   async getCustomerSalesHistory(id: string, limit?: number) {
     return ApiService.get(`customers/${id}/sales-history`, { params: { limit } })
@@ -116,37 +105,110 @@ export const salesApi = {
     return ApiService.post<{ message: string; deletedCount: number; failedIds: string[] }>('customers/bulk-permanent-delete', { customerIds })
   },
 
-  // Sales Orders
-  async getOrders(params?: QueryParams & { customerId?: string; status?: string }) {
-    return ApiService.get<PaginatedResponse<SalesOrder>>('/sales/orders', { params })
+  // Sales Orders - Updated to match backend controller routes
+  async getOrders(params?: QueryParams & { 
+    customerId?: string; 
+    status?: string; 
+    priority?: string;
+    fromDate?: string;
+    toDate?: string;
+    overdue?: boolean;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
+  }) {
+    return ApiService.get<PaginatedResponse<SalesOrder>>('sales-orders', { params })
   },
 
   async getOrder(id: string) {
-    return ApiService.get<SalesOrder>(`/sales/orders/${id}`)
+    return ApiService.get<SalesOrder>(`sales-orders/${id}`)
+  },
+
+  async getOrderByNumber(orderNumber: string) {
+    return ApiService.get<SalesOrder>(`sales-orders/number/${orderNumber}`)
   },
 
   async createOrder(orderData: Partial<SalesOrder>) {
-    return ApiService.post<SalesOrder>('/sales/orders', orderData)
+    return ApiService.post<SalesOrder>('sales-orders', orderData)
   },
 
   async updateOrder(id: string, orderData: Partial<SalesOrder>) {
-    return ApiService.put<SalesOrder>(`/sales/orders/${id}`, orderData)
+    return ApiService.put<SalesOrder>(`sales-orders/${id}`, orderData)
   },
 
   async deleteOrder(id: string) {
-    return ApiService.delete(`/sales/orders/${id}`)
+    return ApiService.delete(`sales-orders/${id}`)
   },
 
   async confirmOrder(id: string) {
-    return ApiService.post<SalesOrder>(`/sales/orders/${id}/confirm`)
+    return ApiService.put<SalesOrder>(`sales-orders/${id}/confirm`)
+  },
+
+  async shipOrder(id: string, data: { trackingNumber?: string; shippingMethod?: string; notes?: string }) {
+    return ApiService.put<SalesOrder>(`sales-orders/${id}/ship`, data)
+  },
+
+  async deliverOrder(id: string) {
+    return ApiService.put<SalesOrder>(`sales-orders/${id}/deliver`)
+  },
+
+  async completeOrder(id: string) {
+    return ApiService.put<SalesOrder>(`sales-orders/${id}/complete`)
   },
 
   async cancelOrder(id: string, reason?: string) {
-    return ApiService.post<SalesOrder>(`/sales/orders/${id}/cancel`, { reason })
+    return ApiService.put<SalesOrder>(`sales-orders/${id}/cancel`, { reason })
   },
 
-  async printOrder(id: string) {
-    return ApiService.downloadFile(`/sales/orders/${id}/print`, `order-${id}.pdf`)
+  async duplicateOrder(id: string) {
+    return ApiService.post<SalesOrder>(`sales-orders/${id}/duplicate`)
+  },
+
+  async getOrderSummaries() {
+    return ApiService.get('sales-orders/summary')
+  },
+
+  async getDashboardStats() {
+    return ApiService.get('sales-orders/dashboard-stats')
+  },
+
+  async getFulfillmentStatus(id: string) {
+    return ApiService.get(`sales-orders/${id}/fulfillment-status`)
+  },
+
+  async getOrdersByCustomer(customerId: string, limit?: number) {
+    return ApiService.get(`sales-orders/customer/${customerId}`, { params: { limit } })
+  },
+
+  async getOrderInvoices(id: string) {
+    return ApiService.get(`sales-orders/${id}/invoices`)
+  },
+
+  async createInvoiceFromOrder(id: string) {
+    return ApiService.post(`sales-orders/${id}/create-invoice`)
+  },
+
+  async getDeletedOrders(params?: QueryParams & {
+    customerId?: string;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
+  }) {
+    return ApiService.get<PaginatedResponse<SalesOrder>>('sales-orders/deleted', { params })
+  },
+
+  async restoreOrder(id: string) {
+    return ApiService.post<SalesOrder>(`sales-orders/${id}/restore`)
+  },
+
+  async bulkRestoreOrders(orderIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('sales-orders/bulk-restore', { salesOrderIds: orderIds })
+  },
+
+  async permanentDeleteOrder(id: string) {
+    return ApiService.delete(`sales-orders/${id}/permanent`)
+  },
+
+  async bulkDeleteOrders(orderIds: string[]) {
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('sales-orders/bulk-permanent-delete', { salesOrderIds: orderIds })
   },
 
   // Invoices

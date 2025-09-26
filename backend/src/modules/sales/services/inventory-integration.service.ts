@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Product } from '../../../database/entities/product.entity';
+import { Product, ProductType } from '../../../database/entities/product.entity';
 import { StockMovement, StockMovementType, StockMovementStatus } from '../../../database/entities/stock-movement.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -65,7 +65,7 @@ export class InventoryIntegrationService {
   ) {}
 
   async checkAvailability(items: StockItem[]): Promise<AvailabilityCheck> {
-    let allAvailable = true;
+    let allAvailable = true; // Always true now - we allow negative stock for GOODS
     const availabilityItems = [];
 
     for (const item of items) {
@@ -79,16 +79,18 @@ export class InventoryIntegrationService {
 
       const availableQuantity = Number(product.stockQuantity);
       const reservedQuantity = this.getReservedQuantity(item.productId);
-      const effectiveAvailable = Math.max(0, availableQuantity - reservedQuantity);
+      const effectiveAvailable = availableQuantity - reservedQuantity;
       const shortfall = Math.max(0, item.quantity - effectiveAvailable);
 
-      if (shortfall > 0) {
-        allAvailable = false;
-      }
+      // Allow negative stock for GOODS products (stocked products)
+      // Service products should not have stock issues
+      // For GOODS, we allow negative stock, so always available
+      // For SERVICE, they don't have stock constraints, so always available
+      // Both types are always available now
 
       availabilityItems.push({
         productId: item.productId,
-        productSku: product.sku,
+        productSku: product.barcode || '',
         productName: product.name,
         requested: item.quantity,
         available: availableQuantity,
@@ -98,16 +100,14 @@ export class InventoryIntegrationService {
     }
 
     return {
-      available: allAvailable,
-      message: allAvailable 
-        ? 'All items are available' 
-        : 'Some items have insufficient stock',
+      available: allAvailable, // Always true now - allowing negative stock
+      message: 'All items are available (negative stock allowed for stocked products)',
       items: availabilityItems,
     };
   }
 
   async reserveStock(items: StockItem[]): Promise<void> {
-    // Check availability first
+    // Check availability first (now allows negative stock for GOODS)
     const availabilityCheck = await this.checkAvailability(items);
     if (!availabilityCheck.available) {
       throw new BadRequestException('Insufficient stock for reservation');
@@ -191,12 +191,13 @@ export class InventoryIntegrationService {
       const reservedQuantity = orderReservations.get(item.productId) || 0;
       if (reservedQuantity < item.quantity) {
         throw new BadRequestException(
-          `Insufficient reserved stock for product ${product.sku}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`
+          `Insufficient reserved stock for product ${product.barcode || product.name}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`
         );
       }
 
-      // Update product stock
-      product.stockQuantity = Number(product.stockQuantity) - item.quantity;
+      // Update product stock (allow negative for GOODS products)
+      const newStockQuantity = Number(product.stockQuantity) - item.quantity;
+      product.stockQuantity = newStockQuantity; // Allow negative stock for GOODS
       await this.productRepository.save(product);
 
       // Create stock movement for fulfillment
@@ -267,7 +268,7 @@ export class InventoryIntegrationService {
 
       fulfillmentItems.push({
         productId: item.productId,
-        productSku: product.sku,
+        productSku: product.barcode || '',
         productName: product.name,
         ordered: item.quantity,
         reserved,
@@ -397,8 +398,8 @@ export class InventoryIntegrationService {
       const stockValue = Number(product.stockQuantity) * Number(product.baseCost || 0);
       totalStockValue += stockValue;
 
-      // Check if low stock
-      if (Number(product.stockQuantity) <= Number(product.reorderLevel || 0)) {
+      // Check if low stock (using simple threshold since reorderLevel was removed)
+      if (Number(product.stockQuantity) <= 10) {
         lowStockProducts++;
       }
 
@@ -415,6 +416,46 @@ export class InventoryIntegrationService {
       totalReservations,
       reservationValue,
     };
+  }
+
+  async adjustStock(
+    productId: string,
+    quantityChange: number,
+    reason: string,
+    referenceId?: string,
+    userId?: string,
+  ): Promise<void> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product ${productId} not found`);
+    }
+
+    // Update product stock quantity (allow negative for GOODS products)
+    // Ensure both values are properly converted to numbers to avoid string concatenation
+    const currentStock = Number(product.stockQuantity);
+    const changeAmount = Number(quantityChange);
+    const newStockQuantity = currentStock + changeAmount;
+
+    // Explicitly set as number to ensure TypeORM handles it correctly
+    product.stockQuantity = Number(newStockQuantity);
+    await this.productRepository.save(product);
+
+    // Create stock movement record
+    const movementType = quantityChange > 0
+      ? StockMovementType.ADJUSTMENT_INCREASE
+      : StockMovementType.SALE; // Use SALE for negative adjustments (fulfillment)
+
+    await this.createStockMovement(
+      productId,
+      quantityChange,
+      movementType,
+      reason,
+      referenceId,
+      userId,
+    );
   }
 
   // Private helper methods
@@ -453,9 +494,20 @@ export class InventoryIntegrationService {
     referenceId?: string,
     userId?: string,
   ): Promise<StockMovement> {
+    // Get current product stock to calculate previous balance
+    const product = await this.productRepository.findOne({ where: { id: productId } });
+    if (!product) {
+      throw new NotFoundException(`Product ${productId} not found`);
+    }
+
+    const previousBalance = Number(product.stockQuantity);
+    const newBalance = previousBalance + quantity; // quantity is negative for sales
+
     const movement = this.stockMovementRepository.create({
       productId,
       quantity,
+      previousBalance,
+      newBalance,
       movementType,
       reason,
       referenceId,

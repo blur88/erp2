@@ -10,7 +10,12 @@ import {
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
+  UseInterceptors,
+  UploadedFile,
+  Header,
+  StreamableFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -18,6 +23,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
 import { PricingService } from '../services/pricing.service';
@@ -29,6 +35,8 @@ import {
   ProductListResponseDto,
   BulkUpdatePricesDto,
   ProductStockSummaryDto,
+  ProductImportDto,
+  ProductImportResultDto,
 } from '../dto/product.dto';
 
 @ApiTags('Products')
@@ -167,6 +175,18 @@ export class ProductController {
   @ApiQuery({ name: 'search', required: false, description: 'Search term' })
   async findDeleted(@Query() query: QueryProductsDto): Promise<ProductListResponseDto> {
     return this.productService.findDeleted(query);
+  }
+
+  @Get('import-template')
+  @ApiOperation({ summary: 'Download CSV template for product import' })
+  @ApiResponse({
+    status: 200,
+    description: 'CSV template downloaded successfully',
+  })
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="product-import-template.csv"')
+  async downloadImportTemplate(): Promise<StreamableFile> {
+    return this.productService.generateImportTemplate();
   }
 
   @Get(':id')
@@ -344,9 +364,9 @@ export class ProductController {
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     const result = await this.productService.bulkRestore(body.productIds, null);
     return {
-      message: `Successfully restored ${result.restoredCount} of ${body.productIds.length} products`,
-      restoredCount: result.restoredCount,
-      failedIds: result.failedIds,
+      message: `Successfully restored ${result.successCount} of ${body.productIds.length} products`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -365,6 +385,52 @@ export class ProductController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ProductResponseDto> {
     return this.productService.restore(id, null);
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: 'Import products from CSV/Excel file' })
+  @ApiResponse({
+    status: 200,
+    description: 'Products imported successfully',
+    type: ProductImportResultDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file format or validation errors' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'CSV or Excel file containing products'
+        },
+        format: {
+          type: 'string',
+          enum: ['csv', 'excel'],
+          description: 'File format'
+        },
+        skipDuplicates: {
+          type: 'boolean',
+          default: false,
+          description: 'Skip products with duplicate names/barcodes'
+        },
+        updateExisting: {
+          type: 'boolean', 
+          default: false,
+          description: 'Update existing products if duplicates found'
+        }
+      },
+      required: ['file', 'format']
+    }
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.OK)
+  async importProducts(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() importDto: ProductImportDto
+  ): Promise<ProductImportResultDto> {
+    return this.productService.importProducts(file, importDto);
   }
 
   @Post('bulk-permanent-delete')
@@ -393,9 +459,9 @@ export class ProductController {
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
     const result = await this.productService.bulkPermanentDelete(body.productIds, null);
     return {
-      message: `Successfully permanently deleted ${result.deletedCount} of ${body.productIds.length} products`,
-      deletedCount: result.deletedCount,
-      failedIds: result.failedIds,
+      message: `Successfully permanently deleted ${result.successCount} of ${body.productIds.length} products`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 

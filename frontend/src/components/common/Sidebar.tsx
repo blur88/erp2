@@ -117,7 +117,6 @@ const menuSections: MenuSection[] = [
             title: 'Orders',
             icon: <OrdersIcon />,
             path: '/sales/orders',
-            badge: 3, // Example badge
           },
           {
             id: 'invoices',

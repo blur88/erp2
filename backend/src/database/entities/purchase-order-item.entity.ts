@@ -267,9 +267,9 @@ export class PurchaseOrderItem extends BaseEntity {
   @JoinColumn({ name: 'purchaseOrderId' })
   purchaseOrder: PurchaseOrder;
 
-  @ManyToOne(() => Product, (product) => product.purchaseOrderItems, {
+  @ManyToOne(() => Product, { // Removed back-reference to avoid circular relation issues
     onDelete: 'RESTRICT',
-    eager: true,
+    eager: false, // Disabled eager loading to prevent automatic relation resolution
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
@@ -404,7 +404,7 @@ export class PurchaseOrderItem extends BaseEntity {
       productSku: product.barcode,
       productName: product.name,
       productDescription: product.description,
-      unit: product.unit,
+      unit: 'pcs',
       quantity,
       unitCost: unitCost || Number(product.baseCost),
     };

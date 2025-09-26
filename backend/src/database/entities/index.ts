@@ -1,226 +1,190 @@
 /**
- * Entity exports for ERP System
+ * Entity exports for Active ERP Modules
  * 
- * This file exports all database entities for easy importing throughout the application.
+ * This file exports database entities for currently active modules only.
  * Organized by functional domains for better maintainability.
+ * 
+ * Active modules: UsersModule, InventoryModule, SalesModule, DashboardModule
+ * Disabled modules: PurchasingModule, ReportsModule, PluginsModule
  */
 
-// Base entity
+// Base entity (used by all entities)
 export { BaseEntity } from './base.entity';
 
-// User Management
+// User Management (UsersModule)
 export { User, UserRole, UserStatus } from './user.entity';
 
-// Product Management
+// Product Management (InventoryModule)
 export { Category } from './category.entity';
-export { Product, ProductType, ProductStatus, StockStatus } from './product.entity';
+export { Product, ProductType } from './product.entity';
 
-// Customer Management  
-export { Customer, CustomerType, CustomerStatus, PriceLevel } from './customer.entity';
+// Customer Management (SalesModule, used by InventoryModule for pricing)
+export { Customer, CustomerType, PriceLevel } from './customer.entity';
 
-// Supplier Management
-export { Supplier, SupplierType, SupplierStatus, SupplierRating } from './supplier.entity';
+// Sales Management (SalesModule) - Temporarily disabled for startup
+// export { SalesOrder, SalesOrderStatus, SalesOrderPriority } from './sales-order.entity';
+// export { SalesOrderItem, SalesOrderItemStatus } from './sales-order-item.entity';
 
-// Sales Management
-export { SalesOrder, SalesOrderStatus, SalesOrderPriority } from './sales-order.entity';
-export { SalesOrderItem, SalesOrderItemStatus } from './sales-order-item.entity';
+// Financial Management (SalesModule) - Temporarily disabled for startup
+// export { Invoice, InvoiceStatus, InvoiceType } from './invoice.entity';
+// export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.entity';
 
-// Financial Management
-export { Invoice, InvoiceStatus, InvoiceType } from './invoice.entity';
-export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.entity';
-
-// Purchasing Management
-export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPriority } from './purchase-order.entity';
-export { PurchaseOrderItem, PurchaseOrderItemStatus } from './purchase-order-item.entity';
-export { PurchaseRequisition, PurchaseRequisitionStatus, PurchaseRequisitionPriority, PurchaseRequisitionType } from './purchase-requisition.entity';
-export { PurchaseRequisitionItem, PurchaseRequisitionItemStatus } from './purchase-requisition-item.entity';
-export { GoodsReceivedNote, GrnStatus, GrnType } from './goods-received-note.entity';
-export { SupplierInvoice, SupplierInvoiceStatus, SupplierInvoiceType, InvoiceMatchingStatus } from './supplier-invoice.entity';
-export { SupplierInvoiceItem } from './supplier-invoice-item.entity';
-
-// Inventory Management
+// Inventory Management (InventoryModule)
 export { StockMovement, StockMovementType, StockMovementStatus } from './stock-movement.entity';
-export { StockAdjustment, StockAdjustmentType, StockAdjustmentStatus } from './stock-adjustment.entity';
 
-// System Management
-export { Plugin, PluginStatus, PluginType } from './plugin.entity';
+// Import entities for array construction
+import { User } from './user.entity';
+import { Category } from './category.entity';
+import { Product } from './product.entity';
+import { Customer } from './customer.entity';
+// import { SalesOrder } from './sales-order.entity'; // Temporarily disabled for startup
+// import { SalesOrderItem } from './sales-order-item.entity'; // Temporarily disabled for startup
+// import { Invoice } from './invoice.entity'; // Temporarily disabled for startup
+// import { Payment } from './payment.entity'; // Temporarily disabled for startup
+import { StockMovement } from './stock-movement.entity';
 
 /**
- * Array of all entity classes for TypeORM configuration
+ * Array of active entity classes for TypeORM configuration
  * Use this array when configuring TypeORM in your application
- * Note: Temporarily commented out due to TypeScript compilation issues
  */
-// export const ALL_ENTITIES = [
-//   // Core entities
-//   User,
-//   Category,
-//   Product,
-//   Customer,
-//   Supplier,
-//   
-//   // Transaction entities
-//   SalesOrder,
-//   SalesOrderItem,
-//   Invoice,
-//   Payment,
-//   PurchaseOrder,
-//   PurchaseOrderItem,
-//   PurchaseRequisition,
-//   PurchaseRequisitionItem,
-//   GoodsReceivedNote,
-//   SupplierInvoice,
-//   SupplierInvoiceItem,
-//   
-//   // Inventory entities
-//   StockMovement,
-//   StockAdjustment,
-//   
-//   // System entities
-//   Plugin,
-// ] as const;
+export const ACTIVE_ENTITIES = [
+  // Core entities
+  User,
+  Category,
+  Product,
+  Customer,
+
+  // Sales entities - Temporarily disabled for startup
+  // SalesOrder,
+  // SalesOrderItem,
+  // Invoice,
+  // Payment,
+
+  // Inventory entities
+  StockMovement,
+] as const;
 
 /**
- * Entity groups for modular loading
+ * Entity groups for active modules
  * Useful for feature-specific entity loading or testing
- * Note: Temporarily commented out due to TypeScript compilation issues
  */
-// export const ENTITY_GROUPS = {
-//   CORE: [User, Category, Product, Customer, Supplier],
-//   SALES: [SalesOrder, SalesOrderItem, Invoice, Payment],
-//   PURCHASING: [PurchaseOrder, PurchaseOrderItem, PurchaseRequisition, PurchaseRequisitionItem, GoodsReceivedNote, SupplierInvoice, SupplierInvoiceItem],
-//   INVENTORY: [StockMovement, StockAdjustment],
-//   SYSTEM: [Plugin],
-// } as const;
+export const ACTIVE_ENTITY_GROUPS = {
+  CORE: [User, Category, Product, Customer],
+  // SALES: [SalesOrder, SalesOrderItem, Invoice, Payment], // Temporarily disabled for startup
+  INVENTORY: [StockMovement],
+} as const;
 
 /**
- * Entity metadata for documentation and tooling
+ * Entity metadata for active modules only
+ * Used for documentation and tooling
  */
-export const ENTITY_METADATA = {
+export const ACTIVE_ENTITY_METADATA = {
   User: {
-    description: 'System users with role-based access control',
-    features: ['authentication', 'authorization', 'audit_tracking'],
-    relationships: ['sales_orders', 'purchase_orders', 'stock_adjustments', 'payments'],
+    description: 'System users (authentication removed, audit only)',
+    features: ['audit_tracking', 'user_management'],
+    relationships: ['sales_orders', 'payments'],
+    module: 'UsersModule',
   },
   Category: {
-    description: 'Hierarchical product categorization system',
-    features: ['tree_structure', 'materialized_path', 'nested_categories'],
+    description: 'Hierarchical product categorization (simplified)',
+    features: ['tree_structure', 'hierarchy_path'],
     relationships: ['products'],
+    module: 'InventoryModule',
   },
   Product: {
-    description: 'Product catalog with multi-level pricing and inventory tracking',
-    features: ['multi_level_pricing', 'inventory_tracking', 'stock_management'],
-    relationships: ['category', 'sales_items', 'purchase_items', 'stock_movements'],
+    description: 'Product catalog with barcode and inventory tracking',
+    features: ['barcode_tracking', 'inventory_tracking', 'stock_management'],
+    relationships: ['category', 'sales_items', 'stock_movements'],
+    module: 'InventoryModule',
   },
   Customer: {
     description: 'Customer management with credit tracking and price levels',
-    features: ['credit_management', 'price_levels', 'address_management'],
+    features: ['credit_management', 'price_levels', 'contact_management'],
     relationships: ['sales_orders', 'invoices', 'payments'],
-  },
-  Supplier: {
-    description: 'Supplier management with performance tracking',
-    features: ['performance_metrics', 'rating_system', 'delivery_tracking'],
-    relationships: ['purchase_orders', 'goods_received_notes'],
+    module: 'SalesModule',
   },
   SalesOrder: {
     description: 'Sales order management with comprehensive tracking',
-    features: ['order_lifecycle', 'shipping_tracking', 'financial_calculations'],
+    features: ['order_lifecycle', 'financial_calculations', 'status_tracking'],
     relationships: ['customer', 'items', 'invoices', 'created_by_user'],
+    module: 'SalesModule',
   },
   SalesOrderItem: {
     description: 'Individual line items in sales orders',
-    features: ['quantity_tracking', 'pricing_history', 'profit_analysis'],
+    features: ['quantity_tracking', 'pricing_calculations', 'discount_support'],
     relationships: ['sales_order', 'product'],
+    module: 'SalesModule',
   },
   Invoice: {
     description: 'Customer invoicing with payment tracking',
-    features: ['payment_tracking', 'overdue_management', 'tax_calculations'],
+    features: ['payment_tracking', 'due_date_management', 'status_updates'],
     relationships: ['customer', 'sales_order', 'payments'],
+    module: 'SalesModule',
   },
   Payment: {
     description: 'Payment recording with multiple payment methods',
-    features: ['multi_currency', 'payment_processors', 'refund_handling'],
+    features: ['payment_methods', 'payment_tracking', 'receipt_generation'],
     relationships: ['customer', 'invoice', 'recorded_by_user'],
-  },
-  PurchaseOrder: {
-    description: 'Purchase order management with approval workflow',
-    features: ['approval_workflow', 'delivery_tracking', 'financial_calculations'],
-    relationships: ['supplier', 'items', 'goods_received_notes', 'created_by_user'],
-  },
-  PurchaseOrderItem: {
-    description: 'Individual line items in purchase orders',
-    features: ['quality_inspection', 'delivery_performance', 'cost_tracking'],
-    relationships: ['purchase_order', 'product'],
-  },
-  GoodsReceivedNote: {
-    description: 'Goods receipt tracking with quality inspection',
-    features: ['quality_inspection', 'delivery_validation', 'batch_tracking'],
-    relationships: ['purchase_order', 'supplier', 'received_by_user'],
+    module: 'SalesModule',
   },
   StockMovement: {
     description: 'Comprehensive inventory movement tracking',
-    features: ['movement_types', 'audit_trail', 'batch_tracking', 'valuation'],
+    features: ['movement_types', 'audit_trail', 'quantity_tracking'],
     relationships: ['product', 'moved_by_user'],
-  },
-  StockAdjustment: {
-    description: 'Manual stock corrections with approval workflow',
-    features: ['approval_workflow', 'physical_count', 'variance_analysis'],
-    relationships: ['product', 'adjusted_by_user', 'approved_by_user'],
-  },
-  Plugin: {
-    description: 'Plugin system for ERP extensibility',
-    features: ['lifecycle_management', 'configuration', 'performance_monitoring'],
-    relationships: [],
+    module: 'InventoryModule',
   },
 } as const;
 
 /**
- * Database performance indexes summary
+ * Database performance indexes for active entities only
  * Key indexes for optimal query performance
  */
-export const PERFORMANCE_INDEXES = {
-  // Most critical indexes for query performance
+export const ACTIVE_PERFORMANCE_INDEXES = {
+  // Most critical indexes for active entities
   CRITICAL: [
     'users.email',
     'users.username', 
     'products.barcode',
     'customers.customerCode',
-    'suppliers.supplierCode',
     'sales_orders.orderNumber',
-    'purchase_orders.orderNumber',
     'invoices.invoiceNumber',
     'payments.paymentNumber',
   ],
   
-  // Important indexes for common queries
+  // Important indexes for common queries in active modules
   IMPORTANT: [
     'products.categoryId_status_isActive',
     'sales_orders.customerId_status',
-    'purchase_orders.supplierId_status',
     'stock_movements.productId_movementType',
     'invoices.customerId_status_dueDate',
     'payments.customerId_invoiceId',
+    'categories.parentId_isActive',
   ],
   
-  // Useful indexes for reporting and analytics
+  // Analytics indexes for dashboard and reporting
   ANALYTICS: [
     'sales_orders.orderDate',
-    'purchase_orders.orderDate',
     'stock_movements.movementDate',
     'invoices.invoiceDate_dueDate',
-    'products.stockQuantity_reorderLevel',
+    'payments.paymentDate',
+    'products.createdAt_updatedAt',
   ],
 } as const;
 
 /**
- * Entity validation rules summary
- * Common validation patterns used across entities
+ * Validation patterns for active entities
+ * Common validation patterns used across active modules
  */
 export const VALIDATION_PATTERNS = {
   UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   PHONE: /^\+?[\d\s\-\(\)]+$/,
-  SKU: /^[A-Z0-9\-_]{3,50}$/,
+  BARCODE: /^[A-Z0-9\-_]{3,50}$/,  // Updated from SKU to BARCODE
   ORDER_NUMBER: /^[A-Z]{2,3}-[A-Z0-9\-]+$/,
+  CUSTOMER_CODE: /^[A-Z]{2,4}-[0-9]{4,6}$/,
+  INVOICE_NUMBER: /^INV-[A-Z0-9\-]+$/,
+  PAYMENT_NUMBER: /^PAY-[A-Z0-9\-]+$/,
 } as const;
 
-// export default ALL_ENTITIES; // Temporarily commented out due to compilation issues
+// Export active entities as default for TypeORM configuration
+export default ACTIVE_ENTITIES;

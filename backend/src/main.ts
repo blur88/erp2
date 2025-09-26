@@ -3,8 +3,8 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
-import { SecurityConfigService } from './common/security/security.config';
-import { InputSanitizationMiddleware } from './common/security/input-sanitization.middleware';
+import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
+import { DetailedErrorFilter } from './common/filters/detailed-error.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,36 +12,40 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Apply comprehensive security configuration
-  const securityConfig = new SecurityConfigService(configService);
-  securityConfig.applySecurity(app);
+  const securityService = new SecurityApplicationService(configService);
+  securityService.applySecurity(app);
 
-  // Apply input sanitization middleware
-  app.use(new InputSanitizationMiddleware().use.bind(new InputSanitizationMiddleware()));
+  // Apply security monitoring middleware
+  app.use(new SecurityMonitoringMiddleware().use.bind(new SecurityMonitoringMiddleware()));
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
+
+  // Apply custom exception filter for detailed error responses
+  app.useGlobalFilters(new DetailedErrorFilter());
 
   // Enhanced Global Validation Pipe with Security Features
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true, // Remove non-whitelisted properties
-      forbidNonWhitelisted: true, // Throw error for non-whitelisted properties
-      skipMissingProperties: false,
+      forbidNonWhitelisted: false, // Allow unknown query parameters (changed from true)
+      skipMissingProperties: true, // Allow optional properties to be missing
       skipNullProperties: false,
       skipUndefinedProperties: false,
-      disableErrorMessages: configService.get('NODE_ENV') === 'production', // Hide detailed validation errors in production
+      disableErrorMessages: false, // Always show detailed validation errors for debugging
       validationError: {
         target: false, // Don't expose the target object in error messages
         value: false, // Don't expose the invalid value in error messages
       },
       exceptionFactory: (errors) => {
-        // Custom exception factory for security
+        // Custom exception factory for debugging
+        console.log('Validation errors:', JSON.stringify(errors, null, 2));
         const messages = errors.map(error => {
           const constraints = Object.values(error.constraints || {});
-          return constraints.length > 0 ? constraints[0] : 'Validation failed';
+          return constraints.length > 0 ? constraints[0] : `Validation failed for ${error.property}`;
         });
-        
+
         return new Error(`Validation failed: ${messages.join(', ')}`);
       },
     }),

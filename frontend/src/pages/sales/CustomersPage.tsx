@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -8,8 +8,6 @@ import {
   Grid,
   Chip,
   IconButton,
-  Menu,
-  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -17,6 +15,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
   InputAdornment,
   Table,
   TableBody,
@@ -29,43 +28,33 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
-  Avatar,
   Tooltip,
-  Divider,
   Stack,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   RestoreFromTrash as RestoreIcon,
   Person as PersonIcon,
-  Business as BusinessIcon,
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
-  Email as EmailIcon,
-  LocationOn as LocationIcon,
   TrendingUp as SalesIcon,
-  Block as SuspendIcon,
-  CheckCircle as ActivateIcon,
-  Cancel as DeactivateIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { useNotification } from '@/hooks/useNotification'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
   fetchCustomers,
   createCustomer,
   updateCustomer,
   deleteCustomer,
-  activateCustomer,
-  deactivateCustomer,
-  suspendCustomer,
   selectCustomers,
   selectCustomersLoading,
   selectCustomersError,
@@ -74,65 +63,36 @@ import {
   setFilters,
   clearError,
 } from '@/store/slices/customerSlice'
-import { addNotification } from '@/store/slices/notificationSlice'
 import type { Customer } from '@/types'
-import { CustomerType, CustomerStatus, PriceLevel } from '@/types'
+import { CustomerType, PriceLevel } from '@/types'
+import { salesApi } from '@/services/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 // Form validation schema
 const customerSchema = yup.object({
   name: yup.string().required('Name is required').max(200, 'Name must be less than 200 characters'),
   type: yup.string().oneOf(['individual', 'business']).required('Type is required'),
-  contactPerson: yup.string().optional().max(200, 'Contact person must be less than 200 characters'),
-  email: yup.string().email('Invalid email').optional().max(100, 'Email must be less than 100 characters'),
-  phone: yup.string().optional(),
-  alternativePhone: yup.string().optional(),
-  taxId: yup.string().optional().max(30, 'Tax ID must be less than 30 characters'),
-  billingAddress: yup.string().optional(),
-  billingCity: yup.string().optional().max(100, 'City must be less than 100 characters'),
-  billingState: yup.string().optional().max(100, 'State must be less than 100 characters'),
-  billingPostalCode: yup.string().optional().max(20, 'Postal code must be less than 20 characters'),
-  billingCountry: yup.string().optional().max(100, 'Country must be less than 100 characters'),
-  shippingAddress: yup.string().optional(),
-  shippingCity: yup.string().optional().max(100, 'City must be less than 100 characters'),
-  shippingState: yup.string().optional().max(100, 'State must be less than 100 characters'),
-  shippingPostalCode: yup.string().optional().max(20, 'Postal code must be less than 20 characters'),
-  shippingCountry: yup.string().optional().max(100, 'Country must be less than 100 characters'),
+  phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
   priceLevel: yup.string().oneOf(['retail', 'wholesale', 'special']).optional(),
-  creditLimit: yup.number().min(0, 'Credit limit must be positive').optional(),
-  paymentTermsDays: yup.number().min(0, 'Payment terms must be positive').optional(),
-  notes: yup.string().optional(),
+  notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
 interface CustomerFormData {
-  name?: string
-  type?: CustomerType
-  contactPerson?: string
-  email?: string
-  phone?: string
-  alternativePhone?: string
-  taxId?: string
-  billingAddress?: string
-  billingCity?: string
-  billingState?: string
-  billingPostalCode?: string
-  billingCountry?: string
-  shippingAddress?: string
-  shippingCity?: string
-  shippingState?: string
-  shippingPostalCode?: string
-  shippingCountry?: string
-  priceLevel?: PriceLevel
-  creditLimit?: number
-  paymentTermsDays?: number
-  notes?: string
+  name: string
+  type: CustomerType
+  phone?: string | null
+  priceLevel: PriceLevel
+  notes?: string | null
 }
 
 const CustomersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const dispatch = useAppDispatch()
+  const { showSuccess, showError } = useNotification()
 
   // Redux state
   const customers = useAppSelector(selectCustomers)
@@ -142,78 +102,149 @@ const CustomersPage: React.FC = () => {
   const filters = useAppSelector(selectCustomersFilters)
 
   // Local state
-  const [searchTerm, setSearchTerm] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
-  const [copyShippingFromBilling, setCopyShippingFromBilling] = useState(false)
+  const [phoneValue, setPhoneValue] = useState<string>('')
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
 
   // Form setup
-  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
     resolver: yupResolver(customerSchema) as any,
     defaultValues: {
+      name: '',
       type: CustomerType.BUSINESS,
       priceLevel: PriceLevel.RETAIL,
-      creditLimit: 0,
-      paymentTermsDays: 30,
+      phone: null,
+      notes: null,
     }
   })
 
-  // Watch billing address fields to copy to shipping
-  const billingAddress = watch('billingAddress' as any)
-  const billingCity = watch('billingCity' as any)
-  const billingState = watch('billingState' as any)
-  const billingPostalCode = watch('billingPostalCode' as any)
-  const billingCountry = watch('billingCountry' as any)
+  // Search and filter functionality
+  const searchHookInitialized = useRef(false)
+  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: filters.search || '',
+    onSearchChange: (searchTerm) => {
+      // Prevent initial trigger from hook
+      if (!searchHookInitialized.current) {
+        searchHookInitialized.current = true
+        return
+      }
+      dispatch(setFilters({ search: searchTerm }))
+    },
+  })
 
-  // Load customers on mount
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: () => handleOpenForm(),
+    onRefresh: () => dispatch(fetchCustomers({ ...filters })),
+  })
+
+  // Phone duplicate validation
+  const checkPhoneDuplicate = useCallback(async (phone: string) => {
+    if (!phone || phone.trim().length === 0) {
+      setPhoneError(null)
+      return
+    }
+
+    // Normalize phone for comparison (remove spaces, hyphens, parentheses, plus)
+    const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '')
+    if (normalizedPhone.length === 0) {
+      setPhoneError(null)
+      return
+    }
+
+    setIsCheckingPhone(true)
+    setPhoneError(null)
+
+    try {
+      // Search for customers with similar phone numbers in BOTH active and deleted customers
+      const [activeResponse, deletedResponse] = await Promise.all([
+        salesApi.getCustomers({ search: phone }),
+        salesApi.getDeletedCustomers({ search: phone })
+      ])
+
+      // Cast to any to handle type mismatch between interface and actual API response
+      const activeApiResponse = activeResponse as any
+      const deletedApiResponse = deletedResponse as any
+
+      // Combine both active and deleted customers for duplicate checking
+      const allCustomers = [
+        ...(activeApiResponse.data || []),
+        ...(deletedApiResponse.data || [])
+      ]
+
+      if (allCustomers.length > 0) {
+        // Check if any customer has the same normalized phone
+        const duplicateCustomer = allCustomers.find((customer: Customer) => {
+          if (!customer.phone) return false
+          const existingNormalizedPhone = customer.phone.replace(/[\s\-\(\)\+]/g, '')
+          return existingNormalizedPhone === normalizedPhone &&
+                 (!selectedCustomer || customer.id !== selectedCustomer.id)
+        })
+
+        if (duplicateCustomer) {
+          setPhoneError(`Phone number already exists for customer: ${duplicateCustomer.name} (${duplicateCustomer.customerCode})`)
+        }
+      }
+    } catch (error) {
+      console.error('Error checking phone duplicate:', error)
+    } finally {
+      setIsCheckingPhone(false)
+    }
+  }, [selectedCustomer])
+
+  // Debounced phone validation
+  const debouncedPhoneCheck = useMemo(
+    () => {
+      let timeoutId: NodeJS.Timeout
+      return (phone: string) => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => checkPhoneDuplicate(phone), 500)
+      }
+    },
+    [checkPhoneDuplicate]
+  )
+
+  // Load customers on mount and when filters change
   useEffect(() => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm }))
-  }, [dispatch, filters, searchTerm])
-
-  // Handle search
-  const handleSearch = useCallback(() => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm }))
-  }, [dispatch, filters, searchTerm])
+    dispatch(fetchCustomers({ ...filters }))
+  }, [dispatch, filters.search, filters.type, filters.priceLevel, filters.sortBy, filters.sortOrder])
 
   // Handle pagination
   const handleChangePage = (event: unknown, newPage: number) => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm, page: newPage + 1 }))
+    dispatch(fetchCustomers({ ...filters, page: newPage + 1 }))
   }
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(fetchCustomers({ ...filters, search: searchTerm, page: 1, limit: parseInt(event.target.value) }))
+    dispatch(fetchCustomers({ ...filters, page: 1, limit: parseInt(event.target.value) }))
   }
 
   // Handle form submit
-  const handleFormSubmit = async (data: any) => {
+  const handleFormSubmit = async (data: CustomerFormData) => {
     try {
+      // Ensure empty strings are converted to null for optional fields
+      const cleanedData = {
+        ...data,
+        phone: data.phone?.trim() || null,
+        notes: data.notes?.trim() || null,
+      }
+
       if (selectedCustomer) {
-        await dispatch(updateCustomer({ id: selectedCustomer.id, data })).unwrap()
-        dispatch(addNotification({
-          message: 'Customer updated successfully',
-          type: 'success',
-          title: 'Success'
-        }))
+        await dispatch(updateCustomer({ id: selectedCustomer.id, data: cleanedData })).unwrap()
+        showSuccess('Customer updated successfully')
       } else {
-        await dispatch(createCustomer(data)).unwrap()
-        dispatch(addNotification({
-          message: 'Customer created successfully',
-          type: 'success',
-          title: 'Success'
-        }))
+        await dispatch(createCustomer(cleanedData)).unwrap()
+        showSuccess('Customer created successfully')
       }
       handleCloseForm()
-      dispatch(fetchCustomers({ ...filters, search: searchTerm }))
+      dispatch(fetchCustomers({ ...filters }))
     } catch (error) {
-      dispatch(addNotification({
-        message: `Failed to ${selectedCustomer ? 'update' : 'create'} customer: ${error}`,
-        type: 'error',
-        title: 'Error'
-      }))
+      showError(`Failed to ${selectedCustomer ? 'update' : 'create'} customer: ${error}`)
     }
   }
 
@@ -222,64 +253,85 @@ const CustomersPage: React.FC = () => {
     if (!selectedCustomer) return
     try {
       await dispatch(deleteCustomer(selectedCustomer.id)).unwrap()
-      dispatch(addNotification({
-        message: 'Customer deleted successfully',
-        type: 'success',
-        title: 'Success'
-      }))
+
+      // If we get here, deletion was successful
+      showSuccess(`Customer "${selectedCustomer.name}" deleted successfully`)
       setIsDeleteConfirmOpen(false)
       setSelectedCustomer(null)
-    } catch (error) {
-      dispatch(addNotification({
-        message: `Failed to delete customer: ${error}`,
-        type: 'error',
-        title: 'Error'
+
+      // Refresh the customer list to ensure consistency
+      dispatch(fetchCustomers({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: filters.search || undefined,
+        type: filters.type || undefined,
+        priceLevel: filters.priceLevel || undefined,
+        isActive: filters.isActive,
+        sortBy: filters.sortBy || undefined,
+        sortOrder: filters.sortOrder || undefined
       }))
+    } catch (error: any) {
+      // Handle error responses with detailed information
+      let errorTitle = 'Failed to Delete Customer'
+      let errorMessage = 'An unexpected error occurred. Please try again.'
+
+      console.log('Delete error:', error) // Debug log
+
+      // Handle both direct errors and Redux rejection values
+      const actualError = error?.payload || error
+
+      // Handle axios error responses - check multiple possible error structures
+      if (actualError?.response?.data) {
+        const backendError = actualError.response.data
+        console.log('Backend error:', backendError) // Debug log
+
+        if (backendError.message) {
+          // Use a concise error message that focuses on the key issue
+          errorMessage = backendError.message
+
+          // Add the most important suggestion (first one) if available
+          if (backendError.suggestions && Array.isArray(backendError.suggestions) && backendError.suggestions.length > 0) {
+            errorMessage += `\n\nSuggestion: ${backendError.suggestions[0]}`
+          }
+
+          // Customize title based on error type
+          if (backendError.error === 'DELETION_PREVENTED_BY_DEPENDENCIES') {
+            errorTitle = 'Cannot Delete Customer'
+          }
+        }
+      } else if (actualError?.message && actualError.message !== 'Request failed with status code 400') {
+        // Use the error message if it's meaningful
+        errorMessage = actualError.message
+      }
+
+      showError(errorMessage)
     }
   }
 
-  // Handle customer status actions
-  const handleStatusAction = async (customer: Customer, action: 'activate' | 'deactivate' | 'suspend') => {
-    try {
-      switch (action) {
-        case 'activate':
-          await dispatch(activateCustomer(customer.id)).unwrap()
-          break
-        case 'deactivate':
-          await dispatch(deactivateCustomer(customer.id)).unwrap()
-          break
-        case 'suspend':
-          await dispatch(suspendCustomer({ id: customer.id })).unwrap()
-          break
-      }
-      dispatch(addNotification({
-        message: `Customer ${action}d successfully`,
-        type: 'success',
-        title: 'Success'
-      }))
-      dispatch(fetchCustomers({ ...filters, search: searchTerm }))
-    } catch (error) {
-      dispatch(addNotification({
-        message: `Failed to ${action} customer: ${error}`,
-        type: 'error',
-        title: 'Error'
-      }))
-    }
-    setAnchorEl(null)
-  }
 
   // Form helpers
   const handleOpenForm = (customer?: Customer) => {
+    setPhoneError(null)
+    setIsCheckingPhone(false)
     if (customer) {
       setSelectedCustomer(customer)
-      reset(customer)
+      setPhoneValue(customer.phone || '')
+      reset({
+        name: customer.name,
+        type: customer.type,
+        priceLevel: customer.priceLevel,
+        phone: customer.phone || null,
+        notes: customer.notes || null,
+      })
     } else {
       setSelectedCustomer(null)
+      setPhoneValue('')
       reset({
+        name: '',
         type: CustomerType.BUSINESS,
         priceLevel: PriceLevel.RETAIL,
-        creditLimit: 0,
-        paymentTermsDays: 30,
+        phone: null,
+        notes: null,
       })
     }
     setIsFormOpen(true)
@@ -288,6 +340,9 @@ const CustomersPage: React.FC = () => {
   const handleCloseForm = () => {
     setIsFormOpen(false)
     setSelectedCustomer(null)
+    setPhoneError(null)
+    setIsCheckingPhone(false)
+    setPhoneValue('')
     reset()
   }
 
@@ -296,48 +351,14 @@ const CustomersPage: React.FC = () => {
     setIsViewOpen(true)
   }
 
-  // Copy billing to shipping
-  const handleCopyBillingToShipping = () => {
-    if (copyShippingFromBilling) {
-      setValue('shippingAddress' as any, billingAddress)
-      setValue('shippingCity' as any, billingCity)
-      setValue('shippingState' as any, billingState)
-      setValue('shippingPostalCode' as any, billingPostalCode)
-      setValue('shippingCountry' as any, billingCountry)
-    } else {
-      setValue('shippingAddress' as any, '')
-      setValue('shippingCity' as any, '')
-      setValue('shippingState' as any, '')
-      setValue('shippingPostalCode' as any, '')
-      setValue('shippingCountry' as any, '')
-    }
+
+  // Get active status chip
+  const getActiveStatusChip = (isActive: boolean) => {
+    return isActive
+      ? <Chip label="Active" size="small" color="success" />
+      : <Chip label="Inactive" size="small" color="default" />
   }
 
-  useEffect(() => {
-    handleCopyBillingToShipping()
-  }, [copyShippingFromBilling, billingAddress, billingCity, billingState, billingPostalCode, billingCountry])
-
-  // Get status color and label
-  const getStatusChip = (status: CustomerStatus, isActive: boolean) => {
-    if (!isActive) {
-      return <Chip label="Inactive" size="small" color="default" />
-    }
-    
-    switch (status) {
-      case CustomerStatus.ACTIVE:
-        return <Chip label="Active" size="small" color="success" />
-      case CustomerStatus.SUSPENDED:
-        return <Chip label="Suspended" size="small" color="warning" />
-      case CustomerStatus.BLACKLISTED:
-        return <Chip label="Blacklisted" size="small" color="error" />
-      default:
-        return <Chip label="Inactive" size="small" color="default" />
-    }
-  }
-
-  const getCustomerTypeIcon = (type: CustomerType) => {
-    return type === CustomerType.BUSINESS ? <BusinessIcon /> : <PersonIcon />
-  }
 
   return (
     <Box>
@@ -351,17 +372,27 @@ const CustomersPage: React.FC = () => {
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <PersonIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Customers
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             Manage your customers and client information ({customers.length} total)
           </Typography>
         </Box>
-        <Box sx={{ 
-          display: 'flex', 
+        <Box sx={{
+          display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 2,
+          gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
           <Button
@@ -394,13 +425,9 @@ const CustomersPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
-            size={isMobile ? "medium" : "large"}
+            size="medium"
             onClick={() => handleOpenForm()}
             fullWidth={isMobile}
-            sx={{
-              py: isMobile ? 1.5 : 1,
-              fontWeight: 600
-            }}
           >
             {isMobile ? "Add New Customer" : "Add Customer"}
           </Button>
@@ -408,71 +435,148 @@ const CustomersPage: React.FC = () => {
       </Box>
 
       {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={filters.type || ''}
-                label="Type"
-                onChange={(e) => dispatch(setFilters({ type: e.target.value as CustomerType }))}
-              >
-                <MenuItem value="">All Types</MenuItem>
-                <MenuItem value={CustomerType.INDIVIDUAL}>Individual</MenuItem>
-                <MenuItem value={CustomerType.BUSINESS}>Business</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={filters.status || ''}
-                label="Status"
-                onChange={(e) => dispatch(setFilters({ status: e.target.value as CustomerStatus }))}
-              >
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value={CustomerStatus.ACTIVE}>Active</MenuItem>
-                <MenuItem value={CustomerStatus.INACTIVE}>Inactive</MenuItem>
-                <MenuItem value={CustomerStatus.SUSPENDED}>Suspended</MenuItem>
-                <MenuItem value={CustomerStatus.BLACKLISTED}>Blacklisted</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Price Level</InputLabel>
-              <Select
-                value={filters.priceLevel || ''}
-                label="Price Level"
-                onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value as PriceLevel }))}
-              >
-                <MenuItem value="">All Levels</MenuItem>
-                <MenuItem value={PriceLevel.RETAIL}>Retail</MenuItem>
-                <MenuItem value={PriceLevel.WHOLESALE}>Wholesale</MenuItem>
-                <MenuItem value={PriceLevel.SPECIAL}>Special</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? 2 : 1,
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 3,
+        '& > *': {
+          alignSelf: isMobile ? 'stretch' : 'flex-start'
+        }
+      }}>
+        <TextField
+          placeholder="Search customers..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="medium"
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 250,
+            flex: isMobile ? 'none' : 1,
+            maxWidth: isMobile ? 'none' : 400,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '& input': {
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+              }
+            },
+            '& .MuiInputAdornment-root': {
+              '& .MuiSvgIcon-root': {
+                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.searchField.icon.color
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl 
+          size="medium" 
+          sx={{ 
+            minWidth: isMobile ? 'auto' : 120,
+            flex: 'none'
+          }}
+        >
+          <InputLabel 
+            sx={{ 
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '&.MuiInputLabel-shrunk': {
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+              }
+            }}
+          >
+            Type
+          </InputLabel>
+          <Select
+            value={filters.type || 'all'}
+            label="Type"
+            onChange={(e) => dispatch(setFilters({ type: e.target.value === 'all' ? undefined : e.target.value as CustomerType }))}
+            sx={{
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                padding: '8.5px 14px',
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                boxSizing: 'border-box'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.23)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.87)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: theme.palette.primary.main,
+                borderWidth: 2
+              }
+            }}
+          >
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
+            <MenuItem value={CustomerType.INDIVIDUAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Individual</MenuItem>
+            <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            flex: 'none'
+          }}
+        >
+          <InputLabel 
+            sx={{ 
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '&.MuiInputLabel-shrunk': {
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+              }
+            }}
+          >
+            Price Level
+          </InputLabel>
+          <Select
+            value={filters.priceLevel || 'all'}
+            label="Price Level"
+            onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value === 'all' ? undefined : e.target.value as PriceLevel }))}
+            sx={{
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                padding: '8.5px 14px',
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                boxSizing: 'border-box'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.23)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(0, 0, 0, 0.87)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: theme.palette.primary.main,
+                borderWidth: 2
+              }
+            }}
+          >
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
+            <MenuItem value={PriceLevel.RETAIL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Retail</MenuItem>
+            <MenuItem value={PriceLevel.WHOLESALE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Wholesale</MenuItem>
+            <MenuItem value={PriceLevel.SPECIAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Special</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
       {/* Error Alert */}
       {error && (
@@ -483,29 +587,92 @@ const CustomersPage: React.FC = () => {
 
       {/* Customer Table */}
       <Paper>
-        <TableContainer>
-          <Table>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table
+            size={TABLE_STYLES.size}
+            sx={{
+              minWidth: isMobile ? 650 : 800,
+              '& .MuiTableCell-root': {
+                borderBottom: TABLE_STYLES.cell.border,
+                py: TABLE_STYLES.cell.padding.py,
+                px: TABLE_STYLES.cell.padding.px
+              }
+            }}
+          >
             <TableHead>
-              <TableRow>
-                <TableCell>Customer</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Contact</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Credit Info</TableCell>
-                <TableCell>Sales</TableCell>
-                <TableCell align="right">Actions</TableCell>
+              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
+                    Customer
+                  </Typography>
+                </TableCell>
+                {!isMobile && (
+                  <TableCell sx={{ width: '10%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
+                      Type
+                    </Typography>
+                  </TableCell>
+                )}
+                <TableCell sx={{ width: isMobile ? '25%' : '15%' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
+                    Contact
+                  </Typography>
+                </TableCell>
+                {!isMobile && (
+                  <TableCell sx={{ width: '12%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
+                      Price Level
+                    </Typography>
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ width: '10%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
+                      Sales
+                    </Typography>
+                  </TableCell>
+                )}
+                <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    color: TYPOGRAPHY_STYLES.tableHeader.color,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                  }}>
+                    Actions
+                  </Typography>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : customers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No customers found
                     </Typography>
@@ -513,87 +680,203 @@ const CustomersPage: React.FC = () => {
                 </TableRow>
               ) : (
                 customers.map((customer) => (
-                  <TableRow key={customer.id} hover>
+                  <TableRow 
+                    key={customer.id} 
+                    hover
+                    tabIndex={0}
+                    sx={{
+                      '&:hover, &:focus-within': {
+                        backgroundColor: 'action.hover',
+                        '& .customer-actions': {
+                          opacity: 1
+                        }
+                      },
+                      transition: 'background-color 0.2s ease',
+                      cursor: 'default',
+                      height: TABLE_STYLES.row.height
+                    }}
+                  >
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
-                          {getCustomerTypeIcon(customer.type)}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="subtitle2" fontWeight={600}>
-                            {customer.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {customer.customerCode}
-                          </Typography>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                          fontWeight: 400,
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                        }}>
+                          {customer.name}
+                        </Typography>
+                      </Box>
+                      {/* Mobile-only type, price level, and active status indicators */}
+                      {isMobile && (
+                        <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          <Chip
+                            label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
+                          />
+                          <Chip
+                            label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
+                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                            size="small"
+                            color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
+                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
+                          />
+                          {getActiveStatusChip(customer.isActive)}
                         </Box>
+                      )}
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Chip
+                          label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                            height: `${TABLE_STYLES.row.height * 0.65}px`, // Scale to 65% of row height for better proportion
+                            '& .MuiChip-label': {
+                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`, // Scale font size with row height
+                              lineHeight: 1
+                            }
+                          }}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        {customer.phone && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>{customer.phone}</Typography>
+                          </Box>
+                        )}
                       </Box>
                     </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        {customer.email && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <EmailIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            <Typography variant="caption">{customer.email}</Typography>
-                          </Box>
-                        )}
-                        {customer.phone && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            <Typography variant="caption">{customer.phone}</Typography>
-                          </Box>
-                        )}
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusChip(customer.status, customer.isActive)}
-                    </TableCell>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        <Typography variant="caption" color="text.secondary">
-                          Limit: {formatCurrency(customer.creditLimit)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Balance: {formatCurrency(customer.currentBalance)}
-                        </Typography>
-                        <Typography 
-                          variant="caption" 
-                          color={customer.availableCredit >= 0 ? 'success.main' : 'error.main'}
-                        >
-                          Available: {formatCurrency(customer.availableCredit)}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        <Typography variant="caption" color="text.secondary">
-                          Orders: {customer.totalOrders}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Sales: {formatCurrency(customer.totalSales)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Avg: {formatCurrency(customer.averageOrderValue)}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Chip
+                          label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
+                                customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                          size="small"
+                          color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
+                                customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
+                          sx={{
+                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                            height: `${TABLE_STYLES.row.height * 0.65}px`,
+                            '& .MuiChip-label': {
+                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`,
+                              lineHeight: 1
+                            }
+                          }}
+                        />
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                            {customer.totalOrders} orders
+                          </Typography>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                            {formatCurrency(customer.totalSales)}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    )}
                     <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          setSelectedCustomer(customer)
-                          setAnchorEl(e.currentTarget)
+                      <Box
+                        className="customer-actions"
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          alignItems: 'center',
+                          height: '100%', // Fill the full cell height
+                          gap: 0.25,
+                          opacity: isMobile ? 1 : 0.7,
+                          transition: 'opacity 0.2s ease'
                         }}
                       >
-                        <MoreIcon />
-                      </IconButton>
+
+                        {/* Standard Action Buttons */}
+                        <IconButton
+                          size="small"
+                          title={`Edit ${customer.name}`}
+                          aria-label={`Edit customer ${customer.name}`}
+                          onClick={() => handleOpenForm(customer)}
+                          sx={{
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                              color: 'primary.main'
+                            }
+                          }}
+                        >
+                          <EditIcon sx={{
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                          }} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          title={`Delete ${customer.name}`}
+                          aria-label={`Delete customer ${customer.name}`}
+                          onClick={() => {
+                            setSelectedCustomer(customer)
+                            setIsDeleteConfirmOpen(true)
+                          }}
+                          sx={{
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
+                            '&:hover': {
+                              backgroundColor: 'error.light',
+                              color: 'error.main'
+                            }
+                          }}
+                        >
+                          <DeleteIcon sx={{
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                          }} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          title={`View ${customer.name} details`}
+                          aria-label={`View customer ${customer.name} details`}
+                          onClick={() => handleViewCustomer(customer)}
+                          sx={{
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                              color: 'primary.main'
+                            }
+                          }}
+                        >
+                          <ViewIcon sx={{
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                          }} />
+                        </IconButton>
+                      </Box>
+                      {/* Mobile-only additional info */}
+                      {isMobile && (
+                        <Box sx={{ mt: 0.25, textAlign: 'right' }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}>
+                            {customer.totalOrders} orders • {formatCurrency(customer.totalSales)}
+                          </Typography>
+                        </Box>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -614,54 +897,6 @@ const CustomersPage: React.FC = () => {
         />
       </Paper>
 
-      {/* Actions Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-      >
-        <MenuItem onClick={() => selectedCustomer && handleViewCustomer(selectedCustomer)}>
-          <ViewIcon sx={{ mr: 1 }} />
-          View Details
-        </MenuItem>
-        <MenuItem onClick={() => {
-          setAnchorEl(null)
-          selectedCustomer && handleOpenForm(selectedCustomer)
-        }}>
-          <EditIcon sx={{ mr: 1 }} />
-          Edit
-        </MenuItem>
-        <Divider />
-        {selectedCustomer?.status !== CustomerStatus.ACTIVE && (
-          <MenuItem onClick={() => selectedCustomer && handleStatusAction(selectedCustomer, 'activate')}>
-            <ActivateIcon sx={{ mr: 1 }} />
-            Activate
-          </MenuItem>
-        )}
-        {selectedCustomer?.isActive && selectedCustomer?.status === CustomerStatus.ACTIVE && (
-          <MenuItem onClick={() => selectedCustomer && handleStatusAction(selectedCustomer, 'deactivate')}>
-            <DeactivateIcon sx={{ mr: 1 }} />
-            Deactivate
-          </MenuItem>
-        )}
-        {selectedCustomer?.status !== CustomerStatus.SUSPENDED && (
-          <MenuItem onClick={() => selectedCustomer && handleStatusAction(selectedCustomer, 'suspend')}>
-            <SuspendIcon sx={{ mr: 1 }} />
-            Suspend
-          </MenuItem>
-        )}
-        <Divider />
-        <MenuItem
-          onClick={() => {
-            setAnchorEl(null)
-            setIsDeleteConfirmOpen(true)
-          }}
-          sx={{ color: 'error.main' }}
-        >
-          <DeleteIcon sx={{ mr: 1 }} />
-          Delete
-        </MenuItem>
-      </Menu>
 
       {/* Customer Form Dialog */}
       <Dialog 
@@ -719,71 +954,15 @@ const CustomersPage: React.FC = () => {
 
               <Grid item xs={12}>
                 <Controller
-                  name={"name" as any}
+                  name="name"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
                       label="Customer Name"
-                      error={!!(errors as any).name}
-                      helperText={(errors as any).name?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="contactPerson"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Contact Person"
-                      error={!!errors.contactPerson}
-                      helperText={errors.contactPerson?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="taxId"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Tax ID"
-                      error={!!errors.taxId}
-                      helperText={errors.taxId?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Contact Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Contact Information
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="email"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="email"
-                      label="Email"
-                      error={!!errors.email}
-                      helperText={errors.email?.message}
+                      error={!!errors.name}
+                      helperText={errors.name?.message}
                     />
                   )}
                 />
@@ -796,269 +975,28 @@ const CustomersPage: React.FC = () => {
                   render={({ field }) => (
                     <TextField
                       {...field}
+                      value={field.value || ''}
                       fullWidth
-                      label="Primary Phone"
-                      error={!!errors.phone}
-                      helperText={errors.phone?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="alternativePhone"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Alternative Phone"
-                      error={!!errors.alternativePhone}
-                      helperText={errors.alternativePhone?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Billing Address */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Billing Address
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Controller
-                  name="billingAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="Street Address"
-                      error={!!errors.billingAddress}
-                      helperText={errors.billingAddress?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingCity"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="City"
-                      error={!!errors.billingCity}
-                      helperText={errors.billingCity?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingState"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="State/Province"
-                      error={!!errors.billingState}
-                      helperText={errors.billingState?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingPostalCode"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Postal Code"
-                      error={!!errors.billingPostalCode}
-                      helperText={errors.billingPostalCode?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="billingCountry"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Country"
-                      error={!!errors.billingCountry}
-                      helperText={errors.billingCountry?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Shipping Address */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-                  <Typography variant="h6">
-                    Shipping Address
-                  </Typography>
-                  <FormControl>
-                    <Button
-                      size="small"
-                      variant={copyShippingFromBilling ? "contained" : "outlined"}
-                      onClick={() => setCopyShippingFromBilling(!copyShippingFromBilling)}
-                    >
-                      Same as Billing
-                    </Button>
-                  </FormControl>
-                </Box>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Controller
-                  name="shippingAddress"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="Street Address"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingAddress}
-                      helperText={errors.shippingAddress?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingCity"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="City"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingCity}
-                      helperText={errors.shippingCity?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingState"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="State/Province"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingState}
-                      helperText={errors.shippingState?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingPostalCode"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Postal Code"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingPostalCode}
-                      helperText={errors.shippingPostalCode?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="shippingCountry"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Country"
-                      disabled={copyShippingFromBilling}
-                      error={!!errors.shippingCountry}
-                      helperText={errors.shippingCountry?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Financial Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Financial Information
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="creditLimit"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="number"
-                      label="Credit Limit"
-                      inputProps={{ step: 0.01, min: 0 }}
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">RM</InputAdornment>
+                      label="Phone"
+                      error={!!errors.phone || !!phoneError}
+                      helperText={errors.phone?.message || phoneError}
+                      onChange={(e) => {
+                        field.onChange(e)
+                        setPhoneValue(e.target.value)
+                        debouncedPhoneCheck(e.target.value)
                       }}
-                      error={!!errors.creditLimit}
-                      helperText={errors.creditLimit?.message}
+                      InputProps={{
+                        endAdornment: isCheckingPhone ? (
+                          <InputAdornment position="end">
+                            <CircularProgress size={20} />
+                          </InputAdornment>
+                        ) : undefined,
+                      }}
                     />
                   )}
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="paymentTermsDays"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="number"
-                      label="Payment Terms (Days)"
-                      error={!!errors.paymentTermsDays}
-                      helperText={errors.paymentTermsDays?.message}
-                    />
-                  )}
-                />
-              </Grid>
 
               {/* Notes */}
               <Grid item xs={12}>
@@ -1068,6 +1006,7 @@ const CustomersPage: React.FC = () => {
                   render={({ field }) => (
                     <TextField
                       {...field}
+                      value={field.value || ''}
                       fullWidth
                       multiline
                       rows={3}
@@ -1084,7 +1023,7 @@ const CustomersPage: React.FC = () => {
             <Button onClick={handleCloseForm}>
               Cancel
             </Button>
-            <Button type="submit" variant="contained" disabled={loading}>
+            <Button type="submit" variant="contained" disabled={loading || !!phoneError || isCheckingPhone}>
               {loading ? <CircularProgress size={20} /> : (selectedCustomer ? 'Update' : 'Create')}
             </Button>
           </DialogActions>
@@ -1103,70 +1042,23 @@ const CustomersPage: React.FC = () => {
           {selectedCustomer && (
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
-                    {getCustomerTypeIcon(selectedCustomer.type)}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h5" fontWeight={600}>
-                      {selectedCustomer.name}
-                    </Typography>
-                    <Typography variant="subtitle1" color="text.secondary">
-                      {selectedCustomer.customerCode}
-                    </Typography>
-                    {getStatusChip(selectedCustomer.status, selectedCustomer.isActive)}
-                  </Box>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+                    {selectedCustomer.name}
+                  </Typography>
+                  {getActiveStatusChip(selectedCustomer.isActive)}
                 </Box>
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>Contact Information</Typography>
                 <Stack spacing={1}>
-                  {selectedCustomer.email && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                      <Typography>{selectedCustomer.email}</Typography>
-                    </Box>
-                  )}
                   {selectedCustomer.phone && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                       <Typography>{selectedCustomer.phone}</Typography>
                     </Box>
                   )}
-                  {selectedCustomer.fullAddress && (
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
-                      <Typography>{selectedCustomer.fullAddress}</Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>Financial Information</Typography>
-                <Stack spacing={1}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Credit Limit:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.creditLimit)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Current Balance:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.currentBalance)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Available Credit:</Typography>
-                    <Typography 
-                      fontWeight={600}
-                      color={selectedCustomer.availableCredit >= 0 ? 'success.main' : 'error.main'}
-                    >
-                      {formatCurrency(selectedCustomer.availableCredit)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Payment Terms:</Typography>
-                    <Typography fontWeight={600}>{selectedCustomer.paymentTermsDays} days</Typography>
-                  </Box>
                 </Stack>
               </Grid>
 
@@ -1223,28 +1115,17 @@ const CustomersPage: React.FC = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete customer "{selectedCustomer?.name}"? 
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsDeleteConfirmOpen(false)}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleDelete} 
-            color="error" 
-            variant="contained"
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={20} /> : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmationDialog
+        open={isDeleteConfirmOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete "${selectedCustomer?.name}"? This will move it to deleted items.`}
+        confirmText="Delete Customer"
+        cancelText="Cancel"
+        onConfirm={handleDelete}
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+        severity="warning"
+        loading={loading}
+      />
 
       {/* Deleted Customers Dialog */}
       <DeletedCustomersDialog

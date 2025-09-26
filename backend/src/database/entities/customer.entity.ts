@@ -6,14 +6,15 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsEmail,
   IsBoolean,
   IsOptional,
   IsEnum,
   MaxLength,
-  IsPhoneNumber,
   IsDecimal,
   Min,
+  IsObject,
+  Matches,
+  IsNotEmpty,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
@@ -25,12 +26,6 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-export enum CustomerStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  SUSPENDED = 'suspended',
-  BLACKLISTED = 'blacklisted',
-}
 
 export enum PriceLevel {
   RETAIL = 'retail',
@@ -45,9 +40,8 @@ export enum PriceLevel {
  */
 @Entity('customers')
 @Index(['customerCode'], { unique: true })
-@Index(['email'], { unique: true, where: 'email IS NOT NULL' })
 @Index(['phone'])
-@Index(['type', 'status'])
+@Index(['type'])
 @Index(['priceLevel'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
@@ -58,7 +52,9 @@ export class Customer extends BaseEntity {
     comment: 'Unique customer code/number',
   })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(20)
+  @Matches(/^[A-Za-z0-9_-]+$/, { message: 'Customer code must contain only alphanumeric characters, underscores, and hyphens' })
   customerCode: string;
 
   @Column({
@@ -76,31 +72,11 @@ export class Customer extends BaseEntity {
     comment: 'Customer name or business name',
   })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
+  @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, { message: 'Name contains invalid characters' })
   name: string;
 
-  @Column({
-    type: 'varchar',
-    length: 200,
-    nullable: true,
-    comment: 'Contact person name (for business customers)',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  contactPerson?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    unique: true,
-    comment: 'Customer email address',
-  })
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(100)
-  email?: string;
 
   @Column({
     type: 'varchar',
@@ -109,146 +85,13 @@ export class Customer extends BaseEntity {
     comment: 'Primary phone number',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @IsString()
+  @MaxLength(20)
   phone?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Alternative phone number',
-  })
-  @IsOptional()
-  @IsPhoneNumber()
-  alternativePhone?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 30,
-    nullable: true,
-    comment: 'Tax ID or business registration number',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  taxId?: string;
-
-  // Address Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Billing address',
-  })
-  @IsOptional()
-  @IsString()
-  billingAddress?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Billing city',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  billingCity?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Billing state/province',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  billingState?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Billing postal code',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  billingPostalCode?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Billing country',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  billingCountry?: string;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Shipping address (if different from billing)',
-  })
-  @IsOptional()
-  @IsString()
-  shippingAddress?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping city',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCity?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping state/province',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingState?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Shipping postal code',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  shippingPostalCode?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping country',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCountry?: string;
 
   // Business Information
-  @Column({
-    type: 'enum',
-    enum: CustomerStatus,
-    default: CustomerStatus.ACTIVE,
-    comment: 'Customer status',
-  })
-  @IsEnum(CustomerStatus)
-  status: CustomerStatus;
 
   @Column({
     type: 'boolean',
@@ -267,35 +110,6 @@ export class Customer extends BaseEntity {
   @IsEnum(PriceLevel)
   priceLevel: PriceLevel;
 
-  // Credit Management
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Credit limit for this customer',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  creditLimit: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Current outstanding balance',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  currentBalance: number;
-
-  @Column({
-    type: 'int',
-    default: 30,
-    comment: 'Payment terms in days',
-  })
-  paymentTermsDays: number;
 
   // Customer Metrics
   @Column({
@@ -345,10 +159,11 @@ export class Customer extends BaseEntity {
   @Column({
     type: 'json',
     nullable: true,
-    comment: 'Additional customer metadata',
+    comment: 'Additional customer metadata - LIMITED TO SAFE DATA ONLY',
   })
   @IsOptional()
-  metadata?: Record<string, any>;
+  @IsObject()
+  metadata?: Record<string, string | number | boolean>;
 
   // Relationships
   @OneToMany(() => SalesOrder, (salesOrder) => salesOrder.customer, {
@@ -367,52 +182,20 @@ export class Customer extends BaseEntity {
   payments: Payment[];
 
   // Computed properties
-  get fullAddress(): string {
-    const parts = [
-      this.billingAddress,
-      this.billingCity,
-      this.billingState,
-      this.billingPostalCode,
-      this.billingCountry,
-    ].filter(Boolean);
-    return parts.join(', ');
-  }
-
-  get fullShippingAddress(): string {
-    if (!this.shippingAddress) return this.fullAddress;
-    
-    const parts = [
-      this.shippingAddress,
-      this.shippingCity,
-      this.shippingState,
-      this.shippingPostalCode,
-      this.shippingCountry,
-    ].filter(Boolean);
-    return parts.join(', ');
-  }
-
-  get availableCredit(): number {
-    return Number(this.creditLimit) - Number(this.currentBalance);
-  }
-
-  get isOverCreditLimit(): boolean {
-    return Number(this.currentBalance) > Number(this.creditLimit);
-  }
-
   get averageOrderValue(): number {
     return this.totalOrders > 0 ? Number(this.totalSales) / this.totalOrders : 0;
   }
 
-  // Helper methods
-  updateBalance(amount: number, type: 'increase' | 'decrease'): void {
-    if (type === 'increase') {
-      this.currentBalance = Number(this.currentBalance) + Number(amount);
-    } else {
-      this.currentBalance = Math.max(0, Number(this.currentBalance) - Number(amount));
-    }
-  }
-
+  /**
+   * Updates sales metrics for the customer
+   * @param orderAmount - The amount of the order
+   * @param isFirstOrder - Whether this is the customer's first order
+   */
   updateSalesMetrics(orderAmount: number, isFirstOrder: boolean = false): void {
+    if (orderAmount < 0) {
+      throw new Error('Order amount cannot be negative');
+    }
+    
     this.totalSales = Number(this.totalSales) + Number(orderAmount);
     this.totalOrders += 1;
     this.lastPurchaseDate = new Date();
@@ -422,11 +205,11 @@ export class Customer extends BaseEntity {
     }
   }
 
-  canPurchase(amount: number): boolean {
-    if (!this.isActive || this.status === CustomerStatus.SUSPENDED || this.status === CustomerStatus.BLACKLISTED) {
-      return false;
-    }
-    
-    return (Number(this.currentBalance) + Number(amount)) <= Number(this.creditLimit);
+  /**
+   * Checks if customer is allowed to make purchases
+   * @returns true if customer can purchase, false otherwise
+   */
+  canPurchase(): boolean {
+    return this.isActive;
   }
 }

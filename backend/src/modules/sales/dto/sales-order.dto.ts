@@ -1,23 +1,16 @@
 import {
   IsString,
   IsOptional,
-  IsEnum,
   IsUUID,
   MaxLength,
-  IsDecimal,
-  IsDateString,
   Min,
   IsArray,
   ValidateNested,
   IsInt,
-  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { 
-  SalesOrderStatus, 
-  SalesOrderPriority 
-} from '../../../database/entities/sales-order.entity';
+import { DiscountType } from '../../../database/entities/sales-order-item.entity';
 
 export class SalesOrderItemDto {
   @ApiProperty({
@@ -40,20 +33,32 @@ export class SalesOrderItemDto {
     example: 25.50,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : undefined)
   unitPrice?: number;
 
   @ApiPropertyOptional({
-    description: 'Discount percentage for this item',
+    description: 'Type of discount: percentage or fixed amount',
+    enum: DiscountType,
+    example: DiscountType.PERCENTAGE,
+  })
+  @IsOptional()
+  discountType?: DiscountType;
+
+  @ApiPropertyOptional({
+    description: 'Discount percentage for this item (0-100)',
     example: 5.0,
   })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
   @Transform(({ value }) => value ? parseFloat(value) : 0)
   discountPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Discount amount for this item (fixed amount or calculated)',
+    example: 12.75,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  discountAmount?: number;
 
   @ApiPropertyOptional({
     description: 'Item notes',
@@ -72,51 +77,7 @@ export class CreateSalesOrderDto {
   @IsUUID()
   customerId: string;
 
-  @ApiProperty({
-    description: 'Order priority',
-    enum: SalesOrderPriority,
-    example: SalesOrderPriority.NORMAL,
-  })
-  @IsEnum(SalesOrderPriority)
-  priority: SalesOrderPriority;
 
-  @ApiPropertyOptional({
-    description: 'Required/expected delivery date',
-    example: '2024-01-15',
-  })
-  @IsOptional()
-  @IsDateString()
-  requiredDate?: string;
-
-  @ApiPropertyOptional({
-    description: 'Order discount percentage',
-    example: 10.0,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  discountPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Tax percentage',
-    example: 8.5,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  taxPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Shipping/delivery charges',
-    example: 15.00,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  shippingAmount?: number;
 
   @ApiPropertyOptional({
     description: 'Shipping address',
@@ -212,136 +173,12 @@ export class CreateSalesOrderDto {
 
 export class UpdateSalesOrderDto {
   @ApiPropertyOptional({
-    description: 'Order status',
-    enum: SalesOrderStatus,
-    example: SalesOrderStatus.CONFIRMED,
+    description: 'Customer ID',
+    example: 'uuid-string',
   })
   @IsOptional()
-  @IsEnum(SalesOrderStatus)
-  status?: SalesOrderStatus;
-
-  @ApiPropertyOptional({
-    description: 'Order priority',
-    enum: SalesOrderPriority,
-    example: SalesOrderPriority.HIGH,
-  })
-  @IsOptional()
-  @IsEnum(SalesOrderPriority)
-  priority?: SalesOrderPriority;
-
-  @ApiPropertyOptional({
-    description: 'Required/expected delivery date',
-    example: '2024-01-20',
-  })
-  @IsOptional()
-  @IsDateString()
-  requiredDate?: string;
-
-  @ApiPropertyOptional({
-    description: 'Order discount percentage',
-    example: 15.0,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  discountPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Tax percentage',
-    example: 8.5,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  taxPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Shipping/delivery charges',
-    example: 20.00,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  shippingAmount?: number;
-
-  @ApiPropertyOptional({
-    description: 'Shipping address',
-    example: '789 Pine Street',
-  })
-  @IsOptional()
-  @IsString()
-  shippingAddress?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping city',
-    maxLength: 100,
-    example: 'San Francisco',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCity?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping state/province',
-    maxLength: 100,
-    example: 'CA',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingState?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping postal code',
-    maxLength: 20,
-    example: '94105',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  shippingPostalCode?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping country',
-    maxLength: 100,
-    example: 'United States',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCountry?: string;
-
-  @ApiPropertyOptional({
-    description: 'Shipping method',
-    maxLength: 100,
-    example: 'Express Delivery',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingMethod?: string;
-
-  @ApiPropertyOptional({
-    description: 'Tracking number',
-    maxLength: 50,
-    example: 'TRK123456789',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  trackingNumber?: string;
-
-  @ApiPropertyOptional({
-    description: 'Customer purchase order number',
-    example: 'PO-2024-002',
-  })
-  @IsOptional()
-  @IsString()
-  customerPoNumber?: string;
+  @IsUUID()
+  customerId?: string;
 
   @ApiPropertyOptional({
     description: 'Special instructions or notes',
@@ -352,12 +189,14 @@ export class UpdateSalesOrderDto {
   notes?: string;
 
   @ApiPropertyOptional({
-    description: 'Internal notes',
-    example: 'Priority customer, expedite shipping',
+    description: 'Order items',
+    type: [SalesOrderItemDto],
   })
   @IsOptional()
-  @IsString()
-  internalNotes?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SalesOrderItemDto)
+  items?: SalesOrderItemDto[];
 }
 
 export class QuerySalesOrdersDto {
@@ -377,30 +216,13 @@ export class QuerySalesOrdersDto {
   @IsUUID()
   customerId?: string;
 
-  @ApiPropertyOptional({
-    description: 'Filter by order status',
-    enum: SalesOrderStatus,
-    example: SalesOrderStatus.CONFIRMED,
-  })
-  @IsOptional()
-  @IsEnum(SalesOrderStatus)
-  status?: SalesOrderStatus;
-
-  @ApiPropertyOptional({
-    description: 'Filter by order priority',
-    enum: SalesOrderPriority,
-    example: SalesOrderPriority.HIGH,
-  })
-  @IsOptional()
-  @IsEnum(SalesOrderPriority)
-  priority?: SalesOrderPriority;
 
   @ApiPropertyOptional({
     description: 'Filter orders from date',
     example: '2024-01-01',
   })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   fromDate?: string;
 
   @ApiPropertyOptional({
@@ -408,17 +230,26 @@ export class QuerySalesOrdersDto {
     example: '2024-12-31',
   })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   toDate?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by overdue orders',
-    example: true,
+    description: 'Filter by payment status',
+    enum: ['all', 'unpaid', 'partial', 'paid', 'overpaid'],
+    example: 'paid',
   })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
-  overdue?: boolean;
+  @IsString()
+  paymentStatus?: 'all' | 'unpaid' | 'partial' | 'paid' | 'overpaid';
+
+  @ApiPropertyOptional({
+    description: 'Filter by fulfillment status',
+    enum: ['all', 'fulfilled', 'unfulfilled'],
+    example: 'fulfilled',
+  })
+  @IsOptional()
+  @IsString()
+  fulfillmentStatus?: 'all' | 'fulfilled' | 'unfulfilled';
 
   @ApiPropertyOptional({
     description: 'Sort field',
@@ -434,7 +265,7 @@ export class QuerySalesOrdersDto {
     example: 'DESC',
   })
   @IsOptional()
-  @IsEnum(['ASC', 'DESC'])
+  @IsString()
   sortOrder?: 'ASC' | 'DESC';
 
   @ApiPropertyOptional({
@@ -477,6 +308,9 @@ export class SalesOrderItemResponseDto {
   @ApiProperty({ example: 25.50 })
   unitPrice: number;
 
+  @ApiProperty({ enum: DiscountType, example: DiscountType.PERCENTAGE })
+  discountType: DiscountType;
+
   @ApiProperty({ example: 5.0 })
   discountPercent: number;
 
@@ -503,17 +337,8 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: 'SO-2024-001' })
   orderNumber: string;
 
-  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.CONFIRMED })
-  status: SalesOrderStatus;
-
-  @ApiProperty({ enum: SalesOrderPriority, example: SalesOrderPriority.NORMAL })
-  priority: SalesOrderPriority;
-
   @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
-
-  @ApiProperty({ example: '2024-01-15', nullable: true })
-  requiredDate?: Date;
 
   @ApiProperty({ example: '2024-01-14', nullable: true })
   shippedDate?: Date;
@@ -521,26 +346,29 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '2024-01-16', nullable: true })
   deliveredDate?: Date;
 
-  @ApiProperty({ example: 1000.00 })
-  subtotal: number;
-
-  @ApiProperty({ example: 10.0 })
-  discountPercent: number;
-
-  @ApiProperty({ example: 100.00 })
-  discountAmount: number;
-
-  @ApiProperty({ example: 8.5 })
-  taxPercent: number;
-
-  @ApiProperty({ example: 76.50 })
-  taxAmount: number;
-
-  @ApiProperty({ example: 15.00 })
-  shippingAmount: number;
+  @ApiProperty({ example: '2024-01-10', nullable: true })
+  fulfilledDate?: Date;
 
   @ApiProperty({ example: 991.50 })
   totalAmount: number;
+
+  @ApiProperty({ example: 500.00 })
+  paidAmount: number;
+
+  @ApiProperty({ example: false })
+  isFulfilled: boolean;
+
+  @ApiProperty({ example: false })
+  isPaidInFull: boolean;
+
+  @ApiProperty({ example: 491.50 })
+  balanceDue: number;
+
+  @ApiProperty({ example: false })
+  canFulfill: boolean;
+
+  @ApiProperty({ example: false })
+  canUnfulfill: boolean;
 
   @ApiProperty({ example: '456 Oak Avenue', nullable: true })
   shippingAddress?: string;
@@ -608,9 +436,6 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '456 Oak Avenue, Los Angeles, CA, 90210, United States' })
   fullShippingAddress: string;
 
-  @ApiProperty({ example: false })
-  isOverdue: boolean;
-
   @ApiProperty({ example: true })
   isShippable: boolean;
 
@@ -624,9 +449,6 @@ export class SalesOrderSummaryDto {
 
   @ApiProperty({ example: 'SO-2024-001' })
   orderNumber: string;
-
-  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.CONFIRMED })
-  status: SalesOrderStatus;
 
   @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;

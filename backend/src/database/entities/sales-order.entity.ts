@@ -5,17 +5,16 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-  BeforeInsert,
 } from 'typeorm';
 import {
   IsString,
   IsBoolean,
   IsOptional,
-  IsEnum,
   MaxLength,
   IsDecimal,
   Min,
   IsDate,
+  IsEnum,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
@@ -27,18 +26,18 @@ export enum SalesOrderStatus {
   DRAFT = 'draft',
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
-  IN_PROGRESS = 'in_progress',
+  PROCESSING = 'processing',
   SHIPPED = 'shipped',
   DELIVERED = 'delivered',
-  COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+  COMPLETED = 'completed'
 }
 
 export enum SalesOrderPriority {
   LOW = 'low',
   NORMAL = 'normal',
   HIGH = 'high',
-  URGENT = 'urgent',
+  URGENT = 'urgent'
 }
 
 /**
@@ -48,11 +47,8 @@ export enum SalesOrderPriority {
 @Entity('sales_orders')
 @Index(['orderNumber'], { unique: true })
 @Index(['customerId'])
-@Index(['status'])
 @Index(['orderDate'])
-@Index(['requiredDate'])
 @Index(['createdByUserId'])
-@Index(['priority'])
 export class SalesOrder extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -63,6 +59,13 @@ export class SalesOrder extends BaseEntity {
   @IsString()
   @MaxLength(30)
   orderNumber: string;
+
+  @Column({
+    type: 'date',
+    comment: 'Order date',
+  })
+  @IsDate()
+  orderDate: Date;
 
   @Column({
     type: 'enum',
@@ -84,22 +87,6 @@ export class SalesOrder extends BaseEntity {
 
   @Column({
     type: 'date',
-    comment: 'Order date',
-  })
-  @IsDate()
-  orderDate: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Required/expected delivery date',
-  })
-  @IsOptional()
-  @IsDate()
-  requiredDate?: Date;
-
-  @Column({
-    type: 'date',
     nullable: true,
     comment: 'Actual shipped date',
   })
@@ -117,71 +104,6 @@ export class SalesOrder extends BaseEntity {
   deliveredDate?: Date;
 
   // Financial Information
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Subtotal amount (before tax and discounts)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  subtotal: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Discount percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  discountPercent: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Discount amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  discountAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Tax percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  taxPercent: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Tax amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  taxAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Shipping/delivery charges',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  shippingAmount: number;
 
   @Column({
     type: 'decimal',
@@ -193,6 +115,34 @@ export class SalesOrder extends BaseEntity {
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   totalAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    default: 0,
+    comment: 'Amount received from customer',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  paidAmount: number;
+
+  @Column({
+    type: 'boolean',
+    default: false,
+    comment: 'Whether order is fulfilled (inventory deducted)',
+  })
+  @IsBoolean()
+  isFulfilled: boolean;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    comment: 'Date when order was fulfilled',
+  })
+  @IsOptional()
+  @IsDate()
+  fulfilledDate?: Date;
 
   // Shipping Information
   @Column({
@@ -315,23 +265,25 @@ export class SalesOrder extends BaseEntity {
 
   @Column({
     type: 'uuid',
+    nullable: true,
     comment: 'User who created the order',
   })
-  createdByUserId: string;
+  createdByUserId?: string;
 
   // Relationships
   @ManyToOne(() => Customer, (customer) => customer.salesOrders, {
     onDelete: 'RESTRICT',
-    eager: true,
+    eager: false,
   })
   @JoinColumn({ name: 'customerId' })
   customer: Customer;
 
   @ManyToOne(() => User, (user) => user.salesOrders, {
     onDelete: 'RESTRICT',
+    nullable: true,
   })
   @JoinColumn({ name: 'createdByUserId' })
-  createdByUser: User;
+  createdByUser?: User;
 
   @OneToMany(() => SalesOrderItem, (item) => item.salesOrder, {
     cascade: true,
@@ -356,65 +308,51 @@ export class SalesOrder extends BaseEntity {
     return parts.join(', ');
   }
 
-  get isOverdue(): boolean {
-    if (!this.requiredDate) return false;
-    return new Date() > this.requiredDate && 
-           ![SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(this.status);
-  }
-
   get isShippable(): boolean {
-    return this.status === SalesOrderStatus.CONFIRMED || this.status === SalesOrderStatus.IN_PROGRESS;
+    return this.shippedDate === null;
   }
 
   get isCompleted(): boolean {
-    return [SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(this.status);
+    return this.deliveredDate !== null;
   }
 
-  // Hooks
-  @BeforeInsert()
-  generateOrderNumber() {
-    if (!this.orderNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-      this.orderNumber = `SO-${timestamp}-${random}`;
-    }
+  get isPaidInFull(): boolean {
+    return Number(this.paidAmount) >= Number(this.totalAmount);
   }
+
+  get balanceDue(): number {
+    return Math.max(0, Number(this.totalAmount) - Number(this.paidAmount));
+  }
+
+  get canFulfill(): boolean {
+    return this.isPaidInFull && !this.isFulfilled;
+  }
+
+  get canUnfulfill(): boolean {
+    return this.isFulfilled;
+  }
+
+  // Note: Order number generation moved to service layer for better async handling
 
   // Helper methods
   calculateTotals(): void {
     // This should be called after items are loaded
     if (this.items && this.items.length > 0) {
-      this.subtotal = this.items.reduce((sum, item) => 
+      this.totalAmount = this.items.reduce((sum, item) => 
         sum + Number(item.totalAmount), 0);
     }
-
-    // Calculate discount amount
-    if (this.discountPercent > 0) {
-      this.discountAmount = (Number(this.subtotal) * Number(this.discountPercent)) / 100;
-    }
-
-    // Calculate tax amount (on subtotal after discount)
-    const taxableAmount = Number(this.subtotal) - Number(this.discountAmount);
-    if (this.taxPercent > 0) {
-      this.taxAmount = (taxableAmount * Number(this.taxPercent)) / 100;
-    }
-
-    // Calculate total
-    this.totalAmount = taxableAmount + Number(this.taxAmount) + Number(this.shippingAmount);
   }
 
   canCancel(): boolean {
-    return ![SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, 
-             SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(this.status);
+    return this.shippedDate === null;
   }
 
   canShip(): boolean {
-    return this.status === SalesOrderStatus.CONFIRMED;
+    return this.shippedDate === null;
   }
 
   markAsShipped(trackingNumber?: string): void {
     if (this.canShip()) {
-      this.status = SalesOrderStatus.SHIPPED;
       this.shippedDate = new Date();
       if (trackingNumber) {
         this.trackingNumber = trackingNumber;
@@ -423,24 +361,8 @@ export class SalesOrder extends BaseEntity {
   }
 
   markAsDelivered(): void {
-    if (this.status === SalesOrderStatus.SHIPPED) {
-      this.status = SalesOrderStatus.DELIVERED;
+    if (this.shippedDate && !this.deliveredDate) {
       this.deliveredDate = new Date();
-    }
-  }
-
-  complete(): void {
-    if (this.status === SalesOrderStatus.DELIVERED) {
-      this.status = SalesOrderStatus.COMPLETED;
-    }
-  }
-
-  cancel(reason?: string): void {
-    if (this.canCancel()) {
-      this.status = SalesOrderStatus.CANCELLED;
-      if (reason) {
-        this.internalNotes = `Cancelled: ${reason}`;
-      }
     }
   }
 }

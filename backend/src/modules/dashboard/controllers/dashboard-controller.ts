@@ -44,9 +44,11 @@ export class DashboardController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string
   ) {
-    return this.dashboardService.calculateKPIs(category, {
-      start: startDate ? new Date(startDate) : undefined,
-      end: endDate ? new Date(endDate) : undefined
+    return this.dashboardService.getDashboardData({
+      dateRange: {
+        start: startDate ? new Date(startDate) : undefined,
+        end: endDate ? new Date(endDate) : undefined
+      }
     });
   }
 
@@ -56,10 +58,7 @@ export class DashboardController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string
   ) {
-    return this.dashboardService.generateAlerts({
-      start: startDate ? new Date(startDate) : undefined,
-      end: endDate ? new Date(endDate) : undefined
-    });
+    return this.dashboardService.generateAlerts();
   }
 
   @Post('/layout')

@@ -33,10 +33,15 @@ interface InventoryState {
     }
   }
   filters: {
-    search: string
-    categoryId?: string
-    lowStock: boolean
-    inStock: boolean
+    products: {
+      search: string
+      categoryId?: string
+      lowStock: boolean
+      inStock: boolean
+    }
+    categories: {
+      search: string
+    }
   }
 }
 
@@ -71,19 +76,29 @@ const initialState: InventoryState = {
     },
   },
   filters: {
-    search: '',
-    lowStock: false,
-    inStock: true,
+    products: {
+      search: '',
+      lowStock: false,
+      inStock: true,
+    },
+    categories: {
+      search: '',
+    },
   },
 }
 
 // Async thunks
 export const fetchProducts = createAsyncThunk(
   'inventory/fetchProducts',
-  async (params: { page?: number; limit?: number; search?: string; categoryId?: string }, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; search?: string; categoryId?: string; sortBy?: string; sortOrder?: string }, { rejectWithValue }) => {
     try {
-      // Always fetch only active products (exclude soft-deleted products)
-      const response = await inventoryApi.getProducts({ ...params, isActive: true })
+      // Always fetch only active products (exclude soft-deleted products) and sort by name ascending by default
+      const response = await inventoryApi.getProducts({ 
+        ...params, 
+        isActive: true,
+        sortBy: params.sortBy || 'name',
+        sortOrder: (params.sortOrder as 'asc' | 'desc') || 'asc'
+      })
       return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch products:', error)
@@ -94,7 +109,7 @@ export const fetchProducts = createAsyncThunk(
 
 export const fetchCategories = createAsyncThunk(
   'inventory/fetchCategories',
-  async (params: { includeProductCount?: boolean } = {}, { rejectWithValue }) => {
+  async (params: { includeProductCount?: boolean; search?: string } = {}, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.getCategories({ includeProductCount: true, ...params })
       return response || { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } }
@@ -171,7 +186,7 @@ export const bulkRestoreProducts = createAsyncThunk(
   async (productIds: string[], { rejectWithValue }) => {
     try {
       const response = await inventoryApi.bulkRestoreProducts(productIds)
-      return response.data
+      return response // ApiService already returns response.data, no need to access .data again
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore products')
     }
@@ -195,7 +210,7 @@ export const bulkPermanentDeleteProducts = createAsyncThunk(
   async (productIds: string[], { rejectWithValue }) => {
     try {
       const response = await inventoryApi.bulkPermanentDeleteProducts(productIds)
-      return response.data
+      return response // ApiService already returns response.data, no need to access .data again
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk delete products')
     }
@@ -330,6 +345,25 @@ export const bulkPermanentDeleteCategories = createAsyncThunk(
   }
 )
 
+export const checkCategoryDuplicate = createAsyncThunk(
+  'inventory/checkCategoryDuplicate',
+  async (params: { name?: string; parentId?: string; excludeId?: string }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.checkCategoryDuplicate(params)
+      // Handle both direct response and wrapped response structures
+      if (response && typeof response === 'object' && 'nameExists' in response) {
+        return response as any
+      } else if (response && 'data' in response) {
+        return (response as any).data
+      }
+      return response as any
+    } catch (error: any) {
+      console.error('Redux: Category duplicate check API call failed:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to check for duplicate category')
+    }
+  }
+)
+
 export const fetchStockMovements = createAsyncThunk(
   'inventory/fetchStockMovements',
   async (params: { page?: number; limit?: number; productId?: string }, { rejectWithValue }) => {
@@ -352,8 +386,14 @@ const inventorySlice = createSlice({
     setSelectedCategory: (state, action: PayloadAction<Category | null>) => {
       state.selectedCategory = action.payload
     },
-    setFilters: (state, action: PayloadAction<Partial<typeof initialState.filters>>) => {
-      state.filters = { ...state.filters, ...action.payload }
+    setProductFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.products>>) => {
+      state.filters.products = { ...state.filters.products, ...action.payload }
+    },
+    setCategoryFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.categories>>) => {
+      state.filters.categories = { ...state.filters.categories, ...action.payload }
+    },
+    resetFilters: (state) => {
+      state.filters = initialState.filters
     },
     clearError: (state) => {
       state.error = null
@@ -590,7 +630,9 @@ const inventorySlice = createSlice({
 export const {
   setSelectedProduct,
   setSelectedCategory,
-  setFilters,
+  setProductFilters,
+  setCategoryFilters,
+  resetFilters,
   clearError,
   resetProducts,
 } = inventorySlice.actions
@@ -607,5 +649,7 @@ export const selectInventoryLoading = (state: any) => state.inventory?.loading
 export const selectInventoryError = (state: any) => state.inventory?.error
 export const selectInventoryPagination = (state: any) => state.inventory?.pagination
 export const selectInventoryFilters = (state: any) => state.inventory?.filters
+export const selectProductFilters = (state: any) => state.inventory?.filters?.products
+export const selectCategoryFilters = (state: any) => state.inventory?.filters?.categories
 
 export default inventorySlice.reducer

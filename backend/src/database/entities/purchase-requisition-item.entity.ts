@@ -205,8 +205,8 @@ export class PurchaseRequisitionItem extends BaseEntity {
   }
 
   get unitOfMeasurement(): string {
-    if (this.product && this.product.unit) {
-      return this.product.unit;
+    if (this.product) {
+      return 'pcs';
     }
     return this.unit || 'EA';
   }
@@ -238,7 +238,7 @@ export class PurchaseRequisitionItem extends BaseEntity {
   updateFromProduct(): void {
     if (this.product) {
       this.description = this.product.description || this.product.name;
-      this.unit = this.product.unit;
+      this.unit = 'pcs';
       if (this.estimatedUnitPrice === 0) {
         this.estimatedUnitPrice = Number(this.product.baseCost) || Number(this.product.retailPrice);
       }

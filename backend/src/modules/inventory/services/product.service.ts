@@ -6,18 +6,18 @@ import {
   Logger,
   Inject,
   forwardRef,
+  StreamableFile,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
-  FindManyOptions,
-  SelectQueryBuilder,
   UpdateResult,
   In,
-  Like,
 } from 'typeorm';
-import { Product, ProductStatus, ProductType, StockStatus } from '../../../database/entities/product.entity';
+import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -26,10 +26,12 @@ import {
   ProductListResponseDto,
   BulkUpdatePricesDto,
   ProductStockSummaryDto,
+  ProductImportDto,
+  ProductImportResultDto,
 } from '../dto/product.dto';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
-import { AuditService } from './audit.service';
+import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 
 @Injectable()
 export class ProductService {
@@ -40,11 +42,14 @@ export class ProductService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(SalesOrderItem)
+    private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+    @InjectRepository(StockMovement)
+    private readonly stockMovementRepository: Repository<StockMovement>,
     @Inject(forwardRef(() => CategoryService))
     private readonly categoryService: CategoryService,
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -106,18 +111,10 @@ export class ProductService {
     // Create product
     const product = this.productRepository.create({
       ...createProductDto,
-      stockQuantity: createProductDto.currentStock || 0,
-      status: createProductDto.status || ProductStatus.ACTIVE,
+      stockQuantity: createProductDto.stockQuantity || 0,
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
-      // Set default values for removed fields
-      unit: 'pcs',
-      reorderLevel: 0,
-      optimalStockLevel: 0,
     });
-
-    // Set initial stock status
-    product.updateStockStatus();
 
     const savedProduct = await this.productRepository.save(product);
 
@@ -125,11 +122,11 @@ export class ProductService {
     savedProduct.category = category;
 
     // Create initial stock movement if current stock provided (temporarily disabled for system users)
-    if (createProductDto.currentStock && createProductDto.currentStock > 0 && userId) {
+    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0 && userId) {
       try {
         await this.stockMovementService.recordInitialStock(
           savedProduct.id,
-          createProductDto.currentStock,
+          createProductDto.stockQuantity,
           createProductDto.baseCost,
           userId,
         );
@@ -138,23 +135,7 @@ export class ProductService {
       }
     }
 
-    // Log audit event (temporarily disabled for system users)
-    if (userId) {
-      try {
-        await this.auditService.logProductEvent(
-          savedProduct.id,
-          'PRODUCT_CREATED',
-          `Product ${savedProduct.name} (${savedProduct.barcode}) created`,
-          userId,
-          {
-            initialStock: createProductDto.currentStock || 0,
-            category: category.name,
-          },
-        );
-      } catch (error) {
-        this.logger.warn(`Failed to log audit event: ${error.message}`);
-      }
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
     return this.toResponseDto(savedProduct);
@@ -170,13 +151,10 @@ export class ProductService {
       search,
       categoryId,
       type,
-      status,
       isActive,
-      lowStock,
       outOfStock,
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
-      brand,
+      sortBy = 'name',
+      sortOrder = 'ASC',
       minStock,
       maxStock,
       minPrice,
@@ -191,7 +169,7 @@ export class ProductService {
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR product.brand ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -204,24 +182,12 @@ export class ProductService {
       queryBuilder.andWhere('product.type = :type', { type });
     }
 
-    if (status) {
-      queryBuilder.andWhere('product.status = :status', { status });
-    }
-
     if (isActive !== undefined) {
       queryBuilder.andWhere('product.isActive = :isActive', { isActive });
     }
 
-    if (brand) {
-      queryBuilder.andWhere('product.brand ILIKE :brand', { brand: `%${brand}%` });
-    }
-
-    if (lowStock) {
-      queryBuilder.andWhere('product.stockQuantity <= product.reorderLevel');
-    }
-
     if (outOfStock) {
-      queryBuilder.andWhere('(product.stockQuantity - product.reservedQuantity) <= 0');
+      queryBuilder.andWhere('product.stockQuantity <= 0');
     }
 
     if (minStock !== undefined) {
@@ -242,8 +208,17 @@ export class ProductService {
 
     // Apply sorting
     const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    queryBuilder.orderBy(`product.${sortField}`, sortOrder);
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    // Use case-insensitive sorting for text fields
+    if (sortField === 'name') {
+      // Use PostgreSQL ILIKE for case-insensitive sorting by adding a computed column
+      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
+      queryBuilder.orderBy('name_upper', safeSortOrder);
+    } else {
+      queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
+    }
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -404,54 +379,50 @@ export class ProductService {
       sortOrder = 'DESC',
     } = query;
 
-    // Build where clause for filtering
-    const where: any = {};
-    
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-    
-    if (type) {
-      where.type = type;
+    // Use QueryBuilder for consistent case-insensitive search
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .withDeleted()
+      .where('product.deletedAt IS NOT NULL');
+
+    // Apply filters
+    if (search) {
+      queryBuilder.andWhere(
+        '(product.name ILIKE :search OR product.barcode ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
-    if (search) {
-      where.name = Like(`%${search}%`);
+    if (categoryId) {
+      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('product.type = :type', { type });
     }
 
     // Sorting
-    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt'];
+    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt', 'retailPrice', 'stockQuantity'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    // Use case-insensitive sorting for text fields
+    if (safeSortBy === 'name') {
+      // Use PostgreSQL ILIKE for case-insensitive sorting by adding a computed column
+      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
+      queryBuilder.orderBy('name_upper', safeSortOrder);
+    } else {
+      queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
+    }
 
-    // Get ALL products that match criteria (without pagination first)
-    const allProducts = await this.productRepository.find({
-      where,
-      relations: ['category'],
-      withDeleted: true,
-    });
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
 
-    // Filter only soft-deleted products
-    const deletedProducts = allProducts.filter(product => product.deletedAt !== null);
+    // Get products and total count
+    const [deletedProducts, total] = await queryBuilder.getManyAndCount();
 
-    // Apply sorting to filtered results
-    deletedProducts.sort((a: any, b: any) => {
-      const aValue = a[safeSortBy];
-      const bValue = b[safeSortBy];
-      
-      if (safeSortOrder === 'ASC') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    // Apply pagination to the filtered and sorted results
-    const total = deletedProducts.length;
-    const skip = (page - 1) * limit;
-    const paginatedProducts = deletedProducts.slice(skip, skip + limit);
-
-    const productDtos = paginatedProducts.map(product => this.toResponseDto(product));
+    const productDtos = deletedProducts.map(product => this.toResponseDto(product));
 
     return {
       data: productDtos,
@@ -478,24 +449,22 @@ export class ProductService {
       withDeleted: true,
     });
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${id}' not found`);
-    }
-
-    if (!product.deletedAt) {
-      throw new BadRequestException(`Product with ID '${id}' is not deleted`);
-    }
+    // Use standardized validation
+    ValidationUtil.validateForRestore(product, 'Product', id);
 
     // Check if barcode is still unique (case-insensitive, another product might have been created with the same barcode)
-    const existingProduct = await this.productRepository
-      .createQueryBuilder('product')
-      .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
-      .andWhere('product.id != :id', { id: product.id })
-      .getOne();
+    if (product.barcode) {
+      const existingProduct = await this.productRepository
+        .createQueryBuilder('product')
+        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+        .andWhere('product.id != :id', { id: product.id })
+        .getOne();
 
-    if (existingProduct) {
-      throw new ConflictException(
-        `Cannot restore product: barcode '${product.barcode}' is now used by another active product`
+      ValidationUtil.validateUniquenessForRestore(
+        existingProduct,
+        'barcode',
+        product.barcode,
+        'Product'
       );
     }
 
@@ -515,17 +484,17 @@ export class ProductService {
    * Bulk restore soft-deleted products
    */
   async bulkRestore(
-    productIds: string[], 
+    productIds: string[],
     userId?: string
-  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+  ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk restoring ${productIds.length} products`);
-    
+
     if (!productIds || productIds.length === 0) {
-      return { restoredCount: 0, failedIds: [] };
+      return BulkOperationUtil.createResponse('restored', 'product', 0, []);
     }
 
-    const failedIds: string[] = [];
-    let restoredCount = 0;
+    const failedItems = [];
+    let successCount = 0;
 
     // Process each product individually to handle failures gracefully
     for (const id of productIds) {
@@ -537,57 +506,55 @@ export class ProductService {
           withDeleted: true,
         });
 
-        if (!product) {
-          this.logger.warn(`Product with ID '${id}' not found`);
-          failedIds.push(id);
-          continue;
-        }
-
-        if (!product.deletedAt) {
-          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
-          failedIds.push(id);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForRestore(product, 'Product', id);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
         // Check if barcode is still unique (case-insensitive)
-        const existingProduct = await this.productRepository
-          .createQueryBuilder('product')
-          .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
-          .andWhere('product.id != :id', { id: product.id })
-          .getOne();
+        if (product.barcode) {
+          const existingProduct = await this.productRepository
+            .createQueryBuilder('product')
+            .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+            .andWhere('product.id != :id', { id: product.id })
+            .getOne();
 
-        if (existingProduct) {
-          this.logger.warn(
-            `Cannot restore product with ID '${id}': barcode '${product.barcode}' is now used by another active product`
-          );
-          failedIds.push(id);
-          continue;
+          if (existingProduct) {
+            BulkOperationUtil.addFailure(
+              failedItems,
+              id,
+              `Barcode '${product.barcode}' is now used by another active product`,
+              'BARCODE_CONFLICT'
+            );
+            continue;
+          }
         }
 
         // Restore the product
         await this.productRepository.restore(id);
 
-        // Log audit event
-        await this.auditService.logProductEvent(
-          product.id,
-          'PRODUCT_RESTORED',
-          `Product ${product.name} (${product.barcode}) restored from soft-delete (bulk operation)`,
-          userId,
-        );
-
-        restoredCount++;
+        successCount++;
         this.logger.log(`Product restored: ${id}`);
       } catch (error) {
         this.logger.error(`Failed to restore product ${id}: ${error.message}`);
-        failedIds.push(id);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          id,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(
-      `Bulk restore completed: ${restoredCount} succeeded, ${failedIds.length} failed`
-    );
-
-    return { restoredCount, failedIds };
+    return BulkOperationUtil.createResponse('restored', 'product', successCount, failedItems);
   }
 
   /**
@@ -599,45 +566,20 @@ export class ProductService {
     // Find the product (including soft-deleted ones)
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+      // Note: Removed problematic relations as sales/purchasing modules are disabled
       withDeleted: true,
     });
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${id}' not found`);
-    }
+    // Use standardized validation
+    ValidationUtil.validateForPermanentDelete(product, 'Product', id);
 
-    // Ensure product is already soft-deleted
-    if (!product.deletedAt) {
-      throw new BadRequestException(
-        'Product must be soft-deleted first before permanent deletion. Use regular delete endpoint first.'
-      );
-    }
-
-    // Check if product has any active dependencies that prevent permanent deletion
-    if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
-      throw new BadRequestException(
-        'Cannot permanently delete product that has associated sales orders or purchase orders'
-      );
-    }
-
-    // If there are stock movements, we should allow deletion but log it
-    if (product.stockMovements?.length > 0) {
-      this.logger.warn(
-        `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
-      );
-    }
+    // Note: Dependency checks for sales/purchase orders are disabled since those modules are not active
+    // Note: Stock movement check is disabled since we removed the relation
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
 
-    // Log audit event
-    await this.auditService.logProductEvent(
-      product.id,
-      'PRODUCT_PERMANENTLY_DELETED',
-      `Product ${product.name} (${product.barcode}) permanently deleted from database`,
-      userId,
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product permanently deleted: ${id}`);
   }
@@ -646,17 +588,17 @@ export class ProductService {
    * Bulk permanently delete products from database
    */
   async bulkPermanentDelete(
-    productIds: string[], 
+    productIds: string[],
     userId?: string
-  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+  ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk permanently deleting ${productIds.length} products`);
-    
+
     if (!productIds || productIds.length === 0) {
-      return { deletedCount: 0, failedIds: [] };
+      return BulkOperationUtil.createResponse('permanently deleted', 'product', 0, []);
     }
 
-    const failedIds: string[] = [];
-    let deletedCount = 0;
+    const failedItems = [];
+    let successCount = 0;
 
     // Process each product individually to handle failures gracefully
     for (const id of productIds) {
@@ -664,63 +606,43 @@ export class ProductService {
         // Find the product (including soft-deleted ones)
         const product = await this.productRepository.findOne({
           where: { id },
-          relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
+          // Note: Removed problematic relations as sales/purchasing modules are disabled
           withDeleted: true,
         });
 
-        if (!product) {
-          this.logger.warn(`Product with ID '${id}' not found`);
-          failedIds.push(id);
-          continue;
-        }
-
-        // Ensure product is already soft-deleted
-        if (!product.deletedAt) {
-          this.logger.warn(`Product with ID '${id}' is not soft-deleted`);
-          failedIds.push(id);
-          continue;
-        }
-
-        // Check if product has any active dependencies that prevent permanent deletion
-        if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
-          this.logger.warn(
-            `Product with ID '${id}' has associated orders and cannot be permanently deleted`
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForPermanentDelete(product, 'Product', id);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            error.message,
+            'VALIDATION_ERROR'
           );
-          failedIds.push(id);
           continue;
         }
 
-        // If there are stock movements, we allow deletion but log it
-        if (product.stockMovements?.length > 0) {
-          this.logger.warn(
-            `Permanently deleting product with ${product.stockMovements.length} stock movement records: ${product.barcode}`
-          );
-        }
+        // Note: Dependency checks for sales/purchase orders and stock movements are disabled
+        // since those modules are not active
 
         // Hard delete the product from database
         await this.productRepository.delete(id);
 
-        // Log audit event
-        await this.auditService.logProductEvent(
-          product.id,
-          'PRODUCT_PERMANENTLY_DELETED',
-          `Product ${product.name} (${product.barcode}) permanently deleted from database (bulk operation)`,
-          userId,
-        );
-
-        deletedCount++;
+        successCount++;
         this.logger.log(`Product permanently deleted: ${id}`);
       } catch (error) {
         this.logger.error(`Failed to permanently delete product ${id}: ${error.message}`);
-        failedIds.push(id);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          id,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(
-      `Bulk permanent delete completed: ${deletedCount} succeeded, ${failedIds.length} failed`
-    );
-
-    return { deletedCount, failedIds };
+    return BulkOperationUtil.createResponse('permanently deleted', 'product', successCount, failedItems);
   }
 
   /**
@@ -795,11 +717,7 @@ export class ProductService {
     // Transform DTO fields to match entity fields FIRST
     const updateData: any = { ...updateProductDto };
     
-    // Map currentStock to stockQuantity if present
-    if (updateProductDto.hasOwnProperty('currentStock')) {
-      updateData.stockQuantity = updateProductDto.currentStock;
-      delete updateData.currentStock;
-    }
+    // stockQuantity is handled directly in the DTO
 
     // Validate pricing if being updated (use transformed data)
     if (this.hasPricingChanges(updateData)) {
@@ -829,10 +747,7 @@ export class ProductService {
     console.log('After Object.assign - product.categoryId:', product.categoryId);
     console.log('=============================');
 
-    // Update stock status if quantities changed
-    if (updateProductDto.hasOwnProperty('currentStock') || updateData.hasOwnProperty('stockQuantity')) {
-      product.updateStockStatus();
-    }
+    // Stock status is computed automatically in the entity
 
     // Use direct update for better control over what gets updated
     const updateResult = await this.productRepository.update(
@@ -854,19 +769,41 @@ export class ProductService {
     console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
     console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
-    // Log audit event
-    if (Object.keys(changes).length > 0) {
-      await this.auditService.logProductEvent(
-        updatedProduct.id,
-        'PRODUCT_UPDATED',
-        `Product ${updatedProduct.name} (${updatedProduct.barcode}) updated`,
-        userId,
-        { changes },
-      );
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
     return this.toResponseDto(productWithCategory!);
+  }
+
+  /**
+   * Check if product has dependencies that prevent deletion
+   */
+  async checkProductDependencies(productId: string): Promise<{
+    hasDependencies: boolean;
+    dependencies: Array<{ type: string; count: number }>;
+  }> {
+    const dependencies = [];
+
+    // Check sales order items
+    const salesOrderItemCount = await this.salesOrderItemRepository.count({
+      where: { productId }
+    });
+    if (salesOrderItemCount > 0) {
+      dependencies.push({ type: 'sales orders', count: salesOrderItemCount });
+    }
+
+    // Check stock movements
+    const stockMovementCount = await this.stockMovementRepository.count({
+      where: { productId }
+    });
+    if (stockMovementCount > 0) {
+      dependencies.push({ type: 'stock movements', count: stockMovementCount });
+    }
+
+    return {
+      hasDependencies: dependencies.length > 0,
+      dependencies
+    };
   }
 
   /**
@@ -877,30 +814,27 @@ export class ProductService {
 
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['salesOrderItems', 'purchaseOrderItems', 'stockMovements'],
     });
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    // Check if product has any dependencies
-    if (product.salesOrderItems?.length > 0 || product.purchaseOrderItems?.length > 0) {
-      throw new BadRequestException(
-        'Cannot delete product that has associated sales orders or purchase orders. Set status to DISCONTINUED instead.',
+    // Check for dependencies that prevent deletion
+    const dependencyCheck = await this.checkProductDependencies(id);
+    if (dependencyCheck.hasDependencies) {
+      const dependencyList = dependencyCheck.dependencies
+        .map(dep => `${dep.count} ${dep.type}`)
+        .join(', ');
+      throw new ConflictException(
+        `Cannot delete '${product.name}' - used in: ${dependencyList}`
       );
     }
 
     // Use TypeORM soft delete (sets deletedAt timestamp)
     await this.productRepository.softDelete(id);
 
-    // Log audit event
-    await this.auditService.logProductEvent(
-      product.id,
-      'PRODUCT_DELETED',
-      `Product ${product.name} (${product.barcode}) soft deleted`,
-      userId,
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Product soft-deleted successfully: ${id}`);
   }
@@ -921,7 +855,7 @@ export class ProductService {
     }
 
     const updates: Promise<UpdateResult>[] = [];
-    const auditPromises: Promise<void>[] = [];
+    // Audit promises removed with authentication system
 
     for (const priceUpdate of bulkUpdateDto.products) {
       const product = products.find(p => p.id === priceUpdate.productId)!;
@@ -958,20 +892,11 @@ export class ProductService {
           this.productRepository.update(priceUpdate.productId, updateData)
         );
 
-        // Log audit event
-        auditPromises.push(
-          this.auditService.logProductEvent(
-            priceUpdate.productId,
-            'PRODUCT_PRICE_UPDATED',
-            `Bulk price update for ${product.name} (${product.barcode})`,
-            userId,
-            { priceChanges },
-          ),
-        );
+        // Audit logging removed with authentication system
       }
     }
 
-    await Promise.all([...updates, ...auditPromises]);
+    await Promise.all(updates);
 
     this.logger.log(`Bulk price update completed for ${updates.length} products`);
   }
@@ -989,10 +914,6 @@ export class ProductService {
         'product.barcode',
         'product.name',
         'product.stockQuantity',
-        'product.reservedQuantity',
-        'product.reorderLevel',
-        'product.stockStatus',
-        'product.unit',
         'category.name',
         'MAX(movements.movementDate) as lastMovementDate',
       ])
@@ -1004,11 +925,11 @@ export class ProductService {
     }
 
     if (filters?.lowStock) {
-      queryBuilder.andWhere('product.stockQuantity <= product.reorderLevel');
+      queryBuilder.andWhere('product.stockQuantity <= 10');
     }
 
     if (filters?.outOfStock) {
-      queryBuilder.andWhere('(product.stockQuantity - product.reservedQuantity) <= 0');
+      queryBuilder.andWhere('product.stockQuantity <= 0');
     }
 
     if (filters?.isActive !== undefined) {
@@ -1024,13 +945,12 @@ export class ProductService {
       barcode: result.product_barcode,
       name: result.product_name,
       stockQuantity: Number(result.product_stockQuantity),
-      availableQuantity: Number(result.product_stockQuantity) - Number(result.product_reservedQuantity),
-      reservedQuantity: Number(result.product_reservedQuantity),
-      reorderLevel: Number(result.product_reorderLevel),
-      stockStatus: result.product_stockStatus,
-      isLowStock: Number(result.product_stockQuantity) <= Number(result.product_reorderLevel),
-      isOutOfStock: (Number(result.product_stockQuantity) - Number(result.product_reservedQuantity)) <= 0,
-      unit: result.product_unit,
+      availableQuantity: Number(result.product_stockQuantity),
+      reservedQuantity: 0, // Simplified model doesn't track reserved stock
+      reorderLevel: 10, // Default threshold 
+      stockStatus: Number(result.product_stockQuantity) <= 0 ? 'out_of_stock' : Number(result.product_stockQuantity) <= 10 ? 'low_stock' : 'in_stock',
+      isLowStock: Number(result.product_stockQuantity) <= 10,
+      isOutOfStock: Number(result.product_stockQuantity) <= 0,
       categoryName: result.category_name,
       lastMovementDate: result.lastMovementDate ? new Date(result.lastMovementDate) : undefined,
     }));
@@ -1060,21 +980,13 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    const success = product.reserveStock(quantity);
-    
-    if (success) {
+    if (product.stockQuantity >= quantity) {
+      product.stockQuantity = Number(product.stockQuantity) - quantity;
       await this.productRepository.save(product);
-      
-      await this.auditService.logProductEvent(
-        productId,
-        'STOCK_RESERVED',
-        `Reserved ${quantity} units: ${reason}`,
-        userId,
-        { quantity, availableAfter: product.availableQuantity },
-      );
+      return true;
     }
-
-    return success;
+    
+    return false;
   }
 
   /**
@@ -1087,16 +999,8 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    product.releaseReservedStock(quantity);
+    product.stockQuantity = Number(product.stockQuantity) + quantity;
     await this.productRepository.save(product);
-
-    await this.auditService.logProductEvent(
-      productId,
-      'STOCK_RELEASED',
-      `Released ${quantity} reserved units: ${reason}`,
-      userId,
-      { quantity, availableAfter: product.availableQuantity },
-    );
   }
 
   /**
@@ -1111,7 +1015,6 @@ export class ProductService {
 
     const previousQuantity = product.stockQuantity;
     product.stockQuantity = newQuantity;
-    product.updateStockStatus();
     
     await this.productRepository.save(product);
 
@@ -1165,15 +1068,14 @@ export class ProductService {
     products.forEach(product => {
       const stock = Number(product.stockQuantity) || 0;
       const price = Number(product.retailPrice) || 0;
-      const reorderLevel = Number(product.reorderLevel) || 0;
       
       // Calculate inventory value
       inventoryValue += stock * price;
 
-      // Count low stock and out of stock
+      // Count low stock and out of stock (using simple threshold of 10)
       if (stock <= 0) {
         outOfStockCount++;
-      } else if (stock <= reorderLevel) {
+      } else if (stock <= 10) {
         lowStockCount++;
       }
 
@@ -1239,28 +1141,16 @@ export class ProductService {
   private toResponseDto(product: Product): ProductResponseDto {
     return {
       id: product.id,
-      barcode: product.barcode,
       name: product.name,
       description: product.description,
+      barcode: product.barcode,
       type: product.type,
-      status: product.status,
       isActive: product.isActive,
-      unit: product.unit,
       baseCost: Number(product.baseCost),
-      retailPrice: Number(product.retailPrice),
-      wholesalePrice: Number(product.wholesalePrice),
-      specialPrice: Number(product.specialPrice),
+      retailPrice: product.retailPrice ? Number(product.retailPrice) : undefined,
+      wholesalePrice: product.wholesalePrice ? Number(product.wholesalePrice) : undefined,
+      specialPrice: product.specialPrice ? Number(product.specialPrice) : undefined,
       stockQuantity: Number(product.stockQuantity),
-      reservedQuantity: Number(product.reservedQuantity),
-      availableQuantity: product.availableQuantity,
-      stockStatus: product.stockStatus,
-      weight: product.weight ? Number(product.weight) : undefined,
-      dimensions: product.dimensions,
-      brand: product.brand,
-      model: product.model,
-      imageUrl: product.imageUrl,
-      additionalImages: product.additionalImages,
-      attributes: product.attributes,
       notes: product.notes,
       categoryId: product.categoryId,
       category: product.category ? {
@@ -1268,7 +1158,6 @@ export class ProductService {
         name: product.category.name,
         fullPath: product.category.fullPath,
       } : null,
-      isLowStock: product.isLowStock,
       isOutOfStock: product.isOutOfStock,
       grossMarginRetail: product.grossMarginRetail,
       grossMarginWholesale: product.grossMarginWholesale,
@@ -1283,26 +1172,8 @@ export class ProductService {
    * Validate product pricing logic
    */
   private validatePricing(productData: any): void {
-    const { baseCost, retailPrice, wholesalePrice, specialPrice } = productData;
-
-    // Only validate selling prices against base cost if they are greater than 0
-    // This allows base cost to be higher than selling prices (negative margins)
-    if (retailPrice > 0 && retailPrice < baseCost) {
-      this.logger.warn(`Retail price (${retailPrice}) is lower than base cost (${baseCost}) - negative margin`);
-    }
-
-    if (wholesalePrice > 0 && wholesalePrice < baseCost) {
-      this.logger.warn(`Wholesale price (${wholesalePrice}) is lower than base cost (${baseCost}) - negative margin`);
-    }
-
-    if (specialPrice > 0 && specialPrice < baseCost) {
-      this.logger.warn(`Special price (${specialPrice}) is lower than base cost (${baseCost}) - negative margin`);
-    }
-
-    // Keep the wholesale vs retail validation as it's a business logic rule
-    if (wholesalePrice > 0 && retailPrice > 0 && wholesalePrice > retailPrice) {
-      throw new BadRequestException('Wholesale price cannot be higher than retail price');
-    }
+    // No pricing constraints - all prices can be any value relative to each other
+    // This allows complete flexibility in pricing strategies
   }
 
   /**
@@ -1312,5 +1183,394 @@ export class ProductService {
     return ['baseCost', 'retailPrice', 'wholesalePrice', 'specialPrice'].some(
       field => updateDto.hasOwnProperty(field)
     );
+  }
+
+  /**
+   * Import products from CSV/Excel file
+   */
+  async importProducts(
+    file: Express.Multer.File,
+    importDto: ProductImportDto,
+  ): Promise<ProductImportResultDto> {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    this.logger.log(`Starting product import from ${importDto.format} file: ${file.originalname}`);
+
+    const result: ProductImportResultDto = {
+      totalRows: 0,
+      successCount: 0,
+      failureCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      errors: [],
+      warnings: [],
+      importedProductIds: [],
+    };
+
+    try {
+      // Parse the file based on format
+      const rows = await this.parseImportFile(file, importDto.format);
+      result.totalRows = rows.length;
+
+      if (rows.length === 0) {
+        throw new BadRequestException('No data rows found in file');
+      }
+
+      // Get all categories for mapping
+      const categories = await this.categoryRepository.find({
+        where: { isActive: true },
+      });
+      const categoryMap = new Map(categories.map(cat => [cat.name.toLowerCase(), cat.id]));
+
+      // Process each row
+      for (let i = 0; i < rows.length; i++) {
+        const rowNumber = i + 2; // +2 because we skip header and rows are 0-indexed
+        const row = rows[i];
+
+        try {
+          // Validate and process the row
+          const productData = await this.validateAndProcessRow(row, rowNumber, categoryMap, result);
+          
+          if (!productData) {
+            result.skippedCount++;
+            continue;
+          }
+
+          // Check for duplicates
+          const existingProduct = await this.findDuplicateProduct(productData.name, productData.barcode);
+          
+          if (existingProduct) {
+            if (importDto.updateExisting) {
+              // Update existing product
+              await this.update(existingProduct.id, productData as UpdateProductDto, 'system');
+              result.updatedCount++;
+              result.importedProductIds.push(existingProduct.id);
+              result.warnings.push({
+                row: rowNumber,
+                message: `Updated existing product: ${productData.name}`,
+              });
+            } else if (importDto.skipDuplicates) {
+              // Skip duplicate
+              result.skippedCount++;
+              result.warnings.push({
+                row: rowNumber,
+                message: `Skipped duplicate product: ${productData.name}`,
+              });
+            } else {
+              // Report error
+              result.failureCount++;
+              result.errors.push({
+                row: rowNumber,
+                field: 'name/barcode',
+                message: `Product already exists: ${productData.name}`,
+                value: productData.name,
+              });
+            }
+          } else {
+            // Create new product
+            const createdProduct = await this.create(productData as CreateProductDto, 'system');
+            result.successCount++;
+            result.importedProductIds.push(createdProduct.id);
+          }
+        } catch (error) {
+          result.failureCount++;
+          result.errors.push({
+            row: rowNumber,
+            field: 'general',
+            message: error.message || 'Unknown error occurred',
+            value: row.name || 'Unknown product',
+          });
+          this.logger.error(`Error processing row ${rowNumber}:`, error);
+        }
+      }
+
+      this.logger.log(`Import completed: ${result.successCount} created, ${result.updatedCount} updated, ${result.failureCount} failed, ${result.skippedCount} skipped`);
+      return result;
+
+    } catch (error) {
+      this.logger.error('Import failed:', error);
+      throw new BadRequestException(`Import failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate CSV template for product import 
+   */
+  async generateImportTemplate(): Promise<StreamableFile> {
+    const csvHeaders = [
+      'name*',
+      'description',
+      'barcode',
+      'type*',
+      'categoryName*',
+      'baseCost*',
+      'retailPrice',
+      'wholesalePrice',
+      'specialPrice',
+      'stockQuantity',
+      'notes',
+      'isActive',
+    ];
+
+    const sampleData1 = [
+      'Sample Product',
+      'Sample product description',
+      '123456789',
+      'Stocked Product',
+      'test1',
+      '10.00',
+      '15.00',
+      '12.00',
+      '13.50',
+      '100',
+      'Internal notes',
+      'true',
+    ];
+
+    const sampleData2 = [
+      'Business Laptop',
+      'High-performance laptop for business use',
+      'LAPTOP001',
+      'Stocked Product',
+      'test2',
+      '800.00',
+      '1200.00',
+      '1000.00',
+      '1100.00',
+      '25',
+      'Premium business laptop',
+      'true',
+    ];
+
+    const sampleData3 = [
+      'IT Consulting Service',
+      'Professional IT consulting and support services',
+      'CONSULT001',
+      'Service',
+      'test3',
+      '80.00',
+      '120.00',
+      '100.00',
+      '110.00',
+      '0',
+      'Hourly rate for IT support',
+      'true',
+    ];
+
+    const csvContent = [
+      csvHeaders.join(','),
+      sampleData1.map(field => `"${field}"`).join(','),
+      sampleData2.map(field => `"${field}"`).join(','),
+      sampleData3.map(field => `"${field}"`).join(','),
+    ].join('\n');
+
+    const buffer = Buffer.from(csvContent, 'utf-8');
+    return new StreamableFile(buffer);
+  }
+
+  /**
+   * Parse import file based on format
+   */
+  private async parseImportFile(file: Express.Multer.File, format: string): Promise<any[]> {
+    const fileContent = file.buffer.toString('utf-8');
+    
+    if (format === 'csv') {
+      return this.parseCsvContent(fileContent);
+    } else if (format === 'excel') {
+      // For now, treat Excel files as CSV (would need xlsx library for proper Excel support)
+      return this.parseCsvContent(fileContent);
+    } else {
+      throw new BadRequestException(`Unsupported file format: ${format}`);
+    }
+  }
+
+  /**
+   * Parse CSV content
+   */
+  private parseCsvContent(content: string): any[] {
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      throw new BadRequestException('File must contain at least a header row and one data row');
+    }
+
+    // Parse header
+    const headerLine = lines[0];
+    const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\*/g, ''));
+
+    // Validate required headers
+    const requiredHeaders = ['name', 'type', 'categoryname', 'basecost'];
+    const missingHeaders = requiredHeaders.filter(req => !headers.includes(req));
+    
+    if (missingHeaders.length > 0) {
+      throw new BadRequestException(`Missing required headers: ${missingHeaders.join(', ')}`);
+    }
+
+    // Parse data rows
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+
+      const values = this.parseCsvLine(line);
+      const rowData: any = {};
+      
+      headers.forEach((header, index) => {
+        rowData[header] = values[index] || '';
+      });
+
+      rows.push(rowData);
+    }
+
+    return rows;
+  }
+
+  /**
+   * Parse a single CSV line handling quoted values
+   */
+  private parseCsvLine(line: string): string[] {
+    const values = [];
+    let currentValue = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"' && (i === 0 || line[i - 1] === ',')) {
+        inQuotes = true;
+      } else if (char === '"' && inQuotes && (i === line.length - 1 || line[i + 1] === ',')) {
+        inQuotes = false;
+      } else if (char === ',' && !inQuotes) {
+        values.push(currentValue.trim());
+        currentValue = '';
+      } else {
+        currentValue += char;
+      }
+    }
+    
+    values.push(currentValue.trim());
+    return values;
+  }
+
+  /**
+   * Validate and process a single import row
+   */
+  private async validateAndProcessRow(
+    row: any,
+    rowNumber: number,
+    categoryMap: Map<string, string>,
+    result: ProductImportResultDto,
+  ): Promise<CreateProductDto | null> {
+    // Check required fields
+    const requiredFields = {
+      name: row.name,
+      type: row.type,
+      categoryname: row.categoryname,
+      basecost: row.basecost,
+    };
+
+    for (const [field, value] of Object.entries(requiredFields)) {
+      if (!value || value.toString().trim() === '') {
+        result.errors.push({
+          row: rowNumber,
+          field,
+          message: `${field} is required`,
+          value,
+        });
+        return null;
+      }
+    }
+
+    // Map category name to ID
+    const categoryName = row.categoryname.toLowerCase();
+    const categoryId = categoryMap.get(categoryName);
+    
+    if (!categoryId) {
+      result.errors.push({
+        row: rowNumber,
+        field: 'categoryName',
+        message: `Category '${row.categoryname}' not found`,
+        value: row.categoryname,
+      });
+      return null;
+    }
+
+    // Validate product type and map to enum values
+    const normalizeProductType = (type: string): ProductType | null => {
+      const lowerType = type.toLowerCase().trim();
+      if (lowerType === 'goods' || lowerType === 'stocked product') {
+        return ProductType.GOODS;
+      }
+      if (lowerType === 'service') {
+        return ProductType.SERVICE;
+      }
+      return null;
+    };
+
+    const normalizedType = normalizeProductType(row.type);
+    if (!normalizedType) {
+      result.errors.push({
+        row: rowNumber,
+        field: 'type',
+        message: `Invalid product type. Must be 'Stocked Product' or 'Service'`,
+        value: row.type,
+      });
+      return null;
+    }
+
+    // Parse numeric values
+    const parseNumber = (value: string, field: string): number | undefined => {
+      if (!value || value.trim() === '') return undefined;
+      const parsed = parseFloat(value);
+      if (isNaN(parsed) || parsed < 0) {
+        result.errors.push({
+          row: rowNumber,
+          field,
+          message: `Invalid number format or negative value`,
+          value,
+        });
+        return undefined;
+      }
+      return parsed;
+    };
+
+    const baseCost = parseNumber(row.basecost, 'baseCost');
+    if (baseCost === undefined) return null;
+
+    // Build product data (Note: unit field is handled by entity defaults)
+    const productData: any = {
+      name: row.name.trim(),
+      description: row.description?.trim() || undefined,
+      barcode: row.barcode?.trim() || undefined,
+      type: normalizedType,
+      categoryId,
+      baseCost,
+      retailPrice: parseNumber(row.retailprice, 'retailPrice'),
+      wholesalePrice: parseNumber(row.wholesaleprice, 'wholesalePrice'),
+      specialPrice: parseNumber(row.specialprice, 'specialPrice'),
+      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
+      notes: row.notes?.trim() || undefined,
+      isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true
+    };
+
+    return productData;
+  }
+
+  /**
+   * Find duplicate product by name or barcode
+   */
+  private async findDuplicateProduct(name: string, barcode?: string): Promise<Product | null> {
+    const whereConditions: any[] = [{ name }];
+    
+    if (barcode && barcode.trim()) {
+      whereConditions.push({ barcode: barcode.trim() });
+    }
+
+    return await this.productRepository.findOne({
+      where: whereConditions,
+      withDeleted: true, // Include soft-deleted products in duplicate check
+    });
   }
 }

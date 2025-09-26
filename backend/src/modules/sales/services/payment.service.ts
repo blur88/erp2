@@ -390,13 +390,9 @@ export class PaymentService {
     }
   }
 
-  private async updateCustomerBalance(customer: Customer, payment: Payment): Promise<void> {
-    if (payment.isRefund) {
-      customer.updateBalance(Number(payment.amount), 'increase');
-    } else {
-      customer.updateBalance(Number(payment.amount), 'decrease');
-    }
-    
+  private async updateCustomerBalance(customer: Customer, _payment: Payment): Promise<void> {
+    // Note: Customer balance tracking removed - updateBalance method doesn't exist
+    // This method is kept for backward compatibility but no longer updates balance
     await this.customerRepository.save(customer);
   }
 

@@ -51,7 +51,7 @@ import {
 } from '@/store/slices/customerSlice'
 import { useNotification } from '@/hooks/useNotification'
 import type { Customer } from '@/types'
-import { CustomerType, CustomerStatus } from '@/types'
+import { CustomerType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 
 interface DeletedCustomersDialogProps {
@@ -87,11 +87,10 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
   }, [open, dispatch])
 
   // Filter customers based on search term
-  const filteredCustomers = deletedCustomers.filter(customer => 
+  const filteredCustomers = deletedCustomers.filter(customer =>
     customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.customerCode?.toLowerCase().includes(searchTerm.toLowerCase())
+    customer.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Calculate selection state
@@ -247,23 +246,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
     return type === CustomerType.BUSINESS ? <BusinessIcon /> : <PersonIcon />
   }
 
-  const getStatusChip = (status: CustomerStatus, isActive: boolean) => {
-    if (!isActive) {
-      return <Chip label="Inactive" size="small" color="default" />
-    }
-    
-    switch (status) {
-      case CustomerStatus.ACTIVE:
-        return <Chip label="Active" size="small" color="success" />
-      case CustomerStatus.SUSPENDED:
-        return <Chip label="Suspended" size="small" color="warning" />
-      case CustomerStatus.BLACKLISTED:
-        return <Chip label="Blacklisted" size="small" color="error" />
-      default:
-        return <Chip label="Inactive" size="small" color="default" />
-    }
-  }
-
   return (
     <Dialog
       open={open}
@@ -385,13 +367,8 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                       </Typography>
                     </TableCell>
                   )}
-                  <TableCell sx={{ width: isMobile ? '20%' : '15%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Status
-                    </Typography>
-                  </TableCell>
                   {!isMobile && (
-                    <TableCell sx={{ width: '15%' }}>
+                    <TableCell sx={{ width: '20%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Deleted Date
                       </Typography>
@@ -407,7 +384,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
               <TableBody>
                 {filteredCustomers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isMobile ? 6 : 7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 5 : 6} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary">
                         {searchTerm ? 'No deleted customers match your search.' : 'No deleted customers found.'}
                       </Typography>
@@ -438,27 +415,19 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                         />
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-                            {getCustomerTypeIcon(customer.type)}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                              {customer.name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              {customer.customerCode}
-                            </Typography>
-                            {isMobile && (
-                              <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                                {customer.email && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                    {customer.email}
-                                  </Typography>
-                                )}
-                              </Box>
-                            )}
-                          </Box>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                            {customer.name}
+                          </Typography>
+                          {isMobile && (
+                            <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                              {customer.email && (
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                  {customer.email}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
                         </Box>
                       </TableCell>
                       <TableCell>
@@ -491,13 +460,10 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                           </Stack>
                         </TableCell>
                       )}
-                      <TableCell>
-                        {getStatusChip(customer.status, customer.isActive)}
-                      </TableCell>
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            {(customer as any).deletedAt ? formatDate((customer as any).deletedAt) : 'Unknown'}
+                            {customer.deletedAt ? formatDate(customer.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
                       )}
@@ -549,14 +515,14 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        {isMobile && (customer as any).deletedAt && (
-                          <Typography variant="caption" color="text.secondary" sx={{ 
-                            display: 'block', 
-                            textAlign: 'right', 
+                        {isMobile && customer.deletedAt && (
+                          <Typography variant="caption" color="text.secondary" sx={{
+                            display: 'block',
+                            textAlign: 'right',
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date((customer as any).deletedAt).toLocaleDateString('en-US', {
+                            {new Date(customer.deletedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: '2-digit'
@@ -607,15 +573,11 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                   {confirmDelete.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Customer Code: {confirmDelete.customerCode}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
                   Email: {confirmDelete.email || 'N/A'}
                 </Typography>
               </Box>
               <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
                 This will permanently remove the customer and all related data from the database.
-                The customer code "{confirmDelete.customerCode}" will become available for reuse.
               </Typography>
             </Box>
           )}
@@ -672,7 +634,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                 return customer ? (
                   <Box key={customerId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {customer.name} ({customer.customerCode})
+                      • {customer.name}
                     </Typography>
                   </Box>
                 ) : null
@@ -736,7 +698,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                 return customer ? (
                   <Box key={customerId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {customer.name} ({customer.customerCode})
+                      • {customer.name}
                     </Typography>
                   </Box>
                 ) : null
@@ -746,7 +708,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
           
           <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
             This will permanently remove all selected customers and their data from the database.
-            Their customer codes will become available for reuse.
           </Typography>
         </DialogContent>
         <DialogActions>

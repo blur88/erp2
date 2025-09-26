@@ -431,8 +431,7 @@ export class InvoiceService {
       throw new ConflictException('Cannot send invoice in current status');
     }
 
-    const emailAddresses = sendInvoiceDto.emailAddresses || 
-      (invoice.customer?.email ? [invoice.customer.email] : []);
+    const emailAddresses = sendInvoiceDto.emailAddresses || [];
     
     if (emailAddresses.length === 0) {
       throw new BadRequestException('No email addresses provided and customer has no email');
@@ -536,7 +535,7 @@ export class InvoiceService {
     if ([InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID].includes(invoice.status)) {
       const customer = invoice.customer;
       if (customer) {
-        customer.updateBalance(Number(invoice.totalAmount), 'decrease');
+        // Note: Customer balance tracking removed - updateBalance method doesn't exist
         await this.customerRepository.save(customer);
       }
     }
@@ -847,7 +846,7 @@ export class InvoiceService {
         id: invoice.customer.id,
         customerCode: invoice.customer.customerCode,
         name: invoice.customer.name,
-        email: invoice.customer.email,
+        email: undefined, // Customer email field removed from entity
         phone: invoice.customer.phone,
       } : undefined,
       salesOrder: invoice.salesOrder ? {

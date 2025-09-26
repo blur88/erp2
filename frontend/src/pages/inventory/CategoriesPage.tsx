@@ -19,31 +19,34 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControlLabel,
-  Switch,
   Grid,
   useTheme,
   useMediaQuery,
+  InputAdornment,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  FolderOpen as FolderOpenIcon,
-  Folder as FolderIcon,
-  Category as CategoryIcon,
-  KeyboardDoubleArrowRight as DoubleArrowIcon,
+  DragIndicator as DragIndicatorIcon,
   RestoreFromTrash as RestoreIcon,
+  Search as SearchIcon,
+  Category as CategoryIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
+import { SmartCategoryDeleteDialog } from '@/components/inventory/SmartCategoryDeleteDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { Category } from '@/types'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import {
   fetchCategories,
   createCategory,
@@ -51,18 +54,18 @@ import {
   deleteCategory,
   selectCategories,
   selectInventoryLoading,
+  setCategoryFilters,
+  selectCategoryFilters,
 } from '@/store/slices/inventorySlice'
 
 
 interface CategoryFormData {
   name: string
-  isActive: boolean
   parentId?: string | null
 }
 
 const categorySchema = yup.object({
   name: yup.string().required('Category name is required').min(2, 'Name must be at least 2 characters'),
-  isActive: yup.boolean(),
   parentId: yup.string().optional().nullable(),
 })
 
@@ -71,97 +74,213 @@ const CategoriesPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
+  const categoryFilters = useSelector(selectCategoryFilters) || { search: '' }
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [nameValidationError, setNameValidationError] = useState<string | null>(null)
   const [parentCategory, setParentCategory] = useState<Category | null>(null)
   const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [smartDeleteOpen, setSmartDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<any>(null)
 
   const {
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<CategoryFormData>({
     resolver: yupResolver(categorySchema) as any,
     defaultValues: {
       name: '',
-      isActive: true,
       parentId: null,
     },
   })
 
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: categoryFilters.search,
+    onSearchChange: (searchTerm) => {
+      dispatch(setCategoryFilters({ search: searchTerm }))
+    },
+  })
+
+  // Duplicate check functionality
+  const {
+    checkDuplicate,
+    nameError: duplicateNameError,
+    hasNameDuplicate: isDuplicateName
+  } = useCategoryDuplicateCheck()
+
+  // Watch form fields for real-time validation
+  const watchedName = watch('name')
+  const watchedParentId = watch('parentId')
+
+  // Real-time duplicate checking for form fields
   useEffect(() => {
-    dispatch(fetchCategories({}))
-  }, [dispatch])
+    const timeoutId = setTimeout(async () => {
+      if (watchedName && watchedName.trim().length >= 2) {
+        await checkDuplicate({
+          name: watchedName.trim(),
+          parentId: watchedParentId || undefined,
+          excludeId: editMode && selectedCategory ? selectedCategory.id : undefined,
+        })
+      }
+    }, 500) // Debounce API calls
+
+    return () => clearTimeout(timeoutId)
+  }, [watchedName, watchedParentId, editMode, selectedCategory, checkDuplicate])
+
+  useEffect(() => {
+    dispatch(fetchCategories({
+      includeProductCount: true,
+      search: categoryFilters.search || undefined
+    }))
+  }, [dispatch, categoryFilters.search])
 
   const handleRefresh = () => {
-    dispatch(fetchCategories({}))
+    dispatch(fetchCategories({
+      includeProductCount: true,
+      search: categoryFilters.search || undefined
+    }))
   }
 
   const handleAddCategory = (parentId?: string) => {
     const parent = parentId ? findCategoryById(categories, parentId) : null
     reset({
       name: '',
-      isActive: true,
       parentId: parentId || null,
     })
     setEditMode(false)
     setSelectedCategory(null)
     setParentCategory(parent)
-    setNameValidationError(null)
     setDialogOpen(true)
   }
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: () => handleAddCategory(),
+    onRefresh: handleRefresh,
+  })
 
   const handleEditCategory = (category: Category) => {
     const parent = category.parentId ? findCategoryById(categories, category.parentId) : null
     reset({
       name: category.name,
-      isActive: category.isActive,
       parentId: category.parentId,
     })
     setEditMode(true)
     setSelectedCategory(category)
     setParentCategory(parent)
-    setNameValidationError(null)
     setDialogOpen(true)
   }
 
-  const handleDeleteCategory = async (category: Category) => {
-    const productCount = category.productCount ?? 0
-    const confirmMessage = productCount > 0 
-      ? `Category "${category.name}" contains ${productCount} product${productCount === 1 ? '' : 's'}. Products will be moved to "Uncategorized". Continue?`
-      : `Are you sure you want to delete the category "${category.name}"?`
-      
-    if (window.confirm(confirmMessage)) {
+  const handleDeleteCategory = (category: Category) => {
+    setCategoryToDelete(category)
+    setDeleteError(null)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (categoryToDelete) {
       try {
-        await dispatch(deleteCategory(category.id))
-        showSuccess(`Category "${category.name}" deleted successfully.`)
+        await dispatch(deleteCategory(categoryToDelete.id)).unwrap()
+        showSuccess(`Category "${categoryToDelete.name}" deleted successfully.`)
+        setDeleteConfirmOpen(false)
+        setCategoryToDelete(null)
       } catch (error: any) {
-        const errorMessage = error.response?.data?.message || 'Failed to delete category'
-        showError(errorMessage)
+        console.error('Delete category error:', error)
+
+        // Check if this is a "category has products" error
+        if (error?.productCount || (error?.includes && error.includes('contains'))) {
+          // Close the basic confirmation dialog and show smart delete dialog
+          setDeleteConfirmOpen(false)
+          setDeleteError({
+            message: error?.message || error,
+            productCount: error?.productCount,
+            categoryName: categoryToDelete.name,
+            suggestions: error?.suggestions
+          })
+          setSmartDeleteOpen(true)
+        } else {
+          // For other errors, show error message and close dialog
+          const errorMessage = error || 'Failed to delete category'
+          showError(errorMessage)
+          setDeleteConfirmOpen(false)
+          setCategoryToDelete(null)
+        }
       }
     }
+  }
+
+  const handleSmartDelete = async (moveToUncategorized: boolean) => {
+    if (!categoryToDelete) return
+
+    try {
+      const params = new URLSearchParams()
+      params.set('force', 'true')
+      if (moveToUncategorized) {
+        params.set('moveToUncategorized', 'true')
+      }
+
+      // Call delete API with force parameters
+      const response = await fetch(`/api/inventory/categories/${categoryToDelete.id}?${params.toString()}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete category: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      // Show success message
+      if (result.moved && result.moved > 0) {
+        showSuccess(`Category "${categoryToDelete.name}" deleted. ${result.moved} product${result.moved === 1 ? '' : 's'} moved to Uncategorized.`)
+      } else {
+        showSuccess(result.message || `Category "${categoryToDelete.name}" deleted successfully.`)
+      }
+
+      // Refresh the categories list
+      dispatch(fetchCategories({
+        includeProductCount: true,
+        search: categoryFilters.search || undefined
+      }))
+    } catch (error: any) {
+      console.error('Smart delete error:', error)
+      showError(error.message || 'Failed to delete category')
+      throw error // Re-throw to let the dialog handle loading state
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setCategoryToDelete(null)
+  }
+
+  const handleSmartDeleteClose = () => {
+    setSmartDeleteOpen(false)
+    setCategoryToDelete(null)
+    setDeleteError(null)
   }
 
 
   const onSubmit = async (data: CategoryFormData) => {
     try {
       setSubmitting(true)
-      
-      // Client-side validation to check for duplicates
-      const existingCategory = categories.find(cat => 
-        cat.name.toLowerCase() === data.name.toLowerCase() && 
-        (!editMode || cat.id !== selectedCategory?.id)
-      )
-      
-      if (existingCategory) {
-        showError(`A category named "${data.name}" already exists. Please choose a different name.`)
+
+      // Check for duplicate errors from real-time validation
+      if (isDuplicateName) {
+        showError(duplicateNameError || 'Category name already exists')
         return
       }
 
@@ -199,60 +318,36 @@ const CategoriesPage: React.FC = () => {
 
   const renderCategoryName = (category: Category) => {
     const indentLevel = category.level
-    const isParent = category.hasChildren
     const indentSize = 1.5 // Reduced indentation for more compact display
-    
+
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
+      <Box
+        sx={{
+          display: 'flex',
           alignItems: 'center',
           ml: indentLevel * indentSize,
-          minHeight: 32 // Compact row height
+          gap: 0.5
         }}
         aria-level={indentLevel + 1}
         role="treeitem"
-        aria-expanded={isParent ? true : undefined}
-        aria-label={`${category.name} ${indentLevel === 0 ? 'root category' : `level ${indentLevel} category`} ${isParent ? 'with subcategories' : ''}`}
-      >        
-        {/* Hierarchy indicator with DoubleArrow for child categories */}
-        {indentLevel > 0 && (
-          <DoubleArrowIcon 
-            sx={{ 
-              mr: 0.5,
-              color: 'text.disabled',
-              fontSize: 20
-            }}
-          />
-        )}
-        
-        {/* Minimal Category Icon */}
-        <Box sx={{ mr: 0.75, display: 'flex', alignItems: 'center' }}>
-          {indentLevel === 0 ? (
-            <FolderOpenIcon 
-              sx={{ 
-                fontSize: 18, 
-                color: 'primary.main'
-              }} 
-            />
-          ) : isParent ? (
-            <FolderIcon 
-              sx={{ 
-                fontSize: 16, 
-                color: 'secondary.main'
-              }} 
-            />
-          ) : null}
-        </Box>
-        
+        aria-label={`${category.name} ${indentLevel === 0 ? 'root category' : `level ${indentLevel} category`}`}
+      >
+        {/* DragIndicator Icon for all categories */}
+        <DragIndicatorIcon
+          sx={{
+            color: 'text.secondary',
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+          }}
+        />
+
         {/* Category Name */}
-        <Typography 
-          variant="body2"
-          sx={{ 
-            fontWeight: indentLevel === 0 ? 600 : isParent ? 500 : 400,
-            color: indentLevel === 0 ? 'primary.dark' : 'text.primary',
-            fontSize: indentLevel === 0 ? '0.9rem' : '0.8rem',
-            lineHeight: 1.2,
+        <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          sx={{
+            fontSize: '0.8rem',
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+            fontWeight: 400,
+            color: 'text.primary',
             wordBreak: 'break-word'
           }}
         >
@@ -267,23 +362,6 @@ const CategoriesPage: React.FC = () => {
   }
 
 
-  const validateCategoryName = (name: string) => {
-    if (!name || name.length < 2) {
-      return null // Let yup handle basic validation
-    }
-    
-    const existingCategory = categories.find(cat => 
-      cat.name.toLowerCase() === name.toLowerCase() && 
-      (!editMode || cat.id !== selectedCategory?.id)
-    )
-    
-    if (existingCategory) {
-      return `A category named "${name}" already exists`
-    }
-    
-    return null
-  }
-
   return (
     <Box>
       {/* Header */}
@@ -296,17 +374,35 @@ const CategoriesPage: React.FC = () => {
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <CategoryIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Categories
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Organize your products with categories ({categories.length} total)
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Organize your products with categories ({categories.length} {categoryFilters.search ? 'found' : 'total'})
+            {categoryFilters.search && (
+              <>
+                <br />
+                <Typography component="span" variant="body2" color="primary.main" sx={{ fontStyle: 'italic' }}>
+                  Filtered by: "{categoryFilters.search}"
+                </Typography>
+              </>
+            )}
           </Typography>
         </Box>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 2,
+          gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
           <Button
@@ -314,7 +410,7 @@ const CategoriesPage: React.FC = () => {
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
             onClick={handleRefresh}
             disabled={loading?.categories}
-            size={isMobile ? "medium" : "medium"}
+            size="medium"
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Categories" : "Refresh"}
@@ -323,7 +419,7 @@ const CategoriesPage: React.FC = () => {
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setDeletedCategoriesDialogOpen(true)}
-            size={isMobile ? "medium" : "medium"}
+            size="medium"
             fullWidth={isMobile}
             sx={{
               color: 'warning.main',
@@ -339,20 +435,59 @@ const CategoriesPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
-            size={isMobile ? "medium" : "large"}
+            size="medium"
             onClick={() => handleAddCategory()}
             fullWidth={isMobile}
-            sx={{
-              py: isMobile ? 1.5 : 1,
-              fontWeight: 600
-            }}
           >
             {isMobile ? "Add New Category" : "Add Category"}
           </Button>
         </Box>
       </Box>
 
-
+      {/* Filters and Search */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? 2 : 1,
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 3,
+        '& > *': {
+          alignSelf: isMobile ? 'stretch' : 'flex-start'
+        }
+      }}>
+        <TextField
+          placeholder="Search categories by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 250,
+            flex: isMobile ? 'none' : 1,
+            maxWidth: isMobile ? 'none' : 400,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '& input': {
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+              }
+            },
+            '& .MuiInputAdornment-root': {
+              '& .MuiSvgIcon-root': {
+                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.searchField.icon.color
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       {/* Categories Content */}
       <Paper>        
@@ -368,45 +503,54 @@ const CategoriesPage: React.FC = () => {
           </Box>
         ) : (
           <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table 
-              size="small" // Use compact table size
-              sx={{ 
+            <Table
+              size={TABLE_STYLES.size}
+              sx={{
                 minWidth: isMobile ? 650 : 800,
-                '& .MuiTableCell-root': { 
-                  borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                  py: 0.75, // Reduced padding for compact display
-                  px: 1.5 // Consistent horizontal padding
+                '& .MuiTableCell-root': {
+                  borderBottom: TABLE_STYLES.cell.border,
+                  py: TABLE_STYLES.cell.padding.py,
+                  px: TABLE_STYLES.cell.padding.px
                 }
               }}
             >
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                   <TableCell sx={{ width: isMobile ? '45%' : '40%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}>
                       Category Hierarchy
                     </Typography>
                   </TableCell>
-                  {!isMobile && (
-                    <TableCell sx={{ width: '12%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Status
-                      </Typography>
-                    </TableCell>
-                  )}
-                  <TableCell sx={{ width: isMobile ? '15%' : '12%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                  <TableCell sx={{ width: isMobile ? '15%' : '15%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}>
                       Products
                     </Typography>
                   </TableCell>
                   {!isMobile && (
-                    <TableCell sx={{ width: '16%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                    <TableCell sx={{ width: '20%' }}>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}>
                         Created Date
                       </Typography>
                     </TableCell>
                   )}
-                  <TableCell align="right" sx={{ width: isMobile ? '40%' : '20%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                  <TableCell align="right" sx={{ width: isMobile ? '40%' : '25%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}>
                       Actions
                     </Typography>
                   </TableCell>
@@ -427,43 +571,12 @@ const CategoriesPage: React.FC = () => {
                       },
                       transition: 'background-color 0.2s ease',
                       cursor: 'default',
-                      height: 48 // Fixed compact row height
+                      height: TABLE_STYLES.row.height
                     }}
                   >
                     <TableCell>
                       {renderCategoryName(category)}
-                      {/* Mobile-only status indicator */}
-                      {isMobile && (
-                        <Box sx={{ mt: 0.25 }}>
-                          <Chip
-                            label={category.isActive ? 'Active' : 'Inactive'}
-                            color={category.isActive ? 'success' : 'default'}
-                            size="small"
-                            variant={category.isActive ? 'filled' : 'outlined'}
-                            sx={{
-                              fontSize: '0.65rem',
-                              height: 18 // More compact chip
-                            }}
-                          />
-                        </Box>
-                      )}
                     </TableCell>
-                    {!isMobile && (
-                      <TableCell>
-                        <Chip
-                          label={category.isActive ? 'Active' : 'Inactive'}
-                          color={category.isActive ? 'success' : 'default'}
-                          size="small"
-                          variant={category.isActive ? 'filled' : 'outlined'}
-                          sx={{
-                            minWidth: 60,
-                            fontSize: '0.7rem',
-                            fontWeight: 500,
-                            height: 20 // More compact chip
-                          }}
-                        />
-                      </TableCell>
-                    )}
                     <TableCell>
                       <Chip
                         label={`${category.productCount ?? 0} ${(category.productCount ?? 0) === 1 ? 'item' : 'items'}`}
@@ -471,15 +584,20 @@ const CategoriesPage: React.FC = () => {
                         color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
                         variant="outlined"
                         sx={{
-                          fontSize: '0.7rem',
+                          fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                           fontWeight: 500,
-                          height: 20
+                          height: `${TABLE_STYLES.row.height * 0.65}px`, // Scale to 65% of row height for better proportion
+                          minWidth: `${TABLE_STYLES.row.height * 1.8}px`, // Scale min width proportionally
+                          '& .MuiChip-label': {
+                            fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`, // Scale font size with row height
+                            lineHeight: 1
+                          }
                         }}
                       />
                     </TableCell>
                     {!isMobile && (
                       <TableCell>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                           {new Date(category.createdAt).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'short',
@@ -489,45 +607,59 @@ const CategoriesPage: React.FC = () => {
                       </TableCell>
                     )}
                     <TableCell align="right">
-                      <Box 
+                      <Box
                         className="category-actions"
-                        sx={{ 
-                          display: 'flex', 
+                        sx={{
+                          display: 'flex',
                           justifyContent: 'flex-end',
-                          gap: 0.25, // Tight spacing for compact display
+                          alignItems: 'center',
+                          height: '100%', // Fill the full cell height
+                          gap: 0.25,
                           opacity: isMobile ? 1 : 0.7,
                           transition: 'opacity 0.2s ease'
                         }}
                       >
-                        <IconButton 
-                          size="small" // Always use small size for compactness
+                        <IconButton
+                          size="small"
                           title={`Edit ${category.name}`}
                           aria-label={`Edit category ${category.name}`}
                           onClick={() => handleEditCategory(category)}
                           sx={{
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
                             '&:hover': {
                               backgroundColor: 'action.hover',
                               color: 'primary.main'
-                            },
-                            p: 0.5 // Reduced padding
+                            }
                           }}
                         >
-                          <EditIcon fontSize="small" />
+                          <EditIcon sx={{
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                          }} />
                         </IconButton>
-                        <IconButton 
-                          size="small" // Always use small size for compactness
+                        <IconButton
+                          size="small"
                           title={`Delete ${category.name}`}
                           aria-label={`Delete category ${category.name}`}
                           onClick={() => handleDeleteCategory(category)}
                           sx={{
+                            height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                            width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                            minHeight: 20, // Reduced minimum size for better scaling
+                            minWidth: 20,
+                            p: 0.125, // Reduced padding for better proportion
                             '&:hover': {
                               backgroundColor: 'error.light',
                               color: 'error.main'
-                            },
-                            p: 0.5 // Reduced padding
+                            }
                           }}
                         >
-                          <DeleteIcon fontSize="small" />
+                          <DeleteIcon sx={{
+                            fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                          }} />
                         </IconButton>
                       </Box>
                       {/* Mobile-only date indicator */}
@@ -536,7 +668,7 @@ const CategoriesPage: React.FC = () => {
                           display: 'block', 
                           textAlign: 'right', 
                           mt: 0.25, // Reduced margin
-                          fontSize: '0.65rem'
+                          fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize
                         }}>
                           {new Date(category.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
@@ -577,9 +709,8 @@ const CategoriesPage: React.FC = () => {
                   name="name"
                   control={control}
                   render={({ field }) => {
-                    const validationError = validateCategoryName(field.value)
-                    const hasValidationError = !!errors.name || !!validationError
-                    const helperText = errors.name?.message || validationError || ''
+                    const hasValidationError = !!errors.name || isDuplicateName
+                    const helperText = errors.name?.message || duplicateNameError || ''
                     
                     return (
                       <TextField
@@ -588,11 +719,7 @@ const CategoriesPage: React.FC = () => {
                         label="Category Name"
                         error={hasValidationError}
                         helperText={helperText}
-                        onChange={(e) => {
-                          field.onChange(e)
-                          const error = validateCategoryName(e.target.value)
-                          setNameValidationError(error)
-                        }}
+                        onChange={field.onChange}
                         onBlur={field.onBlur}
                       />
                     )
@@ -611,23 +738,6 @@ const CategoriesPage: React.FC = () => {
                       placeholder="Select parent category (optional)"
                       allowRoot
                       excludeCategories={editMode && selectedCategory ? [selectedCategory.id] : []}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="isActive"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={field.value}
-                          onChange={field.onChange}
-                        />
-                      }
-                      label="Active Category"
                     />
                   )}
                 />
@@ -653,7 +763,31 @@ const CategoriesPage: React.FC = () => {
       <DeletedCategoriesDialog
         open={deletedCategoriesDialogOpen}
         onClose={() => setDeletedCategoriesDialogOpen(false)}
-        onCategoryRestored={() => dispatch(fetchCategories({}))}
+        onCategoryRestored={() => dispatch(fetchCategories({
+          includeProductCount: true,
+          search: categoryFilters.search || undefined
+        }))}
+      />
+
+      {/* Smart Delete Dialog */}
+      <SmartCategoryDeleteDialog
+        open={smartDeleteOpen}
+        category={categoryToDelete}
+        error={deleteError}
+        onClose={handleSmartDeleteClose}
+        onConfirm={handleSmartDelete}
+      />
+
+      {/* Fallback Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete the category "${categoryToDelete?.name}"?`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        severity="warning"
       />
     </Box>
   )

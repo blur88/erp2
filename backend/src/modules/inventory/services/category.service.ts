@@ -15,6 +15,8 @@ import {
   SelectQueryBuilder,
   In,
   Like,
+  Not,
+  IsNull,
 } from 'typeorm';
 import { Category } from '../../../database/entities/category.entity';
 import { Product } from '../../../database/entities/product.entity';
@@ -30,7 +32,7 @@ import {
   CategoryStatsDto,
   CategoryAncestorsDto,
 } from '../dto/category.dto';
-import { AuditService } from './audit.service';
+import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 
 @Injectable()
 export class CategoryService {
@@ -41,7 +43,6 @@ export class CategoryService {
     private readonly categoryRepository: Repository<Category>, // Changed from TreeRepository to Repository
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -57,7 +58,7 @@ export class CategoryService {
     let parent: Category | undefined;
     if (createCategoryDto.parentId) {
       parent = await this.categoryRepository.findOne({
-        where: { id: createCategoryDto.parentId, isActive: true },
+        where: { id: createCategoryDto.parentId },
       });
 
       if (!parent) {
@@ -75,27 +76,12 @@ export class CategoryService {
       level,
       path,
       parentId: createCategoryDto.parentId,
-      isActive: createCategoryDto.isActive ?? true,
       sortOrder: createCategoryDto.sortOrder ?? 0,
     });
 
     const savedCategory = await this.categoryRepository.save(category);
 
-    // Log audit event (temporarily disabled due to audit schema mismatch)
-    try {
-      await this.auditService.logCategoryEvent(
-        savedCategory.id,
-        'CATEGORY_CREATED',
-        `Category ${savedCategory.name} created`,
-        userId,
-        {
-          parentId: parent?.id,
-          level: savedCategory.level,
-        },
-      );
-    } catch (error) {
-      this.logger.warn(`Failed to log audit event: ${error.message}`);
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category created successfully with ID: ${savedCategory.id}`);
     return this.toResponseDto(savedCategory);
@@ -110,7 +96,6 @@ export class CategoryService {
       limit = 20,
       search,
       parentId,
-      isActive,
       includeTree = false,
       includeProductCount = false,
       sortBy = 'name',
@@ -146,23 +131,24 @@ export class CategoryService {
       }
     }
 
-    if (isActive !== undefined) {
-      queryBuilder.andWhere('category.isActive = :isActive', { isActive });
-    }
 
     // Apply hierarchical sorting
     const validSortFields = ['name', 'createdAt', 'sortOrder'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     
     // For hierarchical ordering, sort by path first (maintains parent-child relationships)
-    // Use COALESCE to handle null paths and fall back to name
-    queryBuilder.orderBy('COALESCE(category.path, category.name)', 'ASC');
-    
+    // Use COALESCE to handle null paths and fall back to name - make case-insensitive
+    queryBuilder.orderBy('UPPER(COALESCE(category.path, category.name))', 'ASC');
+
     // Then sort by level to ensure proper nesting
     queryBuilder.addOrderBy('category.level', 'ASC');
-    
-    // Finally apply the requested sort within each level
-    queryBuilder.addOrderBy(`category.${sortField}`, sortOrder);
+
+    // Finally apply the requested sort within each level - make case-insensitive for name field
+    if (sortField === 'name') {
+      queryBuilder.addOrderBy('UPPER(category.name)', sortOrder);
+    } else {
+      queryBuilder.addOrderBy(`category.${sortField}`, sortOrder);
+    }
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -232,26 +218,18 @@ export class CategoryService {
     const skip = (page - 1) * limit;
 
     const [categories, total] = await this.categoryRepository.findAndCount({
-      where,
+      where: {
+        ...where,
+        deletedAt: Not(IsNull()), // Only include deleted categories
+      },
       withDeleted: true,
       order: { [safeSortBy]: safeSortOrder },
       skip,
       take: limit,
     });
 
-    // Filter only soft-deleted categories
-    const deletedCategories = categories.filter(cat => cat.deletedAt !== null);
-    const deletedTotal = await this.categoryRepository.count({
-      where,
-      withDeleted: true,
-    }).then(count => 
-      // We need to count manually since TypeORM doesn't filter in count
-      this.categoryRepository.find({ where, withDeleted: true })
-        .then(all => all.filter(cat => cat.deletedAt !== null).length)
-    );
-
     const data = await Promise.all(
-      deletedCategories.map(async (category) => 
+      categories.map(async (category) =>
         await this.toResponseDto(category, false, false)
       ),
     );
@@ -261,9 +239,9 @@ export class CategoryService {
       meta: {
         page,
         limit,
-        total: deletedTotal,
-        totalPages: Math.ceil(deletedTotal / limit),
-        hasNextPage: page < Math.ceil(deletedTotal / limit),
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
         hasPreviousPage: page > 1,
       },
     };
@@ -274,11 +252,13 @@ export class CategoryService {
    */
   async getTree(includeProductCount = false): Promise<CategoryTreeResponseDto> {
     try {
-      // Get all root categories (level 0)
-      const rootCategories = await this.categoryRepository.find({
-        where: { level: 0, isActive: true },
-        order: { sortOrder: 'ASC', name: 'ASC' },
-      });
+      // Get all root categories (level 0) with case-insensitive name sorting
+      const rootCategories = await this.categoryRepository
+        .createQueryBuilder('category')
+        .where('category.level = 0')
+        .orderBy('category.sortOrder', 'ASC')
+        .addOrderBy('UPPER(category.name)', 'ASC')
+        .getMany();
       
       const data = await Promise.all(
         rootCategories.map(async (category) => {
@@ -288,7 +268,7 @@ export class CategoryService {
       );
 
       // Calculate metadata
-      const allCategories = await this.categoryRepository.find({ where: { isActive: true } });
+      const allCategories = await this.categoryRepository.find();
       const maxDepth = allCategories.length > 0 ? Math.max(...allCategories.map(c => c.level), 0) : 0;
       const rootCategoriesCount = allCategories.filter(c => c.level === 0).length;
 
@@ -341,8 +321,8 @@ export class CategoryService {
     
     return {
       id: category.id,
-      ancestors: ancestors.map(ancestor => this.toResponseDto(ancestor)),
-      category: this.toResponseDto(category),
+      ancestors: await Promise.all(ancestors.map(ancestor => this.toResponseDto(ancestor))),
+      category: await this.toResponseDto(category),
       breadcrumbs: [...ancestors.map(a => a.name), category.name],
     };
   }
@@ -436,16 +416,7 @@ export class CategoryService {
       this.logger.log(`Finished updating descendant paths for category ${updatedCategory.name}`);
     }
 
-    // Log audit event
-    if (Object.keys(changes).length > 0) {
-      await this.auditService.logCategoryEvent(
-        updatedCategory.id,
-        'CATEGORY_UPDATED',
-        `Category ${updatedCategory.name} updated`,
-        userId,
-        { changes },
-      );
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category updated successfully: ${updatedCategory.id}`);
     return this.toResponseDto(updatedCategory);
@@ -498,39 +469,29 @@ export class CategoryService {
     // Update levels and paths for all descendants
     await this.updateDescendantLevelsAndPaths(movedCategory);
 
-    // Log audit event
-    await this.auditService.logCategoryEvent(
-      movedCategory.id,
-      'CATEGORY_MOVED',
-      `Category ${movedCategory.name} moved to new parent`,
-      userId,
-      {
-        oldParentId: category.parentId,
-        newParentId: moveCategoryDto.newParentId,
-        newLevel: movedCategory.level,
-      },
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category moved successfully: ${movedCategory.id}`);
     return this.toResponseDto(movedCategory);
   }
 
   /**
-   * Delete a category
+   * Delete a category with hybrid approach
    */
-  async remove(id: string, userId?: string): Promise<void> {
-    this.logger.log(`Deleting category with ID: ${id}`);
+  async remove(id: string, userId?: string, options?: {
+    force?: boolean;
+    moveToUncategorized?: boolean;
+  }): Promise<{ message: string; moved?: number }> {
+    this.logger.log(`Deleting category with ID: ${id}`, { options });
 
     const category = await this.categoryRepository.findOne({
       where: { id },
-      relations: ['children', 'products'],
+      relations: ['children'],
     });
 
     if (!category) {
       throw new NotFoundException(`Category with ID '${id}' not found`);
     }
-
-    this.logger.log(`Found category: ${category.name} with ${category.products?.length || 0} products and ${category.children?.length || 0} children`);
 
     // Check if category has children
     if (category.children && category.children.length > 0) {
@@ -543,90 +504,48 @@ export class CategoryService {
     const activeProductCount = await this.productRepository.count({
       where: { categoryId: id }
     });
-    
-    // Also check for soft-deleted products that still reference this category
-    const allProductCount = await this.productRepository
-      .createQueryBuilder('product')
-      .where('product.categoryId = :categoryId', { categoryId: id })
-      .withDeleted() // Include soft-deleted records
-      .getCount();
-    
-    this.logger.log(`Active product count: ${activeProductCount}, All products (including deleted): ${allProductCount}`);
 
-    // Handle all products (including soft-deleted ones) that reference this category
-    if (allProductCount > 0) {
-      this.logger.log(`Moving ${allProductCount} products (including deleted) to Uncategorized category`);
-      
-      // Find or create "Uncategorized" category (including soft-deleted ones)
-      let uncategorizedCategory = await this.categoryRepository.findOne({
-        where: { name: 'Uncategorized' },
-        withDeleted: true // Include soft-deleted records
-      });
-      
-      if (!uncategorizedCategory) {
-        this.logger.log('Creating Uncategorized category');
-        uncategorizedCategory = this.categoryRepository.create({
-          name: 'Uncategorized',
-          isActive: true,
-          sortOrder: 999,
-          level: 0,
-          path: null,
-          fullPath: 'Uncategorized',
-          isRoot: true,
-          parentId: null,
-          createdBy: userId || null,
-          updatedBy: userId || null,
+    this.logger.log(`Found category: ${category.name} with ${activeProductCount} active products and ${category.children?.length || 0} children`);
+
+    // Handle categories with products
+    if (activeProductCount > 0) {
+      if (!options?.force) {
+        // Default behavior: prevent deletion with detailed error
+        throw new BadRequestException({
+          message: `Cannot delete category '${category.name}' because it contains ${activeProductCount} product${activeProductCount === 1 ? '' : 's'}.`,
+          productCount: activeProductCount,
+          categoryName: category.name,
+          suggestions: [
+            'Move products to another category first',
+            'Delete products individually',
+            'Force delete and move products to Uncategorized category'
+          ]
         });
-        uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
-        this.logger.log(`Created Uncategorized category with ID: ${uncategorizedCategory.id}`);
-      } else if (uncategorizedCategory.deletedAt) {
-        // Restore soft-deleted Uncategorized category
-        this.logger.log(`Restoring soft-deleted Uncategorized category with ID: ${uncategorizedCategory.id}`);
-        uncategorizedCategory.deletedAt = null;
-        uncategorizedCategory.isActive = true;
-        uncategorizedCategory.updatedBy = userId || null;
-        uncategorizedCategory.updatedAt = new Date();
-        uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
-        this.logger.log(`Restored Uncategorized category with ID: ${uncategorizedCategory.id}`);
-      } else {
-        this.logger.log(`Found existing active Uncategorized category with ID: ${uncategorizedCategory.id}`);
       }
-      
-      // Update all products (including soft-deleted ones) to reference the Uncategorized category
-      this.logger.log(`Updating products from category ${id} to ${uncategorizedCategory.id}`);
-      const updateResult = await this.productRepository.manager.query(
-        'UPDATE products SET "categoryId" = $1, "updatedBy" = $2, "updatedAt" = NOW() WHERE "categoryId" = $3',
-        [uncategorizedCategory.id, userId || null, id]
-      );
-      this.logger.log(`Update result executed successfully`);
-      
-      // Verify the update worked (check both active and soft-deleted)
-      const remainingActiveCount = await this.productRepository.count({
-        where: { categoryId: id }
-      });
-      const remainingAllCount = await this.productRepository.manager.query(
-        'SELECT COUNT(*) as count FROM products WHERE "categoryId" = $1',
-        [id]
-      );
-      this.logger.log(`Remaining products with old category - Active: ${remainingActiveCount}, All: ${remainingAllCount[0]?.count || 0}`);
+
+      if (options.moveToUncategorized) {
+        // Move products to Uncategorized before deletion
+        const movedCount = await this.moveProductsToUncategorized(id, userId);
+        await this.categoryRepository.softDelete(id);
+
+        this.logger.log(`Category deleted successfully with ${movedCount} products moved to Uncategorized`);
+        return {
+          moved: movedCount,
+          message: `Category '${category.name}' deleted. ${movedCount} product${movedCount === 1 ? '' : 's'} moved to Uncategorized.`
+        };
+      } else {
+        // Force delete without moving (this would orphan products, but we'll prevent this)
+        throw new BadRequestException(
+          'Force deletion without moving products is not allowed. Use moveToUncategorized option.'
+        );
+      }
     }
 
-    // Use soft delete and properly update isActive flag
-    category.isActive = false;
-    category.updatedBy = userId || null;
-    category.updatedAt = new Date();
-    await this.categoryRepository.save(category);
+    // Normal deletion (no products)
     await this.categoryRepository.softDelete(id);
 
-    // Log audit event
-    await this.auditService.logCategoryEvent(
-      id,
-      'CATEGORY_DELETED',
-      `Category ${category.name} deleted, ${category.products?.length || 0} products uncategorized`,
-      userId,
-    );
-
     this.logger.log(`Category deleted successfully: ${id}`);
+    return { message: `Category '${category.name}' deleted successfully.` };
   }
 
   /**
@@ -640,29 +559,24 @@ export class CategoryService {
       withDeleted: true, // Include soft-deleted records
     });
 
-    if (!category) {
-      throw new NotFoundException(`Category with ID '${id}' not found`);
-    }
+    // Use standardized validation
+    ValidationUtil.validateForRestore(category, 'Category', id);
 
-    if (!category.deletedAt) {
-      throw new BadRequestException(`Category '${category.name}' is not deleted`);
-    }
+    // Restore the category (clears deletedAt)
+    await this.categoryRepository.restore(id);
 
-    // Restore the category
-    category.deletedAt = null;
-    category.isActive = true;
-    category.updatedBy = userId || null;
-    category.updatedAt = new Date();
+    // Also update isActive to true since this project uses both soft delete approaches
+    await this.categoryRepository.update(id, {
+      isActive: true,
+      updatedBy: userId || null,
+    });
 
-    const restoredCategory = await this.categoryRepository.save(category);
+    // Fetch the updated category after restore
+    const restoredCategory = await this.categoryRepository.findOne({
+      where: { id },
+    });
 
-    // Log audit event
-    await this.auditService.logCategoryEvent(
-      restoredCategory.id,
-      'CATEGORY_RESTORED',
-      `Category ${restoredCategory.name} restored`,
-      userId,
-    );
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category restored successfully: ${restoredCategory.id}`);
     return this.toResponseDto(restoredCategory);
@@ -673,7 +587,7 @@ export class CategoryService {
    */
   async permanentDelete(id: string, userId?: string): Promise<void> {
     this.logger.log(`Permanently deleting category with ID: ${id}`);
-    
+
     // Find the category (including soft-deleted ones)
     const category = await this.categoryRepository.findOne({
       where: { id },
@@ -681,44 +595,26 @@ export class CategoryService {
       withDeleted: true,
     });
 
-    if (!category) {
-      throw new NotFoundException(`Category with ID '${id}' not found`);
-    }
+    // Use standardized validation
+    ValidationUtil.validateForPermanentDelete(category, 'Category', id);
 
-    // Ensure category is already soft-deleted
-    if (!category.deletedAt) {
-      throw new BadRequestException(
-        'Category must be soft-deleted first before permanent deletion. Use regular delete endpoint first.'
-      );
-    }
+    // Check comprehensive dependencies with standardized error messaging
+    const dependencies = [
+      { name: 'subcategory', count: category.children?.length || 0 },
+      { name: 'product', count: category.products?.length || 0 },
+    ];
 
-    // Check if category has any active dependencies that prevent permanent deletion
-    if (category.children?.length > 0) {
+    const activeDependencies = dependencies.filter(dep => dep.count > 0);
+    if (activeDependencies.length > 0) {
       throw new BadRequestException(
-        'Cannot permanently delete category that has subcategories'
-      );
-    }
-
-    if (category.products?.length > 0) {
-      throw new BadRequestException(
-        'Cannot permanently delete category that has products assigned to it'
+        ValidationUtil.createDependencyErrorMessage('category', activeDependencies)
       );
     }
 
     // Perform the permanent deletion
     await this.categoryRepository.remove(category);
 
-    // Log the audit event
-    try {
-      await this.auditService.logCategoryEvent(
-        id,
-        'CATEGORY_PERMANENTLY_DELETED',
-        `Category ${category.name} permanently deleted from database`,
-        userId,
-      );
-    } catch (error) {
-      this.logger.warn(`Failed to log audit event: ${error.message}`);
-    }
+    // Audit logging removed with authentication system
 
     this.logger.log(`Category permanently deleted successfully: ${id}`);
   }
@@ -726,11 +622,15 @@ export class CategoryService {
   /**
    * Bulk restore soft-deleted categories
    */
-  async bulkRestore(categoryIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(categoryIds: string[]): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk restoring ${categoryIds.length} categories`);
 
-    const failedIds: string[] = [];
-    let restoredCount = 0;
+    if (!categoryIds || categoryIds.length === 0) {
+      return BulkOperationUtil.createResponse('restored', 'category', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
 
     for (const categoryId of categoryIds) {
       try {
@@ -739,58 +639,55 @@ export class CategoryService {
           withDeleted: true,
         });
 
-        if (!category) {
-          this.logger.warn(`Category not found: ${categoryId}`);
-          failedIds.push(categoryId);
-          continue;
-        }
-
-        if (!category.deletedAt) {
-          this.logger.warn(`Category is not deleted: ${categoryId}`);
-          failedIds.push(categoryId);
-          continue;
-        }
-
-        // Restore the category
-        category.deletedAt = null;
-        category.isActive = true;
-        category.updatedBy = null;
-        category.updatedAt = new Date();
-
-        await this.categoryRepository.save(category);
-
-        // Log audit event
+        // Use standardized validation
         try {
-          await this.auditService.logCategoryEvent(
-            category.id,
-            'CATEGORY_RESTORED',
-            `Category ${category.name} bulk restored`,
-            null,
-          );
+          ValidationUtil.validateForRestore(category, 'Category', categoryId);
         } catch (error) {
-          this.logger.warn(`Failed to log audit event: ${error.message}`);
+          BulkOperationUtil.addFailure(
+            failedItems,
+            categoryId,
+            error.message,
+            'VALIDATION_ERROR'
+          );
+          continue;
         }
 
-        restoredCount++;
+        // Restore the category (clears deletedAt)
+        await this.categoryRepository.restore(categoryId);
+
+        // Also update isActive to true since this project uses both soft delete approaches
+        await this.categoryRepository.update(categoryId, {
+          isActive: true,
+        });
+
+        successCount++;
         this.logger.log(`Category restored: ${categoryId}`);
       } catch (error) {
         this.logger.error(`Failed to restore category ${categoryId}: ${error.message}`);
-        failedIds.push(categoryId);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          categoryId,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`);
-    return { restoredCount, failedIds };
+    return BulkOperationUtil.createResponse('restored', 'category', successCount, failedItems);
   }
 
   /**
    * Bulk permanently delete categories from database
    */
-  async bulkPermanentDelete(categoryIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(categoryIds: string[]): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk permanently deleting ${categoryIds.length} categories`);
 
-    const failedIds: string[] = [];
-    let deletedCount = 0;
+    if (!categoryIds || categoryIds.length === 0) {
+      return BulkOperationUtil.createResponse('permanently deleted', 'category', 0, []);
+    }
+
+    const failedItems = [];
+    let successCount = 0;
 
     for (const categoryId of categoryIds) {
       try {
@@ -800,57 +697,53 @@ export class CategoryService {
           withDeleted: true,
         });
 
-        if (!category) {
-          this.logger.warn(`Category not found: ${categoryId}`);
-          failedIds.push(categoryId);
+        // Use standardized validation
+        try {
+          ValidationUtil.validateForPermanentDelete(category, 'Category', categoryId);
+        } catch (error) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            categoryId,
+            error.message,
+            'VALIDATION_ERROR'
+          );
           continue;
         }
 
-        // Ensure category is already soft-deleted
-        if (!category.deletedAt) {
-          this.logger.warn(`Category must be soft-deleted first: ${categoryId}`);
-          failedIds.push(categoryId);
-          continue;
-        }
+        // Check dependencies with standardized error messaging
+        const dependencies = [
+          { name: 'subcategory', count: category.children?.length || 0 },
+          { name: 'product', count: category.products?.length || 0 },
+        ];
 
-        // Check if category has any active dependencies
-        if (category.children?.length > 0) {
-          this.logger.warn(`Category has subcategories: ${categoryId}`);
-          failedIds.push(categoryId);
-          continue;
-        }
-
-        if (category.products?.length > 0) {
-          this.logger.warn(`Category has products: ${categoryId}`);
-          failedIds.push(categoryId);
+        const activeDependencies = dependencies.filter(dep => dep.count > 0);
+        if (activeDependencies.length > 0) {
+          BulkOperationUtil.addFailure(
+            failedItems,
+            categoryId,
+            ValidationUtil.createDependencyErrorMessage('category', activeDependencies),
+            'DEPENDENCY_ERROR'
+          );
           continue;
         }
 
         // Perform the permanent deletion
         await this.categoryRepository.remove(category);
 
-        // Log audit event
-        try {
-          await this.auditService.logCategoryEvent(
-            categoryId,
-            'CATEGORY_PERMANENTLY_DELETED',
-            `Category ${category.name} bulk permanently deleted`,
-            null,
-          );
-        } catch (error) {
-          this.logger.warn(`Failed to log audit event: ${error.message}`);
-        }
-
-        deletedCount++;
+        successCount++;
         this.logger.log(`Category permanently deleted: ${categoryId}`);
       } catch (error) {
         this.logger.error(`Failed to permanently delete category ${categoryId}: ${error.message}`);
-        failedIds.push(categoryId);
+        BulkOperationUtil.addFailure(
+          failedItems,
+          categoryId,
+          error.message,
+          'UNEXPECTED_ERROR'
+        );
       }
     }
 
-    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
-    return { deletedCount, failedIds };
+    return BulkOperationUtil.createResponse('permanently deleted', 'category', successCount, failedItems);
   }
 
   /**
@@ -879,7 +772,7 @@ export class CategoryService {
 
       // Track changes
       const changes: Record<string, { from: any; to: any }> = {};
-      ['name', 'isActive', 'sortOrder', 'parentId'].forEach(field => {
+      ['name', 'sortOrder', 'parentId'].forEach(field => {
         if (categoryUpdate[field] !== undefined && categoryUpdate[field] !== category[field]) {
           changes[field] = { from: category[field], to: categoryUpdate[field] };
         }
@@ -890,16 +783,7 @@ export class CategoryService {
       
       const updatedCategory = await this.categoryRepository.save(category);
 
-      // Log audit event
-      if (Object.keys(changes).length > 0) {
-        await this.auditService.logCategoryEvent(
-          updatedCategory.id,
-          'CATEGORY_BULK_UPDATED',
-          `Category ${updatedCategory.name} bulk updated`,
-          userId,
-          { changes },
-        );
-      }
+      // Audit logging removed with authentication system
 
       return updatedCategory;
     });
@@ -934,8 +818,8 @@ export class CategoryService {
     ] = await Promise.all([
       directProductsQuery.getMany(),
       directProductsQuery.getCount(),
-      directProductsQuery.clone().andWhere('product.isActive = true').getCount(),
-      directProductsQuery.clone().andWhere('product.isActive = false').getCount(),
+      0, // Active products - not applicable without isActive
+      0, // Inactive products - not applicable without isActive,
       directProductsQuery.clone().andWhere('product.stockQuantity <= product.reorderLevel').getCount(),
       directProductsQuery.clone().andWhere('(product.stockQuantity - product.reservedQuantity) <= 0').getCount(),
     ]);
@@ -1003,7 +887,6 @@ export class CategoryService {
       id: category.id,
       name: category.name,
       imageUrl: category.imageUrl,
-      isActive: category.isActive,
       sortOrder: category.sortOrder,
       path: category.path,
       level: category.level,
@@ -1062,15 +945,74 @@ export class CategoryService {
     }
   }
 
+  /**
+   * Check for duplicate category names (including soft-deleted)
+   */
+  async checkDuplicate(params: {
+    name?: string;
+    parentId?: string;
+    excludeId?: string;
+  }): Promise<{
+    nameExists: boolean;
+    nameConflict?: {
+      id: string;
+      name: string;
+      isDeleted: boolean;
+      parentId?: string;
+    };
+  }> {
+    this.logger.log(`Checking duplicate for category name: "${params.name}", parentId: "${params.parentId}"`);
+
+    const result = {
+      nameExists: false,
+      nameConflict: undefined as any,
+    };
+
+    // Check name duplicate
+    if (params.name && params.name.trim()) {
+      const nameQuery = this.categoryRepository
+        .createQueryBuilder('category')
+        .where('LOWER(category.name) = LOWER(:name)', { name: params.name.trim() })
+        .withDeleted();
+
+      if (params.parentId) {
+        nameQuery.andWhere('category.parentId = :parentId', { parentId: params.parentId });
+      } else {
+        nameQuery.andWhere('category.parentId IS NULL');
+      }
+
+      if (params.excludeId) {
+        nameQuery.andWhere('category.id != :excludeId', { excludeId: params.excludeId });
+      }
+
+      const existingByName = await nameQuery.getOne();
+
+      if (existingByName) {
+        result.nameExists = true;
+        result.nameConflict = {
+          id: existingByName.id,
+          name: existingByName.name,
+          isDeleted: !!existingByName.deletedAt,
+          parentId: existingByName.parentId,
+        };
+      }
+    }
+
+    this.logger.log(`Duplicate check result: nameExists=${result.nameExists}`);
+    return result;
+  }
+
 
   /**
    * Load category tree with all children recursively
    */
   private async loadCategoryTree(category: Category): Promise<Category> {
-    const children = await this.categoryRepository.find({
-      where: { parentId: category.id, isActive: true },
-      order: { sortOrder: 'ASC', name: 'ASC' },
-    });
+    const children = await this.categoryRepository
+      .createQueryBuilder('category')
+      .where('category.parentId = :parentId', { parentId: category.id })
+      .orderBy('category.sortOrder', 'ASC')
+      .addOrderBy('UPPER(category.name)', 'ASC')
+      .getMany();
 
     if (children.length > 0) {
       const childrenWithSubchildren = await Promise.all(
@@ -1132,18 +1074,89 @@ export class CategoryService {
    */
   private async updateDescendantLevelsAndPaths(category: Category): Promise<void> {
     const descendants = await this.loadAllDescendants(category);
-    
+
     const updates = descendants.map(async (descendant) => {
       // Recalculate level and path
       const ancestors = await this.loadAncestors(descendant);
       descendant.level = ancestors.length;
-      descendant.path = ancestors.length > 0 
+      descendant.path = ancestors.length > 0
         ? `${ancestors.map(a => a.name).join('.')}.${descendant.name}`
         : descendant.name;
-      
+
       return this.categoryRepository.save(descendant);
     });
 
     await Promise.all(updates);
+  }
+
+  /**
+   * Move all products from a category to Uncategorized category
+   */
+  private async moveProductsToUncategorized(categoryId: string, userId?: string): Promise<number> {
+    this.logger.log(`Moving products from category ${categoryId} to Uncategorized`);
+
+    // Find or create "Uncategorized" category
+    let uncategorizedCategory = await this.categoryRepository.findOne({
+      where: { name: 'Uncategorized' },
+      withDeleted: true // Include soft-deleted records
+    });
+
+    if (!uncategorizedCategory) {
+      this.logger.log('Creating Uncategorized category');
+      uncategorizedCategory = this.categoryRepository.create({
+        name: 'Uncategorized',
+        sortOrder: 999,
+        level: 0,
+        path: 'Uncategorized',
+        fullPath: 'Uncategorized',
+        isRoot: true,
+        parentId: null,
+      });
+      uncategorizedCategory = await this.categoryRepository.save(uncategorizedCategory);
+      this.logger.log(`Created Uncategorized category with ID: ${uncategorizedCategory.id}`);
+    } else if (uncategorizedCategory.deletedAt) {
+      // Restore soft-deleted Uncategorized category
+      this.logger.log(`Restoring soft-deleted Uncategorized category with ID: ${uncategorizedCategory.id}`);
+      await this.categoryRepository.restore(uncategorizedCategory.id);
+      // Update isActive to true since this project uses both soft delete approaches
+      await this.categoryRepository.update(uncategorizedCategory.id, {
+        isActive: true,
+      });
+      uncategorizedCategory = await this.categoryRepository.findOne({
+        where: { id: uncategorizedCategory.id }
+      });
+      this.logger.log(`Restored Uncategorized category with ID: ${uncategorizedCategory.id}`);
+    } else {
+      this.logger.log(`Found existing active Uncategorized category with ID: ${uncategorizedCategory.id}`);
+    }
+
+    // Count products to be moved (both active and soft-deleted)
+    const totalProductCount = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.categoryId = :categoryId', { categoryId })
+      .withDeleted() // Include soft-deleted records
+      .getCount();
+
+    if (totalProductCount === 0) {
+      this.logger.log('No products to move');
+      return 0;
+    }
+
+    // Update all products (including soft-deleted ones) to reference the Uncategorized category
+    this.logger.log(`Updating ${totalProductCount} products from category ${categoryId} to ${uncategorizedCategory.id}`);
+    await this.productRepository.manager.query(
+      'UPDATE products SET "categoryId" = $1, "updatedAt" = NOW() WHERE "categoryId" = $2',
+      [uncategorizedCategory.id, categoryId]
+    );
+
+    // Verify the update worked
+    const remainingCount = await this.productRepository.manager.query(
+      'SELECT COUNT(*) as count FROM products WHERE "categoryId" = $1',
+      [categoryId]
+    );
+
+    this.logger.log(`Products moved successfully. Remaining products in old category: ${remainingCount[0]?.count || 0}`);
+
+    return totalProductCount;
   }
 }

@@ -1,10 +1,10 @@
 import {
   IsString,
   IsOptional,
-  IsBoolean,
   IsUUID,
   IsNumber,
   IsArray,
+  IsBoolean,
   MaxLength,
   Min,
   Max,
@@ -26,10 +26,6 @@ export class CreateCategoryDto {
   @MaxLength(255)
   imageUrl?: string;
 
-  @ApiPropertyOptional({ description: 'Whether the category is active', default: true })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 
   @ApiPropertyOptional({ description: 'Display order for sorting', minimum: 0, default: 0 })
   @IsOptional()
@@ -78,15 +74,6 @@ export class QueryCategoriesDto {
   @IsUUID(4)
   parentId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by active status' })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
-  @IsBoolean()
-  isActive?: boolean;
 
   @ApiPropertyOptional({ description: 'Include full tree structure (nested children)', default: false })
   @IsOptional()
@@ -130,8 +117,6 @@ export class CategoryResponseDto {
   @ApiPropertyOptional({ description: 'Category image URL' })
   imageUrl?: string;
 
-  @ApiProperty({ description: 'Active status' })
-  isActive: boolean;
 
   @ApiProperty({ description: 'Sort order' })
   sortOrder: number;
@@ -229,10 +214,6 @@ export class CategoryBulkUpdateDto {
   @MaxLength(100)
   name?: string;
 
-  @ApiPropertyOptional({ description: 'New active status' })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 
   @ApiPropertyOptional({ description: 'New sort order' })
   @IsOptional()

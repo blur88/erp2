@@ -30,7 +30,7 @@ import {
 } from '../dto/quotation.dto';
 
 @ApiTags('Quotations')
-@Controller('api/v1/quotations')
+@Controller('api/quotations')
 export class QuotationController {
   constructor(private readonly quotationService: QuotationService) {}
 

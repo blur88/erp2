@@ -160,24 +160,32 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     setBulkRestoring(true)
     try {
       const productIds = Array.from(selectedProducts)
+      console.log('🔄 Starting bulk restore for products:', productIds)
       const result = await dispatch(bulkRestoreProducts(productIds))
-      
+
+      console.log('📦 Bulk restore result:', result)
+
       if (bulkRestoreProducts.rejected.match(result)) {
         throw new Error(result.payload as string)
       }
-      
+
       const payload = result.payload as any
+      console.log('📋 Extracted payload:', payload)
       const restoredCount = payload?.restoredCount || 0
       const failedIds = payload?.failedIds || []
-      
+
+      console.log(`✅ Restored count: ${restoredCount}, Failed IDs:`, failedIds)
+
       if (restoredCount > 0) {
+        console.log('🎉 Showing success notification for', restoredCount, 'products')
         showSuccess(`Successfully restored ${restoredCount} products`)
       }
-      
+
       if (failedIds.length > 0) {
+        console.log('❌ Showing error notification for', failedIds.length, 'failed products')
         showError(`Failed to restore ${failedIds.length} products`)
       }
-      
+
       // Refresh both deleted and active products and clear selections
       dispatch(fetchDeletedProducts({}))
       dispatch(fetchProducts({}))

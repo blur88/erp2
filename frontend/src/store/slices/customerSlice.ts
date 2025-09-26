@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { salesApi } from '@/services/salesApi'
-import type { Customer, CustomerType, CustomerStatus, PriceLevel, PaginatedResponse } from '@/types'
+import type { Customer, CustomerType, PriceLevel, PaginatedResponse } from '@/types'
 
 interface CustomerState {
   customers: Customer[]
@@ -17,7 +17,6 @@ interface CustomerState {
   filters: {
     search?: string
     type?: CustomerType
-    status?: CustomerStatus
     priceLevel?: PriceLevel
     isActive?: boolean
     sortBy?: string
@@ -37,10 +36,7 @@ const initialState: CustomerState = {
     total: 0,
     totalPages: 0,
   },
-  filters: {
-    sortBy: 'name',
-    sortOrder: 'ASC',
-  }
+  filters: {}
 }
 
 // Async thunks
@@ -51,7 +47,6 @@ export const fetchCustomers = createAsyncThunk(
     limit?: number
     search?: string
     type?: CustomerType
-    status?: CustomerStatus
     priceLevel?: PriceLevel
     isActive?: boolean
     sortBy?: string
@@ -93,35 +88,19 @@ export const updateCustomer = createAsyncThunk(
 
 export const deleteCustomer = createAsyncThunk(
   'customers/deleteCustomer',
-  async (id: string) => {
-    await salesApi.deleteCustomer(id)
-    return id
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await salesApi.deleteCustomer(id)
+      return id
+    } catch (error: any) {
+      // Pass the full error object to the component for detailed error handling
+      return rejectWithValue(error)
+    }
   }
 )
 
-export const activateCustomer = createAsyncThunk(
-  'customers/activateCustomer',
-  async (id: string) => {
-    const response = await salesApi.activateCustomer(id)
-    return response  // Return the full response
-  }
-)
 
-export const deactivateCustomer = createAsyncThunk(
-  'customers/deactivateCustomer',
-  async (id: string) => {
-    const response = await salesApi.deactivateCustomer(id)
-    return response  // Return the full response
-  }
-)
 
-export const suspendCustomer = createAsyncThunk(
-  'customers/suspendCustomer',
-  async ({ id, reason }: { id: string; reason?: string }) => {
-    const response = await salesApi.suspendCustomer(id, reason)
-    return response  // Return the full response
-  }
-)
 
 export const updateCreditLimit = createAsyncThunk(
   'customers/updateCreditLimit',
@@ -193,10 +172,7 @@ const customerSlice = createSlice({
       state.filters = { ...state.filters, ...action.payload }
     },
     clearFilters: (state) => {
-      state.filters = {
-        sortBy: 'name',
-        sortOrder: 'ASC',
-      }
+      state.filters = {}
     },
     setCurrentCustomer: (state, action: PayloadAction<Customer | null>) => {
       state.currentCustomer = action.payload
@@ -214,7 +190,8 @@ const customerSlice = createSlice({
         if (action.payload) {
           // API response structure: { data: Customer[], total, page, limit, totalPages }
           const payload = action.payload as any
-          state.customers = payload.data || []
+          // The API returns the data directly, not wrapped in another data property
+          state.customers = Array.isArray(payload.data) ? payload.data : []
           state.pagination = {
             page: payload.page || 1,
             limit: payload.limit || 20,
@@ -237,7 +214,7 @@ const customerSlice = createSlice({
       .addCase(fetchCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          state.currentCustomer = (action.payload as any).data || action.payload as Customer
+          state.currentCustomer = ((action.payload as any).data || action.payload) as Customer
         }
       })
       .addCase(fetchCustomer.rejected, (state, action) => {
@@ -254,7 +231,7 @@ const customerSlice = createSlice({
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const customer = (action.payload as any).data || action.payload as Customer
+          const customer = ((action.payload as any).data || action.payload) as Customer
           state.customers.unshift(customer)
           state.pagination.total += 1
         }
@@ -273,7 +250,7 @@ const customerSlice = createSlice({
       .addCase(updateCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
+          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -306,59 +283,17 @@ const customerSlice = createSlice({
       })
       .addCase(deleteCustomer.rejected, (state, action) => {
         state.loading = false
-        state.error = action.error.message || 'Failed to delete customer'
+        // Don't set error state - let component handle notifications
       })
 
-    // Activate customer
-    builder
-      .addCase(activateCustomer.fulfilled, (state, action) => {
-        if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
-          const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
-          if (index !== -1) {
-            state.customers[index] = updatedCustomer
-          }
-          if (state.currentCustomer?.id === updatedCustomer.id) {
-            state.currentCustomer = updatedCustomer
-          }
-        }
-      })
 
-    // Deactivate customer
-    builder
-      .addCase(deactivateCustomer.fulfilled, (state, action) => {
-        if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
-          const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
-          if (index !== -1) {
-            state.customers[index] = updatedCustomer
-          }
-          if (state.currentCustomer?.id === updatedCustomer.id) {
-            state.currentCustomer = updatedCustomer
-          }
-        }
-      })
 
-    // Suspend customer
-    builder
-      .addCase(suspendCustomer.fulfilled, (state, action) => {
-        if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
-          const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
-          if (index !== -1) {
-            state.customers[index] = updatedCustomer
-          }
-          if (state.currentCustomer?.id === updatedCustomer.id) {
-            state.currentCustomer = updatedCustomer
-          }
-        }
-      })
 
     // Update credit limit
     builder
       .addCase(updateCreditLimit.fulfilled, (state, action) => {
         if (action.payload) {
-          const updatedCustomer = (action.payload as any).data || action.payload as Customer
+          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
           const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
           if (index !== -1) {
             state.customers[index] = updatedCustomer
@@ -397,7 +332,7 @@ const customerSlice = createSlice({
       .addCase(restoreCustomer.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const restoredCustomer = (action.payload as any).data || action.payload as Customer
+          const restoredCustomer = ((action.payload as any).data || action.payload) as Customer
           // Remove from deleted customers
           state.deletedCustomers = state.deletedCustomers.filter(c => c.id !== restoredCustomer.id)
           // Add to regular customers if not already there
@@ -475,6 +410,6 @@ export const selectCurrentCustomer = (state: any) => state.customers?.currentCus
 export const selectCustomersLoading = (state: any) => state.customers?.loading || false
 export const selectCustomersError = (state: any) => state.customers?.error
 export const selectCustomersPagination = (state: any) => state.customers?.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }
-export const selectCustomersFilters = (state: any) => state.customers?.filters || { sortBy: 'name', sortOrder: 'ASC' }
+export const selectCustomersFilters = (state: any) => state.customers?.filters || {}
 
 export default customerSlice.reducer

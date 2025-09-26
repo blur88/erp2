@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { 
-  DashboardDataRequest, 
-  DashboardDataResponse, 
-  DashboardWidget, 
+import {
+  DashboardDataRequest,
+  DashboardDataResponse,
+  DashboardWidget,
   KPIDefinition,
-  DashboardAlert 
+  DashboardAlert,
+  AlertType,
+  AlertSeverity
 } from '../interfaces/dashboard-interfaces';
 
 // Simplified imports - only use available services for now
@@ -45,16 +47,16 @@ export class DashboardService {
     return [
       {
         id: 'alert_1',
-        type: 'threshold',
-        severity: 'medium',
+        type: AlertType.Threshold,
+        severity: AlertSeverity.Medium,
         message: 'Inventory levels running low for some products',
         relatedWidgetId: 'inventory_items',
         timestamp: new Date()
       },
       {
         id: 'alert_2',
-        type: 'threshold', 
-        severity: 'low',
+        type: AlertType.Threshold,
+        severity: AlertSeverity.Low,
         message: 'Sales target on track for this month',
         relatedWidgetId: 'sales_total',
         timestamp: new Date()

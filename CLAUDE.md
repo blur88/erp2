@@ -129,7 +129,7 @@ docker compose logs backend # Check specific service logs
 - **Infrastructure**: Exception filters, logging, validation pipes
 
 ### Database Architecture
-- **PostgreSQL**: Primary database with 20+ entities, TypeORM
+- **PostgreSQL**: Primary database with 20 entities, TypeORM
 - **MongoDB**: Analytics and reports data, Mongoose
 - **Redis**: Caching, queues, WebSocket state
 
@@ -224,10 +224,12 @@ When enabling disabled modules:
 ## Recent Changes (September 2025)
 
 ### Product Fields Modernization (September 2025)
-- ✅ **LATEST**: Replaced SKU field with Barcode for better retail integration
-- **Removed Fields**: Product type, unit, initial stock, reorder level, optimal stock (simplified model)
-- **Added**: Current stock field for real-time inventory tracking
-- **Search**: Barcode field is now searchable in product lists
+- ✅ **LATEST**: Simplified product model to match frontend form (December 2025)
+- **Final Product Fields**: name, description, barcode, type, categoryId, baseCost, retailPrice, wholesalePrice, specialPrice, stockQuantity, notes, isActive
+- **Removed Fields**: status, unit, reservedQuantity, reorderLevel, optimalStockLevel, stockStatus, weight, dimensions, brand, model, imageUrl, additionalImages, attributes
+- **CSV Import**: Updated template to match simplified fields only
+- **Database Migration**: Created migration to remove unused columns from products table
+- **Search**: Simplified to search only by name and barcode
 - **Permanent Delete**: Added hard delete functionality for soft-deleted products
 
 ### Soft-Deleted Products Feature (September 2025)
@@ -245,10 +247,16 @@ When enabling disabled modules:
 - ✅ Category restore/undo functionality implemented
 - ✅ WebSocket integration for dashboard real-time updates
 
-### Categories Simplified (December 2025)
+### Categories Simplified (September 2025)
 - Removed `code` and `description` fields entirely
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
+
+### Customer Management Bulk Operations (September 2025)
+- ✅ **COMPLETE**: Bulk restore and bulk delete functionality for customers
+- **Frontend**: Enhanced customer page with bulk operations matching products/categories pattern
+- **UI Integration**: Bulk action buttons and "View Deleted" functionality
+- **State Management**: Redux support for bulk operations on customer records
 
 ### Product API Endpoints Fixed (September 2025)
 - ✅ **CRITICAL FIX**: Product listing endpoints were returning reversed data
@@ -387,7 +395,7 @@ const { control, handleSubmit } = useForm<FormData>({
 - Users: `/api/users`
 - Inventory: `/api/inventory/products`, `/api/inventory/categories`  
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
-- Sales: `/api/api/v1/sales-orders` (note: double `/api`)
+- Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
 - Module Info: `/api/info`
 
 ## Troubleshooting
@@ -445,8 +453,8 @@ For disabled modules (Purchasing, Reports, Plugins):
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products
 - `frontend/src/components/inventory/CategorySelector.tsx` - Hierarchical category selection component
-- `frontend/src/components/inventory/CategoryTreeView.tsx` - Tree view for category management
-- `frontend/src/components/inventory/CategoryBreadcrumb.tsx` - Navigation breadcrumbs for categories
+- `frontend/src/components/inventory/CategoryTreeView.tsx` - **UNUSED** Tree view component (exists but not imported anywhere)
+- `frontend/src/components/inventory/CategoryBreadcrumb.tsx` - **UNUSED** Navigation breadcrumbs component (exists but not imported anywhere)
 
 ### Environment Config
 - `frontend/docker-entrypoint.sh` - Runtime `window.__ENV__` injection  

@@ -123,6 +123,23 @@ export class CategoryController {
     });
   }
 
+  @Get('check-duplicate')
+  @ApiOperation({ summary: 'Check if category name already exists (including soft-deleted)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Duplicate check completed',
+  })
+  @ApiQuery({ name: 'name', required: false, description: 'Category name to check' })
+  @ApiQuery({ name: 'parentId', required: false, description: 'Parent category ID' })
+  @ApiQuery({ name: 'excludeId', required: false, description: 'Category ID to exclude from check (for updates)' })
+  async checkDuplicate(
+    @Query('name') name?: string,
+    @Query('parentId') parentId?: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    return this.categoryService.checkDuplicate({ name, parentId, excludeId });
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a category by ID' })
   @ApiResponse({
@@ -279,9 +296,9 @@ export class CategoryController {
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     const result = await this.categoryService.bulkRestore(body.categoryIds);
     return {
-      message: `Successfully restored ${result.restoredCount} of ${body.categoryIds.length} categories`,
-      restoredCount: result.restoredCount,
-      failedIds: result.failedIds,
+      message: `Successfully restored ${result.successCount} of ${body.categoryIds.length} categories`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -327,9 +344,9 @@ export class CategoryController {
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
     const result = await this.categoryService.bulkPermanentDelete(body.categoryIds);
     return {
-      message: `Successfully permanently deleted ${result.deletedCount} of ${body.categoryIds.length} categories`,
-      deletedCount: result.deletedCount,
-      failedIds: result.failedIds,
+      message: `Successfully permanently deleted ${result.successCount} of ${body.categoryIds.length} categories`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
     };
   }
 
@@ -353,21 +370,45 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a category' })
+  @ApiOperation({ summary: 'Delete a category with optional force and move options' })
   @ApiResponse({
-    status: 204,
+    status: 200,
     description: 'Category deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        moved: { type: 'number', description: 'Number of products moved (if applicable)' }
+      }
+    }
   })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Cannot delete category with subcategories or products' 
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot delete category with subcategories or products (use force options)'
   })
   @ApiParam({ name: 'id', description: 'Category ID' })
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiQuery({
+    name: 'force',
+    required: false,
+    description: 'Force deletion even if category has products',
+    type: 'boolean'
+  })
+  @ApiQuery({
+    name: 'moveToUncategorized',
+    required: false,
+    description: 'Move products to Uncategorized category before deletion (requires force=true)',
+    type: 'boolean'
+  })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<void> {
-    await this.categoryService.remove(id);
+    @Query('force') force?: boolean,
+    @Query('moveToUncategorized') moveToUncategorized?: boolean,
+  ): Promise<{ message: string; moved?: number }> {
+    const result = await this.categoryService.remove(id, 'system', {
+      force: force === true,
+      moveToUncategorized: moveToUncategorized === true
+    });
+    return result;
   }
 }

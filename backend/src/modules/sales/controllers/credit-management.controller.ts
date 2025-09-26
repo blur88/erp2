@@ -25,7 +25,7 @@ import {
 import { CreditCheckResponseDto } from '../dto/customer.dto';
 
 @ApiTags('Credit Management')
-@Controller('api/v1/credit')
+@Controller('api/credit')
 export class CreditManagementController {
   constructor(private readonly creditManagementService: CreditManagementService) {}
 

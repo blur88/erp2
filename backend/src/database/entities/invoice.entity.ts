@@ -458,18 +458,18 @@ export class Invoice extends BaseEntity {
       salesOrderId: salesOrder.id,
       customerName: salesOrder.customer?.name,
       customerPoNumber: salesOrder.customerPoNumber,
-      subtotal: salesOrder.subtotal,
-      discountPercent: salesOrder.discountPercent,
-      discountAmount: salesOrder.discountAmount,
-      taxPercent: salesOrder.taxPercent,
-      taxAmount: salesOrder.taxAmount,
-      additionalCharges: salesOrder.shippingAmount,
+      subtotal: salesOrder.totalAmount, // Use totalAmount as subtotal
+      discountPercent: 0, // Default to 0 since SalesOrder doesn't have discount fields
+      discountAmount: 0,
+      taxPercent: 0, // Default to 0 since SalesOrder doesn't have tax fields
+      taxAmount: 0,
+      additionalCharges: 0, // Default to 0 since SalesOrder doesn't have shipping amount
       totalAmount: salesOrder.totalAmount,
       balanceDue: salesOrder.totalAmount,
       invoiceDate: new Date(),
-      billingAddress: salesOrder.customer?.fullAddress,
-      customerTaxId: salesOrder.customer?.taxId,
-      paymentTermsDays: salesOrder.customer?.paymentTermsDays || 30,
+      billingAddress: salesOrder.customer?.name || '',
+      customerTaxId: '',
+      paymentTermsDays: 30,
     };
   }
 }

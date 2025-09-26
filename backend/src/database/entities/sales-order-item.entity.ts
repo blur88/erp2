@@ -28,6 +28,11 @@ export enum SalesOrderItemStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum DiscountType {
+  PERCENTAGE = 'percentage',
+  AMOUNT = 'amount',
+}
+
 /**
  * Sales Order Item entity for individual line items in sales orders
  * Tracks detailed product information and pricing at time of order
@@ -135,11 +140,20 @@ export class SalesOrderItem extends BaseEntity {
   unitPrice: number;
 
   @Column({
+    type: 'enum',
+    enum: DiscountType,
+    default: DiscountType.PERCENTAGE,
+    comment: 'Type of discount: percentage or fixed amount',
+  })
+  @IsEnum(DiscountType)
+  discountType: DiscountType;
+
+  @Column({
     type: 'decimal',
     precision: 5,
     scale: 2,
     default: 0,
-    comment: 'Line item discount percentage',
+    comment: 'Line item discount percentage (0-100)',
   })
   @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
@@ -150,7 +164,7 @@ export class SalesOrderItem extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Line item discount amount',
+    comment: 'Line item discount amount (fixed amount or calculated from percentage)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
@@ -216,9 +230,9 @@ export class SalesOrderItem extends BaseEntity {
   @JoinColumn({ name: 'salesOrderId' })
   salesOrder: SalesOrder;
 
-  @ManyToOne(() => Product, (product) => product.salesOrderItems, {
+  @ManyToOne(() => Product, { // Removed back-reference to avoid circular relation issues
     onDelete: 'RESTRICT',
-    eager: true,
+    eager: false, // Disabled eager loading to prevent automatic relation resolution
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
@@ -256,12 +270,19 @@ export class SalesOrderItem extends BaseEntity {
   @BeforeUpdate()
   calculateTotals() {
     const lineTotal = this.lineTotal;
-    
-    // Calculate discount amount if percentage is set
-    if (this.discountPercent > 0) {
+
+    // Calculate discount amount based on discount type
+    if (this.discountType === DiscountType.PERCENTAGE && this.discountPercent > 0) {
       this.discountAmount = (lineTotal * Number(this.discountPercent)) / 100;
+    } else if (this.discountType === DiscountType.AMOUNT && this.discountAmount > 0) {
+      // For fixed amount, use the discountAmount as is
+      // Ensure discount doesn't exceed line total
+      this.discountAmount = Math.min(Number(this.discountAmount), lineTotal);
+    } else {
+      // No discount or invalid values
+      this.discountAmount = 0;
     }
-    
+
     // Calculate total amount
     this.totalAmount = lineTotal - Number(this.discountAmount);
   }
@@ -306,10 +327,13 @@ export class SalesOrderItem extends BaseEntity {
       productSku: product.barcode,
       productName: product.name,
       productDescription: product.description,
-      unit: product.unit,
+      unit: 'pcs',
       quantity,
       unitPrice,
       unitCost: Number(product.baseCost),
+      discountType: DiscountType.PERCENTAGE,
+      discountPercent: 0,
+      discountAmount: 0,
     };
   }
 }

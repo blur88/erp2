@@ -1,6 +1,6 @@
-# 🏢 ERP System - Complete Enterprise Solution
+# 🏢 ERP System - Modern Business Management
 
-A comprehensive, modular ERP (Enterprise Resource Planning) system built with modern technologies, featuring inventory management, sales, purchasing, reporting, and an extensible plugin architecture.
+A streamlined ERP (Enterprise Resource Planning) system built with modern technologies, featuring inventory management, sales, user management, and real-time dashboard analytics. Currently optimized for rapid development with simplified authentication-free architecture.
 
 ## 🚀 Quick Start
 
@@ -23,27 +23,45 @@ docker-compose up -d
 # API Documentation: http://localhost:3001/api/docs
 ```
 
-### Demo Accounts
-- **Admin**: admin@erp.com / admin123
-- **Manager**: manager@erp.com / manager123
-- **Sales Staff**: sales@erp.com / sales123
+### System Access
+**Note**: Authentication has been removed for rapid development. All endpoints are publicly accessible.
+
+## 🌍 Access URLs
+
+### Core System
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001/api  
+- **API Documentation**: http://localhost:3001/api/docs
+
+### ✅ Working Pages (Fully Functional)
+- **Dashboard**: http://localhost:3000/ (with real-time WebSocket updates)
+- **Inventory Management**: http://localhost:3000/inventory
+- **Products**: http://localhost:3000/inventory/products (CRUD + soft-deleted management)
+- **Categories**: http://localhost:3000/inventory/categories (hierarchical management)
+- **Sales**: http://localhost:3000/sales (customers, orders, invoices)
+- **Users**: http://localhost:3000/users (basic CRUD)
+
+### ⚠️ Non-Functional Pages (Modules Disabled)
+- Purchasing pages (module disabled)
+- Reports pages (module disabled) 
+- Plugin pages (module disabled)
 
 ## 📋 System Overview
 
 ### Core Features
-- ✅ **Authentication & Authorization** - JWT-based with role-based access control
-- ✅ **Dashboard** - Real-time KPIs and business analytics
-- ✅ **Inventory Management** - Products, categories, stock tracking, multi-level pricing
+- ✅ **Dashboard** - Real-time KPIs with WebSocket updates
+- ✅ **Inventory Management** - Products with barcodes, hierarchical categories, soft-delete management
 - ✅ **Sales Management** - Customers, orders, invoices, payments
-- ✅ **Purchasing** - Suppliers, purchase orders, goods received notes
-- ✅ **Reporting** - Comprehensive reports with Excel/PDF export
-- ✅ **Plugin System** - Extensible architecture for future modules
+- ✅ **User Management** - Basic user CRUD operations
+- ⚠️ **Purchasing** - Module disabled (available but needs enabling)
+- ⚠️ **Reporting** - Module disabled (available but needs enabling)
+- ⚠️ **Plugin System** - Module disabled (available but needs enabling)
 
 ### Technology Stack
 - **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit
 - **Backend**: NestJS + TypeORM + PostgreSQL + Redis
 - **Infrastructure**: Docker + NGINX + Bull Queue
-- **Security**: JWT, bcrypt, rate limiting, input validation
+- **Security**: Input validation, security headers (CORS, CSP, HSTS)
 
 ## 🏗️ Architecture
 
@@ -52,19 +70,20 @@ docker-compose up -d
 backend/
 ├── src/
 │   ├── modules/
-│   │   ├── auth/           # Authentication & authorization
-│   │   ├── users/          # User management
-│   │   ├── inventory/      # Product & stock management
-│   │   ├── sales/          # Sales & customer management
-│   │   ├── purchasing/     # Supplier & procurement
-│   │   ├── dashboard/      # Real-time analytics
-│   │   ├── reports/        # Business intelligence
-│   │   └── plugins/        # Plugin system
+│   │   ├── users/          # ✅ User management (active)
+│   │   ├── inventory/      # ✅ Product & stock management (active)
+│   │   ├── sales/          # ✅ Sales & customer management (active)
+│   │   ├── dashboard/      # ✅ Real-time analytics with WebSocket (active)
+│   │   ├── purchasing/     # ⚠️ Supplier & procurement (disabled)
+│   │   ├── reports/        # ⚠️ Business intelligence (disabled)
+│   │   └── plugins/        # ⚠️ Plugin system (disabled)
 │   ├── database/
-│   │   ├── entities/       # TypeORM entities
+│   │   ├── entities/       # TypeORM entities (20+ entities)
 │   │   └── migrations/     # Database migrations
 │   └── config/            # Configuration files
 ```
+
+**Note**: Authentication module completely removed. Disabled modules are commented out in `app.module.ts` but can be re-enabled.
 
 ### Frontend Structure
 ```
@@ -78,70 +97,90 @@ frontend/
 │   └── types/            # TypeScript definitions
 ```
 
-## 🔐 Security Features
+## 🔐 Security Status
 
-- **Authentication**: JWT tokens with refresh mechanism
-- **Authorization**: Role-based access control (RBAC)
-- **Input Validation**: Comprehensive validation on all endpoints
-- **Rate Limiting**: Protection against abuse
-- **Security Headers**: CORS, CSP, HSTS implementation
-- **Password Security**: bcrypt hashing with salt rounds
-- **Audit Logging**: Complete audit trail for compliance
+**⚠️ Current Security Model**: Authentication system has been completely removed for rapid development.
 
-## 📊 Business Modules
+**Remaining Security Features**:
+- **Input Validation**: Comprehensive validation using class-validator on all endpoints
+- **Security Headers**: CORS, Content Security Policy (CSP), HTTP Strict Transport Security (HSTS)
+- **Request Logging**: Basic request logging for monitoring
 
-### 📦 Inventory Management
-- **Products**: Complete CRUD with SKU management
-- **Categories**: Hierarchical categorization
-- **Stock Tracking**: Real-time inventory levels
-- **Multi-level Pricing**: Retail, wholesale, special pricing
-- **Stock Adjustments**: Manual corrections with approval workflow
-- **Low Stock Alerts**: Automated notifications
+**⚠️ Public Access**: All API endpoints are publicly accessible without authentication.
 
-### 💰 Sales Management
-- **Customers**: Customer database with credit limits
-- **Sales Orders**: Complete order lifecycle
-- **Invoices**: Automatic generation and payment tracking
-- **Payments**: Multiple payment methods and allocation
-- **Credit Management**: Credit limits and approval workflow
-- **Sales Analytics**: Performance metrics and trends
+## 📊 Active Business Modules
 
-### 🛒 Purchasing Management
-- **Suppliers**: Vendor management with performance tracking
-- **Purchase Orders**: Multi-level approval workflow
-- **Goods Received Notes**: Quality inspection and approval
-- **Supplier Invoices**: Three-way matching (PO, GRN, Invoice)
-- **Purchase Analytics**: Spend analysis and cost savings
+### 📦 Inventory Management (✅ Active)
+- **Products**: Complete CRUD with barcode management (replaced SKU)
+- **Categories**: Simplified hierarchical categorization (name + hierarchy only)
+- **Current Stock**: Real-time inventory tracking
+- **Soft-Delete Management**: View and restore deleted products via modern dialog interface
+- **Bulk Operations**: Mass operations on product records
+- **Search & Filtering**: Barcode-based product search
 
-### 📈 Reports & Analytics
-- **Standard Reports**: Pre-built business reports
-- **Custom Reports**: User-configurable reporting
-- **Export Options**: Excel, PDF, CSV formats
-- **Scheduled Reports**: Automated report delivery
-- **Dashboard**: Real-time KPIs and visualizations
+### 💰 Sales Management (✅ Active)
+- **Customers**: Customer database with bulk operations support
+- **Sales Orders**: Order lifecycle management
+- **Invoices**: Invoice generation and tracking
+- **Payments**: Payment processing and allocation
+- **Bulk Customer Operations**: Mass restore and delete functionality
 
-## 🔌 Plugin System
+### 📈 Dashboard & Analytics (✅ Active)
+- **Real-time Dashboard**: Live KPIs with WebSocket updates
+- **Business Metrics**: Performance indicators and trends
+- **Live Data Updates**: Instant updates without page refresh
 
-### Plugin Types Supported
-- **Business Modules**: HR, CRM, Manufacturing
-- **Integrations**: Payment gateways, shipping providers
-- **Reports**: Custom analytics and visualizations
-- **UI Extensions**: Dashboard widgets, custom pages
-- **Workflows**: Process automation and approvals
-- **Authentication**: SSO, LDAP integrations
+### 👥 User Management (✅ Active)
+- **User CRUD**: Basic user management operations
+- **No Authentication**: All endpoints publicly accessible
 
-### Plugin Development
-```bash
-# Create new plugin
-erp-plugin create my-plugin --type business
+## ⚠️ Disabled Modules
 
-# Build and validate
-erp-plugin build --production
-erp-plugin validate
+### 🛒 Purchasing Management (Available but Disabled)
+- Module exists but requires enabling in `app.module.ts`
+- Includes suppliers, purchase orders, goods received notes
 
-# Install plugin
-curl -X POST /api/plugins/install -F "file=@plugin.zip"
-```
+### 📈 Reports & Analytics (Available but Disabled)
+- Module exists but requires enabling and auth cleanup
+- Would provide comprehensive reporting capabilities
+
+### 🔌 Plugin System (Available but Disabled)
+- Extensible architecture exists but disabled
+- Could support custom modules and integrations
+
+## 🆕 Recent Changes & Modernization (September 2025)
+
+### 🎆 Authentication Removal
+- **Complete auth system removal**: All JWT, RBAC, guards, and decorators removed
+- **Public API access**: All endpoints now publicly accessible for rapid development
+- **Simplified development**: No authentication barriers for frontend integration
+
+### 📦 Product Management Modernization
+- **Barcode Integration**: Replaced SKU field with barcode for better retail integration
+- **Simplified Product Model**: Removed redundant fields (type, unit, reorder levels)
+- **Current Stock Tracking**: Added real-time current stock field
+- **Soft-Delete Management**: Complete soft-deleted products management with restore functionality
+
+### 🌳 Category System Simplification
+- **Streamlined Model**: Now only contains name, hierarchy, and essential fields
+- **Removed Complexity**: Eliminated code and description fields
+- **Table-First Design**: Simple table view instead of complex tree navigation
+
+### 🔄 Bulk Operations & User Experience
+- **Bulk Customer Operations**: Mass restore and delete functionality
+- **Modern Dialog Interfaces**: Enhanced delete/restore dialogs matching modern design patterns
+- **Improved Data Flow**: Fixed API response handling and data extraction
+
+### ⚡ Real-time Features
+- **WebSocket Integration**: Dashboard updates in real-time without page refresh
+- **Live KPI Updates**: Instant business metrics updates
+- **Frontend Integration**: Complete React-backend integration with Redux state management
+
+### 🔧 Technical Improvements
+- **Route Order Fixes**: Fixed NestJS route conflicts (specific routes before parameterized)
+- **Proper Soft Deletes**: Implemented TypeORM's `softDelete()` method for consistent behavior
+- **Form Validation**: Enhanced yup schemas with proper nullable foreign key support
+- **CategorySelector Fix**: Resolved data access issues for proper hierarchical display
 
 ## 🚀 Deployment
 
@@ -180,48 +219,73 @@ docker-compose logs -f
 ### Environment Configuration
 Copy `.env.example` to `.env` and configure:
 ```bash
-# Database
+# Database (PostgreSQL)
 DATABASE_HOST=postgres
+DATABASE_PORT=5432
 DATABASE_NAME=erp_db
 DATABASE_USER=erp_user
 DATABASE_PASSWORD=your_secure_password
 
-# Security
-JWT_SECRET=your_jwt_secret_key
+# Redis (Caching & Queues)
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=
 
-# Email (optional)
-SMTP_HOST=your_smtp_host
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
+# Frontend (Runtime injection)
+VITE_API_BASE_URL=http://localhost:3001
+VITE_SOCKET_URL=http://localhost:3001
+
+# MongoDB (Analytics - if using disabled modules)
+MONGO_URI=mongodb://mongo:27017/erp_analytics
 ```
+
+**Note**: Authentication-related variables (JWT_SECRET, etc.) removed since auth system was removed.
 
 ## 📋 API Documentation
 
-### Authentication Endpoints
+**⚠️ Note**: All endpoints are publicly accessible (no authentication required)
+
+### Working API Endpoints
 ```
-POST /api/auth/login           # User login
-POST /api/auth/register        # User registration
-POST /api/auth/refresh         # Token refresh
-GET  /api/auth/profile         # User profile
+# Users
+GET    /api/users                           # List users
+POST   /api/users                           # Create user
+GET    /api/users/:id                       # Get user
+PUT    /api/users/:id                       # Update user
+DELETE /api/users/:id                       # Delete user
+
+# Inventory - Products
+GET    /api/inventory/products              # List active products
+POST   /api/inventory/products              # Create product
+GET    /api/inventory/products/:id          # Get product
+PUT    /api/inventory/products/:id          # Update product
+DELETE /api/inventory/products/:id          # Soft delete product
+GET    /api/inventory/products/deleted      # List soft-deleted products
+POST   /api/inventory/products/:id/restore  # Restore soft-deleted product
+
+# Inventory - Categories
+GET    /api/inventory/categories            # List categories (tree format)
+POST   /api/inventory/categories            # Create category
+GET    /api/inventory/categories/:id        # Get category
+PUT    /api/inventory/categories/:id        # Update category
+DELETE /api/inventory/categories/:id        # Delete category
+
+# Sales (Mixed URL patterns)
+GET    /api/v1/sales-orders                 # List sales orders
+POST   /api/v1/sales-orders                 # Create sales order
+GET    /api/v1/invoices                     # List invoices
+POST   /api/v1/invoices                     # Create invoice
+GET    /api/v1/payments                     # List payments
+POST   /api/v1/payments                     # Create payment
+
+# System
+GET    /api/info                            # Module information
 ```
 
-### Business Module APIs
-```
-# Inventory
-GET    /api/inventory/products      # List products
-POST   /api/inventory/products      # Create product
-GET    /api/inventory/stock/levels  # Stock levels
-
-# Sales
-GET    /api/sales/customers         # List customers
-POST   /api/sales/orders           # Create order
-GET    /api/sales/dashboard        # Sales metrics
-
-# Purchasing
-GET    /api/purchasing/suppliers    # List suppliers
-POST   /api/purchasing/orders      # Create PO
-GET    /api/purchasing/analytics   # Purchase metrics
-```
+### Disabled Endpoints
+- **Purchasing APIs**: Module disabled, endpoints not accessible
+- **Reports APIs**: Module disabled, endpoints not accessible
+- **Plugin APIs**: Module disabled, endpoints not accessible
 
 Complete API documentation available at: `http://localhost:3001/api/docs`
 
@@ -246,9 +310,10 @@ docker-compose -f docker-compose.test.yml up
 ## 📈 Performance & Scalability
 
 ### Current Capacity
-- **Concurrent Users**: Up to 5 users (MVP requirement)
-- **Data Volume**: Optimized for SME-level operations
+- **Concurrent Access**: Unlimited (no authentication restrictions)
+- **Data Volume**: Optimized for SME-level operations  
 - **Response Time**: < 200ms for typical operations
+- **Real-time Updates**: WebSocket support for instant dashboard updates
 - **Uptime**: 99.9% availability with proper deployment
 
 ### Scaling Options
@@ -286,24 +351,31 @@ npm run migration:revert
 5. Ensure all tests pass
 6. Submit a pull request
 
-## 📞 Support
+## 📞 Support & Documentation
 
-- **Documentation**: Available in `/docs` directory
-- **API Reference**: `http://localhost:3001/api/docs`
+### 📅 Current System Information
+- **✅ Authoritative Source**: `CLAUDE.md` - Most up-to-date project instructions and current system state
+- **⚠️ Note**: This README may lag behind actual implementation. Always check `CLAUDE.md` for latest status.
+
+### 🔗 Resources
+- **API Reference**: http://localhost:3001/api/docs (Swagger documentation)
+- **Real-time System Status**: Use `/api/info` endpoint for current module states
 - **Issue Tracking**: Create issues in the repository
-- **Security Issues**: Report via private channels
+- **Development Guide**: See `CLAUDE.md` for commands, patterns, and troubleshooting
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🎉 Acknowledgments
+## 🎉 System Status
 
-- Built with modern best practices and enterprise patterns
-- Follows OWASP security guidelines
-- Implements clean architecture principles
-- Designed for extensibility and maintainability
+- **Rapid Development Mode**: Authentication removed for faster iteration
+- **Modern Tech Stack**: React 18 + NestJS + TypeORM + Redis + WebSocket
+- **Clean Architecture**: Modular design with disabled modules easily re-enabled
+- **Real-time Features**: WebSocket dashboard updates and live data
 
 ---
 
-**Ready for Production** ✅ | **Fully Documented** ✅ | **Extensible Architecture** ✅
+**🚀 Actively Developed** | **🔄 Real-time Updates** | **⚡ Simplified Architecture**
+
+> 📄 **For developers**: Always refer to `CLAUDE.md` for the most current system state, commands, and development patterns.

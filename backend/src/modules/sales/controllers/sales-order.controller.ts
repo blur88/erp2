@@ -18,6 +18,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { SalesOrderService } from '../services/sales-order.service';
 import {
@@ -31,7 +32,7 @@ import {
 } from '../dto/sales-order.dto';
 
 @ApiTags('Sales Orders')
-@Controller('api/v1/sales-orders')
+@Controller('sales-orders')
 export class SalesOrderController {
   constructor(private readonly salesOrderService: SalesOrderService) {}
 
@@ -46,8 +47,27 @@ export class SalesOrderController {
   @ApiResponse({ status: 409, description: 'Insufficient inventory or credit limit exceeded' })
   async createSalesOrder(
     @Body() createSalesOrderDto: CreateSalesOrderDto,
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.create(createSalesOrderDto, 'system'); // Auth removed - using system user
+  ) {
+    const data = await this.salesOrderService.create(createSalesOrderDto, null); // Auth removed - no user tracking
+    return { data };
+  }
+
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get deleted sales orders with filtering and pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of deleted sales orders retrieved successfully',
+    type: [SalesOrderResponseDto],
+  })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by order number or customer name' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  async getDeletedSalesOrders(@Query() query: QuerySalesOrdersDto) {
+    const data = await this.salesOrderService.findDeleted(query);
+    return data;
   }
 
   @Get()
@@ -59,17 +79,19 @@ export class SalesOrderController {
   })
   @ApiQuery({ name: 'search', required: false, description: 'Search by order number or customer name' })
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by order status' })
-  @ApiQuery({ name: 'priority', required: false, description: 'Filter by order priority' })
   @ApiQuery({ name: 'fromDate', required: false, description: 'Filter orders from date' })
   @ApiQuery({ name: 'toDate', required: false, description: 'Filter orders to date' })
-  @ApiQuery({ name: 'overdue', required: false, type: Boolean, description: 'Filter overdue orders' })
+  @ApiQuery({ name: 'paymentStatus', required: false, enum: ['all', 'unpaid', 'partial', 'paid', 'overpaid'], description: 'Filter by payment status' })
+  @ApiQuery({ name: 'fulfillmentStatus', required: false, enum: ['all', 'fulfilled', 'unfulfilled'], description: 'Filter by fulfillment status' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getAllSalesOrders(@Query() query: QuerySalesOrdersDto) {
-    return this.salesOrderService.findAll(query);
+    console.log('🎯 Controller getAllSalesOrders called with query:', query);
+    const data = await this.salesOrderService.findSummaries(query);
+    console.log('🎯 Controller got data back from service:', JSON.stringify(data, null, 2));
+    return data; // findSummaries now returns paginated response structure with relationships
   }
 
   @Get('summary')
@@ -79,8 +101,8 @@ export class SalesOrderController {
     description: 'Sales order summaries retrieved successfully',
     type: [SalesOrderSummaryDto],
   })
-  async getSalesOrderSummaries(): Promise<SalesOrderSummaryDto[]> {
-    return this.salesOrderService.findSummaries();
+  async getSalesOrderSummaries() {
+    return this.salesOrderService.findSummaries({ limit: 100 }); // Get top 100 for summary
   }
 
   @Get('dashboard-stats')
@@ -137,14 +159,59 @@ export class SalesOrderController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete sales order (soft delete)' })
+  @ApiOperation({ summary: 'Delete sales order and automatically show previous order details' })
   @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({ status: 204, description: 'Sales order deleted successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sales order deleted successfully, returns previous order details to display',
+    schema: {
+      oneOf: [
+        {
+          type: 'object',
+          properties: {
+            data: { $ref: '#/components/schemas/SalesOrderResponseDto' },
+            message: { type: 'string' },
+            deletedOrderNumber: { type: 'string' }
+          }
+        },
+        {
+          type: 'object',
+          properties: {
+            data: { type: 'null' },
+            message: { type: 'string' },
+            deletedOrderNumber: { type: 'string' },
+            redirect: { type: 'string' }
+          }
+        }
+      ]
+    }
+  })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot delete order in current status' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.salesOrderService.delete(id);
+  async deleteSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<{
+    data: SalesOrderResponseDto | null;
+    message: string;
+    deletedOrderNumber: string;
+    redirect?: string;
+  }> {
+    const result = await this.salesOrderService.delete(id);
+
+    if (result.previousOrder) {
+      // Return the previous order as the main data to display
+      return {
+        data: result.previousOrder,
+        message: `Sales order ${result.deletedOrderNumber} deleted successfully. Now showing previous order: ${result.previousOrder.orderNumber}`,
+        deletedOrderNumber: result.deletedOrderNumber
+      };
+    } else {
+      // No previous order exists, suggest redirecting to order list
+      return {
+        data: null,
+        message: `Sales order ${result.deletedOrderNumber} deleted successfully. No previous orders available.`,
+        deletedOrderNumber: result.deletedOrderNumber,
+        redirect: '/sales-orders'
+      };
+    }
   }
 
   @Put(':id/confirm')
@@ -235,7 +302,7 @@ export class SalesOrderController {
   async duplicateOrder(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.duplicateOrder(id, 'system'); // Auth removed - using system user
+    return this.salesOrderService.duplicateOrder(id, null); // Auth removed - no user tracking
   }
 
   @Get(':id/fulfillment-status')
@@ -289,5 +356,178 @@ export class SalesOrderController {
   @ApiResponse({ status: 409, description: 'Cannot create invoice for order in current status' })
   async createInvoiceFromOrder(@Param('id', ParseUUIDPipe) id: string) {
     return this.salesOrderService.createInvoiceFromOrder(id);
+  }
+
+  @Post(':id/record-payment')
+  @ApiOperation({ summary: 'Record payment amount for sales order' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        amount: {
+          type: 'number',
+          minimum: 0,
+          description: 'Payment amount received'
+        }
+      },
+      required: ['amount']
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment recorded successfully',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 400, description: 'Invalid payment amount' })
+  async recordPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { amount: number }
+  ) {
+    const data = await this.salesOrderService.recordPayment(id, body.amount);
+    return { data };
+  }
+
+  @Post(':id/unpay')
+  @ApiOperation({ summary: 'Remove payment from sales order (reset to unpaid)' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment removed successfully',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Cannot unpay fulfilled order' })
+  async unpayOrder(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.salesOrderService.unpayOrder(id);
+    return { data };
+  }
+
+  @Post(':id/fulfill-order')
+  @ApiOperation({ summary: 'Fulfill order (confirm payment and deduct inventory)' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order fulfilled successfully, inventory deducted',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Cannot fulfill order - payment insufficient or already fulfilled' })
+  async fulfillOrder(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.salesOrderService.fulfillOrder(id);
+    return { data };
+  }
+
+  @Post(':id/unfulfill-order')
+  @ApiOperation({ summary: 'Unfulfill order (reverse fulfillment and restore inventory)' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order unfulfilled successfully, inventory restored',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Cannot unfulfill order - order is not fulfilled' })
+  async unfulfillOrder(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.salesOrderService.unfulfillOrder(id);
+    return { data };
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore deleted sales order' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sales order restored successfully',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 409, description: 'Sales order is not deleted' })
+  async restoreSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.restore(id);
+  }
+
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Bulk restore soft-deleted sales orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sales orders restored successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid sales order IDs or sales orders are not deleted' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        salesOrderIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of sales order IDs to restore'
+        }
+      },
+      required: ['salesOrderIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkRestore(
+    @Body() body: { salesOrderIds: string[] },
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    const result = await this.salesOrderService.bulkRestore(body.salesOrderIds);
+    return {
+      message: `Successfully restored ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
+    };
+  }
+
+  @Post('bulk-permanent-delete')
+  @ApiOperation({ summary: 'Bulk permanently delete sales orders from database' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sales orders permanently deleted successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid sales order IDs or sales orders have active references' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        salesOrderIds: {
+          type: 'array',
+          items: { type: 'string', format: 'uuid' },
+          description: 'Array of sales order IDs to permanently delete'
+        }
+      },
+      required: ['salesOrderIds']
+    }
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkPermanentDelete(
+    @Body() body: { salesOrderIds: string[] },
+  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
+    const result = await this.salesOrderService.bulkPermanentDelete(body.salesOrderIds);
+    return {
+      message: `Successfully permanently deleted ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map(item => item.id),
+    };
+  }
+
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a sales order from database' })
+  @ApiResponse({
+    status: 204,
+    description: 'Sales order permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({
+    status: 400,
+    description: 'Sales order must be soft-deleted first or has active references'
+  })
+  @ApiParam({ name: 'id', description: 'Sales order ID' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.salesOrderService.permanentDelete(id);
   }
 }

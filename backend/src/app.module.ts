@@ -9,15 +9,33 @@ import { DatabaseConfig } from './config/database.config';
 // Filters & Interceptors
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { 
+  DatabaseErrorHandler,
+  ErrorClassifierService,
+  DatabaseErrorLoggerService,
+  ErrorSanitizerService,
+  IdGeneratorService 
+} from './common/services';
+
+// Import missing filter dependencies
+import { 
+  SecurityDetectorService,
+  ErrorLoggerService,
+  HttpExceptionHandler,
+  DatabaseExceptionHandler,
+  UnexpectedExceptionHandler,
+  LogFormatterService,
+  DataSanitizerService,
+} from './common/filters';
 
 // Modules
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
-import { PurchasingModule } from './modules/purchasing/purchasing.module';
-import { ReportsModule } from './modules/reports/reports.module';
+// import { PurchasingModule } from './modules/purchasing/purchasing.module'; // Disabled due to auth compilation issues
+// import { ReportsModule } from './modules/reports/reports.module'; // Disabled due to auth compilation issues
 import { DashboardModule } from './modules/dashboard/dashboard-module';
-import { PluginsModule } from './modules/plugins/plugins.module';
+// import { PluginsModule } from './modules/plugins/plugins.module'; // Disabled due to auth compilation issues
 
 // Controllers
 import { AppController } from './app.controller';
@@ -39,8 +57,8 @@ import { AppService } from './app.service';
     // Core Modules
     UsersModule,
     InventoryModule,
-    SalesModule, // Re-enabled after fixing auth compilation issues
-    // PurchasingModule, // Re-enable after fixing compilation issues  
+    SalesModule,
+    // PurchasingModule, // Re-enable after fixing compilation issues
     // ReportsModule, // Re-enable after fixing compilation issues
     DashboardModule, // Re-enabled - WebSocket support
     // PluginsModule, // Re-enable after fixing compilation issues
@@ -48,6 +66,22 @@ import { AppService } from './app.service';
   controllers: [AppController],
   providers: [
     AppService,
+    
+    // Database Error Handler Services
+    DatabaseErrorHandler,
+    ErrorClassifierService,
+    DatabaseErrorLoggerService,
+    ErrorSanitizerService,
+    IdGeneratorService,
+    
+    // Exception filter dependencies
+    SecurityDetectorService,
+    ErrorLoggerService,
+    LogFormatterService,
+    DataSanitizerService,
+    HttpExceptionHandler,
+    DatabaseExceptionHandler,
+    UnexpectedExceptionHandler,
     
     // Global Exception Filter
     {

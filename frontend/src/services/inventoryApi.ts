@@ -113,6 +113,22 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/categories/${id}`)
   },
 
+  async checkCategoryDuplicate(params: {
+    name?: string
+    parentId?: string
+    excludeId?: string
+  }) {
+    return ApiService.get<{
+      nameExists: boolean
+      nameConflict?: {
+        id: string
+        name: string
+        isDeleted: boolean
+        parentId?: string
+      }
+    }>('/inventory/categories/check-duplicate', { params })
+  },
+
   async getDeletedCategories(params?: QueryParams) {
     return ApiService.get<PaginatedResponse<Category>>('/inventory/categories/deleted', { params })
   },
@@ -212,16 +228,6 @@ export const inventoryApi = {
   // Stock management
   async getStockMovements(params?: QueryParams & { productId?: string }) {
     return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock/movements', { params })
-  },
-
-  async createStockAdjustment(data: {
-    productId: string
-    quantity: number
-    type: 'in' | 'out' | 'adjustment'
-    reason?: string
-    reference?: string
-  }) {
-    return ApiService.post<StockMovement>('/inventory/stock/movements', data)
   },
 
   async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {

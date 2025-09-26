@@ -622,7 +622,7 @@ export class SalesAnalyticsService {
         return 'Pending';
       case SalesOrderStatus.CONFIRMED:
         return 'Confirmed';
-      case SalesOrderStatus.IN_PROGRESS:
+      case SalesOrderStatus.PROCESSING:
         return 'In Progress';
       case SalesOrderStatus.SHIPPED:
         return 'Shipped';

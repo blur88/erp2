@@ -33,7 +33,6 @@ import {
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -44,17 +43,29 @@ import {
   Save as SaveIcon,
   Close as CancelIcon,
   Calculate as CalculateIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+  TableChart as TableChartIcon,
+  PictureAsPdf as PictureAsPdfIcon,
+  CloudUpload as CloudUploadIcon,
+  Inventory2 as InventoryIcon,
+  Keyboard as KeyboardIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
-import CalculatorDialog from '@/components/calculator/CalculatorDialog'
+import ProductImportDialog from '@/components/inventory/ProductImportDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
+import InlineCalculator from '@/components/calculator/InlineCalculator'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
+import { exportProducts } from '@/utils/exportUtils'
 import {
   fetchProducts,
   fetchCategories,
@@ -64,14 +75,18 @@ import {
   selectProducts,
   selectCategories,
   selectInventoryLoading,
+  selectInventoryPagination,
+  setProductFilters,
+  selectProductFilters,
 } from '@/store/slices/inventorySlice'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 
 interface ProductFormData {
   name: string
   description: string
   barcode?: string
-  type: 'goods' | 'service'
+  type: 'Stocked Product' | 'Service'
   categoryId: string
   baseCost: number
   retailPrice?: number
@@ -120,23 +135,29 @@ const ProductsPage: React.FC = () => {
   const products = useSelector(selectProducts) || []
   const categories = useSelector(selectCategories) || []
   const loading = useSelector(selectInventoryLoading)
-  
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('')
+  const pagination = useSelector(selectInventoryPagination)?.products
+  const productFilters = useSelector(selectProductFilters) || { search: '', categoryId: '', lowStock: false, inStock: true }
   const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(20)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
-  const [calculatorDialogOpen, setCalculatorDialogOpen] = useState(false)
-  const [calculatorInFormOpen, setCalculatorInFormOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
+  const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
+  const [dialogCalculatorOpen, setDialogCalculatorOpen] = useState(false)
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [inlineEditData, setInlineEditData] = useState<ProductFormData | null>(null)
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
+  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
+  const [isExporting, setIsExporting] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
+
 
   // Use the new duplicate check hook
   const { 
@@ -149,18 +170,36 @@ const ProductsPage: React.FC = () => {
 
   // Inline edit duplicate checking
   const inlineEditDuplicateCheck = useDuplicateCheck()
+  const { checkDuplicate: checkInlineEditDuplicate } = inlineEditDuplicateCheck
+
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: productFilters.search,
+    onSearchChange: (searchTerm) => {
+      dispatch(setProductFilters({ search: searchTerm }))
+    },
+  })
+
+  // Local state for category filter (will be moved to Redux)
+  const [selectedCategory, setSelectedCategory] = useState(productFilters.categoryId || 'all')
+
+  // Update Redux when local category changes
+  useEffect(() => {
+    dispatch(setProductFilters({ categoryId: selectedCategory === 'all' ? undefined : selectedCategory }))
+  }, [dispatch, selectedCategory])
 
   useEffect(() => {
     dispatch(fetchCategories({ includeProductCount: true }))
   }, [dispatch])
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [dispatch, searchTerm, selectedCategory])
+    dispatch(fetchProducts({
+      page: page + 1, // API expects 1-based page numbers
+      limit: rowsPerPage,
+      search: productFilters.search || undefined,
+      categoryId: productFilters.categoryId || undefined
+    }))
+  }, [dispatch, productFilters.search, productFilters.categoryId, page, rowsPerPage])
 
   // Update selectedProductForDetails when products change (to reflect updates in detail view)
   useEffect(() => {
@@ -188,7 +227,12 @@ const ProductsPage: React.FC = () => {
   }, [selectedProductForDetails?.id])
 
   const handleRefresh = () => {
-    dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+    dispatch(fetchProducts({
+      page: page + 1, // API expects 1-based page numbers
+      limit: rowsPerPage,
+      search: productFilters.search || undefined,
+      categoryId: productFilters.categoryId || undefined
+    }))
     dispatch(fetchCategories({ includeProductCount: true }))
   }
 
@@ -197,6 +241,7 @@ const ProductsPage: React.FC = () => {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
@@ -204,7 +249,7 @@ const ProductsPage: React.FC = () => {
       name: '',
       description: '',
       barcode: '',
-      type: 'goods',
+      type: 'Stocked Product',
       categoryId: '',
       baseCost: 0,
       retailPrice: undefined,
@@ -229,8 +274,17 @@ const ProductsPage: React.FC = () => {
 
   // Calculate profit margins
   const calculateMargin = (sellingPrice: number | undefined, cost: number): number => {
-    if (!cost || cost <= 0 || !sellingPrice || sellingPrice <= 0) return 0
-    return ((sellingPrice - cost) / sellingPrice) * 100
+    const price = Number(sellingPrice) || 0
+    const baseCost = Number(cost) || 0
+    
+    // If no cost and no price, return 0
+    if (baseCost === 0 && price === 0) return 0
+    
+    // If price is 0 but cost exists, it's a 100% loss
+    if (price === 0 && baseCost > 0) return -100
+    
+    // Standard margin calculation: (price - cost) / price * 100
+    return ((price - baseCost) / price) * 100
   }
 
 
@@ -239,21 +293,23 @@ const ProductsPage: React.FC = () => {
   const specialMargin = calculateMargin(specialPrice, baseCost)
 
   // Check if all mandatory fields are filled
-  const isMandatoryFieldsComplete = watchedName?.trim().length >= 2 && 
-    watchedType && 
-    watchedCategoryId?.trim().length >= 1 && 
+  const isMandatoryFieldsComplete = watchedName?.trim().length >= 2 &&
+    watchedType &&
+    watchedCategoryId?.trim().length >= 1 &&
     (baseCost !== null && baseCost !== undefined && baseCost >= 0)
+
+  // Clear stock field when type changes to 'Service'
+  useEffect(() => {
+    if (watchedType === 'Service') {
+      setValue('currentStock', undefined)
+    }
+  }, [watchedType, setValue])
 
   // Real-time duplicate checking for form fields
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
       if ((watchedName && watchedName.trim().length >= 2) || (watchedBarcode && watchedBarcode.trim().length >= 1)) {
-        console.log('Checking duplicates for:', { 
-          name: watchedName?.trim(), 
-          barcode: watchedBarcode?.trim(),
-          excludeId: editMode && selectedProduct ? selectedProduct.id : undefined
-        })
-        
+
         await checkDuplicate({
           name: watchedName && watchedName.trim().length >= 2 ? watchedName.trim() : undefined,
           barcode: watchedBarcode && watchedBarcode.trim().length >= 1 ? watchedBarcode.trim() : undefined,
@@ -272,16 +328,11 @@ const ProductsPage: React.FC = () => {
     }
 
     const timeoutId = setTimeout(async () => {
-      if ((inlineEditData.name && inlineEditData.name.trim().length >= 2) || 
+      if ((inlineEditData.name && inlineEditData.name.trim().length >= 2) ||
           (inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1)) {
-        
-        console.log('Checking duplicates for inline edit:', { 
-          name: inlineEditData.name?.trim(), 
-          barcode: inlineEditData.barcode?.trim(),
-          excludeId: selectedProductForDetails.id
-        })
 
-        await inlineEditDuplicateCheck.checkDuplicate({
+
+        await checkInlineEditDuplicate({
           name: inlineEditData.name && inlineEditData.name.trim().length >= 2 ? inlineEditData.name.trim() : undefined,
           barcode: inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 ? inlineEditData.barcode.trim() : undefined,
           excludeId: selectedProductForDetails.id,
@@ -290,120 +341,28 @@ const ProductsPage: React.FC = () => {
     }, 500) // Debounce API calls
 
     return () => clearTimeout(timeoutId)
-  }, [inlineEditData, selectedProductForDetails, inlineEditMode, inlineEditDuplicateCheck])
+  }, [inlineEditData, selectedProductForDetails, inlineEditMode, checkInlineEditDuplicate])
 
-  // Products are already filtered by backend search
-  const filteredProducts = products || []
+  // Products are now paginated and filtered by the server
+  const displayProducts = products || []
 
-  // Paginated products
-  const paginatedProducts = filteredProducts.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  )
-
-  // Keyboard navigation handlers
-  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (paginatedProducts.length === 0) return
-
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = prev < paginatedProducts.length - 1 ? prev + 1 : 0
-          return nextIndex
-        })
-        break
-      case 'ArrowUp':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = prev > 0 ? prev - 1 : paginatedProducts.length - 1
-          return nextIndex
-        })
-        break
-      case 'Enter':
-        event.preventDefault()
-        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length) {
-          setSelectedProductForDetails(paginatedProducts[focusedProductIndex])
-        }
-        break
-      case 'Home':
-        event.preventDefault()
-        setFocusedProductIndex(0)
-        break
-      case 'End':
-        event.preventDefault()
-        setFocusedProductIndex(paginatedProducts.length - 1)
-        break
-      case 'PageDown':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = Math.min(prev + 5, paginatedProducts.length - 1)
-          return nextIndex >= 0 ? nextIndex : 0
-        })
-        break
-      case 'PageUp':
-        event.preventDefault()
-        setFocusedProductIndex(prev => {
-          const nextIndex = Math.max(prev - 5, 0)
-          return nextIndex
-        })
-        break
-      case 'Delete':
-        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length) {
-          event.preventDefault()
-          handleDeleteProduct(paginatedProducts[focusedProductIndex])
-        }
-        break
-      case 'e':
-      case 'E':
-        if (focusedProductIndex >= 0 && focusedProductIndex < paginatedProducts.length && !event.ctrlKey && !event.altKey && !event.metaKey) {
-          event.preventDefault()
-          handleEditProduct(paginatedProducts[focusedProductIndex])
-        }
-        break
-      case 'Escape':
-        event.preventDefault()
-        setFocusedProductIndex(-1)
-        break
-      case 'f':
-      case 'F':
-        if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-          event.preventDefault()
-          // Focus the search input
-          const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
-          if (searchInput) {
-            searchInput.focus()
-            searchInput.select()
-          }
-        }
-        break
-      case '+':
-      case 'n':
-      case 'N':
-        if (!event.ctrlKey && !event.altKey && !event.metaKey) {
-          event.preventDefault()
-          handleAddProduct()
-        }
-        break
-      default:
-        break
-    }
-  }, [paginatedProducts, focusedProductIndex])
 
   // Reset focused index when products change or page changes
   useEffect(() => {
     setFocusedProductIndex(-1)
-  }, [page, rowsPerPage, searchTerm, selectedCategory])
+  }, [page, rowsPerPage, productFilters.search, productFilters.categoryId])
 
   // Auto-focus the first product when the list becomes available
   useEffect(() => {
-    if (paginatedProducts.length > 0 && focusedProductIndex === -1) {
+    if (displayProducts.length > 0 && focusedProductIndex === -1) {
       // Only auto-focus if we don't have a selected product
       if (!selectedProductForDetails) {
         setFocusedProductIndex(0)
+        // Automatically show product details for the first product
+        setSelectedProductForDetails(displayProducts[0])
       }
     }
-  }, [paginatedProducts, focusedProductIndex, selectedProductForDetails])
+  }, [displayProducts, focusedProductIndex, selectedProductForDetails])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -431,6 +390,116 @@ const ProductsPage: React.FC = () => {
     setDialogOpen(true)
   }
 
+
+  // Enhanced keyboard shortcuts with table navigation
+  const handleNavigateUp = useCallback(() => {
+    if (focusedProductIndex > 0) {
+      const newIndex = focusedProductIndex - 1
+      setFocusedProductIndex(newIndex)
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleNavigateDown = useCallback(() => {
+    if (focusedProductIndex < products.length - 1) {
+      const newIndex = focusedProductIndex + 1
+      setFocusedProductIndex(newIndex)
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleNavigateHome = useCallback(() => {
+    if (products.length > 0) {
+      setFocusedProductIndex(0)
+      setSelectedProductForDetails(products[0])
+    }
+  }, [products])
+
+  const handleNavigateEnd = useCallback(() => {
+    if (products.length > 0) {
+      const lastIndex = products.length - 1
+      setFocusedProductIndex(lastIndex)
+      setSelectedProductForDetails(products[lastIndex])
+    }
+  }, [products])
+
+  const handlePageUpNavigation = useCallback(() => {
+    const newIndex = Math.max(0, focusedProductIndex - rowsPerPage)
+    setFocusedProductIndex(newIndex)
+    if (products[newIndex]) {
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, rowsPerPage, products])
+
+  const handlePageDownNavigation = useCallback(() => {
+    const newIndex = Math.min(products.length - 1, focusedProductIndex + rowsPerPage)
+    setFocusedProductIndex(newIndex)
+    if (products[newIndex]) {
+      setSelectedProductForDetails(products[newIndex])
+    }
+  }, [focusedProductIndex, rowsPerPage, products])
+
+  const handleEnterAction = useCallback(() => {
+    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
+      handleEditProduct(products[focusedProductIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleEditAction = useCallback(() => {
+    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
+      handleEditProduct(products[focusedProductIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleDeleteAction = useCallback(() => {
+    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
+      handleDeleteProduct(products[focusedProductIndex])
+    }
+  }, [focusedProductIndex, products])
+
+  const handleExportAction = useCallback(() => {
+    if (products.length > 0) {
+      handleExport('csv')
+    }
+  }, [products])
+
+  const handleImportAction = useCallback(() => {
+    setImportDialogOpen(true)
+  }, [])
+
+  const handleViewDeletedAction = useCallback(() => {
+    setDeletedProductsDialogOpen(true)
+  }, [])
+
+  const handleEscapeAction = useCallback(() => {
+    setFocusedProductIndex(-1)
+    setSelectedProductForDetails(null)
+    setDialogOpen(false)
+    setDeletedProductsDialogOpen(false)
+    setImportDialogOpen(false)
+    setDeleteConfirmOpen(false)
+    setKeyboardHelpOpen(false)
+  }, [])
+
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: handleAddProduct,
+    onRefresh: handleRefresh,
+    onEdit: handleEditAction,
+    onDelete: handleDeleteAction,
+    onExport: handleExportAction,
+    onImport: handleImportAction,
+    onViewDeleted: handleViewDeletedAction,
+    onArrowUp: handleNavigateUp,
+    onArrowDown: handleNavigateDown,
+    onEnter: handleEnterAction,
+    onPageUp: handlePageUpNavigation,
+    onPageDown: handlePageDownNavigation,
+    onHome: handleNavigateHome,
+    onEnd: handleNavigateEnd,
+    onEscape: handleEscapeAction,
+  })
+
   const handleCloseDialog = () => {
     setDialogOpen(false)
     setEditMode(false)
@@ -444,7 +513,7 @@ const ProductsPage: React.FC = () => {
       name: product.name,
       description: product.description || '',
       barcode: product.barcode || '',
-      type: product.type || 'goods',
+      type: product.type || 'Stocked Product',
       categoryId: product.categoryId || product.category?.id || '',
       baseCost: product.baseCost || 0,
       retailPrice: product.retailPrice || undefined,
@@ -484,15 +553,28 @@ const ProductsPage: React.FC = () => {
         return
       }
       
+      const updateData = {
+        ...inlineEditData,
+        barcode: inlineEditData.barcode && inlineEditData.barcode.trim() ? inlineEditData.barcode.trim() : undefined, // Convert empty barcode to undefined
+        stockQuantity: inlineEditData.currentStock, // Backend expects stockQuantity, not currentStock
+      }
+      // Remove currentStock since we're sending stockQuantity instead
+      delete updateData.currentStock
+      
       const result = await dispatch(updateProduct({ 
         id: selectedProductForDetails.id, 
-        data: inlineEditData 
+        data: updateData 
       }))
       
       if (updateProduct.fulfilled.match(result)) {
         showSuccess('Product updated successfully')
         // Refresh the product list to ensure consistency
-        dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+        dispatch(fetchProducts({
+          page: page + 1, // API expects 1-based page numbers
+          limit: rowsPerPage,
+          search: productFilters.search || undefined,
+          categoryId: productFilters.categoryId || undefined
+        }))
         setInlineEditMode(false)
         setInlineEditData(null)
       } else {
@@ -514,49 +596,89 @@ const ProductsPage: React.FC = () => {
     }
   }
 
-  const handleDeleteProduct = async (product: Product) => {
-    if (window.confirm(`Are you sure you want to delete ${product.name}?`)) {
+  const handleDeleteProduct = (product: Product) => {
+    setProductToDelete(product)
+    setDeleteConfirmOpen(true)
+    handleMenuClose()
+  }
+
+  const handleConfirmDelete = async () => {
+    if (productToDelete) {
       try {
-        const result = await dispatch(deleteProduct(product.id))
-        
+        const result = await dispatch(deleteProduct(productToDelete.id))
+
         if (deleteProduct.fulfilled.match(result)) {
-          showSuccess(`Product ${product.name} deleted successfully`)
-          
+          showSuccess(`Product ${productToDelete.name} deleted successfully`)
+
           // If the deleted product was selected for details, clear the selection
-          if (selectedProductForDetails?.id === product.id) {
+          if (selectedProductForDetails?.id === productToDelete.id) {
             setSelectedProductForDetails(null)
           }
-          
+
           // Refresh the product list to ensure consistency
-          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+          dispatch(fetchProducts({
+            page: page + 1, // API expects 1-based page numbers
+            limit: rowsPerPage,
+            search: productFilters.search || undefined,
+            categoryId: productFilters.categoryId || undefined
+          }))
         } else {
           throw new Error(result.payload as string)
         }
       } catch (error: any) {
         const errorMessage = error?.message || 'Failed to delete product. Please try again.'
         showError(errorMessage)
+      } finally {
+        setDeleteConfirmOpen(false)
+        setProductToDelete(null)
       }
     }
-    handleMenuClose()
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setProductToDelete(null)
   }
 
   const onSubmit = async (data: ProductFormData) => {
-    try {      
+    try {
       // Validate categoryId is present and valid
       if (!data.categoryId || data.categoryId.trim() === '') {
         showError('Please select a category')
         return
       }
+
+      // Check for duplicate validation before submitting
+      if (isDuplicateName) {
+        showError(duplicateNameError)
+        return
+      }
+
+      if (isDuplicateBarcode) {
+        showError(duplicateBarcodeError)
+        return
+      }
       
       if (editMode && selectedProduct) {
-        // Update existing product
-        const updateData = { ...data }
+        // Update existing product - transform form data to match backend DTO
+        const updateData = {
+          ...data,
+          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined, // Convert empty barcode to undefined
+          stockQuantity: data.currentStock, // Backend expects stockQuantity, not currentStock
+        }
+        // Remove currentStock since we're sending stockQuantity instead
+        delete updateData.currentStock
         const result = await dispatch(updateProduct({ id: selectedProduct.id, data: updateData }))
         
         if (updateProduct.fulfilled.match(result)) {
           showSuccess('Product updated successfully')
           // Refresh the product list to ensure consistency
-          dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+          dispatch(fetchProducts({
+            page: page + 1, // API expects 1-based page numbers
+            limit: rowsPerPage,
+            search: productFilters.search || undefined,
+            categoryId: productFilters.categoryId || undefined
+          }))
         } else {
           throw new Error(result.payload as string)
         }
@@ -564,10 +686,13 @@ const ProductsPage: React.FC = () => {
         // Add new product - transform form data to match backend DTO
         const createData = {
           ...data,
-          currentStock: data.currentStock, // Backend expects currentStock, not stockQuantity
+          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : undefined, // Convert empty barcode to undefined
+          stockQuantity: data.currentStock, // Backend expects stockQuantity, not currentStock
           // Remove fields that shouldn't be sent to backend
-          type: data.type === 'goods' || data.type === 'service' ? data.type : 'goods'
+          type: data.type === 'Stocked Product' || data.type === 'Service' ? data.type : 'Stocked Product'
         }
+        // Remove currentStock since we're sending stockQuantity instead
+        delete createData.currentStock
         
         const result = await dispatch(createProduct(createData))
         
@@ -578,7 +703,12 @@ const ProductsPage: React.FC = () => {
         
         showSuccess('Product added successfully')
         // Refresh the product list to show the new product
-        dispatch(fetchProducts({ search: searchTerm || undefined, categoryId: selectedCategory || undefined }))
+        dispatch(fetchProducts({
+          page: page + 1, // API expects 1-based page numbers
+          limit: rowsPerPage,
+          search: productFilters.search || undefined,
+          categoryId: productFilters.categoryId || undefined
+        }))
       }
       
       handleCloseDialog()
@@ -622,6 +752,38 @@ const ProductsPage: React.FC = () => {
     }
   }
 
+  // Export handlers
+  const handleExportClick = (event: React.MouseEvent<HTMLElement>) => {
+    setExportMenuAnchor(event.currentTarget)
+  }
+
+  const handleExportClose = () => {
+    setExportMenuAnchor(null)
+  }
+
+  const handleExport = async (format: 'csv' | 'excel' | 'pdf') => {
+    try {
+      setIsExporting(true)
+      handleExportClose()
+      
+      const exportData = {
+        products: products,
+        filters: {
+          search: productFilters.search || undefined,
+          category: productFilters.categoryId || undefined
+        }
+      }
+      
+      await exportProducts(format, exportData)
+      showSuccess(`Products exported successfully as ${format.toUpperCase()}`)
+    } catch (error: any) {
+      console.error('Export error:', error)
+      showError(error.message || `Failed to export as ${format.toUpperCase()}`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
 
   return (
     <Box>
@@ -632,20 +794,32 @@ const ProductsPage: React.FC = () => {
         justifyContent: 'space-between', 
         alignItems: isMobile ? 'stretch' : 'center', 
         mb: 4,
-        gap: isMobile ? 2 : 0
+        gap: isMobile ? 2 : 0,
+        transition: 'margin-right 0.3s ease-in-out',
+        marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 700, mb: 1 }}>
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <InventoryIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Products
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage your product catalog and inventory ({filteredProducts.length} total)
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Manage your product catalog and inventory ({pagination?.total || 0} total)
           </Typography>
         </Box>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 2,
+          gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
           <Button
@@ -657,23 +831,6 @@ const ProductsPage: React.FC = () => {
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Products" : "Refresh"}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <CalculateIcon /> : undefined}
-            onClick={() => setCalculatorDialogOpen(true)}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-            sx={{
-              color: 'info.main',
-              borderColor: 'info.main',
-              '&:hover': {
-                borderColor: 'info.dark',
-                backgroundColor: 'info.light'
-              }
-            }}
-          >
-            {isMobile ? "Calculator" : "Calculator"}
           </Button>
           <Button
             variant="outlined"
@@ -695,13 +852,9 @@ const ProductsPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
-            size={isMobile ? "medium" : "large"}
+            size={isMobile ? "medium" : "medium"}
             onClick={handleAddProduct}
             fullWidth={isMobile}
-            sx={{
-              py: isMobile ? 1.5 : 1,
-              fontWeight: 600
-            }}
           >
             {isMobile ? "Add New Product" : "Add Product"}
           </Button>
@@ -709,15 +862,17 @@ const ProductsPage: React.FC = () => {
       </Box>
 
       {/* Filters and Search */}
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        gap: 2,
+        gap: isMobile ? 2 : 1,
         alignItems: isMobile ? 'stretch' : 'center',
         mb: 3,
         '& > *': {
           alignSelf: isMobile ? 'stretch' : 'flex-start'
-        }
+        },
+        transition: 'margin-right 0.3s ease-in-out',
+        marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
       }}>
         <TextField
           placeholder="Search by name, barcode, or brand..."
@@ -729,17 +884,17 @@ const ProductsPage: React.FC = () => {
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: '40px',
-              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& input': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
               }
             },
             '& .MuiInputAdornment-root': {
               '& .MuiSvgIcon-root': {
-                fontSize: '1.25rem',
-                color: 'action.active'
+                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.searchField.icon.color
               }
             }
           }}
@@ -751,18 +906,18 @@ const ProductsPage: React.FC = () => {
             ),
           }}
         />
-        <FormControl 
-          size="medium" 
-          sx={{ 
-            minWidth: isMobile ? 'auto' : 180,
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
             flex: 'none'
           }}
         >
-          <InputLabel 
-            sx={{ 
-              fontSize: '0.875rem',
+          <InputLabel
+            sx={{
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '&.MuiInputLabel-shrunk': {
-                fontSize: '0.75rem'
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
               }
             }}
           >
@@ -804,14 +959,14 @@ const ProductsPage: React.FC = () => {
               }
             }}
             sx={{
-              height: '40px',
-              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               '& .MuiSelect-select': {
                 display: 'flex',
                 alignItems: 'center',
-                fontSize: '0.875rem',
-                padding: '8.5px 14px',
-                height: '40px',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
                 boxSizing: 'border-box'
               },
               '& .MuiOutlinedInput-notchedOutline': {
@@ -826,11 +981,11 @@ const ProductsPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>
-              All Categories
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
+              All
             </MenuItem>
             {categories.map((category: any) => (
-              <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.875rem' }}>
+              <MenuItem key={category.id} value={category.id} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
                 {category.name}
               </MenuItem>
             ))}
@@ -839,102 +994,99 @@ const ProductsPage: React.FC = () => {
         <Button
           variant="outlined"
           startIcon={<ExportIcon />}
+          endIcon={<ArrowDropDownIcon />}
           size="medium"
-          sx={{ 
+          onClick={handleExportClick}
+          disabled={isExporting || products.length === 0}
+          sx={{
             flex: 'none',
-            height: '40px',
-            fontSize: '0.875rem',
-            fontWeight: 500
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
           }}
         >
-          Export
+          {isExporting ? 'Exporting...' : 'Export'}
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<CloudUploadIcon />}
+          size="medium"
+          onClick={() => setImportDialogOpen(true)}
+          sx={{
+            flex: 'none',
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+            color: 'success.main',
+            borderColor: 'success.main',
+            '&:hover': {
+              borderColor: 'success.dark',
+              backgroundColor: 'success.light'
+            }
+          }}
+        >
+          Import
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<KeyboardIcon />}
+          size="medium"
+          onClick={() => setKeyboardHelpOpen(true)}
+          sx={{
+            flex: 'none',
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+            color: 'info.main',
+            borderColor: 'info.main',
+            '&:hover': {
+              borderColor: 'info.dark',
+              backgroundColor: 'info.light'
+            }
+          }}
+        >
+          Shortcuts
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<CalculateIcon />}
+          size="medium"
+          onClick={() => setCalculatorPanelOpen(!calculatorPanelOpen)}
+          sx={{
+            flex: 'none',
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+            color: calculatorPanelOpen ? 'info.dark' : 'info.main',
+            borderColor: calculatorPanelOpen ? 'info.dark' : 'info.main',
+            backgroundColor: calculatorPanelOpen ? 'info.light' : 'transparent',
+            '&:hover': {
+              borderColor: 'info.dark',
+              backgroundColor: 'info.light'
+            },
+            transition: 'all 0.3s ease-in-out'
+          }}
+        >
+          {calculatorPanelOpen ? "Close Calculator" : "Calculator"}
         </Button>
       </Box>
 
       {/* Split Layout: Active Products and Product Details */}
-      <Grid container spacing={3}>
-        {/* Left Side - Active Products List */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)' }}>
+      <Box
+        sx={{
+          transition: 'margin-right 0.3s ease-in-out',
+          marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
+        }}
+      >
+        <Grid container spacing={3}>
+          {/* Left Side - Active Products List */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                  Product List ({filteredProducts.length})
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Product List ({pagination?.total || 0})
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      px: 0.5, 
-                      py: 0.2, 
-                      backgroundColor: 'grey.100', 
-                      borderRadius: 0.5, 
-                      fontSize: '0.6rem',
-                      fontFamily: 'monospace',
-                      color: 'text.secondary'
-                    }}>
-                      ↑↓
-                    </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-                      Navigate
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      px: 0.5, 
-                      py: 0.2, 
-                      backgroundColor: 'grey.100', 
-                      borderRadius: 0.5, 
-                      fontSize: '0.6rem',
-                      fontFamily: 'monospace',
-                      color: 'text.secondary'
-                    }}>
-                      Enter
-                    </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-                      Select
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      px: 0.5, 
-                      py: 0.2, 
-                      backgroundColor: 'grey.100', 
-                      borderRadius: 0.5, 
-                      fontSize: '0.6rem',
-                      fontFamily: 'monospace',
-                      color: 'text.secondary'
-                    }}>
-                      E
-                    </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-                      Edit
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Box sx={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      px: 0.5, 
-                      py: 0.2, 
-                      backgroundColor: 'grey.100', 
-                      borderRadius: 0.5, 
-                      fontSize: '0.6rem',
-                      fontFamily: 'monospace',
-                      color: 'text.secondary'
-                    }}>
-                      Del
-                    </Box>
-                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-                      Delete
-                    </Typography>
-                  </Box>
-                </Box>
               </Box>
             </Box>
             <Box 
@@ -951,11 +1103,12 @@ const ProductsPage: React.FC = () => {
               }}
               ref={productListRef}
               tabIndex={0}
-              onKeyDown={handleKeyDown}
               onFocus={() => {
                 // Auto-focus first product when the container gets focus
-                if (paginatedProducts.length > 0 && focusedProductIndex === -1) {
+                if (displayProducts.length > 0 && focusedProductIndex === -1) {
                   setFocusedProductIndex(0)
+                  // Automatically show product details for the first product
+                  setSelectedProductForDetails(displayProducts[0])
                 }
               }}
             >
@@ -963,28 +1116,28 @@ const ProductsPage: React.FC = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
                   <CircularProgress />
                 </Box>
-              ) : filteredProducts.length === 0 ? (
+              ) : products.length === 0 ? (
                 <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="text.secondary">
                     No products found. Create your first product to get started.
                   </Typography>
                 </Box>
               ) : (
                 <>
                   <TableContainer sx={{ flex: 1, overflowX: 'auto' }}>
-                    <Table 
-                      size="small" 
+                    <Table
+                      size={TABLE_STYLES.size}
                       stickyHeader
-                      sx={{ 
-                        '& .MuiTableCell-root': { 
-                          borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                          py: 0.5,
-                          px: 1
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          borderBottom: TABLE_STYLES.cell.border,
+                          py: TABLE_STYLES.cell.padding.py,
+                          px: TABLE_STYLES.cell.padding.px
                         }
                       }}
                     >
                       <TableBody>
-                        {paginatedProducts.map((product: any, index: number) => {
+                        {displayProducts.map((product: any, index: number) => {
                           const isSelected = selectedProductForDetails?.id === product.id
                           const isFocused = focusedProductIndex === index
                           return (
@@ -1012,17 +1165,17 @@ const ProductsPage: React.FC = () => {
                                       : 'action.hover'
                                 },
                                 transition: 'background-color 0.2s ease',
-                                height: 36,
+                                height: TABLE_STYLES.row.height,
                                 ...(isFocused && {
                                   outline: `2px solid ${theme.palette.primary.main}`,
                                   outlineOffset: '-2px'
                                 })
                               }}
                             >
-                              <TableCell sx={{ py: 0.5 }}>
+                              <TableCell sx={{ py: TABLE_STYLES.cell.padding.py }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '0.875rem' }} />
-                                  <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.1 }}>
+                                  <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: '0.8rem', lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight, fontWeight: 400 }}>
                                     {product.name}
                                   </Typography>
                                 </Box>
@@ -1037,7 +1190,7 @@ const ProductsPage: React.FC = () => {
                     <TablePagination
                       rowsPerPageOptions={[5, 10, 25, 50]}
                       component="div"
-                      count={filteredProducts.length}
+                      count={pagination?.total || 0}
                       rowsPerPage={rowsPerPage}
                       page={page}
                       onPageChange={(_, newPage) => setPage(newPage)}
@@ -1057,15 +1210,17 @@ const ProductsPage: React.FC = () => {
         {/* Right Side - Product Details View */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 1.5, borderBottom: '1px solid rgba(224, 224, 224, 0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 {selectedProductForDetails ? 'Product Details' : 'Select Product'}
               </Typography>
               {selectedProductForDetails && (
-                <Box 
+                <Box
                   className="product-actions"
-                  sx={{ 
-                    display: 'flex', 
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    height: '100%', // Fill the full container height
                     gap: 0.25,
                     opacity: 0.7,
                     transition: 'opacity 0.2s ease'
@@ -1080,6 +1235,11 @@ const ProductsPage: React.FC = () => {
                         onClick={handleInlineEditSave}
                         disabled={inlineEditDuplicateCheck.hasNameDuplicate || inlineEditDuplicateCheck.hasBarcodeDuplicate}
                         sx={{
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'success.light',
                             color: 'success.main'
@@ -1087,11 +1247,12 @@ const ProductsPage: React.FC = () => {
                           '&.Mui-disabled': {
                             backgroundColor: 'grey.300',
                             color: 'grey.500'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <SaveIcon fontSize="small" />
+                        <SaveIcon sx={{
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                        }} />
                       </IconButton>
                       <IconButton
                         size="small"
@@ -1099,14 +1260,20 @@ const ProductsPage: React.FC = () => {
                         aria-label="Cancel editing"
                         onClick={handleInlineEditCancel}
                         sx={{
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'error.light',
                             color: 'error.main'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <CancelIcon fontSize="small" />
+                        <CancelIcon sx={{
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                        }} />
                       </IconButton>
                     </>
                   ) : (
@@ -1117,14 +1284,20 @@ const ProductsPage: React.FC = () => {
                         aria-label={`Edit product ${selectedProductForDetails.name}`}
                         onClick={() => handleEditProduct(selectedProductForDetails)}
                         sx={{
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'action.hover',
                             color: 'primary.main'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <EditIcon fontSize="small" />
+                        <EditIcon sx={{
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                        }} />
                       </IconButton>
                       <IconButton
                         size="small"
@@ -1132,21 +1305,27 @@ const ProductsPage: React.FC = () => {
                         aria-label={`Delete product ${selectedProductForDetails.name}`}
                         onClick={() => handleDeleteProduct(selectedProductForDetails)}
                         sx={{
+                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                          minHeight: 20, // Reduced minimum size for better scaling
+                          minWidth: 20,
+                          p: 0.125, // Reduced padding for better proportion
                           '&:hover': {
                             backgroundColor: 'error.light',
                             color: 'error.main'
-                          },
-                          p: 0.5
+                          }
                         }}
                       >
-                        <DeleteIcon fontSize="small" />
+                        <DeleteIcon sx={{
+                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                        }} />
                       </IconButton>
                     </>
                   )}
                 </Box>
               )}
             </Box>
-            <Box sx={{ flex: 1, overflow: 'auto', p: 1.5 }}>
+            <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
               {!selectedProductForDetails ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                   <Typography variant="body1" color="text.secondary" textAlign="center">
@@ -1155,48 +1334,56 @@ const ProductsPage: React.FC = () => {
                 </Box>
               ) : (
                 <TableContainer>
-                  <Table 
-                    size="small" 
-                    sx={{ 
-                      '& .MuiTableCell-root': { 
-                        border: 'none', 
-                        py: 0.75, 
-                        px: 1.5,
+                  <Table
+                    size={TABLE_STYLES.size}
+                    sx={{
+                      tableLayout: 'fixed',
+                      '& .MuiTableCell-root': {
+                        border: 'none',
+                        py: TABLE_STYLES.cell.padding.py,
+                        px: TABLE_STYLES.cell.padding.px,
                         ...(isMobile && {
-                          px: 1,
-                          py: 0.5,
-                          fontSize: '0.75rem'
-                        })
+                          px: TABLE_STYLES.cell.padding.px * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize
+                        }),
+                        '&:nth-of-type(1)': { width: '35%' }, // Field name column
+                        '&:nth-of-type(2)': { width: '45%' }, // Value column
+                        '&:nth-of-type(3)': { width: '20%' }, // Extra info column (margins, status)
                       }
                     }}
                   >
                     <TableBody>
                       {/* Basic Information Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pb: 0.5, py: 0.5 }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: '0.75rem'
+                        <TableCell colSpan={3} sx={{
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             Basic Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ 
-                          fontWeight: 500, 
-                          color: 'text.secondary', 
+                        <TableCell sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                          color: 'text.secondary',
                           width: isMobile ? '40%' : '35%',
                           minWidth: isMobile ? 'auto' : '120px',
-                          fontSize: '0.75rem'
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                         }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Product Name
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.name}
@@ -1205,15 +1392,15 @@ const ProductsPage: React.FC = () => {
                               fullWidth
                               error={inlineEditDuplicateCheck.hasNameDuplicate}
                               helperText={
-                                inlineEditDuplicateCheck.hasNameDuplicate 
-                                  ? inlineEditDuplicateCheck.nameError 
-                                  : inlineEditData.name && inlineEditData.name.trim().length >= 2 && !inlineEditDuplicateCheck.hasNameDuplicate
+                                inlineEditDuplicateCheck.hasNameDuplicate
+                                  ? inlineEditDuplicateCheck.nameError
+                                  : inlineEditData.name && inlineEditData.name.trim().length >= 2 && inlineEditDuplicateCheck.hasCheckedName && !inlineEditDuplicateCheck.hasNameDuplicate
                                     ? 'Name is available'
                                     : ''
                               }
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px',
                                   '&.Mui-error': {
                                     '& fieldset': {
@@ -1222,7 +1409,7 @@ const ProductsPage: React.FC = () => {
                                   }
                                 },
                                 '& .MuiFormHelperText-root': {
-                                  fontSize: '0.7rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                                   margin: '2px 0 0 0',
                                   color: inlineEditDuplicateCheck.hasNameDuplicate 
                                     ? 'error.main' 
@@ -1238,13 +1425,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Barcode
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.barcode}
@@ -1253,15 +1440,15 @@ const ProductsPage: React.FC = () => {
                               fullWidth
                               error={inlineEditDuplicateCheck.hasBarcodeDuplicate}
                               helperText={
-                                inlineEditDuplicateCheck.hasBarcodeDuplicate 
-                                  ? inlineEditDuplicateCheck.barcodeError 
-                                  : inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 && !inlineEditDuplicateCheck.hasBarcodeDuplicate
+                                inlineEditDuplicateCheck.hasBarcodeDuplicate
+                                  ? inlineEditDuplicateCheck.barcodeError
+                                  : inlineEditData.barcode && inlineEditData.barcode.trim().length >= 1 && inlineEditDuplicateCheck.hasCheckedBarcode && !inlineEditDuplicateCheck.hasBarcodeDuplicate
                                     ? 'Barcode is available'
                                     : ''
                               }
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px',
                                   '&.Mui-error': {
                                     '& fieldset': {
@@ -1270,7 +1457,7 @@ const ProductsPage: React.FC = () => {
                                   }
                                 },
                                 '& .MuiFormHelperText-root': {
-                                  fontSize: '0.7rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                                   margin: '2px 0 0 0',
                                   color: inlineEditDuplicateCheck.hasBarcodeDuplicate 
                                     ? 'error.main' 
@@ -1281,52 +1468,52 @@ const ProductsPage: React.FC = () => {
                               }}
                             />
                           ) : (
-                            selectedProductForDetails.barcode
+                            selectedProductForDetails.barcode || 'No barcode'
                           )}
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Type
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <FormControl fullWidth size="small">
                               <Select 
                                 value={inlineEditData.type}
                                 onChange={(e) => handleInlineEditChange('type', e.target.value)}
                                 sx={{
-                                  '& .MuiSelect-select': { 
-                                    fontSize: '0.8rem',
+                                  '& .MuiSelect-select': {
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                     height: '28px',
                                     padding: '4px 8px'
                                   }
                                 }}
                               >
-                                <MenuItem value="goods" sx={{ fontSize: '0.8rem' }}>
+                                <MenuItem value="Stocked Product" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                   Stocked Product
                                 </MenuItem>
-                                <MenuItem value="service" sx={{ fontSize: '0.8rem' }}>
+                                <MenuItem value="Service" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                   Service
                                 </MenuItem>
                               </Select>
                             </FormControl>
                           ) : (
-                            selectedProductForDetails.type === 'goods' ? 'Stocked Product' : 'Service'
+                            selectedProductForDetails.type === 'Stocked Product' ? 'Stocked Product' : 'Service'
                           )}
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Category
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <FormControl fullWidth size="small">
                               <Select 
@@ -1341,8 +1528,8 @@ const ProductsPage: React.FC = () => {
                                   }
                                 }}
                                 sx={{
-                                  '& .MuiSelect-select': { 
-                                    fontSize: '0.8rem',
+                                  '& .MuiSelect-select': {
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                     height: '28px',
                                     padding: '4px 8px'
                                   }
@@ -1350,12 +1537,12 @@ const ProductsPage: React.FC = () => {
                               >
                                 {categories && categories.length > 0 ? (
                                   categories.map((category: any) => (
-                                    <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.8rem' }}>
+                                    <MenuItem key={category.id} value={category.id} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                       {category.name}
                                     </MenuItem>
                                   ))
                                 ) : (
-                                  <MenuItem value="" disabled sx={{ fontSize: '0.8rem' }}>
+                                  <MenuItem value="" disabled sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                     No categories available
                                   </MenuItem>
                                 )}
@@ -1366,56 +1553,58 @@ const ProductsPage: React.FC = () => {
                           )}
                         </TableCell>
                       </TableRow>
-                      {selectedProductForDetails.description && (
-                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
-                              Description
-                            </Box>
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {inlineEditMode && inlineEditData ? (
-                              <TextField
-                                value={inlineEditData.description}
-                                onChange={(e) => handleInlineEditChange('description', e.target.value)}
-                                size="small"
-                                fullWidth
-                                multiline
-                                rows={2}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    fontSize: '0.8rem'
-                                  }
-                                }}
-                              />
-                            ) : (
-                              selectedProductForDetails.description
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )}
+                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
+                            Description
+                          </Box>
+                        </TableCell>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {inlineEditMode && inlineEditData ? (
+                            <TextField
+                              value={inlineEditData.description}
+                              onChange={(e) => handleInlineEditChange('description', e.target.value)}
+                              size="small"
+                              fullWidth
+                              multiline
+                              rows={2}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                                }
+                              }}
+                            />
+                          ) : (
+                            selectedProductForDetails.description || 'No description'
+                          )}
+                        </TableCell>
+                      </TableRow>
                       
                       {/* Pricing Information Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ pt: 1.5, pb: 0.5 }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: '0.75rem'
+                        <TableCell colSpan={3} sx={{
+                          pt: TABLE_STYLES.cell.padding.py * 2,
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
-                            Pricing Information
+                            Pricing Information & Margins
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Base Cost
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.baseCost}
@@ -1428,7 +1617,7 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
@@ -1439,13 +1628,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Retail Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.retailPrice}
@@ -1458,44 +1647,44 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.8rem' }}>
+                            <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatCurrency(selectedProductForDetails.retailPrice)}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
-                            calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 0 && (
+                            (inlineEditData.retailPrice !== undefined && inlineEditData.retailPrice !== null && inlineEditData.retailPrice > 0) && (
                               <Chip
                                 label={`${calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost).toFixed(1)}%`}
                                 size="small"
                                 variant="outlined"
                                 color={calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 20 ? 'success' : calculateMargin(inlineEditData.retailPrice, inlineEditData.baseCost) > 10 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
                             )
                           ) : (
-                            selectedProductForDetails.grossMarginRetail !== undefined && (
+                            (selectedProductForDetails.retailPrice !== undefined && selectedProductForDetails.retailPrice !== null && selectedProductForDetails.retailPrice > 0) && (
                               <Chip
                                 label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
                                 size="small"
                                 variant="outlined"
-                                color={selectedProductForDetails.grossMarginRetail > 20 ? 'success' : selectedProductForDetails.grossMarginRetail > 10 ? 'warning' : 'error'}
+                                color={(selectedProductForDetails.grossMarginRetail || 0) > 20 ? 'success' : (selectedProductForDetails.grossMarginRetail || 0) > 10 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1504,13 +1693,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Wholesale Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.wholesalePrice}
@@ -1523,44 +1712,44 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography sx={{ fontSize: '0.8rem' }}>
+                            <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatCurrency(selectedProductForDetails.wholesalePrice)}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
-                            calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 0 && (
+                            (inlineEditData.wholesalePrice !== undefined && inlineEditData.wholesalePrice !== null && inlineEditData.wholesalePrice > 0) && (
                               <Chip
                                 label={`${calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost).toFixed(1)}%`}
                                 size="small"
                                 variant="outlined"
                                 color={calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.wholesalePrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
                             )
                           ) : (
-                            selectedProductForDetails.grossMarginWholesale !== undefined && (
+                            (selectedProductForDetails.wholesalePrice !== undefined && selectedProductForDetails.wholesalePrice !== null && selectedProductForDetails.wholesalePrice > 0) && (
                               <Chip
                                 label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
                                 size="small"
                                 variant="outlined"
-                                color={selectedProductForDetails.grossMarginWholesale > 15 ? 'success' : selectedProductForDetails.grossMarginWholesale > 5 ? 'warning' : 'error'}
+                                color={(selectedProductForDetails.grossMarginWholesale || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginWholesale || 0) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1569,13 +1758,13 @@ const ProductsPage: React.FC = () => {
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Special Price
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.specialPrice}
@@ -1588,44 +1777,44 @@ const ProductsPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography sx={{ fontSize: '0.8rem' }}>
+                            <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatCurrency(selectedProductForDetails.specialPrice)}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
-                            calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 0 && (
+                            (inlineEditData.specialPrice !== undefined && inlineEditData.specialPrice !== null && inlineEditData.specialPrice > 0) && (
                               <Chip
                                 label={`${calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost).toFixed(1)}%`}
                                 size="small"
                                 variant="outlined"
                                 color={calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 15 ? 'success' : calculateMargin(inlineEditData.specialPrice, inlineEditData.baseCost) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
                             )
                           ) : (
-                            selectedProductForDetails.grossMarginSpecial !== undefined && (
+                            (selectedProductForDetails.specialPrice !== undefined && selectedProductForDetails.specialPrice !== null && selectedProductForDetails.specialPrice > 0) && (
                               <Chip
                                 label={`${selectedProductForDetails.grossMarginSpecial?.toFixed(1) || '0.0'}%`}
                                 size="small"
                                 variant="outlined"
-                                color={selectedProductForDetails.grossMarginSpecial > 15 ? 'success' : selectedProductForDetails.grossMarginSpecial > 5 ? 'warning' : 'error'}
+                                color={(selectedProductForDetails.grossMarginSpecial || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginSpecial || 0) > 5 ? 'warning' : 'error'}
                                 sx={{
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  height: 18,
+                                  fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                  height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
                                   minWidth: 42
                                 }}
                               />
@@ -1636,24 +1825,28 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Stock Information Section */}
                       <TableRow>
-                        <TableCell colSpan={3} sx={{ pt: 1.5, pb: 0.5 }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: '0.75rem'
+                        <TableCell colSpan={3} sx={{
+                          pt: TABLE_STYLES.cell.padding.py * 2,
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
                             Stock Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
                             Current Stock
                           </Box>
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.currentStock}
@@ -1661,20 +1854,22 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               type="number"
                               inputProps={{ step: 1, min: 0 }}
+                              disabled={inlineEditData.type === 'Service'}
+                              placeholder={inlineEditData.type === 'Service' ? 'N/A for services' : ''}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   height: '28px'
                                 }
                               }}
                             />
                           ) : (
-                            <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {selectedProductForDetails.stockQuantity || 0}
                             </Typography>
                           )}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {!inlineEditMode && (
                             <Chip
                               label={getStockStatus(selectedProductForDetails).label}
@@ -1682,7 +1877,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               sx={{
-                                fontSize: '0.7rem',
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                                 fontWeight: 500,
                                 height: 20
                               }}
@@ -1693,18 +1888,22 @@ const ProductsPage: React.FC = () => {
                       
                       {/* Notes Section */}
                       <TableRow>
-                        <TableCell colSpan={2} sx={{ pt: 1.5, pb: 0.5 }}>
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            color: 'primary.main', 
-                            fontSize: '0.75rem'
+                        <TableCell colSpan={3} sx={{
+                          pt: TABLE_STYLES.cell.padding.py * 2,
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant="h6" sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            color: 'primary.main',
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           }}>
-                            Notes
+                            Notes & Additional Information
                           </Typography>
                         </TableCell>
                       </TableRow>
                       <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell colSpan={2} sx={{ p: 1.5 }}>
+                        <TableCell colSpan={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
                           {inlineEditMode && inlineEditData ? (
                             <TextField
                               value={inlineEditData.notes}
@@ -1715,7 +1914,7 @@ const ProductsPage: React.FC = () => {
                               placeholder="Add notes about this product..."
                               sx={{
                                 '& .MuiOutlinedInput-root': {
-                                  fontSize: '0.8rem',
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   backgroundColor: 'background.paper'
                                 }
                               }}
@@ -1733,14 +1932,14 @@ const ProductsPage: React.FC = () => {
                             }}>
                               {selectedProductForDetails.notes ? (
                                 <Typography variant="body2" sx={{ 
-                                  fontSize: '0.8rem', 
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, 
                                   lineHeight: 1.4,
                                   whiteSpace: 'pre-wrap'
                                 }}>
                                   {selectedProductForDetails.notes}
                                 </Typography>
                               ) : (
-                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
+                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, fontStyle: 'italic' }}>
                                   No notes available
                                 </Typography>
                               )}
@@ -1756,6 +1955,7 @@ const ProductsPage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
+      </Box>
 
       {/* Context Menu */}
       <Menu
@@ -1769,33 +1969,129 @@ const ProductsPage: React.FC = () => {
         </MenuItem>
       </Menu>
 
+      {/* Export Menu */}
+      <Menu
+        anchorEl={exportMenuAnchor}
+        open={Boolean(exportMenuAnchor)}
+        onClose={handleExportClose}
+        PaperProps={{
+          sx: { minWidth: 200 }
+        }}
+      >
+        <MenuItem 
+          onClick={() => handleExport('csv')}
+          disabled={isExporting}
+        >
+          <TableChartIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Export as CSV
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Comma-separated values
+            </Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleExport('excel')}
+          disabled={isExporting}
+        >
+          <TableChartIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, color: 'success.main' }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Export as Excel
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              With summary & formatting
+            </Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleExport('pdf')}
+          disabled={isExporting}
+        >
+          <PictureAsPdfIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, color: 'error.main' }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Export as PDF
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Formatted report
+            </Typography>
+          </Box>
+        </MenuItem>
+        {products.length > 0 && (
+          <Box sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary">
+              {products.length} product{products.length !== 1 ? 's' : ''} will be exported
+              {productFilters.search && (
+                <>
+                  <br />
+                  Search: "{productFilters.search}"
+                </>
+              )}
+              {productFilters.categoryId && (
+                <>
+                  <br />
+                  Category filter applied
+                </>
+              )}
+            </Typography>
+          </Box>
+        )}
+      </Menu>
+
       {/* Product Form Dialog */}
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
             maxHeight: '90vh',
+            width: dialogCalculatorOpen ? '95vw' : '70vw',
+            maxWidth: dialogCalculatorOpen ? '1400px' : '900px',
+            transition: 'width 0.3s ease-in-out',
             '& .MuiDialogContent-root': {
               paddingTop: '8px !important'
             }
           }
         }}
       >
-        <DialogTitle sx={{ pb: 1 }}>
-          {editMode ? 'Edit Product' : 'Add New Product'}
-          {selectedProduct && editMode && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Editing: {selectedProduct.name}
-            </Typography>
-          )}
+        <DialogTitle 
+          sx={{ 
+            pb: 1
+          }}
+        >
+          <Box>
+            {editMode ? 'Edit Product' : 'Add New Product'}
+            {selectedProduct && editMode && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Editing: {selectedProduct.name}
+              </Typography>
+            )}
+          </Box>
         </DialogTitle>
         <form onSubmit={handleSubmit(onSubmit as any)}>
           <DialogContent sx={{ py: 1 }}>
-            <Grid container spacing={2}>
-              {/* Basic Information Row */}
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: 2,
+                minHeight: '500px',
+              }}
+            >
+              {/* Product Form Section */}
+              <Box
+                sx={{
+                  flex: dialogCalculatorOpen ? (isMobile ? '1' : '0 0 65%') : '1',
+                  transition: 'flex 0.3s ease-in-out',
+                }}
+              >
+                <Grid container spacing={2}>
+              {/* Row 1: Basic Product Information */}
               <Grid item xs={12} sm={6}>
                 <Controller
                   name="name"
@@ -1873,8 +2169,8 @@ const ProductsPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* Type and Category Row */}
-              <Grid item xs={12} sm={6}>
+              {/* Row 2: Type, Category & Base Cost */}
+              <Grid item xs={12} sm={4}>
                 <Controller
                   name="type"
                   control={control}
@@ -1882,11 +2178,11 @@ const ProductsPage: React.FC = () => {
                     <FormControl fullWidth size="small" error={!!errors.type}>
                       <InputLabel>Type</InputLabel>
                       <Select {...field} label="Type">
-                        <MenuItem value="goods">Stocked Product</MenuItem>
-                        <MenuItem value="service">Service</MenuItem>
+                        <MenuItem value="Stocked Product">Stocked Product</MenuItem>
+                        <MenuItem value="Service">Service</MenuItem>
                       </Select>
                       {errors.type && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: '0.75rem' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                           {errors.type.message}
                         </Typography>
                       )}
@@ -1894,7 +2190,7 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <Controller
                   name="categoryId"
                   control={control}
@@ -1936,7 +2232,7 @@ const ProductsPage: React.FC = () => {
                         )}
                       </Select>
                       {errors.categoryId && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: '0.75rem' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="error" sx={{ mt: 0.5, ml: 1.5, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                           {errors.categoryId.message}
                         </Typography>
                       )}
@@ -1944,9 +2240,7 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-
-              {/* Cost and Stock Row */}
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <Controller
                   name="baseCost"
                   control={control}
@@ -1967,26 +2261,8 @@ const ProductsPage: React.FC = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <Controller
-                  name="currentStock"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      size="small"
-                      label="Current Stock"
-                      type="number"
-                      inputProps={{ step: 1, min: 0 }}
-                      error={!!errors.currentStock}
-                      helperText={errors.currentStock?.message}
-                    />
-                  )}
-                />
-              </Grid>
 
-              {/* Pricing Row */}
+              {/* Row 3: Pricing with Margins */}
               <Grid item xs={12} sm={4}>
                 <Controller
                   name="retailPrice"
@@ -2008,7 +2284,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               color={retailMargin > 20 ? 'success' : retailMargin > 10 ? 'warning' : 'error'}
-                              sx={{ fontSize: '0.65rem', height: 18, minWidth: 35 }}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize, height: TYPOGRAPHY_STYLES.chip.extraSmall.height, minWidth: 35 }}
                             />
                           </InputAdornment>
                         )
@@ -2040,7 +2316,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               color={wholesaleMargin > 15 ? 'success' : wholesaleMargin > 5 ? 'warning' : 'error'}
-                              sx={{ fontSize: '0.65rem', height: 18, minWidth: 35 }}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize, height: TYPOGRAPHY_STYLES.chip.extraSmall.height, minWidth: 35 }}
                             />
                           </InputAdornment>
                         )
@@ -2072,7 +2348,7 @@ const ProductsPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               color={specialMargin > 15 ? 'success' : specialMargin > 5 ? 'warning' : 'error'}
-                              sx={{ fontSize: '0.65rem', height: 18, minWidth: 35 }}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize, height: TYPOGRAPHY_STYLES.chip.extraSmall.height, minWidth: 35 }}
                             />
                           </InputAdornment>
                         )
@@ -2084,8 +2360,33 @@ const ProductsPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* Description and Notes Row */}
+              {/* Row 4: Stock Information */}
               <Grid item xs={12} sm={6}>
+                <Controller
+                  name="currentStock"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      size="small"
+                      label="Current Stock Quantity"
+                      type="number"
+                      inputProps={{ step: 1, min: 0 }}
+                      disabled={watchedType === 'Service'}
+                      error={!!errors.currentStock}
+                      helperText={watchedType === 'Service' ? 'Not applicable for services' : errors.currentStock?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                {/* Empty space for balance */}
+                <Box sx={{ height: '56px' }} />
+              </Grid>
+
+              {/* Row 5: Description */}
+              <Grid item xs={12} sm={12}>
                 <Controller
                   name="description"
                   control={control}
@@ -2094,16 +2395,19 @@ const ProductsPage: React.FC = () => {
                       {...field}
                       fullWidth
                       size="small"
-                      label="Description"
+                      label="Product Description"
                       multiline
-                      rows={2}
+                      rows={4}
                       error={!!errors.description}
                       helperText={errors.description?.message}
+                      placeholder="Detailed product description for customers..."
                     />
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              {/* Row 6: Notes */}
+              <Grid item xs={12} sm={12}>
                 <Controller
                   name="notes"
                   control={control}
@@ -2112,32 +2416,70 @@ const ProductsPage: React.FC = () => {
                       {...field}
                       fullWidth
                       size="small"
-                      label="Notes"
+                      label="Internal Notes"
                       multiline
-                      rows={2}
-                      placeholder="Internal notes..."
+                      rows={4}
+                      placeholder="Internal notes for staff use only..."
                       error={!!errors.notes}
                       helperText={errors.notes?.message}
                     />
                   )}
                 />
               </Grid>
-            </Grid>
+                </Grid>
+              </Box>
+
+              {/* Divider */}
+              {dialogCalculatorOpen && !isMobile && (
+                <Box
+                  sx={{
+                    width: '1px',
+                    backgroundColor: 'divider',
+                    my: 2,
+                  }}
+                />
+              )}
+
+              {/* Calculator Section */}
+              {dialogCalculatorOpen && (
+                <Box
+                  sx={{
+                    flex: isMobile ? '0 0 auto' : '0 0 35%',
+                    opacity: 1,
+                    transform: 'translateX(0)',
+                    transition: 'all 0.3s ease-in-out',
+                    borderTop: isMobile ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                    pt: isMobile ? 2 : 0,
+                  }}
+                >
+                  <InlineCalculator />
+                </Box>
+              )}
+            </Box>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
+          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
             <Button onClick={handleCloseDialog} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button
-              onClick={() => setCalculatorInFormOpen(true)}
+              onClick={() => setDialogCalculatorOpen(!dialogCalculatorOpen)}
+              variant="outlined"
+              size="medium"
+              disabled={isSubmitting}
               startIcon={<CalculateIcon />}
               sx={{
-                color: 'primary.main',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                color: dialogCalculatorOpen ? 'info.dark' : 'info.main',
+                borderColor: dialogCalculatorOpen ? 'info.dark' : 'info.main',
+                backgroundColor: dialogCalculatorOpen ? 'info.light' : 'transparent',
                 '&:hover': {
-                  backgroundColor: 'primary.light'
-                }
+                  borderColor: 'info.dark',
+                  backgroundColor: 'info.light'
+                },
+                transition: 'all 0.3s ease-in-out'
               }}
-              disabled={isSubmitting}
             >
               Calculator
             </Button>
@@ -2163,22 +2505,40 @@ const ProductsPage: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* Calculator Dialog */}
-      <CalculatorDialog
-        open={calculatorDialogOpen}
-        onClose={() => setCalculatorDialogOpen(false)}
-      />
-
-      {/* Calculator Dialog for Form */}
-      <CalculatorDialog
-        open={calculatorInFormOpen}
-        onClose={() => setCalculatorInFormOpen(false)}
+      {/* Sliding Calculator Panel */}
+      <SlidingCalculatorPanel
+        isOpen={calculatorPanelOpen}
+        onClose={() => setCalculatorPanelOpen(false)}
       />
 
       {/* Deleted Products Dialog */}
       <DeletedProductsDialog
         open={deletedProductsDialogOpen}
         onClose={() => setDeletedProductsDialogOpen(false)}
+      />
+
+      {/* Product Import Dialog */}
+      <ProductImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onImportSuccess={handleRefresh}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete "${productToDelete?.name}"? This will move it to deleted items.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        severity="warning"
+      />
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsHelp
+        open={keyboardHelpOpen}
+        onClose={() => setKeyboardHelpOpen(false)}
       />
     </Box>
   )

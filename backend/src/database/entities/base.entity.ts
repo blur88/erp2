@@ -6,9 +6,10 @@ import {
   Column,
   BeforeInsert,
   BeforeUpdate,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
-import { IsUUID, IsDate, IsOptional } from 'class-validator';
-import { v4 as uuidv4 } from 'uuid';
+import { IsUUID, IsDate, IsOptional, IsBoolean } from 'class-validator';
 
 /**
  * Base entity class that provides common fields for all entities
@@ -27,14 +28,14 @@ export abstract class BaseEntity {
     default: () => 'CURRENT_TIMESTAMP',
   })
   @IsDate()
-  createdAt: Date;
+  readonly createdAt: Date;
 
   @UpdateDateColumn({
     type: 'timestamptz',
     default: () => 'CURRENT_TIMESTAMP',
   })
   @IsDate()
-  updatedAt: Date;
+  readonly updatedAt: Date;
 
   @DeleteDateColumn({
     type: 'timestamptz',
@@ -42,7 +43,7 @@ export abstract class BaseEntity {
   })
   @IsOptional()
   @IsDate()
-  deletedAt?: Date;
+  readonly deletedAt?: Date;
 
   @Column({
     type: 'uuid',
@@ -62,15 +63,89 @@ export abstract class BaseEntity {
   @IsUUID(4)
   updatedBy?: string;
 
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'User who deleted this record',
+  })
+  @IsOptional()
+  @IsUUID(4)
+  deletedBy?: string;
+
+  @Column({
+    type: 'boolean',
+    default: true,
+    comment: 'Soft delete flag for performance queries',
+  })
+  @IsBoolean()
+  isActive: boolean;
+
+  @Column({
+    type: 'varchar',
+    length: 256,
+    nullable: true,
+    comment: 'SHA-256 hash for audit trail integrity',
+  })
+  @IsOptional()
+  auditHash?: string;
+
   @BeforeInsert()
-  generateId() {
-    if (!this.id) {
-      this.id = uuidv4();
+  async beforeInsert() {
+    // Set default values
+    if (this.isActive === undefined) {
+      this.isActive = true;
     }
+    
+    // Generate audit hash for integrity
+    await this.generateAuditHash();
   }
 
   @BeforeUpdate()
-  updateTimestamp() {
-    this.updatedAt = new Date();
+  async beforeUpdate() {
+    // Update audit hash
+    await this.generateAuditHash();
+  }
+
+  /**
+   * Generate SHA-256 hash of audit fields for integrity verification
+   */
+  private async generateAuditHash(): Promise<void> {
+    try {
+      const crypto = await import('crypto');
+      const auditData = {
+        id: this.id,
+        createdAt: this.createdAt?.toISOString(),
+        createdBy: this.createdBy,
+        updatedAt: this.updatedAt?.toISOString(),
+        updatedBy: this.updatedBy,
+        deletedAt: this.deletedAt?.toISOString(),
+        deletedBy: this.deletedBy,
+        isActive: this.isActive,
+      };
+      
+      this.auditHash = crypto
+        .createHash('sha256')
+        .update(JSON.stringify(auditData))
+        .digest('hex');
+    } catch (error) {
+      // Fallback if crypto is not available
+      this.auditHash = undefined;
+    }
+  }
+
+  /**
+   * Verify audit hash integrity
+   */
+  async verifyAuditHash(): Promise<boolean> {
+    if (!this.auditHash) return true; // Skip verification if no hash
+    
+    const originalHash = this.auditHash;
+    await this.generateAuditHash();
+    const currentHash = this.auditHash;
+    
+    // Restore original hash
+    this.auditHash = originalHash;
+    
+    return originalHash === currentHash;
   }
 }

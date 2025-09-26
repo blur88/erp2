@@ -6,15 +6,28 @@ interface SalesState {
   customers: Customer[]
   deletedCustomers: Customer[]
   orders: SalesOrder[]
+  deletedOrders: SalesOrder[]
   invoices: Invoice[]
   payments: Payment[]
   selectedCustomer: Customer | null
   selectedOrder: SalesOrder | null
   selectedInvoice: Invoice | null
+  orderFilters: {
+    search: string
+    sortBy: string
+    sortOrder: 'asc' | 'desc'
+    dateFilter: string
+    customFromDate: string
+    customToDate: string
+    customerId: string
+    paymentStatus: string
+    fulfillmentStatus: string
+  }
   loading: {
     customers: boolean
     deletedCustomers: boolean
     orders: boolean
+    deletedOrders: boolean
     invoices: boolean
     payments: boolean
   }
@@ -51,15 +64,28 @@ const initialState: SalesState = {
   customers: [],
   deletedCustomers: [],
   orders: [],
+  deletedOrders: [],
   invoices: [],
   payments: [],
   selectedCustomer: null,
   selectedOrder: null,
   selectedInvoice: null,
+  orderFilters: {
+    search: '',
+    sortBy: 'orderNumber',
+    sortOrder: 'asc',
+    dateFilter: 'all',
+    customFromDate: '',
+    customToDate: '',
+    customerId: 'all',
+    paymentStatus: 'all',
+    fulfillmentStatus: 'all',
+  },
   loading: {
     customers: false,
     deletedCustomers: false,
     orders: false,
+    deletedOrders: false,
     invoices: false,
     payments: false,
   },
@@ -87,12 +113,107 @@ export const fetchCustomers = createAsyncThunk(
 
 export const fetchOrders = createAsyncThunk(
   'sales/fetchOrders',
-  async (params: { page?: number; limit?: number; customerId?: string; status?: string }, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; customerId?: string; status?: string; priority?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string; fromDate?: string; toDate?: string; paymentStatus?: string; fulfillmentStatus?: string }, { rejectWithValue }) => {
     try {
-      const response = await salesApi.getOrders(params)
-      return response.data
+      const apiParams = {
+        page: params.page,
+        limit: params.limit,
+        customerId: params.customerId,
+        status: params.status,
+        priority: params.priority,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() as 'ASC' | 'DESC' : undefined,
+        search: params.search,
+        fromDate: params.fromDate,
+        toDate: params.toDate,
+        paymentStatus: params.paymentStatus,
+        fulfillmentStatus: params.fulfillmentStatus
+      }
+      const response = await salesApi.getOrders(apiParams as any)
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch orders')
+    }
+  }
+)
+
+export const fetchDeletedOrders = createAsyncThunk(
+  'sales/fetchDeletedOrders',
+  async (params: { page?: number; limit?: number; customerId?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string }, { rejectWithValue }) => {
+    try {
+      const apiParams = {
+        page: params.page,
+        limit: params.limit,
+        customerId: params.customerId,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() as 'ASC' | 'DESC' : undefined,
+        search: params.search
+      }
+      const response = await salesApi.getDeletedOrders(apiParams as any)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted orders')
+    }
+  }
+)
+
+export const restoreOrder = createAsyncThunk(
+  'sales/restoreOrder',
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.restoreOrder(orderId)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore order')
+    }
+  }
+)
+
+export const bulkRestoreOrders = createAsyncThunk(
+  'sales/bulkRestoreOrders',
+  async (orderIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await salesApi.bulkRestoreOrders(orderIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore orders')
+    }
+  }
+)
+
+export const bulkDeleteOrders = createAsyncThunk(
+  'sales/bulkDeleteOrders',
+  async (orderIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await salesApi.bulkDeleteOrders(orderIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk delete orders')
+    }
+  }
+)
+
+export const deleteOrder = createAsyncThunk(
+  'sales/deleteOrder',
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.deleteOrder(orderId)
+      // The API now returns: { data: previousOrder | null, message: string, deletedOrderNumber: string, redirect?: string }
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete order')
+    }
+  }
+)
+
+export const permanentDeleteOrder = createAsyncThunk(
+  'sales/permanentDeleteOrder',
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.permanentDeleteOrder(orderId)
+      return { orderId }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete order')
     }
   }
 )
@@ -141,6 +262,18 @@ export const createOrder = createAsyncThunk(
       return response.data
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create order')
+    }
+  }
+)
+
+export const updateOrder = createAsyncThunk(
+  'sales/updateOrder',
+  async ({ id, orderData }: { id: string; orderData: Partial<SalesOrder> }, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.updateOrder(id, orderData)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update order')
     }
   }
 )
@@ -242,6 +375,24 @@ const salesSlice = createSlice({
     setSelectedInvoice: (state, action: PayloadAction<Invoice | null>) => {
       state.selectedInvoice = action.payload
     },
+    setOrderFilters: (state, action: PayloadAction<Partial<SalesState['orderFilters']>>) => {
+      state.orderFilters = { ...state.orderFilters, ...action.payload }
+    },
+    updateOrderInPlace: (state, action: PayloadAction<SalesOrder>) => {
+      const updatedOrder = action.payload
+      // Find and update the order in the list
+      const index = state.orders.findIndex(order => order.id === updatedOrder.id)
+      if (index !== -1) {
+        state.orders[index] = updatedOrder
+      }
+      // Update selected order if it's the same one
+      if (state.selectedOrder?.id === updatedOrder.id) {
+        state.selectedOrder = updatedOrder
+      }
+    },
+    setCustomers: (state, action: PayloadAction<Customer[]>) => {
+      state.customers = action.payload
+    },
     clearError: (state) => {
       state.error = null
     },
@@ -256,8 +407,18 @@ const salesSlice = createSlice({
       .addCase(fetchCustomers.fulfilled, (state, action) => {
         state.loading.customers = false
         if (action.payload) {
-          state.customers = action.payload.data
-          state.pagination.customers = action.payload.meta
+          // Handle both flat structure and nested meta structure
+          const payload = action.payload as any
+          state.customers = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.customers = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
@@ -274,12 +435,114 @@ const salesSlice = createSlice({
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading.orders = false
         if (action.payload) {
-          state.orders = action.payload.data
-          state.pagination.orders = action.payload.meta
+          // Handle both flat structure (current API) and nested meta structure
+          const payload = action.payload as any
+          state.orders = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.orders = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading.orders = false
+        state.error = action.payload as string
+      })
+
+    // Fetch Deleted Orders
+    builder
+      .addCase(fetchDeletedOrders.pending, (state) => {
+        state.loading.deletedOrders = true
+        state.error = null
+      })
+      .addCase(fetchDeletedOrders.fulfilled, (state, action) => {
+        state.loading.deletedOrders = false
+        if (action.payload) {
+          const payload = action.payload as any
+          state.deletedOrders = payload.data || []
+        }
+      })
+      .addCase(fetchDeletedOrders.rejected, (state, action) => {
+        state.loading.deletedOrders = false
+        state.error = action.payload as string
+      })
+
+    // Restore Order
+    builder
+      .addCase(restoreOrder.pending, (state) => {
+        state.error = null
+      })
+      .addCase(restoreOrder.fulfilled, (state, action) => {
+        // Order will be removed from deletedOrders when refetched
+      })
+      .addCase(restoreOrder.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Bulk Restore Orders
+    builder
+      .addCase(bulkRestoreOrders.pending, (state) => {
+        state.error = null
+      })
+      .addCase(bulkRestoreOrders.fulfilled, (state, action) => {
+        // Orders will be removed from deletedOrders when refetched
+      })
+      .addCase(bulkRestoreOrders.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Delete Order (Soft Delete)
+    builder
+      .addCase(deleteOrder.pending, (state) => {
+        state.error = null
+      })
+      .addCase(deleteOrder.fulfilled, (state, action) => {
+        if (action.payload) {
+          const payload = action.payload as any
+
+          // Remove the deleted order from the orders list
+          const deletedOrderNumber = payload.deletedOrderNumber
+          state.orders = state.orders.filter(order => order.orderNumber !== deletedOrderNumber)
+
+          // If there's a previous order, set it as the selected order
+          if (payload.data) {
+            state.selectedOrder = payload.data
+          } else {
+            // No previous order available, clear selection
+            state.selectedOrder = null
+          }
+        }
+      })
+      .addCase(deleteOrder.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Bulk Delete Orders
+    builder
+      .addCase(bulkDeleteOrders.pending, (state) => {
+        state.error = null
+      })
+      .addCase(bulkDeleteOrders.fulfilled, (state, action) => {
+        // Orders will be removed from deletedOrders when refetched
+      })
+      .addCase(bulkDeleteOrders.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+      .addCase(permanentDeleteOrder.pending, (state) => {
+        state.error = null
+      })
+      .addCase(permanentDeleteOrder.fulfilled, (state, action) => {
+        // Remove the permanently deleted order from deletedOrders
+        if (action.payload && state.deletedOrders) {
+          state.deletedOrders = state.deletedOrders.filter(order => order.id !== action.payload.orderId)
+        }
+      })
+      .addCase(permanentDeleteOrder.rejected, (state, action) => {
         state.error = action.payload as string
       })
 
@@ -292,8 +555,18 @@ const salesSlice = createSlice({
       .addCase(fetchInvoices.fulfilled, (state, action) => {
         state.loading.invoices = false
         if (action.payload) {
-          state.invoices = action.payload.data
-          state.pagination.invoices = action.payload.meta
+          // Handle both flat structure and nested meta structure
+          const payload = action.payload as any
+          state.invoices = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.invoices = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchInvoices.rejected, (state, action) => {
@@ -310,8 +583,18 @@ const salesSlice = createSlice({
       .addCase(fetchPayments.fulfilled, (state, action) => {
         state.loading.payments = false
         if (action.payload) {
-          state.payments = action.payload.data
-          state.pagination.payments = action.payload.meta
+          // Handle both flat structure and nested meta structure
+          const payload = action.payload as any
+          state.payments = payload.data || []
+          
+          // Check if pagination is in meta or at root level
+          const paginationData = payload.meta || payload
+          state.pagination.payments = {
+            page: paginationData.page || 1,
+            limit: paginationData.limit || 20,
+            total: paginationData.total || 0,
+            totalPages: paginationData.totalPages || 0
+          }
         }
       })
       .addCase(fetchPayments.rejected, (state, action) => {
@@ -332,6 +615,22 @@ const salesSlice = createSlice({
       .addCase(createOrder.fulfilled, (state, action) => {
         if (action.payload) {
           state.orders.unshift(action.payload)
+        }
+      })
+
+    // Update Order
+    builder
+      .addCase(updateOrder.fulfilled, (state, action) => {
+        if (action.payload) {
+          // Find and update the order in the list
+          const index = state.orders.findIndex(order => order.id === action.payload.id)
+          if (index !== -1) {
+            state.orders[index] = action.payload
+          }
+          // Update selected order if it's the same one
+          if (state.selectedOrder?.id === action.payload.id) {
+            state.selectedOrder = action.payload
+          }
         }
       })
 
@@ -406,6 +705,9 @@ export const {
   setSelectedCustomer,
   setSelectedOrder,
   setSelectedInvoice,
+  setOrderFilters,
+  setCustomers,
+  updateOrderInPlace,
   clearError,
 } = salesSlice.actions
 
@@ -413,11 +715,13 @@ export const {
 export const selectCustomers = (state: any) => state.sales?.customers
 export const selectDeletedCustomers = (state: any) => state.sales?.deletedCustomers
 export const selectOrders = (state: any) => state.sales?.orders
+export const selectDeletedOrders = (state: any) => state.sales?.deletedOrders
 export const selectInvoices = (state: any) => state.sales?.invoices
 export const selectPayments = (state: any) => state.sales?.payments
 export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
 export const selectSelectedOrder = (state: any) => state.sales?.selectedOrder
 export const selectSelectedInvoice = (state: any) => state.sales?.selectedInvoice
+export const selectOrderFilters = (state: any) => state.sales?.orderFilters
 export const selectSalesLoading = (state: any) => state.sales?.loading
 export const selectSalesError = (state: any) => state.sales?.error
 export const selectSalesPagination = (state: any) => state.sales?.pagination
