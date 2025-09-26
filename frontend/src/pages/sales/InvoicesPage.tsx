@@ -282,7 +282,7 @@ const InvoicesPage: React.FC = () => {
   const [filters, setFilters] = useState<InvoiceFilters>({
     search: '',
     sortBy: 'invoiceNumber',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
