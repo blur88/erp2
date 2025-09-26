@@ -927,7 +927,7 @@ const OrdersPage: React.FC = () => {
         <FormControl
           size="medium"
           sx={{
-            minWidth: isMobile ? 'auto' : 180,
+            minWidth: isMobile ? 'auto' : 120,
             '& .MuiOutlinedInput-root': {
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem'
@@ -980,7 +980,7 @@ const OrdersPage: React.FC = () => {
               }}
               size="medium"
               sx={{
-                minWidth: 150,
+                minWidth: 120,
                 '& .MuiOutlinedInput-root': {
                   height: TYPOGRAPHY_STYLES.searchField.input.height,
                   fontSize: '0.875rem'
@@ -999,7 +999,7 @@ const OrdersPage: React.FC = () => {
               }}
               size="medium"
               sx={{
-                minWidth: 150,
+                minWidth: 120,
                 '& .MuiOutlinedInput-root': {
                   height: TYPOGRAPHY_STYLES.searchField.input.height,
                   fontSize: '0.875rem'
@@ -1014,7 +1014,7 @@ const OrdersPage: React.FC = () => {
         <FormControl
           size="medium"
           sx={{
-            minWidth: isMobile ? 'auto' : 200,
+            minWidth: isMobile ? 'auto' : 140,
             '& .MuiOutlinedInput-root': {
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem'
@@ -1057,7 +1057,7 @@ const OrdersPage: React.FC = () => {
         <FormControl
           size="medium"
           sx={{
-            minWidth: isMobile ? 'auto' : 160,
+            minWidth: isMobile ? 'auto' : 120,
             '& .MuiOutlinedInput-root': {
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem'
@@ -1099,7 +1099,7 @@ const OrdersPage: React.FC = () => {
         <FormControl
           size="medium"
           sx={{
-            minWidth: isMobile ? 'auto' : 160,
+            minWidth: isMobile ? 'auto' : 120,
             '& .MuiOutlinedInput-root': {
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem'
