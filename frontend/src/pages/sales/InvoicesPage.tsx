@@ -40,9 +40,6 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
-  Print as PrintIcon,
-  Send as SendIcon,
-  Payment as PaymentIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -643,30 +640,6 @@ const InvoicesPage: React.FC = () => {
                   Invoice Details - {selectedInvoice.invoiceNumber}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    title="Print Invoice"
-                    sx={{ height: 28, width: 28 }}
-                  >
-                    <PrintIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="info"
-                    title="Send Invoice"
-                    sx={{ height: 28, width: 28 }}
-                  >
-                    <SendIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="success"
-                    title="Record Payment"
-                    sx={{ height: 28, width: 28 }}
-                  >
-                    <PaymentIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
                   <IconButton
                     size="small"
                     color="primary"
