@@ -495,9 +495,9 @@ const CustomersPage: React.FC = () => {
             Type
           </InputLabel>
           <Select
-            value={filters.type || ''}
+            value={filters.type || 'all'}
             label="Type"
-            onChange={(e) => dispatch(setFilters({ type: e.target.value as CustomerType }))}
+            onChange={(e) => dispatch(setFilters({ type: e.target.value === 'all' ? undefined : e.target.value as CustomerType }))}
             sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
@@ -521,7 +521,7 @@ const CustomersPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All Types</MenuItem>
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
             <MenuItem value={CustomerType.INDIVIDUAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Individual</MenuItem>
             <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
           </Select>
@@ -544,9 +544,9 @@ const CustomersPage: React.FC = () => {
             Price Level
           </InputLabel>
           <Select
-            value={filters.priceLevel || ''}
+            value={filters.priceLevel || 'all'}
             label="Price Level"
-            onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value as PriceLevel }))}
+            onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value === 'all' ? undefined : e.target.value as PriceLevel }))}
             sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
@@ -570,7 +570,7 @@ const CustomersPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All Levels</MenuItem>
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
             <MenuItem value={PriceLevel.RETAIL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Retail</MenuItem>
             <MenuItem value={PriceLevel.WHOLESALE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Wholesale</MenuItem>
             <MenuItem value={PriceLevel.SPECIAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Special</MenuItem>

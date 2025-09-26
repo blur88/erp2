@@ -151,7 +151,7 @@ const OrdersPage: React.FC = () => {
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
-    customerId: '',
+    customerId: 'all',
   }
 
   const [state, setState] = useState<OrdersPageState>({
@@ -217,7 +217,7 @@ const OrdersPage: React.FC = () => {
       sortBy: orderFilters.sortBy,
       sortOrder: orderFilters.sortOrder,
       search: orderFilters.search,
-      customerId: orderFilters.customerId || undefined,
+      customerId: orderFilters.customerId === 'all' ? undefined : orderFilters.customerId,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
       paymentStatus: orderFilters.paymentStatus,
@@ -1046,7 +1046,7 @@ const OrdersPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="">All Customers</MenuItem>
+            <MenuItem value="all">All</MenuItem>
             {customers.map((customer: any) => (
               <MenuItem key={customer.id} value={customer.id}>
                 {customer.name}
@@ -1136,7 +1136,7 @@ const OrdersPage: React.FC = () => {
             <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
           </Select>
         </FormControl>
-        {(orderFilters.dateFilter !== 'all' || orderFilters.customerId || orderFilters.paymentStatus !== 'all' || orderFilters.fulfillmentStatus !== 'all') && (
+        {(orderFilters.dateFilter !== 'all' || orderFilters.customerId !== 'all' || orderFilters.paymentStatus !== 'all' || orderFilters.fulfillmentStatus !== 'all') && (
           <Button
             variant="outlined"
             size="medium"
@@ -1145,7 +1145,7 @@ const OrdersPage: React.FC = () => {
                 dateFilter: 'all',
                 customFromDate: '',
                 customToDate: '',
-                customerId: '',
+                customerId: 'all',
                 paymentStatus: 'all',
                 fulfillmentStatus: 'all'
               }))

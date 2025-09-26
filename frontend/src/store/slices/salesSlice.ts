@@ -77,7 +77,7 @@ const initialState: SalesState = {
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
-    customerId: '',
+    customerId: 'all',
     paymentStatus: 'all',
     fulfillmentStatus: 'all',
   },

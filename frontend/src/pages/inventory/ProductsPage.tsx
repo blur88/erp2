@@ -181,11 +181,11 @@ const ProductsPage: React.FC = () => {
   })
 
   // Local state for category filter (will be moved to Redux)
-  const [selectedCategory, setSelectedCategory] = useState(productFilters.categoryId || '')
+  const [selectedCategory, setSelectedCategory] = useState(productFilters.categoryId || 'all')
 
   // Update Redux when local category changes
   useEffect(() => {
-    dispatch(setProductFilters({ categoryId: selectedCategory || undefined }))
+    dispatch(setProductFilters({ categoryId: selectedCategory === 'all' ? undefined : selectedCategory }))
   }, [dispatch, selectedCategory])
 
   useEffect(() => {
@@ -981,8 +981,8 @@ const ProductsPage: React.FC = () => {
               }
             }}
           >
-            <MenuItem value="" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
-              All Categories
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
+              All
             </MenuItem>
             {categories.map((category: any) => (
               <MenuItem key={category.id} value={category.id} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
