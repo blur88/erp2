@@ -484,13 +484,37 @@ const InvoicesPage: React.FC = () => {
           }}
         />
 
-        <FormControl size="medium" sx={{ minWidth: 120 }}>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
           <InputLabel>Status</InputLabel>
           <Select
             value={filters.status}
             label="Status"
             onChange={(e: any) => setFilters((prev: InvoiceFilters) => ({ ...prev, status: e.target.value }))}
-            sx={{ fontSize: '0.875rem' }}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
           >
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="draft">Draft</MenuItem>
@@ -501,13 +525,37 @@ const InvoicesPage: React.FC = () => {
           </Select>
         </FormControl>
 
-        <FormControl size="medium" sx={{ minWidth: 120 }}>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
           <InputLabel>Payment</InputLabel>
           <Select
             value={filters.paymentStatus}
             label="Payment"
             onChange={(e: any) => setFilters((prev: InvoiceFilters) => ({ ...prev, paymentStatus: e.target.value }))}
-            sx={{ fontSize: '0.875rem' }}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
           >
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="paid">Paid</MenuItem>
