@@ -692,7 +692,7 @@ const InvoicesPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           {selectedInvoice.orderNumber && (
-                            <TableRow>
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 Order #
                               </TableCell>
