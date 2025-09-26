@@ -394,18 +394,31 @@ const OrdersPage: React.FC = () => {
 
     // Calculate the new total paid amount
     let newPaidAmount
+    let paymentToAdd = 0
+
     if (paymentAmount) {
       // If user entered an amount, add it to existing paid amount
-      newPaidAmount = (selectedOrder.paidAmount || 0) + parseFloat(paymentAmount)
+      paymentToAdd = parseFloat(paymentAmount)
+      newPaidAmount = (selectedOrder.paidAmount || 0) + paymentToAdd
     } else {
-      // Auto-fill behavior: if payment field is blank, pay the full total amount
-      newPaidAmount = selectedOrder.totalAmount
+      // Auto-fill behavior: if payment field is blank, pay the remaining balance
+      const remainingBalance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))
+      paymentToAdd = remainingBalance
+      newPaidAmount = (selectedOrder.paidAmount || 0) + remainingBalance
     }
 
-    if (newPaidAmount <= (selectedOrder.paidAmount || 0)) return
+    if (paymentToAdd <= 0) return
 
     setIsLoading(true)
     try {
+      // First, optimistically update the UI to show the new payment amount immediately
+      const optimisticUpdate = {
+        ...selectedOrder,
+        paidAmount: newPaidAmount
+      }
+      dispatch(updateOrderInPlace(optimisticUpdate))
+      setPaymentAmount('')
+
       const response = await fetch(`/api/sales-orders/${selectedOrder.id}/record-payment`, {
         method: 'POST',
         headers: {
@@ -417,15 +430,19 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
-        setPaymentAmount('')
-        const additionalPayment = newPaidAmount - (selectedOrder.paidAmount || 0)
-        showSuccess(`Payment of ${formatCurrency(additionalPayment)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+        showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
       } else {
+        // Revert optimistic update on error
+        dispatch(updateOrderInPlace(selectedOrder))
+        setPaymentAmount(paymentToAdd.toString())
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to record payment'
         showError(errorMessage)
       }
     } catch (error) {
+      // Revert optimistic update on error
+      dispatch(updateOrderInPlace(selectedOrder))
+      setPaymentAmount(paymentToAdd.toString())
       console.error('Error recording payment:', error)
       showError('Error recording payment. Please try again.')
     } finally {
@@ -1319,40 +1336,52 @@ const OrdersPage: React.FC = () => {
                               Paid
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {!selectedOrder.isFulfilled ? (
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  placeholder={`Auto-fill: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
-                                  inputProps={{ min: 0, step: 0.01 }}
-                                  sx={{
-                                    width: '140px',
-                                    '& .MuiInputBase-root': {
-                                      height: '24px',
-                                      fontSize: '0.875rem'
-                                    },
-                                    '& .MuiInputBase-input': {
-                                      padding: '4px 8px',
-                                      fontSize: '0.875rem'
-                                    },
-                                    '& input[type=number]': {
-                                      MozAppearance: 'textfield'
-                                    },
-                                    '& input[type=number]::-webkit-outer-spin-button': {
-                                      WebkitAppearance: 'none',
-                                      margin: 0
-                                    },
-                                    '& input[type=number]::-webkit-inner-spin-button': {
-                                      WebkitAppearance: 'none',
-                                      margin: 0
-                                    }
-                                  }}
-                                  value={paymentAmount}
-                                  onChange={(e) => setPaymentAmount(e.target.value)}
-                                />
-                              ) : (
-                                formatCurrency(selectedOrder.paidAmount || 0)
-                              )}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  fontWeight: 600,
+                                  color: (selectedOrder.paidAmount || 0) > 0 ? 'success.main' : 'text.primary'
+                                }}>
+                                  {formatCurrency(selectedOrder.paidAmount || 0)}
+                                </Typography>
+                                {!selectedOrder.isFulfilled && (
+                                  <>
+                                    <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                                      +
+                                    </Typography>
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      placeholder={`Add: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
+                                      inputProps={{ min: 0, step: 0.01 }}
+                                      sx={{
+                                        width: '120px',
+                                        '& .MuiInputBase-root': {
+                                          height: '24px',
+                                          fontSize: '0.75rem'
+                                        },
+                                        '& .MuiInputBase-input': {
+                                          padding: '4px 6px',
+                                          fontSize: '0.75rem'
+                                        },
+                                        '& input[type=number]': {
+                                          MozAppearance: 'textfield'
+                                        },
+                                        '& input[type=number]::-webkit-outer-spin-button': {
+                                          WebkitAppearance: 'none',
+                                          margin: 0
+                                        },
+                                        '& input[type=number]::-webkit-inner-spin-button': {
+                                          WebkitAppearance: 'none',
+                                          margin: 0
+                                        }
+                                      }}
+                                      value={paymentAmount}
+                                      onChange={(e) => setPaymentAmount(e.target.value)}
+                                    />
+                                  </>
+                                )}
+                              </Box>
                             </TableCell>
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -1362,20 +1391,29 @@ const OrdersPage: React.FC = () => {
                             <TableCell sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                               color: (() => {
-                                const currentPaid = paymentAmount
-                                  ? (selectedOrder.paidAmount || 0) + parseFloat(paymentAmount)
-                                  : (selectedOrder.paidAmount || 0)
+                                const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
+                                const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
                                 const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
                                 return balance > 0 ? 'error.main' : 'success.main'
                               })()
                             }}>
-                              {(() => {
-                                const currentPaid = paymentAmount
-                                  ? (selectedOrder.paidAmount || 0) + parseFloat(paymentAmount)
-                                  : (selectedOrder.paidAmount || 0)
-                                const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
-                                return formatCurrency(balance)
-                              })()}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {(() => {
+                                  const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
+                                  const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
+                                  const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
+                                  return formatCurrency(balance)
+                                })()}
+                                {paymentAmount && !isNaN(parseFloat(paymentAmount)) && parseFloat(paymentAmount) > 0 && (
+                                  <Typography sx={{
+                                    fontSize: '0.75rem',
+                                    color: 'text.secondary',
+                                    fontStyle: 'italic'
+                                  }}>
+                                    (after payment)
+                                  </Typography>
+                                )}
+                              </Box>
                             </TableCell>
                           </TableRow>
                           <TableRow>
