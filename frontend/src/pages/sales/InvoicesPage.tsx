@@ -581,7 +581,6 @@ const InvoicesPage: React.FC = () => {
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
-                      <TableCell>Invoice Number</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
