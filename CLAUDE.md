@@ -280,6 +280,15 @@ When enabling disabled modules:
 - Root level categories properly created with `parentId: null`
 - CategorySelector properly handles "Main Category" option (updated from "No Category (Root Level)")
 
+### Sales Order Enhancements (September 2025)
+- ✅ **COMPLETE**: Enhanced sales order management with advanced filtering and payment handling
+- **Payment Features**: Overpayment handling with negative balance display and refund functionality
+- **Filtering**: Added payment status and fulfillment status filters with standardized dropdown widths (120px)
+- **UX Improvements**: Optimistic updates for payment operations with better visual feedback
+- **API Optimization**: Removed unused filter parameters and added debugging for summary methods
+- **Filter Layout**: Moved date range filters beside main date filter for improved user experience
+- **Standardization**: Consistent filter dropdown values and labels across all sales pages
+
 ## Code Patterns
 
 ### Entity Design
