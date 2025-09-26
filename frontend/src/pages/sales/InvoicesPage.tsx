@@ -53,7 +53,6 @@ interface Invoice {
   customerName: string
   orderNumber?: string
   invoiceDate: string
-  dueDate: string
   totalAmount: number
   paidAmount: number
   balanceAmount: number
@@ -107,7 +106,6 @@ const mockInvoices: Invoice[] = [
     customerName: 'Acme Corporation',
     orderNumber: 'ORD-2024-001',
     invoiceDate: '2024-01-15',
-    dueDate: '2024-02-14',
     totalAmount: 2500.00,
     paidAmount: 2500.00,
     balanceAmount: 0.00,
@@ -144,7 +142,6 @@ const mockInvoices: Invoice[] = [
     customerName: 'Tech Solutions Ltd',
     orderNumber: 'ORD-2024-002',
     invoiceDate: '2024-01-20',
-    dueDate: '2024-02-19',
     totalAmount: 1800.00,
     paidAmount: 900.00,
     balanceAmount: 900.00,
@@ -172,7 +169,6 @@ const mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-000003',
     customerName: 'Global Industries',
     invoiceDate: '2023-12-15',
-    dueDate: '2024-01-14',
     totalAmount: 5200.00,
     paidAmount: 0.00,
     balanceAmount: 5200.00,
@@ -331,7 +327,7 @@ const InvoicesPage: React.FC = () => {
       let aValue: any = a[filters.sortBy as keyof Invoice]
       let bValue: any = b[filters.sortBy as keyof Invoice]
 
-      if (filters.sortBy === 'invoiceDate' || filters.sortBy === 'dueDate') {
+      if (filters.sortBy === 'invoiceDate') {
         aValue = new Date(aValue).getTime()
         bValue = new Date(bValue).getTime()
       }
@@ -722,14 +718,6 @@ const InvoicesPage: React.FC = () => {
                               {formatDate(selectedInvoice.invoiceDate)}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Due Date
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem', color: selectedInvoice.isOverdue ? 'error.main' : 'text.primary' }}>
-                              {formatDate(selectedInvoice.dueDate)}
-                            </TableCell>
-                          </TableRow>
                           {selectedInvoice.orderNumber && (
                             <TableRow>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
@@ -761,7 +749,7 @@ const InvoicesPage: React.FC = () => {
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
                               Total Amount
                             </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatCurrency(selectedInvoice.totalAmount)}
                             </TableCell>
                           </TableRow>
@@ -769,7 +757,7 @@ const InvoicesPage: React.FC = () => {
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Paid Amount
                             </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem', color: selectedInvoice.paidAmount > 0 ? 'success.main' : 'text.primary' }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatCurrency(selectedInvoice.paidAmount)}
                             </TableCell>
                           </TableRow>
@@ -777,11 +765,7 @@ const InvoicesPage: React.FC = () => {
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Balance Due
                             </TableCell>
-                            <TableCell sx={{
-                              fontSize: '0.8rem',
-                              fontWeight: 600,
-                              color: selectedInvoice.balanceAmount > 0 ? 'error.main' : 'success.main'
-                            }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatCurrency(selectedInvoice.balanceAmount)}
                             </TableCell>
                           </TableRow>
@@ -790,21 +774,12 @@ const InvoicesPage: React.FC = () => {
                               Status
                             </TableCell>
                             <TableCell>
-                              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                <Chip
-                                  label={selectedInvoice.status.charAt(0).toUpperCase() + selectedInvoice.status.slice(1)}
-                                  color={selectedInvoice.status === 'paid' ? 'success' : selectedInvoice.status === 'overdue' ? 'error' : 'primary'}
-                                  size="small"
-                                  sx={{ fontSize: '0.7rem', height: 20 }}
-                                />
-                                <Chip
-                                  label={selectedInvoice.isPaid ? 'Paid' : selectedInvoice.isOverdue ? 'Overdue' : 'Pending'}
-                                  color={selectedInvoice.isPaid ? 'success' : selectedInvoice.isOverdue ? 'error' : 'warning'}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ fontSize: '0.7rem', height: 20 }}
-                                />
-                              </Box>
+                              <Chip
+                                label={selectedInvoice.status.charAt(0).toUpperCase() + selectedInvoice.status.slice(1)}
+                                color={selectedInvoice.status === 'paid' ? 'success' : selectedInvoice.status === 'overdue' ? 'error' : 'primary'}
+                                size="small"
+                                sx={{ fontSize: '0.7rem', height: 20 }}
+                              />
                             </TableCell>
                           </TableRow>
                         </TableBody>
