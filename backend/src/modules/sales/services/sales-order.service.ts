@@ -331,12 +331,15 @@ export class SalesOrderService {
   }
 
   async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
-    console.log('🚀 findSummaries called with query:', query);
+    console.log('🚀 findSummaries called with query:', JSON.stringify(query, null, 2));
+    console.log('🚀 paymentStatus:', query.paymentStatus, 'fulfillmentStatus:', query.fulfillmentStatus);
     const {
       search,
       customerId,
       fromDate,
       toDate,
+      paymentStatus,
+      fulfillmentStatus,
       sortBy = 'orderNumber',
       sortOrder = 'ASC',
       page = 1,
@@ -400,6 +403,36 @@ export class SalesOrderService {
         '(order.orderNumber ILIKE :search OR customer.name ILIKE :search)',
         { search: `%${search}%` }
       );
+    }
+
+    // Payment status filter
+    if (paymentStatus && paymentStatus !== 'all') {
+      switch (paymentStatus) {
+        case 'unpaid':
+          queryBuilder = queryBuilder.andWhere('(order.paidAmount = 0 OR order.paidAmount IS NULL)');
+          break;
+        case 'partial':
+          queryBuilder = queryBuilder.andWhere('order.paidAmount > 0 AND order.paidAmount < order.totalAmount');
+          break;
+        case 'paid':
+          queryBuilder = queryBuilder.andWhere('order.paidAmount >= order.totalAmount AND order.paidAmount > 0');
+          break;
+        case 'overpaid':
+          queryBuilder = queryBuilder.andWhere('order.paidAmount > order.totalAmount');
+          break;
+      }
+    }
+
+    // Fulfillment status filter
+    if (fulfillmentStatus && fulfillmentStatus !== 'all') {
+      switch (fulfillmentStatus) {
+        case 'fulfilled':
+          queryBuilder = queryBuilder.andWhere('order.isFulfilled = true');
+          break;
+        case 'unfulfilled':
+          queryBuilder = queryBuilder.andWhere('order.isFulfilled = false');
+          break;
+      }
     }
 
     // Get total count first
