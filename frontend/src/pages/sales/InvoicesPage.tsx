@@ -103,7 +103,7 @@ interface InvoiceFilters {
 const mockInvoices: Invoice[] = [
   {
     id: '1',
-    invoiceNumber: 'INV-2024-001',
+    invoiceNumber: 'INV-000001',
     customerName: 'Acme Corporation',
     orderNumber: 'ORD-2024-001',
     invoiceDate: '2024-01-15',
@@ -140,7 +140,7 @@ const mockInvoices: Invoice[] = [
   },
   {
     id: '2',
-    invoiceNumber: 'INV-2024-002',
+    invoiceNumber: 'INV-000002',
     customerName: 'Tech Solutions Ltd',
     orderNumber: 'ORD-2024-002',
     invoiceDate: '2024-01-20',
@@ -169,7 +169,7 @@ const mockInvoices: Invoice[] = [
   },
   {
     id: '3',
-    invoiceNumber: 'INV-2024-003',
+    invoiceNumber: 'INV-000003',
     customerName: 'Global Industries',
     invoiceDate: '2023-12-15',
     dueDate: '2024-01-14',
@@ -258,105 +258,6 @@ const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceInde
         >
           {invoice.invoiceNumber}
         </Typography>
-        {invoice.orderNumber && (
-          <Typography
-            variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-              color: 'text.secondary'
-            }}
-          >
-            Order: {invoice.orderNumber}
-          </Typography>
-        )}
-      </TableCell>
-      <TableCell>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize
-          }}
-        >
-          {invoice.customerName}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize
-          }}
-        >
-          {formatDate(invoice.invoiceDate)}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            color: invoice.isOverdue ? 'error.main' : 'text.primary'
-          }}
-        >
-          {formatDate(invoice.dueDate)}
-        </Typography>
-      </TableCell>
-      <TableCell align="right">
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize
-          }}
-        >
-          {formatCurrency(invoice.totalAmount)}
-        </Typography>
-      </TableCell>
-      <TableCell align="right">
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            color: invoice.paidAmount > 0 ? 'success.main' : 'text.primary'
-          }}
-        >
-          {formatCurrency(invoice.paidAmount)}
-        </Typography>
-      </TableCell>
-      <TableCell align="right">
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            color: invoice.balanceAmount > 0 ? 'error.main' : 'success.main'
-          }}
-        >
-          {formatCurrency(invoice.balanceAmount)}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Chip
-            label={invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-            color={getStatusColor(invoice.status) as any}
-            size="small"
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-              height: TYPOGRAPHY_STYLES.chip.small.height
-            }}
-          />
-          <Chip
-            label={invoice.isPaid ? 'Paid' : invoice.isOverdue ? 'Overdue' : 'Pending'}
-            color={getPaymentStatusColor(invoice.isPaid, invoice.isOverdue) as any}
-            size="small"
-            variant="outlined"
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-              height: TYPOGRAPHY_STYLES.chip.extraSmall.height
-            }}
-          />
-        </Box>
       </TableCell>
     </TableRow>
   )
@@ -680,21 +581,14 @@ const InvoicesPage: React.FC = () => {
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
-                      <TableCell>Invoice #</TableCell>
-                      <TableCell>Customer</TableCell>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Due Date</TableCell>
-                      <TableCell align="right">Total</TableCell>
-                      <TableCell align="right">Paid</TableCell>
-                      <TableCell align="right">Balance</TableCell>
-                      <TableCell>Status</TableCell>
+                      <TableCell>Invoice Number</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading && paginatedInvoices.length === 0 ? (
                       [...Array(10)].map((_, i) => (
                         <TableRow key={`skeleton-${i}`}>
-                          <TableCell colSpan={8}>
+                          <TableCell>
                             <Skeleton height={40} />
                           </TableCell>
                         </TableRow>

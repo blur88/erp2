@@ -378,11 +378,8 @@ export class Invoice extends BaseEntity {
   // Hooks
   @BeforeInsert()
   generateInvoiceNumber() {
-    if (!this.invoiceNumber) {
-      const year = new Date().getFullYear();
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.invoiceNumber = `INV-${year}-${timestamp}`;
-    }
+    // Invoice number generation moved to service layer for better async handling
+    // Similar to SalesOrder entity pattern
   }
 
   @BeforeInsert()
