@@ -233,6 +233,23 @@ export class QuerySalesOrdersDto {
   @IsString()
   toDate?: string;
 
+  @ApiPropertyOptional({
+    description: 'Filter by payment status',
+    enum: ['all', 'unpaid', 'partial', 'paid', 'overpaid'],
+    example: 'paid',
+  })
+  @IsOptional()
+  @IsString()
+  paymentStatus?: 'all' | 'unpaid' | 'partial' | 'paid' | 'overpaid';
+
+  @ApiPropertyOptional({
+    description: 'Filter by fulfillment status',
+    enum: ['all', 'fulfilled', 'unfulfilled'],
+    example: 'fulfilled',
+  })
+  @IsOptional()
+  @IsString()
+  fulfillmentStatus?: 'all' | 'fulfilled' | 'unfulfilled';
 
   @ApiPropertyOptional({
     description: 'Sort field',

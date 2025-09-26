@@ -20,6 +20,8 @@ interface SalesState {
     customFromDate: string
     customToDate: string
     customerId: string
+    paymentStatus: string
+    fulfillmentStatus: string
   }
   loading: {
     customers: boolean
@@ -76,6 +78,8 @@ const initialState: SalesState = {
     customFromDate: '',
     customToDate: '',
     customerId: '',
+    paymentStatus: 'all',
+    fulfillmentStatus: 'all',
   },
   loading: {
     customers: false,
@@ -109,7 +113,7 @@ export const fetchCustomers = createAsyncThunk(
 
 export const fetchOrders = createAsyncThunk(
   'sales/fetchOrders',
-  async (params: { page?: number; limit?: number; customerId?: string; status?: string; priority?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string; fromDate?: string; toDate?: string }, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; customerId?: string; status?: string; priority?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string; fromDate?: string; toDate?: string; paymentStatus?: string; fulfillmentStatus?: string }, { rejectWithValue }) => {
     try {
       const apiParams = {
         page: params.page,
@@ -121,7 +125,9 @@ export const fetchOrders = createAsyncThunk(
         sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() as 'ASC' | 'DESC' : undefined,
         search: params.search,
         fromDate: params.fromDate,
-        toDate: params.toDate
+        toDate: params.toDate,
+        paymentStatus: params.paymentStatus,
+        fulfillmentStatus: params.fulfillmentStatus
       }
       const response = await salesApi.getOrders(apiParams as any)
       return response

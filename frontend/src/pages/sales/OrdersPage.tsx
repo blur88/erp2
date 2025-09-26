@@ -220,8 +220,10 @@ const OrdersPage: React.FC = () => {
       customerId: orderFilters.customerId || undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
+      paymentStatus: orderFilters.paymentStatus,
+      fulfillmentStatus: orderFilters.fulfillmentStatus,
     }))
-  }, [dispatch, state.page, state.rowsPerPage, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search])
+  }, [dispatch, state.page, state.rowsPerPage, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
 
   useEffect(() => {
     loadOrders()
@@ -1010,6 +1012,88 @@ const OrdersPage: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 160,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Payment Status</InputLabel>
+          <Select
+            value={orderFilters.paymentStatus}
+            label="Payment Status"
+            onChange={(e) => {
+              dispatch(setOrderFilters({ paymentStatus: e.target.value }))
+              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
+            }}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="unpaid">Unpaid</MenuItem>
+            <MenuItem value="partial">Partially Paid</MenuItem>
+            <MenuItem value="paid">Fully Paid</MenuItem>
+            <MenuItem value="overpaid">Overpaid</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 160,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Fulfillment</InputLabel>
+          <Select
+            value={orderFilters.fulfillmentStatus}
+            label="Fulfillment"
+            onChange={(e) => {
+              dispatch(setOrderFilters({ fulfillmentStatus: e.target.value }))
+              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
+            }}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="fulfilled">Fulfilled</MenuItem>
+            <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
+          </Select>
+        </FormControl>
         {orderFilters.dateFilter === 'custom' && (
           <>
             <TextField
@@ -1052,7 +1136,7 @@ const OrdersPage: React.FC = () => {
             />
           </>
         )}
-        {(orderFilters.dateFilter !== 'all' || orderFilters.customerId) && (
+        {(orderFilters.dateFilter !== 'all' || orderFilters.customerId || orderFilters.paymentStatus !== 'all' || orderFilters.fulfillmentStatus !== 'all') && (
           <Button
             variant="outlined"
             size="medium"
@@ -1061,7 +1145,9 @@ const OrdersPage: React.FC = () => {
                 dateFilter: 'all',
                 customFromDate: '',
                 customToDate: '',
-                customerId: ''
+                customerId: '',
+                paymentStatus: 'all',
+                fulfillmentStatus: 'all'
               }))
               setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}

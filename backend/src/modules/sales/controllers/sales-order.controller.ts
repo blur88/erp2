@@ -83,6 +83,8 @@ export class SalesOrderController {
   @ApiQuery({ name: 'priority', required: false, description: 'Filter by order priority' })
   @ApiQuery({ name: 'fromDate', required: false, description: 'Filter orders from date' })
   @ApiQuery({ name: 'toDate', required: false, description: 'Filter orders to date' })
+  @ApiQuery({ name: 'paymentStatus', required: false, enum: ['all', 'unpaid', 'partial', 'paid', 'overpaid'], description: 'Filter by payment status' })
+  @ApiQuery({ name: 'fulfillmentStatus', required: false, enum: ['all', 'fulfilled', 'unfulfilled'], description: 'Filter by fulfillment status' })
   @ApiQuery({ name: 'overdue', required: false, type: Boolean, description: 'Filter overdue orders' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
