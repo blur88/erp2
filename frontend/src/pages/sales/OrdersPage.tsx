@@ -1470,9 +1470,7 @@ const OrdersPage: React.FC = () => {
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  fontWeight: 600,
-                                  color: (selectedOrder.paidAmount || 0) > 0 ? 'success.main' : 'text.primary'
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                                 }}>
                                   {formatCurrency(selectedOrder.paidAmount || 0)}
                                 </Typography>
@@ -1521,13 +1519,7 @@ const OrdersPage: React.FC = () => {
                               Balance
                             </TableCell>
                             <TableCell sx={{
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              color: (() => {
-                                const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
-                                const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
-                                const balance = (selectedOrder.totalAmount || 0) - currentPaid
-                                return balance > 0 ? 'error.main' : balance < 0 ? 'warning.main' : 'success.main'
-                              })()
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 {(() => {
