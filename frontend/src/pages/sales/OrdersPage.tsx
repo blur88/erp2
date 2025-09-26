@@ -479,6 +479,52 @@ const OrdersPage: React.FC = () => {
     }
   }
 
+  const handleRefundOrder = async () => {
+    if (!selectedOrder) return
+
+    const overpayment = (selectedOrder.paidAmount || 0) - (selectedOrder.totalAmount || 0)
+    if (overpayment <= 0) return
+
+    const newPaidAmount = selectedOrder.totalAmount || 0
+
+    setIsLoading(true)
+    try {
+      // Optimistically update the UI to show refund immediately
+      const optimisticUpdate = {
+        ...selectedOrder,
+        paidAmount: newPaidAmount
+      }
+      dispatch(updateOrderInPlace(optimisticUpdate))
+
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/record-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: newPaidAmount }),
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
+      } else {
+        // Revert optimistic update on error
+        dispatch(updateOrderInPlace(selectedOrder))
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to process refund'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      dispatch(updateOrderInPlace(selectedOrder))
+      console.error('Error processing refund:', error)
+      showError('Error processing refund. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleFulfillOrder = async () => {
     if (!selectedOrder) return
 
@@ -1393,16 +1439,16 @@ const OrdersPage: React.FC = () => {
                               color: (() => {
                                 const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
                                 const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
-                                const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
-                                return balance > 0 ? 'error.main' : 'success.main'
+                                const balance = (selectedOrder.totalAmount || 0) - currentPaid
+                                return balance > 0 ? 'error.main' : balance < 0 ? 'warning.main' : 'success.main'
                               })()
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 {(() => {
                                   const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
                                   const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
-                                  const balance = Math.max(0, (selectedOrder.totalAmount || 0) - currentPaid)
-                                  return formatCurrency(balance)
+                                  const balance = (selectedOrder.totalAmount || 0) - currentPaid
+                                  return balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)
                                 })()}
                                 {paymentAmount && !isNaN(parseFloat(paymentAmount)) && parseFloat(paymentAmount) > 0 && (
                                   <Typography sx={{
@@ -1423,15 +1469,28 @@ const OrdersPage: React.FC = () => {
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  color={selectedOrder.isPaidInFull ? "warning" : "primary"}
-                                  onClick={selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment}
+                                  color={(() => {
+                                    const isOverpaid = (selectedOrder.paidAmount || 0) > (selectedOrder.totalAmount || 0)
+                                    if (isOverpaid) return "warning"
+                                    return selectedOrder.isPaidInFull ? "warning" : "primary"
+                                  })()}
+                                  onClick={(() => {
+                                    const isOverpaid = (selectedOrder.paidAmount || 0) > (selectedOrder.totalAmount || 0)
+                                    if (isOverpaid) return handleRefundOrder
+                                    return selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment
+                                  })()}
                                   disabled={isLoading}
                                   sx={{ minWidth: 110 }}
                                 >
-                                  {selectedOrder.isPaidInFull
-                                    ? "Unpay"
-                                    : (selectedOrder.paidAmount > 0 ? "Pay Remaining" : "Pay")
-                                  }
+                                  {(() => {
+                                    const isOverpaid = (selectedOrder.paidAmount || 0) > (selectedOrder.totalAmount || 0)
+                                    if (isOverpaid) {
+                                      return "Refund"
+                                    }
+                                    return selectedOrder.isPaidInFull
+                                      ? "Unpay"
+                                      : (selectedOrder.paidAmount > 0 ? "Pay Remaining" : "Pay")
+                                  })()}
                                 </Button>
                                 <Button
                                   variant="contained"
