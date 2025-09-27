@@ -1321,7 +1321,6 @@ export class SalesOrderService {
         const invoice = this.invoiceRepository.create({
           ...invoiceData,
           invoiceNumber,
-          status: 'sent', // Mark as sent since order is fulfilled
         });
 
         // Add line items from order
@@ -1333,9 +1332,12 @@ export class SalesOrderService {
           totalAmount: Number(item.totalAmount),
         }));
 
-        // Calculate totals and set balance
+        // Calculate totals and set correct status
         invoice.calculateTotals();
         invoice.updateStatus();
+
+        // Debug logging
+        console.log(`💰 Invoice payment info - Total: ${invoice.totalAmount}, Paid: ${invoice.paidAmount}, Balance: ${invoice.balanceDue}, Status: ${invoice.status}`);
 
         await this.invoiceRepository.save(invoice);
 
