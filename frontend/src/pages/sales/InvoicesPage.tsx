@@ -109,32 +109,6 @@ const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceInde
   const isSelected = selectedInvoiceId === invoice.id
   const isFocused = index === focusedInvoiceIndex
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'success'
-      case 'sent': return 'primary'
-      case 'draft': return 'default'
-      case 'overdue': return 'error'
-      case 'cancelled': return 'secondary'
-      default: return 'default'
-    }
-  }
-
-
-  // Helper function to get customer name from either structure
-  const getCustomerName = (invoice: InvoiceListItem) => {
-    return invoice.customerName || (invoice.customer as any)?.name || 'Unknown Customer'
-  }
-
-  // Helper function to get invoice date
-  const getInvoiceDate = (invoice: InvoiceListItem) => {
-    return invoice.invoiceDate || (invoice as any).issueDate
-  }
-
-  // Helper function to get total amount
-  const getTotalAmount = (invoice: InvoiceListItem) => {
-    return invoice.totalAmount || (invoice as any).total || 0
-  }
 
   return (
     <TableRow
@@ -168,76 +142,6 @@ const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceInde
         >
           {invoice.invoiceNumber}
         </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography
-          variant="body2"
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-            fontWeight: 500
-          }}
-        >
-          {getCustomerName(invoice)}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography
-          variant="body2"
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-            color: 'text.secondary'
-          }}
-        >
-          {formatDate(getInvoiceDate(invoice))}
-        </Typography>
-      </TableCell>
-      <TableCell align="right">
-        <Typography
-          variant="body2"
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-            fontWeight: 600
-          }}
-        >
-          {formatCurrency(getTotalAmount(invoice))}
-        </Typography>
-        {invoice.paidAmount > 0 && (
-          <Typography
-            variant="caption"
-            sx={{
-              fontSize: '0.7rem',
-              color: 'success.main',
-              display: 'block'
-            }}
-          >
-            Paid: {formatCurrency(invoice.paidAmount)}
-          </Typography>
-        )}
-      </TableCell>
-      <TableCell align="center">
-        <Chip
-          label={invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-          color={getStatusColor(invoice.status) as any}
-          size="small"
-          sx={{
-            fontSize: '0.7rem',
-            height: 20,
-            fontWeight: 500
-          }}
-        />
-        {invoice.isOverdue && (
-          <Typography
-            variant="caption"
-            sx={{
-              fontSize: '0.6rem',
-              color: 'error.main',
-              display: 'block',
-              mt: 0.25
-            }}
-          >
-            Overdue
-          </Typography>
-        )}
       </TableCell>
     </TableRow>
   )
@@ -650,10 +554,6 @@ const InvoicesPage: React.FC = () => {
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
                       <TableCell>Invoice #</TableCell>
-                      <TableCell>Customer</TableCell>
-                      <TableCell>Date</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                      <TableCell align="center">Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
