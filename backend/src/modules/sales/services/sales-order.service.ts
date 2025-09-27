@@ -1376,6 +1376,23 @@ export class SalesOrderService {
       }
     }
 
+    // Automatically delete associated invoice(s) when unfulfilling
+    try {
+      const associatedInvoices = await this.invoiceRepository.find({
+        where: { salesOrderId: order.id }
+      });
+
+      if (associatedInvoices.length > 0) {
+        // Hard delete the invoices to completely remove them
+        await this.invoiceRepository.delete({ salesOrderId: order.id });
+
+        console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for unfulfilled order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-delete invoices for order ${order.orderNumber}:`, error.message);
+      // Don't throw error - unfulfillment should still succeed even if invoice deletion fails
+    }
+
     // Mark as unfulfilled and revert to confirmed status
     order.isFulfilled = false;
     order.fulfilledDate = null;
