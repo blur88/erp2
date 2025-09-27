@@ -133,11 +133,11 @@ const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceInde
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
           }}
         >
           {invoice.invoiceNumber}
@@ -553,7 +553,6 @@ const InvoicesPage: React.FC = () => {
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
-                      <TableCell>Invoice #</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -819,11 +818,6 @@ const InvoicesPage: React.FC = () => {
                             >
                               <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
                                 {(item as any).productName || item.product?.name || 'Unknown Product'}
-                                {((item as any).productSku || item.product?.barcode) && (
-                                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block' }}>
-                                    SKU: {(item as any).productSku || item.product?.barcode}
-                                  </Typography>
-                                )}
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                                 {item.quantity}
