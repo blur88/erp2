@@ -223,7 +223,7 @@ export const fetchInvoices = createAsyncThunk(
   async (params: { page?: number; limit?: number; customerId?: string; status?: string; search?: string; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }, { rejectWithValue }) => {
     try {
       const response = await salesApi.getInvoices(params)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch invoices')
     }

@@ -45,20 +45,20 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchInvoices, selectInvoicesState } from '@/store/slices/salesSlice'
-import type { Invoice, InvoiceItem } from '@/types'
+import type { InvoiceItem } from '@/types'
 
 // Adapter types to match the backend API response structure
 interface InvoiceListItem {
   id: string
   invoiceNumber: string
-  customerName: string
+  customerName?: string
   orderNumber?: string
-  invoiceDate: string
-  totalAmount: number
+  invoiceDate?: string
+  totalAmount?: number
   paidAmount: number
-  balanceDue: number
+  balanceDue?: number
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
-  isOverdue: boolean
+  isOverdue?: boolean
   lineItems?: InvoiceItem[]
   notes?: string
   customer?: {
@@ -71,6 +71,11 @@ interface InvoiceListItem {
     id: string
     orderNumber: string
   }
+  // Handle both API response formats
+  total?: number
+  issueDate?: Date | string
+  dueAmount?: number
+  items?: InvoiceItem[]
 }
 
 interface InvoicesPageState {
@@ -115,10 +120,20 @@ const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceInde
     }
   }
 
-  const getPaymentStatusColor = (isPaid: boolean, isOverdue: boolean) => {
-    if (isPaid) return 'success'
-    if (isOverdue) return 'error'
-    return 'warning'
+
+  // Helper function to get customer name from either structure
+  const getCustomerName = (invoice: InvoiceListItem) => {
+    return invoice.customerName || (invoice.customer as any)?.name || 'Unknown Customer'
+  }
+
+  // Helper function to get invoice date
+  const getInvoiceDate = (invoice: InvoiceListItem) => {
+    return invoice.invoiceDate || (invoice as any).issueDate
+  }
+
+  // Helper function to get total amount
+  const getTotalAmount = (invoice: InvoiceListItem) => {
+    return invoice.totalAmount || (invoice as any).total || 0
   }
 
   return (
@@ -153,6 +168,76 @@ const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceInde
         >
           {invoice.invoiceNumber}
         </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography
+          variant="body2"
+          sx={{
+            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+            fontWeight: 500
+          }}
+        >
+          {getCustomerName(invoice)}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography
+          variant="body2"
+          sx={{
+            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+            color: 'text.secondary'
+          }}
+        >
+          {formatDate(getInvoiceDate(invoice))}
+        </Typography>
+      </TableCell>
+      <TableCell align="right">
+        <Typography
+          variant="body2"
+          sx={{
+            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+            fontWeight: 600
+          }}
+        >
+          {formatCurrency(getTotalAmount(invoice))}
+        </Typography>
+        {invoice.paidAmount > 0 && (
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: '0.7rem',
+              color: 'success.main',
+              display: 'block'
+            }}
+          >
+            Paid: {formatCurrency(invoice.paidAmount)}
+          </Typography>
+        )}
+      </TableCell>
+      <TableCell align="center">
+        <Chip
+          label={invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+          color={getStatusColor(invoice.status) as any}
+          size="small"
+          sx={{
+            fontSize: '0.7rem',
+            height: 20,
+            fontWeight: 500
+          }}
+        />
+        {invoice.isOverdue && (
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: '0.6rem',
+              color: 'error.main',
+              display: 'block',
+              mt: 0.25
+            }}
+          >
+            Overdue
+          </Typography>
+        )}
       </TableCell>
     </TableRow>
   )
@@ -202,16 +287,39 @@ const InvoicesPage: React.FC = () => {
     }))
   }, [dispatch, state.page, state.rowsPerPage, filters])
 
+  // Transform and normalize invoice data
+  const normalizedInvoices = useMemo(() => {
+    return (invoices || []).map((invoice: any): InvoiceListItem => {
+      // Handle both API response formats
+      const customerName = invoice.customerName || invoice.customer?.name || 'Unknown Customer'
+      const invoiceDate = invoice.invoiceDate || invoice.issueDate
+      const totalAmount = invoice.totalAmount || invoice.total || 0
+      const balanceDue = invoice.balanceDue ?? invoice.dueAmount ?? (totalAmount - (invoice.paidAmount || 0))
+      const lineItems = invoice.lineItems || invoice.items || []
+
+      return {
+        ...invoice,
+        customerName,
+        invoiceDate,
+        totalAmount,
+        balanceDue,
+        lineItems,
+        paidAmount: invoice.paidAmount || 0,
+        isOverdue: invoice.isOverdue || false
+      }
+    })
+  }, [invoices])
+
   // Filter and sort invoices
   const filteredInvoices = useMemo(() => {
-    let filtered = [...(invoices || [])]
+    let filtered = [...normalizedInvoices]
 
     // Search filter
     if (filters.search) {
       const searchLower = filters.search.toLowerCase()
       filtered = filtered.filter(invoice =>
         invoice.invoiceNumber.toLowerCase().includes(searchLower) ||
-        invoice.customerName.toLowerCase().includes(searchLower) ||
+        (invoice.customerName && invoice.customerName.toLowerCase().includes(searchLower)) ||
         (invoice.salesOrder?.orderNumber && invoice.salesOrder.orderNumber.toLowerCase().includes(searchLower))
       )
     }
@@ -224,9 +332,15 @@ const InvoicesPage: React.FC = () => {
     // Payment status filter
     if (filters.paymentStatus !== 'all') {
       if (filters.paymentStatus === 'paid') {
-        filtered = filtered.filter(invoice => invoice.balanceDue <= 0)
+        filtered = filtered.filter(invoice => {
+          const balanceDue = invoice.balanceDue ?? (invoice.totalAmount! - invoice.paidAmount)
+          return balanceDue <= 0
+        })
       } else if (filters.paymentStatus === 'pending') {
-        filtered = filtered.filter(invoice => invoice.balanceDue > 0 && !invoice.isOverdue)
+        filtered = filtered.filter(invoice => {
+          const balanceDue = invoice.balanceDue ?? (invoice.totalAmount! - invoice.paidAmount)
+          return balanceDue > 0 && !invoice.isOverdue
+        })
       } else if (filters.paymentStatus === 'overdue') {
         filtered = filtered.filter(invoice => invoice.isOverdue)
       }
@@ -234,12 +348,12 @@ const InvoicesPage: React.FC = () => {
 
     // Sort
     filtered.sort((a, b) => {
-      let aValue: any = a[filters.sortBy as keyof Invoice]
-      let bValue: any = b[filters.sortBy as keyof Invoice]
+      let aValue: any = a[filters.sortBy as keyof InvoiceListItem]
+      let bValue: any = b[filters.sortBy as keyof InvoiceListItem]
 
       if (filters.sortBy === 'invoiceDate') {
-        aValue = new Date(aValue).getTime()
-        bValue = new Date(bValue).getTime()
+        aValue = new Date(aValue || 0).getTime()
+        bValue = new Date(bValue || 0).getTime()
       }
 
       if (filters.sortOrder === 'asc') {
@@ -250,7 +364,7 @@ const InvoicesPage: React.FC = () => {
     })
 
     return filtered
-  }, [invoices, filters])
+  }, [normalizedInvoices, filters])
 
   // Pagination
   const paginatedInvoices = useMemo(() => {
@@ -535,6 +649,11 @@ const InvoicesPage: React.FC = () => {
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
+                      <TableCell>Invoice #</TableCell>
+                      <TableCell>Customer</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                      <TableCell align="center">Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -761,7 +880,7 @@ const InvoicesPage: React.FC = () => {
                     Invoice Items
                   </Typography>
 
-                  {selectedInvoice.lineItems && selectedInvoice.lineItems.length > 0 ? (
+                  {((selectedInvoice.lineItems && selectedInvoice.lineItems.length > 0) || (selectedInvoice.items && selectedInvoice.items.length > 0)) ? (
                     <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                       <Table
                         size={TABLE_STYLES.size}
@@ -788,7 +907,7 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {selectedInvoice.lineItems?.map((item: InvoiceItem, index: number) => (
+                          {(selectedInvoice.lineItems || selectedInvoice.items || [])?.map((item: InvoiceItem, index: number) => (
                             <TableRow
                               key={item.id || index}
                               hover
@@ -799,10 +918,10 @@ const InvoicesPage: React.FC = () => {
                               }}
                             >
                               <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {item.productName || 'Unknown Product'}
-                                {item.productSku && (
+                                {(item as any).productName || item.product?.name || 'Unknown Product'}
+                                {((item as any).productSku || item.product?.barcode) && (
                                   <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block' }}>
-                                    SKU: {item.productSku}
+                                    SKU: {(item as any).productSku || item.product?.barcode}
                                   </Typography>
                                 )}
                               </TableCell>
@@ -816,7 +935,7 @@ const InvoicesPage: React.FC = () => {
                                 {item.discount ? `-${formatCurrency(item.discount)}` : '-'}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {formatCurrency(item.totalAmount)}
+                                {formatCurrency((item as any).totalAmount || item.total)}
                               </TableCell>
                             </TableRow>
                           ))}
