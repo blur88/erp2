@@ -56,16 +56,20 @@ interface InvoiceListItem {
   invoiceDate: string
   totalAmount: number
   paidAmount: number
-  balanceAmount: number
+  balanceDue: number
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
   isOverdue: boolean
-  items?: InvoiceItem[]
+  lineItems?: InvoiceItem[]
   notes?: string
   customer?: {
     id: string
     name: string
     email?: string
     phone?: string
+  }
+  salesOrder?: {
+    id: string
+    orderNumber: string
   }
 }
 
@@ -208,7 +212,7 @@ const InvoicesPage: React.FC = () => {
       filtered = filtered.filter(invoice =>
         invoice.invoiceNumber.toLowerCase().includes(searchLower) ||
         invoice.customerName.toLowerCase().includes(searchLower) ||
-        (invoice.orderNumber && invoice.orderNumber.toLowerCase().includes(searchLower))
+        (invoice.salesOrder?.orderNumber && invoice.salesOrder.orderNumber.toLowerCase().includes(searchLower))
       )
     }
 
@@ -220,9 +224,9 @@ const InvoicesPage: React.FC = () => {
     // Payment status filter
     if (filters.paymentStatus !== 'all') {
       if (filters.paymentStatus === 'paid') {
-        filtered = filtered.filter(invoice => invoice.balanceAmount <= 0)
+        filtered = filtered.filter(invoice => invoice.balanceDue <= 0)
       } else if (filters.paymentStatus === 'pending') {
-        filtered = filtered.filter(invoice => invoice.balanceAmount > 0 && !invoice.isOverdue)
+        filtered = filtered.filter(invoice => invoice.balanceDue > 0 && !invoice.isOverdue)
       } else if (filters.paymentStatus === 'overdue') {
         filtered = filtered.filter(invoice => invoice.isOverdue)
       }
@@ -648,13 +652,13 @@ const InvoicesPage: React.FC = () => {
                               {formatDate(selectedInvoice.invoiceDate)}
                             </TableCell>
                           </TableRow>
-                          {selectedInvoice.orderNumber && (
+                          {selectedInvoice.salesOrder?.orderNumber && (
                             <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 Order #
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedInvoice.orderNumber}
+                                {selectedInvoice.salesOrder?.orderNumber}
                               </TableCell>
                             </TableRow>
                           )}
@@ -696,7 +700,7 @@ const InvoicesPage: React.FC = () => {
                               Balance Due
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(selectedInvoice.balanceAmount)}
+                              {formatCurrency(selectedInvoice.balanceDue)}
                             </TableCell>
                           </TableRow>
                           <TableRow>
@@ -757,7 +761,7 @@ const InvoicesPage: React.FC = () => {
                     Invoice Items
                   </Typography>
 
-                  {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
+                  {selectedInvoice.lineItems && selectedInvoice.lineItems.length > 0 ? (
                     <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                       <Table
                         size={TABLE_STYLES.size}
@@ -784,7 +788,7 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {selectedInvoice.items?.map((item: InvoiceItem, index: number) => (
+                          {selectedInvoice.lineItems?.map((item: InvoiceItem, index: number) => (
                             <TableRow
                               key={item.id || index}
                               hover
@@ -795,10 +799,10 @@ const InvoicesPage: React.FC = () => {
                               }}
                             >
                               <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {item.product?.name || 'Unknown Product'}
-                                {item.product?.description && (
+                                {item.productName || 'Unknown Product'}
+                                {item.productSku && (
                                   <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block' }}>
-                                    {item.product?.description}
+                                    SKU: {item.productSku}
                                   </Typography>
                                 )}
                               </TableCell>
@@ -812,7 +816,7 @@ const InvoicesPage: React.FC = () => {
                                 {item.discount ? `-${formatCurrency(item.discount)}` : '-'}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {formatCurrency(item.total)}
+                                {formatCurrency(item.totalAmount)}
                               </TableCell>
                             </TableRow>
                           ))}
