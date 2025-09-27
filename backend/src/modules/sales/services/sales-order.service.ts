@@ -72,6 +72,31 @@ export class SalesOrderService {
     return `SO-${nextNumber.toString().padStart(6, '0')}`;
   }
 
+  private async generateInvoiceNumber(): Promise<string> {
+    // Get all existing invoice numbers that match the sequential format
+    const invoices = await this.invoiceRepository.find({
+      select: ['invoiceNumber']
+    });
+
+    let maxNumber = 0;
+    for (const invoice of invoices) {
+      // Extract number from format INV-000001 (only sequential format)
+      const match = invoice.invoiceNumber.match(/^INV-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    // Next sequential number
+    const nextNumber = maxNumber + 1;
+
+    // Format with leading zeros (6 digits)
+    return `INV-${nextNumber.toString().padStart(6, '0')}`;
+  }
+
   private async findPreviousOrder(currentOrderNumber: string): Promise<SalesOrderResponseDto | null> {
     // Extract number from current order number (format: SO-000003)
     const match = currentOrderNumber.match(/^SO-(\d+)$/);
@@ -1279,6 +1304,47 @@ export class SalesOrderService {
     order.status = SalesOrderStatus.COMPLETED;
 
     const savedOrder = await this.salesOrderRepository.save(order);
+
+    // Automatically generate invoice upon fulfillment
+    try {
+      // Check if invoice already exists for this order
+      const existingInvoice = await this.invoiceRepository.findOne({
+        where: { salesOrderId: order.id }
+      });
+
+      if (!existingInvoice) {
+        // Generate invoice number
+        const invoiceNumber = await this.generateInvoiceNumber();
+
+        // Create invoice using the fromSalesOrder factory method
+        const invoiceData = Invoice.fromSalesOrder(savedOrder);
+        const invoice = this.invoiceRepository.create({
+          ...invoiceData,
+          invoiceNumber,
+          status: 'sent', // Mark as sent since order is fulfilled
+        });
+
+        // Add line items from order
+        invoice.lineItems = savedOrder.items.map(item => ({
+          productSku: item.product?.barcode || 'N/A',
+          productName: item.product?.name || 'Unknown Product',
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          totalAmount: Number(item.totalAmount),
+        }));
+
+        // Calculate totals and set balance
+        invoice.calculateTotals();
+        invoice.updateStatus();
+
+        await this.invoiceRepository.save(invoice);
+
+        console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for fulfilled order ${savedOrder.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
+      // Don't throw error - fulfillment should still succeed even if invoice creation fails
+    }
 
     return this.mapToResponseDto(savedOrder);
   }
