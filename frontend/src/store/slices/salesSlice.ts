@@ -220,7 +220,7 @@ export const permanentDeleteOrder = createAsyncThunk(
 
 export const fetchInvoices = createAsyncThunk(
   'sales/fetchInvoices',
-  async (params: { page?: number; limit?: number; customerId?: string; status?: string }, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; customerId?: string; status?: string; search?: string; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }, { rejectWithValue }) => {
     try {
       const response = await salesApi.getInvoices(params)
       return response.data
@@ -717,6 +717,12 @@ export const selectDeletedCustomers = (state: any) => state.sales?.deletedCustom
 export const selectOrders = (state: any) => state.sales?.orders
 export const selectDeletedOrders = (state: any) => state.sales?.deletedOrders
 export const selectInvoices = (state: any) => state.sales?.invoices
+export const selectInvoicesState = (state: any) => ({
+  invoices: state.sales?.invoices || [],
+  loading: state.sales?.loading?.invoices || false,
+  error: state.sales?.error || null,
+  pagination: state.sales?.pagination?.invoices || { page: 1, limit: 20, total: 0, totalPages: 0 }
+})
 export const selectPayments = (state: any) => state.sales?.payments
 export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
 export const selectSelectedOrder = (state: any) => state.sales?.selectedOrder

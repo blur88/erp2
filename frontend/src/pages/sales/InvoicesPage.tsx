@@ -43,8 +43,12 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { fetchInvoices, selectInvoicesState } from '@/store/slices/salesSlice'
+import type { Invoice, InvoiceItem } from '@/types'
 
-interface Invoice {
+// Adapter types to match the backend API response structure
+interface InvoiceListItem {
   id: string
   invoiceNumber: string
   customerName: string
@@ -54,9 +58,8 @@ interface Invoice {
   paidAmount: number
   balanceAmount: number
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
-  isPaid: boolean
   isOverdue: boolean
-  items: InvoiceItem[]
+  items?: InvoiceItem[]
   notes?: string
   customer?: {
     id: string
@@ -64,18 +67,6 @@ interface Invoice {
     email?: string
     phone?: string
   }
-}
-
-interface InvoiceItem {
-  id: string
-  productName: string
-  description?: string
-  quantity: number
-  unitPrice: number
-  discountAmount?: number
-  discountPercent?: number
-  discountType?: 'percentage' | 'amount'
-  totalAmount: number
 }
 
 interface InvoicesPageState {
@@ -95,107 +86,14 @@ interface InvoiceFilters {
   paymentStatus: string
 }
 
-// Mock data for the invoices
-const mockInvoices: Invoice[] = [
-  {
-    id: '1',
-    invoiceNumber: 'INV-000001',
-    customerName: 'Acme Corporation',
-    orderNumber: 'ORD-2024-001',
-    invoiceDate: '2024-01-15',
-    totalAmount: 2500.00,
-    paidAmount: 2500.00,
-    balanceAmount: 0.00,
-    status: 'paid',
-    isPaid: true,
-    isOverdue: false,
-    items: [
-      {
-        id: '1',
-        productName: 'Laptop Computer',
-        description: 'High-performance business laptop',
-        quantity: 2,
-        unitPrice: 1200.00,
-        totalAmount: 2400.00
-      },
-      {
-        id: '2',
-        productName: 'Software License',
-        quantity: 1,
-        unitPrice: 100.00,
-        totalAmount: 100.00
-      }
-    ],
-    customer: {
-      id: '1',
-      name: 'Acme Corporation',
-      email: 'billing@acme.com',
-      phone: '+1 (555) 123-4567'
-    }
-  },
-  {
-    id: '2',
-    invoiceNumber: 'INV-000002',
-    customerName: 'Tech Solutions Ltd',
-    orderNumber: 'ORD-2024-002',
-    invoiceDate: '2024-01-20',
-    totalAmount: 1800.00,
-    paidAmount: 900.00,
-    balanceAmount: 900.00,
-    status: 'sent',
-    isPaid: false,
-    isOverdue: false,
-    items: [
-      {
-        id: '1',
-        productName: 'Office Supplies',
-        quantity: 50,
-        unitPrice: 36.00,
-        totalAmount: 1800.00
-      }
-    ],
-    customer: {
-      id: '2',
-      name: 'Tech Solutions Ltd',
-      email: 'accounts@techsolutions.com',
-      phone: '+1 (555) 987-6543'
-    }
-  },
-  {
-    id: '3',
-    invoiceNumber: 'INV-000003',
-    customerName: 'Global Industries',
-    invoiceDate: '2023-12-15',
-    totalAmount: 5200.00,
-    paidAmount: 0.00,
-    balanceAmount: 5200.00,
-    status: 'overdue',
-    isPaid: false,
-    isOverdue: true,
-    items: [
-      {
-        id: '1',
-        productName: 'Industrial Equipment',
-        quantity: 1,
-        unitPrice: 5200.00,
-        totalAmount: 5200.00
-      }
-    ],
-    customer: {
-      id: '3',
-      name: 'Global Industries',
-      email: 'finance@globalind.com'
-    }
-  }
-]
 
 // Memoized Invoice Row Component
 interface InvoiceRowProps {
-  invoice: Invoice
+  invoice: InvoiceListItem
   index: number
   selectedInvoiceId?: string
   focusedInvoiceIndex: number
-  onInvoiceSelect: (invoice: Invoice) => void
+  onInvoiceSelect: (invoice: InvoiceListItem) => void
 }
 
 const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceIndex, onInvoiceSelect }: InvoiceRowProps) => {
@@ -262,10 +160,9 @@ const InvoicesPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
-  const [invoices] = useState<Invoice[]>(mockInvoices)
-  const [loading] = useState(false)
-  const [error] = useState<string | null>(null)
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const dispatch = useAppDispatch()
+  const { invoices, loading, error, pagination } = useAppSelector(selectInvoicesState)
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceListItem | null>(null)
 
   const [state, setState] = useState<InvoicesPageState>({
     page: 0,
@@ -289,9 +186,21 @@ const InvoicesPage: React.FC = () => {
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  // Load invoices on component mount
+  useEffect(() => {
+    dispatch(fetchInvoices({
+      page: state.page + 1,
+      limit: state.rowsPerPage,
+      search: filters.search,
+      status: filters.status !== 'all' ? filters.status : undefined,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC'
+    }))
+  }, [dispatch, state.page, state.rowsPerPage, filters])
+
   // Filter and sort invoices
   const filteredInvoices = useMemo(() => {
-    let filtered = [...invoices]
+    let filtered = [...(invoices || [])]
 
     // Search filter
     if (filters.search) {
@@ -311,9 +220,9 @@ const InvoicesPage: React.FC = () => {
     // Payment status filter
     if (filters.paymentStatus !== 'all') {
       if (filters.paymentStatus === 'paid') {
-        filtered = filtered.filter(invoice => invoice.isPaid)
+        filtered = filtered.filter(invoice => invoice.balanceAmount <= 0)
       } else if (filters.paymentStatus === 'pending') {
-        filtered = filtered.filter(invoice => !invoice.isPaid && !invoice.isOverdue)
+        filtered = filtered.filter(invoice => invoice.balanceAmount > 0 && !invoice.isOverdue)
       } else if (filters.paymentStatus === 'overdue') {
         filtered = filtered.filter(invoice => invoice.isOverdue)
       }
@@ -355,9 +264,9 @@ const InvoicesPage: React.FC = () => {
     setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
   }, [filters.sortBy, filters.sortOrder])
 
-  const handleInvoiceSelect = useCallback((invoice: Invoice) => {
+  const handleInvoiceSelect = useCallback((invoice: InvoiceListItem) => {
     setSelectedInvoice(invoice)
-    const invoiceIndex = paginatedInvoices.findIndex((i: Invoice) => i.id === invoice.id)
+    const invoiceIndex = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === invoice.id)
     setFocusedInvoiceIndex(invoiceIndex)
   }, [paginatedInvoices])
 
@@ -397,7 +306,7 @@ const InvoicesPage: React.FC = () => {
             Invoices
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Manage customer invoices and track payments ({filteredInvoices.length} total)
+            Manage customer invoices and track payments ({pagination?.total || 0} total)
           </Typography>
         </Box>
         <Box sx={{
@@ -409,7 +318,7 @@ const InvoicesPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={() => {}}
+            onClick={() => dispatch(fetchInvoices({ page: 1, limit: state.rowsPerPage }))}
             disabled={loading}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
@@ -599,7 +508,7 @@ const InvoicesPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                Invoice List ({filteredInvoices.length})
+                Invoice List ({pagination?.total || 0})
               </Typography>
             </Box>
 
@@ -634,7 +543,7 @@ const InvoicesPage: React.FC = () => {
                         </TableRow>
                       ))
                     ) : (
-                      paginatedInvoices.map((invoice: Invoice, index: number) => (
+                      paginatedInvoices.map((invoice: InvoiceListItem, index: number) => (
                         <InvoiceRow
                           key={invoice.id}
                           invoice={invoice}
@@ -651,7 +560,7 @@ const InvoicesPage: React.FC = () => {
 
               <TablePagination
                 component="div"
-                count={filteredInvoices.length}
+                count={pagination?.total || 0}
                 page={state.page}
                 onPageChange={(_: unknown, newPage: number) => setState((prev: InvoicesPageState) => ({ ...prev, page: newPage }))}
                 rowsPerPage={state.rowsPerPage}
@@ -875,7 +784,7 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {selectedInvoice.items.map((item: InvoiceItem, index: number) => (
+                          {selectedInvoice.items?.map((item: InvoiceItem, index: number) => (
                             <TableRow
                               key={item.id || index}
                               hover
@@ -886,10 +795,10 @@ const InvoicesPage: React.FC = () => {
                               }}
                             >
                               <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {item.productName}
-                                {item.description && (
+                                {item.product?.name || 'Unknown Product'}
+                                {item.product?.description && (
                                   <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block' }}>
-                                    {item.description}
+                                    {item.product?.description}
                                   </Typography>
                                 )}
                               </TableCell>
@@ -900,15 +809,10 @@ const InvoicesPage: React.FC = () => {
                                 {formatCurrency(item.unitPrice)}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                                {item.discountType === 'percentage' && item.discountPercent && (
-                                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block' }}>
-                                    ({item.discountPercent}%)
-                                  </Typography>
-                                )}
+                                {item.discount ? `-${formatCurrency(item.discount)}` : '-'}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {formatCurrency(item.totalAmount)}
+                                {formatCurrency(item.total)}
                               </TableCell>
                             </TableRow>
                           ))}
