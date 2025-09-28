@@ -1541,9 +1541,8 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell />
-                            <TableCell>
-                              <Stack direction="row" spacing={1} alignItems="center">
+                            <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
+                              <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                                 <Button
                                   variant="contained"
                                   size="small"
