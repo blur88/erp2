@@ -1418,21 +1418,29 @@ const OrdersPage: React.FC = () => {
                               {formatDate(selectedOrder.orderDate)}
                             </TableCell>
                           </TableRow>
-                          {selectedOrder.invoices && selectedOrder.invoices.length > 0 && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                Invoice No
-                              </TableCell>
-                              <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                {selectedOrder.invoices.map((invoice, index) => (
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Invoice No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {selectedOrder.invoices && selectedOrder.invoices.length > 0 ? (
+                                selectedOrder.invoices.map((invoice, index) => (
                                   <Typography key={invoice.id} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                     {invoice.invoiceNumber}
                                     {index < selectedOrder.invoices!.length - 1 && ', '}
                                   </Typography>
-                                ))}
-                              </TableCell>
-                            </TableRow>
-                          )}
+                                ))
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  {selectedOrder.isFulfilled ? 'Pending' : 'Not fulfilled'}
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
