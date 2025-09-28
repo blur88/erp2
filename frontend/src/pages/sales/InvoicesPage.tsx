@@ -690,7 +690,7 @@ const InvoicesPage: React.FC = () => {
       {/* Split Layout: Invoice List and Invoice Details */}
       <Grid container spacing={3}>
         {/* Left Side - Invoice List */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -710,8 +710,8 @@ const InvoicesPage: React.FC = () => {
                   sx={{
                     '& .MuiTableCell-root': {
                       borderBottom: TABLE_STYLES.cell.border,
-                      py: TABLE_STYLES.cell.padding.py,
-                      px: TABLE_STYLES.cell.padding.px
+                      py: TABLE_STYLES.cell.padding.py * 0.75,
+                      px: TABLE_STYLES.cell.padding.px * 0.75
                     }
                   }}
                 >
@@ -768,7 +768,7 @@ const InvoicesPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - Invoice Details */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={9}>
           {selectedInvoice ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Invoice Info and Actions */}
