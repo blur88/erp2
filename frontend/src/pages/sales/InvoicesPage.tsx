@@ -372,32 +372,6 @@ const InvoicesPage: React.FC = () => {
           >
             {isMobile ? "Refresh Invoices" : "Refresh"}
           </Button>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => {}}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.light'
-              }
-            }}
-          >
-            {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={() => setCreateDialog(true)}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Create New Invoice" : "Create Invoice"}
-          </Button>
         </Box>
       </Box>
 
@@ -680,25 +654,6 @@ const InvoicesPage: React.FC = () => {
                 }}>
                   Invoice Details - {selectedInvoice.invoiceNumber}
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    title="Edit Invoice"
-                    onClick={() => setEditDialog(true)}
-                    sx={{ height: 28, width: 28 }}
-                  >
-                    <EditIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    title="Delete Invoice"
-                    sx={{ height: 28, width: 28 }}
-                  >
-                    <DeleteIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
