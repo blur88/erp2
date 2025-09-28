@@ -1418,17 +1418,6 @@ const OrdersPage: React.FC = () => {
                               {formatDate(selectedOrder.orderDate)}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              Fulfillment Date
-                            </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {selectedOrder.isFulfilled
-                                ? (selectedOrder.fulfilledDate ? formatDate(selectedOrder.fulfilledDate) : 'Fulfilled (date unavailable)')
-                                : 'Not fulfilled'
-                              }
-                            </TableCell>
-                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
