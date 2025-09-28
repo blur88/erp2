@@ -115,6 +115,12 @@ export class SalesOrderController {
     return this.salesOrderService.getDashboardStats();
   }
 
+  @Get('test-invoices/:orderNumber')
+  @ApiOperation({ summary: 'Test endpoint to check invoice relations' })
+  async testInvoiceRelations(@Param('orderNumber') orderNumber: string) {
+    return this.salesOrderService.testInvoiceRelations(orderNumber);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get sales order by ID' })
   @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })

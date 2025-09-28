@@ -441,6 +441,16 @@ export class SalesOrderResponseDto {
 
   @ApiProperty({ example: false })
   isCompleted: boolean;
+
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  invoices: {
+    id: string;
+    invoiceNumber: string;
+    status: string;
+    invoiceDate: Date;
+    totalAmount: number;
+    paidAmount: number;
+  }[];
 }
 
 export class SalesOrderSummaryDto {

@@ -355,9 +355,29 @@ export class SalesOrderService {
     };
   }
 
+  async testInvoiceRelations(orderNumber: string): Promise<any> {
+    const order = await this.salesOrderRepository.findOne({
+      where: { orderNumber },
+      relations: ['invoices', 'customer', 'items']
+    });
+
+    return {
+      order,
+      invoicesCount: order?.invoices?.length || 0,
+      invoices: order?.invoices || null
+    };
+  }
+
   async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
     console.log('🚀 findSummaries called with query:', JSON.stringify(query, null, 2));
     console.log('🚀 paymentStatus:', query.paymentStatus, 'fulfillmentStatus:', query.fulfillmentStatus);
+
+    // Test with a simple find to check relations
+    const testOrder = await this.salesOrderRepository.findOne({
+      where: { orderNumber: 'SO-000001' },
+      relations: ['invoices', 'customer', 'items']
+    });
+    console.log('🧪 Test order with relations:', JSON.stringify(testOrder, null, 2));
     const {
       search,
       customerId,
@@ -388,88 +408,34 @@ export class SalesOrderService {
       where.orderDate = { ...where.orderDate, ...{ $lte: endDate } };
     }
 
-    // Use QueryBuilder for complex filtering
-    let queryBuilder = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .select([
-        'order.id',
-        'order.orderNumber',
-        'order.status',
-        'order.orderDate',
-        'order.totalAmount',
-        'order.paidAmount',
-        'order.isFulfilled',
-        'order.fulfilledDate',
-        'order.customerId',
-        'order.notes',
-        'order.createdAt',
-        'order.updatedAt'
-      ])
-      .leftJoinAndSelect('order.customer', 'customer')
-      .leftJoinAndSelect('order.items', 'items')
-      .where('order.deletedAt IS NULL');
+    // Try simple repository approach with relations
+    let findOptions: any = {
+      relations: ['customer', 'items', 'invoices'],
+      where: { deletedAt: null },
+      order: { [sortBy]: sortOrder },
+      skip: (page - 1) * limit,
+      take: limit
+    };
 
+    // Apply filters to where clause
     if (customerId) {
-      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
+      findOptions.where.customerId = customerId;
     }
 
     if (fromDate) {
-      queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
+      findOptions.where.orderDate = { ...findOptions.where.orderDate, $gte: new Date(fromDate) };
     }
 
     if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      queryBuilder = queryBuilder.andWhere('order.orderDate <= :toDate', { toDate: endDate });
+      findOptions.where.orderDate = { ...findOptions.where.orderDate, $lte: endDate };
     }
 
-    if (search) {
-      queryBuilder = queryBuilder.andWhere(
-        '(order.orderNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    // Payment status filter
-    if (paymentStatus && paymentStatus !== 'all') {
-      switch (paymentStatus) {
-        case 'unpaid':
-          queryBuilder = queryBuilder.andWhere('(order.paidAmount = 0 OR order.paidAmount IS NULL)');
-          break;
-        case 'partial':
-          queryBuilder = queryBuilder.andWhere('order.paidAmount > 0 AND order.paidAmount < order.totalAmount');
-          break;
-        case 'paid':
-          queryBuilder = queryBuilder.andWhere('order.paidAmount >= order.totalAmount AND order.paidAmount > 0');
-          break;
-        case 'overpaid':
-          queryBuilder = queryBuilder.andWhere('order.paidAmount > order.totalAmount');
-          break;
-      }
-    }
-
-    // Fulfillment status filter
-    if (fulfillmentStatus && fulfillmentStatus !== 'all') {
-      switch (fulfillmentStatus) {
-        case 'fulfilled':
-          queryBuilder = queryBuilder.andWhere('order.isFulfilled = true');
-          break;
-        case 'unfulfilled':
-          queryBuilder = queryBuilder.andWhere('order.isFulfilled = false');
-          break;
-      }
-    }
-
-    // Get total count first
-    const total = await queryBuilder.getCount();
-
-    // Apply pagination and sorting
-    queryBuilder = queryBuilder
-      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-
-    const orders = await queryBuilder.getMany();
+    // For complex filters like search, payment status, etc., we'll need to fall back to QueryBuilder
+    // But for now, let's test the simple case first
+    const total = await this.salesOrderRepository.count({ where: findOptions.where });
+    const orders = await this.salesOrderRepository.find(findOptions);
 
     const data = orders.map(order => {
       const paidAmount = Number(order.paidAmount || 0);
@@ -500,6 +466,14 @@ export class SalesOrderService {
         customerName: order.customer?.name || 'Unknown Customer',
         items: order.items || [],
         itemsCount: order.items?.length || 0,
+        invoices: order.invoices?.map(invoice => ({
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
+          invoiceDate: invoice.invoiceDate,
+          totalAmount: Number(invoice.totalAmount),
+          paidAmount: Number(invoice.paidAmount),
+        })) || [],
         isOverdue: false, // Placeholder since no requiredDate property exists
         notes: order.notes, // Include notes field in summary response
         createdAt: order.createdAt,
@@ -575,7 +549,7 @@ export class SalesOrderService {
   async findById(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices'],
     });
 
     if (!order) {
@@ -588,7 +562,7 @@ export class SalesOrderService {
   async findByOrderNumber(orderNumber: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { orderNumber },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices'],
     });
 
     if (!order) {
@@ -1456,6 +1430,14 @@ export class SalesOrderService {
         notes: item.notes,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
+      })) || [],
+      invoices: order.invoices?.map(invoice => ({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        invoiceDate: invoice.invoiceDate,
+        totalAmount: Number(invoice.totalAmount),
+        paidAmount: Number(invoice.paidAmount),
       })) || [],
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
