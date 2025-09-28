@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -151,6 +152,7 @@ InvoiceRow.displayName = 'InvoiceRow'
 const InvoicesPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const navigate = useNavigate()
 
   const dispatch = useAppDispatch()
   const { invoices, loading, error, pagination } = useAppSelector(selectInvoicesState)
@@ -316,6 +318,11 @@ const InvoicesPage: React.FC = () => {
     const invoiceIndex = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === invoice.id)
     setFocusedInvoiceIndex(invoiceIndex)
   }, [paginatedInvoices])
+
+  const handleSalesOrderClick = useCallback((salesOrderId: string, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent triggering parent row click
+    navigate('/sales/orders', { state: { highlightOrderId: salesOrderId } })
+  }, [navigate])
 
   // Auto-select first invoice when invoices load
   useEffect(() => {
@@ -693,7 +700,25 @@ const InvoicesPage: React.FC = () => {
                                 Order #
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedInvoice.salesOrder?.orderNumber}
+                                <Button
+                                  variant="text"
+                                  color="primary"
+                                  size="small"
+                                  onClick={(event) => handleSalesOrderClick(selectedInvoice.salesOrder!.id, event)}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontSize: '0.8rem',
+                                    minWidth: 'auto',
+                                    padding: '0',
+                                    height: 'auto',
+                                    '&:hover': {
+                                      backgroundColor: 'transparent',
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                >
+                                  {selectedInvoice.salesOrder?.orderNumber}
+                                </Button>
                               </TableCell>
                             </TableRow>
                           )}
