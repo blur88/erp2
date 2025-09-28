@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -135,6 +136,7 @@ OrderRow.displayName = 'OrderRow'
 const OrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const location = useLocation()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const orders = useAppSelector(selectOrders) || []
@@ -669,6 +671,20 @@ const OrdersPage: React.FC = () => {
       }
     }
   }, [orders, pendingOrderToSelect])
+
+  // Handle navigation from invoice page with highlightOrderId
+  useEffect(() => {
+    const state = location.state as { highlightOrderId?: string }
+    if (state?.highlightOrderId && orders.length > 0) {
+      const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
+      if (orderIndex >= 0) {
+        dispatch(setSelectedOrder(orders[orderIndex]))
+        setFocusedOrderIndex(orderIndex)
+        // Clear the state to prevent repeated highlighting
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+  }, [orders, location.state, dispatch])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
