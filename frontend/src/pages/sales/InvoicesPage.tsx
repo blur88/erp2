@@ -42,11 +42,15 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Keyboard as KeyboardIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchInvoices, selectInvoicesState } from '@/store/slices/salesSlice'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { useNotification } from '@/hooks/useNotification'
+import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import type { InvoiceItem } from '@/types'
 
 // Adapter types to match the backend API response structure
@@ -176,7 +180,42 @@ const InvoicesPage: React.FC = () => {
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
+  const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const invoiceListRef = useRef<HTMLDivElement>(null)
+  const { showSuccess, showError } = useNotification()
+
+  // Memoize search change callback to prevent unnecessary re-renders
+  const onSearchChange = useCallback((searchTerm: string) => {
+    setFilters((prev: InvoiceFilters) => ({ ...prev, search: searchTerm }))
+  }, [])
+
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm: originalSetSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: filters.search,
+    onSearchChange,
+    searchInputRef,
+  })
+
+  // Enhanced search term setter that preserves focus
+  const setSearchTerm = useCallback((value: string) => {
+    setShouldPreserveSearchFocus(true)
+    originalSetSearchTerm(value)
+  }, [originalSetSearchTerm])
+
+  // Effect to restore search input focus when needed
+  useEffect(() => {
+    if (shouldPreserveSearchFocus && searchInputRef.current && document.activeElement !== searchInputRef.current) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus()
+        setShouldPreserveSearchFocus(false)
+      }, 0)
+      return () => clearTimeout(timer)
+    } else if (shouldPreserveSearchFocus) {
+      setShouldPreserveSearchFocus(false)
+    }
+  }, [shouldPreserveSearchFocus, loading])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -334,6 +373,123 @@ const InvoicesPage: React.FC = () => {
     }
   }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice])
 
+  // Auto-scroll to keep focused item visible
+  useEffect(() => {
+    if (focusedInvoiceIndex >= 0 && invoiceListRef.current) {
+      const focusedRow = invoiceListRef.current.querySelector(`[data-invoice-index="${focusedInvoiceIndex}"]`)
+      if (focusedRow) {
+        focusedRow.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        })
+      }
+    }
+  }, [focusedInvoiceIndex])
+
+  // Keyboard navigation functions
+  const handleNavigateUp = useCallback(() => {
+    if (focusedInvoiceIndex > 0) {
+      const newIndex = focusedInvoiceIndex - 1
+      setFocusedInvoiceIndex(newIndex)
+      setSelectedInvoice(paginatedInvoices[newIndex])
+    }
+  }, [focusedInvoiceIndex, paginatedInvoices])
+
+  const handleNavigateDown = useCallback(() => {
+    if (focusedInvoiceIndex < paginatedInvoices.length - 1) {
+      const newIndex = focusedInvoiceIndex + 1
+      setFocusedInvoiceIndex(newIndex)
+      setSelectedInvoice(paginatedInvoices[newIndex])
+    }
+  }, [focusedInvoiceIndex, paginatedInvoices])
+
+  const handleNavigateToFirst = useCallback(() => {
+    if (paginatedInvoices.length > 0) {
+      setFocusedInvoiceIndex(0)
+      setSelectedInvoice(paginatedInvoices[0])
+    }
+  }, [paginatedInvoices])
+
+  const handleNavigateToLast = useCallback(() => {
+    if (paginatedInvoices.length > 0) {
+      const lastIndex = paginatedInvoices.length - 1
+      setFocusedInvoiceIndex(lastIndex)
+      setSelectedInvoice(paginatedInvoices[lastIndex])
+    }
+  }, [paginatedInvoices])
+
+  const handlePageUpNavigation = useCallback(() => {
+    const newIndex = Math.max(0, focusedInvoiceIndex - state.rowsPerPage)
+    setFocusedInvoiceIndex(newIndex)
+    if (paginatedInvoices[newIndex]) {
+      setSelectedInvoice(paginatedInvoices[newIndex])
+    }
+  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices])
+
+  const handlePageDownNavigation = useCallback(() => {
+    const newIndex = Math.min(paginatedInvoices.length - 1, focusedInvoiceIndex + state.rowsPerPage)
+    setFocusedInvoiceIndex(newIndex)
+    if (paginatedInvoices[newIndex]) {
+      setSelectedInvoice(paginatedInvoices[newIndex])
+    }
+  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices])
+
+  const handleEnterAction = useCallback(() => {
+    if (focusedInvoiceIndex >= 0 && paginatedInvoices[focusedInvoiceIndex]) {
+      setEditDialog(true)
+    }
+  }, [focusedInvoiceIndex, paginatedInvoices])
+
+  const handleEditAction = () => {
+    if (selectedInvoice) {
+      setEditDialog(true)
+    }
+  }
+
+  const handleDeleteAction = () => {
+    if (selectedInvoice) {
+      showError('Delete functionality will be implemented later')
+    }
+  }
+
+  const handleRefreshAction = () => {
+    dispatch(fetchInvoices({ page: 1, limit: state.rowsPerPage }))
+  }
+
+  const handleViewDeletedAction = () => {
+    showError('View deleted functionality will be implemented later')
+  }
+
+  const handleAddInvoice = () => {
+    setCreateDialog(true)
+  }
+
+  const handleEscapeAction = useCallback(() => {
+    setFocusedInvoiceIndex(-1)
+    setSelectedInvoice(null)
+    setCreateDialog(false)
+    setEditDialog(false)
+    setKeyboardHelpOpen(false)
+  }, [])
+
+  // Setup keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: handleAddInvoice,
+    onRefresh: handleRefreshAction,
+    onEdit: handleEditAction,
+    onDelete: handleDeleteAction,
+    onViewDeleted: handleViewDeletedAction,
+    onArrowUp: handleNavigateUp,
+    onArrowDown: handleNavigateDown,
+    onEnter: handleEnterAction,
+    onPageUp: handlePageUpNavigation,
+    onPageDown: handlePageDownNavigation,
+    onHome: handleNavigateToFirst,
+    onEnd: handleNavigateToLast,
+    onEscape: handleEscapeAction,
+  })
+
   return (
     <Box>
       {/* Header */}
@@ -396,8 +552,8 @@ const InvoicesPage: React.FC = () => {
         <TextField
           inputRef={searchInputRef}
           placeholder="Search invoices..."
-          value={filters.search}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilters((prev: InvoiceFilters) => ({ ...prev, search: e.target.value }))}
+          value={searchTerm}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
           size="medium"
           sx={{
             minWidth: isMobile ? 'auto' : 250,
@@ -552,6 +708,25 @@ const InvoicesPage: React.FC = () => {
         >
           Sort
         </Button>
+        <Button
+          variant="outlined"
+          startIcon={<KeyboardIcon />}
+          size="medium"
+          onClick={() => setKeyboardHelpOpen(true)}
+          sx={{
+            flex: 'none',
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: '0.875rem',
+            color: 'info.main',
+            borderColor: 'info.main',
+            '&:hover': {
+              borderColor: 'info.dark',
+              backgroundColor: 'info.light'
+            }
+          }}
+        >
+          Shortcuts
+        </Button>
       </Box>
 
       {/* Error Display */}
@@ -577,7 +752,7 @@ const InvoicesPage: React.FC = () => {
               </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={invoiceListRef}>
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                 <Table
                   size={TABLE_STYLES.size}
@@ -903,6 +1078,12 @@ const InvoicesPage: React.FC = () => {
           <Button variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsHelp
+        open={keyboardHelpOpen}
+        onClose={() => setKeyboardHelpOpen(false)}
+      />
     </Box>
   )
 }
