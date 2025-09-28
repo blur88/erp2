@@ -92,8 +92,6 @@ interface InvoiceFilters {
   customFromDate: string
   customToDate: string
   customerId: string
-  status: string
-  paymentStatus: string
 }
 
 
@@ -170,9 +168,7 @@ const InvoicesPage: React.FC = () => {
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
-    customerId: 'all',
-    status: 'all',
-    paymentStatus: 'all'
+    customerId: 'all'
   })
 
   const [createDialog, setCreateDialog] = useState(false)
@@ -219,7 +215,6 @@ const InvoicesPage: React.FC = () => {
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
-      status: filters.status !== 'all' ? filters.status : undefined,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC'
     }))
@@ -262,27 +257,6 @@ const InvoicesPage: React.FC = () => {
       )
     }
 
-    // Status filter
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(invoice => invoice.status === filters.status)
-    }
-
-    // Payment status filter
-    if (filters.paymentStatus !== 'all') {
-      if (filters.paymentStatus === 'paid') {
-        filtered = filtered.filter(invoice => {
-          const balanceDue = invoice.balanceDue ?? (invoice.totalAmount! - invoice.paidAmount)
-          return balanceDue <= 0
-        })
-      } else if (filters.paymentStatus === 'pending') {
-        filtered = filtered.filter(invoice => {
-          const balanceDue = invoice.balanceDue ?? (invoice.totalAmount! - invoice.paidAmount)
-          return balanceDue > 0 && !invoice.isOverdue
-        })
-      } else if (filters.paymentStatus === 'overdue') {
-        filtered = filtered.filter(invoice => invoice.isOverdue)
-      }
-    }
 
     // Date filter
     if (filters.dateFilter !== 'all') {
@@ -466,85 +440,6 @@ const InvoicesPage: React.FC = () => {
           }}
         />
 
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: 120,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem'
-            }
-          }}
-        >
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={filters.status}
-            label="Status"
-            onChange={(e: any) => setFilters((prev: InvoiceFilters) => ({ ...prev, status: e.target.value }))}
-            sx={{
-              fontSize: '0.875rem',
-              '& .MuiSelect-select': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
-              }
-            }}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  '& .MuiMenuItem-root': {
-                    fontSize: '0.875rem'
-                  }
-                }
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="draft">Draft</MenuItem>
-            <MenuItem value="sent">Sent</MenuItem>
-            <MenuItem value="paid">Paid</MenuItem>
-            <MenuItem value="overdue">Overdue</MenuItem>
-            <MenuItem value="cancelled">Cancelled</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: 120,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem'
-            }
-          }}
-        >
-          <InputLabel>Payment</InputLabel>
-          <Select
-            value={filters.paymentStatus}
-            label="Payment"
-            onChange={(e: any) => setFilters((prev: InvoiceFilters) => ({ ...prev, paymentStatus: e.target.value }))}
-            sx={{
-              fontSize: '0.875rem',
-              '& .MuiSelect-select': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
-              }
-            }}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  '& .MuiMenuItem-root': {
-                    fontSize: '0.875rem'
-                  }
-                }
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="paid">Paid</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="overdue">Overdue</MenuItem>
-          </Select>
-        </FormControl>
 
         <FormControl
           size="medium"
@@ -635,7 +530,7 @@ const InvoicesPage: React.FC = () => {
           </>
         )}
 
-        {(filters.dateFilter !== 'all' || filters.status !== 'all' || filters.paymentStatus !== 'all' || filters.search) && (
+        {(filters.dateFilter !== 'all' || filters.search) && (
           <Button
             variant="outlined"
             size="medium"
@@ -647,9 +542,7 @@ const InvoicesPage: React.FC = () => {
                 dateFilter: 'all',
                 customFromDate: '',
                 customToDate: '',
-                customerId: 'all',
-                status: 'all',
-                paymentStatus: 'all'
+                customerId: 'all'
               })
               setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
             }}
