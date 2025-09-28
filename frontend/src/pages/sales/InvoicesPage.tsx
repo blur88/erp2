@@ -738,19 +738,6 @@ const InvoicesPage: React.FC = () => {
                               {formatCurrency(selectedInvoice.balanceDue)}
                             </TableCell>
                           </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Status
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={selectedInvoice.status.charAt(0).toUpperCase() + selectedInvoice.status.slice(1)}
-                                color={selectedInvoice.status === 'paid' ? 'success' : selectedInvoice.status === 'overdue' ? 'error' : 'primary'}
-                                size="small"
-                                sx={{ fontSize: '0.7rem', height: 20 }}
-                              />
-                            </TableCell>
-                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
