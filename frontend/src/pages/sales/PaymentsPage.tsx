@@ -1,15 +1,1325 @@
-import React from 'react'
-import { Box, Typography, Paper, Chip } from '@mui/material'
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+  Chip,
+  IconButton,
+  TablePagination,
+  TextField,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Skeleton,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  Divider,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material'
+import {
+  Add as AddIcon,
+  Search as SearchIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Refresh as RefreshIcon,
+  Payment as PaymentIcon,
+  Sort as SortIcon,
+  ArrowUpward as ArrowUpIcon,
+  ArrowDownward as ArrowDownIcon,
+  Keyboard as KeyboardIcon,
+  Receipt as InvoiceIcon,
+  ShoppingCart as OrderIcon,
+} from '@mui/icons-material'
+import { formatCurrency, formatDate } from '@/utils/formatters'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { useNotification } from '@/hooks/useNotification'
+
+// Payment types and interfaces
+interface Payment {
+  id: string
+  paymentNumber: string
+  customerName: string
+  amount: number
+  paymentDate: string
+  paymentMethod: 'cash' | 'card' | 'bank_transfer' | 'check' | 'other'
+  status: 'pending' | 'completed' | 'failed' | 'refunded'
+  reference?: string
+  notes?: string
+  relatedOrderId?: string
+  relatedInvoiceId?: string
+  relatedOrderNumber?: string
+  relatedInvoiceNumber?: string
+  customer?: {
+    id: string
+    name: string
+    email?: string
+    phone?: string
+  }
+  salesOrder?: {
+    id: string
+    orderNumber: string
+  }
+  invoice?: {
+    id: string
+    invoiceNumber: string
+  }
+}
+
+interface PaymentsPageState {
+  page: number
+  rowsPerPage: number
+}
+
+interface PaymentFilters {
+  search: string
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+  dateFilter: string
+  customFromDate: string
+  customToDate: string
+  customerId: string
+  paymentMethod: string
+  status: string
+}
+
+// Mock data for demonstration
+const mockPayments: Payment[] = [
+  {
+    id: '1',
+    paymentNumber: 'PAY-2024-001',
+    customerName: 'Tech Solutions Inc.',
+    amount: 2500.00,
+    paymentDate: '2024-01-15',
+    paymentMethod: 'bank_transfer',
+    status: 'completed',
+    reference: 'TXN-789456123',
+    notes: 'Payment for order #ORD-2024-001',
+    relatedOrderId: 'order-1',
+    relatedOrderNumber: 'ORD-2024-001',
+    relatedInvoiceId: 'invoice-1',
+    relatedInvoiceNumber: 'INV-2024-001',
+    customer: {
+      id: 'customer-1',
+      name: 'Tech Solutions Inc.',
+      email: 'billing@techsolutions.com',
+      phone: '+1-555-0123'
+    }
+  },
+  {
+    id: '2',
+    paymentNumber: 'PAY-2024-002',
+    customerName: 'Global Retail Corp',
+    amount: 1750.50,
+    paymentDate: '2024-01-14',
+    paymentMethod: 'card',
+    status: 'completed',
+    reference: 'CARD-****-1234',
+    relatedOrderId: 'order-2',
+    relatedOrderNumber: 'ORD-2024-002',
+    customer: {
+      id: 'customer-2',
+      name: 'Global Retail Corp',
+      email: 'payments@globalretail.com'
+    }
+  },
+  {
+    id: '3',
+    paymentNumber: 'PAY-2024-003',
+    customerName: 'Metro Manufacturing',
+    amount: 3200.00,
+    paymentDate: '2024-01-13',
+    paymentMethod: 'check',
+    status: 'pending',
+    reference: 'CHECK-789',
+    notes: 'Check pending clearance',
+    relatedInvoiceId: 'invoice-3',
+    relatedInvoiceNumber: 'INV-2024-003',
+    customer: {
+      id: 'customer-3',
+      name: 'Metro Manufacturing',
+      phone: '+1-555-0456'
+    }
+  },
+  {
+    id: '4',
+    paymentNumber: 'PAY-2024-004',
+    customerName: 'Startup Innovations',
+    amount: 890.25,
+    paymentDate: '2024-01-12',
+    paymentMethod: 'cash',
+    status: 'completed',
+    customer: {
+      id: 'customer-4',
+      name: 'Startup Innovations',
+      email: 'finance@startup.com'
+    }
+  },
+  {
+    id: '5',
+    paymentNumber: 'PAY-2024-005',
+    customerName: 'Enterprise Systems Ltd',
+    amount: 4500.00,
+    paymentDate: '2024-01-11',
+    paymentMethod: 'bank_transfer',
+    status: 'failed',
+    reference: 'TXN-FAILED-001',
+    notes: 'Payment failed due to insufficient funds',
+    customer: {
+      id: 'customer-5',
+      name: 'Enterprise Systems Ltd',
+      email: 'accounts@enterprise.com',
+      phone: '+1-555-0789'
+    }
+  }
+]
+
+// Memoized Payment Row Component
+interface PaymentRowProps {
+  payment: Payment
+  index: number
+  selectedPaymentId?: string
+  focusedPaymentIndex: number
+  onPaymentSelect: (payment: Payment) => void
+}
+
+const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentIndex, onPaymentSelect }: PaymentRowProps) => {
+  const isSelected = selectedPaymentId === payment.id
+  const isFocused = index === focusedPaymentIndex
+
+  return (
+    <TableRow
+      key={payment.id}
+      hover
+      onClick={() => onPaymentSelect(payment)}
+      data-payment-index={index}
+      sx={{
+        cursor: 'pointer',
+        backgroundColor: isSelected ? 'action.selected' : isFocused ? 'action.focus' : 'inherit',
+        '&:hover': {
+          backgroundColor: isSelected ? 'action.selected' : 'action.hover'
+        },
+        transition: 'background-color 0.2s ease',
+        height: TABLE_STYLES.row.height,
+        ...(isFocused && {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: '-2px'
+        })
+      }}
+    >
+      <TableCell>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          sx={{
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+          }}
+        >
+          {payment.paymentNumber}
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            display: 'block',
+            color: 'text.secondary',
+            fontSize: '0.75rem'
+          }}
+        >
+          {formatCurrency(payment.amount)}
+        </Typography>
+      </TableCell>
+    </TableRow>
+  )
+})
+
+PaymentRow.displayName = 'PaymentRow'
 
 const PaymentsPage: React.FC = () => {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const navigate = useNavigate()
+  const { showSuccess, showError } = useNotification()
+
+  // Use mock data for now
+  const [payments] = useState<Payment[]>(mockPayments)
+  const [loading] = useState(false)
+  const [error] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+
+  const [state, setState] = useState<PaymentsPageState>({
+    page: 0,
+    rowsPerPage: 20,
+  })
+
+  const [filters, setFilters] = useState<PaymentFilters>({
+    search: '',
+    sortBy: 'paymentNumber',
+    sortOrder: 'desc',
+    dateFilter: 'all',
+    customFromDate: '',
+    customToDate: '',
+    customerId: 'all',
+    paymentMethod: 'all',
+    status: 'all'
+  })
+
+  const [createDialog, setCreateDialog] = useState(false)
+  const [editDialog, setEditDialog] = useState(false)
+  const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
+  const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const paymentListRef = useRef<HTMLDivElement>(null)
+
+  // Memoize search change callback to prevent unnecessary re-renders
+  const onSearchChange = useCallback((searchTerm: string) => {
+    setFilters((prev: PaymentFilters) => ({ ...prev, search: searchTerm }))
+  }, [])
+
+  // Search and filter functionality
+  const { searchTerm, setSearchTerm: originalSetSearchTerm, focusSearchInput } = useSearchAndFilter({
+    initialSearchTerm: filters.search,
+    onSearchChange,
+    searchInputRef,
+  })
+
+  // Enhanced search term setter that preserves focus
+  const setSearchTerm = useCallback((value: string) => {
+    setShouldPreserveSearchFocus(true)
+    originalSetSearchTerm(value)
+  }, [originalSetSearchTerm])
+
+  // Effect to restore search input focus when needed
+  useEffect(() => {
+    if (shouldPreserveSearchFocus && searchInputRef.current && document.activeElement !== searchInputRef.current) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus()
+        setShouldPreserveSearchFocus(false)
+      }, 0)
+      return () => clearTimeout(timer)
+    } else if (shouldPreserveSearchFocus) {
+      setShouldPreserveSearchFocus(false)
+    }
+  }, [shouldPreserveSearchFocus, loading])
+
+  // Helper function to calculate date ranges
+  const getDateRange = useCallback((filter: string) => {
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay())
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+    const formatDate = (date: Date) => date.toISOString().split('T')[0]
+
+    switch (filter) {
+      case 'today':
+        return { fromDate: formatDate(today), toDate: formatDate(today) }
+      case 'yesterday':
+        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
+      case 'this_week':
+        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
+      case 'this_month':
+        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
+      case 'this_year':
+        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
+      case 'custom':
+        return { fromDate: filters.customFromDate, toDate: filters.customToDate }
+      default: // 'all'
+        return { fromDate: undefined, toDate: undefined }
+    }
+  }, [filters.customFromDate, filters.customToDate])
+
+  // Filter and sort payments
+  const filteredPayments = useMemo(() => {
+    let filtered = [...payments]
+
+    // Search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase()
+      filtered = filtered.filter(payment =>
+        payment.paymentNumber.toLowerCase().includes(searchLower) ||
+        payment.customerName.toLowerCase().includes(searchLower) ||
+        (payment.reference && payment.reference.toLowerCase().includes(searchLower)) ||
+        (payment.relatedOrderNumber && payment.relatedOrderNumber.toLowerCase().includes(searchLower)) ||
+        (payment.relatedInvoiceNumber && payment.relatedInvoiceNumber.toLowerCase().includes(searchLower))
+      )
+    }
+
+    // Date filter
+    if (filters.dateFilter !== 'all') {
+      const dateRange = getDateRange(filters.dateFilter)
+      if (dateRange.fromDate || dateRange.toDate) {
+        filtered = filtered.filter(payment => {
+          if (!payment.paymentDate) return false
+
+          const paymentDate = new Date(payment.paymentDate).toISOString().split('T')[0]
+
+          if (dateRange.fromDate && paymentDate < dateRange.fromDate) return false
+          if (dateRange.toDate && paymentDate > dateRange.toDate) return false
+
+          return true
+        })
+      }
+    }
+
+    // Payment method filter
+    if (filters.paymentMethod !== 'all') {
+      filtered = filtered.filter(payment => payment.paymentMethod === filters.paymentMethod)
+    }
+
+    // Status filter
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(payment => payment.status === filters.status)
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aValue: any = a[filters.sortBy as keyof Payment]
+      let bValue: any = b[filters.sortBy as keyof Payment]
+
+      if (filters.sortBy === 'paymentDate') {
+        aValue = new Date(aValue || 0).getTime()
+        bValue = new Date(bValue || 0).getTime()
+      }
+
+      if (filters.sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1
+      } else {
+        return aValue < bValue ? 1 : -1
+      }
+    })
+
+    return filtered
+  }, [payments, filters, getDateRange])
+
+  // Pagination
+  const paginatedPayments = useMemo(() => {
+    const startIndex = state.page * state.rowsPerPage
+    return filteredPayments.slice(startIndex, startIndex + state.rowsPerPage)
+  }, [filteredPayments, state.page, state.rowsPerPage])
+
+  const handleSort = useCallback((field: string) => {
+    const newSortOrder = filters.sortBy === field && filters.sortOrder === 'desc' ? 'asc' : 'desc'
+    setFilters((prev: PaymentFilters) => ({
+      ...prev,
+      sortBy: field,
+      sortOrder: newSortOrder
+    }))
+    setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
+  }, [filters.sortBy, filters.sortOrder])
+
+  const handlePaymentSelect = useCallback((payment: Payment) => {
+    setSelectedPayment(payment)
+    const paymentIndex = paginatedPayments.findIndex((p: Payment) => p.id === payment.id)
+    setFocusedPaymentIndex(paymentIndex)
+  }, [paginatedPayments])
+
+  const handleOrderClick = useCallback((orderId: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    navigate('/sales/orders', { state: { highlightOrderId: orderId } })
+  }, [navigate])
+
+  const handleInvoiceClick = useCallback((invoiceId: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
+  }, [navigate])
+
+  // Auto-select first payment when payments load
+  useEffect(() => {
+    if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
+      if (!selectedPayment && searchInputRef.current !== document.activeElement) {
+        setFocusedPaymentIndex(0)
+        setSelectedPayment(paginatedPayments[0])
+      }
+    }
+  }, [paginatedPayments, focusedPaymentIndex, selectedPayment])
+
+  // Auto-scroll to keep focused item visible
+  useEffect(() => {
+    if (focusedPaymentIndex >= 0 && paymentListRef.current) {
+      const focusedRow = paymentListRef.current.querySelector(`[data-payment-index="${focusedPaymentIndex}"]`)
+      if (focusedRow) {
+        focusedRow.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        })
+      }
+    }
+  }, [focusedPaymentIndex])
+
+  // Keyboard navigation functions
+  const handleNavigateUp = useCallback(() => {
+    if (focusedPaymentIndex > 0) {
+      const newIndex = focusedPaymentIndex - 1
+      setFocusedPaymentIndex(newIndex)
+      setSelectedPayment(paginatedPayments[newIndex])
+    }
+  }, [focusedPaymentIndex, paginatedPayments])
+
+  const handleNavigateDown = useCallback(() => {
+    if (focusedPaymentIndex < paginatedPayments.length - 1) {
+      const newIndex = focusedPaymentIndex + 1
+      setFocusedPaymentIndex(newIndex)
+      setSelectedPayment(paginatedPayments[newIndex])
+    }
+  }, [focusedPaymentIndex, paginatedPayments])
+
+  const handleNavigateToFirst = useCallback(() => {
+    if (paginatedPayments.length > 0) {
+      setFocusedPaymentIndex(0)
+      setSelectedPayment(paginatedPayments[0])
+    }
+  }, [paginatedPayments])
+
+  const handleNavigateToLast = useCallback(() => {
+    if (paginatedPayments.length > 0) {
+      const lastIndex = paginatedPayments.length - 1
+      setFocusedPaymentIndex(lastIndex)
+      setSelectedPayment(paginatedPayments[lastIndex])
+    }
+  }, [paginatedPayments])
+
+  const handlePageUpNavigation = useCallback(() => {
+    const newIndex = Math.max(0, focusedPaymentIndex - state.rowsPerPage)
+    setFocusedPaymentIndex(newIndex)
+    if (paginatedPayments[newIndex]) {
+      setSelectedPayment(paginatedPayments[newIndex])
+    }
+  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments])
+
+  const handlePageDownNavigation = useCallback(() => {
+    const newIndex = Math.min(paginatedPayments.length - 1, focusedPaymentIndex + state.rowsPerPage)
+    setFocusedPaymentIndex(newIndex)
+    if (paginatedPayments[newIndex]) {
+      setSelectedPayment(paginatedPayments[newIndex])
+    }
+  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments])
+
+  const handleEnterAction = useCallback(() => {
+    if (focusedPaymentIndex >= 0 && paginatedPayments[focusedPaymentIndex]) {
+      setEditDialog(true)
+    }
+  }, [focusedPaymentIndex, paginatedPayments])
+
+  const handleEditAction = () => {
+    if (selectedPayment) {
+      setEditDialog(true)
+    }
+  }
+
+  const handleDeleteAction = () => {
+    if (selectedPayment) {
+      showError('Delete functionality will be implemented later')
+    }
+  }
+
+  const handleRefreshAction = () => {
+    showSuccess('Payments refreshed')
+  }
+
+  const handleViewDeletedAction = () => {
+    showError('View deleted functionality will be implemented later')
+  }
+
+  const handleAddPayment = () => {
+    setCreateDialog(true)
+  }
+
+  const handleEscapeAction = useCallback(() => {
+    setFocusedPaymentIndex(-1)
+    setSelectedPayment(null)
+    setCreateDialog(false)
+    setEditDialog(false)
+    setKeyboardHelpOpen(false)
+  }, [])
+
+  // Setup keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onAdd: handleAddPayment,
+    onRefresh: handleRefreshAction,
+    onEdit: handleEditAction,
+    onDelete: handleDeleteAction,
+    onViewDeleted: handleViewDeletedAction,
+    onArrowUp: handleNavigateUp,
+    onArrowDown: handleNavigateDown,
+    onEnter: handleEnterAction,
+    onPageUp: handlePageUpNavigation,
+    onPageDown: handlePageDownNavigation,
+    onHome: handleNavigateToFirst,
+    onEnd: handleNavigateToLast,
+    onEscape: handleEscapeAction,
+  })
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'success'
+      case 'pending': return 'warning'
+      case 'failed': return 'error'
+      case 'refunded': return 'info'
+      default: return 'default'
+    }
+  }
+
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'cash': return 'Cash'
+      case 'card': return 'Card'
+      case 'bank_transfer': return 'Bank Transfer'
+      case 'check': return 'Check'
+      case 'other': return 'Other'
+      default: return method
+    }
+  }
+
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 4 }}>Payments</Typography>
-      <Paper sx={{ p: 6, textAlign: 'center' }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Payments Coming Soon</Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>This module is under development.</Typography>
-        <Chip label="In Development" color="primary" variant="outlined" />
-      </Paper>
+      {/* Header */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 4,
+        gap: isMobile ? 2 : 0
+      }}>
+        <Box sx={{ mb: isMobile ? 2 : 0 }}>
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <PaymentIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
+            Payments
+          </Typography>
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Manage customer payments and track financial transactions ({filteredPayments.length} total)
+          </Typography>
+        </Box>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 1.5 : 1,
+          alignItems: isMobile ? 'stretch' : 'center'
+        }}>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
+            onClick={handleRefreshAction}
+            disabled={loading}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "Refresh Payments" : "Refresh"}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={!isMobile ? <AddIcon /> : undefined}
+            size="medium"
+            onClick={handleAddPayment}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "Record New Payment" : "Record Payment"}
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Filters and Search */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? 2 : 1,
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 3,
+        '& > *': {
+          alignSelf: isMobile ? 'stretch' : 'flex-start'
+        }
+      }}>
+        <TextField
+          inputRef={searchInputRef}
+          placeholder="Search payments..."
+          value={searchTerm}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 250,
+            flex: isMobile ? 'none' : 1,
+            maxWidth: isMobile ? 'none' : 400,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem',
+              '& input': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Date Filter</InputLabel>
+          <Select
+            value={filters.dateFilter}
+            label="Date Filter"
+            onChange={(e) => {
+              setFilters((prev: PaymentFilters) => ({ ...prev, dateFilter: e.target.value }))
+              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
+            }}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="today">Today</MenuItem>
+            <MenuItem value="yesterday">Yesterday</MenuItem>
+            <MenuItem value="this_week">This Week</MenuItem>
+            <MenuItem value="this_month">This Month</MenuItem>
+            <MenuItem value="this_year">This Year</MenuItem>
+            <Divider />
+            <MenuItem value="custom">Custom Date Range</MenuItem>
+          </Select>
+        </FormControl>
+
+        {filters.dateFilter === 'custom' && (
+          <>
+            <TextField
+              label="From Date"
+              type="date"
+              value={filters.customFromDate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setFilters((prev: PaymentFilters) => ({ ...prev, customFromDate: e.target.value }))
+              }}
+              size="medium"
+              sx={{
+                minWidth: 120,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem'
+                }
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+            <TextField
+              label="To Date"
+              type="date"
+              value={filters.customToDate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setFilters((prev: PaymentFilters) => ({ ...prev, customToDate: e.target.value }))
+              }}
+              size="medium"
+              sx={{
+                minWidth: 120,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem'
+                }
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          </>
+        )}
+
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Payment Method</InputLabel>
+          <Select
+            value={filters.paymentMethod}
+            label="Payment Method"
+            onChange={(e) => {
+              setFilters((prev: PaymentFilters) => ({ ...prev, paymentMethod: e.target.value }))
+              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
+            }}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="cash">Cash</MenuItem>
+            <MenuItem value="card">Card</MenuItem>
+            <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+            <MenuItem value="check">Check</MenuItem>
+            <MenuItem value="other">Other</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={filters.status}
+            label="Status"
+            onChange={(e) => {
+              setFilters((prev: PaymentFilters) => ({ ...prev, status: e.target.value }))
+              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
+            }}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  '& .MuiMenuItem-root': {
+                    fontSize: '0.875rem'
+                  }
+                }
+              }
+            }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="completed">Completed</MenuItem>
+            <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="failed">Failed</MenuItem>
+            <MenuItem value="refunded">Refunded</MenuItem>
+          </Select>
+        </FormControl>
+
+        {(filters.dateFilter !== 'all' || filters.paymentMethod !== 'all' || filters.status !== 'all' || filters.search) && (
+          <Button
+            variant="outlined"
+            size="medium"
+            onClick={() => {
+              setFilters({
+                search: '',
+                sortBy: 'paymentNumber',
+                sortOrder: 'desc',
+                dateFilter: 'all',
+                customFromDate: '',
+                customToDate: '',
+                customerId: 'all',
+                paymentMethod: 'all',
+                status: 'all'
+              })
+              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
+            }}
+            sx={{
+              minWidth: 'auto',
+              px: 2,
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }}
+          >
+            Clear Filters
+          </Button>
+        )}
+
+        <Button
+          variant={filters.sortBy === 'paymentNumber' ? 'contained' : 'outlined'}
+          size="medium"
+          startIcon={filters.sortBy === 'paymentNumber' ? (filters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          onClick={() => handleSort('paymentNumber')}
+          sx={{
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: '0.875rem',
+            minWidth: 'auto',
+            px: 2
+          }}
+        >
+          Sort
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<KeyboardIcon />}
+          size="medium"
+          onClick={() => setKeyboardHelpOpen(true)}
+          sx={{
+            flex: 'none',
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: '0.875rem',
+            color: 'info.main',
+            borderColor: 'info.main',
+            '&:hover': {
+              borderColor: 'info.dark',
+              backgroundColor: 'info.light'
+            }
+          }}
+        >
+          Shortcuts
+        </Button>
+      </Box>
+
+      {/* Error Display */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Split Layout: Payment List and Payment Details */}
+      <Grid container spacing={3}>
+        {/* Left Side - Payment List */}
+        <Grid item xs={12} md={3}>
+          <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Payment List ({filteredPayments.length})
+              </Typography>
+            </Box>
+
+            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={paymentListRef}>
+              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                <Table
+                  size={TABLE_STYLES.size}
+                  sx={{
+                    '& .MuiTableCell-root': {
+                      borderBottom: TABLE_STYLES.cell.border,
+                      py: TABLE_STYLES.cell.padding.py * 0.75,
+                      px: TABLE_STYLES.cell.padding.px * 0.75
+                    }
+                  }}
+                >
+                  <TableHead>
+                    <TableRow sx={{ '& .MuiTableCell-head': {
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      backgroundColor: 'grey.50',
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    } }}>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading && paginatedPayments.length === 0 ? (
+                      [...Array(10)].map((_, i) => (
+                        <TableRow key={`skeleton-${i}`}>
+                          <TableCell>
+                            <Skeleton height={40} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      paginatedPayments.map((payment: Payment, index: number) => (
+                        <PaymentRow
+                          key={payment.id}
+                          payment={payment}
+                          index={index}
+                          selectedPaymentId={selectedPayment?.id}
+                          focusedPaymentIndex={focusedPaymentIndex}
+                          onPaymentSelect={handlePaymentSelect}
+                        />
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <TablePagination
+                component="div"
+                count={filteredPayments.length}
+                page={state.page}
+                onPageChange={(_: unknown, newPage: number) => setState((prev: PaymentsPageState) => ({ ...prev, page: newPage }))}
+                rowsPerPage={state.rowsPerPage}
+                onRowsPerPageChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: PaymentsPageState) => ({
+                  ...prev,
+                  rowsPerPage: parseInt(e.target.value),
+                  page: 0
+                }))}
+                rowsPerPageOptions={[10, 20, 50]}
+                size="small"
+              />
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Right Side - Payment Details */}
+        <Grid item xs={12} md={9}>
+          {selectedPayment ? (
+            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+              {/* Header with Payment Info and Actions */}
+              <Box sx={{
+                p: TABLE_STYLES.cell.padding.px,
+                borderBottom: TABLE_STYLES.cell.border,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Payment Details - {selectedPayment.paymentNumber}
+                </Typography>
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.25
+                }}>
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    title="Edit Payment"
+                    onClick={handleEditAction}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125
+                    }}
+                  >
+                    <EditIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    title="Delete Payment"
+                    onClick={handleDeleteAction}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125
+                    }}
+                  >
+                    <DeleteIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
+              </Box>
+
+              <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+                {/* Payment Details Section */}
+                <Grid container spacing={3}>
+                  {/* Left Column - Payment Information */}
+                  <Grid item xs={12} md={6}>
+                    <TableContainer>
+                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
+                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem' }}>
+                                Payment Information
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                              Customer
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {selectedPayment.customerName}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Amount
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(selectedPayment.amount)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Payment Date
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {formatDate(selectedPayment.paymentDate)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Method
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {getPaymentMethodLabel(selectedPayment.paymentMethod)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Status
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              <Chip
+                                label={selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
+                                color={getStatusColor(selectedPayment.status)}
+                                size="small"
+                                sx={{ fontSize: '0.75rem' }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                          {selectedPayment.reference && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                Reference
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.reference}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+
+                  {/* Right Column - Related Information */}
+                  <Grid item xs={12} md={6}>
+                    <TableContainer>
+                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
+                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem' }}>
+                                Related Information
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                          {selectedPayment.relatedOrderNumber && (
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                                Order No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                <Typography
+                                  component="button"
+                                  onClick={(event) => handleOrderClick(selectedPayment.relatedOrderId!, event)}
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    '&:hover': {
+                                      color: 'primary.dark'
+                                    }
+                                  }}
+                                >
+                                  <OrderIcon sx={{ fontSize: '0.9rem' }} />
+                                  {selectedPayment.relatedOrderNumber}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {selectedPayment.relatedInvoiceNumber && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                Invoice No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                <Typography
+                                  component="button"
+                                  onClick={(event) => handleInvoiceClick(selectedPayment.relatedInvoiceId!, event)}
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    '&:hover': {
+                                      color: 'primary.dark'
+                                    }
+                                  }}
+                                >
+                                  <InvoiceIcon sx={{ fontSize: '0.9rem' }} />
+                                  {selectedPayment.relatedInvoiceNumber}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {selectedPayment.customer?.email && (
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                Customer Email
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.customer.email}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {selectedPayment.customer?.phone && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                Customer Phone
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.customer.phone}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                </Grid>
+
+                {/* Payment Notes Section */}
+                {selectedPayment.notes && (
+                  <Box sx={{ mt: 2 }}>
+                    <TableContainer>
+                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
+                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
+                                Notes
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
+                              {selectedPayment.notes}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+          ) : (
+            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography variant="h6" color="text.secondary">
+                Select a payment to view details
+              </Typography>
+            </Paper>
+          )}
+        </Grid>
+      </Grid>
+
+      {/* Placeholder Dialogs */}
+      <Dialog open={createDialog} onClose={() => setCreateDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Record New Payment</DialogTitle>
+        <DialogContent>
+          <Typography>Payment recording form will be implemented here.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateDialog(false)}>Cancel</Button>
+          <Button variant="contained">Record Payment</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Payment</DialogTitle>
+        <DialogContent>
+          <Typography>Payment editing form will be implemented here.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialog(false)}>Cancel</Button>
+          <Button variant="contained">Save Changes</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsHelp
+        open={keyboardHelpOpen}
+        onClose={() => setKeyboardHelpOpen(false)}
+      />
     </Box>
   )
 }
