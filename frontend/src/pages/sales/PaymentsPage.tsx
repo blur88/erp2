@@ -103,18 +103,18 @@ interface PaymentFilters {
 const mockPayments: Payment[] = [
   {
     id: '1',
-    paymentNumber: 'PAY-2024-001',
+    paymentNumber: 'PAY-000001',
     customerName: 'Tech Solutions Inc.',
     amount: 2500.00,
     paymentDate: '2024-01-15',
     paymentMethod: 'bank_transfer',
     status: 'completed',
     reference: 'TXN-789456123',
-    notes: 'Payment for order #ORD-2024-001',
+    notes: 'Payment for order #SO-000001',
     relatedOrderId: 'order-1',
-    relatedOrderNumber: 'ORD-2024-001',
+    relatedOrderNumber: 'SO-000001',
     relatedInvoiceId: 'invoice-1',
-    relatedInvoiceNumber: 'INV-2024-001',
+    relatedInvoiceNumber: 'INV-000001',
     customer: {
       id: 'customer-1',
       name: 'Tech Solutions Inc.',
@@ -124,7 +124,7 @@ const mockPayments: Payment[] = [
   },
   {
     id: '2',
-    paymentNumber: 'PAY-2024-002',
+    paymentNumber: 'PAY-000002',
     customerName: 'Global Retail Corp',
     amount: 1750.50,
     paymentDate: '2024-01-14',
@@ -132,7 +132,7 @@ const mockPayments: Payment[] = [
     status: 'completed',
     reference: 'CARD-****-1234',
     relatedOrderId: 'order-2',
-    relatedOrderNumber: 'ORD-2024-002',
+    relatedOrderNumber: 'SO-000002',
     customer: {
       id: 'customer-2',
       name: 'Global Retail Corp',
@@ -141,7 +141,7 @@ const mockPayments: Payment[] = [
   },
   {
     id: '3',
-    paymentNumber: 'PAY-2024-003',
+    paymentNumber: 'PAY-000003',
     customerName: 'Metro Manufacturing',
     amount: 3200.00,
     paymentDate: '2024-01-13',
@@ -150,7 +150,7 @@ const mockPayments: Payment[] = [
     reference: 'CHECK-789',
     notes: 'Check pending clearance',
     relatedInvoiceId: 'invoice-3',
-    relatedInvoiceNumber: 'INV-2024-003',
+    relatedInvoiceNumber: 'INV-000003',
     customer: {
       id: 'customer-3',
       name: 'Metro Manufacturing',
@@ -159,7 +159,7 @@ const mockPayments: Payment[] = [
   },
   {
     id: '4',
-    paymentNumber: 'PAY-2024-004',
+    paymentNumber: 'PAY-000004',
     customerName: 'Startup Innovations',
     amount: 890.25,
     paymentDate: '2024-01-12',
@@ -173,7 +173,7 @@ const mockPayments: Payment[] = [
   },
   {
     id: '5',
-    paymentNumber: 'PAY-2024-005',
+    paymentNumber: 'PAY-000005',
     customerName: 'Enterprise Systems Ltd',
     amount: 4500.00,
     paymentDate: '2024-01-11',
@@ -234,16 +234,6 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
           }}
         >
           {payment.paymentNumber}
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            color: 'text.secondary',
-            fontSize: '0.75rem'
-          }}
-        >
-          {formatCurrency(payment.amount)}
         </Typography>
       </TableCell>
     </TableRow>
