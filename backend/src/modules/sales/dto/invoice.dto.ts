@@ -21,11 +21,11 @@ import {
 
 export class InvoiceLineItemDto {
   @ApiProperty({
-    description: 'Product SKU',
-    example: 'PROD001',
+    description: 'Product ID',
+    example: 'uuid-string',
   })
-  @IsString()
-  productSku: string;
+  @IsUUID()
+  productId: string;
 
   @ApiProperty({
     description: 'Product name',
@@ -486,7 +486,7 @@ export class InvoiceResponseDto {
 
   @ApiProperty()
   lineItems?: Array<{
-    productSku: string;
+    productId: string;
     productName: string;
     quantity: number;
     unitPrice: number;

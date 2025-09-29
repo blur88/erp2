@@ -916,7 +916,7 @@ export class SalesOrderService {
     
     // Add line items from order
     invoice.lineItems = order.items.map(item => ({
-      productSku: item.product?.barcode || 'N/A',
+      productId: item.productId,
       productName: item.product?.name || 'Unknown Product',
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
@@ -1299,7 +1299,7 @@ export class SalesOrderService {
 
         // Add line items from order
         invoice.lineItems = savedOrder.items.map(item => ({
-          productSku: item.product?.barcode || 'N/A',
+          productId: item.productId,
           productName: item.product?.name || 'Unknown Product',
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),

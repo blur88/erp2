@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsBoolean,
   IsOptional,
   IsEnum,
   MaxLength,
@@ -296,7 +295,7 @@ export class Invoice extends BaseEntity {
   })
   @IsOptional()
   lineItems?: Array<{
-    productSku: string;
+    productId: string;
     productName: string;
     quantity: number;
     unitPrice: number;
