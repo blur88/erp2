@@ -1441,7 +1441,7 @@ const OrdersPage: React.FC = () => {
                                         fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                         color: 'primary.main',
                                         cursor: 'pointer',
-                                        textDecoration: 'underline',
+                                        textDecoration: 'none',
                                         border: 'none',
                                         background: 'none',
                                         padding: 0,
