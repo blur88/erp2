@@ -40,6 +40,31 @@ export class InvoiceService {
     // private readonly emailService: EmailService, // Temporarily disabled
   ) {}
 
+  private async generateSequentialInvoiceNumber(): Promise<string> {
+    // Get all existing invoice numbers that match the sequential format
+    const invoices = await this.invoiceRepository.find({
+      select: ['invoiceNumber']
+    });
+
+    let maxNumber = 0;
+    for (const invoice of invoices) {
+      // Extract number from format INV-000001 (only sequential format)
+      const match = invoice.invoiceNumber.match(/^INV-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    // Next sequential number
+    const nextNumber = maxNumber + 1;
+
+    // Format with leading zeros (6 digits)
+    return `INV-${nextNumber.toString().padStart(6, '0')}`;
+  }
+
   async create(createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
     const { customerId, salesOrderId, lineItems, ...invoiceData } = createInvoiceDto;
 
@@ -68,9 +93,13 @@ export class InvoiceService {
     const additionalCharges = invoiceData.additionalCharges || 0;
     const totalAmount = taxableAmount + taxAmount + additionalCharges;
 
+    // Generate sequential invoice number
+    const invoiceNumber = await this.generateSequentialInvoiceNumber();
+
     // Create invoice
     const invoice = this.invoiceRepository.create({
       ...invoiceData,
+      invoiceNumber,
       customerId,
       salesOrderId,
       customerName: customer.name,

@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsBoolean,
   IsOptional,
   IsEnum,
   MaxLength,
@@ -296,7 +295,7 @@ export class Invoice extends BaseEntity {
   })
   @IsOptional()
   lineItems?: Array<{
-    productSku: string;
+    productId: string;
     productName: string;
     quantity: number;
     unitPrice: number;
@@ -378,11 +377,8 @@ export class Invoice extends BaseEntity {
   // Hooks
   @BeforeInsert()
   generateInvoiceNumber() {
-    if (!this.invoiceNumber) {
-      const year = new Date().getFullYear();
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.invoiceNumber = `INV-${year}-${timestamp}`;
-    }
+    // Invoice number generation moved to service layer for better async handling
+    // Similar to SalesOrder entity pattern
   }
 
   @BeforeInsert()
@@ -453,19 +449,24 @@ export class Invoice extends BaseEntity {
 
   // Static factory method
   static fromSalesOrder(salesOrder: SalesOrder): Partial<Invoice> {
+    const paidAmount = Number(salesOrder.paidAmount || 0);
+    const totalAmount = Number(salesOrder.totalAmount);
+    const balanceDue = Math.max(0, totalAmount - paidAmount);
+
     return {
       customerId: salesOrder.customerId,
       salesOrderId: salesOrder.id,
       customerName: salesOrder.customer?.name,
       customerPoNumber: salesOrder.customerPoNumber,
-      subtotal: salesOrder.totalAmount, // Use totalAmount as subtotal
+      subtotal: totalAmount, // Use totalAmount as subtotal
       discountPercent: 0, // Default to 0 since SalesOrder doesn't have discount fields
       discountAmount: 0,
       taxPercent: 0, // Default to 0 since SalesOrder doesn't have tax fields
       taxAmount: 0,
       additionalCharges: 0, // Default to 0 since SalesOrder doesn't have shipping amount
-      totalAmount: salesOrder.totalAmount,
-      balanceDue: salesOrder.totalAmount,
+      totalAmount: totalAmount,
+      paidAmount: paidAmount, // Transfer payment information from sales order
+      balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
       billingAddress: salesOrder.customer?.name || '',
       customerTaxId: '',

@@ -213,23 +213,23 @@ export const salesApi = {
 
   // Invoices
   async getInvoices(params?: QueryParams & { customerId?: string; status?: string }) {
-    return ApiService.get<PaginatedResponse<Invoice>>('/sales/invoices', { params })
+    return ApiService.get<PaginatedResponse<Invoice>>('invoices', { params })
   },
 
   async getInvoice(id: string) {
-    return ApiService.get<Invoice>(`/sales/invoices/${id}`)
+    return ApiService.get<Invoice>(`invoices/${id}`)
   },
 
   async createInvoice(invoiceData: Partial<Invoice>) {
-    return ApiService.post<Invoice>('/sales/invoices', invoiceData)
+    return ApiService.post<Invoice>('invoices', invoiceData)
   },
 
   async updateInvoice(id: string, invoiceData: Partial<Invoice>) {
-    return ApiService.put<Invoice>(`/sales/invoices/${id}`, invoiceData)
+    return ApiService.put<Invoice>(`invoices/${id}`, invoiceData)
   },
 
   async deleteInvoice(id: string) {
-    return ApiService.delete(`/sales/invoices/${id}`)
+    return ApiService.delete(`invoices/${id}`)
   },
 
   async sendInvoice(id: string, options?: {
@@ -237,11 +237,11 @@ export const salesApi = {
     subject?: string
     message?: string
   }) {
-    return ApiService.post(`/sales/invoices/${id}/send`, options)
+    return ApiService.post(`invoices/${id}/send`, options)
   },
 
   async printInvoice(id: string) {
-    return ApiService.downloadFile(`/sales/invoices/${id}/print`, `invoice-${id}.pdf`)
+    return ApiService.downloadFile(`invoices/${id}/print`, `invoice-${id}.pdf`)
   },
 
   async markInvoiceAsPaid(id: string, paymentData?: {
@@ -250,7 +250,7 @@ export const salesApi = {
     reference?: string
     paidDate?: Date
   }) {
-    return ApiService.post<Invoice>(`/sales/invoices/${id}/mark-paid`, paymentData)
+    return ApiService.post<Invoice>(`invoices/${id}/mark-paid`, paymentData)
   },
 
   // Payments

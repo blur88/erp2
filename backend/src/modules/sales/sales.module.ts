@@ -14,10 +14,12 @@ import { StockMovement } from '../../database/entities/stock-movement.entity';
 // Controllers
 import { CustomerController } from './controllers/customer.controller';
 import { SalesOrderController } from './controllers/sales-order.controller'; // Temporarily disabled due to TypeScript errors
+import { InvoiceController } from './controllers/invoice.controller';
 
 // Services
 import { CustomerService } from './services/customer.service';
 import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
+import { InvoiceService } from './services/invoice.service';
 import { InventoryIntegrationService } from './services/inventory-integration.service';
 import { TransactionManager } from '../../common/utils/transaction.util';
 
@@ -37,10 +39,12 @@ import { TransactionManager } from '../../common/utils/transaction.util';
   controllers: [
     CustomerController,
     SalesOrderController, // Temporarily disabled due to TypeScript errors
+    InvoiceController,
   ],
   providers: [
     CustomerService,
     SalesOrderService,
+    InvoiceService,
     InventoryIntegrationService,
     TransactionManager,
   ],

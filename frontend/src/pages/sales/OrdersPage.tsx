@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -135,6 +136,8 @@ OrderRow.displayName = 'OrderRow'
 const OrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const location = useLocation()
+  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const orders = useAppSelector(selectOrders) || []
@@ -542,7 +545,7 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order fulfilled successfully')
+        showSuccess('Order fulfilled successfully! Invoice has been automatically generated.')
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to fulfill order'
@@ -670,6 +673,20 @@ const OrdersPage: React.FC = () => {
     }
   }, [orders, pendingOrderToSelect])
 
+  // Handle navigation from invoice page with highlightOrderId
+  useEffect(() => {
+    const state = location.state as { highlightOrderId?: string }
+    if (state?.highlightOrderId && orders.length > 0) {
+      const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
+      if (orderIndex >= 0) {
+        dispatch(setSelectedOrder(orders[orderIndex]))
+        setFocusedOrderIndex(orderIndex)
+        // Clear the state to prevent repeated highlighting
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+  }, [orders, location.state, dispatch])
+
   // Auto-scroll to keep focused item visible
   useEffect(() => {
     if (focusedOrderIndex >= 0 && orderListRef.current) {
@@ -761,6 +778,13 @@ const OrdersPage: React.FC = () => {
   const handleAddOrder = () => {
     setCreateDialog(true)
   }
+
+  const handleNavigateToInvoice = useCallback((invoiceId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation() // Prevent triggering parent row click
+    }
+    navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
+  }, [navigate])
 
   const handleEscapeAction = useCallback(() => {
     setFocusedOrderIndex(-1)
@@ -1206,7 +1230,7 @@ const OrdersPage: React.FC = () => {
       {/* Split Layout: Order List and Order Details */}
       <Grid container spacing={3}>
         {/* Left Side - Order List */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1239,8 +1263,8 @@ const OrdersPage: React.FC = () => {
                   sx={{
                     '& .MuiTableCell-root': {
                       borderBottom: TABLE_STYLES.cell.border,
-                      py: TABLE_STYLES.cell.padding.py,
-                      px: TABLE_STYLES.cell.padding.px
+                      py: TABLE_STYLES.cell.padding.py * 0.75,
+                      px: TABLE_STYLES.cell.padding.px * 0.75
                     }
                   }}
                 >
@@ -1290,7 +1314,7 @@ const OrdersPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - Order Details */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={9}>
           {selectedOrder ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Order Info and Actions */}
@@ -1404,13 +1428,47 @@ const OrdersPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              Fulfillment Date
+                              Invoice No
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {selectedOrder.isFulfilled
-                                ? (selectedOrder.fulfilledDate ? formatDate(selectedOrder.fulfilledDate) : 'Fulfilled (date unavailable)')
-                                : 'Not fulfilled'
-                              }
+                              {selectedOrder.invoices && selectedOrder.invoices.length > 0 ? (
+                                selectedOrder.invoices.map((invoice, index) => (
+                                  <Box key={invoice.id} component="span">
+                                    <Typography
+                                      component="button"
+                                      onClick={(event) => handleNavigateToInvoice(invoice.id, event)}
+                                      sx={{
+                                        fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                        color: 'primary.main',
+                                        cursor: 'pointer',
+                                        textDecoration: 'none',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        fontFamily: 'inherit',
+                                        '&:hover': {
+                                          color: 'primary.dark'
+                                        }
+                                      }}
+                                    >
+                                      {invoice.invoiceNumber}
+                                    </Typography>
+                                    {index < selectedOrder.invoices!.length - 1 && (
+                                      <Typography component="span" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                        ,
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                ))
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  {selectedOrder.isFulfilled ? 'Pending' : 'Not fulfilled'}
+                                </Typography>
+                              )}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -1470,9 +1528,7 @@ const OrdersPage: React.FC = () => {
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  fontWeight: 600,
-                                  color: (selectedOrder.paidAmount || 0) > 0 ? 'success.main' : 'text.primary'
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                                 }}>
                                   {formatCurrency(selectedOrder.paidAmount || 0)}
                                 </Typography>
@@ -1521,13 +1577,7 @@ const OrdersPage: React.FC = () => {
                               Balance
                             </TableCell>
                             <TableCell sx={{
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              color: (() => {
-                                const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
-                                const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
-                                const balance = (selectedOrder.totalAmount || 0) - currentPaid
-                                return balance > 0 ? 'error.main' : balance < 0 ? 'warning.main' : 'success.main'
-                              })()
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 {(() => {
@@ -1549,9 +1599,8 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell />
-                            <TableCell>
-                              <Stack direction="row" spacing={1} alignItems="center">
+                            <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
+                              <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                                 <Button
                                   variant="contained"
                                   size="small"
