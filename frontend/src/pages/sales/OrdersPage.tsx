@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -137,6 +137,7 @@ const OrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const location = useLocation()
+  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const orders = useAppSelector(selectOrders) || []
@@ -777,6 +778,10 @@ const OrdersPage: React.FC = () => {
   const handleAddOrder = () => {
     setCreateDialog(true)
   }
+
+  const handleNavigateToInvoice = useCallback(() => {
+    navigate('/sales/invoices')
+  }, [navigate])
 
   const handleEscapeAction = useCallback(() => {
     setFocusedOrderIndex(-1)
@@ -1425,10 +1430,32 @@ const OrdersPage: React.FC = () => {
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {selectedOrder.invoices && selectedOrder.invoices.length > 0 ? (
                                 selectedOrder.invoices.map((invoice, index) => (
-                                  <Typography key={invoice.id} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                    {invoice.invoiceNumber}
-                                    {index < selectedOrder.invoices!.length - 1 && ', '}
-                                  </Typography>
+                                  <Box key={invoice.id} component="span">
+                                    <Typography
+                                      component="button"
+                                      onClick={handleNavigateToInvoice}
+                                      sx={{
+                                        fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                        color: 'primary.main',
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        fontFamily: 'inherit',
+                                        '&:hover': {
+                                          color: 'primary.dark'
+                                        }
+                                      }}
+                                    >
+                                      {invoice.invoiceNumber}
+                                    </Typography>
+                                    {index < selectedOrder.invoices!.length - 1 && (
+                                      <Typography component="span" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                        ,
+                                      </Typography>
+                                    )}
+                                  </Box>
                                 ))
                               ) : (
                                 <Typography sx={{
