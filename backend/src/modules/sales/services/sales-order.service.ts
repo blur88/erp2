@@ -1322,7 +1322,7 @@ export class SalesOrderService {
       // Don't throw error - fulfillment should still succeed even if invoice creation fails
     }
 
-    return this.mapToResponseDto(savedOrder);
+    return this.findById(savedOrder.id);
   }
 
   async unfulfillOrder(id: string): Promise<SalesOrderResponseDto> {
@@ -1374,7 +1374,7 @@ export class SalesOrderService {
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
-    return this.mapToResponseDto(savedOrder);
+    return this.findById(savedOrder.id);
   }
 
   private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {
