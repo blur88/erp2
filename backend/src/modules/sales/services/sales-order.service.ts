@@ -899,7 +899,7 @@ export class SalesOrderService {
   async createInvoiceFromOrder(id: string) {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items'],
+      relations: ['customer', 'items', 'items.product'],
     });
 
     if (!order) {
@@ -920,6 +920,7 @@ export class SalesOrderService {
       productName: item.product?.name || 'Unknown Product',
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
+      discount: Number(item.discountAmount),
       totalAmount: Number(item.totalAmount),
     }));
 
@@ -1303,6 +1304,7 @@ export class SalesOrderService {
           productName: item.product?.name || 'Unknown Product',
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
+          discount: Number(item.discountAmount),
           totalAmount: Number(item.totalAmount),
         }));
 
