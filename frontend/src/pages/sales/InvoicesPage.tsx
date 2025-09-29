@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -157,6 +157,7 @@ const InvoicesPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
+  const location = useLocation()
 
   const dispatch = useAppDispatch()
   const { invoices, loading, error, pagination } = useAppSelector(selectInvoicesState)
@@ -372,6 +373,20 @@ const InvoicesPage: React.FC = () => {
       }
     }
   }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice])
+
+  // Handle navigation from orders page with highlightInvoiceId
+  useEffect(() => {
+    const state = location.state as { highlightInvoiceId?: string }
+    if (state?.highlightInvoiceId && paginatedInvoices.length > 0) {
+      const invoiceIndex = paginatedInvoices.findIndex(i => i.id === state.highlightInvoiceId)
+      if (invoiceIndex >= 0) {
+        setSelectedInvoice(paginatedInvoices[invoiceIndex])
+        setFocusedInvoiceIndex(invoiceIndex)
+        // Clear the state to prevent repeated highlighting
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+  }, [paginatedInvoices, location.state])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {

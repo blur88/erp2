@@ -779,8 +779,11 @@ const OrdersPage: React.FC = () => {
     setCreateDialog(true)
   }
 
-  const handleNavigateToInvoice = useCallback(() => {
-    navigate('/sales/invoices')
+  const handleNavigateToInvoice = useCallback((invoiceId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation() // Prevent triggering parent row click
+    }
+    navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
   }, [navigate])
 
   const handleEscapeAction = useCallback(() => {
@@ -1433,7 +1436,7 @@ const OrdersPage: React.FC = () => {
                                   <Box key={invoice.id} component="span">
                                     <Typography
                                       component="button"
-                                      onClick={handleNavigateToInvoice}
+                                      onClick={(event) => handleNavigateToInvoice(invoice.id, event)}
                                       sx={{
                                         fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                         color: 'primary.main',
