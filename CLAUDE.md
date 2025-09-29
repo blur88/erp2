@@ -129,7 +129,7 @@ docker compose logs backend # Check specific service logs
 - **Infrastructure**: Exception filters, logging, validation pipes
 
 ### Database Architecture
-- **PostgreSQL**: Primary database with 20 entities, TypeORM
+- **PostgreSQL**: Primary database with 19+ entities, TypeORM
 - **MongoDB**: Analytics and reports data, Mongoose
 - **Redis**: Caching, queues, WebSocket state
 
@@ -221,10 +221,10 @@ When enabling disabled modules:
 - **TypeScript relaxed**: Project uses `"strict": false`, liberal use of `as any` when needed
 - **Path aliases**: Use `@/` for src imports, configured in both Vite and TypeScript
 
-## Recent Changes (September 2025)
+## Recent Changes (December 2025)
 
-### Product Fields Modernization (September 2025)
-- ✅ **LATEST**: Simplified product model to match frontend form (December 2025)
+### Product Fields Modernization (December 2025)
+- ✅ **LATEST**: Simplified product model to match frontend form
 - **Final Product Fields**: name, description, barcode, type, categoryId, baseCost, retailPrice, wholesalePrice, specialPrice, stockQuantity, notes, isActive
 - **Removed Fields**: status, unit, reservedQuantity, reorderLevel, optimalStockLevel, stockStatus, weight, dimensions, brand, model, imageUrl, additionalImages, attributes
 - **CSV Import**: Updated template to match simplified fields only
@@ -232,7 +232,7 @@ When enabling disabled modules:
 - **Search**: Simplified to search only by name and barcode
 - **Permanent Delete**: Added hard delete functionality for soft-deleted products
 
-### Soft-Deleted Products Feature (September 2025)
+### Soft-Deleted Products Feature (December 2025)
 - ✅ **COMPLETE**: Full soft-deleted products management system
 - **Backend**: `GET /api/inventory/products/deleted` and `POST /api/inventory/products/:id/restore` endpoints
 - **Frontend**: Enhanced `DeletedProductsDialog` with modern table design matching categories
@@ -247,18 +247,18 @@ When enabling disabled modules:
 - ✅ Category restore/undo functionality implemented
 - ✅ WebSocket integration for dashboard real-time updates
 
-### Categories Simplified (September 2025)
+### Categories Simplified (December 2025)
 - Removed `code` and `description` fields entirely
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
 
-### Customer Management Bulk Operations (September 2025)
+### Customer Management Bulk Operations (December 2025)
 - ✅ **COMPLETE**: Bulk restore and bulk delete functionality for customers
 - **Frontend**: Enhanced customer page with bulk operations matching products/categories pattern
 - **UI Integration**: Bulk action buttons and "View Deleted" functionality
 - **State Management**: Redux support for bulk operations on customer records
 
-### Product API Endpoints Fixed (September 2025)
+### Product API Endpoints Fixed (December 2025)
 - ✅ **CRITICAL FIX**: Product listing endpoints were returning reversed data
 - **Root Cause**: `remove()` method only set status flags but didn't use TypeORM's `softDelete()` for `deletedAt` timestamp
 - **Fix**: Updated `remove()` to use `await this.productRepository.softDelete(id)` and `findAll()` to filter `WHERE product.deletedAt IS NULL`
@@ -267,20 +267,20 @@ When enabling disabled modules:
   - `/api/inventory/products/deleted` now correctly returns only **soft-deleted products**
 - **Frontend Impact**: Products page and "View Deleted" dialog now show correct data sets
 
-### CategorySelector Data Fix (September 2025)
+### CategorySelector Data Fix (December 2025)
 - ✅ **FIXED**: CategorySelector now properly displays all categories instead of just "Main Category"
 - **Root Cause**: Component was incorrectly accessing `response.data?.data` instead of `response.data`
 - **Fix**: Updated to `const categoryTree = (response.data as any) || []`
 - **Result**: Parent category dropdown now shows hierarchical category tree with proper indentation
 - Categories display as: "Main Category", "Electronics", "  Mobile Phones" (indented), etc.
 
-### Category Form Validation Fixed (September 2025)
+### Category Form Validation Fixed (December 2025)
 - Fixed yup schema validation for `parentId` to allow `null` values: `.nullable()`
 - Updated TypeScript interfaces to support `parentId?: string | null`
 - Root level categories properly created with `parentId: null`
 - CategorySelector properly handles "Main Category" option (updated from "No Category (Root Level)")
 
-### Sales Order Enhancements (September 2025)
+### Sales Order Enhancements (December 2025)
 - ✅ **COMPLETE**: Enhanced sales order management with advanced filtering and payment handling
 - **Payment Features**: Overpayment handling with negative balance display and refund functionality
 - **Filtering**: Added payment status and fulfillment status filters with standardized dropdown widths (120px)
