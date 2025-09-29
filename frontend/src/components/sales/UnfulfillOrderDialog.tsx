@@ -53,7 +53,7 @@ const UnfulfillOrderDialog: React.FC<UnfulfillOrderDialogProps> = ({
               Order Already Fulfilled
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Order #{orderNumber}
+              Order No {orderNumber}
             </Typography>
           </Box>
         </Box>

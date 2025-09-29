@@ -887,7 +887,7 @@ const InvoicesPage: React.FC = () => {
                           {selectedInvoice.salesOrder?.orderNumber && (
                             <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                Order #
+                                Order No
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
                                 <Button
