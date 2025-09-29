@@ -890,25 +890,25 @@ const InvoicesPage: React.FC = () => {
                                 Order No
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                <Button
-                                  variant="text"
-                                  color="primary"
-                                  size="small"
+                                <Typography
+                                  component="button"
                                   onClick={(event) => handleSalesOrderClick(selectedInvoice.salesOrder!.id, event)}
                                   sx={{
-                                    textTransform: 'none',
                                     fontSize: '0.8rem',
-                                    minWidth: 'auto',
-                                    padding: '0',
-                                    height: 'auto',
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
                                     '&:hover': {
-                                      backgroundColor: 'transparent',
-                                      textDecoration: 'underline'
+                                      color: 'primary.dark'
                                     }
                                   }}
                                 >
                                   {selectedInvoice.salesOrder?.orderNumber}
-                                </Button>
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           )}
