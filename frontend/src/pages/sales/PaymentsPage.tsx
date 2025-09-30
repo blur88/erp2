@@ -146,7 +146,14 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
       }}
     >
       <TableCell>
-        <Typography variant="body2" fontWeight={600}>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          sx={{
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+          }}
+        >
           {payment.paymentNumber}
         </Typography>
       </TableCell>
@@ -843,7 +850,7 @@ const PaymentsPage: React.FC = () => {
                     }
                   }}
                 >
-                  <TableHead>
+                  <TableHead sx={{ display: 'none' }}>
                     <TableRow sx={{ '& .MuiTableCell-head': {
                       fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                       backgroundColor: 'grey.50',
@@ -914,46 +921,6 @@ const PaymentsPage: React.FC = () => {
                 }}>
                   Payment Details - {selectedPayment.paymentNumber}
                 </Typography>
-                <Box sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.25
-                }}>
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    title="Edit Payment"
-                    onClick={handleEditAction}
-                    sx={{
-                      height: `${TABLE_STYLES.row.height * 0.75}px`,
-                      width: `${TABLE_STYLES.row.height * 0.75}px`,
-                      minHeight: 20,
-                      minWidth: 20,
-                      p: 0.125
-                    }}
-                  >
-                    <EditIcon sx={{
-                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
-                    }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    title="Delete Payment"
-                    onClick={handleDeleteAction}
-                    sx={{
-                      height: `${TABLE_STYLES.row.height * 0.75}px`,
-                      width: `${TABLE_STYLES.row.height * 0.75}px`,
-                      minHeight: 20,
-                      minWidth: 20,
-                      p: 0.125
-                    }}
-                  >
-                    <DeleteIcon sx={{
-                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
-                    }} />
-                  </IconButton>
-                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
