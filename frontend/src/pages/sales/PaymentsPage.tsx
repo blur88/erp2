@@ -32,7 +32,6 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -190,7 +189,6 @@ const PaymentsPage: React.FC = () => {
     paymentMethod: 'all'
   })
 
-  const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
@@ -426,14 +424,9 @@ const PaymentsPage: React.FC = () => {
     showError('View deleted functionality will be implemented later')
   }
 
-  const handleAddPayment = () => {
-    setCreateDialog(true)
-  }
-
   const handleEscapeAction = useCallback(() => {
     setFocusedPaymentIndex(-1)
     setSelectedPayment(null)
-    setCreateDialog(false)
     setEditDialog(false)
     setKeyboardHelpOpen(false)
   }, [])
@@ -441,7 +434,6 @@ const PaymentsPage: React.FC = () => {
   // Setup keyboard shortcuts
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: handleAddPayment,
     onRefresh: handleRefreshAction,
     onEdit: handleEditAction,
     onDelete: handleDeleteAction,
@@ -521,15 +513,6 @@ const PaymentsPage: React.FC = () => {
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Payments" : "Refresh"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={handleAddPayment}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Record New Payment" : "Record Payment"}
           </Button>
         </Box>
       </Box>
@@ -1090,17 +1073,6 @@ const PaymentsPage: React.FC = () => {
       </Grid>
 
       {/* Placeholder Dialogs */}
-      <Dialog open={createDialog} onClose={() => setCreateDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Record New Payment</DialogTitle>
-        <DialogContent>
-          <Typography>Payment recording form will be implemented here.</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialog(false)}>Cancel</Button>
-          <Button variant="contained">Record Payment</Button>
-        </DialogActions>
-      </Dialog>
-
       <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Edit Payment</DialogTitle>
         <DialogContent>
