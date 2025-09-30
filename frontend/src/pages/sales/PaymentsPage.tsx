@@ -99,96 +99,6 @@ interface PaymentFilters {
   status: string
 }
 
-// Mock data for demonstration
-const mockPayments: Payment[] = [
-  {
-    id: '1',
-    paymentNumber: 'PAY-000001',
-    customerName: 'Tech Solutions Inc.',
-    amount: 2500.00,
-    paymentDate: '2024-01-15',
-    paymentMethod: 'bank_transfer',
-    status: 'completed',
-    reference: 'TXN-789456123',
-    notes: 'Payment for order #SO-000001',
-    relatedOrderId: 'order-1',
-    relatedOrderNumber: 'SO-000001',
-    relatedInvoiceId: 'invoice-1',
-    relatedInvoiceNumber: 'INV-000001',
-    customer: {
-      id: 'customer-1',
-      name: 'Tech Solutions Inc.',
-      email: 'billing@techsolutions.com',
-      phone: '+1-555-0123'
-    }
-  },
-  {
-    id: '2',
-    paymentNumber: 'PAY-000002',
-    customerName: 'Global Retail Corp',
-    amount: 1750.50,
-    paymentDate: '2024-01-14',
-    paymentMethod: 'card',
-    status: 'completed',
-    reference: 'CARD-****-1234',
-    relatedOrderId: 'order-2',
-    relatedOrderNumber: 'SO-000002',
-    customer: {
-      id: 'customer-2',
-      name: 'Global Retail Corp',
-      email: 'payments@globalretail.com'
-    }
-  },
-  {
-    id: '3',
-    paymentNumber: 'PAY-000003',
-    customerName: 'Metro Manufacturing',
-    amount: 3200.00,
-    paymentDate: '2024-01-13',
-    paymentMethod: 'check',
-    status: 'pending',
-    reference: 'CHECK-789',
-    notes: 'Check pending clearance',
-    relatedInvoiceId: 'invoice-3',
-    relatedInvoiceNumber: 'INV-000003',
-    customer: {
-      id: 'customer-3',
-      name: 'Metro Manufacturing',
-      phone: '+1-555-0456'
-    }
-  },
-  {
-    id: '4',
-    paymentNumber: 'PAY-000004',
-    customerName: 'Startup Innovations',
-    amount: 890.25,
-    paymentDate: '2024-01-12',
-    paymentMethod: 'cash',
-    status: 'completed',
-    customer: {
-      id: 'customer-4',
-      name: 'Startup Innovations',
-      email: 'finance@startup.com'
-    }
-  },
-  {
-    id: '5',
-    paymentNumber: 'PAY-000005',
-    customerName: 'Enterprise Systems Ltd',
-    amount: 4500.00,
-    paymentDate: '2024-01-11',
-    paymentMethod: 'bank_transfer',
-    status: 'failed',
-    reference: 'TXN-FAILED-001',
-    notes: 'Payment failed due to insufficient funds',
-    customer: {
-      id: 'customer-5',
-      name: 'Enterprise Systems Ltd',
-      email: 'accounts@enterprise.com',
-      phone: '+1-555-0789'
-    }
-  }
-]
 
 // Memoized Payment Row Component
 interface PaymentRowProps {
@@ -248,8 +158,7 @@ const PaymentsPage: React.FC = () => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
 
-  // Use mock data for now
-  const [payments] = useState<Payment[]>(mockPayments)
+  const [payments] = useState<Payment[]>([])
   const [loading] = useState(false)
   const [error] = useState<string | null>(null)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
