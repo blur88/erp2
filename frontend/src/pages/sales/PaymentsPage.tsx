@@ -97,7 +97,6 @@ interface PaymentFilters {
   customToDate: string
   customerId: string
   paymentMethod: string
-  status: string
 }
 
 
@@ -188,8 +187,7 @@ const PaymentsPage: React.FC = () => {
     customFromDate: '',
     customToDate: '',
     customerId: 'all',
-    paymentMethod: 'all',
-    status: 'all'
+    paymentMethod: 'all'
   })
 
   const [createDialog, setCreateDialog] = useState(false)
@@ -708,50 +706,7 @@ const PaymentsPage: React.FC = () => {
           </Select>
         </FormControl>
 
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem'
-            }
-          }}
-        >
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={filters.status}
-            label="Status"
-            onChange={(e) => {
-              setFilters((prev: PaymentFilters) => ({ ...prev, status: e.target.value }))
-              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
-            }}
-            sx={{
-              fontSize: '0.875rem',
-              '& .MuiSelect-select': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
-              }
-            }}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  '& .MuiMenuItem-root': {
-                    fontSize: '0.875rem'
-                  }
-                }
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="failed">Failed</MenuItem>
-            <MenuItem value="refunded">Refunded</MenuItem>
-          </Select>
-        </FormControl>
-
-        {(filters.dateFilter !== 'all' || filters.paymentMethod !== 'all' || filters.status !== 'all' || filters.search) && (
+        {(filters.dateFilter !== 'all' || filters.paymentMethod !== 'all' || filters.search) && (
           <Button
             variant="outlined"
             size="medium"
@@ -764,8 +719,7 @@ const PaymentsPage: React.FC = () => {
                 customFromDate: '',
                 customToDate: '',
                 customerId: 'all',
-                paymentMethod: 'all',
-                status: 'all'
+                paymentMethod: 'all'
               })
               setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
             }}
