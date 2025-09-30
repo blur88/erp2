@@ -182,7 +182,7 @@ const PaymentsPage: React.FC = () => {
   const [filters, setFilters] = useState<PaymentFilters>({
     search: '',
     sortBy: 'paymentNumber',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
@@ -714,7 +714,7 @@ const PaymentsPage: React.FC = () => {
               setFilters({
                 search: '',
                 sortBy: 'paymentNumber',
-                sortOrder: 'desc',
+                sortOrder: 'asc',
                 dateFilter: 'all',
                 customFromDate: '',
                 customToDate: '',
