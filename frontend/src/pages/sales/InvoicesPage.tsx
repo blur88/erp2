@@ -917,7 +917,28 @@ const InvoicesPage: React.FC = () => {
                               Payment No
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              -
+                              {(selectedInvoice as any).payments && (selectedInvoice as any).payments.length > 0 ? (
+                                (selectedInvoice as any).payments.map((payment: any, index: number) => (
+                                  <Box key={payment.id} component="span">
+                                    <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                      {payment.paymentNumber}
+                                    </Typography>
+                                    {index < (selectedInvoice as any).payments.length - 1 && (
+                                      <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                        ,
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                ))
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: '0.8rem',
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  No payments
+                                </Typography>
+                              )}
                             </TableCell>
                           </TableRow>
                         </TableBody>
