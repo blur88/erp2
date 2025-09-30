@@ -255,27 +255,27 @@ export const salesApi = {
 
   // Payments
   async getPayments(params?: QueryParams & { customerId?: string; invoiceId?: string }) {
-    return ApiService.get<PaginatedResponse<Payment>>('/sales/payments', { params })
+    return ApiService.get<PaginatedResponse<Payment>>('payments', { params })
   },
 
   async getPayment(id: string) {
-    return ApiService.get<Payment>(`/sales/payments/${id}`)
+    return ApiService.get<Payment>(`payments/${id}`)
   },
 
   async recordPayment(paymentData: Partial<Payment>) {
-    return ApiService.post<Payment>('/sales/payments', paymentData)
+    return ApiService.post<Payment>('payments', paymentData)
   },
 
   async updatePayment(id: string, paymentData: Partial<Payment>) {
-    return ApiService.put<Payment>(`/sales/payments/${id}`, paymentData)
+    return ApiService.put<Payment>(`payments/${id}`, paymentData)
   },
 
   async deletePayment(id: string) {
-    return ApiService.delete(`/sales/payments/${id}`)
+    return ApiService.delete(`payments/${id}`)
   },
 
   async voidPayment(id: string, reason?: string) {
-    return ApiService.post<Payment>(`/sales/payments/${id}/void`, { reason })
+    return ApiService.post<Payment>(`payments/${id}/void`, { reason })
   },
 
   // Quotations/Estimates

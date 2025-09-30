@@ -1219,6 +1219,53 @@ export class SalesOrderService {
     order.paidAmount = Number(amount);
     const savedOrder = await this.salesOrderRepository.save(order);
 
+    // Automatically generate payment record
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
+      const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
+      const PaymentType = (await import('../../../database/entities/payment.entity')).PaymentType;
+
+      // Get or create a user repository import
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Generate payment number
+      const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
+      let maxNumber = 0;
+      for (const payment of allPayments) {
+        const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) maxNumber = num;
+        }
+      }
+      const paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
+
+      // Create payment record with sales order details
+      const payment = paymentRepository.create({
+        paymentNumber,
+        type: PaymentType.PAYMENT,
+        status: PaymentStatus.COMPLETED,
+        paymentMethod: PaymentMethod.CASH, // Default method, can be changed later
+        paymentDate: new Date(),
+        amount: Number(amount),
+        customerId: order.customerId,
+        invoiceId: null, // Not linked to invoice, just to sales order
+        recordedByUserId: order.createdByUserId || null,
+        currency: 'USD',
+        exchangeRate: 1.0,
+        processingFee: 0,
+        notes: `Payment recorded for sales order ${order.orderNumber}`,
+        clearedDate: new Date(),
+      });
+
+      await paymentRepository.save(payment);
+      console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-generate payment for order ${order.orderNumber}:`, error.message);
+      // Don't throw error - payment recording on order should still succeed
+    }
+
     return this.mapToResponseDto(savedOrder);
   }
 

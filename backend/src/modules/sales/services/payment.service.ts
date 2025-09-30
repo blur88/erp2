@@ -443,6 +443,16 @@ export class PaymentService {
       isFailed: payment.isFailed,
       isRefund: payment.isRefund,
       effectiveAmount: payment.effectiveAmount,
+      customerName: payment.customer?.name || 'Unknown Customer',
+      customer: payment.customer ? {
+        id: payment.customer.id,
+        name: payment.customer.name,
+        phone: payment.customer.phone,
+      } : undefined,
+      invoice: payment.invoice ? {
+        id: payment.invoice.id,
+        invoiceNumber: payment.invoice.invoiceNumber,
+      } : undefined,
     };
   }
 }

@@ -50,6 +50,7 @@ import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
+import { salesApi } from '@/services/salesApi'
 
 // Payment types and interfaces
 interface Payment {
@@ -113,6 +114,16 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
   const isSelected = selectedPaymentId === payment.id
   const isFocused = index === focusedPaymentIndex
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'success'
+      case 'pending': return 'warning'
+      case 'failed': return 'error'
+      case 'refunded': return 'info'
+      default: return 'default'
+    }
+  }
+
   return (
     <TableRow
       key={payment.id}
@@ -135,16 +146,36 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
       }}
     >
       <TableCell>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-          }}
-        >
+        <Typography variant="body2" fontWeight={600}>
           {payment.paymentNumber}
         </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2">
+          {formatDate(payment.paymentDate)}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2">
+          {payment.customerName}
+        </Typography>
+      </TableCell>
+      <TableCell align="right">
+        <Typography variant="body2" fontWeight={600}>
+          {formatCurrency(payment.amount)}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2">
+          {payment.paymentMethod.replace('_', ' ').toUpperCase()}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Chip
+          label={payment.status.toUpperCase()}
+          color={getStatusColor(payment.status)}
+          size="small"
+        />
       </TableCell>
     </TableRow>
   )
@@ -158,10 +189,11 @@ const PaymentsPage: React.FC = () => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
 
-  const [payments] = useState<Payment[]>([])
-  const [loading] = useState(false)
-  const [error] = useState<string | null>(null)
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [totalPayments, setTotalPayments] = useState(0)
 
   const [state, setState] = useState<PaymentsPageState>({
     page: 0,
@@ -252,73 +284,9 @@ const PaymentsPage: React.FC = () => {
   }, [filters.customFromDate, filters.customToDate])
 
   // Filter and sort payments
-  const filteredPayments = useMemo(() => {
-    let filtered = [...payments]
-
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filtered = filtered.filter(payment =>
-        payment.paymentNumber.toLowerCase().includes(searchLower) ||
-        payment.customerName.toLowerCase().includes(searchLower) ||
-        (payment.reference && payment.reference.toLowerCase().includes(searchLower)) ||
-        (payment.relatedOrderNumber && payment.relatedOrderNumber.toLowerCase().includes(searchLower)) ||
-        (payment.relatedInvoiceNumber && payment.relatedInvoiceNumber.toLowerCase().includes(searchLower))
-      )
-    }
-
-    // Date filter
-    if (filters.dateFilter !== 'all') {
-      const dateRange = getDateRange(filters.dateFilter)
-      if (dateRange.fromDate || dateRange.toDate) {
-        filtered = filtered.filter(payment => {
-          if (!payment.paymentDate) return false
-
-          const paymentDate = new Date(payment.paymentDate).toISOString().split('T')[0]
-
-          if (dateRange.fromDate && paymentDate < dateRange.fromDate) return false
-          if (dateRange.toDate && paymentDate > dateRange.toDate) return false
-
-          return true
-        })
-      }
-    }
-
-    // Payment method filter
-    if (filters.paymentMethod !== 'all') {
-      filtered = filtered.filter(payment => payment.paymentMethod === filters.paymentMethod)
-    }
-
-    // Status filter
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(payment => payment.status === filters.status)
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue: any = a[filters.sortBy as keyof Payment]
-      let bValue: any = b[filters.sortBy as keyof Payment]
-
-      if (filters.sortBy === 'paymentDate') {
-        aValue = new Date(aValue || 0).getTime()
-        bValue = new Date(bValue || 0).getTime()
-      }
-
-      if (filters.sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-
-    return filtered
-  }, [payments, filters, getDateRange])
-
-  // Pagination
-  const paginatedPayments = useMemo(() => {
-    const startIndex = state.page * state.rowsPerPage
-    return filteredPayments.slice(startIndex, startIndex + state.rowsPerPage)
-  }, [filteredPayments, state.page, state.rowsPerPage])
+  // Since backend handles filtering, sorting, and pagination, use payments directly
+  const filteredPayments = payments
+  const paginatedPayments = payments
 
   const handleSort = useCallback((field: string) => {
     const newSortOrder = filters.sortBy === field && filters.sortOrder === 'desc' ? 'asc' : 'desc'
@@ -335,6 +303,43 @@ const PaymentsPage: React.FC = () => {
     const paymentIndex = paginatedPayments.findIndex((p: Payment) => p.id === payment.id)
     setFocusedPaymentIndex(paymentIndex)
   }, [paginatedPayments])
+
+  // Load payments from API
+  const loadPayments = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const dateRange = getDateRange(filters.dateFilter)
+      const response = await salesApi.getPayments({
+        page: state.page + 1,
+        limit: state.rowsPerPage,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
+        search: filters.search,
+        customerId: filters.customerId === 'all' ? undefined : filters.customerId,
+        fromDate: dateRange.fromDate,
+        toDate: dateRange.toDate,
+      })
+
+      // Backend returns { data: Payment[], total, page, limit, totalPages }
+      const paymentsData = (response as any)
+      if (paymentsData) {
+        setPayments(paymentsData.data || [])
+        setTotalPayments(paymentsData.total || 0)
+      }
+    } catch (err: any) {
+      console.error('Failed to load payments:', err)
+      setError(err.message || 'Failed to load payments')
+      showError('Failed to load payments')
+    } finally {
+      setLoading(false)
+    }
+  }, [state.page, state.rowsPerPage, filters, getDateRange, showError])
+
+  // Load payments on mount and when filters change
+  useEffect(() => {
+    loadPayments()
+  }, [loadPayments])
 
   const handleOrderClick = useCallback((orderId: string, event: React.MouseEvent) => {
     event.stopPropagation()
@@ -520,7 +525,7 @@ const PaymentsPage: React.FC = () => {
             Payments
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Manage customer payments and track financial transactions ({filteredPayments.length} total)
+            Manage customer payments and track financial transactions ({totalPayments} total)
           </Typography>
         </Box>
         <Box sx={{
@@ -849,7 +854,7 @@ const PaymentsPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                Payment List ({filteredPayments.length})
+                Payment List ({totalPayments})
               </Typography>
             </Box>
 
@@ -872,15 +877,24 @@ const PaymentsPage: React.FC = () => {
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
+                      <TableCell>Payment #</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Customer</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                      <TableCell>Method</TableCell>
+                      <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading && paginatedPayments.length === 0 ? (
                       [...Array(10)].map((_, i) => (
                         <TableRow key={`skeleton-${i}`}>
-                          <TableCell>
-                            <Skeleton height={40} />
-                          </TableCell>
+                          <TableCell><Skeleton height={40} /></TableCell>
+                          <TableCell><Skeleton height={40} /></TableCell>
+                          <TableCell><Skeleton height={40} /></TableCell>
+                          <TableCell><Skeleton height={40} /></TableCell>
+                          <TableCell><Skeleton height={40} /></TableCell>
+                          <TableCell><Skeleton height={40} /></TableCell>
                         </TableRow>
                       ))
                     ) : (
@@ -901,7 +915,7 @@ const PaymentsPage: React.FC = () => {
 
               <TablePagination
                 component="div"
-                count={filteredPayments.length}
+                count={totalPayments}
                 page={state.page}
                 onPageChange={(_: unknown, newPage: number) => setState((prev: PaymentsPageState) => ({ ...prev, page: newPage }))}
                 rowsPerPage={state.rowsPerPage}

@@ -418,6 +418,23 @@ export class PaymentResponseDto {
 
   @ApiProperty({ example: 1500.50 })
   effectiveAmount: number;
+
+  // Relationship data
+  @ApiProperty({ example: 'John Doe' })
+  customerName: string;
+
+  @ApiProperty({ type: () => Object, nullable: true })
+  customer?: {
+    id: string;
+    name: string;
+    phone?: string;
+  };
+
+  @ApiProperty({ type: () => Object, nullable: true })
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+  };
 }
 
 export class ProcessPaymentDto {
