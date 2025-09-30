@@ -1283,6 +1283,30 @@ export class SalesOrderService {
       throw new ConflictException('Cannot unpay fulfilled order - order has already been fulfilled');
     }
 
+    // Delete associated payment record(s) from database
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Find and delete all payments associated with this sales order
+      // Match by notes field which contains "sales order {orderNumber}"
+      const associatedPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`)
+        }
+      });
+
+      if (associatedPayments.length > 0) {
+        // Hard delete the payment records from database
+        await paymentRepository.delete(associatedPayments.map(p => p.id));
+        console.log(`✅ Deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to delete payment records for order ${order.orderNumber}:`, error.message);
+      // Don't throw error - unpay should still succeed even if payment deletion fails
+    }
+
     order.paidAmount = 0;
     const savedOrder = await this.salesOrderRepository.save(order);
 
