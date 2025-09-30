@@ -150,33 +150,6 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
           {payment.paymentNumber}
         </Typography>
       </TableCell>
-      <TableCell>
-        <Typography variant="body2">
-          {formatDate(payment.paymentDate)}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2">
-          {payment.customerName}
-        </Typography>
-      </TableCell>
-      <TableCell align="right">
-        <Typography variant="body2" fontWeight={600}>
-          {formatCurrency(payment.amount)}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography variant="body2">
-          {payment.paymentMethod.replace('_', ' ').toUpperCase()}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Chip
-          label={payment.status.toUpperCase()}
-          color={getStatusColor(payment.status)}
-          size="small"
-        />
-      </TableCell>
     </TableRow>
   )
 })
@@ -878,22 +851,12 @@ const PaymentsPage: React.FC = () => {
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
                       <TableCell>Payment #</TableCell>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Customer</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                      <TableCell>Method</TableCell>
-                      <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading && paginatedPayments.length === 0 ? (
                       [...Array(10)].map((_, i) => (
                         <TableRow key={`skeleton-${i}`}>
-                          <TableCell><Skeleton height={40} /></TableCell>
-                          <TableCell><Skeleton height={40} /></TableCell>
-                          <TableCell><Skeleton height={40} /></TableCell>
-                          <TableCell><Skeleton height={40} /></TableCell>
-                          <TableCell><Skeleton height={40} /></TableCell>
                           <TableCell><Skeleton height={40} /></TableCell>
                         </TableRow>
                       ))
