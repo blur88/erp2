@@ -912,6 +912,14 @@ const InvoicesPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Payment No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              -
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
