@@ -173,7 +173,7 @@ export class InvoiceService {
 
     const findOptions: FindManyOptions<Invoice> = {
       where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
-      relations: ['customer', 'salesOrder'],
+      relations: ['customer', 'salesOrder', 'payments'],
       order: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
       take: limit,

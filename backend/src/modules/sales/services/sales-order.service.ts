@@ -549,14 +549,35 @@ export class SalesOrderService {
   async findById(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices'],
+      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices', 'invoices.payments'],
     });
 
     if (!order) {
       throw new NotFoundException('Sales order not found');
     }
 
-    return this.mapToResponseDto(order);
+    // Also fetch payments directly associated with this order (not through invoice)
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const ILike = (await import('typeorm')).ILike;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      const directPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`),
+          invoiceId: null as any, // Payments not linked to invoice
+        }
+      });
+
+      const dto = this.mapToResponseDto(order);
+      // Add direct payments to the response
+      (dto as any).directPayments = directPayments;
+      return dto;
+    } catch (error) {
+      console.error('Failed to fetch direct payments:', error);
+      return this.mapToResponseDto(order);
+    }
   }
 
   async findByOrderNumber(orderNumber: string): Promise<SalesOrderResponseDto> {
@@ -1225,9 +1246,23 @@ export class SalesOrderService {
       const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
       const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
       const PaymentType = (await import('../../../database/entities/payment.entity')).PaymentType;
+      const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
 
       // Get or create a user repository import
       const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+      const invoiceRepository = this.salesOrderRepository.manager.getRepository(Invoice);
+
+      // Find invoice for this sales order if it exists
+      let invoice = await invoiceRepository.findOne({
+        where: { salesOrderId: savedOrder.id }
+      });
+
+      // If invoice exists, update its paid amount
+      if (invoice) {
+        invoice.paidAmount = Number(amount);
+        invoice.updateStatus();
+        await invoiceRepository.save(invoice);
+      }
 
       // Generate payment number
       const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
@@ -1250,23 +1285,23 @@ export class SalesOrderService {
         paymentDate: new Date(),
         amount: Number(amount),
         customerId: order.customerId,
-        invoiceId: null, // Not linked to invoice, just to sales order
+        invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
         recordedByUserId: order.createdByUserId || null,
         currency: 'USD',
         exchangeRate: 1.0,
         processingFee: 0,
-        notes: `Payment recorded for sales order ${order.orderNumber}`,
+        notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
         clearedDate: new Date(),
       });
 
       await paymentRepository.save(payment);
-      console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}`);
+      console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
     } catch (error) {
       console.error(`⚠️ Failed to auto-generate payment for order ${order.orderNumber}:`, error.message);
       // Don't throw error - payment recording on order should still succeed
     }
 
-    return this.mapToResponseDto(savedOrder);
+    return this.findById(savedOrder.id);
   }
 
   async unpayOrder(id: string): Promise<SalesOrderResponseDto> {
@@ -1310,7 +1345,7 @@ export class SalesOrderService {
     order.paidAmount = 0;
     const savedOrder = await this.salesOrderRepository.save(order);
 
-    return this.mapToResponseDto(savedOrder);
+    return this.findById(savedOrder.id);
   }
 
   async fulfillOrder(id: string): Promise<SalesOrderResponseDto> {

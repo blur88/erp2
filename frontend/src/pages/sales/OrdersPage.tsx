@@ -1476,8 +1476,31 @@ const OrdersPage: React.FC = () => {
                               Payment No
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {selectedOrder.invoices && selectedOrder.invoices.length > 0 && selectedOrder.invoices.some((invoice: any) => invoice.payments && invoice.payments.length > 0) ? (
-                                selectedOrder.invoices.flatMap((invoice: any) => invoice.payments || []).map((payment: any, index: number, allPayments: any[]) => (
+                              {(() => {
+                                // Get payments from invoices
+                                const invoicePayments = selectedOrder.invoices && selectedOrder.invoices.length > 0
+                                  ? selectedOrder.invoices.flatMap((invoice: any) => invoice.payments || [])
+                                  : [];
+
+                                // Get direct payments (not linked to invoice)
+                                const directPayments = (selectedOrder as any).directPayments || [];
+
+                                // Combine all payments
+                                const allPayments = [...directPayments, ...invoicePayments];
+
+                                if (allPayments.length === 0) {
+                                  return (
+                                    <Typography sx={{
+                                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                      color: 'text.secondary',
+                                      fontStyle: 'italic'
+                                    }}>
+                                      No payments
+                                    </Typography>
+                                  );
+                                }
+
+                                return allPayments.map((payment: any, index: number) => (
                                   <Box key={payment.id} component="span">
                                     <Typography component="span" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                       {payment.paymentNumber}
@@ -1488,16 +1511,8 @@ const OrdersPage: React.FC = () => {
                                       </Typography>
                                     )}
                                   </Box>
-                                ))
-                              ) : (
-                                <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  color: 'text.secondary',
-                                  fontStyle: 'italic'
-                                }}>
-                                  No payments
-                                </Typography>
-                              )}
+                                ));
+                              })()}
                             </TableCell>
                           </TableRow>
                         </TableBody>
