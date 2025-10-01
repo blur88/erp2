@@ -117,7 +117,7 @@ export class Invoice extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Subtotal amount (before tax and discounts)',
+    comment: 'Subtotal amount (sum of line items)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
@@ -125,65 +125,10 @@ export class Invoice extends BaseEntity {
 
   @Column({
     type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Discount percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  discountPercent: number;
-
-  @Column({
-    type: 'decimal',
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Discount amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  discountAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Tax percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  taxPercent: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Tax amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  taxAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Additional charges (shipping, handling, etc.)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  additionalCharges: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Total invoice amount',
+    comment: 'Total invoice amount (same as subtotal - discounts tracked at line item level)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
@@ -264,17 +209,6 @@ export class Invoice extends BaseEntity {
   @IsOptional()
   @IsString()
   billingAddress?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 30,
-    nullable: true,
-    comment: 'Customer tax ID',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  customerTaxId?: string;
 
   // Reference Information
   @Column({
@@ -391,21 +325,8 @@ export class Invoice extends BaseEntity {
 
   // Helper methods
   calculateTotals(): void {
-    // Calculate discount amount
-    if (this.discountPercent > 0) {
-      this.discountAmount = (Number(this.subtotal) * Number(this.discountPercent)) / 100;
-    }
-
-    // Calculate tax amount (on subtotal after discount)
-    const taxableAmount = Number(this.subtotal) - Number(this.discountAmount);
-    if (this.taxPercent > 0) {
-      this.taxAmount = (taxableAmount * Number(this.taxPercent)) / 100;
-    }
-
-    // Calculate total
-    this.totalAmount = taxableAmount + Number(this.taxAmount) + Number(this.additionalCharges);
-    
-    // Calculate balance due
+    // Simplified: totalAmount is set from subtotal (line items already include discounts)
+    // Just calculate balance due
     this.balanceDue = Number(this.totalAmount) - Number(this.paidAmount);
   }
 
@@ -458,18 +379,12 @@ export class Invoice extends BaseEntity {
       salesOrderId: salesOrder.id,
       customerName: salesOrder.customer?.name,
       customerPoNumber: salesOrder.customerPoNumber,
-      subtotal: totalAmount, // Use totalAmount as subtotal
-      discountPercent: 0, // Default to 0 since SalesOrder doesn't have discount fields
-      discountAmount: 0,
-      taxPercent: 0, // Default to 0 since SalesOrder doesn't have tax fields
-      taxAmount: 0,
-      additionalCharges: 0, // Default to 0 since SalesOrder doesn't have shipping amount
-      totalAmount: totalAmount,
+      subtotal: totalAmount, // Line items already include discounts
+      totalAmount: totalAmount, // Same as subtotal
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
       billingAddress: salesOrder.customer?.name || '',
-      customerTaxId: '',
       paymentTermsDays: 30,
     };
   }

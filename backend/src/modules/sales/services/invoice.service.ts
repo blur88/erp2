@@ -83,15 +83,9 @@ export class InvoiceService {
       }
     }
 
-    // Calculate totals
+    // Calculate totals (simplified - line items already include discounts)
     const subtotal = createInvoiceDto.subtotal;
-    const discountPercent = invoiceData.discountPercent || 0;
-    const discountAmount = (subtotal * discountPercent) / 100;
-    const taxPercent = invoiceData.taxPercent || 0;
-    const taxableAmount = subtotal - discountAmount;
-    const taxAmount = (taxableAmount * taxPercent) / 100;
-    const additionalCharges = invoiceData.additionalCharges || 0;
-    const totalAmount = taxableAmount + taxAmount + additionalCharges;
+    const totalAmount = subtotal; // Same as subtotal
 
     // Generate sequential invoice number
     const invoiceNumber = await this.generateSequentialInvoiceNumber();
@@ -104,16 +98,10 @@ export class InvoiceService {
       salesOrderId,
       customerName: customer.name,
       billingAddress: customer.fullAddress,
-      customerTaxId: customer.taxId,
       invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
       dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
       paymentTermsDays: invoiceData.paymentTermsDays || customer.paymentTermsDays || 30,
       subtotal,
-      discountPercent,
-      discountAmount,
-      taxPercent,
-      taxAmount,
-      additionalCharges,
       totalAmount,
       balanceDue: totalAmount,
       lineItems,
@@ -405,17 +393,11 @@ export class InvoiceService {
 
     Object.assign(invoice, updateInvoiceDto);
 
-    // Recalculate totals if financial data changed
-    if (updateInvoiceDto.discountPercent !== undefined || 
-        updateInvoiceDto.taxPercent !== undefined || 
-        updateInvoiceDto.additionalCharges !== undefined ||
-        updateInvoiceDto.lineItems !== undefined) {
-      
-      if (updateInvoiceDto.lineItems) {
-        const subtotal = updateInvoiceDto.lineItems.reduce((sum, item) => sum + item.totalAmount, 0);
-        invoice.subtotal = subtotal;
-      }
-      
+    // Recalculate totals if line items changed
+    if (updateInvoiceDto.lineItems !== undefined) {
+      const subtotal = updateInvoiceDto.lineItems.reduce((sum, item) => sum + item.totalAmount, 0);
+      invoice.subtotal = subtotal;
+      invoice.totalAmount = subtotal;
       invoice.calculateTotals();
     }
 
@@ -631,9 +613,6 @@ export class InvoiceService {
       salesOrderId: originalInvoice.salesOrderId,
       type: originalInvoice.type,
       subtotal: Number(originalInvoice.subtotal),
-      discountPercent: Number(originalInvoice.discountPercent),
-      taxPercent: Number(originalInvoice.taxPercent),
-      additionalCharges: Number(originalInvoice.additionalCharges),
       paymentTermsDays: originalInvoice.paymentTermsDays,
       paymentTerms: originalInvoice.paymentTerms,
       notes: originalInvoice.notes,
@@ -852,11 +831,6 @@ export class InvoiceService {
       sentDate: invoice.sentDate,
       paidDate: invoice.paidDate,
       subtotal: Number(invoice.subtotal),
-      discountPercent: Number(invoice.discountPercent),
-      discountAmount: Number(invoice.discountAmount),
-      taxPercent: Number(invoice.taxPercent),
-      taxAmount: Number(invoice.taxAmount),
-      additionalCharges: Number(invoice.additionalCharges),
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
       balanceDue: Number(invoice.balanceDue),
@@ -866,7 +840,6 @@ export class InvoiceService {
       internalNotes: invoice.internalNotes,
       customerName: invoice.customerName,
       billingAddress: invoice.billingAddress,
-      customerTaxId: invoice.customerTaxId,
       customerPoNumber: invoice.customerPoNumber,
       lineItems: invoice.lineItems,
       customerId: invoice.customerId,
