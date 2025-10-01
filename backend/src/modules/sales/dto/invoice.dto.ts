@@ -166,7 +166,7 @@ export class UpdateInvoiceDto {
   @ApiPropertyOptional({
     description: 'Invoice status',
     enum: InvoiceStatus,
-    example: InvoiceStatus.SENT,
+    example: InvoiceStatus.DRAFT,
   })
   @IsOptional()
   @IsEnum(InvoiceStatus)
@@ -261,7 +261,7 @@ export class QueryInvoicesDto {
   @ApiPropertyOptional({
     description: 'Filter by invoice status',
     enum: InvoiceStatus,
-    example: InvoiceStatus.SENT,
+    example: InvoiceStatus.DRAFT,
   })
   @IsOptional()
   @IsEnum(InvoiceStatus)
@@ -358,7 +358,7 @@ export class InvoiceResponseDto {
   @ApiProperty({ enum: InvoiceType, example: InvoiceType.STANDARD })
   type: InvoiceType;
 
-  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.SENT })
+  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
 
   @ApiProperty({ example: '2024-01-01' })
@@ -468,7 +468,7 @@ export class InvoiceSummaryDto {
   @ApiProperty({ example: 'INV-2024-001' })
   invoiceNumber: string;
 
-  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.SENT })
+  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
 
   @ApiProperty({ example: '2024-01-01' })

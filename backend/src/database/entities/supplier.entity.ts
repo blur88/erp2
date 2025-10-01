@@ -269,28 +269,6 @@ export class Supplier extends BaseEntity {
   @MaxLength(10)
   currency: string;
 
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Credit limit with this supplier',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  creditLimit: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Current outstanding balance to supplier',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  currentBalance: number;
-
   // Supplier Metrics
   @Column({
     type: 'decimal',
@@ -424,14 +402,6 @@ export class Supplier extends BaseEntity {
     return parts.join(', ');
   }
 
-  get availableCredit(): number {
-    return Number(this.creditLimit) - Number(this.currentBalance);
-  }
-
-  get isOverCreditLimit(): boolean {
-    return Number(this.currentBalance) > Number(this.creditLimit);
-  }
-
   get averageOrderValue(): number {
     return this.totalOrders > 0 ? Number(this.totalPurchases) / this.totalOrders : 0;
   }
@@ -444,14 +414,6 @@ export class Supplier extends BaseEntity {
   }
 
   // Helper methods
-  updateBalance(amount: number, type: 'increase' | 'decrease'): void {
-    if (type === 'increase') {
-      this.currentBalance = Number(this.currentBalance) + Number(amount);
-    } else {
-      this.currentBalance = Math.max(0, Number(this.currentBalance) - Number(amount));
-    }
-  }
-
   updatePurchaseMetrics(orderAmount: number, isFirstOrder: boolean = false): void {
     this.totalPurchases = Number(this.totalPurchases) + Number(orderAmount);
     this.totalOrders += 1;
@@ -501,11 +463,7 @@ export class Supplier extends BaseEntity {
     }
   }
 
-  canPurchase(amount: number): boolean {
-    if (!this.isActive || this.status === SupplierStatus.SUSPENDED || this.status === SupplierStatus.BLACKLISTED) {
-      return false;
-    }
-    
-    return (Number(this.currentBalance) + Number(amount)) <= Number(this.creditLimit);
+  canPurchase(): boolean {
+    return this.isActive && this.status !== SupplierStatus.SUSPENDED && this.status !== SupplierStatus.BLACKLISTED;
   }
 }

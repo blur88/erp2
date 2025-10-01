@@ -6,7 +6,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2020",
+    "target": "ES2018",
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
@@ -17,6 +17,8 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
+    "strict": false,
+    "strictPropertyInitialization": false,
     "paths": {
       "@/*": ["src/*"],
       "@modules/*": ["src/modules/*"],
@@ -27,13 +29,7 @@
   },
   "exclude": [
     "src/modules/plugins/**/*",
-    "src/modules/purchasing/**/*",
     "src/modules/reports/**/*",
-    "src/modules/sales/**/*",
-    "src/database/entities/sales-order.entity.ts",
-    "src/database/entities/sales-order-item.entity.ts",
-    "src/database/entities/invoice.entity.ts",
-    "src/database/entities/payment.entity.ts",
-    "src/database/entities/quotation.entity.ts"
+    "src/modules/purchasing/**/*"
   ]
 }

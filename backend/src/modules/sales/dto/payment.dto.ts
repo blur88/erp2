@@ -46,7 +46,7 @@ export class CreatePaymentDto {
     example: '2023-12-01',
   })
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => new Date(value))
   paymentDate: Date;
 
   @ApiProperty({
@@ -103,7 +103,7 @@ export class CreatePaymentDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   transactionDate?: Date;
 
   @ApiPropertyOptional({
@@ -199,7 +199,7 @@ export class UpdatePaymentDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   clearedDate?: Date;
 
   @ApiPropertyOptional({
@@ -269,7 +269,7 @@ export class QueryPaymentsDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   fromDate?: Date;
 
   @ApiPropertyOptional({
@@ -278,7 +278,7 @@ export class QueryPaymentsDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   toDate?: Date;
 
   @ApiPropertyOptional({

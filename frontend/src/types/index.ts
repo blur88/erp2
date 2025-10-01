@@ -165,10 +165,6 @@ export interface Customer {
   // Business Information
   isActive: boolean;
   priceLevel: PriceLevel;
-  // Credit Management
-  creditLimit: number;
-  currentBalance: number;
-  paymentTermsDays: number;
   // Customer Metrics
   totalSales: number;
   totalOrders: number;
@@ -182,8 +178,6 @@ export interface Customer {
   // Computed properties
   fullAddress: string;
   fullShippingAddress: string;
-  availableCredit: number;
-  isOverCreditLimit: boolean;
   averageOrderValue: number;
 }
 

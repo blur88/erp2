@@ -6,12 +6,11 @@ import {
   IsInt,
   Min,
   IsString,
+  IsBoolean,
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { CustomerStatus } from '../../../database/entities/customer.entity';
 import { SalesOrderStatus } from '../../../database/entities/sales-order.entity';
-import { InvoiceStatus } from '../../../database/entities/invoice.entity';
 
 export enum DateRange {
   TODAY = 'today',
@@ -34,6 +33,14 @@ export enum MetricType {
   CONVERSION_RATE = 'conversion_rate',
 }
 
+export enum GroupByPeriod {
+  DAY = 'day',
+  WEEK = 'week',
+  MONTH = 'month',
+  QUARTER = 'quarter',
+  YEAR = 'year',
+}
+
 export class SalesAnalyticsQueryDto {
   @ApiPropertyOptional({
     description: 'Date range for analytics',
@@ -50,7 +57,7 @@ export class SalesAnalyticsQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   startDate?: Date;
 
   @ApiPropertyOptional({
@@ -59,7 +66,7 @@ export class SalesAnalyticsQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   endDate?: Date;
 
   @ApiPropertyOptional({
@@ -71,15 +78,6 @@ export class SalesAnalyticsQueryDto {
   customerId?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by customer status',
-    enum: CustomerStatus,
-    example: CustomerStatus.ACTIVE,
-  })
-  @IsOptional()
-  @IsEnum(CustomerStatus)
-  customerStatus?: CustomerStatus;
-
-  @ApiPropertyOptional({
     description: 'Filter by sales rep user ID',
     example: 'uuid-string',
   })
@@ -89,130 +87,130 @@ export class SalesAnalyticsQueryDto {
 
   @ApiPropertyOptional({
     description: 'Group results by period',
-    enum: ['day', 'week', 'month', 'quarter', 'year'],
-    example: 'month',
+    enum: GroupByPeriod,
+    example: GroupByPeriod.MONTH,
   })
   @IsOptional()
-  @IsEnum(['day', 'week', 'month', 'quarter', 'year'])
-  groupBy?: string;
+  @IsEnum(GroupByPeriod)
+  groupBy?: GroupByPeriod;
 }
 
 export class SalesMetricsDto {
-  @ApiProperty({ example: 125000.50 })
-  totalRevenue: number;
+  @ApiProperty({ example: 125000.50, description: 'Total revenue' })
+  totalRevenue!: number;
 
-  @ApiProperty({ example: 250 })
-  totalOrders: number;
+  @ApiProperty({ example: 250, description: 'Total orders' })
+  totalOrders!: number;
 
-  @ApiProperty({ example: 45 })
-  newCustomers: number;
+  @ApiProperty({ example: 45, description: 'New customers' })
+  newCustomers!: number;
 
-  @ApiProperty({ example: 500.00 })
-  averageOrderValue: number;
+  @ApiProperty({ example: 500.00, description: 'Average order value' })
+  averageOrderValue!: number;
 
-  @ApiProperty({ example: 15.2 })
-  conversionRate: number;
+  @ApiProperty({ example: 15.2, description: 'Conversion rate' })
+  conversionRate!: number;
 
-  @ApiProperty({ example: 95000.75 })
-  paidInvoicesAmount: number;
+  @ApiProperty({ example: 95000.75, description: 'Paid invoices amount' })
+  paidInvoicesAmount!: number;
 
-  @ApiProperty({ example: 30000.25 })
-  pendingInvoicesAmount: number;
+  @ApiProperty({ example: 30000.25, description: 'Pending invoices amount' })
+  pendingInvoicesAmount!: number;
 
-  @ApiProperty({ example: 5000.00 })
-  overdueInvoicesAmount: number;
+  @ApiProperty({ example: 5000.00, description: 'Overdue invoices amount' })
+  overdueInvoicesAmount!: number;
 
-  @ApiProperty({ example: 180 })
-  completedOrders: number;
+  @ApiProperty({ example: 180, description: 'Completed orders' })
+  completedOrders!: number;
 
-  @ApiProperty({ example: 45 })
-  pendingOrders: number;
+  @ApiProperty({ example: 45, description: 'Pending orders' })
+  pendingOrders!: number;
 
-  @ApiProperty({ example: 25 })
-  shippedOrders: number;
+  @ApiProperty({ example: 25, description: 'Shipped orders' })
+  shippedOrders!: number;
 }
 
 export class PeriodMetricDto {
-  @ApiProperty({ example: '2023-12' })
-  period: string;
+  @ApiProperty({ example: '2023-12', description: 'Period' })
+  period!: string;
 
-  @ApiProperty({ example: 25000.50 })
-  revenue: number;
+  @ApiProperty({ example: 25000.50, description: 'Revenue' })
+  revenue!: number;
 
-  @ApiProperty({ example: 50 })
-  orders: number;
+  @ApiProperty({ example: 50, description: 'Orders' })
+  orders!: number;
 
-  @ApiProperty({ example: 10 })
-  newCustomers: number;
+  @ApiProperty({ example: 10, description: 'New customers' })
+  newCustomers!: number;
 
-  @ApiProperty({ example: 500.00 })
-  averageOrderValue: number;
+  @ApiProperty({ example: 500.00, description: 'Average order value' })
+  averageOrderValue!: number;
 }
 
 export class TopCustomerDto {
-  @ApiProperty({ example: 'uuid-string' })
-  customerId: string;
+  @ApiProperty({ example: 'uuid-string', description: 'Customer ID' })
+  customerId!: string;
 
-  @ApiProperty({ example: 'Acme Corporation' })
-  customerName: string;
+  @ApiProperty({ example: 'Acme Corporation', description: 'Customer name' })
+  customerName!: string;
 
-  @ApiProperty({ example: 'john@acme.com' })
-  customerEmail: string;
+  @ApiProperty({ example: 'john@acme.com', description: 'Customer email' })
+  customerEmail!: string;
 
-  @ApiProperty({ example: 15000.50 })
-  totalRevenue: number;
+  @ApiProperty({ example: 15000.50, description: 'Total revenue' })
+  totalRevenue!: number;
 
-  @ApiProperty({ example: 25 })
-  totalOrders: number;
+  @ApiProperty({ example: 25, description: 'Total orders' })
+  totalOrders!: number;
 
-  @ApiProperty({ example: 600.02 })
-  averageOrderValue: number;
+  @ApiProperty({ example: 600.02, description: 'Average order value' })
+  averageOrderValue!: number;
 
-  @ApiProperty({ example: '2023-11-15T00:00:00Z' })
-  lastOrderDate: Date;
+  @ApiProperty({ example: '2023-11-15T00:00:00Z', description: 'Last order date' })
+  lastOrderDate!: Date;
 }
 
 export class TopProductDto {
-  @ApiProperty({ example: 'uuid-string' })
-  productId: string;
+  @ApiProperty({ example: 'uuid-string', description: 'Product ID' })
+  productId!: string;
 
-  @ApiProperty({ example: 'PROD-001' })
-  productSku: string;
+  @ApiProperty({ example: 'PROD-001', description: 'Product SKU' })
+  productSku!: string;
 
-  @ApiProperty({ example: 'Premium Widget' })
-  productName: string;
+  @ApiProperty({ example: 'Premium Widget', description: 'Product name' })
+  productName!: string;
 
-  @ApiProperty({ example: 150 })
-  quantitySold: number;
+  @ApiProperty({ example: 150, description: 'Quantity sold' })
+  quantitySold!: number;
 
-  @ApiProperty({ example: 7500.00 })
-  totalRevenue: number;
+  @ApiProperty({ example: 7500.00, description: 'Total revenue' })
+  totalRevenue!: number;
 
-  @ApiProperty({ example: 50.00 })
-  averagePrice: number;
+  @ApiProperty({ example: 50.00, description: 'Average price' })
+  averagePrice!: number;
 
-  @ApiProperty({ example: 25 })
-  orderCount: number;
+  @ApiProperty({ example: 25, description: 'Order count' })
+  orderCount!: number;
 }
 
 export class SalesAnalyticsResponseDto {
-  @ApiProperty({ type: SalesMetricsDto })
-  metrics: SalesMetricsDto;
+  @ApiProperty({ type: SalesMetricsDto, description: 'Sales metrics' })
+  metrics!: SalesMetricsDto;
 
-  @ApiProperty({ type: [PeriodMetricDto] })
-  periodData: PeriodMetricDto[];
+  @ApiProperty({ type: [PeriodMetricDto], description: 'Period data' })
+  periodData!: PeriodMetricDto[];
 
-  @ApiProperty({ type: [TopCustomerDto] })
-  topCustomers: TopCustomerDto[];
+  @ApiProperty({ type: [TopCustomerDto], description: 'Top customers' })
+  topCustomers!: TopCustomerDto[];
 
-  @ApiProperty({ type: [TopProductDto] })
-  topProducts: TopProductDto[];
+  @ApiProperty({ type: [TopProductDto], description: 'Top products' })
+  topProducts!: TopProductDto[];
 
-  @ApiProperty({ example: '2023-01-01T00:00:00Z' })
-  periodStart: Date;
+  @ApiProperty({ example: '2023-01-01T00:00:00Z', description: 'Period start' })
+  periodStart!: Date;
 
-  @ApiProperty({ example: '2023-12-31T23:59:59Z' })
-  periodEnd: Date;
+  @ApiProperty({ example: '2023-12-31T23:59:59Z', description: 'Period end' })
+  periodEnd!: Date;
 }
 
 export class SalesPipelineQueryDto {
@@ -247,7 +245,7 @@ export class SalesPipelineQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   startDate?: Date;
 
   @ApiPropertyOptional({
@@ -256,51 +254,51 @@ export class SalesPipelineQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   endDate?: Date;
 }
 
 export class PipelineStageDto {
-  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.PENDING })
-  status: SalesOrderStatus;
+  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.PENDING, description: 'Status' })
+  status!: SalesOrderStatus;
 
-  @ApiProperty({ example: 'Pending' })
-  statusLabel: string;
+  @ApiProperty({ example: 'Pending', description: 'Status label' })
+  statusLabel!: string;
 
-  @ApiProperty({ example: 15 })
-  orderCount: number;
+  @ApiProperty({ example: 15, description: 'Order count' })
+  orderCount!: number;
 
-  @ApiProperty({ example: 75000.50 })
-  totalValue: number;
+  @ApiProperty({ example: 75000.50, description: 'Total value' })
+  totalValue!: number;
 
-  @ApiProperty({ example: 5000.03 })
-  averageValue: number;
+  @ApiProperty({ example: 5000.03, description: 'Average value' })
+  averageValue!: number;
 
-  @ApiProperty({ example: 25.5 })
-  percentage: number;
+  @ApiProperty({ example: 25.5, description: 'Percentage' })
+  percentage!: number;
 }
 
 export class SalesPipelineResponseDto {
-  @ApiProperty({ type: [PipelineStageDto] })
-  stages: PipelineStageDto[];
+  @ApiProperty({ type: [PipelineStageDto], description: 'Pipeline stages' })
+  stages!: PipelineStageDto[];
 
-  @ApiProperty({ example: 100 })
-  totalOrders: number;
+  @ApiProperty({ example: 100, description: 'Total orders' })
+  totalOrders!: number;
 
-  @ApiProperty({ example: 250000.75 })
-  totalValue: number;
+  @ApiProperty({ example: 250000.75, description: 'Total value' })
+  totalValue!: number;
 
-  @ApiProperty({ example: 2500.01 })
-  averageOrderValue: number;
+  @ApiProperty({ example: 2500.01, description: 'Average order value' })
+  averageOrderValue!: number;
 
-  @ApiProperty({ example: 15.2 })
-  conversionRate: number;
+  @ApiProperty({ example: 15.2, description: 'Conversion rate' })
+  conversionRate!: number;
 
-  @ApiProperty({ example: '2023-01-01T00:00:00Z' })
-  periodStart: Date;
+  @ApiProperty({ example: '2023-01-01T00:00:00Z', description: 'Period start' })
+  periodStart!: Date;
 
-  @ApiProperty({ example: '2023-12-31T23:59:59Z' })
-  periodEnd: Date;
+  @ApiProperty({ example: '2023-12-31T23:59:59Z', description: 'Period end' })
+  periodEnd!: Date;
 }
 
 export class CustomerAnalyticsQueryDto {
@@ -327,7 +325,7 @@ export class CustomerAnalyticsQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   startDate?: Date;
 
   @ApiPropertyOptional({
@@ -336,7 +334,7 @@ export class CustomerAnalyticsQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   endDate?: Date;
 
   @ApiPropertyOptional({
@@ -349,41 +347,32 @@ export class CustomerAnalyticsQueryDto {
 }
 
 export class CustomerMetricsDto {
-  @ApiProperty({ example: 'uuid-string' })
-  customerId: string;
+  @ApiProperty({ example: 'uuid-string', description: 'Customer ID' })
+  customerId!: string;
 
-  @ApiProperty({ example: 'Acme Corporation' })
-  customerName: string;
+  @ApiProperty({ example: 'Acme Corporation', description: 'Customer name' })
+  customerName!: string;
 
-  @ApiProperty({ example: 45000.75 })
-  totalRevenue: number;
+  @ApiProperty({ example: 45000.75, description: 'Total revenue' })
+  totalRevenue!: number;
 
-  @ApiProperty({ example: 25 })
-  totalOrders: number;
+  @ApiProperty({ example: 25, description: 'Total orders' })
+  totalOrders!: number;
 
-  @ApiProperty({ example: 1800.03 })
-  averageOrderValue: number;
+  @ApiProperty({ example: 1800.03, description: 'Average order value' })
+  averageOrderValue!: number;
 
-  @ApiProperty({ example: 2500.25 })
-  currentBalance: number;
+  @ApiProperty({ example: '2023-11-15T00:00:00Z', description: 'Last order date' })
+  lastOrderDate!: Date;
 
-  @ApiProperty({ example: 10000.00 })
-  creditLimit: number;
+  @ApiProperty({ example: '2023-01-15T00:00:00Z', description: 'First order date' })
+  firstOrderDate!: Date;
 
-  @ApiProperty({ example: 7499.75 })
-  availableCredit: number;
+  @ApiProperty({ example: 95.5, description: 'Payment score' })
+  paymentScore!: number;
 
-  @ApiProperty({ example: '2023-11-15T00:00:00Z' })
-  lastOrderDate: Date;
-
-  @ApiProperty({ example: '2023-01-15T00:00:00Z' })
-  firstOrderDate: Date;
-
-  @ApiProperty({ example: 95.5 })
-  paymentScore: number;
-
-  @ApiProperty({ example: 15 })
-  daysSinceLastOrder: number;
+  @ApiProperty({ example: 15, description: 'Days since last order' })
+  daysSinceLastOrder!: number;
 }
 
 export class RevenueReportQueryDto {
@@ -402,7 +391,7 @@ export class RevenueReportQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   startDate?: Date;
 
   @ApiPropertyOptional({
@@ -411,17 +400,17 @@ export class RevenueReportQueryDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : value))
   endDate?: Date;
 
   @ApiPropertyOptional({
     description: 'Group by period',
-    enum: ['day', 'week', 'month'],
-    example: 'month',
+    enum: GroupByPeriod,
+    example: GroupByPeriod.MONTH,
   })
   @IsOptional()
-  @IsEnum(['day', 'week', 'month'])
-  groupBy?: string;
+  @IsEnum(GroupByPeriod)
+  groupBy?: GroupByPeriod;
 
   @ApiPropertyOptional({
     description: 'Include comparison with previous period',
@@ -433,47 +422,47 @@ export class RevenueReportQueryDto {
 }
 
 export class RevenueDataDto {
-  @ApiProperty({ example: '2023-01' })
-  period: string;
+  @ApiProperty({ example: '2023-01', description: 'Period' })
+  period!: string;
 
-  @ApiProperty({ example: 25000.50 })
-  revenue: number;
+  @ApiProperty({ example: 25000.50, description: 'Revenue' })
+  revenue!: number;
 
-  @ApiProperty({ example: 50 })
-  orders: number;
+  @ApiProperty({ example: 50, description: 'Orders' })
+  orders!: number;
 
-  @ApiProperty({ example: 500.01 })
-  averageOrderValue: number;
+  @ApiProperty({ example: 500.01, description: 'Average order value' })
+  averageOrderValue!: number;
 
-  @ApiProperty({ example: 22500.45 })
+  @ApiProperty({ example: 22500.45, description: 'Previous period revenue', required: false })
   previousPeriodRevenue?: number;
 
-  @ApiProperty({ example: 11.1 })
+  @ApiProperty({ example: 11.1, description: 'Growth percentage', required: false })
   growthPercentage?: number;
 }
 
 export class RevenueReportResponseDto {
-  @ApiProperty({ type: [RevenueDataDto] })
-  data: RevenueDataDto[];
+  @ApiProperty({ type: [RevenueDataDto], description: 'Revenue data' })
+  data!: RevenueDataDto[];
 
-  @ApiProperty({ example: 300000.75 })
-  totalRevenue: number;
+  @ApiProperty({ example: 300000.75, description: 'Total revenue' })
+  totalRevenue!: number;
 
-  @ApiProperty({ example: 600 })
-  totalOrders: number;
+  @ApiProperty({ example: 600, description: 'Total orders' })
+  totalOrders!: number;
 
-  @ApiProperty({ example: 500.01 })
-  averageOrderValue: number;
+  @ApiProperty({ example: 500.01, description: 'Average order value' })
+  averageOrderValue!: number;
 
-  @ApiProperty({ example: 275000.25 })
-  previousPeriodRevenue: number;
+  @ApiProperty({ example: 275000.25, description: 'Previous period revenue', required: false })
+  previousPeriodRevenue?: number;
 
-  @ApiProperty({ example: 9.1 })
-  growthPercentage: number;
+  @ApiProperty({ example: 9.1, description: 'Growth percentage', required: false })
+  growthPercentage?: number;
 
-  @ApiProperty({ example: '2023-01-01T00:00:00Z' })
-  periodStart: Date;
+  @ApiProperty({ example: '2023-01-01T00:00:00Z', description: 'Period start' })
+  periodStart!: Date;
 
-  @ApiProperty({ example: '2023-12-31T23:59:59Z' })
-  periodEnd: Date;
+  @ApiProperty({ example: '2023-12-31T23:59:59Z', description: 'Period end' })
+  periodEnd!: Date;
 }

@@ -12,24 +12,6 @@ interface CustomerSummary {
   name: string;
   email?: string;
   phone?: string;
-  currentBalance: number;
-  creditLimit: number;
-  availableCredit: number;
-}
-
-interface CreditCheckRequest {
-  customerId: string;
-  amount: number;
-}
-
-interface CreditCheckResponse {
-  approved: boolean;
-  creditLimit: number;
-  currentBalance: number;
-  availableCredit: number;
-  requestedAmount: number;
-  remainingCreditAfterPurchase: number;
-  message?: string;
 }
 
 export const salesApi = {
@@ -61,16 +43,6 @@ export const salesApi = {
   async deleteCustomer(id: string) {
     return ApiService.delete(`customers/${id}`)
   },
-
-  async checkCredit(data: CreditCheckRequest) {
-    return ApiService.post<CreditCheckResponse>('customers/credit-check', data)
-  },
-
-  async updateCreditLimit(id: string, creditLimit: number) {
-    return ApiService.put<Customer>(`customers/${id}/credit-limit`, { creditLimit })
-  },
-
-
 
 
   async getCustomerSalesHistory(id: string, limit?: number) {
@@ -278,19 +250,7 @@ export const salesApi = {
     return ApiService.post<Payment>(`payments/${id}/void`, { reason })
   },
 
-  // Quotations/Estimates
-  async getQuotations(params?: QueryParams & { customerId?: string; status?: string }) {
-    return ApiService.get<PaginatedResponse<any>>('/sales/quotations', { params })
-  },
-
-  async createQuotation(quotationData: any) {
-    return ApiService.post('/sales/quotations', quotationData)
-  },
-
-  async convertQuotationToOrder(id: string) {
-    return ApiService.post<SalesOrder>(`/sales/quotations/${id}/convert`)
-  },
-
+  
   // Reports
   async getSalesReport(params: {
     startDate?: Date

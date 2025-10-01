@@ -97,13 +97,14 @@ export class InvoiceService {
       customerId,
       salesOrderId,
       customerName: customer.name,
-      billingAddress: customer.fullAddress,
+      billingAddress: customer.name,
       invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
       dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
-      paymentTermsDays: invoiceData.paymentTermsDays || customer.paymentTermsDays || 30,
+      paymentTermsDays: invoiceData.paymentTermsDays || 30,
       subtotal,
       totalAmount,
       balanceDue: totalAmount,
+      paidAmount: 0,
       lineItems,
       status: InvoiceStatus.DRAFT,
     });
@@ -222,7 +223,7 @@ export class InvoiceService {
     const [
       totalInvoices,
       draftInvoices,
-      sentInvoices,
+      partialPaidInvoices,
       paidInvoices,
       overdueInvoices,
       thisMonthInvoices,
@@ -230,14 +231,13 @@ export class InvoiceService {
     ] = await Promise.all([
       this.invoiceRepository.count(),
       this.invoiceRepository.count({ where: { status: InvoiceStatus.DRAFT } }),
-      this.invoiceRepository.count({ where: { status: InvoiceStatus.SENT } }),
+      this.invoiceRepository.count({ where: { status: InvoiceStatus.PARTIAL_PAID } }),
       this.invoiceRepository.count({ where: { status: InvoiceStatus.PAID } }),
       this.invoiceRepository
         .createQueryBuilder('invoice')
         .where('invoice.dueDate < :today', { today: new Date() })
-        .andWhere('invoice.status NOT IN (:...paidStatuses)', {
-          paidStatuses: [InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED],
-        })
+        .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
+        .andWhere('invoice.balanceDue > 0')
         .getCount(),
       this.invoiceRepository.count({ where: { invoiceDate: MoreThanOrEqual(thisMonth) } }),
       this.invoiceRepository.count({ where: { invoiceDate: MoreThanOrEqual(thisWeek) } }),
@@ -246,16 +246,13 @@ export class InvoiceService {
     const totalRevenueResult = await this.invoiceRepository
       .createQueryBuilder('invoice')
       .select('COALESCE(SUM(invoice.totalAmount), 0)', 'total')
-      .where('invoice.status != :cancelled', { cancelled: InvoiceStatus.CANCELLED })
       .getRawOne();
 
     const outstandingAmountResult = await this.invoiceRepository
       .createQueryBuilder('invoice')
       .select('COALESCE(SUM(invoice.balanceDue), 0)', 'total')
       .where('invoice.balanceDue > 0')
-      .andWhere('invoice.status NOT IN (:...paidStatuses)', {
-        paidStatuses: [InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED],
-      })
+      .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
       .getRawOne();
 
     const thisMonthRevenueResult = await this.invoiceRepository
@@ -268,7 +265,7 @@ export class InvoiceService {
       invoices: {
         total: totalInvoices,
         draft: draftInvoices,
-        sent: sentInvoices,
+        partialPaid: partialPaidInvoices,
         paid: paidInvoices,
         overdue: overdueInvoices,
         thisMonth: thisMonthInvoices,
@@ -288,9 +285,7 @@ export class InvoiceService {
       .leftJoinAndSelect('invoice.customer', 'customer')
       .where('invoice.dueDate < :today', { today: new Date() })
       .andWhere('invoice.balanceDue > 0')
-      .andWhere('invoice.status NOT IN (:...excludedStatuses)', {
-        excludedStatuses: [InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED],
-      })
+      .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
       .orderBy('invoice.dueDate', 'ASC')
       .getMany();
 
@@ -322,9 +317,7 @@ export class InvoiceService {
     const overdueInvoices = await this.invoiceRepository
       .createQueryBuilder('invoice')
       .where('invoice.balanceDue > 0')
-      .andWhere('invoice.status NOT IN (:...excludedStatuses)', {
-        excludedStatuses: [InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED],
-      })
+      .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
       .getMany();
 
     overdueInvoices.forEach(invoice => {
@@ -387,8 +380,8 @@ export class InvoiceService {
     }
 
     // Check if invoice can be updated
-    if ([InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED].includes(invoice.status)) {
-      throw new ConflictException('Cannot update invoice in current status');
+    if (invoice.status === InvoiceStatus.PAID) {
+      throw new ConflictException('Cannot update invoice that is fully paid');
     }
 
     Object.assign(invoice, updateInvoiceDto);
@@ -411,8 +404,9 @@ export class InvoiceService {
       throw new NotFoundException('Invoice not found');
     }
 
-    if (![InvoiceStatus.DRAFT, InvoiceStatus.SENT].includes(invoice.status)) {
-      throw new ConflictException('Cannot delete invoice in current status');
+    // Can only delete DRAFT invoices (no payments allowed)
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      throw new ConflictException('Can only delete invoices that are in DRAFT status');
     }
 
     // Check if invoice has payments
@@ -421,11 +415,13 @@ export class InvoiceService {
       throw new ConflictException('Cannot delete invoice with payments');
     }
 
-    // Soft delete by setting status to cancelled
-    invoice.status = InvoiceStatus.CANCELLED;
-    invoice.internalNotes = `${invoice.internalNotes || ''}\nDeleted on ${new Date().toISOString()}`;
-    
-    await this.invoiceRepository.save(invoice);
+    // Check if any payment has been recorded
+    if (Number(invoice.paidAmount) > 0) {
+      throw new ConflictException('Cannot delete invoice with recorded payments');
+    }
+
+    // Soft delete using TypeORM
+    await this.invoiceRepository.softDelete(id);
   }
 
   async sendInvoice(id: string, sendInvoiceDto: SendInvoiceDto): Promise<InvoiceResponseDto> {
@@ -438,8 +434,8 @@ export class InvoiceService {
       throw new NotFoundException('Invoice not found');
     }
 
-    if ([InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED].includes(invoice.status)) {
-      throw new ConflictException('Cannot send invoice in current status');
+    if (invoice.status === InvoiceStatus.PAID) {
+      throw new ConflictException('Cannot send invoice that is already paid');
     }
 
     const emailAddresses = sendInvoiceDto.emailAddresses || [];
@@ -538,22 +534,15 @@ export class InvoiceService {
       throw new NotFoundException('Invoice not found');
     }
 
-    if (invoice.status === InvoiceStatus.PAID && Number(invoice.paidAmount) > 0) {
+    // Can only void unpaid invoices
+    if (invoice.status === InvoiceStatus.PAID) {
       throw new ConflictException('Cannot void paid invoice. Create a credit note instead.');
     }
 
-    // Revert customer balance if invoice was sent
-    if ([InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID].includes(invoice.status)) {
-      const customer = invoice.customer;
-      if (customer) {
-        // Note: Customer balance tracking removed - updateBalance method doesn't exist
-        await this.customerRepository.save(customer);
-      }
-    }
-
+    // Mark as voided in internal notes
     invoice.cancel();
     invoice.internalNotes = `${invoice.internalNotes || ''}\nVoided: ${reason}`;
-    
+
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
   }
@@ -579,11 +568,11 @@ export class InvoiceService {
       dueDate: new Date(), // Credit notes are immediate
       customerName: originalInvoice.customerName,
       billingAddress: originalInvoice.billingAddress,
-      customerTaxId: originalInvoice.customerTaxId,
       subtotal: -Math.abs(creditNoteDto.creditAmount), // Negative amount
       totalAmount: -Math.abs(creditNoteDto.creditAmount),
       balanceDue: -Math.abs(creditNoteDto.creditAmount),
-      status: InvoiceStatus.SENT,
+      paidAmount: -Math.abs(creditNoteDto.creditAmount),
+      status: InvoiceStatus.PAID, // Credit notes are immediately applied
       notes: `Credit note for Invoice ${originalInvoice.invoiceNumber}`,
       internalNotes: creditNoteDto.reason,
       lineItems: creditNoteDto.lineItems || [],
@@ -628,7 +617,7 @@ export class InvoiceService {
     
     // This is a placeholder - implement actual PDF generation using a library like PDFKit or Puppeteer
     // For now, return a simple buffer
-    const pdfContent = `Invoice: ${invoice.invoiceNumber}\nCustomer: ${invoice.customerName}\nAmount: $${invoice.totalAmount}`;
+    const pdfContent = `Invoice: ${invoice.invoiceNumber}\nCustomer: ${invoice.customerName}\nAmount: ${invoice.totalAmount}`;
     return Buffer.from(pdfContent, 'utf-8');
   }
 
@@ -776,8 +765,7 @@ export class InvoiceService {
 
   async getRevenueStatistics(fromDate?: string, toDate?: string) {
     let query = this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .where('invoice.status != :cancelled', { cancelled: InvoiceStatus.CANCELLED });
+      .createQueryBuilder('invoice');
 
     if (fromDate) {
       query = query.andWhere('invoice.invoiceDate >= :fromDate', { fromDate: new Date(fromDate) });

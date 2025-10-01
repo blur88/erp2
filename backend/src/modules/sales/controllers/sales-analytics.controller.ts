@@ -23,6 +23,7 @@ import {
   RevenueReportQueryDto,
   RevenueReportResponseDto,
   DateRange,
+  GroupByPeriod,
 } from '../dto/sales-analytics.dto';
 
 @ApiTags('Sales Analytics')
@@ -253,19 +254,19 @@ export class SalesAnalyticsController {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    let groupBy: string;
+    let groupBy: GroupByPeriod;
     switch (period) {
       case 'daily':
-        groupBy = 'day';
+        groupBy = GroupByPeriod.DAY;
         break;
       case 'weekly':
-        groupBy = 'week';
+        groupBy = GroupByPeriod.WEEK;
         break;
       case 'monthly':
-        groupBy = 'month';
+        groupBy = GroupByPeriod.MONTH;
         break;
       default:
-        groupBy = 'day';
+        groupBy = GroupByPeriod.DAY;
     }
 
     const analytics = await this.salesAnalyticsService.getSalesAnalytics({

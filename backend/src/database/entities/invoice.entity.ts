@@ -23,12 +23,8 @@ import { Payment } from './payment.entity';
 
 export enum InvoiceStatus {
   DRAFT = 'draft',
-  SENT = 'sent',
-  PARTIALLY_PAID = 'partially_paid',
+  PARTIAL_PAID = 'partial_paid',
   PAID = 'paid',
-  OVERDUE = 'overdue',
-  CANCELLED = 'cancelled',
-  REFUNDED = 'refunded',
 }
 
 export enum InvoiceType {
@@ -281,7 +277,7 @@ export class Invoice extends BaseEntity {
 
   // Computed properties
   get isOverdue(): boolean {
-    if (this.status === InvoiceStatus.PAID || this.status === InvoiceStatus.CANCELLED) {
+    if (this.status === InvoiceStatus.PAID) {
       return false;
     }
     return new Date() > this.dueDate;
@@ -337,9 +333,9 @@ export class Invoice extends BaseEntity {
         this.paidDate = new Date();
       }
     } else if (this.isPartiallyPaid) {
-      this.status = InvoiceStatus.PARTIALLY_PAID;
-    } else if (this.isOverdue) {
-      this.status = InvoiceStatus.OVERDUE;
+      this.status = InvoiceStatus.PARTIAL_PAID;
+    } else {
+      this.status = InvoiceStatus.DRAFT;
     }
   }
 
@@ -356,16 +352,15 @@ export class Invoice extends BaseEntity {
   }
 
   markAsSent(): void {
-    if (this.status === InvoiceStatus.DRAFT) {
-      this.status = InvoiceStatus.SENT;
+    // Just mark the sent date, status is determined by payment state
+    if (!this.sentDate) {
       this.sentDate = new Date();
     }
   }
 
   cancel(): void {
-    if (this.status !== InvoiceStatus.PAID) {
-      this.status = InvoiceStatus.CANCELLED;
-    }
+    // Mark as cancelled in internal notes, status remains as-is (DRAFT, PARTIAL_PAID, or PAID)
+    this.internalNotes = `${this.internalNotes || ''}\nCancelled on ${new Date().toISOString()}`;
   }
 
   // Static factory method

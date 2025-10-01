@@ -24,10 +24,6 @@ export interface PurchasingModuleConfig {
     purchaseRequisition: number;
     supplierInvoice: number;
   };
-  creditLimits: {
-    defaultSupplierCreditLimit: number;
-    maxCreditLimitOverride: number;
-  };
   approvalThresholds: {
     purchaseOrderApprovalThreshold: number;
     requisitionApprovalThreshold: number;
@@ -50,10 +46,6 @@ export const DEFAULT_PURCHASING_CONFIG: PurchasingModuleConfig = {
     purchaseOrder: 1,
     purchaseRequisition: 1,
     supplierInvoice: 1,
-  },
-  creditLimits: {
-    defaultSupplierCreditLimit: 50000,
-    maxCreditLimitOverride: 500000,
   },
   approvalThresholds: {
     purchaseOrderApprovalThreshold: 10000,

@@ -4,7 +4,7 @@ import { Repository, Between } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
-import { Customer, CustomerStatus } from '../../../database/entities/customer.entity';
+import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import {
@@ -172,9 +172,10 @@ export class SalesAnalyticsService {
 
     // Calculate payment score based on payment history
     const avgPaymentDays = parseFloat(paymentStats.avgPaymentDays) || 30;
+    const standardPaymentTerms = 30; // Default payment terms
     let paymentScore = 100;
-    if (avgPaymentDays > customer.paymentTermsDays) {
-      paymentScore = Math.max(0, 100 - ((avgPaymentDays - customer.paymentTermsDays) * 2));
+    if (avgPaymentDays > standardPaymentTerms) {
+      paymentScore = Math.max(0, 100 - ((avgPaymentDays - standardPaymentTerms) * 2));
     }
 
     return {
@@ -183,9 +184,6 @@ export class SalesAnalyticsService {
       totalRevenue: parseFloat(orderStats.totalRevenue) || 0,
       totalOrders: parseInt(orderStats.totalOrders) || 0,
       averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
-      currentBalance: Number(customer.currentBalance),
-      creditLimit: Number(customer.creditLimit),
-      availableCredit: customer.availableCredit,
       lastOrderDate: orderStats.lastOrderDate || customer.lastPurchaseDate,
       firstOrderDate: orderStats.firstOrderDate || customer.firstPurchaseDate,
       paymentScore,
@@ -216,7 +214,7 @@ export class SalesAnalyticsService {
           startDate: previousStartDate,
           endDate: previousEndDate,
         })
-        .andWhere('invoice.status != :cancelled', { cancelled: InvoiceStatus.CANCELLED })
+        // All invoice statuses are valid (no cancelled status anymore)
         .select([
           'COALESCE(SUM(invoice.paidAmount), 0) as totalRevenue',
           'COUNT(*) as totalOrders',
@@ -347,7 +345,7 @@ export class SalesAnalyticsService {
         ])
         .setParameters({
           paid: InvoiceStatus.PAID,
-          pending: [InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID],
+          pending: [InvoiceStatus.DRAFT, InvoiceStatus.PARTIAL_PAID],
           today: new Date(),
         })
         .getRawOne(),
@@ -532,7 +530,6 @@ export class SalesAnalyticsService {
     const data = await this.invoiceRepository
       .createQueryBuilder('invoice')
       .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .andWhere('invoice.status != :cancelled', { cancelled: InvoiceStatus.CANCELLED })
       .select([
         `DATE_FORMAT(invoice.invoiceDate, '${dateFormat}') as period`,
         'COALESCE(SUM(invoice.paidAmount), 0) as revenue',
