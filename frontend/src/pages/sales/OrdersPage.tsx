@@ -364,6 +364,9 @@ const OrdersPage: React.FC = () => {
     // Close dialog first
     setCreateDialog(false)
 
+    // Show success notification
+    showSuccess(`Order ${order.orderNumber || order.id} created successfully!`)
+
     // Auto-select the newly created order immediately (using the fresh data from API)
     dispatch(setSelectedOrder(order))
 
@@ -377,6 +380,9 @@ const OrdersPage: React.FC = () => {
   const handleOrderUpdated = async (order: SalesOrder) => {
     // Close the dialog first
     setEditDialog(false)
+
+    // Show success notification
+    showSuccess(`Order ${order.orderNumber || order.id} updated successfully!`)
 
     // Update the Redux state immediately with the updated order
     // This automatically updates both the orders list and selected order

@@ -384,8 +384,9 @@ const CreateOrderDialog: React.FC<CreateOrderDialogProps> = ({
         response = await salesApi.createOrder(orderData)
       }
 
-      // API returns the order directly
-      onOrderCreated(response as SalesOrder)
+      // API returns { data: order }, extract the order
+      const order = (response as any).data || response
+      onOrderCreated(order as SalesOrder)
       handleClose()
     } catch (err: any) {
       setError(err.response?.data?.message || `Failed to ${editOrder ? 'update' : 'create'} order`)
