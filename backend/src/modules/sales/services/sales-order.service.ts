@@ -720,6 +720,9 @@ export class SalesOrderService {
       await this.salesOrderRepository.update(id, updateData);
     }
 
+    // Automatically update associated invoices if order was modified
+    await this.updateAssociatedInvoices(id);
+
     return this.findById(id);
   }
 
@@ -1266,6 +1269,84 @@ export class SalesOrderService {
     }
 
     return BulkOperationUtil.createResponse('permanently deleted', 'sales order', successCount, failedItems);
+  }
+
+  async updateAssociatedInvoices(salesOrderId: string): Promise<void> {
+    try {
+      // Find the updated sales order with all relations
+      const updatedOrder = await this.salesOrderRepository.findOne({
+        where: { id: salesOrderId },
+        relations: ['customer', 'items', 'items.product']
+      });
+
+      if (!updatedOrder) {
+        console.warn(`Sales order ${salesOrderId} not found for invoice update`);
+        return;
+      }
+
+      // Find all invoices associated with this sales order
+      const invoices = await this.invoiceRepository.find({
+        where: { salesOrderId }
+      });
+
+      if (invoices.length === 0) {
+        console.log(`No invoices found for sales order ${updatedOrder.orderNumber}`);
+        return;
+      }
+
+      // Update each invoice with the latest order data
+      for (const invoice of invoices) {
+        // Update customer information if changed
+        if (updatedOrder.customer) {
+          invoice.customerId = updatedOrder.customerId;
+          invoice.customerName = updatedOrder.customer.name;
+        }
+
+        // Update purchase order number if changed
+        if (updatedOrder.customerPoNumber !== undefined) {
+          invoice.customerPoNumber = updatedOrder.customerPoNumber;
+        }
+
+        // Update billing address with customer's current address
+        if (updatedOrder.customer) {
+          invoice.billingAddress = updatedOrder.customer.name || '';
+        }
+
+        // Update line items to match the order
+        if (updatedOrder.items && updatedOrder.items.length > 0) {
+          invoice.lineItems = updatedOrder.items.map(item => ({
+            productId: item.productId,
+            productName: item.productName || item.product?.name || 'Unknown Product',
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            totalAmount: Number(item.totalAmount),
+          }));
+
+          // Recalculate totals based on new line items
+          const newSubtotal = updatedOrder.items.reduce((sum, item) =>
+            sum + Number(item.totalAmount), 0);
+
+          invoice.subtotal = newSubtotal;
+          invoice.totalAmount = newSubtotal;
+        }
+
+        // Recalculate balance due
+        invoice.calculateTotals();
+
+        // Update invoice status based on payment status
+        invoice.updateStatus();
+
+        // Save the updated invoice
+        await this.invoiceRepository.save(invoice);
+
+        console.log(`✅ Updated invoice ${invoice.invoiceNumber} for sales order ${updatedOrder.orderNumber}`);
+      }
+
+      console.log(`✅ Updated ${invoices.length} invoice(s) for sales order ${updatedOrder.orderNumber}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to update associated invoices for sales order ${salesOrderId}:`, error.message);
+      // Don't throw error - sales order update should still succeed even if invoice update fails
+    }
   }
 
   async recordPayment(id: string, amount: number): Promise<SalesOrderResponseDto> {
