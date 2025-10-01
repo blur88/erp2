@@ -59,12 +59,12 @@ export class TransactionManager {
   ): Promise<void> {
     await this.executeInTransaction(async (manager) => {
       // Update customer metrics first
-      const customer = await manager.findOne('Customer', { where: { id: customerId } });
+      const customer = await manager.findOne(Customer, { where: { id: customerId } });
       if (customer) {
         switch (entityType) {
           case 'sales-order':
-            customer.totalSales = Math.max(0, Number(customer.totalSales || 0) - amount);
-            customer.totalOrders = Math.max(0, (customer.totalOrders || 0) - 1);
+            (customer as any).totalSales = Math.max(0, Number((customer as any).totalSales || 0) - amount);
+            (customer as any).totalOrders = Math.max(0, ((customer as any).totalOrders || 0) - 1);
             break;
           case 'invoice':
             // Update invoice-specific metrics if they exist
@@ -73,7 +73,7 @@ export class TransactionManager {
             // Update payment-specific metrics if they exist
             break;
         }
-        await manager.save('Customer', customer);
+        await manager.save(Customer, customer);
       }
 
       // Execute the deletion operation
@@ -87,7 +87,7 @@ export class TransactionManager {
   async executeBulkFinancialOperation<T>(
     items: Array<{ id: string; customerId?: string; amount?: number }>,
     operationType: string,
-    operation: (manager: EntityManager, items: typeof items) => Promise<T>
+    operation: (manager: EntityManager, items: Array<{ id: string; customerId?: string; amount?: number }>) => Promise<T>
   ): Promise<T> {
     return this.executeInTransaction(async (manager) => {
       return await operation(manager, items);
@@ -184,10 +184,10 @@ export class TransactionManager {
         .andWhere('order.status = :status', { status: 'confirmed' })
         .getRawOne();
 
-      customer.totalSales = parseFloat(orderTotals.totalSales) || 0;
-      customer.totalOrders = parseInt(orderTotals.totalOrders) || 0;
+      (customer as any).totalSales = parseFloat(orderTotals.totalSales) || 0;
+      (customer as any).totalOrders = parseInt(orderTotals.totalOrders) || 0;
 
-      await manager.save('Customer', customer);
+      await manager.save(Customer, customer);
 
       this.logger.log(`Corrected customer totals for ${customerId}: sales=${customer.totalSales}, orders=${customer.totalOrders}`);
     }, `Customer totals correction for ${customerId}`);
