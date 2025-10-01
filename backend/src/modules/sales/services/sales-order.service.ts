@@ -182,12 +182,61 @@ export class SalesOrderService {
 
     // Reserve inventory
     await this.inventoryIntegrationService.reserveStock(
-      items.map(item => ({ 
-        productId: item.productId, 
+      items.map(item => ({
+        productId: item.productId,
         quantity: item.quantity,
         salesOrderId: savedOrder.id,
       }))
     );
+
+    // Automatically generate invoice when order is created
+    try {
+      // Reload order with customer relation to populate customerName for invoice
+      const orderWithCustomer = await this.salesOrderRepository.findOne({
+        where: { id: savedOrder.id },
+        relations: ['customer', 'items']
+      });
+
+      if (!orderWithCustomer) {
+        throw new Error('Order not found after save');
+      }
+
+      if (!orderWithCustomer.customer) {
+        throw new Error('Customer information not found for invoice generation');
+      }
+
+      // Generate invoice number
+      const invoiceNumber = await this.generateInvoiceNumber();
+
+      // Create invoice using the fromSalesOrder factory method
+      const invoiceData = Invoice.fromSalesOrder(orderWithCustomer);
+      const invoice = this.invoiceRepository.create({
+        ...invoiceData,
+        invoiceNumber,
+      });
+
+      // Add line items from order
+      invoice.lineItems = createdItems.map(item => ({
+        productId: item.productId,
+        productName: item.productName || 'Unknown Product',
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        discount: Number(item.discountAmount),
+        totalAmount: Number(item.totalAmount),
+      }));
+
+      // Calculate totals and set correct status
+      invoice.calculateTotals();
+      invoice.updateStatus();
+
+      await this.invoiceRepository.save(invoice);
+
+      console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for new order ${savedOrder.orderNumber}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
+      console.error('Full error:', error); // Add full error logging for debugging
+      // Don't throw error - order creation should still succeed even if invoice creation fails
+    }
 
     return this.findById(savedOrder.id);
   }
@@ -1386,50 +1435,6 @@ export class SalesOrderService {
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
-    // Automatically generate invoice upon fulfillment
-    try {
-      // Check if invoice already exists for this order
-      const existingInvoice = await this.invoiceRepository.findOne({
-        where: { salesOrderId: order.id }
-      });
-
-      if (!existingInvoice) {
-        // Generate invoice number
-        const invoiceNumber = await this.generateInvoiceNumber();
-
-        // Create invoice using the fromSalesOrder factory method
-        const invoiceData = Invoice.fromSalesOrder(savedOrder);
-        const invoice = this.invoiceRepository.create({
-          ...invoiceData,
-          invoiceNumber,
-        });
-
-        // Add line items from order
-        invoice.lineItems = savedOrder.items.map(item => ({
-          productId: item.productId,
-          productName: item.product?.name || 'Unknown Product',
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          discount: Number(item.discountAmount),
-          totalAmount: Number(item.totalAmount),
-        }));
-
-        // Calculate totals and set correct status
-        invoice.calculateTotals();
-        invoice.updateStatus();
-
-        // Debug logging
-        console.log(`💰 Invoice payment info - Total: ${invoice.totalAmount}, Paid: ${invoice.paidAmount}, Balance: ${invoice.balanceDue}, Status: ${invoice.status}`);
-
-        await this.invoiceRepository.save(invoice);
-
-        console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for fulfilled order ${savedOrder.orderNumber}`);
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
-      // Don't throw error - fulfillment should still succeed even if invoice creation fails
-    }
-
     return this.findById(savedOrder.id);
   }
 
@@ -1456,23 +1461,6 @@ export class SalesOrderService {
           `Sales order unfulfillment: ${order.orderNumber}`
         );
       }
-    }
-
-    // Automatically delete associated invoice(s) when unfulfilling
-    try {
-      const associatedInvoices = await this.invoiceRepository.find({
-        where: { salesOrderId: order.id }
-      });
-
-      if (associatedInvoices.length > 0) {
-        // Hard delete the invoices to completely remove them
-        await this.invoiceRepository.delete({ salesOrderId: order.id });
-
-        console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for unfulfilled order ${order.orderNumber}`);
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-delete invoices for order ${order.orderNumber}:`, error.message);
-      // Don't throw error - unfulfillment should still succeed even if invoice deletion fails
     }
 
     // Mark as unfulfilled and revert to confirmed status

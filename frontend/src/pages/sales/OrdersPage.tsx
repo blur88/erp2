@@ -545,7 +545,7 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order fulfilled successfully! Invoice has been automatically generated.')
+        showSuccess('Order fulfilled successfully! Inventory has been deducted.')
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to fulfill order'
