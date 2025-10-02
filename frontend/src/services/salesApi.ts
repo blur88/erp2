@@ -204,6 +204,18 @@ export const salesApi = {
     return ApiService.delete(`invoices/${id}`)
   },
 
+  async getDeletedInvoices(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Invoice>>('invoices/deleted', { params })
+  },
+
+  async restoreInvoice(id: string) {
+    return ApiService.post<Invoice>(`invoices/${id}/restore`)
+  },
+
+  async bulkRestoreInvoices(invoiceIds: string[]) {
+    return ApiService.post('invoices/bulk-restore', { invoiceIds })
+  },
+
   async sendInvoice(id: string, options?: {
     email?: string
     subject?: string

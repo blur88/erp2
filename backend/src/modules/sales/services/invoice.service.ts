@@ -806,6 +806,116 @@ export class InvoiceService {
     };
   }
 
+  async findDeleted(query: QueryInvoicesDto = {}): Promise<any> {
+    const {
+      search,
+      customerId,
+      salesOrderId,
+      sortBy = 'deletedAt',
+      sortOrder = 'DESC',
+      page = 1,
+      limit = 20,
+    } = query;
+
+    let queryBuilder = this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .withDeleted() // Include soft-deleted records
+      .leftJoinAndSelect('invoice.customer', 'customer')
+      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .where('invoice.deletedAt IS NOT NULL'); // Only get soft-deleted invoices
+
+    if (customerId) {
+      queryBuilder = queryBuilder.andWhere('invoice.customerId = :customerId', { customerId });
+    }
+
+    if (salesOrderId) {
+      queryBuilder = queryBuilder.andWhere('invoice.salesOrderId = :salesOrderId', { salesOrderId });
+    }
+
+    if (search) {
+      queryBuilder = queryBuilder.andWhere(
+        '(invoice.invoiceNumber ILIKE :search OR invoice.customerName ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Add sorting
+    queryBuilder = queryBuilder.orderBy(`invoice.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+
+    // Add pagination
+    const offset = (page - 1) * limit;
+    queryBuilder = queryBuilder.skip(offset).take(limit);
+
+    const [invoices, total] = await queryBuilder.getManyAndCount();
+
+    const data = invoices.map(invoice => this.mapToResponseDto(invoice));
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async restore(id: string): Promise<InvoiceResponseDto> {
+    const invoice = await this.invoiceRepository.findOne({
+      where: { id },
+      withDeleted: true, // Include soft-deleted records
+      relations: ['customer', 'salesOrder'],
+    });
+
+    if (!invoice) {
+      throw new NotFoundException(`Invoice with ID ${id} not found`);
+    }
+
+    if (!invoice.deletedAt) {
+      throw new ConflictException('Invoice is not deleted');
+    }
+
+    // Restore the invoice
+    await this.invoiceRepository.restore(id);
+
+    // Return the restored invoice
+    const restoredInvoice = await this.invoiceRepository.findOne({
+      where: { id },
+      relations: ['customer', 'salesOrder'],
+    });
+
+    return this.mapToResponseDto(restoredInvoice);
+  }
+
+  async bulkRestore(invoiceIds: string[]): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    if (!invoiceIds || invoiceIds.length === 0) {
+      return {
+        message: 'No invoices to restore',
+        restoredCount: 0,
+        failedIds: [],
+      };
+    }
+
+    const failedIds = [];
+    let restoredCount = 0;
+
+    for (const id of invoiceIds) {
+      try {
+        await this.restore(id);
+        restoredCount++;
+      } catch (error) {
+        failedIds.push(id);
+      }
+    }
+
+    return {
+      message: `Successfully restored ${restoredCount} of ${invoiceIds.length} invoices`,
+      restoredCount,
+      failedIds,
+    };
+  }
+
   // Helper methods
 
   private mapToResponseDto(invoice: Invoice): InvoiceResponseDto {

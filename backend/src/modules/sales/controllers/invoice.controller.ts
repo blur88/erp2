@@ -75,6 +75,16 @@ export class InvoiceController {
     return this.invoiceService.findAll(query);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted invoices' })
+  @ApiResponse({
+    status: 200,
+    description: 'Soft-deleted invoices retrieved successfully',
+  })
+  async getDeletedInvoices(@Query() query: QueryInvoicesDto) {
+    return this.invoiceService.findDeleted(query);
+  }
+
   @Get('summary')
   @ApiOperation({ summary: 'Get invoices summary list' })
   @ApiResponse({
@@ -360,5 +370,40 @@ export class InvoiceController {
     @Query('toDate') toDate?: string,
   ) {
     return this.invoiceService.getRevenueStatistics(fromDate, toDate);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore soft-deleted invoice' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice restored successfully',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice not found' })
+  @ApiResponse({ status: 409, description: 'Invoice is not deleted' })
+  async restoreInvoice(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
+    return this.invoiceService.restore(id);
+  }
+
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Bulk restore soft-deleted invoices' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoices restored successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  async bulkRestoreInvoices(
+    @Body()
+    body: {
+      invoiceIds: string[];
+    },
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    const result = await this.invoiceService.bulkRestore(body.invoiceIds);
+    return {
+      message: `Successfully restored ${result.restoredCount} of ${body.invoiceIds.length} invoices`,
+      restoredCount: result.restoredCount,
+      failedIds: result.failedIds,
+    };
   }
 }

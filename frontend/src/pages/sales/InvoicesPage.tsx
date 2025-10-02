@@ -51,6 +51,7 @@ import { fetchInvoices, selectInvoicesState } from '@/store/slices/salesSlice'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
 import type { InvoiceItem } from '@/types'
 
 // Adapter types to match the backend API response structure
@@ -183,6 +184,7 @@ const InvoicesPage: React.FC = () => {
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
+  const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const invoiceListRef = useRef<HTMLDivElement>(null)
   const { showSuccess, showError } = useNotification()
@@ -549,6 +551,15 @@ const InvoicesPage: React.FC = () => {
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Invoices" : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => setDeletedInvoicesDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
           </Button>
         </Box>
       </Box>
@@ -1127,6 +1138,12 @@ const InvoicesPage: React.FC = () => {
       <KeyboardShortcutsHelp
         open={keyboardHelpOpen}
         onClose={() => setKeyboardHelpOpen(false)}
+      />
+
+      {/* Deleted Invoices Dialog */}
+      <DeletedInvoicesDialog
+        open={deletedInvoicesDialogOpen}
+        onClose={() => setDeletedInvoicesDialogOpen(false)}
       />
     </Box>
   )
