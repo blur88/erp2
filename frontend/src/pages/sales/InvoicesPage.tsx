@@ -558,6 +558,14 @@ const InvoicesPage: React.FC = () => {
             onClick={() => setDeletedInvoicesDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
+            sx={{
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
+            }}
           >
             {isMobile ? "View Deleted" : "View Deleted"}
           </Button>
