@@ -1202,15 +1202,33 @@ export class SalesOrderService {
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
 
-    // Check for financial dependencies and business rules
-    const invoiceCount = await this.invoiceRepository.count({
-      where: { salesOrderId: id },
-    });
-
     const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
 
+    // Check for invoices with payments - cannot delete if invoices have payments
+    const invoices = await this.invoiceRepository.find({
+      where: { salesOrderId: id },
+      withDeleted: true, // Include soft-deleted invoices
+    });
+
+    // Check if any invoice has payments
+    const hasPayments = invoices.some(invoice => Number(invoice.paidAmount) > 0);
+
     // Use standardized financial entity validation
-    ValidationUtil.validateFinancialEntityDeletion('sales order', invoiceCount > 0, false, isCompleted);
+    ValidationUtil.validateFinancialEntityDeletion('sales order', hasPayments, false, isCompleted);
+
+    // Automatically hard delete associated invoices (if they have no payments)
+    if (invoices.length > 0) {
+      try {
+        // Hard delete all associated invoices
+        await this.invoiceRepository.delete(
+          invoices.map(invoice => invoice.id)
+        );
+        console.log(`✅ Auto-deleted ${invoices.length} invoice(s) for sales order ${order.orderNumber}`);
+      } catch (error) {
+        console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
+        throw new ConflictException('Failed to delete associated invoices. Cannot permanently delete sales order.');
+      }
+    }
 
     // Revert customer metrics if order was confirmed
     if (order.status === SalesOrderStatus.CONFIRMED && order.customer) {
@@ -1262,16 +1280,20 @@ export class SalesOrderService {
           continue;
         }
 
-        // Check for financial dependencies and business rules
-        const invoiceCount = await this.invoiceRepository.count({
+        const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+
+        // Check for invoices with payments - cannot delete if invoices have payments
+        const invoices = await this.invoiceRepository.find({
           where: { salesOrderId: id },
+          withDeleted: true, // Include soft-deleted invoices
         });
 
-        const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+        // Check if any invoice has payments
+        const hasPayments = invoices.some(invoice => Number(invoice.paidAmount) > 0);
 
         // Use standardized financial entity validation
         try {
-          ValidationUtil.validateFinancialEntityDeletion('sales order', invoiceCount > 0, false, isCompleted);
+          ValidationUtil.validateFinancialEntityDeletion('sales order', hasPayments, false, isCompleted);
         } catch (error) {
           BulkOperationUtil.addFailure(
             failedItems,
@@ -1280,6 +1302,25 @@ export class SalesOrderService {
             'BUSINESS_RULE_ERROR'
           );
           continue;
+        }
+
+        // Automatically hard delete associated invoices (if they have no payments)
+        if (invoices.length > 0) {
+          try {
+            // Hard delete all associated invoices
+            await this.invoiceRepository.delete(
+              invoices.map(invoice => invoice.id)
+            );
+            console.log(`✅ Auto-deleted ${invoices.length} invoice(s) for sales order ${order.orderNumber}`);
+          } catch (error) {
+            BulkOperationUtil.addFailure(
+              failedItems,
+              id,
+              `Failed to delete associated invoices: ${error.message}`,
+              'INVOICE_DELETE_ERROR'
+            );
+            continue;
+          }
         }
 
         // Revert customer metrics if order was confirmed
