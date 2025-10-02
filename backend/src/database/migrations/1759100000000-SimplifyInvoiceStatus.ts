@@ -5,11 +5,21 @@ export class SimplifyInvoiceStatus1759100000000 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Simplify invoice status to only: DRAFT, PARTIAL_PAID, PAID
-        // Migration strategy:
-        // - SENT, OVERDUE, CANCELLED, REFUNDED → Convert based on payment status
+        // Migration strategy: Replace enum entirely with new values
 
-        // Step 1: Convert SENT and OVERDUE invoices based on payment status
-        // If unpaid (paidAmount = 0), set to DRAFT
+        // Step 1: Drop default value and convert column to text temporarily
+        await queryRunner.query(`
+            ALTER TABLE "invoices"
+            ALTER COLUMN "status" DROP DEFAULT
+        `);
+
+        await queryRunner.query(`
+            ALTER TABLE "invoices"
+            ALTER COLUMN "status" TYPE text
+        `);
+
+        // Step 2: Convert existing statuses based on payment status
+        // Convert SENT and OVERDUE based on payment
         await queryRunner.query(`
             UPDATE invoices
             SET status = 'draft'
@@ -17,7 +27,6 @@ export class SimplifyInvoiceStatus1759100000000 implements MigrationInterface {
             AND ("paidAmount" IS NULL OR "paidAmount" = 0)
         `);
 
-        // If partially paid, set to PARTIAL_PAID
         await queryRunner.query(`
             UPDATE invoices
             SET status = 'partial_paid'
@@ -26,7 +35,6 @@ export class SimplifyInvoiceStatus1759100000000 implements MigrationInterface {
             AND "paidAmount" < "totalAmount"
         `);
 
-        // If fully paid, set to PAID
         await queryRunner.query(`
             UPDATE invoices
             SET status = 'paid'
@@ -34,7 +42,7 @@ export class SimplifyInvoiceStatus1759100000000 implements MigrationInterface {
             AND "paidAmount" >= "totalAmount"
         `);
 
-        // Step 2: Convert CANCELLED invoices to DRAFT (cancelled state tracked in internalNotes)
+        // Convert CANCELLED to DRAFT
         await queryRunner.query(`
             UPDATE invoices
             SET status = 'draft',
@@ -42,7 +50,7 @@ export class SimplifyInvoiceStatus1759100000000 implements MigrationInterface {
             WHERE status = 'cancelled'
         `);
 
-        // Step 3: Convert REFUNDED invoices to PARTIAL_PAID or DRAFT based on paidAmount
+        // Convert REFUNDED based on payment
         await queryRunner.query(`
             UPDATE invoices
             SET status = CASE
@@ -54,22 +62,26 @@ export class SimplifyInvoiceStatus1759100000000 implements MigrationInterface {
             WHERE status = 'refunded'
         `);
 
-        // Step 4: Update the enum type to only allow DRAFT, PARTIAL_PAID, PAID
-        // First, create new enum type
+        // Step 3: Drop old enum type with CASCADE
+        await queryRunner.query(`DROP TYPE IF EXISTS "invoices_status_enum" CASCADE`);
+
+        // Step 4: Create new enum type with only 3 values
         await queryRunner.query(`
-            CREATE TYPE "invoices_status_enum_new" AS ENUM('draft', 'partial_paid', 'paid')
+            CREATE TYPE "invoices_status_enum" AS ENUM('draft', 'partial_paid', 'paid')
         `);
 
-        // Alter column to use new enum
+        // Step 5: Convert column back to enum
         await queryRunner.query(`
             ALTER TABLE "invoices"
-            ALTER COLUMN "status" TYPE "invoices_status_enum_new"
-            USING "status"::text::"invoices_status_enum_new"
+            ALTER COLUMN "status" TYPE "invoices_status_enum"
+            USING "status"::"invoices_status_enum"
         `);
 
-        // Drop old enum and rename new one
-        await queryRunner.query(`DROP TYPE IF EXISTS "invoices_status_enum"`);
-        await queryRunner.query(`ALTER TYPE "invoices_status_enum_new" RENAME TO "invoices_status_enum"`);
+        // Step 6: Set default value
+        await queryRunner.query(`
+            ALTER TABLE "invoices"
+            ALTER COLUMN "status" SET DEFAULT 'draft'::"invoices_status_enum"
+        `);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

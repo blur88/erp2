@@ -1470,6 +1470,7 @@ export class SalesOrderService {
       // If invoice exists, update its paid amount
       if (invoice) {
         invoice.paidAmount = Number(amount);
+        invoice.calculateTotals();
         invoice.updateStatus();
         await invoiceRepository.save(invoice);
       }
@@ -1550,6 +1551,26 @@ export class SalesOrderService {
     } catch (error) {
       console.error(`⚠️ Failed to delete payment records for order ${order.orderNumber}:`, error.message);
       // Don't throw error - unpay should still succeed even if payment deletion fails
+    }
+
+    // Update invoice if it exists
+    try {
+      const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
+      const invoiceRepository = this.salesOrderRepository.manager.getRepository(Invoice);
+
+      const invoice = await invoiceRepository.findOne({
+        where: { salesOrderId: order.id }
+      });
+
+      if (invoice) {
+        invoice.paidAmount = 0;
+        invoice.calculateTotals();
+        invoice.updateStatus();
+        await invoiceRepository.save(invoice);
+        console.log(`✅ Reset invoice ${invoice.invoiceNumber} paid amount to 0`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to update invoice for order ${order.orderNumber}:`, error.message);
     }
 
     order.paidAmount = 0;
