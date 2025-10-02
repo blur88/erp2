@@ -64,7 +64,7 @@ interface InvoiceListItem {
   totalAmount?: number
   paidAmount: number
   balanceDue?: number
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+  status: 'draft' | 'partial_paid' | 'paid'
   isOverdue?: boolean
   lineItems?: InvoiceItem[]
   notes?: string
@@ -260,7 +260,7 @@ const InvoicesPage: React.FC = () => {
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC'
+      sortOrder: filters.sortOrder.toUpperCase() as any
     }))
   }, [dispatch, state.page, state.rowsPerPage, filters])
 
@@ -470,7 +470,13 @@ const InvoicesPage: React.FC = () => {
   }
 
   const handleRefreshAction = () => {
-    dispatch(fetchInvoices({ page: 1, limit: state.rowsPerPage }))
+    dispatch(fetchInvoices({
+      page: 1,
+      limit: state.rowsPerPage,
+      search: filters.search,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder.toUpperCase() as any
+    }))
   }
 
   const handleViewDeletedAction = () => {
@@ -545,7 +551,7 @@ const InvoicesPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={() => dispatch(fetchInvoices({ page: 1, limit: state.rowsPerPage }))}
+            onClick={handleRefreshAction}
             disabled={loading}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
@@ -999,6 +1005,23 @@ const InvoicesPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatCurrency(selectedInvoice.balanceDue)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Status
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              <Chip
+                                label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
+                                size="small"
+                                color={
+                                  selectedInvoice.status === 'paid' ? 'success' :
+                                  selectedInvoice.status === 'partial_paid' ? 'warning' :
+                                  'default'
+                                }
+                                sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
+                              />
                             </TableCell>
                           </TableRow>
                         </TableBody>
