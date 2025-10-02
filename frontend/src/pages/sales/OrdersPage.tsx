@@ -387,6 +387,9 @@ const OrdersPage: React.FC = () => {
     // Update the Redux state immediately with the updated order
     // This automatically updates both the orders list and selected order
     dispatch(updateOrderInPlace(order))
+
+    // Refresh invoices to show updated order details
+    dispatch(fetchInvoices({ page: 1, limit: 20 }))
   }
 
   const handleEditOrder = () => {
