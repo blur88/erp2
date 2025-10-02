@@ -50,7 +50,7 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace } from '@/store/slices/salesSlice'
+import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
@@ -441,6 +441,8 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        // Refresh invoices to show updated payment amounts
+        dispatch(fetchInvoices({ page: 1, limit: 20 }))
         showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
       } else {
         // Revert optimistic update on error
@@ -476,6 +478,8 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        // Refresh invoices to show updated payment amounts
+        dispatch(fetchInvoices({ page: 1, limit: 20 }))
         showSuccess('Payment cleared successfully')
       } else {
         const errorData = await response.json()
@@ -518,6 +522,8 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        // Refresh invoices to show updated payment amounts
+        dispatch(fetchInvoices({ page: 1, limit: 20 }))
         showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
       } else {
         // Revert optimistic update on error
