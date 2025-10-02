@@ -743,6 +743,24 @@ export class SalesOrderService {
     // Release reserved inventory
     await this.inventoryIntegrationService.releaseReservation(id);
 
+    // Automatically soft delete associated invoices
+    try {
+      const associatedInvoices = await this.invoiceRepository.find({
+        where: { salesOrderId: id }
+      });
+
+      if (associatedInvoices.length > 0) {
+        // Soft delete all associated invoices
+        await this.invoiceRepository.softDelete(
+          associatedInvoices.map(invoice => invoice.id)
+        );
+        console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order deletion should still succeed
+    }
+
     // Soft delete using TypeORM's built-in soft delete
     await this.salesOrderRepository.softDelete(id);
 
