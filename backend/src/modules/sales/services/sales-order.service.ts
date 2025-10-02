@@ -1136,6 +1136,27 @@ export class SalesOrderService {
     // Restore the order
     await this.salesOrderRepository.restore(id);
 
+    // Automatically restore associated invoices
+    try {
+      const associatedInvoices = await this.invoiceRepository.find({
+        where: { salesOrderId: id },
+        withDeleted: true, // Include soft-deleted invoices
+      });
+
+      const softDeletedInvoices = associatedInvoices.filter(invoice => invoice.deletedAt !== null);
+
+      if (softDeletedInvoices.length > 0) {
+        // Restore all soft-deleted invoices
+        await this.invoiceRepository.restore(
+          softDeletedInvoices.map(invoice => invoice.id)
+        );
+        console.log(`✅ Auto-restored ${softDeletedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-restore invoices for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order restoration should still succeed
+    }
+
     // Return the restored order
     const restoredOrder = await this.salesOrderRepository.findOne({
       where: { id },
