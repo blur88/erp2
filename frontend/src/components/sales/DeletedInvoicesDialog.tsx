@@ -291,21 +291,19 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                   <TableCell>Invoice #</TableCell>
                   <TableCell>Customer</TableCell>
                   <TableCell align="right">Total</TableCell>
-                  <TableCell>Status</TableCell>
                   <TableCell>Deleted</TableCell>
-                  <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading && filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={40} />
                     </TableCell>
                   </TableRow>
                 ) : filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">
                         {searchTerm ? 'No deleted invoices match your search' : 'No deleted invoices found'}
                       </Typography>
@@ -336,38 +334,9 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={invoice.status}
-                          size="small"
-                          color={
-                            invoice.status === 'paid' ? 'success' :
-                            invoice.status === 'partial_paid' ? 'warning' :
-                            'default'
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
                         <Typography variant="body2" color="text.secondary">
                           {invoice.deletedAt ? formatDate(invoice.deletedAt) : 'Unknown'}
                         </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="Restore invoice">
-                          <span>
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => handleRestore(invoice)}
-                              disabled={restoringId === invoice.id}
-                            >
-                              {restoringId === invoice.id ? (
-                                <CircularProgress size={20} />
-                              ) : (
-                                <RestoreIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </span>
-                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))
