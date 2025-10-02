@@ -1001,10 +1001,16 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Balance Due
+                              {(selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0) ? 'Overpaid Amount' : 'Balance Due'}
                             </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(selectedInvoice.balanceDue)}
+                            <TableCell sx={{ fontSize: '0.8rem', color: (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0) ? 'info.main' : 'inherit', fontWeight: (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0) ? 600 : 400 }}>
+                              {(() => {
+                                const overpaid = (selectedInvoice.paidAmount || 0) - (selectedInvoice.totalAmount || 0)
+                                if (overpaid > 0) {
+                                  return `+${formatCurrency(overpaid)}`
+                                }
+                                return formatCurrency(selectedInvoice.balanceDue)
+                              })()}
                             </TableCell>
                           </TableRow>
                           <TableRow>
@@ -1012,16 +1018,31 @@ const InvoicesPage: React.FC = () => {
                               Status
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              <Chip
-                                label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
-                                size="small"
-                                color={
-                                  selectedInvoice.status === 'paid' ? 'success' :
-                                  selectedInvoice.status === 'partial_paid' ? 'warning' :
-                                  'default'
+                              {(() => {
+                                const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
+                                if (isOverpaid) {
+                                  return (
+                                    <Chip
+                                      label="Overpaid"
+                                      size="small"
+                                      color="info"
+                                      sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
+                                    />
+                                  )
                                 }
-                                sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
-                              />
+                                return (
+                                  <Chip
+                                    label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
+                                    size="small"
+                                    color={
+                                      selectedInvoice.status === 'paid' ? 'success' :
+                                      selectedInvoice.status === 'partial_paid' ? 'warning' :
+                                      'default'
+                                    }
+                                    sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
+                                  />
+                                )
+                              })()}
                             </TableCell>
                           </TableRow>
                         </TableBody>
