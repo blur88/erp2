@@ -58,7 +58,8 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const deletedInvoices = useSelector(selectDeletedInvoices) || []
-  const loading = useSelector(selectSalesLoading)
+  const loadingState = useSelector(selectSalesLoading)
+  const loading = loadingState?.deletedInvoices || false
 
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
