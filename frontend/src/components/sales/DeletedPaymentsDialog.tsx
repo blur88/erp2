@@ -16,30 +16,23 @@ import {
   Box,
   Typography,
   Chip,
-  IconButton,
-  Tooltip,
   Alert,
+  IconButton,
   CircularProgress,
-  Checkbox,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
 import {
   Search as SearchIcon,
-  Restore as RestoreIcon,
   Close as CloseIcon,
   Payment as PaymentIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   fetchDeletedPayments,
-  restorePayment,
   selectDeletedPayments,
-  selectSalesLoading,
-  fetchPayments
+  selectSalesLoading
 } from '@/store/slices/salesSlice'
-import { useNotification } from '@/hooks/useNotification'
-import type { Payment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface DeletedPaymentsDialogProps {
@@ -49,7 +42,6 @@ interface DeletedPaymentsDialogProps {
 
 const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onClose }) => {
   const dispatch = useDispatch() as any
-  const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const deletedPayments = useSelector(selectDeletedPayments) || []
@@ -57,7 +49,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
   const loading = loadingState?.deletedPayments || false
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -70,28 +61,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
     payment.paymentNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     payment.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  const handleRestore = async (payment: Payment) => {
-    setRestoringId(payment.id)
-    try {
-      const result = await dispatch(restorePayment(payment.id))
-
-      if (restorePayment.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      showSuccess(`Payment "${payment.paymentNumber}" restored successfully`)
-      // Refresh both deleted and active payments
-      dispatch(fetchDeletedPayments({}))
-      dispatch(fetchPayments({}))
-    } catch (error: any) {
-      console.error('Payment restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore payment'
-      showError(errorMessage)
-    } finally {
-      setRestoringId(null)
-    }
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -170,25 +139,25 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
               >
                 <TableHead>
                   <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                    <TableCell sx={{ width: isMobile ? '30%' : '20%' }}>
+                    <TableCell sx={{ width: isMobile ? '35%' : '23%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Payment Number
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ width: isMobile ? '35%' : '22%' }}>
+                    <TableCell sx={{ width: isMobile ? '40%' : '25%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Customer
                       </Typography>
                     </TableCell>
                     {!isMobile && (
-                      <TableCell align="right" sx={{ width: '13%' }}>
+                      <TableCell align="right" sx={{ width: '14%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Amount
                         </Typography>
                       </TableCell>
                     )}
                     {!isMobile && (
-                      <TableCell sx={{ width: '13%' }}>
+                      <TableCell sx={{ width: '14%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Payment Date
                         </Typography>
@@ -202,23 +171,18 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                       </TableCell>
                     )}
                     {!isMobile && (
-                      <TableCell sx={{ width: '12%' }}>
+                      <TableCell sx={{ width: '14%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Deleted Date
                         </Typography>
                       </TableCell>
                     )}
-                    <TableCell align="right" sx={{ width: isMobile ? '35%' : '10%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Actions
-                      </Typography>
-                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMobile ? 3 : 7} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={isMobile ? 2 : 6} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           {searchTerm ? 'No deleted payments match your search.' : 'No deleted payments found.'}
                         </Typography>
@@ -230,12 +194,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                         key={payment.id}
                         hover
                         sx={{
-                          '&:hover, &:focus-within': {
-                            backgroundColor: 'action.hover',
-                            '& .payment-actions': {
-                              opacity: 1
-                            }
-                          },
                           transition: 'background-color 0.2s ease',
                           cursor: 'default',
                           height: 48
@@ -260,6 +218,15 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                                   size="small"
                                   sx={{ height: '16px', fontSize: '0.65rem', '& .MuiChip-label': { px: 0.5 } }}
                                 />
+                                {(payment as any).deletedAt && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                    • Del: {new Date((payment as any).deletedAt).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: '2-digit'
+                                    })}
+                                  </Typography>
+                                )}
                               </Box>
                             )}
                           </Box>
@@ -300,53 +267,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                             </Typography>
                           </TableCell>
                         )}
-                        <TableCell align="right">
-                          <Box
-                            className="payment-actions"
-                            sx={{
-                              display: 'flex',
-                              justifyContent: 'flex-end',
-                              gap: 0.25,
-                              opacity: isMobile ? 1 : 0.7,
-                              transition: 'opacity 0.2s ease'
-                            }}
-                          >
-                            <Tooltip title="Restore Payment">
-                              <IconButton
-                                onClick={() => handleRestore(payment)}
-                                disabled={restoringId === payment.id}
-                                size="small"
-                                sx={{
-                                  '&:hover': {
-                                    backgroundColor: 'success.light',
-                                    color: 'success.main'
-                                  },
-                                  p: 0.5
-                                }}
-                              >
-                                {restoringId === payment.id ? (
-                                  <CircularProgress size={20} />
-                                ) : (
-                                  <RestoreIcon fontSize="small" />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                          {isMobile && (payment as any).deletedAt && (
-                            <Typography variant="caption" color="text.secondary" sx={{
-                              display: 'block',
-                              textAlign: 'right',
-                              mt: 0.25,
-                              fontSize: '0.65rem'
-                            }}>
-                              {new Date((payment as any).deletedAt).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: '2-digit'
-                              })}
-                            </Typography>
-                          )}
-                        </TableCell>
                       </TableRow>
                     ))
                   )}

@@ -11,38 +11,27 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   TextField,
   InputAdornment,
   Box,
   Typography,
-  Chip,
-  IconButton,
-  Tooltip,
   Alert,
-  Divider,
+  IconButton,
   CircularProgress,
-  Checkbox,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
 import {
   Search as SearchIcon,
-  Restore as RestoreIcon,
   Close as CloseIcon,
   Receipt as InvoiceIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   fetchDeletedInvoices,
-  restoreInvoice,
   selectDeletedInvoices,
-  selectSalesLoading,
-  fetchInvoices
+  selectSalesLoading
 } from '@/store/slices/salesSlice'
-import { useNotification } from '@/hooks/useNotification'
-import LoadingSpinner from '@/components/common/LoadingSpinner'
-import type { Invoice } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface DeletedInvoicesDialogProps {
@@ -52,16 +41,13 @@ interface DeletedInvoicesDialogProps {
 
 const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onClose }) => {
   const dispatch = useDispatch() as any
-  const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const deletedInvoices = useSelector(selectDeletedInvoices) || []
   const loadingState = useSelector(selectSalesLoading)
   const loading = loadingState?.deletedInvoices || false
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -74,28 +60,6 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
     invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     invoice.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  const handleRestore = async (invoice: Invoice) => {
-    setRestoringId(invoice.id)
-    try {
-      const result = await dispatch(restoreInvoice(invoice.id))
-
-      if (restoreInvoice.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      showSuccess(`Invoice "${invoice.invoiceNumber}" restored successfully`)
-      // Refresh both deleted and active invoices
-      dispatch(fetchDeletedInvoices({}))
-      dispatch(fetchInvoices({}))
-    } catch (error: any) {
-      console.error('Invoice restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore invoice'
-      showError(errorMessage)
-    } finally {
-      setRestoringId(null)
-    }
-  }
 
   const handleClose = () => {
     setSearchTerm('')
@@ -169,12 +133,12 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
               >
                 <TableHead>
                   <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                    <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
+                    <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Invoice Number
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
+                    <TableCell sx={{ width: isMobile ? '40%' : '35%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Customer
                       </Typography>
@@ -187,23 +151,18 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                       </TableCell>
                     )}
                     {!isMobile && (
-                      <TableCell sx={{ width: '15%' }}>
+                      <TableCell sx={{ width: '20%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Deleted Date
                         </Typography>
                       </TableCell>
                     )}
-                    <TableCell align="right" sx={{ width: isMobile ? '35%' : '15%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Actions
-                      </Typography>
-                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredInvoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMobile ? 3 : 5} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={isMobile ? 2 : 4} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           {searchTerm ? 'No deleted invoices match your search.' : 'No deleted invoices found.'}
                         </Typography>
@@ -215,12 +174,6 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                         key={invoice.id}
                         hover
                         sx={{
-                          '&:hover, &:focus-within': {
-                            backgroundColor: 'action.hover',
-                            '& .invoice-actions': {
-                              opacity: 1
-                            }
-                          },
                           transition: 'background-color 0.2s ease',
                           cursor: 'default',
                           height: 48
@@ -262,39 +215,6 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                             </Typography>
                           </TableCell>
                         )}
-                        <TableCell align="right">
-                          <Box
-                            className="invoice-actions"
-                            sx={{
-                              display: 'flex',
-                              justifyContent: 'flex-end',
-                              gap: 0.25,
-                              opacity: isMobile ? 1 : 0.7,
-                              transition: 'opacity 0.2s ease'
-                            }}
-                          >
-                            <Tooltip title="Restore Invoice">
-                              <IconButton
-                                onClick={() => handleRestore(invoice)}
-                                disabled={restoringId === invoice.id}
-                                size="small"
-                                sx={{
-                                  '&:hover': {
-                                    backgroundColor: 'success.light',
-                                    color: 'success.main'
-                                  },
-                                  p: 0.5
-                                }}
-                              >
-                                {restoringId === invoice.id ? (
-                                  <CircularProgress size={20} />
-                                ) : (
-                                  <RestoreIcon fontSize="small" />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </TableCell>
                       </TableRow>
                     ))
                   )}
