@@ -184,9 +184,9 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                                 <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
                                   {formatCurrency(payment.amount)}
                                 </Typography>
-                                {(payment as any).deletedAt && (
+                                {payment.deletedAt && (
                                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                    • Del: {new Date((payment as any).deletedAt).toLocaleDateString('en-US', {
+                                    • Del: {new Date(payment.deletedAt).toLocaleDateString('en-US', {
                                       month: 'short',
                                       day: 'numeric',
                                       year: '2-digit'
@@ -212,7 +212,7 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                         {!isMobile && (
                           <TableCell>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              {(payment as any).deletedAt ? formatDate((payment as any).deletedAt) : 'Unknown'}
+                              {payment.deletedAt ? formatDate(payment.deletedAt) : 'Unknown'}
                             </Typography>
                           </TableCell>
                         )}

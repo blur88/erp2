@@ -411,6 +411,9 @@ export class PaymentResponseDto {
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   updatedAt: Date;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z', nullable: true })
+  deletedAt?: Date;
+
   // Computed properties
   @ApiProperty({ example: true })
   isCompleted: boolean;

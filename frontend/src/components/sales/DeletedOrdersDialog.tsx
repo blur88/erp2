@@ -442,7 +442,7 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            {(order as any).deletedAt ? formatDate((order as any).deletedAt) : 'Unknown'}
+                            {order.deletedAt ? formatDate(order.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
                       )}
@@ -490,14 +490,14 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        {isMobile && (order as any).deletedAt && (
+                        {isMobile && order.deletedAt && (
                           <Typography variant="caption" color="text.secondary" sx={{
                             display: 'block',
                             textAlign: 'right',
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date((order as any).deletedAt).toLocaleDateString('en-US', {
+                            {new Date(order.deletedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: '2-digit'
