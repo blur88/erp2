@@ -761,6 +761,31 @@ export class SalesOrderService {
       // Don't throw error - sales order deletion should still succeed
     }
 
+    // Automatically soft delete associated payments
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Find payments associated with this sales order
+      const associatedPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`)
+        }
+      });
+
+      if (associatedPayments.length > 0) {
+        // Soft delete all associated payments
+        await paymentRepository.softDelete(
+          associatedPayments.map(payment => payment.id)
+        );
+        console.log(`✅ Auto-deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-delete payments for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order deletion should still succeed
+    }
+
     // Soft delete using TypeORM's built-in soft delete
     await this.salesOrderRepository.softDelete(id);
 
@@ -1154,6 +1179,34 @@ export class SalesOrderService {
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-restore invoices for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order restoration should still succeed
+    }
+
+    // Automatically restore associated payments
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Find payments associated with this sales order
+      const associatedPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`)
+        },
+        withDeleted: true, // Include soft-deleted payments
+      });
+
+      const softDeletedPayments = associatedPayments.filter(payment => payment.deletedAt !== null);
+
+      if (softDeletedPayments.length > 0) {
+        // Restore all soft-deleted payments
+        await paymentRepository.restore(
+          softDeletedPayments.map(payment => payment.id)
+        );
+        console.log(`✅ Auto-restored ${softDeletedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-restore payments for sales order ${order.orderNumber}:`, error.message);
       // Don't throw error - sales order restoration should still succeed
     }
 
