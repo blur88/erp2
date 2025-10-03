@@ -15,7 +15,6 @@ import {
   InputAdornment,
   Box,
   Typography,
-  Chip,
   Alert,
   IconButton,
   CircularProgress,
@@ -61,16 +60,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
     payment.paymentNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     payment.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'success'
-      case 'pending': return 'warning'
-      case 'failed': return 'error'
-      case 'refunded': return 'info'
-      default: return 'default'
-    }
-  }
 
   return (
     <>
@@ -139,39 +128,25 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
               >
                 <TableHead>
                   <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                    <TableCell sx={{ width: isMobile ? '35%' : '23%' }}>
+                    <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Payment Number
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ width: isMobile ? '40%' : '25%' }}>
+                    <TableCell sx={{ width: isMobile ? '40%' : '35%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Customer
                       </Typography>
                     </TableCell>
                     {!isMobile && (
-                      <TableCell align="right" sx={{ width: '14%' }}>
+                      <TableCell align="right" sx={{ width: '15%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Amount
                         </Typography>
                       </TableCell>
                     )}
                     {!isMobile && (
-                      <TableCell sx={{ width: '14%' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                          Payment Date
-                        </Typography>
-                      </TableCell>
-                    )}
-                    {!isMobile && (
-                      <TableCell sx={{ width: '10%' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                          Status
-                        </Typography>
-                      </TableCell>
-                    )}
-                    {!isMobile && (
-                      <TableCell sx={{ width: '14%' }}>
+                      <TableCell sx={{ width: '20%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Deleted Date
                         </Typography>
@@ -182,7 +157,7 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMobile ? 2 : 6} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={isMobile ? 2 : 4} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           {searchTerm ? 'No deleted payments match your search.' : 'No deleted payments found.'}
                         </Typography>
@@ -209,15 +184,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                                 <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
                                   {formatCurrency(payment.amount)}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                  • {formatDate(payment.paymentDate)}
-                                </Typography>
-                                <Chip
-                                  label={payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                                  color={getStatusColor(payment.status)}
-                                  size="small"
-                                  sx={{ height: '16px', fontSize: '0.65rem', '& .MuiChip-label': { px: 0.5 } }}
-                                />
                                 {(payment as any).deletedAt && (
                                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                                     • Del: {new Date((payment as any).deletedAt).toLocaleDateString('en-US', {
@@ -241,23 +207,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                             <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
                               {formatCurrency(payment.amount)}
                             </Typography>
-                          </TableCell>
-                        )}
-                        {!isMobile && (
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                              {formatDate(payment.paymentDate)}
-                            </Typography>
-                          </TableCell>
-                        )}
-                        {!isMobile && (
-                          <TableCell>
-                            <Chip
-                              label={payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                              color={getStatusColor(payment.status)}
-                              size="small"
-                              sx={{ fontSize: '0.7rem' }}
-                            />
                           </TableCell>
                         )}
                         {!isMobile && (
