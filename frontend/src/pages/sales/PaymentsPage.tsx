@@ -509,6 +509,16 @@ const PaymentsPage: React.FC = () => {
         }}>
           <Button
             variant="outlined"
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
+            onClick={handleRefreshAction}
+            disabled={loading}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+          >
+            {isMobile ? "Refresh Payments" : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setDeletedPaymentsDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
@@ -523,16 +533,6 @@ const PaymentsPage: React.FC = () => {
             }}
           >
             {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Payments" : "Refresh"}
           </Button>
         </Box>
       </Box>
