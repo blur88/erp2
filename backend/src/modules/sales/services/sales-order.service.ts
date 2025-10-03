@@ -1450,7 +1450,7 @@ export class SalesOrderService {
     order.paidAmount = Number(amount);
     const savedOrder = await this.salesOrderRepository.save(order);
 
-    // Automatically generate payment record
+    // Automatically update or create payment record
     try {
       const Payment = (await import('../../../database/entities/payment.entity')).Payment;
       const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
@@ -1475,38 +1475,57 @@ export class SalesOrderService {
         await invoiceRepository.save(invoice);
       }
 
-      // Generate payment number
-      const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
-      let maxNumber = 0;
-      for (const payment of allPayments) {
-        const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1]);
-          if (num > maxNumber) maxNumber = num;
+      // Check if a payment already exists for this sales order
+      const existingPayment = await paymentRepository.findOne({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`),
+          invoiceId: invoice ? invoice.id : null as any,
         }
-      }
-      const paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
-
-      // Create payment record with sales order details
-      const payment = paymentRepository.create({
-        paymentNumber,
-        type: PaymentType.PAYMENT,
-        status: PaymentStatus.COMPLETED,
-        paymentMethod: PaymentMethod.CASH, // Default method, can be changed later
-        paymentDate: new Date(),
-        amount: Number(amount),
-        customerId: order.customerId,
-        invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
-        recordedByUserId: order.createdByUserId || null,
-        currency: 'USD',
-        exchangeRate: 1.0,
-        processingFee: 0,
-        notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
-        clearedDate: new Date(),
       });
 
-      await paymentRepository.save(payment);
-      console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
+      if (existingPayment) {
+        // Update existing payment
+        existingPayment.amount = Number(amount);
+        existingPayment.paymentDate = new Date();
+        existingPayment.clearedDate = new Date();
+        existingPayment.notes = `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`;
+        await paymentRepository.save(existingPayment);
+        console.log(`✅ Updated payment ${existingPayment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
+      } else {
+        // Generate payment number
+        const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
+        let maxNumber = 0;
+        for (const payment of allPayments) {
+          const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1]);
+            if (num > maxNumber) maxNumber = num;
+          }
+        }
+        const paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
+
+        // Create new payment record with sales order details
+        const payment = paymentRepository.create({
+          paymentNumber,
+          type: PaymentType.PAYMENT,
+          status: PaymentStatus.COMPLETED,
+          paymentMethod: PaymentMethod.CASH, // Default method, can be changed later
+          paymentDate: new Date(),
+          amount: Number(amount),
+          customerId: order.customerId,
+          invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
+          recordedByUserId: order.createdByUserId || null,
+          currency: 'USD',
+          exchangeRate: 1.0,
+          processingFee: 0,
+          notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
+          clearedDate: new Date(),
+        });
+
+        await paymentRepository.save(payment);
+        console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
+      }
     } catch (error) {
       console.error(`⚠️ Failed to auto-generate payment for order ${order.orderNumber}:`, error.message);
       // Don't throw error - payment recording on order should still succeed
