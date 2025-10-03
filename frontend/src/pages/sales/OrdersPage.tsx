@@ -50,7 +50,7 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
+import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
@@ -284,6 +284,8 @@ const OrdersPage: React.FC = () => {
     dispatch(setSelectedOrder(order))
     const orderIndex = orders.findIndex(o => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
+    // Fetch full order details with invoices and payments
+    dispatch(fetchOrderById(order.id) as any)
   }, [dispatch, orders])
 
 
@@ -444,6 +446,8 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        // Fetch full order details to get updated invoices and payments
+        dispatch(fetchOrderById(selectedOrder.id) as any)
         // Refresh invoices to show updated payment amounts
         dispatch(fetchInvoices({ page: 1, limit: 20 }))
         showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
@@ -672,9 +676,11 @@ const OrdersPage: React.FC = () => {
         setFocusedOrderIndex(0)
         // Automatically show order details for the first order
         dispatch(setSelectedOrder(orders[0]))
+        // Fetch full order details with invoices and payments
+        dispatch(fetchOrderById(orders[0].id) as any)
       }
     }
-  }, [orders, focusedOrderIndex, selectedOrder])
+  }, [orders, focusedOrderIndex, selectedOrder, dispatch])
 
   // Handle pending order selection after orders load
   useEffect(() => {
@@ -684,6 +690,8 @@ const OrdersPage: React.FC = () => {
         dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)
         setPendingOrderToSelect(null)
+        // Fetch full order details with invoices and payments
+        dispatch(fetchOrderById(orders[orderIndex].id) as any)
       }
     }
   }, [orders, pendingOrderToSelect])
@@ -696,6 +704,8 @@ const OrdersPage: React.FC = () => {
       if (orderIndex >= 0) {
         dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)
+        // Fetch full order details with invoices and payments
+        dispatch(fetchOrderById(orders[orderIndex].id) as any)
         // Clear the state to prevent repeated highlighting
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
@@ -1500,8 +1510,11 @@ const OrdersPage: React.FC = () => {
                                 // Get direct payments (not linked to invoice)
                                 const directPayments = (selectedOrder as any).directPayments || [];
 
-                                // Combine all payments
-                                const allPayments = [...directPayments, ...invoicePayments];
+                                // Combine all payments and remove duplicates by ID
+                                const allPaymentsWithDuplicates = [...directPayments, ...invoicePayments];
+                                const allPayments = allPaymentsWithDuplicates.filter((payment, index, self) =>
+                                  index === self.findIndex((p) => p.id === payment.id)
+                                );
 
                                 if (allPayments.length === 0) {
                                   return (

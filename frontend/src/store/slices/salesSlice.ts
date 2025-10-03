@@ -145,6 +145,18 @@ export const fetchOrders = createAsyncThunk(
   }
 )
 
+export const fetchOrderById = createAsyncThunk(
+  'sales/fetchOrderById',
+  async (orderId: string, { rejectWithValue }) => {
+    try {
+      const response = await salesApi.getOrder(orderId)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch order details')
+    }
+  }
+)
+
 export const fetchDeletedOrders = createAsyncThunk(
   'sales/fetchDeletedOrders',
   async (params: { page?: number; limit?: number; customerId?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; search?: string }, { rejectWithValue }) => {
@@ -530,6 +542,32 @@ const salesSlice = createSlice({
         }
       })
       .addCase(fetchOrders.rejected, (state, action) => {
+        state.loading.orders = false
+        state.error = action.payload as string
+      })
+
+    // Fetch Order By ID
+    builder
+      .addCase(fetchOrderById.pending, (state) => {
+        state.loading.orders = true
+        state.error = null
+      })
+      .addCase(fetchOrderById.fulfilled, (state, action) => {
+        state.loading.orders = false
+        if (action.payload) {
+          const order = (action.payload as any).data || action.payload
+          // Update the order in the orders array if it exists
+          const index = state.orders.findIndex(o => o.id === order.id)
+          if (index >= 0) {
+            state.orders[index] = order
+          }
+          // Update selected order if it's the same
+          if (state.selectedOrder?.id === order.id) {
+            state.selectedOrder = order
+          }
+        }
+      })
+      .addCase(fetchOrderById.rejected, (state, action) => {
         state.loading.orders = false
         state.error = action.payload as string
       })
