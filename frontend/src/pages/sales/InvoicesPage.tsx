@@ -37,7 +37,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  Receipt as InvoiceIcon,
+  ReceiptLong as InvoiceIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,

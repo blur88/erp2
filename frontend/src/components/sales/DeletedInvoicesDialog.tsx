@@ -24,7 +24,7 @@ import {
 import {
   Search as SearchIcon,
   Close as CloseIcon,
-  Receipt as InvoiceIcon,
+  ReceiptLong as InvoiceIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import {
