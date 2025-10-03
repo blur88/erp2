@@ -447,6 +447,16 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: '2024-01-01T00:00:00Z', nullable: true })
   deletedAt?: Date;
 
+  @ApiProperty({ type: 'array', required: false })
+  payments?: Array<{
+    id: string;
+    paymentNumber: string;
+    paymentDate: Date;
+    amount: number;
+    paymentMethod: string;
+    status: string;
+  }>;
+
   // Computed properties
   @ApiProperty({ example: false })
   isOverdue: boolean;
