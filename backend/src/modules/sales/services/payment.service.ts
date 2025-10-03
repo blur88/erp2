@@ -533,6 +533,7 @@ export class PaymentService {
       recordedByUserId: payment.recordedByUserId,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
+      deletedAt: payment.deletedAt,
       isCompleted: payment.isCompleted,
       isPending: payment.isPending,
       isFailed: payment.isFailed,

@@ -1791,6 +1791,7 @@ export class SalesOrderService {
       })) || [],
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      deletedAt: order.deletedAt,
       fullShippingAddress: order.fullShippingAddress,
       isShippable: order.isShippable,
       isCompleted: order.isCompleted,

@@ -957,6 +957,7 @@ export class InvoiceService {
       } : undefined,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
+      deletedAt: invoice.deletedAt,
       isOverdue: invoice.isOverdue,
       daysPastDue: invoice.daysPastDue,
       isPartiallyPaid: invoice.isPartiallyPaid,
