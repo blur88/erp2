@@ -514,10 +514,12 @@ const PaymentsPage: React.FC = () => {
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
-              minWidth: isMobile ? 'auto' : 140,
-              ...(isMobile && {
-                justifyContent: 'flex-start'
-              })
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
             }}
           >
             {isMobile ? "View Deleted" : "View Deleted"}
