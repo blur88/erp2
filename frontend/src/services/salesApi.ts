@@ -262,7 +262,19 @@ export const salesApi = {
     return ApiService.post<Payment>(`payments/${id}/void`, { reason })
   },
 
-  
+  async getDeletedPayments(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Payment>>('payments/deleted', { params })
+  },
+
+  async restorePayment(id: string) {
+    return ApiService.post<Payment>(`payments/${id}/restore`)
+  },
+
+  async bulkRestorePayments(paymentIds: string[]) {
+    return ApiService.post('payments/bulk-restore', { paymentIds })
+  },
+
+
   // Reports
   async getSalesReport(params: {
     startDate?: Date

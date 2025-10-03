@@ -411,6 +411,101 @@ export class PaymentService {
     await this.invoiceRepository.save(invoice);
   }
 
+  async findDeleted(query: QueryPaymentsDto = {}) {
+    const {
+      search,
+      customerId,
+      sortBy = 'deletedAt',
+      sortOrder = 'DESC',
+      page = 1,
+      limit = 20,
+    } = query;
+
+    let queryBuilder = this.paymentRepository
+      .createQueryBuilder('payment')
+      .withDeleted() // Include soft-deleted records
+      .leftJoinAndSelect('payment.customer', 'customer')
+      .leftJoinAndSelect('payment.invoice', 'invoice')
+      .where('payment.deletedAt IS NOT NULL'); // Only get soft-deleted payments
+
+    if (customerId) {
+      queryBuilder = queryBuilder.andWhere('payment.customerId = :customerId', { customerId });
+    }
+
+    if (search) {
+      queryBuilder = queryBuilder.andWhere(
+        '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Add sorting
+    queryBuilder = queryBuilder.orderBy(`payment.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+
+    // Add pagination
+    const offset = (page - 1) * limit;
+    queryBuilder = queryBuilder.skip(offset).take(limit);
+
+    const [payments, total] = await queryBuilder.getManyAndCount();
+
+    const data = payments.map(payment => this.mapToResponseDto(payment));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async restore(id: string): Promise<PaymentResponseDto> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id },
+      withDeleted: true, // Include soft-deleted records
+      relations: ['customer', 'invoice'],
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${id} not found`);
+    }
+
+    if (!payment.deletedAt) {
+      throw new ConflictException(`Payment ${payment.paymentNumber} is not deleted`);
+    }
+
+    // Restore the payment
+    await this.paymentRepository.restore(id);
+
+    // Return the restored payment
+    const restoredPayment = await this.paymentRepository.findOne({
+      where: { id },
+      relations: ['customer', 'invoice'],
+    });
+
+    return this.mapToResponseDto(restoredPayment);
+  }
+
+  async bulkRestore(paymentIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+    if (!paymentIds || paymentIds.length === 0) {
+      return { restoredCount: 0, failedIds: [] };
+    }
+
+    const failedIds = [];
+    let successCount = 0;
+
+    for (const id of paymentIds) {
+      try {
+        await this.restore(id);
+        successCount++;
+      } catch (error) {
+        failedIds.push(id);
+      }
+    }
+
+    return { restoredCount: successCount, failedIds };
+  }
+
   private mapToResponseDto(payment: Payment): PaymentResponseDto {
     return {
       id: payment.id,

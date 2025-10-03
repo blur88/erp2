@@ -290,6 +290,14 @@ export class QueryPaymentsDto {
   referenceNumber?: string;
 
   @ApiPropertyOptional({
+    description: 'Search by payment number or customer name',
+    example: 'PAY-000001',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
     description: 'Sort field',
     example: 'paymentDate',
   })

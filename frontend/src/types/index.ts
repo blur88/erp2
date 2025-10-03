@@ -270,16 +270,24 @@ export interface InvoiceItem {
 
 export interface Payment {
   id: string;
+  paymentNumber: string;
   invoice?: Invoice;
-  customer: Customer;
+  invoiceId?: string;
+  customer?: Customer;
+  customerId?: string;
+  customerName?: string;
   amount: number;
-  method: 'cash' | 'card' | 'bank_transfer' | 'cheque';
+  method?: 'cash' | 'card' | 'bank_transfer' | 'cheque';
+  paymentMethod?: 'cash' | 'card' | 'bank_transfer' | 'check' | 'credit_card' | 'debit_card' | 'online_payment' | 'mobile_payment' | 'other';
   reference?: string;
-  status: 'pending' | 'completed' | 'failed';
-  paymentDate: Date;
+  referenceNumber?: string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
+  type?: 'payment' | 'refund' | 'partial_refund';
+  paymentDate: Date | string;
   notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
 }
 
 // Purchasing types

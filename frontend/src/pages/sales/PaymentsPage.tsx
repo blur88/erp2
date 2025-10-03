@@ -43,10 +43,12 @@ import {
   Keyboard as KeyboardIcon,
   Receipt as InvoiceIcon,
   ShoppingCart as OrderIcon,
+  RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { salesApi } from '@/services/salesApi'
@@ -192,6 +194,7 @@ const PaymentsPage: React.FC = () => {
   const [editDialog, setEditDialog] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
+  const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const paymentListRef = useRef<HTMLDivElement>(null)
@@ -421,7 +424,7 @@ const PaymentsPage: React.FC = () => {
   }
 
   const handleViewDeletedAction = () => {
-    showError('View deleted functionality will be implemented later')
+    setDeletedPaymentsDialogOpen(true)
   }
 
   const handleEscapeAction = useCallback(() => {
@@ -504,6 +507,21 @@ const PaymentsPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => setDeletedPaymentsDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              minWidth: isMobile ? 'auto' : 140,
+              ...(isMobile && {
+                justifyContent: 'flex-start'
+              })
+            }}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
+          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
@@ -1088,6 +1106,12 @@ const PaymentsPage: React.FC = () => {
       <KeyboardShortcutsHelp
         open={keyboardHelpOpen}
         onClose={() => setKeyboardHelpOpen(false)}
+      />
+
+      {/* Deleted Payments Dialog */}
+      <DeletedPaymentsDialog
+        open={deletedPaymentsDialogOpen}
+        onClose={() => setDeletedPaymentsDialogOpen(false)}
       />
     </Box>
   )
