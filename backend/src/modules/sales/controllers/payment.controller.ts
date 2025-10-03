@@ -71,6 +71,16 @@ export class PaymentController {
     return this.paymentService.findAll(query);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all deleted payments' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of deleted payments retrieved successfully',
+  })
+  async getDeletedPayments(@Query() query: QueryPaymentsDto) {
+    return this.paymentService.findDeleted(query);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get payment by ID' })
   @ApiParam({ name: 'id', description: 'Payment ID', type: 'string' })
@@ -225,16 +235,6 @@ export class PaymentController {
     const toDateObj = toDate ? new Date(toDate) : undefined;
 
     return this.paymentService.getPaymentStatistics(customerId, fromDateObj, toDateObj);
-  }
-
-  @Get('deleted')
-  @ApiOperation({ summary: 'Get all deleted payments' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of deleted payments retrieved successfully',
-  })
-  async getDeletedPayments(@Query() query: QueryPaymentsDto) {
-    return this.paymentService.findDeleted(query);
   }
 
   @Post(':id/restore')
