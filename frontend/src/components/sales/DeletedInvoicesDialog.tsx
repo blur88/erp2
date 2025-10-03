@@ -36,7 +36,6 @@ import { useDispatch, useSelector } from 'react-redux'
 import {
   fetchDeletedInvoices,
   restoreInvoice,
-  bulkRestoreInvoices,
   selectDeletedInvoices,
   selectSalesLoading,
   fetchInvoices
@@ -63,15 +62,10 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
 
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
-  const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set())
-  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
-  const [bulkRestoring, setBulkRestoring] = useState(false)
 
   useEffect(() => {
     if (open) {
       dispatch(fetchDeletedInvoices({}))
-      // Reset selections when dialog opens
-      setSelectedInvoices(new Set())
     }
   }, [open, dispatch])
 
@@ -80,11 +74,6 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
     invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     invoice.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  // Calculate selection state
-  const selectedCount = selectedInvoices.size
-  const allSelected = filteredInvoices.length > 0 && selectedInvoices.size === filteredInvoices.length
-  const partiallySelected = selectedInvoices.size > 0 && selectedInvoices.size < filteredInvoices.length
 
   const handleRestore = async (invoice: Invoice) => {
     setRestoringId(invoice.id)
@@ -108,134 +97,10 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
     }
   }
 
-  const handleSelectInvoice = (invoiceId: string, checked: boolean) => {
-    setSelectedInvoices(prev => {
-      const newSet = new Set(prev)
-      if (checked) {
-        newSet.add(invoiceId)
-      } else {
-        newSet.delete(invoiceId)
-      }
-      return newSet
-    })
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedInvoices(new Set(filteredInvoices.map(i => i.id)))
-    } else {
-      setSelectedInvoices(new Set())
-    }
-  }
-
-  const handleBulkRestore = async () => {
-    setBulkRestoring(true)
-    try {
-      const invoiceIds = Array.from(selectedInvoices)
-      const result = await dispatch(bulkRestoreInvoices(invoiceIds))
-
-      if (bulkRestoreInvoices.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('Bulk restore payload:', payload) // Debug log
-      const restoredCount = payload?.restoredCount || 0
-      const failedIds = payload?.failedIds || []
-
-      if (restoredCount > 0) {
-        showSuccess(`Successfully restored ${restoredCount} invoices`)
-      }
-
-      if (failedIds.length > 0) {
-        showError(`Failed to restore ${failedIds.length} invoices`)
-      }
-
-      // Refresh both deleted and active invoices and clear selections
-      dispatch(fetchDeletedInvoices({}))
-      dispatch(fetchInvoices({}))
-      setSelectedInvoices(new Set())
-    } catch (error: any) {
-      console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore invoices'
-      showError(errorMessage)
-    } finally {
-      setBulkRestoring(false)
-      setShowBulkRestoreConfirm(false)
-    }
-  }
-
   const handleClose = () => {
     setSearchTerm('')
-    setSelectedInvoices(new Set())
     onClose()
   }
-
-  // Confirm dialogs
-  const renderBulkRestoreConfirmDialog = () => (
-    <Dialog
-      open={showBulkRestoreConfirm}
-      onClose={() => !bulkRestoring && setShowBulkRestoreConfirm(false)}
-      maxWidth="sm"
-      fullWidth
-    >
-      <DialogTitle color="success">
-        <Box display="flex" alignItems="center" gap={1}>
-          <RestoreIcon color="success" />
-          Bulk Restore Invoices
-        </Box>
-      </DialogTitle>
-      <DialogContent>
-        <Alert severity="success" sx={{ mb: 2 }}>
-          This will restore the selected invoices back to active status and make them available for management.
-        </Alert>
-
-        <Typography variant="body1" gutterBottom>
-          Are you sure you want to restore <strong>{selectedCount}</strong> selected invoice{selectedCount !== 1 ? 's' : ''}?
-        </Typography>
-
-        {selectedCount <= 5 && (
-          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Invoices to be restored:
-            </Typography>
-            {Array.from(selectedInvoices).slice(0, 5).map(invoiceId => {
-              const invoice = filteredInvoices.find((i: Invoice) => i.id === invoiceId)
-              return invoice ? (
-                <Box key={invoiceId} sx={{ mb: 0.5 }}>
-                  <Typography variant="body2">
-                    • {invoice.invoiceNumber} ({invoice.customerName || 'Unknown Customer'})
-                  </Typography>
-                </Box>
-              ) : null
-            })}
-          </Box>
-        )}
-
-        <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-          This will move the selected invoices back to the active invoices list and make them available for processing.
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button
-          onClick={() => setShowBulkRestoreConfirm(false)}
-          variant="outlined"
-          disabled={bulkRestoring}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleBulkRestore}
-          variant="contained"
-          color="success"
-          disabled={bulkRestoring}
-          startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
-        >
-          {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Invoices`}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
 
   return (
     <>
@@ -269,35 +134,19 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
               These invoices have been soft-deleted. You can restore them to make them active again.
             </Alert>
 
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-              <TextField
-                fullWidth
-                placeholder="Search deleted invoices..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ flex: 1, minWidth: '300px' }}
-              />
-
-              {selectedCount > 0 && (
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<RestoreIcon />}
-                  onClick={() => setShowBulkRestoreConfirm(true)}
-                  disabled={bulkRestoring}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Restore Selected ({selectedCount})
-                </Button>
-              )}
-            </Box>
+            <TextField
+              fullWidth
+              placeholder="Search deleted invoices..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </Box>
 
           {loading && filteredInvoices.length === 0 ? (
@@ -320,20 +169,12 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
               >
                 <TableHead>
                   <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                    <TableCell sx={{ width: '48px', padding: '8px' }}>
-                      <Checkbox
-                        checked={allSelected}
-                        indeterminate={partiallySelected}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell sx={{ width: isMobile ? '25%' : '20%' }}>
+                    <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Invoice Number
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
+                    <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Customer
                       </Typography>
@@ -352,7 +193,7 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                         </Typography>
                       </TableCell>
                     )}
-                    <TableCell align="right" sx={{ width: isMobile ? '45%' : '10%' }}>
+                    <TableCell align="right" sx={{ width: isMobile ? '35%' : '15%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Actions
                       </Typography>
@@ -362,7 +203,7 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                 <TableBody>
                   {filteredInvoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMobile ? 4 : 6} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={isMobile ? 3 : 5} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           {searchTerm ? 'No deleted invoices match your search.' : 'No deleted invoices found.'}
                         </Typography>
@@ -385,13 +226,6 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                           height: 48
                         }}
                       >
-                        <TableCell sx={{ padding: '8px' }}>
-                          <Checkbox
-                            checked={selectedInvoices.has(invoice.id)}
-                            onChange={(e) => handleSelectInvoice(invoice.id, e.target.checked)}
-                            size="small"
-                          />
-                        </TableCell>
                         <TableCell>
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
@@ -476,9 +310,6 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Confirmation Dialogs */}
-      {renderBulkRestoreConfirmDialog()}
     </>
   )
 }

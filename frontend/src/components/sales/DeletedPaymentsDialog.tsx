@@ -34,7 +34,6 @@ import { useDispatch, useSelector } from 'react-redux'
 import {
   fetchDeletedPayments,
   restorePayment,
-  bulkRestorePayments,
   selectDeletedPayments,
   selectSalesLoading,
   fetchPayments
@@ -59,15 +58,10 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
 
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
-  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set())
-  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
-  const [bulkRestoring, setBulkRestoring] = useState(false)
 
   useEffect(() => {
     if (open) {
       dispatch(fetchDeletedPayments({}))
-      // Reset selections when dialog opens
-      setSelectedPayments(new Set())
     }
   }, [open, dispatch])
 
@@ -76,11 +70,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
     payment.paymentNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     payment.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  // Calculate selection state
-  const selectedCount = selectedPayments.size
-  const allSelected = filteredPayments.length > 0 && selectedPayments.size === filteredPayments.length
-  const partiallySelected = selectedPayments.size > 0 && selectedPayments.size < filteredPayments.length
 
   const handleRestore = async (payment: Payment) => {
     setRestoringId(payment.id)
@@ -101,63 +90,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
       showError(errorMessage)
     } finally {
       setRestoringId(null)
-    }
-  }
-
-  const handleSelectPayment = (paymentId: string, checked: boolean) => {
-    setSelectedPayments(prev => {
-      const newSet = new Set(prev)
-      if (checked) {
-        newSet.add(paymentId)
-      } else {
-        newSet.delete(paymentId)
-      }
-      return newSet
-    })
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedPayments(new Set(filteredPayments.map(p => p.id)))
-    } else {
-      setSelectedPayments(new Set())
-    }
-  }
-
-  const handleBulkRestore = async () => {
-    setBulkRestoring(true)
-    try {
-      const paymentIds = Array.from(selectedPayments)
-      const result = await dispatch(bulkRestorePayments(paymentIds))
-
-      if (bulkRestorePayments.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('Bulk restore payload:', payload) // Debug log
-      const restoredCount = payload?.restoredCount || 0
-      const failedIds = payload?.failedIds || []
-
-      if (restoredCount > 0) {
-        showSuccess(`Successfully restored ${restoredCount} payments`)
-      }
-
-      if (failedIds.length > 0) {
-        showError(`Failed to restore ${failedIds.length} payments`)
-      }
-
-      // Refresh both lists
-      dispatch(fetchDeletedPayments({}))
-      dispatch(fetchPayments({}))
-      setSelectedPayments(new Set())
-      setShowBulkRestoreConfirm(false)
-    } catch (error: any) {
-      console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore payments'
-      showError(errorMessage)
-    } finally {
-      setBulkRestoring(false)
     }
   }
 
@@ -203,35 +135,19 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
               These payments have been soft-deleted. You can restore them to make them active again.
             </Alert>
 
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-              <TextField
-                fullWidth
-                placeholder="Search deleted payments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ flex: 1, minWidth: '300px' }}
-              />
-
-              {selectedCount > 0 && (
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<RestoreIcon />}
-                  onClick={() => setShowBulkRestoreConfirm(true)}
-                  disabled={bulkRestoring}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Restore Selected ({selectedCount})
-                </Button>
-              )}
-            </Box>
+            <TextField
+              fullWidth
+              placeholder="Search deleted payments..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </Box>
 
           {loading && deletedPayments.length === 0 ? (
@@ -254,33 +170,25 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
               >
                 <TableHead>
                   <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                    <TableCell sx={{ width: '48px', padding: '8px' }}>
-                      <Checkbox
-                        checked={allSelected}
-                        indeterminate={partiallySelected}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell sx={{ width: isMobile ? '25%' : '18%' }}>
+                    <TableCell sx={{ width: isMobile ? '30%' : '20%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Payment Number
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ width: isMobile ? '30%' : '20%' }}>
+                    <TableCell sx={{ width: isMobile ? '35%' : '22%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Customer
                       </Typography>
                     </TableCell>
                     {!isMobile && (
-                      <TableCell align="right" sx={{ width: '12%' }}>
+                      <TableCell align="right" sx={{ width: '13%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Amount
                         </Typography>
                       </TableCell>
                     )}
                     {!isMobile && (
-                      <TableCell sx={{ width: '12%' }}>
+                      <TableCell sx={{ width: '13%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                           Payment Date
                         </Typography>
@@ -300,7 +208,7 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                         </Typography>
                       </TableCell>
                     )}
-                    <TableCell align="right" sx={{ width: isMobile ? '45%' : '10%' }}>
+                    <TableCell align="right" sx={{ width: isMobile ? '35%' : '10%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Actions
                       </Typography>
@@ -310,7 +218,7 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                 <TableBody>
                   {filteredPayments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMobile ? 4 : 8} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={isMobile ? 3 : 7} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           {searchTerm ? 'No deleted payments match your search.' : 'No deleted payments found.'}
                         </Typography>
@@ -333,13 +241,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                           height: 48
                         }}
                       >
-                        <TableCell sx={{ padding: '8px' }}>
-                          <Checkbox
-                            checked={selectedPayments.has(payment.id)}
-                            onChange={(e) => handleSelectPayment(payment.id, e.target.checked)}
-                            size="small"
-                          />
-                        </TableCell>
                         <TableCell>
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
@@ -458,70 +359,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
         <DialogActions>
           <Button onClick={onClose} variant="outlined">
             Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Bulk Restore Confirmation Dialog */}
-      <Dialog
-        open={showBulkRestoreConfirm}
-        onClose={() => !bulkRestoring && setShowBulkRestoreConfirm(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle color="success">
-          <Box display="flex" alignItems="center" gap={1}>
-            <RestoreIcon color="success" />
-            Bulk Restore Payments
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="success" sx={{ mb: 2 }}>
-            This will restore the selected payments back to active status and make them available for management.
-          </Alert>
-
-          <Typography variant="body1" gutterBottom>
-            Are you sure you want to restore <strong>{selectedCount}</strong> selected payment{selectedCount !== 1 ? 's' : ''}?
-          </Typography>
-
-          {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                Payments to be restored:
-              </Typography>
-              {Array.from(selectedPayments).slice(0, 5).map(paymentId => {
-                const payment = filteredPayments.find((p: Payment) => p.id === paymentId)
-                return payment ? (
-                  <Box key={paymentId} sx={{ mb: 0.5 }}>
-                    <Typography variant="body2">
-                      • {payment.paymentNumber} ({payment.customerName})
-                    </Typography>
-                  </Box>
-                ) : null
-              })}
-            </Box>
-          )}
-
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-            This will move the selected payments back to the active payments list and make them available for processing.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setShowBulkRestoreConfirm(false)}
-            variant="outlined"
-            disabled={bulkRestoring}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleBulkRestore}
-            variant="contained"
-            color="success"
-            disabled={bulkRestoring}
-            startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
-          >
-            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Payments`}
           </Button>
         </DialogActions>
       </Dialog>
