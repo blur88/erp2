@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   TextField,
   InputAdornment,
   Box,
@@ -20,7 +19,6 @@ import {
   IconButton,
   Tooltip,
   Alert,
-  Divider,
   CircularProgress,
   Checkbox,
   useTheme,
@@ -42,7 +40,6 @@ import {
   fetchPayments
 } from '@/store/slices/salesSlice'
 import { useNotification } from '@/hooks/useNotification'
-import LoadingSpinner from '@/components/common/LoadingSpinner'
 import type { Payment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -56,7 +53,6 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
   const deletedPayments = useSelector(selectDeletedPayments) || []
   const loadingState = useSelector(selectSalesLoading)
   const loading = loadingState?.deletedPayments || false
@@ -176,177 +172,360 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      fullScreen={isMobile}
-    >
-      <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center" gap={1}>
-            <PaymentIcon />
-            <Typography variant="h6">
-              Deleted Payments ({filteredPayments.length})
-            </Typography>
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{ sx: { height: '80vh' } }}
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PaymentIcon sx={{ color: 'error.main' }} />
+              <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
+                Deleted Payments
+              </Typography>
+            </Box>
+            <IconButton onClick={onClose} size="small">
+              <CloseIcon />
+            </IconButton>
           </Box>
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Manage soft-deleted payments ({filteredPayments.length} {searchTerm ? 'found' : 'total'})
+          </Typography>
+        </DialogTitle>
 
-      <Divider />
+        <DialogContent>
+          <Box sx={{ mb: 3 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              These payments have been soft-deleted. You can restore them to make them active again.
+            </Alert>
 
-      <DialogContent>
-        {/* Search and bulk actions */}
-        <Box mb={2} display="flex" gap={2} flexDirection={isMobile ? 'column' : 'row'} alignItems={isMobile ? 'stretch' : 'center'}>
-          <TextField
-            placeholder="Search by payment number or customer..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            size="small"
-            fullWidth={isMobile}
-            sx={{ minWidth: isMobile ? 'auto' : 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              <TextField
+                fullWidth
+                placeholder="Search deleted payments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ flex: 1, minWidth: '300px' }}
+              />
 
-          {selectedCount > 0 && (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<RestoreIcon />}
-              onClick={() => setShowBulkRestoreConfirm(true)}
-              disabled={bulkRestoring}
-              fullWidth={isMobile}
-            >
-              Restore Selected ({selectedCount})
-            </Button>
-          )}
-        </Box>
-
-        {/* Bulk restore confirmation */}
-        {showBulkRestoreConfirm && (
-          <Alert
-            severity="info"
-            sx={{ mb: 2 }}
-            action={
-              <Box display="flex" gap={1}>
+              {selectedCount > 0 && (
                 <Button
-                  size="small"
-                  onClick={handleBulkRestore}
+                  variant="contained"
+                  color="success"
+                  startIcon={<RestoreIcon />}
+                  onClick={() => setShowBulkRestoreConfirm(true)}
                   disabled={bulkRestoring}
-                  color="inherit"
+                  sx={{ whiteSpace: 'nowrap' }}
                 >
-                  {bulkRestoring ? <CircularProgress size={16} /> : 'Confirm'}
+                  Restore Selected ({selectedCount})
                 </Button>
-                <Button
-                  size="small"
-                  onClick={() => setShowBulkRestoreConfirm(false)}
-                  disabled={bulkRestoring}
-                  color="inherit"
-                >
-                  Cancel
-                </Button>
-              </Box>
-            }
-          >
-            Restore {selectedCount} selected payment(s)?
-          </Alert>
-        )}
+              )}
+            </Box>
+          </Box>
 
-        {/* Loading state */}
-        {loading && deletedPayments.length === 0 ? (
-          <Box display="flex" justifyContent="center" p={4}>
-            <LoadingSpinner />
-          </Box>
-        ) : filteredPayments.length === 0 ? (
-          <Box display="flex" justifyContent="center" p={4}>
-            <Typography color="text.secondary">
-              {searchTerm ? 'No payments match your search' : 'No deleted payments'}
-            </Typography>
-          </Box>
-        ) : (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size={isTablet ? 'small' : 'medium'}>
-              <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={allSelected}
-                      indeterminate={partiallySelected}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                    />
-                  </TableCell>
-                  <TableCell>Payment #</TableCell>
-                  <TableCell>Customer</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Payment Date</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredPayments.map((payment) => (
-                  <TableRow key={payment.id} hover>
-                    <TableCell padding="checkbox">
+          {loading && deletedPayments.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <TableContainer sx={{ overflowX: 'auto', maxHeight: 400 }}>
+              <Table
+                size="small"
+                stickyHeader
+                sx={{
+                  minWidth: isMobile ? 650 : 800,
+                  '& .MuiTableCell-root': {
+                    borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                    py: 0.75,
+                    px: 1.5
+                  }
+                }}
+              >
+                <TableHead>
+                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                    <TableCell sx={{ width: '48px', padding: '8px' }}>
                       <Checkbox
-                        checked={selectedPayments.has(payment.id)}
-                        onChange={(e) => handleSelectPayment(payment.id, e.target.checked)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
-                        {payment.paymentNumber}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{payment.customerName}</TableCell>
-                    <TableCell>{formatCurrency(payment.amount)}</TableCell>
-                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                        color={getStatusColor(payment.status)}
+                        checked={allSelected}
+                        indeterminate={partiallySelected}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Restore payment">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleRestore(payment)}
-                          disabled={restoringId === payment.id}
-                        >
-                          {restoringId === payment.id ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <RestoreIcon />
-                          )}
-                        </IconButton>
-                      </Tooltip>
+                    <TableCell sx={{ width: isMobile ? '25%' : '18%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Payment Number
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ width: isMobile ? '30%' : '20%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Customer
+                      </Typography>
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell align="right" sx={{ width: '12%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          Amount
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell sx={{ width: '12%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          Payment Date
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell sx={{ width: '10%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          Status
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell sx={{ width: '12%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          Deleted Date
+                        </Typography>
+                      </TableCell>
+                    )}
+                    <TableCell align="right" sx={{ width: isMobile ? '45%' : '10%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Actions
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </DialogContent>
+                </TableHead>
+                <TableBody>
+                  {filteredPayments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={isMobile ? 4 : 8} align="center" sx={{ py: 4 }}>
+                        <Typography variant="body1" color="text.secondary">
+                          {searchTerm ? 'No deleted payments match your search.' : 'No deleted payments found.'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPayments.map((payment) => (
+                      <TableRow
+                        key={payment.id}
+                        hover
+                        sx={{
+                          '&:hover, &:focus-within': {
+                            backgroundColor: 'action.hover',
+                            '& .payment-actions': {
+                              opacity: 1
+                            }
+                          },
+                          transition: 'background-color 0.2s ease',
+                          cursor: 'default',
+                          height: 48
+                        }}
+                      >
+                        <TableCell sx={{ padding: '8px' }}>
+                          <Checkbox
+                            checked={selectedPayments.has(payment.id)}
+                            onChange={(e) => handleSelectPayment(payment.id, e.target.checked)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                              {payment.paymentNumber}
+                            </Typography>
+                            {isMobile && (
+                              <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                                  {formatCurrency(payment.amount)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                  • {formatDate(payment.paymentDate)}
+                                </Typography>
+                                <Chip
+                                  label={payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                                  color={getStatusColor(payment.status)}
+                                  size="small"
+                                  sx={{ height: '16px', fontSize: '0.65rem', '& .MuiChip-label': { px: 0.5 } }}
+                                />
+                              </Box>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                            {payment.customerName}
+                          </Typography>
+                        </TableCell>
+                        {!isMobile && (
+                          <TableCell align="right">
+                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                              {formatCurrency(payment.amount)}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        {!isMobile && (
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                              {formatDate(payment.paymentDate)}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        {!isMobile && (
+                          <TableCell>
+                            <Chip
+                              label={payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                              color={getStatusColor(payment.status)}
+                              size="small"
+                              sx={{ fontSize: '0.7rem' }}
+                            />
+                          </TableCell>
+                        )}
+                        {!isMobile && (
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              {(payment as any).deletedAt ? formatDate((payment as any).deletedAt) : 'Unknown'}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        <TableCell align="right">
+                          <Box
+                            className="payment-actions"
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
+                              gap: 0.25,
+                              opacity: isMobile ? 1 : 0.7,
+                              transition: 'opacity 0.2s ease'
+                            }}
+                          >
+                            <Tooltip title="Restore Payment">
+                              <IconButton
+                                onClick={() => handleRestore(payment)}
+                                disabled={restoringId === payment.id}
+                                size="small"
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: 'success.light',
+                                    color: 'success.main'
+                                  },
+                                  p: 0.5
+                                }}
+                              >
+                                {restoringId === payment.id ? (
+                                  <CircularProgress size={20} />
+                                ) : (
+                                  <RestoreIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                          {isMobile && (payment as any).deletedAt && (
+                            <Typography variant="caption" color="text.secondary" sx={{
+                              display: 'block',
+                              textAlign: 'right',
+                              mt: 0.25,
+                              fontSize: '0.65rem'
+                            }}>
+                              {new Date((payment as any).deletedAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: '2-digit'
+                              })}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
 
-      <Divider />
+        <DialogActions>
+          <Button onClick={onClose} variant="outlined">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-    </Dialog>
+      {/* Bulk Restore Confirmation Dialog */}
+      <Dialog
+        open={showBulkRestoreConfirm}
+        onClose={() => !bulkRestoring && setShowBulkRestoreConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="success">
+          <Box display="flex" alignItems="center" gap={1}>
+            <RestoreIcon color="success" />
+            Bulk Restore Payments
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="success" sx={{ mb: 2 }}>
+            This will restore the selected payments back to active status and make them available for management.
+          </Alert>
+
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to restore <strong>{selectedCount}</strong> selected payment{selectedCount !== 1 ? 's' : ''}?
+          </Typography>
+
+          {selectedCount <= 5 && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Payments to be restored:
+              </Typography>
+              {Array.from(selectedPayments).slice(0, 5).map(paymentId => {
+                const payment = filteredPayments.find((p: Payment) => p.id === paymentId)
+                return payment ? (
+                  <Box key={paymentId} sx={{ mb: 0.5 }}>
+                    <Typography variant="body2">
+                      • {payment.paymentNumber} ({payment.customerName})
+                    </Typography>
+                  </Box>
+                ) : null
+              })}
+            </Box>
+          )}
+
+          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+            This will move the selected payments back to the active payments list and make them available for processing.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowBulkRestoreConfirm(false)}
+            variant="outlined"
+            disabled={bulkRestoring}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleBulkRestore}
+            variant="contained"
+            color="success"
+            disabled={bulkRestoring}
+            startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
+          >
+            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Payments`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   )
 }
 

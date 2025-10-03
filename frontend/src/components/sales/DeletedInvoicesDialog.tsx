@@ -176,25 +176,62 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
     <Dialog
       open={showBulkRestoreConfirm}
       onClose={() => !bulkRestoring && setShowBulkRestoreConfirm(false)}
+      maxWidth="sm"
+      fullWidth
     >
-      <DialogTitle>Confirm Bulk Restore</DialogTitle>
+      <DialogTitle color="success">
+        <Box display="flex" alignItems="center" gap={1}>
+          <RestoreIcon color="success" />
+          Bulk Restore Invoices
+        </Box>
+      </DialogTitle>
       <DialogContent>
-        <Typography>
-          Are you sure you want to restore {selectedCount} selected invoice{selectedCount !== 1 ? 's' : ''}?
+        <Alert severity="success" sx={{ mb: 2 }}>
+          This will restore the selected invoices back to active status and make them available for management.
+        </Alert>
+
+        <Typography variant="body1" gutterBottom>
+          Are you sure you want to restore <strong>{selectedCount}</strong> selected invoice{selectedCount !== 1 ? 's' : ''}?
+        </Typography>
+
+        {selectedCount <= 5 && (
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              Invoices to be restored:
+            </Typography>
+            {Array.from(selectedInvoices).slice(0, 5).map(invoiceId => {
+              const invoice = filteredInvoices.find((i: Invoice) => i.id === invoiceId)
+              return invoice ? (
+                <Box key={invoiceId} sx={{ mb: 0.5 }}>
+                  <Typography variant="body2">
+                    • {invoice.invoiceNumber} ({invoice.customerName || 'Unknown Customer'})
+                  </Typography>
+                </Box>
+              ) : null
+            })}
+          </Box>
+        )}
+
+        <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          This will move the selected invoices back to the active invoices list and make them available for processing.
         </Typography>
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => setShowBulkRestoreConfirm(false)} disabled={bulkRestoring}>
+        <Button
+          onClick={() => setShowBulkRestoreConfirm(false)}
+          variant="outlined"
+          disabled={bulkRestoring}
+        >
           Cancel
         </Button>
         <Button
           onClick={handleBulkRestore}
           variant="contained"
-          color="primary"
+          color="success"
           disabled={bulkRestoring}
-          startIcon={bulkRestoring ? <CircularProgress size={20} /> : <RestoreIcon />}
+          startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
         >
-          {bulkRestoring ? 'Restoring...' : 'Restore'}
+          {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Invoices`}
         </Button>
       </DialogActions>
     </Dialog>
@@ -207,149 +244,236 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
         onClose={handleClose}
         maxWidth="lg"
         fullWidth
-        fullScreen={isMobile}
+        PaperProps={{ sx: { height: '80vh' } }}
       >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Box display="flex" alignItems="center" gap={1}>
-              <InvoiceIcon color="primary" />
-              <Typography variant="h6">Deleted Invoices</Typography>
-              {filteredInvoices.length > 0 && (
-                <Chip
-                  label={filteredInvoices.length}
-                  size="small"
-                  color="default"
-                />
-              )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <InvoiceIcon sx={{ color: 'error.main' }} />
+              <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
+                Deleted Invoices
+              </Typography>
             </Box>
             <IconButton onClick={handleClose} size="small">
               <CloseIcon />
             </IconButton>
           </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Manage soft-deleted invoices ({filteredInvoices.length} {searchTerm ? 'found' : 'total'})
+          </Typography>
         </DialogTitle>
 
-        <Divider />
+        <DialogContent>
+          <Box sx={{ mb: 3 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              These invoices have been soft-deleted. You can restore them to make them active again.
+            </Alert>
 
-        <DialogContent sx={{ p: 0 }}>
-          {/* Search and Bulk Actions */}
-          <Box sx={{ p: 2, pb: 1 }}>
-            <Box display="flex" gap={2} flexDirection={{ xs: 'column', sm: 'row' }} mb={2}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
               <TextField
-                size="small"
-                placeholder="Search by invoice number or customer..."
+                fullWidth
+                placeholder="Search deleted invoices..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
+                      <SearchIcon />
                     </InputAdornment>
                   ),
                 }}
-                fullWidth
+                sx={{ flex: 1, minWidth: '300px' }}
               />
-            </Box>
 
-            {/* Bulk Actions */}
-            {selectedCount > 0 && (
-              <Alert
-                severity="info"
-                sx={{ mb: 2 }}
-                action={
-                  <Box display="flex" gap={1}>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="primary"
-                      onClick={() => setShowBulkRestoreConfirm(true)}
-                      startIcon={<RestoreIcon />}
-                      disabled={bulkRestoring}
-                    >
-                      Restore ({selectedCount})
-                    </Button>
-                  </Box>
-                }
-              >
-                {selectedCount} invoice{selectedCount !== 1 ? 's' : ''} selected
-              </Alert>
-            )}
+              {selectedCount > 0 && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<RestoreIcon />}
+                  onClick={() => setShowBulkRestoreConfirm(true)}
+                  disabled={bulkRestoring}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Restore Selected ({selectedCount})
+                </Button>
+              )}
+            </Box>
           </Box>
 
-          {/* Table */}
-          <TableContainer sx={{ maxHeight: isMobile ? 'auto' : 500 }}>
-            <Table stickyHeader size={isMobile ? 'small' : 'medium'}>
-              <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={allSelected}
-                      indeterminate={partiallySelected}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      disabled={filteredInvoices.length === 0}
-                    />
-                  </TableCell>
-                  <TableCell>Invoice #</TableCell>
-                  <TableCell>Customer</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                  <TableCell>Deleted</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading && filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={40} />
+          {loading && filteredInvoices.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <TableContainer sx={{ overflowX: 'auto', maxHeight: 400 }}>
+              <Table
+                size="small"
+                stickyHeader
+                sx={{
+                  minWidth: isMobile ? 650 : 800,
+                  '& .MuiTableCell-root': {
+                    borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
+                    py: 0.75,
+                    px: 1.5
+                  }
+                }}
+              >
+                <TableHead>
+                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                    <TableCell sx={{ width: '48px', padding: '8px' }}>
+                      <Checkbox
+                        checked={allSelected}
+                        indeterminate={partiallySelected}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        size="small"
+                      />
                     </TableCell>
-                  </TableRow>
-                ) : filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">
-                        {searchTerm ? 'No deleted invoices match your search' : 'No deleted invoices found'}
+                    <TableCell sx={{ width: isMobile ? '25%' : '20%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Invoice Number
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Customer
+                      </Typography>
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell align="right" sx={{ width: '15%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          Total Amount
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell sx={{ width: '15%' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                          Deleted Date
+                        </Typography>
+                      </TableCell>
+                    )}
+                    <TableCell align="right" sx={{ width: isMobile ? '45%' : '10%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Actions
                       </Typography>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id} hover>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          checked={selectedInvoices.has(invoice.id)}
-                          onChange={(e) => handleSelectInvoice(invoice.id, e.target.checked)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>
-                          {invoice.invoiceNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {invoice.customerName || 'Unknown'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight={500}>
-                          {formatCurrency(invoice.totalAmount || 0)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {invoice.deletedAt ? formatDate(invoice.deletedAt) : 'Unknown'}
+                </TableHead>
+                <TableBody>
+                  {filteredInvoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={isMobile ? 4 : 6} align="center" sx={{ py: 4 }}>
+                        <Typography variant="body1" color="text.secondary">
+                          {searchTerm ? 'No deleted invoices match your search.' : 'No deleted invoices found.'}
                         </Typography>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  ) : (
+                    filteredInvoices.map((invoice) => (
+                      <TableRow
+                        key={invoice.id}
+                        hover
+                        sx={{
+                          '&:hover, &:focus-within': {
+                            backgroundColor: 'action.hover',
+                            '& .invoice-actions': {
+                              opacity: 1
+                            }
+                          },
+                          transition: 'background-color 0.2s ease',
+                          cursor: 'default',
+                          height: 48
+                        }}
+                      >
+                        <TableCell sx={{ padding: '8px' }}>
+                          <Checkbox
+                            checked={selectedInvoices.has(invoice.id)}
+                            onChange={(e) => handleSelectInvoice(invoice.id, e.target.checked)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                              {invoice.invoiceNumber}
+                            </Typography>
+                            {isMobile && (
+                              <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                                  {formatCurrency(invoice.totalAmount || 0)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                  • {invoice.deletedAt ? formatDate(invoice.deletedAt) : 'Unknown'}
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                            {invoice.customerName || 'Unknown'}
+                          </Typography>
+                        </TableCell>
+                        {!isMobile && (
+                          <TableCell align="right">
+                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                              {formatCurrency(invoice.totalAmount || 0)}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        {!isMobile && (
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              {invoice.deletedAt ? formatDate(invoice.deletedAt) : 'Unknown'}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        <TableCell align="right">
+                          <Box
+                            className="invoice-actions"
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
+                              gap: 0.25,
+                              opacity: isMobile ? 1 : 0.7,
+                              transition: 'opacity 0.2s ease'
+                            }}
+                          >
+                            <Tooltip title="Restore Invoice">
+                              <IconButton
+                                onClick={() => handleRestore(invoice)}
+                                disabled={restoringId === invoice.id}
+                                size="small"
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: 'success.light',
+                                    color: 'success.main'
+                                  },
+                                  p: 0.5
+                                }}
+                              >
+                                {restoringId === invoice.id ? (
+                                  <CircularProgress size={20} />
+                                ) : (
+                                  <RestoreIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </DialogContent>
 
-        <Divider />
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={handleClose}>Close</Button>
+        <DialogActions>
+          <Button onClick={handleClose} variant="outlined">
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 
