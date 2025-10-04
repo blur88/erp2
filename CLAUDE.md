@@ -131,7 +131,7 @@ docker compose logs backend # Check specific service logs
 ### Database Architecture
 - **PostgreSQL**: Primary database with 19+ entities, TypeORM
 - **MongoDB**: Analytics and reports data, Mongoose
-- **Redis**: Caching, queues, WebSocket state
+- **Redis 8**: Caching, queues, WebSocket state, with built-in Search, JSON, TimeSeries, Bloom, and VectorSet modules
 
 **Key Entities:**
 - **BaseEntity**: UUID, timestamps, soft deletes, audit fields
@@ -220,6 +220,16 @@ When enabling disabled modules:
 - **API Service**: All API calls go through `ApiService` which wraps responses in `{ data: T, meta?: {...} }`
 - **TypeScript relaxed**: Project uses `"strict": false`, liberal use of `as any` when needed
 - **Path aliases**: Use `@/` for src imports, configured in both Vite and TypeScript
+
+## Recent Changes (October 2025)
+
+### Redis 8 Upgrade (October 2025)
+- ✅ **COMPLETE**: Upgraded Redis from 7-alpine to 8-alpine3.22
+- **New Features**: Built-in Redis modules now available - Search, JSON, TimeSeries, Bloom, and VectorSet
+- **Compatibility**: All existing Redis client operations remain functional
+- **Performance**: Enhanced performance and security with Redis 8.2.2
+- **License**: Redis 8 uses RSALv2/SSPLv1/AGPLv3 tri-license model
+- **Benefits**: Access to advanced data structures and query capabilities without external modules
 
 ## Recent Changes (December 2025)
 
