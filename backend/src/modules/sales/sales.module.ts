@@ -16,12 +16,14 @@ import { CustomerController } from './controllers/customer.controller';
 import { SalesOrderController } from './controllers/sales-order.controller'; // Temporarily disabled due to TypeScript errors
 import { InvoiceController } from './controllers/invoice.controller';
 import { PaymentController } from './controllers/payment.controller';
+import { SalesAnalyticsController } from './controllers/sales-analytics.controller';
 
 // Services
 import { CustomerService } from './services/customer.service';
 import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
 import { InvoiceService } from './services/invoice.service';
 import { PaymentService } from './services/payment.service';
+import { SalesAnalyticsService } from './services/sales-analytics.service';
 import { InventoryIntegrationService } from './services/inventory-integration.service';
 import { TransactionManager } from '../../common/utils/transaction.util';
 
@@ -43,12 +45,14 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     SalesOrderController, // Temporarily disabled due to TypeScript errors
     InvoiceController,
     PaymentController,
+    SalesAnalyticsController,
   ],
   providers: [
     CustomerService,
     SalesOrderService,
     InvoiceService,
     PaymentService,
+    SalesAnalyticsService,
     InventoryIntegrationService,
     TransactionManager,
   ],

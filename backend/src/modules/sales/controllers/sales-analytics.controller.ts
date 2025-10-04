@@ -27,7 +27,7 @@ import {
 } from '../dto/sales-analytics.dto';
 
 @ApiTags('Sales Analytics')
-@Controller('api/sales/analytics')
+@Controller('sales/analytics')
 export class SalesAnalyticsController {
   constructor(private readonly salesAnalyticsService: SalesAnalyticsService) {}
 

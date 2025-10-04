@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Button, 
-  Grid, 
-  Card, 
+import React, { useState, useEffect } from 'react'
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  Grid,
+  Card,
   CardContent,
   Table,
   TableBody,
@@ -14,27 +14,21 @@ import {
   TableHead,
   TableRow,
   Chip,
-  IconButton,
-  Menu,
-  MenuItem,
-  LinearProgress,
   Avatar,
   useTheme
 } from '@mui/material'
-import { 
-  Add as AddIcon, 
-  PointOfSale as SalesIcon, 
-  People as CustomersIcon, 
+import {
+  PointOfSale as SalesIcon,
+  People as CustomersIcon,
   Receipt as OrdersIcon,
   Payment as PaymentsIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  MoreVert as MoreIcon,
-  Visibility as ViewIcon,
-  Edit as EditIcon,
-  LocalShipping as ShipIcon
+  Inventory2 as InventoryIcon,
+  Assessment as ReportsIcon,
+  Add as AddIcon
 } from '@mui/icons-material'
-import { 
+import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
@@ -48,8 +42,9 @@ import {
 } from 'chart.js'
 import { Line, Bar, Doughnut } from 'react-chartjs-2'
 import { format } from 'date-fns'
-import { formatCurrency } from '@/utils/currency'
+import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { useNavigate } from 'react-router-dom'
 
 ChartJS.register(
   CategoryScale,
@@ -63,97 +58,214 @@ ChartJS.register(
   ArcElement
 )
 
-// Mock data
-const mockRecentOrders = [
-  {
-    id: 'SO-2024-001',
-    customer: 'John Doe',
-    amount: 1299.99,
-    shippedDate: new Date('2024-01-15'),
-    date: new Date('2024-01-15'),
-    items: 3
-  },
-  {
-    id: 'SO-2024-002', 
-    customer: 'Jane Smith',
-    amount: 449.50,
-    date: new Date('2024-01-14'),
-    items: 2
-  },
-  {
-    id: 'SO-2024-003',
-    customer: 'Bob Johnson', 
-    amount: 99.99,
-    date: new Date('2024-01-13'),
-    items: 1
-  },
-  {
-    id: 'SO-2024-004',
-    customer: 'Alice Brown',
-    amount: 759.00,
-    shippedDate: new Date('2024-01-11'),
-    deliveredDate: new Date('2024-01-12'),
-    date: new Date('2024-01-12'),
-    items: 4
-  }
-]
-
-const mockTopCustomers = [
-  { name: 'John Doe', orders: 15, amount: 12450.00 },
-  { name: 'Jane Smith', orders: 12, amount: 9870.50 },
-  { name: 'Bob Johnson', orders: 8, amount: 6540.25 },
-  { name: 'Alice Brown', orders: 6, amount: 4320.00 },
-  { name: 'Charlie Wilson', orders: 4, amount: 2890.75 }
-]
-
 const SalesPage: React.FC = () => {
   const theme = useTheme()
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const [salesData, setSalesData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, orderId: string) => {
-    setAnchorEl(event.currentTarget)
-    setSelectedOrder(orderId)
-  }
+  useEffect(() => {
+    fetchSalesData()
+  }, [])
 
-  const handleMenuClose = () => {
-    setAnchorEl(null)
-    setSelectedOrder(null)
-  }
+  const fetchSalesData = async () => {
+    try {
+      setLoading(true)
 
-  const getOrderStatus = (order: any) => {
-    if (order.deliveredDate) return { label: 'Delivered', color: 'success' }
-    if (order.shippedDate) return { label: 'Shipped', color: 'warning' }
-    return { label: 'Pending', color: 'info' }
+      // Fetch recent orders (get more for trend calculation)
+      const ordersResponse = await fetch('/api/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc')
+      let ordersData = []
+      let allOrders = []
+      if (ordersResponse.ok) {
+        const ordersResult = await ordersResponse.json()
+        allOrders = ordersResult.data || []
+        ordersData = allOrders.slice(0, 5) // Keep only 5 for display
+      }
+
+      // Calculate top products from order items
+      const productStats: { [key: string]: { name: string, revenue: number, quantity: number } } = {}
+
+      allOrders.forEach((order: any) => {
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const productId = item.product?.id || item.productId
+            const productName = item.product?.name || item.productName || 'Unknown Product'
+            const revenue = parseFloat(item.totalAmount) || (parseFloat(item.quantity) * parseFloat(item.unitPrice)) || 0
+            const quantity = parseInt(item.quantity) || 0
+
+            if (!productStats[productId]) {
+              productStats[productId] = { name: productName, revenue: 0, quantity: 0 }
+            }
+            productStats[productId].revenue += revenue
+            productStats[productId].quantity += quantity
+          })
+        }
+      })
+
+      // Convert to array and sort by revenue
+      const topProductsData = Object.entries(productStats)
+        .map(([id, stats]) => ({
+          productId: id,
+          productName: stats.name,
+          totalRevenue: stats.revenue,
+          quantitySold: stats.quantity
+        }))
+        .sort((a, b) => b.totalRevenue - a.totalRevenue)
+        .slice(0, 5)
+
+      // Calculate top customers from orders
+      const customerStats: { [key: string]: { name: string, revenue: number, orders: number } } = {}
+
+      allOrders.forEach((order: any) => {
+        const customerId = order.customer?.id
+        const customerName = order.customer?.name || 'Unknown Customer'
+        const revenue = order.totalAmount || 0
+
+        if (customerId) {
+          if (!customerStats[customerId]) {
+            customerStats[customerId] = { name: customerName, revenue: 0, orders: 0 }
+          }
+          customerStats[customerId].revenue += revenue
+          customerStats[customerId].orders += 1
+        }
+      })
+
+      // Convert to array and sort by revenue
+      const topCustomersData = Object.entries(customerStats)
+        .map(([id, stats]) => ({
+          customerId: id,
+          customerName: stats.name,
+          totalRevenue: stats.revenue,
+          totalOrders: stats.orders
+        }))
+        .sort((a, b) => b.totalRevenue - a.totalRevenue)
+        .slice(0, 5)
+
+      // Calculate basic metrics from all orders
+      const totalRevenue = allOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+      const totalOrders = allOrders.length
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+      const uniqueCustomers = new Set(allOrders.map((o: any) => o.customer?.id)).size
+
+      // Generate period data for chart (group by day for last 30 days)
+      const periodData: any[] = []
+      const today = new Date()
+      const daysToShow = 30
+
+      for (let i = daysToShow - 1; i >= 0; i--) {
+        const date = new Date(today)
+        date.setDate(date.getDate() - i)
+        date.setHours(0, 0, 0, 0)
+
+        const nextDate = new Date(date)
+        nextDate.setDate(nextDate.getDate() + 1)
+
+        const dayOrders = allOrders.filter((order: any) => {
+          const orderDate = new Date(order.orderDate)
+          return orderDate >= date && orderDate < nextDate
+        })
+
+        const revenue = dayOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+
+        periodData.push({
+          period: date.toISOString(),
+          revenue,
+          orders: dayOrders.length
+        })
+      }
+
+      // Calculate growth percentages (compare current 30 days vs previous 30 days)
+      const thirtyDaysAgo = new Date(today)
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+      const sixtyDaysAgo = new Date(today)
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+
+      // Current period (last 30 days)
+      const currentPeriodOrders = allOrders.filter((order: any) => {
+        const orderDate = new Date(order.orderDate)
+        return orderDate >= thirtyDaysAgo && orderDate <= today
+      })
+      const currentRevenue = currentPeriodOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+      const currentOrderCount = currentPeriodOrders.length
+
+      // Previous period (31-60 days ago)
+      const previousPeriodOrders = allOrders.filter((order: any) => {
+        const orderDate = new Date(order.orderDate)
+        return orderDate >= sixtyDaysAgo && orderDate < thirtyDaysAgo
+      })
+      const previousRevenue = previousPeriodOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+      const previousOrderCount = previousPeriodOrders.length
+
+      // Calculate percentage changes
+      const revenueGrowth = previousRevenue > 0
+        ? ((currentRevenue - previousRevenue) / previousRevenue) * 100
+        : currentRevenue > 0 ? 100 : 0
+
+      const ordersGrowth = previousOrderCount > 0
+        ? ((currentOrderCount - previousOrderCount) / previousOrderCount) * 100
+        : currentOrderCount > 0 ? 100 : 0
+
+      // Calculate customer growth
+      const currentCustomers = new Set(currentPeriodOrders.map((o: any) => o.customer?.id)).size
+      const previousCustomers = new Set(previousPeriodOrders.map((o: any) => o.customer?.id)).size
+      const customerGrowth = previousCustomers > 0
+        ? ((currentCustomers - previousCustomers) / previousCustomers) * 100
+        : currentCustomers > 0 ? 100 : 0
+
+      // Calculate avg order value growth
+      const currentAvgOrder = currentOrderCount > 0 ? currentRevenue / currentOrderCount : 0
+      const previousAvgOrder = previousOrderCount > 0 ? previousRevenue / previousOrderCount : 0
+      const avgOrderGrowth = previousAvgOrder > 0
+        ? ((currentAvgOrder - previousAvgOrder) / previousAvgOrder) * 100
+        : currentAvgOrder > 0 ? 100 : 0
+
+      // Combine the data
+      setSalesData({
+        metrics: {
+          totalRevenue,
+          totalOrders,
+          averageOrderValue: avgOrderValue,
+          uniqueCustomers,
+          revenueGrowth,
+          ordersGrowth,
+          customerGrowth,
+          avgOrderGrowth
+        },
+        recentOrders: ordersData,
+        topCustomers: topCustomersData,
+        topProducts: topProductsData,
+        periodData
+      })
+    } catch (error) {
+      console.error('Error fetching sales data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Chart data
   const salesTrendData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: salesData?.periodData?.map((item: any) => {
+      const date = new Date(item.period)
+      return format(date, 'MMM dd')
+    }) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
       {
         label: 'Sales',
-        data: [45000, 52000, 48000, 61000, 58000, 67000],
+        data: salesData?.periodData?.map((item: any) => item.revenue) || [45000, 52000, 48000, 61000, 58000, 67000],
         borderColor: theme.palette.primary.main,
         backgroundColor: `${theme.palette.primary.main}20`,
-        tension: 0.4
-      },
-      {
-        label: 'Target',
-        data: [50000, 55000, 60000, 65000, 70000, 75000],
-        borderColor: theme.palette.secondary.main,
-        backgroundColor: `${theme.palette.secondary.main}20`,
-        borderDash: [5, 5],
         tension: 0.4
       }
     ]
   }
 
   const topProductsData = {
-    labels: ['Laptop', 'Monitor', 'Keyboard', 'Mouse', 'Headphones'],
+    labels: salesData?.topProducts?.map((item: any) => item.productName) || ['Laptop', 'Monitor', 'Keyboard', 'Mouse', 'Headphones'],
     datasets: [
       {
-        data: [35, 25, 20, 12, 8],
+        data: salesData?.topProducts?.map((item: any) => item.totalRevenue) || [35, 25, 20, 12, 8],
         backgroundColor: [
           theme.palette.primary.main,
           theme.palette.secondary.main,
@@ -180,7 +292,7 @@ const SalesPage: React.FC = () => {
         beginAtZero: true,
         ticks: {
           callback: function(value: any) {
-            return formatCurrency(value, { showSymbol: true })
+            return formatCurrency(value)
           }
         }
       }
@@ -197,164 +309,125 @@ const SalesPage: React.FC = () => {
     }
   }
 
+  const stats = [
+    {
+      title: 'Total Sales',
+      value: formatCurrency(salesData?.metrics?.totalRevenue || 0),
+      change: salesData?.metrics?.revenueGrowth !== undefined ? `${salesData.metrics.revenueGrowth > 0 ? '+' : ''}${salesData.metrics.revenueGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.revenueGrowth || 0) >= 0 ? 'up' : 'down',
+      icon: SalesIcon,
+      color: 'primary'
+    },
+    {
+      title: 'Orders',
+      value: salesData?.metrics?.totalOrders || '0',
+      change: salesData?.metrics?.ordersGrowth !== undefined ? `${salesData.metrics.ordersGrowth > 0 ? '+' : ''}${salesData.metrics.ordersGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.ordersGrowth || 0) >= 0 ? 'up' : 'down',
+      icon: OrdersIcon,
+      color: 'info'
+    },
+    {
+      title: 'Customers',
+      value: salesData?.metrics?.uniqueCustomers || '0',
+      change: salesData?.metrics?.customerGrowth !== undefined ? `${salesData.metrics.customerGrowth > 0 ? '+' : ''}${salesData.metrics.customerGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.customerGrowth || 0) >= 0 ? 'up' : 'down',
+      icon: CustomersIcon,
+      color: 'secondary'
+    },
+    {
+      title: 'Avg Order Value',
+      value: formatCurrency(salesData?.metrics?.averageOrderValue || 0),
+      change: salesData?.metrics?.avgOrderGrowth !== undefined ? `${salesData.metrics.avgOrderGrowth > 0 ? '+' : ''}${salesData.metrics.avgOrderGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.avgOrderGrowth || 0) >= 0 ? 'up' : 'down',
+      icon: PaymentsIcon,
+      color: 'success'
+    }
+  ]
+
+  const recentOrders = salesData?.recentOrders || []
+  const topCustomers = salesData?.topCustomers || []
+
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1 }}>
-            Sales Dashboard
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <SalesIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
+            Sales Overview
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             Monitor sales performance and manage customer relationships
           </Typography>
         </Box>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />} 
-          size="large"
-        >
-          New Sale
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/sales/orders')}
+          >
+            Create Order
+          </Button>
+        </Box>
       </Box>
-      
+
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} lg={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'primary.light',
-                    color: 'primary.contrastText',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <SalesIcon />
+        {stats.map((stat, index) => (
+          <Grid item xs={12} sm={6} lg={3} key={index}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: `${stat.color}.light`,
+                      color: `${stat.color}.contrastText`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <stat.icon />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {stat.trend === 'up' ? (
+                      <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                    ) : (
+                      <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                    )}
+                    <Typography
+                      variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                      sx={{
+                        color: stat.trend === 'up' ? 'success.main' : 'error.main',
+                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                      }}
+                    >
+                      {stat.change}
+                    </Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ color: 'success.main', fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                    +12.5%
-                  </Typography>
-                </Box>
-              </Box>
-              <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
-                {formatCurrency(125430)}
-              </Typography>
-              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                Total Sales
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'info.light',
-                    color: 'info.contrastText',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <OrdersIcon />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ color: 'success.main', fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                    +8.2%
-                  </Typography>
-                </Box>
-              </Box>
-              <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
-                1,234
-              </Typography>
-              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                Orders
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'secondary.light',
-                    color: 'secondary.contrastText',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <CustomersIcon />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ color: 'success.main', fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                    +5.1%
-                  </Typography>
-                </Box>
-              </Box>
-              <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
-                567
-              </Typography>
-              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                Customers
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'success.light',
-                    color: 'success.contrastText',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <PaymentsIcon />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ color: 'error.main', fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                    -2.3%
-                  </Typography>
-                </Box>
-              </Box>
-              <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
-                {formatCurrency(98450)}
-              </Typography>
-              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                Payments
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+                <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
+                  {stat.value}
+                </Typography>
+                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                  {stat.title}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       {/* Charts and Analytics */}
@@ -371,12 +444,51 @@ const SalesPage: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} lg={4}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: 3 }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Top Products
             </Typography>
-            <Box sx={{ height: 300 }}>
-              <Doughnut data={topProductsData} options={doughnutOptions} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {salesData?.topProducts && salesData.topProducts.length > 0 ? salesData.topProducts.map((product: any, index: number) => (
+                <Box key={product.productId || index}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          bgcolor: index === 0 ? 'primary.main' : index === 1 ? 'secondary.main' : 'grey.400',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
+                        }}
+                      >
+                        {index + 1}
+                      </Typography>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {product.productName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {product.quantitySold || 0} sold
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Typography variant="subtitle2" color="primary">
+                      {formatCurrency(product.totalRevenue || 0)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )) : (
+                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
+                  No product data available
+                </Typography>
+              )}
             </Box>
           </Paper>
         </Grid>
@@ -440,59 +552,56 @@ const SalesPage: React.FC = () => {
                         Status
                       </Typography>
                     </TableCell>
-                    <TableCell align="right">
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Actions
-                      </Typography>
-                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {mockRecentOrders.map((order) => (
-                    <TableRow key={order.id} hover sx={{
-                      '& .MuiTableCell-root': {
-                        borderBottom: TABLE_STYLES.cell.border,
-                        py: TABLE_STYLES.cell.padding.py,
-                        px: TABLE_STYLES.cell.padding.px
-                      },
-                      height: TABLE_STYLES.row.height
-                    }}>
+                  {recentOrders.length > 0 ? recentOrders.map((order: any) => (
+                    <TableRow
+                      key={order.id}
+                      hover
+                      sx={{
+                        cursor: 'pointer',
+                        '& .MuiTableCell-root': {
+                          borderBottom: TABLE_STYLES.cell.border,
+                          py: TABLE_STYLES.cell.padding.py,
+                          px: TABLE_STYLES.cell.padding.px
+                        },
+                        height: TABLE_STYLES.row.height
+                      }}
+                      onClick={() => navigate('/sales/orders', { state: { highlightOrderId: order.id } })}
+                    >
                       <TableCell>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, fontFamily: 'monospace' }}>
-                          {order.id}
+                          {order.orderNumber}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Avatar sx={{ width: 32, height: 32 }}>
-                            {order.customer.charAt(0)}
+                            {order.customer?.name?.charAt(0) || 'U'}
                           </Avatar>
                           <Box>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{order.customer}</Typography>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{order.customer?.name || 'Unknown'}</Typography>
                             <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                              {order.items} item{order.items > 1 ? 's' : ''}
+                              {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
                             </Typography>
                           </Box>
                         </Box>
                       </TableCell>
                       <TableCell>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
-                          {format(order.date, 'MMM dd, yyyy')}
+                          {format(new Date(order.orderDate), 'MMM dd, yyyy')}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="primary" sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {formatCurrency(order.amount)}
+                          {formatCurrency(order.totalAmount)}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={getOrderStatus(order).label}
-                          color={getOrderStatus(order).color as any}
+                          label={order.isFulfilled ? 'Fulfilled' : 'Pending'}
+                          color={order.isFulfilled ? 'success' : 'warning'}
                           size="small"
                           variant="outlined"
                           sx={{
@@ -502,16 +611,16 @@ const SalesPage: React.FC = () => {
                           }}
                         />
                       </TableCell>
-                      <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuOpen(e, order.id)}
-                        >
-                          <MoreIcon />
-                        </IconButton>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                          No recent orders
+                        </Typography>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -524,8 +633,8 @@ const SalesPage: React.FC = () => {
               Top Customers
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {mockTopCustomers.map((customer, index) => (
-                <Box key={customer.name}>
+              {topCustomers.length > 0 ? topCustomers.slice(0, 5).map((customer: any, index: number) => (
+                <Box key={customer.id || index}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography
@@ -547,48 +656,27 @@ const SalesPage: React.FC = () => {
                       </Typography>
                       <Box>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {customer.name}
+                          {customer.customerName || customer.name}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {customer.orders} orders
+                          {customer.totalOrders || customer.orderCount || customer.orders || 0} orders
                         </Typography>
                       </Box>
                     </Box>
                     <Typography variant="subtitle2" color="primary">
-                      {formatCurrency(customer.amount)}
+                      {formatCurrency(customer.totalRevenue || customer.amount || 0)}
                     </Typography>
                   </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={(customer.amount / mockTopCustomers[0].amount) * 100}
-                    sx={{ height: 4, borderRadius: 2 }}
-                  />
                 </Box>
-              ))}
+              )) : (
+                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
+                  No customer data available
+                </Typography>
+              )}
             </Box>
           </Paper>
         </Grid>
       </Grid>
-
-      {/* Context Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={handleMenuClose}>
-          <ViewIcon sx={{ mr: 1 }} fontSize="small" />
-          View Details
-        </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
-          <EditIcon sx={{ mr: 1 }} fontSize="small" />
-          Edit Order
-        </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
-          <ShipIcon sx={{ mr: 1 }} fontSize="small" />
-          Ship Order
-        </MenuItem>
-      </Menu>
     </Box>
   )
 }

@@ -455,7 +455,7 @@ export class SalesAnalyticsService {
       .select([
         'customer.id as customerId',
         'customer.name as customerName',
-        'customer.email as customerEmail',
+        'customer.phone as customerEmail',
         'COUNT(*) as totalOrders',
         'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
         'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
@@ -485,7 +485,7 @@ export class SalesAnalyticsService {
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .select([
         'product.id as productId',
-        'product.sku as productSku',
+        'product.barcode as productSku',
         'product.name as productName',
         'SUM(item.quantity) as quantitySold',
         'COALESCE(SUM(item.totalAmount), 0) as totalRevenue',

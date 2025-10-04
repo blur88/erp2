@@ -920,13 +920,27 @@ const PaymentsPage: React.FC = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Phone No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {selectedPayment.customer?.phone ? (
+                                selectedPayment.customer.phone
+                              ) : (
+                                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  N/A
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Amount
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatCurrency(selectedPayment.amount)}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Payment Date
                             </TableCell>
@@ -934,7 +948,7 @@ const PaymentsPage: React.FC = () => {
                               {formatDate(selectedPayment.paymentDate)}
                             </TableCell>
                           </TableRow>
-                          <TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Method
                             </TableCell>
@@ -942,7 +956,7 @@ const PaymentsPage: React.FC = () => {
                               {getPaymentMethodLabel(selectedPayment.paymentMethod)}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Status
                             </TableCell>
@@ -982,12 +996,12 @@ const PaymentsPage: React.FC = () => {
                               </Typography>
                             </TableCell>
                           </TableRow>
-                          {selectedPayment.relatedOrderNumber && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
-                                Order No
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                              Order No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {selectedPayment.relatedOrderNumber ? (
                                 <Typography
                                   component="button"
                                   onClick={(event) => handleOrderClick(selectedPayment.relatedOrderId!, event)}
@@ -1000,26 +1014,26 @@ const PaymentsPage: React.FC = () => {
                                     background: 'none',
                                     padding: 0,
                                     fontFamily: 'inherit',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 0.5,
                                     '&:hover': {
                                       color: 'primary.dark'
                                     }
                                   }}
                                 >
-                                  <OrderIcon sx={{ fontSize: '0.9rem' }} />
                                   {selectedPayment.relatedOrderNumber}
                                 </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          {selectedPayment.relatedInvoiceNumber && (
-                            <TableRow>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                Invoice No
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                              ) : (
+                                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  N/A
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Invoice No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {selectedPayment.relatedInvoiceNumber ? (
                                 <Typography
                                   component="button"
                                   onClick={(event) => handleInvoiceClick(selectedPayment.relatedInvoiceId!, event)}
@@ -1032,37 +1046,27 @@ const PaymentsPage: React.FC = () => {
                                     background: 'none',
                                     padding: 0,
                                     fontFamily: 'inherit',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 0.5,
                                     '&:hover': {
                                       color: 'primary.dark'
                                     }
                                   }}
                                 >
-                                  <InvoiceIcon sx={{ fontSize: '0.9rem' }} />
                                   {selectedPayment.relatedInvoiceNumber}
                                 </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )}
+                              ) : (
+                                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  N/A
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
                           {selectedPayment.customer?.email && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableRow>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 Customer Email
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
                                 {selectedPayment.customer.email}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          {selectedPayment.customer?.phone && (
-                            <TableRow>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                Customer Phone
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedPayment.customer.phone}
                               </TableCell>
                             </TableRow>
                           )}
