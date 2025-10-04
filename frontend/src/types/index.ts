@@ -317,7 +317,6 @@ export interface Supplier {
   companyName: string;
   contactPerson?: string;
   contactTitle?: string;
-  email?: string;
   phone?: string;
   alternativePhone?: string;
   fax?: string;
@@ -330,10 +329,7 @@ export interface Supplier {
   postalCode?: string;
   country?: string;
   // Business
-  status: SupplierStatus;
-  isActive: boolean;
   rating: SupplierRating;
-  paymentTermsDays: number;
   currency: string;
   // Metrics
   totalPurchases: number;

@@ -41,7 +41,6 @@ import {
   RestoreFromTrash as RestoreIcon,
   Business as BusinessIcon,
   Phone as PhoneIcon,
-  Email as EmailIcon,
   Language as WebsiteIcon,
   TrendingUp as PerformanceIcon,
   Refresh as RefreshIcon,
@@ -82,9 +81,6 @@ const supplierSchema = yup.object({
   type: yup.string().oneOf(['local', 'international']).required('Type is required'),
   contactPerson: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(200, 'Name must be less than 200 characters'),
   phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
-  email: yup.string().email('Invalid email').optional().nullable().transform((value) => value?.trim() || null).max(100, 'Email must be less than 100 characters'),
-  status: yup.string().oneOf(['active', 'inactive', 'suspended', 'blacklisted']).optional(),
-  paymentTermsDays: yup.number().min(0, 'Payment terms must be positive').optional(),
   notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
@@ -93,9 +89,6 @@ interface SupplierFormData {
   type: SupplierType
   contactPerson?: string | null
   phone?: string | null
-  email?: string | null
-  status: SupplierStatus
-  paymentTermsDays: number
   notes?: string | null
 }
 
@@ -118,9 +111,6 @@ const SuppliersPage: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
-  const [emailValue, setEmailValue] = useState<string>('')
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
-  const [emailError, setEmailError] = useState<string | null>(null)
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors } } = useForm<SupplierFormData>({
@@ -130,9 +120,6 @@ const SuppliersPage: React.FC = () => {
       type: SupplierType.LOCAL,
       contactPerson: null,
       phone: null,
-      email: null,
-      status: SupplierStatus.ACTIVE,
-      paymentTermsDays: 30,
       notes: null,
     }
   })
@@ -157,64 +144,10 @@ const SuppliersPage: React.FC = () => {
     onRefresh: () => dispatch(fetchSuppliers({ ...filters })),
   })
 
-  // Email duplicate validation
-  const checkEmailDuplicate = useCallback(async (email: string) => {
-    if (!email || email.trim().length === 0) {
-      setEmailError(null)
-      return
-    }
-
-    setIsCheckingEmail(true)
-    setEmailError(null)
-
-    try {
-      const [activeResponse, deletedResponse] = await Promise.all([
-        purchasingApi.getSuppliers({ search: email }),
-        purchasingApi.getDeletedSuppliers({ search: email })
-      ])
-
-      const activeApiResponse = activeResponse as any
-      const deletedApiResponse = deletedResponse as any
-
-      const allSuppliers = [
-        ...(activeApiResponse.data || []),
-        ...(deletedApiResponse.data || [])
-      ]
-
-      if (allSuppliers.length > 0) {
-        const duplicateSupplier = allSuppliers.find((supplier: Supplier) => {
-          if (!supplier.email) return false
-          return supplier.email.toLowerCase() === email.toLowerCase() &&
-                 (!selectedSupplier || supplier.id !== selectedSupplier.id)
-        })
-
-        if (duplicateSupplier) {
-          setEmailError(`Email already exists for supplier: ${duplicateSupplier.companyName}`)
-        }
-      }
-    } catch (error) {
-      console.error('Error checking email duplicate:', error)
-    } finally {
-      setIsCheckingEmail(false)
-    }
-  }, [selectedSupplier])
-
-  // Debounced email validation
-  const debouncedEmailCheck = useMemo(
-    () => {
-      let timeoutId: NodeJS.Timeout
-      return (email: string) => {
-        clearTimeout(timeoutId)
-        timeoutId = setTimeout(() => checkEmailDuplicate(email), 500)
-      }
-    },
-    [checkEmailDuplicate]
-  )
-
   // Load suppliers on mount and when filters change
   useEffect(() => {
     dispatch(fetchSuppliers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.status, filters.rating, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.rating, filters.sortBy, filters.sortOrder])
 
   // Handle pagination
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -232,7 +165,6 @@ const SuppliersPage: React.FC = () => {
         ...data,
         contactPerson: data.contactPerson?.trim() || null,
         phone: data.phone?.trim() || null,
-        email: data.email?.trim() || null,
         notes: data.notes?.trim() || null,
       }
 
@@ -263,7 +195,6 @@ const SuppliersPage: React.FC = () => {
         limit: pagination.limit,
         search: filters.search || undefined,
         type: filters.type || undefined,
-        status: filters.status || undefined,
         isActive: filters.isActive,
         sortBy: filters.sortBy || undefined,
         sortOrder: filters.sortOrder || undefined
@@ -288,32 +219,22 @@ const SuppliersPage: React.FC = () => {
 
   // Form helpers
   const handleOpenForm = (supplier?: Supplier) => {
-    setEmailError(null)
-    setIsCheckingEmail(false)
     if (supplier) {
       setSelectedSupplier(supplier)
-      setEmailValue(supplier.email || '')
       reset({
         companyName: supplier.companyName,
         type: supplier.type,
         contactPerson: supplier.contactPerson || null,
         phone: supplier.phone || null,
-        email: supplier.email || null,
-        status: supplier.status,
-        paymentTermsDays: supplier.paymentTermsDays,
         notes: supplier.notes || null,
       })
     } else {
       setSelectedSupplier(null)
-      setEmailValue('')
       reset({
         companyName: '',
         type: SupplierType.LOCAL,
         contactPerson: null,
         phone: null,
-        email: null,
-        status: SupplierStatus.ACTIVE,
-        paymentTermsDays: 30,
         notes: null,
       })
     }
@@ -323,9 +244,6 @@ const SuppliersPage: React.FC = () => {
   const handleCloseForm = () => {
     setIsFormOpen(false)
     setSelectedSupplier(null)
-    setEmailError(null)
-    setIsCheckingEmail(false)
-    setEmailValue('')
     reset()
   }
 
@@ -344,18 +262,6 @@ const SuppliersPage: React.FC = () => {
       [SupplierRating.UNRATED]: { label: 'Unrated', color: 'default' as const },
     }
     const config = ratingConfig[rating]
-    return <Chip label={config.label} size="small" color={config.color} />
-  }
-
-  // Get status chip
-  const getStatusChip = (status: SupplierStatus) => {
-    const statusConfig = {
-      [SupplierStatus.ACTIVE]: { label: 'Active', color: 'success' as const },
-      [SupplierStatus.INACTIVE]: { label: 'Inactive', color: 'default' as const },
-      [SupplierStatus.SUSPENDED]: { label: 'Suspended', color: 'warning' as const },
-      [SupplierStatus.BLACKLISTED]: { label: 'Blacklisted', color: 'error' as const },
-    }
-    const config = statusConfig[status]
     return <Chip label={config.label} size="small" color={config.color} />
   }
 
@@ -513,47 +419,6 @@ const SuppliersPage: React.FC = () => {
             <MenuItem value="all">All</MenuItem>
             <MenuItem value={SupplierType.LOCAL}>Local</MenuItem>
             <MenuItem value={SupplierType.INTERNATIONAL}>International</MenuItem>
-          </Select>
-        </FormControl>
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            flex: 'none'
-          }}
-        >
-          <InputLabel
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Status
-          </InputLabel>
-          <Select
-            value={filters.status || 'all'}
-            label="Status"
-            onChange={(e) => dispatch(setFilters({ status: e.target.value === 'all' ? undefined : e.target.value as SupplierStatus }))}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                padding: '8.5px 14px',
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                boxSizing: 'border-box'
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value={SupplierStatus.ACTIVE}>Active</MenuItem>
-            <MenuItem value={SupplierStatus.INACTIVE}>Inactive</MenuItem>
-            <MenuItem value={SupplierStatus.SUSPENDED}>Suspended</MenuItem>
-            <MenuItem value={SupplierStatus.BLACKLISTED}>Blacklisted</MenuItem>
           </Select>
         </FormControl>
         <FormControl
@@ -740,7 +605,6 @@ const SuppliersPage: React.FC = () => {
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                           {getRatingChip(supplier.rating)}
-                          {getStatusChip(supplier.status)}
                         </Box>
                       )}
                     </TableCell>
@@ -770,11 +634,10 @@ const SuppliersPage: React.FC = () => {
                             <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>{supplier.phone}</Typography>
                           </Box>
                         )}
-                        {supplier.email && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <EmailIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>{supplier.email}</Typography>
-                          </Box>
+                        {supplier.contactPerson && (
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                            {supplier.contactPerson}
+                          </Typography>
                         )}
                       </Box>
                     </TableCell>
@@ -994,70 +857,6 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="email"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      value={field.value || ''}
-                      fullWidth
-                      label="Email"
-                      error={!!errors.email || !!emailError}
-                      helperText={errors.email?.message || emailError}
-                      onChange={(e) => {
-                        field.onChange(e)
-                        setEmailValue(e.target.value)
-                        debouncedEmailCheck(e.target.value)
-                      }}
-                      InputProps={{
-                        endAdornment: isCheckingEmail ? (
-                          <InputAdornment position="end">
-                            <CircularProgress size={20} />
-                          </InputAdornment>
-                        ) : undefined,
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="status"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControl fullWidth>
-                      <InputLabel>Status</InputLabel>
-                      <Select {...field} label="Status">
-                        <MenuItem value={SupplierStatus.ACTIVE}>Active</MenuItem>
-                        <MenuItem value={SupplierStatus.INACTIVE}>Inactive</MenuItem>
-                        <MenuItem value={SupplierStatus.SUSPENDED}>Suspended</MenuItem>
-                        <MenuItem value={SupplierStatus.BLACKLISTED}>Blacklisted</MenuItem>
-                      </Select>
-                    </FormControl>
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="paymentTermsDays"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      type="number"
-                      label="Payment Terms (Days)"
-                      error={!!errors.paymentTermsDays}
-                      helperText={errors.paymentTermsDays?.message}
-                    />
-                  )}
-                />
-              </Grid>
-
               <Grid item xs={12}>
                 <Controller
                   name="notes"
@@ -1082,7 +881,7 @@ const SuppliersPage: React.FC = () => {
             <Button onClick={handleCloseForm}>
               Cancel
             </Button>
-            <Button type="submit" variant="contained" disabled={loading || !!emailError || isCheckingEmail}>
+            <Button type="submit" variant="contained" disabled={loading}>
               {loading ? <CircularProgress size={20} /> : (selectedSupplier ? 'Update' : 'Create')}
             </Button>
           </DialogActions>
@@ -1106,7 +905,6 @@ const SuppliersPage: React.FC = () => {
                     {selectedSupplier.companyName}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    {getStatusChip(selectedSupplier.status)}
                     {getRatingChip(selectedSupplier.rating)}
                   </Box>
                 </Box>
@@ -1125,12 +923,6 @@ const SuppliersPage: React.FC = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                       <Typography>{selectedSupplier.phone}</Typography>
-                    </Box>
-                  )}
-                  {selectedSupplier.email && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                      <Typography>{selectedSupplier.email}</Typography>
                     </Box>
                   )}
                 </Stack>

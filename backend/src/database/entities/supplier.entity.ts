@@ -6,7 +6,6 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsEmail,
   IsBoolean,
   IsOptional,
   IsEnum,
@@ -26,13 +25,6 @@ export enum SupplierType {
   INTERNATIONAL = 'international',
 }
 
-export enum SupplierStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  SUSPENDED = 'suspended',
-  BLACKLISTED = 'blacklisted',
-}
-
 export enum SupplierRating {
   EXCELLENT = 'excellent',
   GOOD = 'good',
@@ -46,9 +38,8 @@ export enum SupplierRating {
  * Supports comprehensive supplier information and performance tracking
  */
 @Entity('suppliers')
-@Index(['email'], { unique: true, where: 'email IS NOT NULL' })
 @Index(['phone'])
-@Index(['type', 'status'])
+@Index(['type'])
 @Index(['rating'])
 @Index(['isActive'])
 export class Supplier extends BaseEntity {
@@ -91,18 +82,6 @@ export class Supplier extends BaseEntity {
   @IsString()
   @MaxLength(100)
   contactTitle?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    unique: true,
-    comment: 'Supplier email address',
-  })
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(100)
-  email?: string;
 
   @Column({
     type: 'varchar',
@@ -214,39 +193,12 @@ export class Supplier extends BaseEntity {
   // Business Information
   @Column({
     type: 'enum',
-    enum: SupplierStatus,
-    default: SupplierStatus.ACTIVE,
-    comment: 'Supplier status',
-  })
-  @IsEnum(SupplierStatus)
-  status: SupplierStatus;
-
-  @Column({
-    type: 'boolean',
-    default: true,
-    comment: 'Whether the supplier is active',
-  })
-  @IsBoolean()
-  isActive: boolean;
-
-  @Column({
-    type: 'enum',
     enum: SupplierRating,
     default: SupplierRating.UNRATED,
     comment: 'Supplier performance rating',
   })
   @IsEnum(SupplierRating)
   rating: SupplierRating;
-
-  // Payment Terms
-  @Column({
-    type: 'int',
-    default: 30,
-    comment: 'Payment terms in days',
-  })
-  @IsInt()
-  @Min(0)
-  paymentTermsDays: number;
 
   @Column({
     type: 'varchar',
@@ -453,6 +405,6 @@ export class Supplier extends BaseEntity {
   }
 
   canPurchase(): boolean {
-    return this.isActive && this.status !== SupplierStatus.SUSPENDED && this.status !== SupplierStatus.BLACKLISTED;
+    return this.isActive;
   }
 }

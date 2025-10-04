@@ -1,7 +1,6 @@
 // @ts-nocheck
 import {
   IsString,
-  IsEmail,
   IsBoolean,
   IsOptional,
   IsEnum,
@@ -19,7 +18,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { SupplierType, SupplierStatus, SupplierRating } from '../../../database/entities/supplier.entity';
+import { SupplierType, SupplierRating } from '../../../database/entities/supplier.entity';
 
 export class CreateSupplierDto {
   @ApiProperty({ description: 'Supplier type', enum: SupplierType })
@@ -43,12 +42,6 @@ export class CreateSupplierDto {
   @IsString()
   @MaxLength(100)
   contactTitle?: string;
-
-  @ApiPropertyOptional({ description: 'Email address', maxLength: 100 })
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(100)
-  email?: string;
 
   @ApiPropertyOptional({ description: 'Primary phone number' })
   @IsOptional()
@@ -106,18 +99,6 @@ export class CreateSupplierDto {
   @IsString()
   @MaxLength(100)
   country?: string;
-
-  @ApiPropertyOptional({ description: 'Supplier status', enum: SupplierStatus, default: SupplierStatus.ACTIVE })
-  @IsOptional()
-  @IsEnum(SupplierStatus)
-  status?: SupplierStatus;
-
-  @ApiPropertyOptional({ description: 'Payment terms in days', default: 30 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(365)
-  paymentTermsDays?: number;
 
   @ApiPropertyOptional({ description: 'Preferred currency', default: 'USD' })
   @IsOptional()
@@ -185,11 +166,6 @@ export class SupplierQueryDto {
   @IsEnum(SupplierType)
   type?: SupplierType;
 
-  @ApiPropertyOptional({ description: 'Filter by status', enum: SupplierStatus })
-  @IsOptional()
-  @IsEnum(SupplierStatus)
-  status?: SupplierStatus;
-
   @ApiPropertyOptional({ description: 'Filter by rating', enum: SupplierRating })
   @IsOptional()
   @IsEnum(SupplierRating)
@@ -228,9 +204,6 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Contact person title' })
   contactTitle?: string;
 
-  @ApiProperty({ description: 'Email address' })
-  email?: string;
-
   @ApiProperty({ description: 'Primary phone number' })
   phone?: string;
 
@@ -249,17 +222,8 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Full address' })
   fullAddress!: string;
 
-  @ApiProperty({ description: 'Supplier status' })
-  status!: SupplierStatus;
-
-  @ApiProperty({ description: 'Is supplier active' })
-  isActive!: boolean;
-
   @ApiProperty({ description: 'Supplier rating' })
   rating!: SupplierRating;
-
-  @ApiProperty({ description: 'Payment terms in days' })
-  paymentTermsDays!: number;
 
   @ApiProperty({ description: 'Currency' })
   currency!: string;

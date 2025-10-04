@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
 import {
   Supplier,
-  SupplierStatus,
   SupplierType,
   SupplierRating
 } from '../../../database/entities/supplier.entity';
@@ -33,24 +32,10 @@ export class SupplierService {
   async create(createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
     this.logger.log(`Creating supplier: ${createSupplierDto.companyName}`);
 
-    // Check for duplicate email if provided
-    if (createSupplierDto.email) {
-      const existingByEmail = await this.supplierRepository.findOne({
-        where: { email: createSupplierDto.email },
-      });
-
-      if (existingByEmail) {
-        throw new ConflictException(`Supplier with email ${createSupplierDto.email} already exists`);
-      }
-    }
-
     try {
       const supplier = this.supplierRepository.create({
         ...createSupplierDto,
-        status: createSupplierDto.status || SupplierStatus.ACTIVE,
-        isActive: true,
         rating: SupplierRating.UNRATED,
-        paymentTermsDays: createSupplierDto.paymentTermsDays || 30,
         currency: createSupplierDto.currency || 'USD',
         totalPurchases: 0,
         totalOrders: 0,
@@ -82,7 +67,6 @@ export class SupplierService {
       limit = 10,
       search,
       type,
-      status,
       rating,
       isActive,
       sortBy = 'companyName',
@@ -95,7 +79,7 @@ export class SupplierService {
     // Apply search filter
     if (search) {
       queryBuilder.andWhere(
-        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search OR supplier.email ILIKE :search)',
+        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -103,10 +87,6 @@ export class SupplierService {
     // Apply filters
     if (type) {
       queryBuilder.andWhere('supplier.type = :type', { type });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('supplier.status = :status', { status });
     }
 
     if (rating) {
@@ -119,7 +99,7 @@ export class SupplierService {
 
     // Apply sorting
     const validSortFields = [
-      'companyName', 'type', 'status', 'rating',
+      'companyName', 'type', 'rating',
       'totalPurchases', 'totalOrders', 'onTimeDeliveryRate', 'qualityRate',
       'createdAt', 'lastPurchaseDate'
     ];
@@ -184,17 +164,6 @@ export class SupplierService {
 
     if (!supplier) {
       throw new NotFoundException(`Supplier with ID ${id} not found`);
-    }
-
-    // Check for duplicate email if changed
-    if (updateSupplierDto.email && updateSupplierDto.email !== supplier.email) {
-      const existingByEmail = await this.supplierRepository.findOne({
-        where: { email: updateSupplierDto.email },
-      });
-
-      if (existingByEmail) {
-        throw new ConflictException(`Supplier with email ${updateSupplierDto.email} already exists`);
-      }
     }
 
     try {
@@ -513,7 +482,6 @@ export class SupplierService {
 
     try {
       supplier.isActive = true;
-      supplier.status = SupplierStatus.ACTIVE;
       const updatedSupplier = await this.supplierRepository.save(supplier);
 
       this.logger.log(`Supplier activated successfully: ${supplierId}`);
@@ -541,7 +509,6 @@ export class SupplierService {
     }
 
     try {
-      supplier.status = SupplierStatus.SUSPENDED;
       supplier.notes = (supplier.notes || '') + `\nSuspended: ${reason}`;
       const updatedSupplier = await this.supplierRepository.save(supplier);
 
@@ -566,7 +533,6 @@ export class SupplierService {
       limit = 10,
       search,
       type,
-      status,
       rating,
       sortBy = 'companyName',
       sortOrder = 'ASC',
@@ -583,17 +549,13 @@ export class SupplierService {
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(supplier.companyName ILIKE :search OR supplier.email ILIKE :search OR supplier.contactPerson ILIKE :search)',
+        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)',
         { search: `%${search}%` }
       );
     }
 
     if (type) {
       queryBuilder.andWhere('supplier.type = :type', { type });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('supplier.status = :status', { status });
     }
 
     if (rating) {
@@ -604,7 +566,7 @@ export class SupplierService {
     const total = await queryBuilder.getCount();
 
     // Apply sorting and pagination
-    const validSortFields = ['companyName', 'type', 'status', 'rating', 'createdAt', 'deletedAt'];
+    const validSortFields = ['companyName', 'type', 'rating', 'createdAt', 'deletedAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
     queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
     queryBuilder.skip(skip).take(take);
@@ -614,13 +576,13 @@ export class SupplierService {
     const totalPages = Math.ceil(total / take);
 
     return {
-      data: suppliers.map(supplier => this.mapToResponseDto(supplier)),
-      meta: {
-        page,
-        limit: take,
-        total,
-        totalPages,
-      },
+      suppliers: suppliers.map(supplier => this.mapToResponseDto(supplier)),
+      total,
+      page,
+      limit: take,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
     };
   }
 
@@ -655,10 +617,7 @@ export class SupplierService {
         throw new NotFoundException(`Supplier with ID ${id} not found after restore`);
       }
 
-      // Reactivate if needed
-      restoredSupplier.isActive = true;
-      restoredSupplier.status = SupplierStatus.ACTIVE;
-      await this.supplierRepository.save(restoredSupplier);
+      // No need to update status as it was removed
 
       this.logger.log(`Supplier restored successfully: ${id}`);
       return this.mapToResponseDto(restoredSupplier);
@@ -680,17 +639,13 @@ export class SupplierService {
       companyName: supplier.companyName,
       contactPerson: supplier.contactPerson,
       contactTitle: supplier.contactTitle,
-      email: supplier.email,
       phone: supplier.phone,
       alternativePhone: supplier.alternativePhone,
       fax: supplier.fax,
       website: supplier.website,
       taxId: supplier.taxId,
       fullAddress: supplier.fullAddress,
-      status: supplier.status,
-      isActive: supplier.isActive,
       rating: supplier.rating,
-      paymentTermsDays: supplier.paymentTermsDays,
       currency: supplier.currency,
       totalPurchases: Number(supplier.totalPurchases),
       totalOrders: supplier.totalOrders,
