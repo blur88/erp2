@@ -10,6 +10,7 @@ import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
 import customerSlice from './slices/customerSlice'
 import purchasingSlice from './slices/purchasingSlice'
+import supplierSlice from './slices/supplierSlice'
 import dashboardSlice from './slices/dashboardSlice'
 
 const rootReducer = combineReducers({
@@ -19,6 +20,7 @@ const rootReducer = combineReducers({
   sales: salesSlice,
   customers: customerSlice,
   purchasing: purchasingSlice,
+  suppliers: supplierSlice,
   dashboard: dashboardSlice,
 })
 

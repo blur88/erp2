@@ -36,7 +36,7 @@ import {
 } from '../dto';
 
 @ApiTags('Suppliers')
-@Controller('suppliers')
+@Controller('purchasing/suppliers')
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class SupplierController {
   private readonly logger = new Logger(SupplierController.name);
@@ -305,8 +305,40 @@ export class SupplierController {
     return { canPurchase };
   }
 
+  @Get('deleted')
+  @ApiOperation({
+    summary: 'Get deleted suppliers',
+    description: 'Retrieve all soft-deleted suppliers with pagination.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Deleted suppliers retrieved successfully',
+    type: SupplierListResponseDto,
+  })
+  async findDeleted(@Query() query: SupplierQueryDto): Promise<SupplierListResponseDto> {
+    this.logger.log('Getting deleted suppliers');
+    return await this.supplierService.findDeleted(query);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({
+    summary: 'Restore deleted supplier',
+    description: 'Restore a soft-deleted supplier to active status.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Supplier restored successfully',
+    type: SupplierResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Supplier not found' })
+  @ApiParam({ name: 'id', description: 'Supplier UUID' })
+  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<SupplierResponseDto> {
+    this.logger.log(`Restoring supplier: ${id}`);
+    return await this.supplierService.restore(id);
+  }
+
   @Delete(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Deactivate supplier',
     description: 'Soft delete (deactivate) supplier. Cannot be deleted if there are active purchase orders.'
   })

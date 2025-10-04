@@ -258,16 +258,15 @@ export class SupplierService {
     }
 
     try {
-      supplier.isActive = false;
-      supplier.status = SupplierStatus.INACTIVE;
-      await this.supplierRepository.save(supplier);
+      // Soft delete the supplier using TypeORM's soft delete
+      await this.supplierRepository.softDelete(id);
 
-      this.logger.log(`Supplier deactivated successfully: ${id}`);
+      this.logger.log(`Supplier soft deleted successfully: ${id}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error deactivating supplier: ${errorMessage}`, errorStack);
-      throw new BadRequestException('Failed to deactivate supplier');
+      this.logger.error(`Error soft deleting supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to soft delete supplier');
     }
   }
 
@@ -574,6 +573,121 @@ export class SupplierService {
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error suspending supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to suspend supplier');
+    }
+  }
+
+  /**
+   * Get all soft-deleted suppliers
+   */
+  async findDeleted(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
+    this.logger.log('Finding deleted suppliers');
+
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      type,
+      status,
+      rating,
+      sortBy = 'companyName',
+      sortOrder = 'ASC',
+    } = query;
+
+    const skip = (page - 1) * Math.min(limit, 100);
+    const take = Math.min(limit, 100);
+
+    const queryBuilder = this.supplierRepository
+      .createQueryBuilder('supplier')
+      .withDeleted()
+      .where('supplier.deletedAt IS NOT NULL');
+
+    // Apply filters
+    if (search) {
+      queryBuilder.andWhere(
+        '(supplier.companyName ILIKE :search OR supplier.supplierCode ILIKE :search OR supplier.email ILIKE :search OR supplier.contactPerson ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (type) {
+      queryBuilder.andWhere('supplier.type = :type', { type });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('supplier.status = :status', { status });
+    }
+
+    if (rating) {
+      queryBuilder.andWhere('supplier.rating = :rating', { rating });
+    }
+
+    // Count total
+    const total = await queryBuilder.getCount();
+
+    // Apply sorting and pagination
+    const validSortFields = ['companyName', 'supplierCode', 'type', 'status', 'rating', 'createdAt', 'deletedAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
+    queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
+    queryBuilder.skip(skip).take(take);
+
+    const suppliers = await queryBuilder.getMany();
+
+    const totalPages = Math.ceil(total / take);
+
+    return {
+      data: suppliers.map(supplier => this.mapToResponseDto(supplier)),
+      meta: {
+        page,
+        limit: take,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  /**
+   * Restore a soft-deleted supplier
+   */
+  async restore(id: string): Promise<SupplierResponseDto> {
+    this.logger.log(`Restoring supplier: ${id}`);
+
+    const supplier = await this.supplierRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    if (!supplier.deletedAt) {
+      throw new BadRequestException('Supplier is not deleted');
+    }
+
+    try {
+      await this.supplierRepository.restore(id);
+
+      // Fetch the restored supplier
+      const restoredSupplier = await this.supplierRepository.findOne({
+        where: { id },
+      });
+
+      if (!restoredSupplier) {
+        throw new NotFoundException(`Supplier with ID ${id} not found after restore`);
+      }
+
+      // Reactivate if needed
+      restoredSupplier.isActive = true;
+      restoredSupplier.status = SupplierStatus.ACTIVE;
+      await this.supplierRepository.save(restoredSupplier);
+
+      this.logger.log(`Supplier restored successfully: ${id}`);
+      return this.mapToResponseDto(restoredSupplier);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error restoring supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to restore supplier');
     }
   }
 

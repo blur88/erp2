@@ -32,6 +32,16 @@ export { Customer, CustomerType, PriceLevel } from './customer.entity';
 // Inventory Management (InventoryModule)
 export { StockMovement, StockMovementType, StockMovementStatus } from './stock-movement.entity';
 
+// Purchasing Management (PurchasingModule)
+export { Supplier, SupplierType, SupplierStatus, SupplierRating } from './supplier.entity';
+export { PurchaseOrder } from './purchase-order.entity';
+export { PurchaseOrderItem } from './purchase-order-item.entity';
+export { PurchaseRequisition } from './purchase-requisition.entity';
+export { PurchaseRequisitionItem } from './purchase-requisition-item.entity';
+export { GoodsReceivedNote } from './goods-received-note.entity';
+export { SupplierInvoice } from './supplier-invoice.entity';
+export { SupplierInvoiceItem } from './supplier-invoice-item.entity';
+
 // Import entities for array construction
 import { User } from './user.entity';
 import { Category } from './category.entity';

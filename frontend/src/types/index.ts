@@ -291,17 +291,73 @@ export interface Payment {
 }
 
 // Purchasing types
+export enum SupplierType {
+  LOCAL = 'local',
+  INTERNATIONAL = 'international',
+}
+
+export enum SupplierStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  SUSPENDED = 'suspended',
+  BLACKLISTED = 'blacklisted',
+}
+
+export enum SupplierRating {
+  EXCELLENT = 'excellent',
+  GOOD = 'good',
+  AVERAGE = 'average',
+  POOR = 'poor',
+  UNRATED = 'unrated',
+}
+
 export interface Supplier {
   id: string;
-  name: string;
+  supplierCode: string;
+  type: SupplierType;
+  companyName: string;
+  contactPerson?: string;
+  contactTitle?: string;
   email?: string;
   phone?: string;
-  address?: Address;
+  alternativePhone?: string;
+  fax?: string;
+  website?: string;
   taxId?: string;
-  paymentTerms?: string;
+  // Address
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  // Business
+  status: SupplierStatus;
   isActive: boolean;
+  rating: SupplierRating;
+  paymentTermsDays: number;
+  currency: string;
+  // Metrics
+  totalPurchases: number;
+  totalOrders: number;
+  lastPurchaseDate?: Date;
+  firstPurchaseDate?: Date;
+  // Performance
+  averageDeliveryTime: number;
+  onTimeDeliveryRate: number;
+  qualityRate: number;
+  // Additional
+  categories?: string[];
+  certifications?: string[];
+  notes?: string;
+  metadata?: Record<string, any>;
+  // Computed
+  fullAddress?: string;
+  averageOrderValue?: number;
+  overallPerformanceScore?: number;
+  // Timestamps
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date;
 }
 
 export interface PurchaseOrder {

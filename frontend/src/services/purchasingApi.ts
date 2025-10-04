@@ -27,6 +27,14 @@ export const purchasingApi = {
     return ApiService.get<PaginatedResponse<any>>(`/purchasing/suppliers/${id}/products`, { params })
   },
 
+  async getDeletedSuppliers(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Supplier>>('/purchasing/suppliers/deleted', { params })
+  },
+
+  async restoreSupplier(id: string) {
+    return ApiService.post<Supplier>(`/purchasing/suppliers/${id}/restore`)
+  },
+
   // Purchase Orders
   async getPurchaseOrders(params?: QueryParams & { supplierId?: string; status?: string }) {
     return ApiService.get<PaginatedResponse<PurchaseOrder>>('/purchasing/orders', { params })
