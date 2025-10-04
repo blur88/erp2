@@ -50,7 +50,7 @@ import {
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace } from '@/store/slices/salesSlice'
+import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
@@ -284,6 +284,8 @@ const OrdersPage: React.FC = () => {
     dispatch(setSelectedOrder(order))
     const orderIndex = orders.findIndex(o => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
+    // Fetch full order details with invoices and payments
+    dispatch(fetchOrderById(order.id) as any)
   }, [dispatch, orders])
 
 
@@ -364,6 +366,9 @@ const OrdersPage: React.FC = () => {
     // Close dialog first
     setCreateDialog(false)
 
+    // Show success notification
+    showSuccess(`Order ${order.orderNumber || order.id} created successfully!`)
+
     // Auto-select the newly created order immediately (using the fresh data from API)
     dispatch(setSelectedOrder(order))
 
@@ -378,9 +383,15 @@ const OrdersPage: React.FC = () => {
     // Close the dialog first
     setEditDialog(false)
 
+    // Show success notification
+    showSuccess(`Order ${order.orderNumber || order.id} updated successfully!`)
+
     // Update the Redux state immediately with the updated order
     // This automatically updates both the orders list and selected order
     dispatch(updateOrderInPlace(order))
+
+    // Refresh invoices to show updated order details
+    dispatch(fetchInvoices({ page: 1, limit: 20 }))
   }
 
   const handleEditOrder = () => {
@@ -435,6 +446,10 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        // Fetch full order details to get updated invoices and payments
+        dispatch(fetchOrderById(selectedOrder.id) as any)
+        // Refresh invoices to show updated payment amounts
+        dispatch(fetchInvoices({ page: 1, limit: 20 }))
         showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
       } else {
         // Revert optimistic update on error
@@ -470,6 +485,8 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        // Refresh invoices to show updated payment amounts
+        dispatch(fetchInvoices({ page: 1, limit: 20 }))
         showSuccess('Payment cleared successfully')
       } else {
         const errorData = await response.json()
@@ -512,6 +529,8 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
+        // Refresh invoices to show updated payment amounts
+        dispatch(fetchInvoices({ page: 1, limit: 20 }))
         showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
       } else {
         // Revert optimistic update on error
@@ -545,7 +564,7 @@ const OrdersPage: React.FC = () => {
       if (response.ok) {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order fulfilled successfully! Invoice has been automatically generated.')
+        showSuccess('Order fulfilled successfully! Inventory has been deducted.')
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to fulfill order'
@@ -657,9 +676,11 @@ const OrdersPage: React.FC = () => {
         setFocusedOrderIndex(0)
         // Automatically show order details for the first order
         dispatch(setSelectedOrder(orders[0]))
+        // Fetch full order details with invoices and payments
+        dispatch(fetchOrderById(orders[0].id) as any)
       }
     }
-  }, [orders, focusedOrderIndex, selectedOrder])
+  }, [orders, focusedOrderIndex, selectedOrder, dispatch])
 
   // Handle pending order selection after orders load
   useEffect(() => {
@@ -669,6 +690,8 @@ const OrdersPage: React.FC = () => {
         dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)
         setPendingOrderToSelect(null)
+        // Fetch full order details with invoices and payments
+        dispatch(fetchOrderById(orders[orderIndex].id) as any)
       }
     }
   }, [orders, pendingOrderToSelect])
@@ -681,6 +704,8 @@ const OrdersPage: React.FC = () => {
       if (orderIndex >= 0) {
         dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)
+        // Fetch full order details with invoices and payments
+        dispatch(fetchOrderById(orders[orderIndex].id) as any)
         // Clear the state to prevent repeated highlighting
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
@@ -784,6 +809,13 @@ const OrdersPage: React.FC = () => {
       event.stopPropagation() // Prevent triggering parent row click
     }
     navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
+  }, [navigate])
+
+  const handleNavigateToPayment = useCallback((paymentId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation() // Prevent triggering parent row click
+    }
+    navigate('/sales/payments', { state: { highlightPaymentId: paymentId } })
   }, [navigate])
 
   const handleEscapeAction = useCallback(() => {
@@ -1469,6 +1501,69 @@ const OrdersPage: React.FC = () => {
                                   {selectedOrder.isFulfilled ? 'Pending' : 'Not fulfilled'}
                                 </Typography>
                               )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Payment No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {(() => {
+                                // Get payments from invoices
+                                const invoicePayments = selectedOrder.invoices && selectedOrder.invoices.length > 0
+                                  ? selectedOrder.invoices.flatMap((invoice: any) => invoice.payments || [])
+                                  : [];
+
+                                // Get direct payments (not linked to invoice)
+                                const directPayments = (selectedOrder as any).directPayments || [];
+
+                                // Combine all payments and remove duplicates by ID
+                                const allPaymentsWithDuplicates = [...directPayments, ...invoicePayments];
+                                const allPayments = allPaymentsWithDuplicates.filter((payment, index, self) =>
+                                  index === self.findIndex((p) => p.id === payment.id)
+                                );
+
+                                if (allPayments.length === 0) {
+                                  return (
+                                    <Typography sx={{
+                                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                      color: 'text.secondary',
+                                      fontStyle: 'italic'
+                                    }}>
+                                      No payments
+                                    </Typography>
+                                  );
+                                }
+
+                                return allPayments.map((payment: any, index: number) => (
+                                  <Box key={payment.id} component="span">
+                                    <Typography
+                                      component="button"
+                                      onClick={(event) => handleNavigateToPayment(payment.id, event)}
+                                      sx={{
+                                        fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                        color: 'primary.main',
+                                        cursor: 'pointer',
+                                        textDecoration: 'none',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        fontFamily: 'inherit',
+                                        '&:hover': {
+                                          color: 'primary.dark'
+                                        }
+                                      }}
+                                    >
+                                      {payment.paymentNumber}
+                                    </Typography>
+                                    {index < allPayments.length - 1 && (
+                                      <Typography component="span" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                        ,
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                ));
+                              })()}
                             </TableCell>
                           </TableRow>
                         </TableBody>

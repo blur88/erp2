@@ -37,7 +37,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  Receipt as InvoiceIcon,
+  ReceiptLong as InvoiceIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
@@ -51,6 +51,7 @@ import { fetchInvoices, selectInvoicesState } from '@/store/slices/salesSlice'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
 import type { InvoiceItem } from '@/types'
 
 // Adapter types to match the backend API response structure
@@ -63,7 +64,7 @@ interface InvoiceListItem {
   totalAmount?: number
   paidAmount: number
   balanceDue?: number
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+  status: 'draft' | 'partial_paid' | 'paid'
   isOverdue?: boolean
   lineItems?: InvoiceItem[]
   notes?: string
@@ -183,6 +184,7 @@ const InvoicesPage: React.FC = () => {
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
+  const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const invoiceListRef = useRef<HTMLDivElement>(null)
   const { showSuccess, showError } = useNotification()
@@ -258,7 +260,7 @@ const InvoicesPage: React.FC = () => {
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC'
+      sortOrder: filters.sortOrder.toUpperCase() as any
     }))
   }, [dispatch, state.page, state.rowsPerPage, filters])
 
@@ -433,6 +435,13 @@ const InvoicesPage: React.FC = () => {
     }
   }, [paginatedInvoices])
 
+  const handleNavigateToPayment = useCallback((paymentId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation() // Prevent triggering parent row click
+    }
+    navigate('/sales/payments', { state: { highlightPaymentId: paymentId } })
+  }, [navigate])
+
   const handlePageUpNavigation = useCallback(() => {
     const newIndex = Math.max(0, focusedInvoiceIndex - state.rowsPerPage)
     setFocusedInvoiceIndex(newIndex)
@@ -468,7 +477,13 @@ const InvoicesPage: React.FC = () => {
   }
 
   const handleRefreshAction = () => {
-    dispatch(fetchInvoices({ page: 1, limit: state.rowsPerPage }))
+    dispatch(fetchInvoices({
+      page: 1,
+      limit: state.rowsPerPage,
+      search: filters.search,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder.toUpperCase() as any
+    }))
   }
 
   const handleViewDeletedAction = () => {
@@ -543,12 +558,29 @@ const InvoicesPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={() => dispatch(fetchInvoices({ page: 1, limit: state.rowsPerPage }))}
+            onClick={handleRefreshAction}
             disabled={loading}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
           >
             {isMobile ? "Refresh Invoices" : "Refresh"}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => setDeletedInvoicesDialogOpen(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
+            }}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
           </Button>
         </Box>
       </Box>
@@ -912,6 +944,51 @@ const InvoicesPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Payment No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {(selectedInvoice as any).payments && (selectedInvoice as any).payments.length > 0 ? (
+                                (selectedInvoice as any).payments.map((payment: any, index: number) => (
+                                  <Box key={payment.id} component="span">
+                                    <Typography
+                                      component="button"
+                                      onClick={(event) => handleNavigateToPayment(payment.id, event)}
+                                      sx={{
+                                        fontSize: '0.8rem',
+                                        color: 'primary.main',
+                                        cursor: 'pointer',
+                                        textDecoration: 'none',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        fontFamily: 'inherit',
+                                        '&:hover': {
+                                          color: 'primary.dark'
+                                        }
+                                      }}
+                                    >
+                                      {payment.paymentNumber}
+                                    </Typography>
+                                    {index < (selectedInvoice as any).payments.length - 1 && (
+                                      <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                        ,{' '}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                ))
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: '0.8rem',
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  No payments
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -947,10 +1024,48 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Balance Due
+                              {(selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0) ? 'Overpaid Amount' : 'Balance Due'}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', color: (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0) ? 'info.main' : 'inherit', fontWeight: (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0) ? 600 : 400 }}>
+                              {(() => {
+                                const overpaid = (selectedInvoice.paidAmount || 0) - (selectedInvoice.totalAmount || 0)
+                                if (overpaid > 0) {
+                                  return `+${formatCurrency(overpaid)}`
+                                }
+                                return formatCurrency(selectedInvoice.balanceDue)
+                              })()}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Status
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(selectedInvoice.balanceDue)}
+                              {(() => {
+                                const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
+                                if (isOverpaid) {
+                                  return (
+                                    <Chip
+                                      label="Overpaid"
+                                      size="small"
+                                      color="info"
+                                      sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
+                                    />
+                                  )
+                                }
+                                return (
+                                  <Chip
+                                    label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
+                                    size="small"
+                                    color={
+                                      selectedInvoice.status === 'paid' ? 'success' :
+                                      selectedInvoice.status === 'partial_paid' ? 'warning' :
+                                      'default'
+                                    }
+                                    sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
+                                  />
+                                )
+                              })()}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -1098,6 +1213,12 @@ const InvoicesPage: React.FC = () => {
       <KeyboardShortcutsHelp
         open={keyboardHelpOpen}
         onClose={() => setKeyboardHelpOpen(false)}
+      />
+
+      {/* Deleted Invoices Dialog */}
+      <DeletedInvoicesDialog
+        open={deletedInvoicesDialogOpen}
+        onClose={() => setDeletedInvoicesDialogOpen(false)}
       />
     </Box>
   )

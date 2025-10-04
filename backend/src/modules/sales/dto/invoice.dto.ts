@@ -102,43 +102,13 @@ export class CreateInvoiceDto {
   dueDate?: string;
 
   @ApiProperty({
-    description: 'Subtotal amount (before tax and discounts)',
+    description: 'Subtotal amount (sum of line items - discounts tracked at line item level)',
     example: 1000.00,
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   @Transform(({ value }) => parseFloat(value))
   subtotal: number;
-
-  @ApiPropertyOptional({
-    description: 'Discount percentage',
-    example: 10.0,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  discountPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Tax percentage',
-    example: 8.5,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  taxPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Additional charges (shipping, handling, etc.)',
-    example: 15.00,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
-  additionalCharges?: number;
 
   @ApiPropertyOptional({
     description: 'Payment terms in days',
@@ -196,7 +166,7 @@ export class UpdateInvoiceDto {
   @ApiPropertyOptional({
     description: 'Invoice status',
     enum: InvoiceStatus,
-    example: InvoiceStatus.SENT,
+    example: InvoiceStatus.DRAFT,
   })
   @IsOptional()
   @IsEnum(InvoiceStatus)
@@ -209,36 +179,6 @@ export class UpdateInvoiceDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
-
-  @ApiPropertyOptional({
-    description: 'Discount percentage',
-    example: 15.0,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  discountPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Tax percentage',
-    example: 8.5,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  taxPercent?: number;
-
-  @ApiPropertyOptional({
-    description: 'Additional charges',
-    example: 20.00,
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
-  additionalCharges?: number;
 
   @ApiPropertyOptional({
     description: 'Payment terms in days',
@@ -321,7 +261,7 @@ export class QueryInvoicesDto {
   @ApiPropertyOptional({
     description: 'Filter by invoice status',
     enum: InvoiceStatus,
-    example: InvoiceStatus.SENT,
+    example: InvoiceStatus.DRAFT,
   })
   @IsOptional()
   @IsEnum(InvoiceStatus)
@@ -418,7 +358,7 @@ export class InvoiceResponseDto {
   @ApiProperty({ enum: InvoiceType, example: InvoiceType.STANDARD })
   type: InvoiceType;
 
-  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.SENT })
+  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
 
   @ApiProperty({ example: '2024-01-01' })
@@ -436,22 +376,7 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: 1000.00 })
   subtotal: number;
 
-  @ApiProperty({ example: 10.0 })
-  discountPercent: number;
-
-  @ApiProperty({ example: 100.00 })
-  discountAmount: number;
-
-  @ApiProperty({ example: 8.5 })
-  taxPercent: number;
-
-  @ApiProperty({ example: 76.50 })
-  taxAmount: number;
-
-  @ApiProperty({ example: 15.00 })
-  additionalCharges: number;
-
-  @ApiProperty({ example: 991.50 })
+  @ApiProperty({ example: 1000.00 })
   totalAmount: number;
 
   @ApiProperty({ example: 500.00 })
@@ -477,9 +402,6 @@ export class InvoiceResponseDto {
 
   @ApiProperty({ example: '123 Main Street, New York, NY, 10001', nullable: true })
   billingAddress?: string;
-
-  @ApiProperty({ example: 'TAX123456789', nullable: true })
-  customerTaxId?: string;
 
   @ApiProperty({ example: 'PO-2024-001', nullable: true })
   customerPoNumber?: string;
@@ -522,6 +444,19 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   updatedAt: Date;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z', nullable: true })
+  deletedAt?: Date;
+
+  @ApiProperty({ type: 'array', required: false })
+  payments?: Array<{
+    id: string;
+    paymentNumber: string;
+    paymentDate: Date;
+    amount: number;
+    paymentMethod: string;
+    status: string;
+  }>;
+
   // Computed properties
   @ApiProperty({ example: false })
   isOverdue: boolean;
@@ -546,7 +481,7 @@ export class InvoiceSummaryDto {
   @ApiProperty({ example: 'INV-2024-001' })
   invoiceNumber: string;
 
-  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.SENT })
+  @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
 
   @ApiProperty({ example: '2024-01-01' })

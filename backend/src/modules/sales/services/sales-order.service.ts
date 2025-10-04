@@ -182,12 +182,61 @@ export class SalesOrderService {
 
     // Reserve inventory
     await this.inventoryIntegrationService.reserveStock(
-      items.map(item => ({ 
-        productId: item.productId, 
+      items.map(item => ({
+        productId: item.productId,
         quantity: item.quantity,
         salesOrderId: savedOrder.id,
       }))
     );
+
+    // Automatically generate invoice when order is created
+    try {
+      // Reload order with customer relation to populate customerName for invoice
+      const orderWithCustomer = await this.salesOrderRepository.findOne({
+        where: { id: savedOrder.id },
+        relations: ['customer', 'items']
+      });
+
+      if (!orderWithCustomer) {
+        throw new Error('Order not found after save');
+      }
+
+      if (!orderWithCustomer.customer) {
+        throw new Error('Customer information not found for invoice generation');
+      }
+
+      // Generate invoice number
+      const invoiceNumber = await this.generateInvoiceNumber();
+
+      // Create invoice using the fromSalesOrder factory method
+      const invoiceData = Invoice.fromSalesOrder(orderWithCustomer);
+      const invoice = this.invoiceRepository.create({
+        ...invoiceData,
+        invoiceNumber,
+      });
+
+      // Add line items from order
+      invoice.lineItems = createdItems.map(item => ({
+        productId: item.productId,
+        productName: item.productName || 'Unknown Product',
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        discount: Number(item.discountAmount),
+        totalAmount: Number(item.totalAmount),
+      }));
+
+      // Calculate totals and set correct status
+      invoice.calculateTotals();
+      invoice.updateStatus();
+
+      await this.invoiceRepository.save(invoice);
+
+      console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for new order ${savedOrder.orderNumber}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
+      console.error('Full error:', error); // Add full error logging for debugging
+      // Don't throw error - order creation should still succeed even if invoice creation fails
+    }
 
     return this.findById(savedOrder.id);
   }
@@ -549,14 +598,35 @@ export class SalesOrderService {
   async findById(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices'],
+      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices', 'invoices.payments'],
     });
 
     if (!order) {
       throw new NotFoundException('Sales order not found');
     }
 
-    return this.mapToResponseDto(order);
+    // Also fetch payments directly associated with this order (not through invoice)
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const ILike = (await import('typeorm')).ILike;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      const directPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`),
+          invoiceId: null as any, // Payments not linked to invoice
+        }
+      });
+
+      const dto = this.mapToResponseDto(order);
+      // Add direct payments to the response
+      (dto as any).directPayments = directPayments;
+      return dto;
+    } catch (error) {
+      console.error('Failed to fetch direct payments:', error);
+      return this.mapToResponseDto(order);
+    }
   }
 
   async findByOrderNumber(orderNumber: string): Promise<SalesOrderResponseDto> {
@@ -650,6 +720,9 @@ export class SalesOrderService {
       await this.salesOrderRepository.update(id, updateData);
     }
 
+    // Automatically update associated invoices if order was modified
+    await this.updateAssociatedInvoices(id);
+
     return this.findById(id);
   }
 
@@ -669,6 +742,49 @@ export class SalesOrderService {
 
     // Release reserved inventory
     await this.inventoryIntegrationService.releaseReservation(id);
+
+    // Automatically soft delete associated invoices
+    try {
+      const associatedInvoices = await this.invoiceRepository.find({
+        where: { salesOrderId: id }
+      });
+
+      if (associatedInvoices.length > 0) {
+        // Soft delete all associated invoices
+        await this.invoiceRepository.softDelete(
+          associatedInvoices.map(invoice => invoice.id)
+        );
+        console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order deletion should still succeed
+    }
+
+    // Automatically soft delete associated payments
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Find payments associated with this sales order
+      const associatedPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`)
+        }
+      });
+
+      if (associatedPayments.length > 0) {
+        // Soft delete all associated payments
+        await paymentRepository.softDelete(
+          associatedPayments.map(payment => payment.id)
+        );
+        console.log(`✅ Auto-deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-delete payments for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order deletion should still succeed
+    }
 
     // Soft delete using TypeORM's built-in soft delete
     await this.salesOrderRepository.softDelete(id);
@@ -1045,6 +1161,55 @@ export class SalesOrderService {
     // Restore the order
     await this.salesOrderRepository.restore(id);
 
+    // Automatically restore associated invoices
+    try {
+      const associatedInvoices = await this.invoiceRepository.find({
+        where: { salesOrderId: id },
+        withDeleted: true, // Include soft-deleted invoices
+      });
+
+      const softDeletedInvoices = associatedInvoices.filter(invoice => invoice.deletedAt !== null);
+
+      if (softDeletedInvoices.length > 0) {
+        // Restore all soft-deleted invoices
+        await this.invoiceRepository.restore(
+          softDeletedInvoices.map(invoice => invoice.id)
+        );
+        console.log(`✅ Auto-restored ${softDeletedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-restore invoices for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order restoration should still succeed
+    }
+
+    // Automatically restore associated payments
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Find payments associated with this sales order
+      const associatedPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`)
+        },
+        withDeleted: true, // Include soft-deleted payments
+      });
+
+      const softDeletedPayments = associatedPayments.filter(payment => payment.deletedAt !== null);
+
+      if (softDeletedPayments.length > 0) {
+        // Restore all soft-deleted payments
+        await paymentRepository.restore(
+          softDeletedPayments.map(payment => payment.id)
+        );
+        console.log(`✅ Auto-restored ${softDeletedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-restore payments for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order restoration should still succeed
+    }
+
     // Return the restored order
     const restoredOrder = await this.salesOrderRepository.findOne({
       where: { id },
@@ -1090,15 +1255,33 @@ export class SalesOrderService {
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
 
-    // Check for financial dependencies and business rules
-    const invoiceCount = await this.invoiceRepository.count({
-      where: { salesOrderId: id },
-    });
-
     const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
 
+    // Check for invoices with payments - cannot delete if invoices have payments
+    const invoices = await this.invoiceRepository.find({
+      where: { salesOrderId: id },
+      withDeleted: true, // Include soft-deleted invoices
+    });
+
+    // Check if any invoice has payments
+    const hasPayments = invoices.some(invoice => Number(invoice.paidAmount) > 0);
+
     // Use standardized financial entity validation
-    ValidationUtil.validateFinancialEntityDeletion('sales order', invoiceCount > 0, false, isCompleted);
+    ValidationUtil.validateFinancialEntityDeletion('sales order', hasPayments, false, isCompleted);
+
+    // Automatically hard delete associated invoices (if they have no payments)
+    if (invoices.length > 0) {
+      try {
+        // Hard delete all associated invoices
+        await this.invoiceRepository.delete(
+          invoices.map(invoice => invoice.id)
+        );
+        console.log(`✅ Auto-deleted ${invoices.length} invoice(s) for sales order ${order.orderNumber}`);
+      } catch (error) {
+        console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
+        throw new ConflictException('Failed to delete associated invoices. Cannot permanently delete sales order.');
+      }
+    }
 
     // Revert customer metrics if order was confirmed
     if (order.status === SalesOrderStatus.CONFIRMED && order.customer) {
@@ -1150,16 +1333,20 @@ export class SalesOrderService {
           continue;
         }
 
-        // Check for financial dependencies and business rules
-        const invoiceCount = await this.invoiceRepository.count({
+        const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+
+        // Check for invoices with payments - cannot delete if invoices have payments
+        const invoices = await this.invoiceRepository.find({
           where: { salesOrderId: id },
+          withDeleted: true, // Include soft-deleted invoices
         });
 
-        const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+        // Check if any invoice has payments
+        const hasPayments = invoices.some(invoice => Number(invoice.paidAmount) > 0);
 
         // Use standardized financial entity validation
         try {
-          ValidationUtil.validateFinancialEntityDeletion('sales order', invoiceCount > 0, false, isCompleted);
+          ValidationUtil.validateFinancialEntityDeletion('sales order', hasPayments, false, isCompleted);
         } catch (error) {
           BulkOperationUtil.addFailure(
             failedItems,
@@ -1168,6 +1355,25 @@ export class SalesOrderService {
             'BUSINESS_RULE_ERROR'
           );
           continue;
+        }
+
+        // Automatically hard delete associated invoices (if they have no payments)
+        if (invoices.length > 0) {
+          try {
+            // Hard delete all associated invoices
+            await this.invoiceRepository.delete(
+              invoices.map(invoice => invoice.id)
+            );
+            console.log(`✅ Auto-deleted ${invoices.length} invoice(s) for sales order ${order.orderNumber}`);
+          } catch (error) {
+            BulkOperationUtil.addFailure(
+              failedItems,
+              id,
+              `Failed to delete associated invoices: ${error.message}`,
+              'INVOICE_DELETE_ERROR'
+            );
+            continue;
+          }
         }
 
         // Revert customer metrics if order was confirmed
@@ -1198,6 +1404,84 @@ export class SalesOrderService {
     return BulkOperationUtil.createResponse('permanently deleted', 'sales order', successCount, failedItems);
   }
 
+  async updateAssociatedInvoices(salesOrderId: string): Promise<void> {
+    try {
+      // Find the updated sales order with all relations
+      const updatedOrder = await this.salesOrderRepository.findOne({
+        where: { id: salesOrderId },
+        relations: ['customer', 'items', 'items.product']
+      });
+
+      if (!updatedOrder) {
+        console.warn(`Sales order ${salesOrderId} not found for invoice update`);
+        return;
+      }
+
+      // Find all invoices associated with this sales order
+      const invoices = await this.invoiceRepository.find({
+        where: { salesOrderId }
+      });
+
+      if (invoices.length === 0) {
+        console.log(`No invoices found for sales order ${updatedOrder.orderNumber}`);
+        return;
+      }
+
+      // Update each invoice with the latest order data
+      for (const invoice of invoices) {
+        // Update customer information if changed
+        if (updatedOrder.customer) {
+          invoice.customerId = updatedOrder.customerId;
+          invoice.customerName = updatedOrder.customer.name;
+        }
+
+        // Update purchase order number if changed
+        if (updatedOrder.customerPoNumber !== undefined) {
+          invoice.customerPoNumber = updatedOrder.customerPoNumber;
+        }
+
+        // Update billing address with customer's current address
+        if (updatedOrder.customer) {
+          invoice.billingAddress = updatedOrder.customer.name || '';
+        }
+
+        // Update line items to match the order
+        if (updatedOrder.items && updatedOrder.items.length > 0) {
+          invoice.lineItems = updatedOrder.items.map(item => ({
+            productId: item.productId,
+            productName: item.productName || item.product?.name || 'Unknown Product',
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            totalAmount: Number(item.totalAmount),
+          }));
+
+          // Recalculate totals based on new line items
+          const newSubtotal = updatedOrder.items.reduce((sum, item) =>
+            sum + Number(item.totalAmount), 0);
+
+          invoice.subtotal = newSubtotal;
+          invoice.totalAmount = newSubtotal;
+        }
+
+        // Recalculate balance due
+        invoice.calculateTotals();
+
+        // Update invoice status based on payment status
+        invoice.updateStatus();
+
+        // Save the updated invoice
+        await this.invoiceRepository.save(invoice);
+
+        console.log(`✅ Updated invoice ${invoice.invoiceNumber} for sales order ${updatedOrder.orderNumber}`);
+      }
+
+      console.log(`✅ Updated ${invoices.length} invoice(s) for sales order ${updatedOrder.orderNumber}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to update associated invoices for sales order ${salesOrderId}:`, error.message);
+      // Don't throw error - sales order update should still succeed even if invoice update fails
+    }
+  }
+
   async recordPayment(id: string, amount: number): Promise<SalesOrderResponseDto> {
     if (amount < 0) {
       throw new BadRequestException('Payment amount must be positive');
@@ -1219,7 +1503,88 @@ export class SalesOrderService {
     order.paidAmount = Number(amount);
     const savedOrder = await this.salesOrderRepository.save(order);
 
-    return this.mapToResponseDto(savedOrder);
+    // Automatically update or create payment record
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
+      const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
+      const PaymentType = (await import('../../../database/entities/payment.entity')).PaymentType;
+      const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
+
+      // Get or create a user repository import
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+      const invoiceRepository = this.salesOrderRepository.manager.getRepository(Invoice);
+
+      // Find invoice for this sales order if it exists
+      let invoice = await invoiceRepository.findOne({
+        where: { salesOrderId: savedOrder.id }
+      });
+
+      // If invoice exists, update its paid amount
+      if (invoice) {
+        invoice.paidAmount = Number(amount);
+        invoice.calculateTotals();
+        invoice.updateStatus();
+        await invoiceRepository.save(invoice);
+      }
+
+      // Check if a payment already exists for this sales order
+      const existingPayment = await paymentRepository.findOne({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`),
+          invoiceId: invoice ? invoice.id : null as any,
+        }
+      });
+
+      if (existingPayment) {
+        // Update existing payment
+        existingPayment.amount = Number(amount);
+        existingPayment.paymentDate = new Date();
+        existingPayment.clearedDate = new Date();
+        existingPayment.notes = `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`;
+        await paymentRepository.save(existingPayment);
+        console.log(`✅ Updated payment ${existingPayment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
+      } else {
+        // Generate payment number
+        const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
+        let maxNumber = 0;
+        for (const payment of allPayments) {
+          const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1]);
+            if (num > maxNumber) maxNumber = num;
+          }
+        }
+        const paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
+
+        // Create new payment record with sales order details
+        const payment = paymentRepository.create({
+          paymentNumber,
+          type: PaymentType.PAYMENT,
+          status: PaymentStatus.COMPLETED,
+          paymentMethod: PaymentMethod.CASH, // Default method, can be changed later
+          paymentDate: new Date(),
+          amount: Number(amount),
+          customerId: order.customerId,
+          invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
+          recordedByUserId: order.createdByUserId || null,
+          currency: 'USD',
+          exchangeRate: 1.0,
+          processingFee: 0,
+          notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
+          clearedDate: new Date(),
+        });
+
+        await paymentRepository.save(payment);
+        console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to auto-generate payment for order ${order.orderNumber}:`, error.message);
+      // Don't throw error - payment recording on order should still succeed
+    }
+
+    return this.findById(savedOrder.id);
   }
 
   async unpayOrder(id: string): Promise<SalesOrderResponseDto> {
@@ -1236,10 +1601,54 @@ export class SalesOrderService {
       throw new ConflictException('Cannot unpay fulfilled order - order has already been fulfilled');
     }
 
+    // Delete associated payment record(s) from database
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Find and delete all payments associated with this sales order
+      // Match by notes field which contains "sales order {orderNumber}"
+      const associatedPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`)
+        }
+      });
+
+      if (associatedPayments.length > 0) {
+        // Hard delete the payment records from database
+        await paymentRepository.delete(associatedPayments.map(p => p.id));
+        console.log(`✅ Deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to delete payment records for order ${order.orderNumber}:`, error.message);
+      // Don't throw error - unpay should still succeed even if payment deletion fails
+    }
+
+    // Update invoice if it exists
+    try {
+      const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
+      const invoiceRepository = this.salesOrderRepository.manager.getRepository(Invoice);
+
+      const invoice = await invoiceRepository.findOne({
+        where: { salesOrderId: order.id }
+      });
+
+      if (invoice) {
+        invoice.paidAmount = 0;
+        invoice.calculateTotals();
+        invoice.updateStatus();
+        await invoiceRepository.save(invoice);
+        console.log(`✅ Reset invoice ${invoice.invoiceNumber} paid amount to 0`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to update invoice for order ${order.orderNumber}:`, error.message);
+    }
+
     order.paidAmount = 0;
     const savedOrder = await this.salesOrderRepository.save(order);
 
-    return this.mapToResponseDto(savedOrder);
+    return this.findById(savedOrder.id);
   }
 
   async fulfillOrder(id: string): Promise<SalesOrderResponseDto> {
@@ -1280,50 +1689,6 @@ export class SalesOrderService {
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
-    // Automatically generate invoice upon fulfillment
-    try {
-      // Check if invoice already exists for this order
-      const existingInvoice = await this.invoiceRepository.findOne({
-        where: { salesOrderId: order.id }
-      });
-
-      if (!existingInvoice) {
-        // Generate invoice number
-        const invoiceNumber = await this.generateInvoiceNumber();
-
-        // Create invoice using the fromSalesOrder factory method
-        const invoiceData = Invoice.fromSalesOrder(savedOrder);
-        const invoice = this.invoiceRepository.create({
-          ...invoiceData,
-          invoiceNumber,
-        });
-
-        // Add line items from order
-        invoice.lineItems = savedOrder.items.map(item => ({
-          productId: item.productId,
-          productName: item.product?.name || 'Unknown Product',
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          discount: Number(item.discountAmount),
-          totalAmount: Number(item.totalAmount),
-        }));
-
-        // Calculate totals and set correct status
-        invoice.calculateTotals();
-        invoice.updateStatus();
-
-        // Debug logging
-        console.log(`💰 Invoice payment info - Total: ${invoice.totalAmount}, Paid: ${invoice.paidAmount}, Balance: ${invoice.balanceDue}, Status: ${invoice.status}`);
-
-        await this.invoiceRepository.save(invoice);
-
-        console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for fulfilled order ${savedOrder.orderNumber}`);
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
-      // Don't throw error - fulfillment should still succeed even if invoice creation fails
-    }
-
     return this.findById(savedOrder.id);
   }
 
@@ -1350,23 +1715,6 @@ export class SalesOrderService {
           `Sales order unfulfillment: ${order.orderNumber}`
         );
       }
-    }
-
-    // Automatically delete associated invoice(s) when unfulfilling
-    try {
-      const associatedInvoices = await this.invoiceRepository.find({
-        where: { salesOrderId: order.id }
-      });
-
-      if (associatedInvoices.length > 0) {
-        // Hard delete the invoices to completely remove them
-        await this.invoiceRepository.delete({ salesOrderId: order.id });
-
-        console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for unfulfilled order ${order.orderNumber}`);
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-delete invoices for order ${order.orderNumber}:`, error.message);
-      // Don't throw error - unfulfillment should still succeed even if invoice deletion fails
     }
 
     // Mark as unfulfilled and revert to confirmed status
@@ -1440,9 +1788,18 @@ export class SalesOrderService {
         invoiceDate: invoice.invoiceDate,
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
+        payments: invoice.payments?.map(payment => ({
+          id: payment.id,
+          paymentNumber: payment.paymentNumber,
+          paymentDate: payment.paymentDate,
+          amount: Number(payment.amount),
+          paymentMethod: payment.paymentMethod,
+          status: payment.status,
+        })) || [],
       })) || [],
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      deletedAt: order.deletedAt,
       fullShippingAddress: order.fullShippingAddress,
       isShippable: order.isShippable,
       isCompleted: order.isCompleted,

@@ -99,17 +99,6 @@ export const deleteCustomer = createAsyncThunk(
   }
 )
 
-
-
-
-export const updateCreditLimit = createAsyncThunk(
-  'customers/updateCreditLimit',
-  async ({ id, creditLimit }: { id: string; creditLimit: number }) => {
-    const response = await salesApi.updateCreditLimit(id, creditLimit)
-    return response  // Return the full response
-  }
-)
-
 export const fetchDeletedCustomers = createAsyncThunk(
   'customers/fetchDeletedCustomers',
   async (params?: {
@@ -286,23 +275,6 @@ const customerSlice = createSlice({
         // Don't set error state - let component handle notifications
       })
 
-
-
-
-    // Update credit limit
-    builder
-      .addCase(updateCreditLimit.fulfilled, (state, action) => {
-        if (action.payload) {
-          const updatedCustomer = ((action.payload as any).data || action.payload) as Customer
-          const index = state.customers.findIndex(c => c.id === updatedCustomer.id)
-          if (index !== -1) {
-            state.customers[index] = updatedCustomer
-          }
-          if (state.currentCustomer?.id === updatedCustomer.id) {
-            state.currentCustomer = updatedCustomer
-          }
-        }
-      })
 
     // Fetch deleted customers
     builder

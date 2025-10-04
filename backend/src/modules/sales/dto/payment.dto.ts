@@ -46,7 +46,7 @@ export class CreatePaymentDto {
     example: '2023-12-01',
   })
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => new Date(value))
   paymentDate: Date;
 
   @ApiProperty({
@@ -103,7 +103,7 @@ export class CreatePaymentDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   transactionDate?: Date;
 
   @ApiPropertyOptional({
@@ -199,7 +199,7 @@ export class UpdatePaymentDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   clearedDate?: Date;
 
   @ApiPropertyOptional({
@@ -269,7 +269,7 @@ export class QueryPaymentsDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   fromDate?: Date;
 
   @ApiPropertyOptional({
@@ -278,7 +278,7 @@ export class QueryPaymentsDto {
   })
   @IsOptional()
   @IsDate()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   toDate?: Date;
 
   @ApiPropertyOptional({
@@ -288,6 +288,14 @@ export class QueryPaymentsDto {
   @IsOptional()
   @IsString()
   referenceNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by payment number or customer name',
+    example: 'PAY-000001',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({
     description: 'Sort field',
@@ -403,6 +411,9 @@ export class PaymentResponseDto {
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   updatedAt: Date;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z', nullable: true })
+  deletedAt?: Date;
+
   // Computed properties
   @ApiProperty({ example: true })
   isCompleted: boolean;
@@ -418,6 +429,23 @@ export class PaymentResponseDto {
 
   @ApiProperty({ example: 1500.50 })
   effectiveAmount: number;
+
+  // Relationship data
+  @ApiProperty({ example: 'John Doe' })
+  customerName: string;
+
+  @ApiProperty({ type: () => Object, nullable: true })
+  customer?: {
+    id: string;
+    name: string;
+    phone?: string;
+  };
+
+  @ApiProperty({ type: () => Object, nullable: true })
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+  };
 }
 
 export class ProcessPaymentDto {

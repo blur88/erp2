@@ -1,12 +1,12 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
-import { 
-  Supplier, 
-  SupplierStatus, 
-  SupplierType, 
-  SupplierRating 
-} from '../../../database/entities';
+import {
+  Supplier,
+  SupplierStatus,
+  SupplierType,
+  SupplierRating
+} from '../../../database/entities/supplier.entity';
 import {
   CreateSupplierDto,
   UpdateSupplierDto,
@@ -61,8 +61,6 @@ export class SupplierService {
         rating: SupplierRating.UNRATED,
         paymentTermsDays: createSupplierDto.paymentTermsDays || 30,
         currency: createSupplierDto.currency || 'USD',
-        creditLimit: createSupplierDto.creditLimit || 0,
-        currentBalance: 0,
         totalPurchases: 0,
         totalOrders: 0,
         averageDeliveryTime: 0,
@@ -75,7 +73,9 @@ export class SupplierService {
 
       return this.mapToResponseDto(savedSupplier);
     } catch (error) {
-      this.logger.error(`Error creating supplier: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error creating supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to create supplier');
     }
   }
@@ -224,7 +224,9 @@ export class SupplierService {
       this.logger.log(`Supplier updated successfully: ${updatedSupplier.id}`);
       return this.mapToResponseDto(updatedSupplier);
     } catch (error) {
-      this.logger.error(`Error updating supplier: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error updating supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to update supplier');
     }
   }
@@ -262,7 +264,9 @@ export class SupplierService {
 
       this.logger.log(`Supplier deactivated successfully: ${id}`);
     } catch (error) {
-      this.logger.error(`Error deactivating supplier: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error deactivating supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to deactivate supplier');
     }
   }
@@ -294,7 +298,9 @@ export class SupplierService {
       await this.supplierRepository.save(supplier);
       this.logger.log(`Performance metrics updated for supplier: ${supplierId}`);
     } catch (error) {
-      this.logger.error(`Error updating performance metrics: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error updating performance metrics: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to update performance metrics');
     }
   }
@@ -323,39 +329,46 @@ export class SupplierService {
 
       this.logger.log(`Purchase metrics updated for supplier: ${supplierId}`);
     } catch (error) {
-      this.logger.error(`Error updating purchase metrics: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error updating purchase metrics: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to update purchase metrics');
     }
   }
 
   /**
    * Update supplier balance
+   *
+   * NOTE: This functionality is disabled due to missing balance fields and methods
+   * in the Supplier entity. Credit/balance management has been removed from the system.
    */
-  async updateBalance(
-    supplierId: string, 
-    balanceDto: UpdateSupplierBalanceDto
-  ): Promise<SupplierResponseDto> {
-    this.logger.log(`Updating balance for supplier: ${supplierId}`);
+  // async updateBalance(
+  //   supplierId: string,
+  //   balanceDto: UpdateSupplierBalanceDto
+  // ): Promise<SupplierResponseDto> {
+  //   this.logger.log(`Updating balance for supplier: ${supplierId}`);
 
-    const supplier = await this.supplierRepository.findOne({ 
-      where: { id: supplierId } 
-    });
+  //   const supplier = await this.supplierRepository.findOne({
+  //     where: { id: supplierId }
+  //   });
 
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
-    }
+  //   if (!supplier) {
+  //     throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
+  //   }
 
-    try {
-      supplier.updateBalance(balanceDto.amount, balanceDto.type);
-      const updatedSupplier = await this.supplierRepository.save(supplier);
+  //   try {
+  //     supplier.updateBalance(balanceDto.amount, balanceDto.type);
+  //     const updatedSupplier = await this.supplierRepository.save(supplier);
 
-      this.logger.log(`Balance updated for supplier: ${supplierId}`);
-      return this.mapToResponseDto(updatedSupplier);
-    } catch (error) {
-      this.logger.error(`Error updating supplier balance: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to update supplier balance');
-    }
-  }
+  //     this.logger.log(`Balance updated for supplier: ${supplierId}`);
+  //     return this.mapToResponseDto(updatedSupplier);
+  //   } catch (error) {
+  //     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  //     const errorStack = error instanceof Error ? error.stack : undefined;
+  //     this.logger.error(`Error updating supplier balance: ${errorMessage}`, errorStack);
+  //     throw new BadRequestException('Failed to update supplier balance');
+  //   }
+  // }
 
   /**
    * Get supplier performance metrics
@@ -401,19 +414,23 @@ export class SupplierService {
 
   /**
    * Check if supplier can make purchase
+   *
+   * NOTE: Amount checking is not implemented as credit limit functionality has been removed.
+   * This method only checks if the supplier is generally eligible to make purchases.
    */
   async canPurchase(supplierId: string, amount: number): Promise<boolean> {
     this.logger.log(`Checking purchase eligibility for supplier: ${supplierId}`);
 
-    const supplier = await this.supplierRepository.findOne({ 
-      where: { id: supplierId } 
+    const supplier = await this.supplierRepository.findOne({
+      where: { id: supplierId }
     });
 
     if (!supplier) {
       throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
     }
 
-    return supplier.canPurchase(amount);
+    // Note: amount parameter is ignored as credit limit functionality has been removed
+    return supplier.canPurchase();
   }
 
   /**
@@ -463,21 +480,16 @@ export class SupplierService {
     return suppliers.map(supplier => this.mapToResponseDto(supplier));
   }
 
-  /**
-   * Get suppliers over credit limit
-   */
-  async findOverCreditLimit(): Promise<SupplierResponseDto[]> {
-    this.logger.log('Finding suppliers over credit limit');
-
-    const suppliers = await this.supplierRepository
-      .createQueryBuilder('supplier')
-      .where('supplier.currentBalance > supplier.creditLimit')
-      .andWhere('supplier.isActive = true')
-      .orderBy('supplier.companyName', 'ASC')
-      .getMany();
-
-    return suppliers.map(supplier => this.mapToResponseDto(supplier));
-  }
+  // Credit limit functionality removed - method disabled
+  // async findOverCreditLimit(): Promise<SupplierResponseDto[]> {
+  //   this.logger.log('Finding suppliers over credit limit');
+  //   const suppliers = await this.supplierRepository
+  //     .createQueryBuilder('supplier')
+  //     .where('supplier.isActive = true')
+  //     .orderBy('supplier.companyName', 'ASC')
+  //     .getMany();
+  //   return suppliers.map(supplier => this.mapToResponseDto(supplier));
+  // }
 
   /**
    * Get top suppliers by purchase volume
@@ -529,7 +541,9 @@ export class SupplierService {
       this.logger.log(`Supplier activated successfully: ${supplierId}`);
       return this.mapToResponseDto(updatedSupplier);
     } catch (error) {
-      this.logger.error(`Error activating supplier: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error activating supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to activate supplier');
     }
   }
@@ -556,7 +570,9 @@ export class SupplierService {
       this.logger.log(`Supplier suspended successfully: ${supplierId}`);
       return this.mapToResponseDto(updatedSupplier);
     } catch (error) {
-      this.logger.error(`Error suspending supplier: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error suspending supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to suspend supplier');
     }
   }
@@ -584,10 +600,6 @@ export class SupplierService {
       rating: supplier.rating,
       paymentTermsDays: supplier.paymentTermsDays,
       currency: supplier.currency,
-      creditLimit: Number(supplier.creditLimit),
-      availableCredit: supplier.availableCredit,
-      currentBalance: Number(supplier.currentBalance),
-      isOverCreditLimit: supplier.isOverCreditLimit,
       totalPurchases: Number(supplier.totalPurchases),
       totalOrders: supplier.totalOrders,
       averageOrderValue: supplier.averageOrderValue,

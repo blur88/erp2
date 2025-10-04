@@ -29,7 +29,7 @@ import {
 } from '../dto/payment.dto';
 
 @ApiTags('Payments')
-@Controller('api/payments')
+@Controller('payments')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
@@ -69,6 +69,16 @@ export class PaymentController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getAllPayments(@Query() query: QueryPaymentsDto) {
     return this.paymentService.findAll(query);
+  }
+
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all deleted payments' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of deleted payments retrieved successfully',
+  })
+  async getDeletedPayments(@Query() query: QueryPaymentsDto) {
+    return this.paymentService.findDeleted(query);
   }
 
   @Get(':id')
@@ -223,7 +233,30 @@ export class PaymentController {
   ) {
     const fromDateObj = fromDate ? new Date(fromDate) : undefined;
     const toDateObj = toDate ? new Date(toDate) : undefined;
-    
+
     return this.paymentService.getPaymentStatistics(customerId, fromDateObj, toDateObj);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a deleted payment' })
+  @ApiParam({ name: 'id', description: 'Payment ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment restored successfully',
+    type: PaymentResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  async restorePayment(@Param('id', ParseUUIDPipe) id: string): Promise<PaymentResponseDto> {
+    return this.paymentService.restore(id);
+  }
+
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Restore multiple deleted payments' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payments restored successfully',
+  })
+  async bulkRestorePayments(@Body('paymentIds') paymentIds: string[]) {
+    return this.paymentService.bulkRestore(paymentIds);
   }
 }

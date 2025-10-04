@@ -74,7 +74,7 @@ export class CreateStockMovementDto {
 
   @ApiPropertyOptional({ description: 'Expiry date for batch/lot' })
   @IsOptional()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   @IsDate()
   expiryDate?: Date;
 
@@ -126,13 +126,13 @@ export class QueryStockMovementsDto {
 
   @ApiPropertyOptional({ description: 'Filter movements from this date' })
   @IsOptional()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   @IsDate()
   fromDate?: Date;
 
   @ApiPropertyOptional({ description: 'Filter movements to this date' })
   @IsOptional()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   @IsDate()
   toDate?: Date;
 
@@ -262,7 +262,7 @@ export class StockReservationDto {
 
   @ApiPropertyOptional({ description: 'Expiry date for reservation (auto-release after this date)' })
   @IsOptional()
-  @Type(() => Date)
+  @Transform(({ value }) => value ? new Date(value) : undefined)
   @IsDate()
   expiryDate?: Date;
 

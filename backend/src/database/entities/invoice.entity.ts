@@ -23,12 +23,8 @@ import { Payment } from './payment.entity';
 
 export enum InvoiceStatus {
   DRAFT = 'draft',
-  SENT = 'sent',
-  PARTIALLY_PAID = 'partially_paid',
+  PARTIAL_PAID = 'partial_paid',
   PAID = 'paid',
-  OVERDUE = 'overdue',
-  CANCELLED = 'cancelled',
-  REFUNDED = 'refunded',
 }
 
 export enum InvoiceType {
@@ -117,7 +113,7 @@ export class Invoice extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Subtotal amount (before tax and discounts)',
+    comment: 'Subtotal amount (sum of line items)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
@@ -125,65 +121,10 @@ export class Invoice extends BaseEntity {
 
   @Column({
     type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Discount percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  discountPercent: number;
-
-  @Column({
-    type: 'decimal',
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Discount amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  discountAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Tax percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  taxPercent: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Tax amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  taxAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Additional charges (shipping, handling, etc.)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  additionalCharges: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Total invoice amount',
+    comment: 'Total invoice amount (same as subtotal - discounts tracked at line item level)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
@@ -265,17 +206,6 @@ export class Invoice extends BaseEntity {
   @IsString()
   billingAddress?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 30,
-    nullable: true,
-    comment: 'Customer tax ID',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  customerTaxId?: string;
-
   // Reference Information
   @Column({
     type: 'varchar',
@@ -347,7 +277,7 @@ export class Invoice extends BaseEntity {
 
   // Computed properties
   get isOverdue(): boolean {
-    if (this.status === InvoiceStatus.PAID || this.status === InvoiceStatus.CANCELLED) {
+    if (this.status === InvoiceStatus.PAID) {
       return false;
     }
     return new Date() > this.dueDate;
@@ -391,21 +321,8 @@ export class Invoice extends BaseEntity {
 
   // Helper methods
   calculateTotals(): void {
-    // Calculate discount amount
-    if (this.discountPercent > 0) {
-      this.discountAmount = (Number(this.subtotal) * Number(this.discountPercent)) / 100;
-    }
-
-    // Calculate tax amount (on subtotal after discount)
-    const taxableAmount = Number(this.subtotal) - Number(this.discountAmount);
-    if (this.taxPercent > 0) {
-      this.taxAmount = (taxableAmount * Number(this.taxPercent)) / 100;
-    }
-
-    // Calculate total
-    this.totalAmount = taxableAmount + Number(this.taxAmount) + Number(this.additionalCharges);
-    
-    // Calculate balance due
+    // Simplified: totalAmount is set from subtotal (line items already include discounts)
+    // Just calculate balance due
     this.balanceDue = Number(this.totalAmount) - Number(this.paidAmount);
   }
 
@@ -416,9 +333,9 @@ export class Invoice extends BaseEntity {
         this.paidDate = new Date();
       }
     } else if (this.isPartiallyPaid) {
-      this.status = InvoiceStatus.PARTIALLY_PAID;
-    } else if (this.isOverdue) {
-      this.status = InvoiceStatus.OVERDUE;
+      this.status = InvoiceStatus.PARTIAL_PAID;
+    } else {
+      this.status = InvoiceStatus.DRAFT;
     }
   }
 
@@ -435,16 +352,15 @@ export class Invoice extends BaseEntity {
   }
 
   markAsSent(): void {
-    if (this.status === InvoiceStatus.DRAFT) {
-      this.status = InvoiceStatus.SENT;
+    // Just mark the sent date, status is determined by payment state
+    if (!this.sentDate) {
       this.sentDate = new Date();
     }
   }
 
   cancel(): void {
-    if (this.status !== InvoiceStatus.PAID) {
-      this.status = InvoiceStatus.CANCELLED;
-    }
+    // Mark as cancelled in internal notes, status remains as-is (DRAFT, PARTIAL_PAID, or PAID)
+    this.internalNotes = `${this.internalNotes || ''}\nCancelled on ${new Date().toISOString()}`;
   }
 
   // Static factory method
@@ -458,18 +374,12 @@ export class Invoice extends BaseEntity {
       salesOrderId: salesOrder.id,
       customerName: salesOrder.customer?.name,
       customerPoNumber: salesOrder.customerPoNumber,
-      subtotal: totalAmount, // Use totalAmount as subtotal
-      discountPercent: 0, // Default to 0 since SalesOrder doesn't have discount fields
-      discountAmount: 0,
-      taxPercent: 0, // Default to 0 since SalesOrder doesn't have tax fields
-      taxAmount: 0,
-      additionalCharges: 0, // Default to 0 since SalesOrder doesn't have shipping amount
-      totalAmount: totalAmount,
+      subtotal: totalAmount, // Line items already include discounts
+      totalAmount: totalAmount, // Same as subtotal
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
       billingAddress: salesOrder.customer?.name || '',
-      customerTaxId: '',
       paymentTermsDays: 30,
     };
   }

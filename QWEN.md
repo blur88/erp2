@@ -1,26 +1,21 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# ERP System - Comprehensive Development Guide
 
 ## Project Overview
 
-Comprehensive ERP system with modern full-stack architecture:
+This is a modern ERP (Enterprise Resource Planning) system built with a comprehensive full-stack architecture:
 - **Backend**: NestJS + TypeORM (PostgreSQL) + MongoDB + Redis + Bull Queue
 - **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit + Vite
 - **Infrastructure**: Docker + NGINX
 - **Testing**: Jest (backend) + Vitest (frontend)
 
+A streamlined ERP system featuring inventory management, sales, user management, and real-time dashboard analytics, currently optimized for rapid development with a simplified authentication-free architecture.
+
 ## Current System Status
 
 **⚠️ CRITICAL: Authentication system completely removed**
-
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `DashboardModule`  
-**Disabled Modules**: `PurchasingModule`, `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
-
-- All API endpoints publicly accessible
-- Frontend fully integrated with backend
-- WebSocket support for real-time updates
-- Categories simplified (name + hierarchy only)
+- All API endpoints are publicly accessible (no authentication required)
+- Active Modules: `UsersModule`, `InventoryModule`, `SalesModule`, `DashboardModule`
+- Disabled Modules: `PurchasingModule`, `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
 
 ## Key Commands
 
@@ -36,11 +31,11 @@ npm run start:dev        # Hot reload development server
 npm run start:debug     # Debug mode with inspector
 npm run start:prod       # Production mode
 
-# Frontend development  
+# Frontend development
 cd frontend
 npm install
 npm run dev             # Vite dev server with hot reload
-npm run build           # Production build (may need TypeScript fixes)
+npm run build           # Production build
 npm run preview         # Preview production build
 ```
 
@@ -55,7 +50,7 @@ npm run test:e2e               # End-to-end tests
 npm run test:debug             # Debug tests
 
 # Frontend tests (Vitest)
-cd frontend  
+cd frontend
 npm run test                   # Vitest unit tests
 npm run test:ui                # Vitest UI
 npm run test:coverage          # Coverage report
@@ -101,7 +96,7 @@ npm run type-check             # TypeScript check without build
 
 # Other deployment commands
 ./deploy.sh stop            # Stop services
-./deploy.sh restart         # Restart services  
+./deploy.sh restart         # Restart services
 ./deploy.sh logs           # View logs
 ./deploy.sh clean          # Clean up everything
 ./deploy.sh status         # Show service status
@@ -116,14 +111,14 @@ docker compose logs backend # Check specific service logs
 ## Architecture Overview
 
 ### Backend Module Structure
-- **Core**: `users/` - User management  
+- **Core**: `users/` - User management
 - **Business**: `inventory/` (✅), `sales/` (✅), `purchasing/` (❌)
 - **Analytics**: `dashboard/` (✅ with WebSocket), `reports/` (❌)
 - **System**: `plugins/` (❌ disabled)
 
 ### Architecture Patterns
 - **Controllers**: Handle HTTP with Swagger decorators
-- **Services**: Business logic and repository interaction  
+- **Services**: Business logic and repository interaction
 - **DTOs**: Data validation with class-validator
 - **Entities**: TypeORM models extending BaseEntity
 - **Infrastructure**: Exception filters, logging, validation pipes
@@ -136,7 +131,7 @@ docker compose logs backend # Check specific service logs
 **Key Entities:**
 - **BaseEntity**: UUID, timestamps, soft deletes, audit fields
 - **Inventory**: Product, Category (name + hierarchy), StockMovement
-- **Sales**: Customer, SalesOrder, Invoice, Payment  
+- **Sales**: Customer, SalesOrder, Invoice, Payment
 - **Purchasing**: Supplier, PurchaseOrder, GoodsReceivedNote
 
 ### Frontend Architecture
@@ -172,7 +167,7 @@ docker compose logs backend # Check specific service logs
 - **SSL disabled**: For Docker PostgreSQL compatibility
 - **Docker hosts**: Use `postgres`/`redis` service names
 
-### Docker Architecture  
+### Docker Architecture
 - **Frontend**: Multi-stage build with NGINX serving
 - **Backend**: Development build with `ts-node`
 - **Environment**: Runtime injection via `docker-entrypoint.sh`
@@ -182,10 +177,10 @@ docker compose logs backend # Check specific service logs
 
 ### Backend
 - `@/*` → `src/*`, `@modules/*` → `src/modules/*`
-- `@common/*` → `src/common/*`, `@config/*` → `src/config/*`  
+- `@common/*` → `src/common/*`, `@config/*` → `src/config/*`
 - `@database/*` → `src/database/*`
 
-### Frontend  
+### Frontend
 - `@/*` → `src/*`, `@/components/*` → `src/components/*`
 - `@/pages/*` → `src/pages/*`, `@/hooks/*` → `src/hooks/*`
 - `@/services/*` → `src/services/*`, `@/store/*` → `src/store/*`
@@ -194,7 +189,7 @@ docker compose logs backend # Check specific service logs
 
 ### Adding New Modules
 1. Create module in `backend/src/modules/` with standard structure
-2. Add TypeORM entities to `backend/src/database/entities/`  
+2. Add TypeORM entities to `backend/src/database/entities/`
 3. Register in `app.module.ts`
 4. Add frontend pages and Redux slices as needed
 
@@ -209,7 +204,7 @@ When enabling disabled modules:
 
 ### Redux Pattern
 - **State**: `loading`, `error`, data with pagination
-- **Async thunks**: `createAsyncThunk` with error handling  
+- **Async thunks**: `createAsyncThunk` with error handling
 - **Null safety**: Always check `if (action.payload)` before using
 - **API Response**: Access `response.data.data` and `response.data.meta`
 - **Soft Delete**: Include `isActive: true` filter when fetching
@@ -262,7 +257,7 @@ When enabling disabled modules:
 - ✅ **CRITICAL FIX**: Product listing endpoints were returning reversed data
 - **Root Cause**: `remove()` method only set status flags but didn't use TypeORM's `softDelete()` for `deletedAt` timestamp
 - **Fix**: Updated `remove()` to use `await this.productRepository.softDelete(id)` and `findAll()` to filter `WHERE product.deletedAt IS NULL`
-- **Result**: 
+- **Result**:
   - `/api/inventory/products` now correctly returns only **active products**
   - `/api/inventory/products/deleted` now correctly returns only **soft-deleted products**
 - **Frontend Impact**: Products page and "View Deleted" dialog now show correct data sets
@@ -380,7 +375,7 @@ const { control, handleSubmit } = useForm<FormData>({
 
 ## Environment
 
-### Backend 
+### Backend
 - Database: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`
 - Redis: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
 
@@ -402,7 +397,7 @@ const { control, handleSubmit } = useForm<FormData>({
 
 **Key API Endpoints:**
 - Users: `/api/users`
-- Inventory: `/api/inventory/products`, `/api/inventory/categories`  
+- Inventory: `/api/inventory/products`, `/api/inventory/categories`
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
 - Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
 - Module Info: `/api/info`
@@ -427,7 +422,7 @@ const { control, handleSubmit } = useForm<FormData>({
 cd frontend && npm run type-check
 cd backend && npm run build
 
-# Check service status  
+# Check service status
 docker compose ps
 docker compose logs backend --tail=20
 curl http://localhost:3001/api/health
@@ -449,7 +444,7 @@ For disabled modules (Purchasing, Reports, Plugins):
 
 ### Core Configuration
 - `backend/src/app.module.ts` - Main module (4 active modules)
-- `docker-compose.yml` - Service orchestration  
+- `docker-compose.yml` - Service orchestration
 - `deploy.sh` - Production deployment
 - `frontend/src/App.tsx` - Main React component
 
@@ -466,6 +461,6 @@ For disabled modules (Purchasing, Reports, Plugins):
 - `frontend/src/components/inventory/CategoryBreadcrumb.tsx` - **UNUSED** Navigation breadcrumbs component (exists but not imported anywhere)
 
 ### Environment Config
-- `frontend/docker-entrypoint.sh` - Runtime `window.__ENV__` injection  
+- `frontend/docker-entrypoint.sh` - Runtime `window.__ENV__` injection
 - `frontend/vite.config.ts` - Socket.IO proxy configuration
 - `backend/src/config/database.config.ts` - DB with IPv4 enforcement

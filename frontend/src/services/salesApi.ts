@@ -12,24 +12,6 @@ interface CustomerSummary {
   name: string;
   email?: string;
   phone?: string;
-  currentBalance: number;
-  creditLimit: number;
-  availableCredit: number;
-}
-
-interface CreditCheckRequest {
-  customerId: string;
-  amount: number;
-}
-
-interface CreditCheckResponse {
-  approved: boolean;
-  creditLimit: number;
-  currentBalance: number;
-  availableCredit: number;
-  requestedAmount: number;
-  remainingCreditAfterPurchase: number;
-  message?: string;
 }
 
 export const salesApi = {
@@ -61,16 +43,6 @@ export const salesApi = {
   async deleteCustomer(id: string) {
     return ApiService.delete(`customers/${id}`)
   },
-
-  async checkCredit(data: CreditCheckRequest) {
-    return ApiService.post<CreditCheckResponse>('customers/credit-check', data)
-  },
-
-  async updateCreditLimit(id: string, creditLimit: number) {
-    return ApiService.put<Customer>(`customers/${id}/credit-limit`, { creditLimit })
-  },
-
-
 
 
   async getCustomerSalesHistory(id: string, limit?: number) {
@@ -232,6 +204,18 @@ export const salesApi = {
     return ApiService.delete(`invoices/${id}`)
   },
 
+  async getDeletedInvoices(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Invoice>>('invoices/deleted', { params })
+  },
+
+  async restoreInvoice(id: string) {
+    return ApiService.post<Invoice>(`invoices/${id}/restore`)
+  },
+
+  async bulkRestoreInvoices(invoiceIds: string[]) {
+    return ApiService.post('invoices/bulk-restore', { invoiceIds })
+  },
+
   async sendInvoice(id: string, options?: {
     email?: string
     subject?: string
@@ -255,41 +239,41 @@ export const salesApi = {
 
   // Payments
   async getPayments(params?: QueryParams & { customerId?: string; invoiceId?: string }) {
-    return ApiService.get<PaginatedResponse<Payment>>('/sales/payments', { params })
+    return ApiService.get<PaginatedResponse<Payment>>('payments', { params })
   },
 
   async getPayment(id: string) {
-    return ApiService.get<Payment>(`/sales/payments/${id}`)
+    return ApiService.get<Payment>(`payments/${id}`)
   },
 
   async recordPayment(paymentData: Partial<Payment>) {
-    return ApiService.post<Payment>('/sales/payments', paymentData)
+    return ApiService.post<Payment>('payments', paymentData)
   },
 
   async updatePayment(id: string, paymentData: Partial<Payment>) {
-    return ApiService.put<Payment>(`/sales/payments/${id}`, paymentData)
+    return ApiService.put<Payment>(`payments/${id}`, paymentData)
   },
 
   async deletePayment(id: string) {
-    return ApiService.delete(`/sales/payments/${id}`)
+    return ApiService.delete(`payments/${id}`)
   },
 
   async voidPayment(id: string, reason?: string) {
-    return ApiService.post<Payment>(`/sales/payments/${id}/void`, { reason })
+    return ApiService.post<Payment>(`payments/${id}/void`, { reason })
   },
 
-  // Quotations/Estimates
-  async getQuotations(params?: QueryParams & { customerId?: string; status?: string }) {
-    return ApiService.get<PaginatedResponse<any>>('/sales/quotations', { params })
+  async getDeletedPayments(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Payment>>('payments/deleted', { params })
   },
 
-  async createQuotation(quotationData: any) {
-    return ApiService.post('/sales/quotations', quotationData)
+  async restorePayment(id: string) {
+    return ApiService.post<Payment>(`payments/${id}/restore`)
   },
 
-  async convertQuotationToOrder(id: string) {
-    return ApiService.post<SalesOrder>(`/sales/quotations/${id}/convert`)
+  async bulkRestorePayments(paymentIds: string[]) {
+    return ApiService.post('payments/bulk-restore', { paymentIds })
   },
+
 
   // Reports
   async getSalesReport(params: {
