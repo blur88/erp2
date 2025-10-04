@@ -71,25 +71,50 @@ const SalesPage: React.FC = () => {
     try {
       setLoading(true)
 
-      // Fetch analytics data
-      const analyticsResponse = await fetch('/api/sales/analytics/dashboard')
-      let analyticsData = null
-      if (analyticsResponse.ok) {
-        analyticsData = await analyticsResponse.json()
-      }
-
       // Fetch recent orders
       const ordersResponse = await fetch('/api/sales-orders?limit=5&sortBy=orderDate&sortOrder=desc')
-      let ordersData = null
+      let ordersData = []
       if (ordersResponse.ok) {
         const ordersResult = await ordersResponse.json()
-        ordersData = ordersResult.data
+        ordersData = ordersResult.data || []
       }
+
+      // Fetch top customers (using sales/analytics/top-customers endpoint)
+      const topCustomersResponse = await fetch('/api/sales/analytics/top-customers?limit=5')
+      let topCustomersData = []
+      if (topCustomersResponse.ok) {
+        const customersResult = await topCustomersResponse.json()
+        topCustomersData = customersResult.data || customersResult || []
+      }
+
+      // Fetch top products
+      const topProductsResponse = await fetch('/api/sales/analytics/top-products?limit=5')
+      let topProductsData = []
+      if (topProductsResponse.ok) {
+        const productsResult = await topProductsResponse.json()
+        topProductsData = productsResult.data || productsResult || []
+      }
+
+      // Calculate basic metrics from orders
+      const totalRevenue = ordersData.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+      const totalOrders = ordersData.length
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+      const uniqueCustomers = new Set(ordersData.map((o: any) => o.customer?.id)).size
 
       // Combine the data
       setSalesData({
-        ...analyticsData,
-        recentOrders: ordersData || []
+        metrics: {
+          totalRevenue,
+          totalOrders,
+          averageOrderValue: avgOrderValue,
+          uniqueCustomers,
+          revenueGrowth: 0,
+          ordersGrowth: 0
+        },
+        recentOrders: ordersData,
+        topCustomers: topCustomersData,
+        topProducts: topProductsData,
+        periodData: []
       })
     } catch (error) {
       console.error('Error fetching sales data:', error)
