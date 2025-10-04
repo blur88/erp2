@@ -174,6 +174,52 @@ const SalesPage: React.FC = () => {
         })
       }
 
+      // Calculate growth percentages (compare current 30 days vs previous 30 days)
+      const thirtyDaysAgo = new Date(today)
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+      const sixtyDaysAgo = new Date(today)
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+
+      // Current period (last 30 days)
+      const currentPeriodOrders = allOrders.filter((order: any) => {
+        const orderDate = new Date(order.orderDate)
+        return orderDate >= thirtyDaysAgo && orderDate <= today
+      })
+      const currentRevenue = currentPeriodOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+      const currentOrderCount = currentPeriodOrders.length
+
+      // Previous period (31-60 days ago)
+      const previousPeriodOrders = allOrders.filter((order: any) => {
+        const orderDate = new Date(order.orderDate)
+        return orderDate >= sixtyDaysAgo && orderDate < thirtyDaysAgo
+      })
+      const previousRevenue = previousPeriodOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+      const previousOrderCount = previousPeriodOrders.length
+
+      // Calculate percentage changes
+      const revenueGrowth = previousRevenue > 0
+        ? ((currentRevenue - previousRevenue) / previousRevenue) * 100
+        : currentRevenue > 0 ? 100 : 0
+
+      const ordersGrowth = previousOrderCount > 0
+        ? ((currentOrderCount - previousOrderCount) / previousOrderCount) * 100
+        : currentOrderCount > 0 ? 100 : 0
+
+      // Calculate customer growth
+      const currentCustomers = new Set(currentPeriodOrders.map((o: any) => o.customer?.id)).size
+      const previousCustomers = new Set(previousPeriodOrders.map((o: any) => o.customer?.id)).size
+      const customerGrowth = previousCustomers > 0
+        ? ((currentCustomers - previousCustomers) / previousCustomers) * 100
+        : currentCustomers > 0 ? 100 : 0
+
+      // Calculate avg order value growth
+      const currentAvgOrder = currentOrderCount > 0 ? currentRevenue / currentOrderCount : 0
+      const previousAvgOrder = previousOrderCount > 0 ? previousRevenue / previousOrderCount : 0
+      const avgOrderGrowth = previousAvgOrder > 0
+        ? ((currentAvgOrder - previousAvgOrder) / previousAvgOrder) * 100
+        : currentAvgOrder > 0 ? 100 : 0
+
       // Combine the data
       setSalesData({
         metrics: {
@@ -181,8 +227,10 @@ const SalesPage: React.FC = () => {
           totalOrders,
           averageOrderValue: avgOrderValue,
           uniqueCustomers,
-          revenueGrowth: 0,
-          ordersGrowth: 0
+          revenueGrowth,
+          ordersGrowth,
+          customerGrowth,
+          avgOrderGrowth
         },
         recentOrders: ordersData,
         topCustomers: topCustomersData,
@@ -265,7 +313,7 @@ const SalesPage: React.FC = () => {
     {
       title: 'Total Sales',
       value: formatCurrency(salesData?.metrics?.totalRevenue || 0),
-      change: salesData?.metrics?.revenueGrowth ? `${salesData.metrics.revenueGrowth > 0 ? '+' : ''}${salesData.metrics.revenueGrowth.toFixed(1)}%` : '+0.0%',
+      change: salesData?.metrics?.revenueGrowth !== undefined ? `${salesData.metrics.revenueGrowth > 0 ? '+' : ''}${salesData.metrics.revenueGrowth.toFixed(1)}%` : '+0.0%',
       trend: (salesData?.metrics?.revenueGrowth || 0) >= 0 ? 'up' : 'down',
       icon: SalesIcon,
       color: 'primary'
@@ -273,7 +321,7 @@ const SalesPage: React.FC = () => {
     {
       title: 'Orders',
       value: salesData?.metrics?.totalOrders || '0',
-      change: salesData?.metrics?.ordersGrowth ? `${salesData.metrics.ordersGrowth > 0 ? '+' : ''}${salesData.metrics.ordersGrowth.toFixed(1)}%` : '+0.0%',
+      change: salesData?.metrics?.ordersGrowth !== undefined ? `${salesData.metrics.ordersGrowth > 0 ? '+' : ''}${salesData.metrics.ordersGrowth.toFixed(1)}%` : '+0.0%',
       trend: (salesData?.metrics?.ordersGrowth || 0) >= 0 ? 'up' : 'down',
       icon: OrdersIcon,
       color: 'info'
@@ -281,16 +329,16 @@ const SalesPage: React.FC = () => {
     {
       title: 'Customers',
       value: salesData?.metrics?.uniqueCustomers || '0',
-      change: '+0.0%',
-      trend: 'up',
+      change: salesData?.metrics?.customerGrowth !== undefined ? `${salesData.metrics.customerGrowth > 0 ? '+' : ''}${salesData.metrics.customerGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.customerGrowth || 0) >= 0 ? 'up' : 'down',
       icon: CustomersIcon,
       color: 'secondary'
     },
     {
       title: 'Avg Order Value',
       value: formatCurrency(salesData?.metrics?.averageOrderValue || 0),
-      change: '+0.0%',
-      trend: 'up',
+      change: salesData?.metrics?.avgOrderGrowth !== undefined ? `${salesData.metrics.avgOrderGrowth > 0 ? '+' : ''}${salesData.metrics.avgOrderGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.avgOrderGrowth || 0) >= 0 ? 'up' : 'down',
       icon: PaymentsIcon,
       color: 'success'
     }
