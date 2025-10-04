@@ -161,8 +161,23 @@ export class SupplierController {
     return await this.supplierService.findOverCreditLimit();
   }
 
+  @Get('deleted')
+  @ApiOperation({
+    summary: 'Get deleted suppliers',
+    description: 'Retrieve all soft-deleted suppliers with pagination.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Deleted suppliers retrieved successfully',
+    type: SupplierListResponseDto,
+  })
+  async findDeleted(@Query() query: SupplierQueryDto): Promise<SupplierListResponseDto> {
+    this.logger.log('Getting deleted suppliers');
+    return await this.supplierService.findDeleted(query);
+  }
+
   @Get(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get supplier by ID',
     description: 'Retrieve detailed information about a specific supplier including relationships and performance data.'
   })
@@ -303,21 +318,6 @@ export class SupplierController {
     this.logger.log(`Checking purchase eligibility for supplier: ${id}, amount: ${amount}`);
     const canPurchase = await this.supplierService.canPurchase(id, amount);
     return { canPurchase };
-  }
-
-  @Get('deleted')
-  @ApiOperation({
-    summary: 'Get deleted suppliers',
-    description: 'Retrieve all soft-deleted suppliers with pagination.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Deleted suppliers retrieved successfully',
-    type: SupplierListResponseDto,
-  })
-  async findDeleted(@Query() query: SupplierQueryDto): Promise<SupplierListResponseDto> {
-    this.logger.log('Getting deleted suppliers');
-    return await this.supplierService.findDeleted(query);
   }
 
   @Post(':id/restore')
