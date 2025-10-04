@@ -25,7 +25,8 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   Inventory2 as InventoryIcon,
-  Assessment as ReportsIcon
+  Assessment as ReportsIcon,
+  Add as AddIcon
 } from '@mui/icons-material'
 import {
   Chart as ChartJS,
@@ -322,18 +323,11 @@ const SalesPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
-            variant="outlined"
-            startIcon={<ReportsIcon />}
+            variant="contained"
+            startIcon={<AddIcon />}
             onClick={() => navigate('/sales/orders')}
           >
-            View Orders
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<InventoryIcon />}
-            onClick={() => navigate('/inventory/products')}
-          >
-            Manage Inventory
+            Create Order
           </Button>
         </Box>
       </Box>
