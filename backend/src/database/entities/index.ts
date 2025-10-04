@@ -33,8 +33,8 @@ export { Customer, CustomerType, PriceLevel } from './customer.entity';
 export { StockMovement, StockMovementType, StockMovementStatus } from './stock-movement.entity';
 
 // Purchasing Management (PurchasingModule)
-export { Supplier, SupplierType, SupplierStatus, SupplierRating } from './supplier.entity';
-export { PurchaseOrder } from './purchase-order.entity';
+export { Supplier, SupplierType, SupplierRating } from './supplier.entity';
+export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPriority } from './purchase-order.entity';
 export { PurchaseOrderItem } from './purchase-order-item.entity';
 export { PurchaseRequisition } from './purchase-requisition.entity';
 export { PurchaseRequisitionItem } from './purchase-requisition-item.entity';

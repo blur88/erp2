@@ -296,13 +296,6 @@ export enum SupplierType {
   INTERNATIONAL = 'international',
 }
 
-export enum SupplierStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  SUSPENDED = 'suspended',
-  BLACKLISTED = 'blacklisted',
-}
-
 export enum SupplierRating {
   EXCELLENT = 'excellent',
   GOOD = 'good',

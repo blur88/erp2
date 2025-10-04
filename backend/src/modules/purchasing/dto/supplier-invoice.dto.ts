@@ -17,11 +17,11 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { 
-  SupplierInvoiceStatus, 
-  SupplierInvoiceType, 
-  InvoiceMatchingStatus 
-} from '../../../database/entities';
+import {
+  SupplierInvoiceStatus,
+  SupplierInvoiceType,
+  InvoiceMatchingStatus
+} from '../../../database/entities/supplier-invoice.entity';
 
 export class CreateSupplierInvoiceItemDto {
   @ApiProperty({ description: 'Line number in the invoice' })

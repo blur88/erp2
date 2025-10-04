@@ -17,7 +17,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { GrnStatus, GrnType } from '../../../database/entities';
+import { GrnStatus, GrnType } from '../../../database/entities/goods-received-note.entity';
 
 export class CreateGrnItemDto {
   @ApiProperty({ description: 'Purchase order item ID' })

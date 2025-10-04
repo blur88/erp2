@@ -32,9 +32,7 @@ import {
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
-// import { PurchasingModule } from './modules/purchasing/purchasing.module';
-// Disabled: Circular dependency in services/index.ts barrel export causes PurchaseOrderService to load
-// even when not imported. Needs: Remove barrel exports or fix PurchaseOrder entity circular dependencies
+import { PurchasingModule } from './modules/purchasing/purchasing.module';
 // import { ReportsModule } from './modules/reports/reports.module'; // Disabled due to auth compilation issues
 import { DashboardModule } from './modules/dashboard/dashboard-module';
 // import { PluginsModule } from './modules/plugins/plugins.module'; // Disabled due to auth compilation issues
@@ -60,7 +58,7 @@ import { AppService } from './app.service';
     UsersModule,
     InventoryModule,
     SalesModule,
-    // PurchasingModule, // See import comment above - needs barrel export fix
+    PurchasingModule,
     // ReportsModule, // Re-enable after fixing compilation issues
     DashboardModule, // Re-enabled - WebSocket support
     // PluginsModule, // Re-enable after fixing compilation issues
