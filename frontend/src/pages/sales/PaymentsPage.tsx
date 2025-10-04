@@ -982,12 +982,12 @@ const PaymentsPage: React.FC = () => {
                               </Typography>
                             </TableCell>
                           </TableRow>
-                          {selectedPayment.relatedOrderNumber && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
-                                Order No
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                              Order No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {selectedPayment.relatedOrderNumber ? (
                                 <Typography
                                   component="button"
                                   onClick={(event) => handleOrderClick(selectedPayment.relatedOrderId!, event)}
@@ -1011,15 +1011,19 @@ const PaymentsPage: React.FC = () => {
                                   <OrderIcon sx={{ fontSize: '0.9rem' }} />
                                   {selectedPayment.relatedOrderNumber}
                                 </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          {selectedPayment.relatedInvoiceNumber && (
-                            <TableRow>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                Invoice No
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                              ) : (
+                                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  N/A
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Invoice No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {selectedPayment.relatedInvoiceNumber ? (
                                 <Typography
                                   component="button"
                                   onClick={(event) => handleInvoiceClick(selectedPayment.relatedInvoiceId!, event)}
@@ -1043,9 +1047,13 @@ const PaymentsPage: React.FC = () => {
                                   <InvoiceIcon sx={{ fontSize: '0.9rem' }} />
                                   {selectedPayment.relatedInvoiceNumber}
                                 </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )}
+                              ) : (
+                                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  N/A
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
                           {selectedPayment.customer?.email && (
                             <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
