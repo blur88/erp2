@@ -70,11 +70,27 @@ const SalesPage: React.FC = () => {
   const fetchSalesData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/sales/analytics')
-      if (response.ok) {
-        const data = await response.json()
-        setSalesData(data.data || data)
+
+      // Fetch analytics data
+      const analyticsResponse = await fetch('/api/sales/analytics/dashboard')
+      let analyticsData = null
+      if (analyticsResponse.ok) {
+        analyticsData = await analyticsResponse.json()
       }
+
+      // Fetch recent orders
+      const ordersResponse = await fetch('/api/sales-orders?limit=5&sortBy=orderDate&sortOrder=desc')
+      let ordersData = null
+      if (ordersResponse.ok) {
+        const ordersResult = await ordersResponse.json()
+        ordersData = ordersResult.data
+      }
+
+      // Combine the data
+      setSalesData({
+        ...analyticsData,
+        recentOrders: ordersData || []
+      })
     } catch (error) {
       console.error('Error fetching sales data:', error)
     } finally {
@@ -84,11 +100,14 @@ const SalesPage: React.FC = () => {
 
   // Chart data
   const salesTrendData = {
-    labels: salesData?.monthlySales?.map((item: any) => item.month) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: salesData?.periodData?.map((item: any) => {
+      const date = new Date(item.period)
+      return format(date, 'MMM dd')
+    }) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
       {
         label: 'Sales',
-        data: salesData?.monthlySales?.map((item: any) => item.total) || [45000, 52000, 48000, 61000, 58000, 67000],
+        data: salesData?.periodData?.map((item: any) => item.revenue) || [45000, 52000, 48000, 61000, 58000, 67000],
         borderColor: theme.palette.primary.main,
         backgroundColor: `${theme.palette.primary.main}20`,
         tension: 0.4
@@ -97,10 +116,10 @@ const SalesPage: React.FC = () => {
   }
 
   const topProductsData = {
-    labels: salesData?.topProducts?.map((item: any) => item.name) || ['Laptop', 'Monitor', 'Keyboard', 'Mouse', 'Headphones'],
+    labels: salesData?.topProducts?.map((item: any) => item.productName) || ['Laptop', 'Monitor', 'Keyboard', 'Mouse', 'Headphones'],
     datasets: [
       {
-        data: salesData?.topProducts?.map((item: any) => item.revenue) || [35, 25, 20, 12, 8],
+        data: salesData?.topProducts?.map((item: any) => item.totalRevenue) || [35, 25, 20, 12, 8],
         backgroundColor: [
           theme.palette.primary.main,
           theme.palette.secondary.main,
@@ -147,33 +166,33 @@ const SalesPage: React.FC = () => {
   const stats = [
     {
       title: 'Total Sales',
-      value: formatCurrency(salesData?.totalSales || 125430),
-      change: salesData?.salesGrowth || '+12.5%',
-      trend: 'up',
+      value: formatCurrency(salesData?.metrics?.totalRevenue || 0),
+      change: salesData?.metrics?.revenueGrowth ? `${salesData.metrics.revenueGrowth > 0 ? '+' : ''}${salesData.metrics.revenueGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.revenueGrowth || 0) >= 0 ? 'up' : 'down',
       icon: SalesIcon,
       color: 'primary'
     },
     {
       title: 'Orders',
-      value: salesData?.totalOrders || '1,234',
-      change: salesData?.ordersGrowth || '+8.2%',
-      trend: 'up',
+      value: salesData?.metrics?.totalOrders || '0',
+      change: salesData?.metrics?.ordersGrowth ? `${salesData.metrics.ordersGrowth > 0 ? '+' : ''}${salesData.metrics.ordersGrowth.toFixed(1)}%` : '+0.0%',
+      trend: (salesData?.metrics?.ordersGrowth || 0) >= 0 ? 'up' : 'down',
       icon: OrdersIcon,
       color: 'info'
     },
     {
       title: 'Customers',
-      value: salesData?.totalCustomers || '567',
-      change: salesData?.customersGrowth || '+5.1%',
+      value: salesData?.metrics?.uniqueCustomers || '0',
+      change: '+0.0%',
       trend: 'up',
       icon: CustomersIcon,
       color: 'secondary'
     },
     {
-      title: 'Payments',
-      value: formatCurrency(salesData?.totalPayments || 98450),
-      change: salesData?.paymentsGrowth || '-2.3%',
-      trend: 'down',
+      title: 'Avg Order Value',
+      value: formatCurrency(salesData?.metrics?.averageOrderValue || 0),
+      change: '+0.0%',
+      trend: 'up',
       icon: PaymentsIcon,
       color: 'success'
     }
@@ -459,10 +478,10 @@ const SalesPage: React.FC = () => {
                       </Typography>
                       <Box>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {customer.name}
+                          {customer.customerName || customer.name}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {customer.orderCount || customer.orders || 0} orders
+                          {customer.totalOrders || customer.orderCount || customer.orders || 0} orders
                         </Typography>
                       </Box>
                     </Box>
