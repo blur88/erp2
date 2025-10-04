@@ -33,15 +33,6 @@ export class SupplierService {
   async create(createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
     this.logger.log(`Creating supplier: ${createSupplierDto.companyName}`);
 
-    // Check for duplicate supplier code
-    const existingByCode = await this.supplierRepository.findOne({
-      where: { supplierCode: createSupplierDto.supplierCode },
-    });
-
-    if (existingByCode) {
-      throw new ConflictException(`Supplier with code ${createSupplierDto.supplierCode} already exists`);
-    }
-
     // Check for duplicate email if provided
     if (createSupplierDto.email) {
       const existingByEmail = await this.supplierRepository.findOne({
@@ -104,7 +95,7 @@ export class SupplierService {
     // Apply search filter
     if (search) {
       queryBuilder.andWhere(
-        '(supplier.companyName ILIKE :search OR supplier.supplierCode ILIKE :search OR supplier.contactPerson ILIKE :search OR supplier.email ILIKE :search)',
+        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search OR supplier.email ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -128,7 +119,7 @@ export class SupplierService {
 
     // Apply sorting
     const validSortFields = [
-      'companyName', 'supplierCode', 'type', 'status', 'rating',
+      'companyName', 'type', 'status', 'rating',
       'totalPurchases', 'totalOrders', 'onTimeDeliveryRate', 'qualityRate',
       'createdAt', 'lastPurchaseDate'
     ];
@@ -193,17 +184,6 @@ export class SupplierService {
 
     if (!supplier) {
       throw new NotFoundException(`Supplier with ID ${id} not found`);
-    }
-
-    // Check for duplicate supplier code if changed
-    if (updateSupplierDto.supplierCode && updateSupplierDto.supplierCode !== supplier.supplierCode) {
-      const existingByCode = await this.supplierRepository.findOne({
-        where: { supplierCode: updateSupplierDto.supplierCode },
-      });
-
-      if (existingByCode) {
-        throw new ConflictException(`Supplier with code ${updateSupplierDto.supplierCode} already exists`);
-      }
     }
 
     // Check for duplicate email if changed
@@ -441,7 +421,6 @@ export class SupplierService {
     const suppliers = await this.supplierRepository.find({
       where: [
         { companyName: Like(`%${query}%`) },
-        { supplierCode: Like(`%${query}%`) },
         { contactPerson: Like(`%${query}%`) },
       ],
       take: limit,
@@ -604,7 +583,7 @@ export class SupplierService {
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(supplier.companyName ILIKE :search OR supplier.supplierCode ILIKE :search OR supplier.email ILIKE :search OR supplier.contactPerson ILIKE :search)',
+        '(supplier.companyName ILIKE :search OR supplier.email ILIKE :search OR supplier.contactPerson ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -625,7 +604,7 @@ export class SupplierService {
     const total = await queryBuilder.getCount();
 
     // Apply sorting and pagination
-    const validSortFields = ['companyName', 'supplierCode', 'type', 'status', 'rating', 'createdAt', 'deletedAt'];
+    const validSortFields = ['companyName', 'type', 'status', 'rating', 'createdAt', 'deletedAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
     queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
     queryBuilder.skip(skip).take(take);
@@ -697,7 +676,6 @@ export class SupplierService {
   private mapToResponseDto(supplier: Supplier): SupplierResponseDto {
     return {
       id: supplier.id,
-      supplierCode: supplier.supplierCode,
       type: supplier.type,
       companyName: supplier.companyName,
       contactPerson: supplier.contactPerson,

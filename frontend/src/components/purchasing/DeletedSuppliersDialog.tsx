@@ -158,7 +158,7 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                       <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{
                         fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
                       }}>
-                        {supplier.supplierCode}
+                        ID: {supplier.id.slice(0, 8)}...
                       </Typography>
                     </TableCell>
                     <TableCell>

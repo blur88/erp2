@@ -313,7 +313,6 @@ export enum SupplierRating {
 
 export interface Supplier {
   id: string;
-  supplierCode: string;
   type: SupplierType;
   companyName: string;
   contactPerson?: string;

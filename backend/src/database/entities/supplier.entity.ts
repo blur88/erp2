@@ -46,23 +46,12 @@ export enum SupplierRating {
  * Supports comprehensive supplier information and performance tracking
  */
 @Entity('suppliers')
-@Index(['supplierCode'], { unique: true })
 @Index(['email'], { unique: true, where: 'email IS NOT NULL' })
 @Index(['phone'])
 @Index(['type', 'status'])
 @Index(['rating'])
 @Index(['isActive'])
 export class Supplier extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 20,
-    unique: true,
-    comment: 'Unique supplier code/number',
-  })
-  @IsString()
-  @MaxLength(20)
-  supplierCode: string;
-
   @Column({
     type: 'enum',
     enum: SupplierType,

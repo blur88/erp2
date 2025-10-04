@@ -22,12 +22,6 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { SupplierType, SupplierStatus, SupplierRating } from '../../../database/entities/supplier.entity';
 
 export class CreateSupplierDto {
-  @IsString()
-  @MinLength(3)
-  @MaxLength(20)
-  @ApiProperty({ description: 'Supplier code/number', maxLength: 20 })
-  supplierCode!: string;
-
   @ApiProperty({ description: 'Supplier type', enum: SupplierType })
   @IsEnum(SupplierType)
   type!: SupplierType;
@@ -221,9 +215,6 @@ export class SupplierQueryDto {
 export class SupplierResponseDto {
   @ApiProperty({ description: 'Supplier ID' })
   id!: string;
-
-  @ApiProperty({ description: 'Supplier code' })
-  supplierCode!: string;
 
   @ApiProperty({ description: 'Supplier type' })
   type!: SupplierType;

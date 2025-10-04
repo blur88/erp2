@@ -78,7 +78,6 @@ import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 // Form validation schema
 const supplierSchema = yup.object({
-  supplierCode: yup.string().required('Supplier code is required').max(20, 'Code must be less than 20 characters'),
   companyName: yup.string().required('Company name is required').max(200, 'Name must be less than 200 characters'),
   type: yup.string().oneOf(['local', 'international']).required('Type is required'),
   contactPerson: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(200, 'Name must be less than 200 characters'),
@@ -90,7 +89,6 @@ const supplierSchema = yup.object({
 })
 
 interface SupplierFormData {
-  supplierCode: string
   companyName: string
   type: SupplierType
   contactPerson?: string | null
@@ -128,7 +126,6 @@ const SuppliersPage: React.FC = () => {
   const { control, handleSubmit, reset, formState: { errors } } = useForm<SupplierFormData>({
     resolver: yupResolver(supplierSchema) as any,
     defaultValues: {
-      supplierCode: '',
       companyName: '',
       type: SupplierType.LOCAL,
       contactPerson: null,
@@ -192,7 +189,7 @@ const SuppliersPage: React.FC = () => {
         })
 
         if (duplicateSupplier) {
-          setEmailError(`Email already exists for supplier: ${duplicateSupplier.companyName} (${duplicateSupplier.supplierCode})`)
+          setEmailError(`Email already exists for supplier: ${duplicateSupplier.companyName}`)
         }
       }
     } catch (error) {
@@ -297,7 +294,6 @@ const SuppliersPage: React.FC = () => {
       setSelectedSupplier(supplier)
       setEmailValue(supplier.email || '')
       reset({
-        supplierCode: supplier.supplierCode,
         companyName: supplier.companyName,
         type: supplier.type,
         contactPerson: supplier.contactPerson || null,
@@ -311,7 +307,6 @@ const SuppliersPage: React.FC = () => {
       setSelectedSupplier(null)
       setEmailValue('')
       reset({
-        supplierCode: '',
         companyName: '',
         type: SupplierType.LOCAL,
         contactPerson: null,
@@ -733,7 +728,7 @@ const SuppliersPage: React.FC = () => {
                           {supplier.companyName}
                         </Typography>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                          {supplier.supplierCode}
+                          ID: {supplier.id.slice(0, 8)}...
                         </Typography>
                       </Box>
                       {isMobile && (
@@ -933,24 +928,7 @@ const SuppliersPage: React.FC = () => {
                 </Typography>
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Controller
-                  name="supplierCode"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Supplier Code"
-                      error={!!errors.supplierCode}
-                      helperText={errors.supplierCode?.message}
-                      disabled={!!selectedSupplier}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="type"
                   control={control}
@@ -1127,13 +1105,10 @@ const SuppliersPage: React.FC = () => {
                   <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
                     {selectedSupplier.companyName}
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
                     {getStatusChip(selectedSupplier.status)}
                     {getRatingChip(selectedSupplier.rating)}
                   </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Code: {selectedSupplier.supplierCode}
-                  </Typography>
                 </Box>
               </Grid>
 
