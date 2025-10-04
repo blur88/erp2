@@ -231,6 +231,13 @@ When enabling disabled modules:
 - **License**: Redis 8 uses RSALv2/SSPLv1/AGPLv3 tri-license model
 - **Benefits**: Access to advanced data structures and query capabilities without external modules
 
+### Latest System Updates (Current)
+- ✅ **NestJS v11 Upgrade**: Complete upgrade to NestJS 11 with all dependencies
+- ✅ **Node.js 22**: Updated Docker base images to Node.js 22 for better performance
+- ✅ **Frontend Dependencies**: Comprehensive updates to all Alpine packages and OpenSSL
+- ✅ **Container Health**: Added curl to frontend nginx container for health checks
+- ✅ **Security Enhancements**: Payment numbers now clickable in invoice details
+
 ## Recent Changes (December 2025)
 
 ### Product Fields Modernization (December 2025)
