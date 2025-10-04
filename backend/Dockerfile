@@ -18,7 +18,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies
-RUN npm install && npm cache clean --force
+RUN npm install --legacy-peer-deps && npm cache clean --force
 
 # Copy source code
 COPY --chown=nestjs:nodejs . .
@@ -35,8 +35,8 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3001/api/health || exit 1
 
-# Install missing dependencies with legacy peer deps to resolve conflicts
-RUN npm install @nestjs/microservices class-transformer --legacy-peer-deps || true
+# Install missing dependencies - already handled by main install with --legacy-peer-deps
+# RUN npm install @nestjs/microservices class-transformer --legacy-peer-deps || true
 
 # Alternative: start with node and transpile-only option to bypass webpack
 CMD ["npx", "ts-node", "-r", "tsconfig-paths/register", "--transpile-only", "src/main.ts"]
