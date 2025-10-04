@@ -18,7 +18,7 @@ interface SupplierState {
     status?: string
     rating?: string
     sortBy?: string
-    sortOrder?: 'asc' | 'desc'
+    sortOrder?: 'ASC' | 'DESC'
     isActive?: boolean
   }
 }
@@ -36,8 +36,7 @@ const initialState: SupplierState = {
   filters: {
     search: '',
     sortBy: 'companyName',
-    sortOrder: 'asc',
-    isActive: true,
+    sortOrder: 'ASC',
   },
 }
 
@@ -124,8 +123,15 @@ const supplierSlice = createSlice({
       .addCase(fetchSuppliers.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          state.suppliers = action.payload.data || []
-          state.pagination = action.payload.meta || initialState.pagination
+          // Handle response structure: { suppliers, total, page, limit, totalPages, hasNext, hasPrev }
+          const response = action.payload as any
+          state.suppliers = response.suppliers || response.data || []
+          state.pagination = {
+            page: response.page || response.meta?.page || initialState.pagination.page,
+            limit: response.limit || response.meta?.limit || initialState.pagination.limit,
+            total: response.total || response.meta?.total || initialState.pagination.total,
+            totalPages: response.totalPages || response.meta?.totalPages || initialState.pagination.totalPages,
+          }
         }
       })
       .addCase(fetchSuppliers.rejected, (state, action) => {

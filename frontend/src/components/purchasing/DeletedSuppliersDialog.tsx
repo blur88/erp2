@@ -21,7 +21,7 @@ import {
 import { RestoreFromTrash as RestoreIcon, Close as CloseIcon } from '@mui/icons-material'
 import { purchasingApi } from '@/services/purchasingApi'
 import type { Supplier } from '@/types'
-import { SupplierType, SupplierStatus, SupplierRating } from '@/types'
+import { SupplierType, SupplierRating } from '@/types'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 

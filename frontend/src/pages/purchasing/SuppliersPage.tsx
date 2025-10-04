@@ -68,7 +68,7 @@ import {
   clearError,
 } from '@/store/slices/supplierSlice'
 import type { Supplier } from '@/types'
-import { SupplierType, SupplierStatus, SupplierRating } from '@/types'
+import { SupplierType, SupplierRating } from '@/types'
 import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedSuppliersDialog from '@/components/purchasing/DeletedSuppliersDialog'
@@ -176,7 +176,11 @@ const SuppliersPage: React.FC = () => {
         showSuccess('Supplier created successfully')
       }
       handleCloseForm()
-      dispatch(fetchSuppliers({ ...filters }))
+      dispatch(fetchSuppliers({
+        ...filters,
+        page: pagination.page,
+        limit: pagination.limit,
+      }))
     } catch (error) {
       showError(`Failed to ${selectedSupplier ? 'update' : 'create'} supplier: ${error}`)
     }
