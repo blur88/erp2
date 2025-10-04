@@ -81,21 +81,64 @@ const SalesPage: React.FC = () => {
         ordersData = allOrders.slice(0, 5) // Keep only 5 for display
       }
 
-      // Fetch top customers (using sales/analytics/top-customers endpoint)
-      const topCustomersResponse = await fetch('/api/sales/analytics/top-customers?limit=5')
-      let topCustomersData = []
-      if (topCustomersResponse.ok) {
-        const customersResult = await topCustomersResponse.json()
-        topCustomersData = customersResult.data || customersResult || []
-      }
+      // Calculate top products from order items
+      const productStats: { [key: string]: { name: string, revenue: number, quantity: number } } = {}
 
-      // Fetch top products
-      const topProductsResponse = await fetch('/api/sales/analytics/top-products?limit=5')
-      let topProductsData = []
-      if (topProductsResponse.ok) {
-        const productsResult = await topProductsResponse.json()
-        topProductsData = productsResult.data || productsResult || []
-      }
+      allOrders.forEach((order: any) => {
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const productId = item.product?.id || item.productId
+            const productName = item.product?.name || item.productName || 'Unknown Product'
+            const revenue = parseFloat(item.totalAmount) || (parseFloat(item.quantity) * parseFloat(item.unitPrice)) || 0
+            const quantity = parseInt(item.quantity) || 0
+
+            if (!productStats[productId]) {
+              productStats[productId] = { name: productName, revenue: 0, quantity: 0 }
+            }
+            productStats[productId].revenue += revenue
+            productStats[productId].quantity += quantity
+          })
+        }
+      })
+
+      // Convert to array and sort by revenue
+      const topProductsData = Object.entries(productStats)
+        .map(([id, stats]) => ({
+          productId: id,
+          productName: stats.name,
+          totalRevenue: stats.revenue,
+          quantitySold: stats.quantity
+        }))
+        .sort((a, b) => b.totalRevenue - a.totalRevenue)
+        .slice(0, 5)
+
+      // Calculate top customers from orders
+      const customerStats: { [key: string]: { name: string, revenue: number, orders: number } } = {}
+
+      allOrders.forEach((order: any) => {
+        const customerId = order.customer?.id
+        const customerName = order.customer?.name || 'Unknown Customer'
+        const revenue = order.totalAmount || 0
+
+        if (customerId) {
+          if (!customerStats[customerId]) {
+            customerStats[customerId] = { name: customerName, revenue: 0, orders: 0 }
+          }
+          customerStats[customerId].revenue += revenue
+          customerStats[customerId].orders += 1
+        }
+      })
+
+      // Convert to array and sort by revenue
+      const topCustomersData = Object.entries(customerStats)
+        .map(([id, stats]) => ({
+          customerId: id,
+          customerName: stats.name,
+          totalRevenue: stats.revenue,
+          totalOrders: stats.orders
+        }))
+        .sort((a, b) => b.totalRevenue - a.totalRevenue)
+        .slice(0, 5)
 
       // Calculate basic metrics from all orders
       const totalRevenue = allOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
@@ -359,12 +402,51 @@ const SalesPage: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} lg={4}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: 3 }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Top Products
             </Typography>
-            <Box sx={{ height: 300 }}>
-              <Doughnut data={topProductsData} options={doughnutOptions} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {salesData?.topProducts && salesData.topProducts.length > 0 ? salesData.topProducts.map((product: any, index: number) => (
+                <Box key={product.productId || index}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          bgcolor: index === 0 ? 'primary.main' : index === 1 ? 'secondary.main' : 'grey.400',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
+                        }}
+                      >
+                        {index + 1}
+                      </Typography>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {product.productName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {product.quantitySold || 0} sold
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Typography variant="subtitle2" color="primary">
+                      {formatCurrency(product.totalRevenue || 0)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )) : (
+                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
+                  No product data available
+                </Typography>
+              )}
             </Box>
           </Paper>
         </Grid>
