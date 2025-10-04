@@ -30,9 +30,10 @@ RUN npm run build
 # Production stage
 FROM nginx:1-alpine-slim AS production
 
-# Install curl for health checks and upgrade openssl to latest
-RUN apk add --no-cache curl && \
-    apk upgrade --no-cache openssl
+# Update Alpine packages and install curl for health checks
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache curl
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
