@@ -111,15 +111,18 @@ export class PaymentService {
       );
     }
 
-    const findOptions: FindManyOptions<Payment> = {
-      where,
-      order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
-      relations: ['customer', 'invoice'],
-    };
+    // Use QueryBuilder for better control over nested relations
+    const queryBuilder = this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.customer', 'customer')
+      .leftJoinAndSelect('payment.invoice', 'invoice')
+      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .where(where)
+      .orderBy(`payment.${sortBy}`, sortOrder)
+      .skip((page - 1) * limit)
+      .take(limit);
 
-    const [payments, total] = await this.paymentRepository.findAndCount(findOptions);
+    const [payments, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: payments.map(payment => this.mapToResponseDto(payment)),
@@ -350,13 +353,13 @@ export class PaymentService {
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['customer', 'invoice', 'recordedByUser'],
+      relations: ['customer', 'invoice', 'invoice.salesOrder', 'recordedByUser'],
     });
-    
+
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
-    
+
     return payment;
   }
 
@@ -507,6 +510,10 @@ export class PaymentService {
   }
 
   private mapToResponseDto(payment: Payment): PaymentResponseDto {
+    // Extract order info - check both nested salesOrder and direct properties
+    const relatedOrderId = payment.invoice?.salesOrder?.id || (payment.invoice as any)?.salesOrderId;
+    const relatedOrderNumber = payment.invoice?.salesOrder?.orderNumber;
+
     return {
       id: payment.id,
       paymentNumber: payment.paymentNumber,
@@ -549,6 +556,10 @@ export class PaymentService {
         id: payment.invoice.id,
         invoiceNumber: payment.invoice.invoiceNumber,
       } : undefined,
+      relatedInvoiceId: payment.invoice?.id,
+      relatedInvoiceNumber: payment.invoice?.invoiceNumber,
+      relatedOrderId: relatedOrderId,
+      relatedOrderNumber: relatedOrderNumber,
     };
   }
 }

@@ -446,6 +446,18 @@ export class PaymentResponseDto {
     id: string;
     invoiceNumber: string;
   };
+
+  @ApiProperty({ example: 'uuid-string', nullable: true })
+  relatedInvoiceId?: string;
+
+  @ApiProperty({ example: 'INV-2023-001', nullable: true })
+  relatedInvoiceNumber?: string;
+
+  @ApiProperty({ example: 'uuid-string', nullable: true })
+  relatedOrderId?: string;
+
+  @ApiProperty({ example: 'SO-2023-001', nullable: true })
+  relatedOrderNumber?: string;
 }
 
 export class ProcessPaymentDto {
