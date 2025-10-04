@@ -71,12 +71,14 @@ const SalesPage: React.FC = () => {
     try {
       setLoading(true)
 
-      // Fetch recent orders
-      const ordersResponse = await fetch('/api/sales-orders?limit=5&sortBy=orderDate&sortOrder=desc')
+      // Fetch recent orders (get more for trend calculation)
+      const ordersResponse = await fetch('/api/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc')
       let ordersData = []
+      let allOrders = []
       if (ordersResponse.ok) {
         const ordersResult = await ordersResponse.json()
-        ordersData = ordersResult.data || []
+        allOrders = ordersResult.data || []
+        ordersData = allOrders.slice(0, 5) // Keep only 5 for display
       }
 
       // Fetch top customers (using sales/analytics/top-customers endpoint)
@@ -95,11 +97,38 @@ const SalesPage: React.FC = () => {
         topProductsData = productsResult.data || productsResult || []
       }
 
-      // Calculate basic metrics from orders
-      const totalRevenue = ordersData.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
-      const totalOrders = ordersData.length
+      // Calculate basic metrics from all orders
+      const totalRevenue = allOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+      const totalOrders = allOrders.length
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-      const uniqueCustomers = new Set(ordersData.map((o: any) => o.customer?.id)).size
+      const uniqueCustomers = new Set(allOrders.map((o: any) => o.customer?.id)).size
+
+      // Generate period data for chart (group by day for last 30 days)
+      const periodData: any[] = []
+      const today = new Date()
+      const daysToShow = 30
+
+      for (let i = daysToShow - 1; i >= 0; i--) {
+        const date = new Date(today)
+        date.setDate(date.getDate() - i)
+        date.setHours(0, 0, 0, 0)
+
+        const nextDate = new Date(date)
+        nextDate.setDate(nextDate.getDate() + 1)
+
+        const dayOrders = allOrders.filter((order: any) => {
+          const orderDate = new Date(order.orderDate)
+          return orderDate >= date && orderDate < nextDate
+        })
+
+        const revenue = dayOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+
+        periodData.push({
+          period: date.toISOString(),
+          revenue,
+          orders: dayOrders.length
+        })
+      }
 
       // Combine the data
       setSalesData({
@@ -114,7 +143,7 @@ const SalesPage: React.FC = () => {
         recentOrders: ordersData,
         topCustomers: topCustomersData,
         topProducts: topProductsData,
-        periodData: []
+        periodData
       })
     } catch (error) {
       console.error('Error fetching sales data:', error)
