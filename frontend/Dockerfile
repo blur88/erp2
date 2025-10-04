@@ -28,7 +28,10 @@ ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine AS production
+FROM nginx:1-alpine-slim AS production
+
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
