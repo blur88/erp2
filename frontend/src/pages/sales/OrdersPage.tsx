@@ -811,6 +811,13 @@ const OrdersPage: React.FC = () => {
     navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
   }, [navigate])
 
+  const handleNavigateToPayment = useCallback((paymentId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation() // Prevent triggering parent row click
+    }
+    navigate('/sales/payments', { state: { highlightPaymentId: paymentId } })
+  }, [navigate])
+
   const handleEscapeAction = useCallback(() => {
     setFocusedOrderIndex(-1)
     dispatch(setSelectedOrder(null))
@@ -1530,7 +1537,23 @@ const OrdersPage: React.FC = () => {
 
                                 return allPayments.map((payment: any, index: number) => (
                                   <Box key={payment.id} component="span">
-                                    <Typography component="span" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                    <Typography
+                                      component="button"
+                                      onClick={(event) => handleNavigateToPayment(payment.id, event)}
+                                      sx={{
+                                        fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                        color: 'primary.main',
+                                        cursor: 'pointer',
+                                        textDecoration: 'none',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        fontFamily: 'inherit',
+                                        '&:hover': {
+                                          color: 'primary.dark'
+                                        }
+                                      }}
+                                    >
                                       {payment.paymentNumber}
                                     </Typography>
                                     {index < allPayments.length - 1 && (

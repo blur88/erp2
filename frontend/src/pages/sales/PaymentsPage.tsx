@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -167,6 +167,7 @@ const PaymentsPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
 
   const [payments, setPayments] = useState<Payment[]>([])
@@ -293,12 +294,12 @@ const PaymentsPage: React.FC = () => {
         page: state.page + 1,
         limit: state.rowsPerPage,
         sortBy: filters.sortBy,
-        sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
+        sortOrder: filters.sortOrder,
         search: filters.search,
         customerId: filters.customerId === 'all' ? undefined : filters.customerId,
-        fromDate: dateRange.fromDate,
-        toDate: dateRange.toDate,
-      })
+        ...(dateRange.fromDate && { fromDate: dateRange.fromDate }),
+        ...(dateRange.toDate && { toDate: dateRange.toDate }),
+      } as any)
 
       // Backend returns { data: Payment[], total, page, limit, totalPages }
       const paymentsData = (response as any)
@@ -339,6 +340,20 @@ const PaymentsPage: React.FC = () => {
       }
     }
   }, [paginatedPayments, focusedPaymentIndex, selectedPayment])
+
+  // Handle navigation from order page with highlightPaymentId
+  useEffect(() => {
+    const state = location.state as { highlightPaymentId?: string }
+    if (state?.highlightPaymentId && paginatedPayments.length > 0) {
+      const paymentIndex = paginatedPayments.findIndex(p => p.id === state.highlightPaymentId)
+      if (paymentIndex >= 0) {
+        setSelectedPayment(paginatedPayments[paymentIndex])
+        setFocusedPaymentIndex(paymentIndex)
+        // Clear the state to prevent repeated highlighting
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+  }, [paginatedPayments, location.state])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
