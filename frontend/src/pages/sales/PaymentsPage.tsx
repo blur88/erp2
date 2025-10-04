@@ -294,11 +294,11 @@ const PaymentsPage: React.FC = () => {
         page: state.page + 1,
         limit: state.rowsPerPage,
         sortBy: filters.sortBy,
-        sortOrder: filters.sortOrder,
+        sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
         search: filters.search,
         customerId: filters.customerId === 'all' ? undefined : filters.customerId,
-        ...(dateRange.fromDate && { fromDate: dateRange.fromDate }),
-        ...(dateRange.toDate && { toDate: dateRange.toDate }),
+        fromDate: dateRange.fromDate,
+        toDate: dateRange.toDate,
       } as any)
 
       // Backend returns { data: Payment[], total, page, limit, totalPages }
