@@ -1,5 +1,5 @@
 # Single stage for development deployment
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Install security updates
 RUN apk update && apk upgrade
