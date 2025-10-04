@@ -435,6 +435,13 @@ const InvoicesPage: React.FC = () => {
     }
   }, [paginatedInvoices])
 
+  const handleNavigateToPayment = useCallback((paymentId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation() // Prevent triggering parent row click
+    }
+    navigate('/sales/payments', { state: { highlightPaymentId: paymentId } })
+  }, [navigate])
+
   const handlePageUpNavigation = useCallback(() => {
     const newIndex = Math.max(0, focusedInvoiceIndex - state.rowsPerPage)
     setFocusedInvoiceIndex(newIndex)
@@ -945,12 +952,28 @@ const InvoicesPage: React.FC = () => {
                               {(selectedInvoice as any).payments && (selectedInvoice as any).payments.length > 0 ? (
                                 (selectedInvoice as any).payments.map((payment: any, index: number) => (
                                   <Box key={payment.id} component="span">
-                                    <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                    <Typography
+                                      component="button"
+                                      onClick={(event) => handleNavigateToPayment(payment.id, event)}
+                                      sx={{
+                                        fontSize: '0.8rem',
+                                        color: 'primary.main',
+                                        cursor: 'pointer',
+                                        textDecoration: 'none',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        fontFamily: 'inherit',
+                                        '&:hover': {
+                                          color: 'primary.dark'
+                                        }
+                                      }}
+                                    >
                                       {payment.paymentNumber}
                                     </Typography>
                                     {index < (selectedInvoice as any).payments.length - 1 && (
                                       <Typography component="span" sx={{ fontSize: '0.8rem' }}>
-                                        ,
+                                        ,{' '}
                                       </Typography>
                                     )}
                                   </Box>
