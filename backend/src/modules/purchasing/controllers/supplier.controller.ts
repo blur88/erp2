@@ -84,8 +84,34 @@ export class SupplierController {
     return await this.supplierService.findAll(query);
   }
 
+  @Get('check-duplicate')
+  @ApiOperation({
+    summary: 'Check for duplicate company name',
+    description: 'Check if a company name already exists in the system.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Duplicate check completed',
+    schema: {
+      type: 'object',
+      properties: {
+        exists: { type: 'boolean' },
+        message: { type: 'string' }
+      }
+    }
+  })
+  @ApiQuery({ name: 'companyName', required: true, type: String, description: 'Company name to check' })
+  @ApiQuery({ name: 'excludeId', required: false, type: String, description: 'Supplier ID to exclude from check (for updates)' })
+  async checkDuplicate(
+    @Query('companyName') companyName: string,
+    @Query('excludeId') excludeId?: string,
+  ): Promise<{ exists: boolean; message?: string }> {
+    this.logger.log(`Checking duplicate company name: ${companyName}`);
+    return await this.supplierService.checkDuplicateCompanyName(companyName, excludeId);
+  }
+
   @Get('search')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Search suppliers',
     description: 'Quick search suppliers by name, code, or contact person with limited results.'
   })

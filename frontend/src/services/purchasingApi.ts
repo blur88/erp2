@@ -35,6 +35,12 @@ export const purchasingApi = {
     return ApiService.post<Supplier>(`/purchasing/suppliers/${id}/restore`)
   },
 
+  async checkDuplicateCompanyName(companyName: string, excludeId?: string) {
+    return ApiService.get<{ exists: boolean; message?: string }>('/purchasing/suppliers/check-duplicate', {
+      params: { companyName, excludeId }
+    })
+  },
+
   // Purchase Orders
   async getPurchaseOrders(params?: QueryParams & { supplierId?: string; status?: string }) {
     return ApiService.get<PaginatedResponse<PurchaseOrder>>('/purchasing/orders', { params })

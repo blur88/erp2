@@ -4,7 +4,6 @@ import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
 import {
   Supplier,
   SupplierType,
-  SupplierRating
 } from '../../../database/entities/supplier.entity';
 import {
   CreateSupplierDto,
@@ -32,16 +31,25 @@ export class SupplierService {
   async create(createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
     this.logger.log(`Creating supplier: ${createSupplierDto.companyName}`);
 
+    // Check for duplicate company name (case-insensitive)
+    const existingSupplier = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', {
+        companyName: createSupplierDto.companyName
+      })
+      .getOne();
+
+    if (existingSupplier) {
+      this.logger.warn(`Duplicate company name detected: ${createSupplierDto.companyName}`);
+      throw new ConflictException(`Supplier with company name "${createSupplierDto.companyName}" already exists`);
+    }
+
     try {
       const supplier = this.supplierRepository.create({
         ...createSupplierDto,
-        rating: SupplierRating.UNRATED,
         currency: createSupplierDto.currency || 'USD',
         totalPurchases: 0,
         totalOrders: 0,
-        averageDeliveryTime: 0,
-        onTimeDeliveryRate: 100,
-        qualityRate: 100,
       });
 
       const savedSupplier = await this.supplierRepository.save(supplier);
@@ -166,6 +174,20 @@ export class SupplierService {
       throw new NotFoundException(`Supplier with ID ${id} not found`);
     }
 
+    // Check for duplicate company name (case-insensitive, excluding current supplier)
+    if (updateSupplierDto.companyName) {
+      const existingSupplier = await this.supplierRepository
+        .createQueryBuilder('supplier')
+        .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName: updateSupplierDto.companyName })
+        .andWhere('supplier.id != :id', { id })
+        .getOne();
+
+      if (existingSupplier) {
+        this.logger.warn(`Duplicate company name detected: ${updateSupplierDto.companyName}`);
+        throw new ConflictException(`Supplier with company name "${updateSupplierDto.companyName}" already exists`);
+      }
+    }
+
     try {
       Object.assign(supplier, updateSupplierDto);
       const updatedSupplier = await this.supplierRepository.save(supplier);
@@ -178,6 +200,35 @@ export class SupplierService {
       this.logger.error(`Error updating supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to update supplier');
     }
+  }
+
+  /**
+   * Check if company name already exists (case-insensitive)
+   */
+  async checkDuplicateCompanyName(
+    companyName: string,
+    excludeId?: string,
+  ): Promise<{ exists: boolean; message?: string }> {
+    this.logger.log(`Checking duplicate company name: ${companyName}`);
+
+    const queryBuilder = this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName });
+
+    if (excludeId) {
+      queryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
+    }
+
+    const existingSupplier = await queryBuilder.getOne();
+
+    if (existingSupplier) {
+      return {
+        exists: true,
+        message: `Supplier with company name "${companyName}" already exists`,
+      };
+    }
+
+    return { exists: false };
   }
 
   /**
