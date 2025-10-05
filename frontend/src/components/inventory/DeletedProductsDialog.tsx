@@ -82,7 +82,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   }, [open, dispatch])
 
   // Filter products based on search term
-  const filteredProducts = deletedProducts.filter(product => 
+  const filteredProducts = deletedProducts.filter(product =>
     product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -348,19 +348,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       size="small"
                     />
                   </TableCell>
-                  <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
+                  <TableCell sx={{ width: isMobile ? '35%' : '40%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Product Details
+                      Product Name
                     </Typography>
                   </TableCell>
-                  {!isMobile && (
-                    <TableCell sx={{ width: '15%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Barcode
-                      </Typography>
-                    </TableCell>
-                  )}
-                  <TableCell sx={{ width: isMobile ? '20%' : '15%' }}>
+                  <TableCell sx={{ width: isMobile ? '20%' : '20%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Category
                     </Typography>
@@ -424,32 +417,13 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                           <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
                             {product.name}
                           </Typography>
-                          {product.description && (
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                              {product.description}
+                          {isMobile && product.retailPrice && (
+                            <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500, mt: 0.25, display: 'block' }}>
+                              {formatCurrency(product.retailPrice)}
                             </Typography>
-                          )}
-                          {isMobile && (
-                            <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                {product.barcode}
-                              </Typography>
-                              {product.retailPrice && (
-                                <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
-                                  • {formatCurrency(product.retailPrice)}
-                                </Typography>
-                              )}
-                            </Box>
                           )}
                         </Box>
                       </TableCell>
-                      {!isMobile && (
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                            {product.barcode}
-                          </Typography>
-                        </TableCell>
-                      )}
                       <TableCell>
                         <Chip 
                           label={product.category?.name || 'No Category'} 
@@ -581,9 +555,6 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                   {confirmDelete.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Barcode: {confirmDelete.barcode}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
                   Category: {confirmDelete.category?.name || 'No Category'}
                 </Typography>
               </Box>
@@ -646,7 +617,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                 return product ? (
                   <Box key={productId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {product.name} ({product.barcode})
+                      • {product.name}
                     </Typography>
                   </Box>
                 ) : null
@@ -710,7 +681,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                 return product ? (
                   <Box key={productId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {product.name} ({product.barcode})
+                      • {product.name}
                     </Typography>
                   </Box>
                 ) : null
