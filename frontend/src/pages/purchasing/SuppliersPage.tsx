@@ -997,6 +997,14 @@ const SuppliersPage: React.FC = () => {
       <DeletedSuppliersDialog
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
+        onRefresh={() => {
+          // Refresh the active suppliers list after restore/delete operations
+          dispatch(fetchSuppliers({
+            ...filters,
+            page: pagination.page,
+            limit: pagination.limit,
+          }))
+        }}
       />
     </Box>
   )
