@@ -656,6 +656,7 @@ export class SupplierService {
       notes: supplier.notes,
       createdAt: supplier.createdAt,
       updatedAt: supplier.updatedAt,
+      deletedAt: supplier.deletedAt,
     };
   }
 }

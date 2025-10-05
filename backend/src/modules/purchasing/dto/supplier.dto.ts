@@ -244,6 +244,9 @@ export class SupplierResponseDto {
 
   @ApiProperty({ description: 'Updated date' })
   updatedAt!: Date;
+
+  @ApiProperty({ description: 'Deleted date (for soft-deleted suppliers)' })
+  deletedAt?: Date;
 }
 
 
