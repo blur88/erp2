@@ -30,7 +30,6 @@ import {
   useMediaQuery,
   Tooltip,
   Stack,
-  Rating,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -41,12 +40,7 @@ import {
   RestoreFromTrash as RestoreIcon,
   Business as BusinessIcon,
   Phone as PhoneIcon,
-  Language as WebsiteIcon,
-  TrendingUp as PerformanceIcon,
   Refresh as RefreshIcon,
-  Star as StarIcon,
-  LocalShipping as DeliveryIcon,
-  VerifiedUser as QualityIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -68,7 +62,7 @@ import {
   clearError,
 } from '@/store/slices/supplierSlice'
 import type { Supplier } from '@/types'
-import { SupplierType, SupplierRating } from '@/types'
+import { SupplierType } from '@/types'
 import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedSuppliersDialog from '@/components/purchasing/DeletedSuppliersDialog'
@@ -147,7 +141,7 @@ const SuppliersPage: React.FC = () => {
   // Load suppliers on mount and when filters change
   useEffect(() => {
     dispatch(fetchSuppliers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.rating, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.sortBy, filters.sortOrder])
 
   // Handle pagination
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -256,18 +250,6 @@ const SuppliersPage: React.FC = () => {
     setIsViewOpen(true)
   }
 
-  // Get rating chip
-  const getRatingChip = (rating: SupplierRating) => {
-    const ratingConfig = {
-      [SupplierRating.EXCELLENT]: { label: 'Excellent', color: 'success' as const },
-      [SupplierRating.GOOD]: { label: 'Good', color: 'primary' as const },
-      [SupplierRating.AVERAGE]: { label: 'Average', color: 'warning' as const },
-      [SupplierRating.POOR]: { label: 'Poor', color: 'error' as const },
-      [SupplierRating.UNRATED]: { label: 'Unrated', color: 'default' as const },
-    }
-    const config = ratingConfig[rating]
-    return <Chip label={config.label} size="small" color={config.color} />
-  }
 
   return (
     <Box>
@@ -425,48 +407,6 @@ const SuppliersPage: React.FC = () => {
             <MenuItem value={SupplierType.INTERNATIONAL}>International</MenuItem>
           </Select>
         </FormControl>
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            flex: 'none'
-          }}
-        >
-          <InputLabel
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Rating
-          </InputLabel>
-          <Select
-            value={filters.rating || 'all'}
-            label="Rating"
-            onChange={(e) => dispatch(setFilters({ rating: e.target.value === 'all' ? undefined : e.target.value as SupplierRating }))}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                padding: '8.5px 14px',
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                boxSizing: 'border-box'
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value={SupplierRating.EXCELLENT}>Excellent</MenuItem>
-            <MenuItem value={SupplierRating.GOOD}>Good</MenuItem>
-            <MenuItem value={SupplierRating.AVERAGE}>Average</MenuItem>
-            <MenuItem value={SupplierRating.POOR}>Poor</MenuItem>
-            <MenuItem value={SupplierRating.UNRATED}>Unrated</MenuItem>
-          </Select>
-        </FormControl>
       </Box>
 
       {/* Error Alert */}
@@ -521,28 +461,6 @@ const SuppliersPage: React.FC = () => {
                     Contact
                   </Typography>
                 </TableCell>
-                {!isMobile && (
-                  <TableCell sx={{ width: '10%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                      Rating
-                    </Typography>
-                  </TableCell>
-                )}
-                {!isMobile && (
-                  <TableCell sx={{ width: '12%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                      Performance
-                    </Typography>
-                  </TableCell>
-                )}
                 <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
                   <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                     fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
@@ -608,7 +526,6 @@ const SuppliersPage: React.FC = () => {
                             variant="outlined"
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
-                          {getRatingChip(supplier.rating)}
                         </Box>
                       )}
                     </TableCell>
@@ -645,29 +562,6 @@ const SuppliersPage: React.FC = () => {
                         )}
                       </Box>
                     </TableCell>
-                    {!isMobile && (
-                      <TableCell>
-                        {getRatingChip(supplier.rating)}
-                      </TableCell>
-                    )}
-                    {!isMobile && (
-                      <TableCell>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <DeliveryIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                              {supplier.onTimeDeliveryRate?.toFixed(0)}% on-time
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <QualityIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                              {supplier.qualityRate?.toFixed(0)}% quality
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                    )}
                     <TableCell align="right">
                       <Box
                         className="supplier-actions"
@@ -908,9 +802,6 @@ const SuppliersPage: React.FC = () => {
                   <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
                     {selectedSupplier.companyName}
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    {getRatingChip(selectedSupplier.rating)}
-                  </Box>
                 </Box>
               </Grid>
 
@@ -956,33 +847,6 @@ const SuppliersPage: React.FC = () => {
                     </Box>
                   )}
                 </Stack>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>Performance Metrics</Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
-                    <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                      <DeliveryIcon color="primary" />
-                      <Typography variant="h6">{selectedSupplier.onTimeDeliveryRate?.toFixed(1)}%</Typography>
-                      <Typography variant="caption" color="text.secondary">On-Time Delivery</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                      <QualityIcon color="success" />
-                      <Typography variant="h6">{selectedSupplier.qualityRate?.toFixed(1)}%</Typography>
-                      <Typography variant="caption" color="text.secondary">Quality Rate</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                      <PerformanceIcon color="warning" />
-                      <Typography variant="h6">{selectedSupplier.averageDeliveryTime?.toFixed(1)}</Typography>
-                      <Typography variant="caption" color="text.secondary">Avg Delivery (days)</Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
               </Grid>
 
               {selectedSupplier.notes && (

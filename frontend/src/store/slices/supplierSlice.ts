@@ -16,7 +16,6 @@ interface SupplierState {
     search?: string
     type?: string
     status?: string
-    rating?: string
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'
     isActive?: boolean

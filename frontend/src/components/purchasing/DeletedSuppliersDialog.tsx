@@ -21,7 +21,7 @@ import {
 import { RestoreFromTrash as RestoreIcon, Close as CloseIcon } from '@mui/icons-material'
 import { purchasingApi } from '@/services/purchasingApi'
 import type { Supplier } from '@/types'
-import { SupplierType, SupplierRating } from '@/types'
+import { SupplierType } from '@/types'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
@@ -65,17 +65,6 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
     }
   }
 
-  const getRatingChip = (rating: SupplierRating) => {
-    const ratingConfig = {
-      [SupplierRating.EXCELLENT]: { label: 'Excellent', color: 'success' as const },
-      [SupplierRating.GOOD]: { label: 'Good', color: 'primary' as const },
-      [SupplierRating.AVERAGE]: { label: 'Average', color: 'warning' as const },
-      [SupplierRating.POOR]: { label: 'Poor', color: 'error' as const },
-      [SupplierRating.UNRATED]: { label: 'Unrated', color: 'default' as const },
-    }
-    const config = ratingConfig[rating]
-    return <Chip label={config.label} size="small" color={config.color} />
-  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
@@ -124,14 +113,6 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                       fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     }}>
-                      Rating
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                    }}>
                       Deleted At
                     </Typography>
                   </TableCell>
@@ -171,9 +152,6 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                           height: TYPOGRAPHY_STYLES.chip.small.height
                         }}
                       />
-                    </TableCell>
-                    <TableCell>
-                      {getRatingChip(supplier.rating)}
                     </TableCell>
                     <TableCell>
                       <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{

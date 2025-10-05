@@ -296,14 +296,6 @@ export enum SupplierType {
   INTERNATIONAL = 'international',
 }
 
-export enum SupplierRating {
-  EXCELLENT = 'excellent',
-  GOOD = 'good',
-  AVERAGE = 'average',
-  POOR = 'poor',
-  UNRATED = 'unrated',
-}
-
 export interface Supplier {
   id: string;
   type: SupplierType;
@@ -322,17 +314,12 @@ export interface Supplier {
   postalCode?: string;
   country?: string;
   // Business
-  rating: SupplierRating;
   currency: string;
   // Metrics
   totalPurchases: number;
   totalOrders: number;
   lastPurchaseDate?: Date;
   firstPurchaseDate?: Date;
-  // Performance
-  averageDeliveryTime: number;
-  onTimeDeliveryRate: number;
-  qualityRate: number;
   // Additional
   categories?: string[];
   certifications?: string[];
@@ -341,7 +328,6 @@ export interface Supplier {
   // Computed
   fullAddress?: string;
   averageOrderValue?: number;
-  overallPerformanceScore?: number;
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
