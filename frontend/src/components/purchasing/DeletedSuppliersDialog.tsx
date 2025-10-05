@@ -409,7 +409,7 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                         <Chip
                           label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
                           size="small"
-                          variant="outlined"
+                          color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
                           sx={{
                             fontSize: '0.7rem',
                             fontWeight: 500,
@@ -459,9 +459,10 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                               disabled={restoringId === supplier.id || deletingId === supplier.id}
                               size="small"
                               sx={{
+                                color: 'success.main',
                                 '&:hover': {
                                   backgroundColor: 'success.light',
-                                  color: 'success.main'
+                                  color: 'success.dark'
                                 },
                                 p: 0.5
                               }}
@@ -479,9 +480,10 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                               disabled={restoringId === supplier.id || deletingId === supplier.id}
                               size="small"
                               sx={{
+                                color: 'error.main',
                                 '&:hover': {
                                   backgroundColor: 'error.light',
-                                  color: 'error.main'
+                                  color: 'error.dark'
                                 },
                                 p: 0.5
                               }}

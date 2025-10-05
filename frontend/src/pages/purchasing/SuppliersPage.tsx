@@ -612,7 +612,7 @@ const SuppliersPage: React.FC = () => {
                           <Chip
                             label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
                             size="small"
-                            variant="outlined"
+                            color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                         </Box>
@@ -623,7 +623,7 @@ const SuppliersPage: React.FC = () => {
                         <Chip
                           label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
                           size="small"
-                          variant="outlined"
+                          color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
                           sx={{
                             fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                             fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
@@ -675,9 +675,10 @@ const SuppliersPage: React.FC = () => {
                             minHeight: 20,
                             minWidth: 20,
                             p: 0.125,
+                            color: 'primary.main',
                             '&:hover': {
-                              backgroundColor: 'action.hover',
-                              color: 'primary.main'
+                              backgroundColor: 'primary.light',
+                              color: 'primary.dark'
                             }
                           }}
                         >
@@ -699,9 +700,10 @@ const SuppliersPage: React.FC = () => {
                             minHeight: 20,
                             minWidth: 20,
                             p: 0.125,
+                            color: 'error.main',
                             '&:hover': {
                               backgroundColor: 'error.light',
-                              color: 'error.main'
+                              color: 'error.dark'
                             }
                           }}
                         >
@@ -720,9 +722,10 @@ const SuppliersPage: React.FC = () => {
                             minHeight: 20,
                             minWidth: 20,
                             p: 0.125,
+                            color: 'info.main',
                             '&:hover': {
-                              backgroundColor: 'action.hover',
-                              color: 'primary.main'
+                              backgroundColor: 'info.light',
+                              color: 'info.dark'
                             }
                           }}
                         >
