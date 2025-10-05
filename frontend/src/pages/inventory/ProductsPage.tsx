@@ -1240,9 +1240,10 @@ const ProductsPage: React.FC = () => {
                           minHeight: 20, // Reduced minimum size for better scaling
                           minWidth: 20,
                           p: 0.125, // Reduced padding for better proportion
+                          color: 'success.main',
                           '&:hover': {
                             backgroundColor: 'success.light',
-                            color: 'success.main'
+                            color: 'success.dark'
                           },
                           '&.Mui-disabled': {
                             backgroundColor: 'grey.300',
@@ -1265,9 +1266,10 @@ const ProductsPage: React.FC = () => {
                           minHeight: 20, // Reduced minimum size for better scaling
                           minWidth: 20,
                           p: 0.125, // Reduced padding for better proportion
+                          color: 'error.main',
                           '&:hover': {
                             backgroundColor: 'error.light',
-                            color: 'error.main'
+                            color: 'error.dark'
                           }
                         }}
                       >
@@ -1289,9 +1291,10 @@ const ProductsPage: React.FC = () => {
                           minHeight: 20, // Reduced minimum size for better scaling
                           minWidth: 20,
                           p: 0.125, // Reduced padding for better proportion
+                          color: 'primary.main',
                           '&:hover': {
-                            backgroundColor: 'action.hover',
-                            color: 'primary.main'
+                            backgroundColor: 'primary.light',
+                            color: 'primary.dark'
                           }
                         }}
                       >
@@ -1310,9 +1313,10 @@ const ProductsPage: React.FC = () => {
                           minHeight: 20, // Reduced minimum size for better scaling
                           minWidth: 20,
                           p: 0.125, // Reduced padding for better proportion
+                          color: 'error.main',
                           '&:hover': {
                             backgroundColor: 'error.light',
-                            color: 'error.main'
+                            color: 'error.dark'
                           }
                         }}
                       >

@@ -489,14 +489,15 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                           }}
                         >
                           <Tooltip title="Restore Product">
-                            <IconButton 
+                            <IconButton
                               onClick={() => handleRestore(product)}
                               disabled={restoringId === product.id || deletingId === product.id}
                               size="small"
                               sx={{
+                                color: 'success.main',
                                 '&:hover': {
                                   backgroundColor: 'success.light',
-                                  color: 'success.main'
+                                  color: 'success.dark'
                                 },
                                 p: 0.5
                               }}
@@ -505,14 +506,15 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Permanently Delete (Cannot be undone)">
-                            <IconButton 
+                            <IconButton
                               onClick={() => setConfirmDelete(product)}
                               disabled={restoringId === product.id || deletingId === product.id}
                               size="small"
                               sx={{
+                                color: 'error.main',
                                 '&:hover': {
                                   backgroundColor: 'error.light',
-                                  color: 'error.main'
+                                  color: 'error.dark'
                                 },
                                 p: 0.5
                               }}
