@@ -463,9 +463,10 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                               disabled={restoringId === order.id || deletingId === order.id}
                               size="small"
                               sx={{
+                                color: 'success.main',
                                 '&:hover': {
                                   backgroundColor: 'success.light',
-                                  color: 'success.main'
+                                  color: 'success.dark'
                                 },
                                 p: 0.5
                               }}
@@ -479,9 +480,10 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                               disabled={restoringId === order.id || deletingId === order.id}
                               size="small"
                               sx={{
+                                color: 'error.main',
                                 '&:hover': {
                                   backgroundColor: 'error.light',
-                                  color: 'error.main'
+                                  color: 'error.dark'
                                 },
                                 p: 0.5
                               }}
