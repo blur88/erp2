@@ -136,11 +136,6 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                       }}>
                         {supplier.companyName}
                       </Typography>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-                      }}>
-                        ID: {supplier.id.slice(0, 8)}...
-                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip

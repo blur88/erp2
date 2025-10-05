@@ -514,9 +514,6 @@ const SuppliersPage: React.FC = () => {
                         }}>
                           {supplier.companyName}
                         </Typography>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                          ID: {supplier.id.slice(0, 8)}...
-                        </Typography>
                       </Box>
                       {isMobile && (
                         <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
