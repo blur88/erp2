@@ -255,7 +255,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CategoryIcon sx={{ color: 'warning.main' }} />
+            <CategoryIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
               Deleted Categories
             </Typography>
@@ -406,17 +406,9 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                         />
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <CategoryIcon 
-                            sx={{ 
-                              fontSize: 16, 
-                              color: 'text.secondary'
-                            }} 
-                          />
-                          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                            {category.name}
-                          </Typography>
-                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                          {category.name}
+                        </Typography>
                       </TableCell>
                       <TableCell>
                         <Chip 
@@ -450,14 +442,15 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                           }}
                         >
                           <Tooltip title="Restore Category">
-                            <IconButton 
+                            <IconButton
                               onClick={() => handleRestore(category)}
                               disabled={restoringId === category.id}
                               size="small"
                               sx={{
+                                color: 'success.main',
                                 '&:hover': {
                                   backgroundColor: 'success.light',
-                                  color: 'success.main'
+                                  color: 'success.dark'
                                 },
                                 p: 0.5
                               }}
@@ -466,14 +459,15 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Permanently Delete Category">
-                            <IconButton 
+                            <IconButton
                               onClick={() => handlePermanentDeleteClick(category)}
                               disabled={permanentDeletingId === category.id}
                               size="small"
                               sx={{
+                                color: 'error.main',
                                 '&:hover': {
                                   backgroundColor: 'error.light',
-                                  color: 'error.main'
+                                  color: 'error.dark'
                                 },
                                 p: 0.5
                               }}

@@ -630,9 +630,10 @@ const CategoriesPage: React.FC = () => {
                             minHeight: 20, // Reduced minimum size for better scaling
                             minWidth: 20,
                             p: 0.125, // Reduced padding for better proportion
+                            color: 'primary.main',
                             '&:hover': {
-                              backgroundColor: 'action.hover',
-                              color: 'primary.main'
+                              backgroundColor: 'primary.light',
+                              color: 'primary.dark'
                             }
                           }}
                         >
@@ -651,9 +652,10 @@ const CategoriesPage: React.FC = () => {
                             minHeight: 20, // Reduced minimum size for better scaling
                             minWidth: 20,
                             p: 0.125, // Reduced padding for better proportion
+                            color: 'error.main',
                             '&:hover': {
                               backgroundColor: 'error.light',
-                              color: 'error.main'
+                              color: 'error.dark'
                             }
                           }}
                         >
