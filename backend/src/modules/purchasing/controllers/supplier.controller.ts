@@ -29,10 +29,6 @@ import {
   SupplierQueryDto,
   SupplierResponseDto,
   SupplierListResponseDto,
-  SupplierPerformanceDto,
-  UpdateSupplierBalanceDto,
-  SupplierPerformanceMetricsDto,
-  SupplierAnalyticsDto,
 } from '../dto';
 
 @ApiTags('Suppliers')
@@ -130,62 +126,7 @@ export class SupplierController {
     return await this.supplierService.searchSuppliers(query, limit);
   }
 
-  @Get('performance-metrics')
-  @ApiOperation({ 
-    summary: 'Get supplier performance metrics',
-    description: 'Retrieve performance metrics for all or specific suppliers including delivery rates, quality scores, and spending analysis.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Performance metrics retrieved successfully',
-    type: [SupplierPerformanceMetricsDto],
-  })
-  @ApiQuery({ name: 'supplierIds', required: false, type: [String], description: 'Specific supplier IDs (comma separated)' })
-  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean, description: 'Include inactive suppliers' })
-  async getPerformanceMetrics(
-    @Query('supplierIds') supplierIds?: string[],
-    @Query('includeInactive') includeInactive?: boolean,
-  ): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log('Getting supplier performance metrics');
-    
-    // Parse comma-separated supplier IDs if provided as string
-    const parsedSupplierIds = typeof supplierIds === 'string' 
-      ? supplierIds.split(',').map(id => id.trim())
-      : supplierIds;
 
-    return await this.supplierService.getPerformanceMetrics(parsedSupplierIds, includeInactive);
-  }
-
-  @Get('top-suppliers')
-  @ApiOperation({ 
-    summary: 'Get top suppliers by purchase volume',
-    description: 'Retrieve top performing suppliers ranked by total purchase volume with performance metrics.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Top suppliers retrieved successfully',
-    type: [SupplierPerformanceMetricsDto],
-  })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of top suppliers (default: 10)' })
-  async getTopSuppliers(@Query('limit') limit?: number): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log(`Getting top ${limit || 10} suppliers`);
-    return await this.supplierService.getTopSuppliers(limit);
-  }
-
-  @Get('over-credit-limit')
-  @ApiOperation({ 
-    summary: 'Get suppliers over credit limit',
-    description: 'Retrieve suppliers whose current balance exceeds their credit limit.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Suppliers over credit limit retrieved successfully',
-    type: [SupplierResponseDto],
-  })
-  async getSuppliersOverCreditLimit(): Promise<SupplierResponseDto[]> {
-    this.logger.log('Getting suppliers over credit limit');
-    return await this.supplierService.findOverCreditLimit();
-  }
 
   @Get('deleted')
   @ApiOperation({
@@ -241,42 +182,7 @@ export class SupplierController {
     return await this.supplierService.update(id, updateSupplierDto);
   }
 
-  @Post(':id/performance')
-  @ApiOperation({ 
-    summary: 'Update supplier performance metrics',
-    description: 'Record delivery performance, quality assessment, and update supplier ratings based on actual performance data.'
-  })
-  @ApiResponse({ status: 200, description: 'Performance metrics updated successfully' })
-  @ApiResponse({ status: 404, description: 'Supplier not found' })
-  @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  @HttpCode(HttpStatus.OK)
-  async updatePerformanceMetrics(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() performanceDto: SupplierPerformanceDto,
-  ): Promise<void> {
-    this.logger.log(`Updating performance metrics for supplier: ${id}`);
-    await this.supplierService.updatePerformanceMetrics(id, performanceDto);
-  }
 
-  @Post(':id/balance')
-  @ApiOperation({ 
-    summary: 'Update supplier balance',
-    description: 'Increase or decrease supplier account balance for credit management and payment tracking.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Supplier balance updated successfully',
-    type: SupplierResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Supplier not found' })
-  @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  async updateBalance(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() balanceDto: UpdateSupplierBalanceDto,
-  ): Promise<SupplierResponseDto> {
-    this.logger.log(`Updating balance for supplier: ${id}`);
-    return await this.supplierService.updateBalance(id, balanceDto);
-  }
 
   @Post(':id/activate')
   @ApiOperation({ 

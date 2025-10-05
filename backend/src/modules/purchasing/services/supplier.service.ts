@@ -11,9 +11,6 @@ import {
   SupplierQueryDto,
   SupplierResponseDto,
   SupplierListResponseDto,
-  SupplierPerformanceDto,
-  UpdateSupplierBalanceDto,
-  SupplierPerformanceMetricsDto,
 } from '../dto';
 
 @Injectable()
@@ -75,7 +72,6 @@ export class SupplierService {
       limit = 10,
       search,
       type,
-      rating,
       isActive,
       sortBy = 'companyName',
       sortOrder = 'ASC',
@@ -97,18 +93,14 @@ export class SupplierService {
       queryBuilder.andWhere('supplier.type = :type', { type });
     }
 
-    if (rating) {
-      queryBuilder.andWhere('supplier.rating = :rating', { rating });
-    }
-
     if (isActive !== undefined) {
       queryBuilder.andWhere('supplier.isActive = :isActive', { isActive });
     }
 
     // Apply sorting
     const validSortFields = [
-      'companyName', 'type', 'rating',
-      'totalPurchases', 'totalOrders', 'onTimeDeliveryRate', 'qualityRate',
+      'companyName', 'type',
+      'totalPurchases', 'totalOrders',
       'createdAt', 'lastPurchaseDate'
     ];
 
@@ -270,39 +262,6 @@ export class SupplierService {
     }
   }
 
-  /**
-   * Update supplier performance metrics
-   */
-  async updatePerformanceMetrics(
-    supplierId: string, 
-    performanceData: SupplierPerformanceDto
-  ): Promise<void> {
-    this.logger.log(`Updating performance metrics for supplier: ${supplierId}`);
-
-    const supplier = await this.supplierRepository.findOne({ 
-      where: { id: supplierId } 
-    });
-
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
-    }
-
-    try {
-      supplier.updatePerformanceMetrics(
-        performanceData.deliveryTime,
-        performanceData.wasOnTime,
-        performanceData.wasQualityAccepted
-      );
-
-      await this.supplierRepository.save(supplier);
-      this.logger.log(`Performance metrics updated for supplier: ${supplierId}`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error updating performance metrics: ${errorMessage}`, errorStack);
-      throw new BadRequestException('Failed to update performance metrics');
-    }
-  }
 
   /**
    * Update supplier purchase metrics
@@ -369,47 +328,6 @@ export class SupplierService {
   //   }
   // }
 
-  /**
-   * Get supplier performance metrics
-   */
-  async getPerformanceMetrics(
-    supplierIds?: string[],
-    includeInactive: boolean = false
-  ): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log('Getting supplier performance metrics');
-
-    const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
-
-    if (supplierIds && supplierIds.length > 0) {
-      queryBuilder.andWhere('supplier.id IN (:...supplierIds)', { supplierIds });
-    }
-
-    if (!includeInactive) {
-      queryBuilder.andWhere('supplier.isActive = true');
-    }
-
-    queryBuilder
-      .andWhere('supplier.totalOrders > 0')
-      .orderBy('supplier.totalPurchases', 'DESC');
-
-    const suppliers = await queryBuilder.getMany();
-
-    // Calculate total spend for percentage calculations
-    const totalSpend = suppliers.reduce((sum, s) => sum + Number(s.totalPurchases), 0);
-
-    return suppliers.map(supplier => ({
-      supplierId: supplier.id,
-      companyName: supplier.companyName,
-      rating: supplier.rating,
-      totalOrders: supplier.totalOrders,
-      totalPurchases: Number(supplier.totalPurchases),
-      averageDeliveryTime: Number(supplier.averageDeliveryTime),
-      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
-      qualityRate: Number(supplier.qualityRate),
-      performanceScore: supplier.overallPerformanceScore,
-      spendPercentage: totalSpend > 0 ? (Number(supplier.totalPurchases) / totalSpend) * 100 : 0,
-    }));
-  }
 
   /**
    * Check if supplier can make purchase
@@ -417,7 +335,7 @@ export class SupplierService {
    * NOTE: Amount checking is not implemented as credit limit functionality has been removed.
    * This method only checks if the supplier is generally eligible to make purchases.
    */
-  async canPurchase(supplierId: string, amount: number): Promise<boolean> {
+  async canPurchase(supplierId: string, _amount?: number): Promise<boolean> {
     this.logger.log(`Checking purchase eligibility for supplier: ${supplierId}`);
 
     const supplier = await this.supplierRepository.findOne({
@@ -464,19 +382,6 @@ export class SupplierService {
     return suppliers.map(supplier => this.mapToResponseDto(supplier));
   }
 
-  /**
-   * Get suppliers by rating
-   */
-  async findByRating(rating: SupplierRating): Promise<SupplierResponseDto[]> {
-    this.logger.log(`Finding suppliers by rating: ${rating}`);
-
-    const suppliers = await this.supplierRepository.find({
-      where: { rating, isActive: true },
-      order: { companyName: 'ASC' },
-    });
-
-    return suppliers.map(supplier => this.mapToResponseDto(supplier));
-  }
 
   // Credit limit functionality removed - method disabled
   // async findOverCreditLimit(): Promise<SupplierResponseDto[]> {
@@ -489,33 +394,6 @@ export class SupplierService {
   //   return suppliers.map(supplier => this.mapToResponseDto(supplier));
   // }
 
-  /**
-   * Get top suppliers by purchase volume
-   */
-  async getTopSuppliers(limit: number = 10): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log(`Getting top ${limit} suppliers by purchase volume`);
-
-    const suppliers = await this.supplierRepository.find({
-      where: { isActive: true },
-      order: { totalPurchases: 'DESC' },
-      take: limit,
-    });
-
-    const totalSpend = suppliers.reduce((sum, s) => sum + Number(s.totalPurchases), 0);
-
-    return suppliers.map(supplier => ({
-      supplierId: supplier.id,
-      companyName: supplier.companyName,
-      rating: supplier.rating,
-      totalOrders: supplier.totalOrders,
-      totalPurchases: Number(supplier.totalPurchases),
-      averageDeliveryTime: Number(supplier.averageDeliveryTime),
-      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
-      qualityRate: Number(supplier.qualityRate),
-      performanceScore: supplier.overallPerformanceScore,
-      spendPercentage: totalSpend > 0 ? (Number(supplier.totalPurchases) / totalSpend) * 100 : 0,
-    }));
-  }
 
   /**
    * Activate supplier
@@ -584,7 +462,6 @@ export class SupplierService {
       limit = 10,
       search,
       type,
-      rating,
       sortBy = 'companyName',
       sortOrder = 'ASC',
     } = query;
@@ -609,15 +486,11 @@ export class SupplierService {
       queryBuilder.andWhere('supplier.type = :type', { type });
     }
 
-    if (rating) {
-      queryBuilder.andWhere('supplier.rating = :rating', { rating });
-    }
-
     // Count total
     const total = await queryBuilder.getCount();
 
     // Apply sorting and pagination
-    const validSortFields = ['companyName', 'type', 'rating', 'createdAt', 'deletedAt'];
+    const validSortFields = ['companyName', 'type', 'createdAt', 'deletedAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
     queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
     queryBuilder.skip(skip).take(take);
@@ -696,17 +569,12 @@ export class SupplierService {
       website: supplier.website,
       taxId: supplier.taxId,
       fullAddress: supplier.fullAddress,
-      rating: supplier.rating,
       currency: supplier.currency,
       totalPurchases: Number(supplier.totalPurchases),
       totalOrders: supplier.totalOrders,
       averageOrderValue: supplier.averageOrderValue,
       lastPurchaseDate: supplier.lastPurchaseDate,
       firstPurchaseDate: supplier.firstPurchaseDate,
-      averageDeliveryTime: Number(supplier.averageDeliveryTime),
-      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
-      qualityRate: Number(supplier.qualityRate),
-      overallPerformanceScore: supplier.overallPerformanceScore,
       categories: supplier.categories,
       certifications: supplier.certifications,
       notes: supplier.notes,
