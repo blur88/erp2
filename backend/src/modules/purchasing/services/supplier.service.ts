@@ -554,6 +554,82 @@ export class SupplierService {
   }
 
   /**
+   * Permanently delete a supplier
+   */
+  async permanentDelete(id: string): Promise<void> {
+    this.logger.log(`Permanently deleting supplier: ${id}`);
+
+    const supplier = await this.supplierRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    if (!supplier.deletedAt) {
+      throw new BadRequestException('Supplier must be soft-deleted before permanent deletion');
+    }
+
+    try {
+      await this.supplierRepository.remove(supplier);
+      this.logger.log(`Supplier permanently deleted: ${id}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error permanently deleting supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to permanently delete supplier');
+    }
+  }
+
+  /**
+   * Bulk restore suppliers
+   */
+  async bulkRestore(supplierIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${supplierIds.length} suppliers`);
+
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    for (const id of supplierIds) {
+      try {
+        await this.restore(id);
+        restoredCount++;
+      } catch (error) {
+        this.logger.error(`Failed to restore supplier ${id}:`, error);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`);
+    return { restoredCount, failedIds };
+  }
+
+  /**
+   * Bulk permanent delete suppliers
+   */
+  async bulkPermanentDelete(supplierIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${supplierIds.length} suppliers`);
+
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    for (const id of supplierIds) {
+      try {
+        await this.permanentDelete(id);
+        deletedCount++;
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete supplier ${id}:`, error);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
+    return { deletedCount, failedIds };
+  }
+
+  /**
    * Map supplier entity to response DTO
    */
   private mapToResponseDto(supplier: Supplier): SupplierResponseDto {

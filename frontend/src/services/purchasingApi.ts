@@ -35,6 +35,22 @@ export const purchasingApi = {
     return ApiService.post<Supplier>(`/purchasing/suppliers/${id}/restore`)
   },
 
+  async permanentDeleteSupplier(id: string) {
+    return ApiService.delete(`/purchasing/suppliers/${id}/permanent`)
+  },
+
+  async bulkRestoreSuppliers(supplierIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('/purchasing/suppliers/bulk-restore', {
+      supplierIds
+    })
+  },
+
+  async bulkPermanentDeleteSuppliers(supplierIds: string[]) {
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('/purchasing/suppliers/bulk-permanent-delete', {
+      supplierIds
+    })
+  },
+
   async checkDuplicateCompanyName(companyName: string, excludeId?: string) {
     return ApiService.get<{ exists: boolean; message?: string }>('/purchasing/suppliers/check-duplicate', {
       params: { companyName, excludeId }

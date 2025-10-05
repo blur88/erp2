@@ -269,6 +269,71 @@ export class SupplierController {
     return await this.supplierService.restore(id);
   }
 
+  @Post('bulk-restore')
+  @ApiOperation({
+    summary: 'Bulk restore deleted suppliers',
+    description: 'Restore multiple soft-deleted suppliers to active status.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Suppliers restored successfully',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        supplierIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of supplier UUIDs to restore'
+        }
+      }
+    }
+  })
+  async bulkRestore(@Body() body: { supplierIds: string[] }): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${body.supplierIds.length} suppliers`);
+    return await this.supplierService.bulkRestore(body.supplierIds);
+  }
+
+  @Post('bulk-permanent-delete')
+  @ApiOperation({
+    summary: 'Bulk permanent delete suppliers',
+    description: 'Permanently delete multiple soft-deleted suppliers from the database. This action cannot be undone.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Suppliers permanently deleted successfully',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        supplierIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of supplier UUIDs to permanently delete'
+        }
+      }
+    }
+  })
+  async bulkPermanentDelete(@Body() body: { supplierIds: string[] }): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${body.supplierIds.length} suppliers`);
+    return await this.supplierService.bulkPermanentDelete(body.supplierIds);
+  }
+
+  @Delete(':id/permanent')
+  @ApiOperation({
+    summary: 'Permanently delete supplier',
+    description: 'Permanently delete a soft-deleted supplier from the database. This action cannot be undone.'
+  })
+  @ApiResponse({ status: 200, description: 'Supplier permanently deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Supplier not found' })
+  @ApiParam({ name: 'id', description: 'Supplier UUID' })
+  async permanentDelete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    this.logger.log(`Permanently deleting supplier: ${id}`);
+    return await this.supplierService.permanentDelete(id);
+  }
+
   @Delete(':id')
   @ApiOperation({
     summary: 'Deactivate supplier',
