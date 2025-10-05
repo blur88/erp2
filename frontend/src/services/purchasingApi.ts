@@ -16,7 +16,7 @@ export const purchasingApi = {
   },
 
   async updateSupplier(id: string, supplierData: Partial<Supplier>) {
-    return ApiService.put<Supplier>(`/purchasing/suppliers/${id}`, supplierData)
+    return ApiService.patch<Supplier>(`/purchasing/suppliers/${id}`, supplierData)
   },
 
   async deleteSupplier(id: string) {
