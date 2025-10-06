@@ -197,21 +197,20 @@ const CreatePurchaseOrderPage: React.FC = () => {
     }
   }
 
-  const handlePriceChange = (index: number, value: string) => {
-    const numericValue = parseFloat(value.replace(/,/g, '')) || 0
-    setValue(`items.${index}.unitPrice`, numericValue)
+  const formatNumberWithCommas = (value: number | string): string => {
+    if (value === '' || value === null || value === undefined) return ''
+    const num = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(num)) return ''
+
+    // Format with 2 decimal places
+    const fixed = num.toFixed(2)
+    const parts = fixed.split('.')
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return parts.join('.')
   }
 
-  const formatPriceInput = (value: string) => {
-    const cleanValue = value.replace(/[^0-9.]/g, '')
-    const parts = cleanValue.split('.')
-    if (parts.length > 2) {
-      return parts[0] + '.' + parts.slice(1).join('')
-    }
-    if (parts.length === 2) {
-      parts[1] = parts[1].substring(0, 4)
-    }
-    return parts.join('.')
+  const parseFormattedNumber = (value: string): number => {
+    return parseFloat(value.replace(/,/g, '')) || 0
   }
 
   const calculateOrderTotals = () => {
@@ -470,53 +469,88 @@ const CreatePurchaseOrderPage: React.FC = () => {
                               <Controller
                                 name={`items.${index}.quantity`}
                                 control={control}
-                                render={({ field: qtyField }) => (
-                                  <TextField
-                                    {...qtyField}
-                                    type="number"
-                                    variant="outlined"
-                                    inputProps={{ min: 1, style: { textAlign: 'center', fontSize: '0.875rem' } }}
-                                    error={!!errors.items?.[index]?.quantity}
-                                    sx={{
-                                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                                        display: 'none',
-                                      },
-                                      '& input[type=number]': {
-                                        MozAppearance: 'textfield',
-                                      },
-                                    }}
-                                  />
-                                )}
+                                render={({ field: qtyField }) => {
+                                  const formatQuantity = (value: number | string): string => {
+                                    if (value === '' || value === null || value === undefined) return ''
+                                    const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
+                                    if (isNaN(num)) return ''
+                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                                  }
+
+                                  const [displayValue, setDisplayValue] = React.useState(formatQuantity(qtyField.value))
+                                  const [isFocused, setIsFocused] = React.useState(false)
+
+                                  React.useEffect(() => {
+                                    if (!isFocused) {
+                                      setDisplayValue(formatQuantity(qtyField.value))
+                                    }
+                                  }, [qtyField.value, isFocused])
+
+                                  return (
+                                    <TextField
+                                      value={displayValue}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/[^0-9]/g, '')
+                                        setDisplayValue(value)
+                                        qtyField.onChange(parseInt(value) || 0)
+                                      }}
+                                      onFocus={() => {
+                                        setIsFocused(true)
+                                        setDisplayValue(qtyField.value?.toString() || '')
+                                      }}
+                                      onBlur={() => {
+                                        setIsFocused(false)
+                                        setDisplayValue(formatQuantity(qtyField.value))
+                                      }}
+                                      variant="outlined"
+                                      inputProps={{ style: { textAlign: 'center', fontSize: '0.875rem' } }}
+                                      error={!!errors.items?.[index]?.quantity}
+                                    />
+                                  )
+                                }}
                               />
                             </TableCell>
                             <TableCell sx={{ padding: '2px !important' }}>
                               <Controller
                                 name={`items.${index}.unitPrice`}
                                 control={control}
-                                render={({ field: priceField }) => (
-                                  <TextField
-                                    {...priceField}
-                                    type="number"
-                                    variant="outlined"
-                                    inputProps={{
-                                      min: 0,
-                                      step: 0.01,
-                                      style: { textAlign: 'right', fontSize: '0.875rem' }
-                                    }}
-                                    sx={{
-                                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                                        display: 'none',
-                                      },
-                                      '& input[type=number]': {
-                                        MozAppearance: 'textfield',
-                                      },
-                                    }}
-                                    InputProps={{
-                                      startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                                    }}
-                                    error={!!errors.items?.[index]?.unitPrice}
-                                  />
-                                )}
+                                render={({ field: priceField }) => {
+                                  const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(priceField.value))
+                                  const [isFocused, setIsFocused] = React.useState(false)
+
+                                  React.useEffect(() => {
+                                    if (!isFocused) {
+                                      setDisplayValue(formatNumberWithCommas(priceField.value))
+                                    }
+                                  }, [priceField.value, isFocused])
+
+                                  return (
+                                    <TextField
+                                      value={displayValue}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/[^0-9.]/g, '')
+                                        setDisplayValue(value)
+                                        priceField.onChange(parseFormattedNumber(value))
+                                      }}
+                                      onFocus={() => {
+                                        setIsFocused(true)
+                                        setDisplayValue(priceField.value?.toString() || '')
+                                      }}
+                                      onBlur={() => {
+                                        setIsFocused(false)
+                                        setDisplayValue(formatNumberWithCommas(priceField.value))
+                                      }}
+                                      variant="outlined"
+                                      inputProps={{
+                                        style: { textAlign: 'right', fontSize: '0.875rem' }
+                                      }}
+                                      InputProps={{
+                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                      }}
+                                      error={!!errors.items?.[index]?.unitPrice}
+                                    />
+                                  )
+                                }}
                               />
                             </TableCell>
                             <TableCell sx={{ padding: '2px !important' }}>
@@ -524,28 +558,43 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 <Controller
                                   name={`items.${index}.discountValue`}
                                   control={control}
-                                  render={({ field: discountField }) => (
-                                    <TextField
-                                      {...discountField}
-                                      type="number"
-                                      variant="outlined"
-                                      inputProps={{
-                                        min: 0,
-                                        step: 0.01,
-                                        style: { textAlign: 'right', fontSize: '0.875rem' }
-                                      }}
-                                      error={!!errors.items?.[index]?.discountValue}
-                                      sx={{
-                                        flex: 1,
-                                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                                          display: 'none',
-                                        },
-                                        '& input[type=number]': {
-                                          MozAppearance: 'textfield',
-                                        },
-                                      }}
-                                    />
-                                  )}
+                                  render={({ field: discountField }) => {
+                                    const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(discountField.value))
+                                    const [isFocused, setIsFocused] = React.useState(false)
+
+                                    React.useEffect(() => {
+                                      if (!isFocused) {
+                                        setDisplayValue(formatNumberWithCommas(discountField.value))
+                                      }
+                                    }, [discountField.value, isFocused])
+
+                                    return (
+                                      <TextField
+                                        value={displayValue}
+                                        onChange={(e) => {
+                                          const value = e.target.value.replace(/[^0-9.]/g, '')
+                                          setDisplayValue(value)
+                                          discountField.onChange(parseFormattedNumber(value))
+                                        }}
+                                        onFocus={() => {
+                                          setIsFocused(true)
+                                          setDisplayValue(discountField.value?.toString() || '')
+                                        }}
+                                        onBlur={() => {
+                                          setIsFocused(false)
+                                          setDisplayValue(formatNumberWithCommas(discountField.value))
+                                        }}
+                                        variant="outlined"
+                                        inputProps={{
+                                          style: { textAlign: 'right', fontSize: '0.875rem' }
+                                        }}
+                                        error={!!errors.items?.[index]?.discountValue}
+                                        sx={{
+                                          flex: 1,
+                                        }}
+                                      />
+                                    )
+                                  }}
                                 />
                                 <Controller
                                   name={`items.${index}.discountType`}
@@ -669,34 +718,49 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     <Controller
                       name="shipping"
                       control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          type="number"
-                          variant="outlined"
-                          size="small"
-                          inputProps={{
-                            min: 0,
-                            step: 0.01,
-                            style: { textAlign: 'right', fontSize: '0.875rem' }
-                          }}
-                          sx={{
-                            width: '120px',
-                            '& .MuiInputBase-input': {
-                              padding: '4px 8px',
-                            },
-                            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                              display: 'none',
-                            },
-                            '& input[type=number]': {
-                              MozAppearance: 'textfield',
-                            },
-                          }}
-                          InputProps={{
-                            startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                          }}
-                        />
-                      )}
+                      render={({ field }) => {
+                        const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(field.value))
+                        const [isFocused, setIsFocused] = React.useState(false)
+
+                        React.useEffect(() => {
+                          if (!isFocused) {
+                            setDisplayValue(formatNumberWithCommas(field.value))
+                          }
+                        }, [field.value, isFocused])
+
+                        return (
+                          <TextField
+                            value={displayValue}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9.]/g, '')
+                              setDisplayValue(value)
+                              field.onChange(parseFormattedNumber(value))
+                            }}
+                            onFocus={() => {
+                              setIsFocused(true)
+                              setDisplayValue(field.value?.toString() || '')
+                            }}
+                            onBlur={() => {
+                              setIsFocused(false)
+                              setDisplayValue(formatNumberWithCommas(field.value))
+                            }}
+                            variant="outlined"
+                            size="small"
+                            inputProps={{
+                              style: { textAlign: 'right', fontSize: '0.875rem' }
+                            }}
+                            sx={{
+                              width: '120px',
+                              '& .MuiInputBase-input': {
+                                padding: '4px 8px',
+                              },
+                            }}
+                            InputProps={{
+                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                            }}
+                          />
+                        )
+                      }}
                     />
                   </Box>
 
