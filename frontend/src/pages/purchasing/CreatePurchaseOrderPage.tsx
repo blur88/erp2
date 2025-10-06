@@ -19,6 +19,7 @@ import {
   Container,
   Card,
   CardContent,
+  MenuItem,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -39,6 +40,8 @@ interface PurchaseOrderItem {
   product?: any
   quantity: number
   unitPrice: number
+  discountType: 'percent' | 'amount'
+  discountValue: number
   discountPercent: number
   totalPrice: number
 }
@@ -59,6 +62,8 @@ const schema = yup.object({
       productId: yup.string().required('Product is required'),
       quantity: yup.number().positive('Quantity must be positive').required(),
       unitPrice: yup.number().min(0).required(),
+      discountType: yup.string().oneOf(['percent', 'amount']).required(),
+      discountValue: yup.number().min(0).optional(),
       discountPercent: yup.number().min(0).max(100).optional(),
       totalPrice: yup.number().min(0).required(),
     })
@@ -84,6 +89,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
           productId: '',
           quantity: 1,
           unitPrice: 0,
+          discountType: 'percent' as const,
+          discountValue: 0,
           discountPercent: 0,
           totalPrice: 0,
         }
@@ -108,7 +115,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
     watchedItems.forEach((item, index) => {
       if (item.quantity && item.unitPrice !== undefined) {
         const subtotal = Number(item.quantity) * Number(item.unitPrice)
-        const discountAmount = subtotal * (Number(item.discountPercent || 0) / 100)
+        let discountAmount = 0
+
+        if (item.discountType === 'percent') {
+          discountAmount = subtotal * (Number(item.discountValue || 0) / 100)
+        } else {
+          discountAmount = Number(item.discountValue || 0)
+        }
+
         const total = subtotal - discountAmount
 
         if (Math.abs(item.totalPrice - total) > 0.01) {
@@ -206,6 +220,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
       productId: '',
       quantity: 1,
       unitPrice: 0,
+      discountType: 'percent' as const,
+      discountValue: 0,
       discountPercent: 0,
       totalPrice: 0,
     })
@@ -380,11 +396,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     >
                       <TableHead>
                         <TableRow>
-                          <TableCell align="center" sx={{ width: '35%', minWidth: 200 }}>Product</TableCell>
-                          <TableCell align="center" sx={{ width: '10%', minWidth: 80 }}>Qty</TableCell>
-                          <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Unit Price</TableCell>
-                          <TableCell align="center" sx={{ width: '12%', minWidth: 90 }}>Disc %</TableCell>
-                          <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Total</TableCell>
+                          <TableCell align="center" sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
+                          <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>Qty</TableCell>
+                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Unit Price</TableCell>
+                          <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>Discount</TableCell>
+                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Total</TableCell>
                           <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
                           <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
                         </TableRow>
@@ -483,24 +499,58 @@ const CreatePurchaseOrderPage: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell sx={{ padding: '2px !important' }}>
-                              <Controller
-                                name={`items.${index}.discountPercent`}
-                                control={control}
-                                render={({ field: discountField }) => (
-                                  <TextField
-                                    {...discountField}
-                                    type="number"
-                                    variant="outlined"
-                                    inputProps={{
-                                      min: 0,
-                                      max: 100,
-                                      step: 0.01,
-                                      style: { textAlign: 'center', fontSize: '0.875rem' }
-                                    }}
-                                    error={!!errors.items?.[index]?.discountPercent}
-                                  />
-                                )}
-                              />
+                              <Box sx={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                <Controller
+                                  name={`items.${index}.discountValue`}
+                                  control={control}
+                                  render={({ field: discountField }) => (
+                                    <TextField
+                                      {...discountField}
+                                      type="number"
+                                      variant="outlined"
+                                      inputProps={{
+                                        min: 0,
+                                        step: 0.01,
+                                        style: { textAlign: 'right', fontSize: '0.875rem' }
+                                      }}
+                                      error={!!errors.items?.[index]?.discountValue}
+                                      sx={{ flex: 1 }}
+                                    />
+                                  )}
+                                />
+                                <Controller
+                                  name={`items.${index}.discountType`}
+                                  control={control}
+                                  render={({ field: typeField }) => (
+                                    <TextField
+                                      {...typeField}
+                                      select
+                                      variant="outlined"
+                                      sx={{
+                                        width: '60px',
+                                        '& .MuiInputBase-input': {
+                                          fontSize: '0.875rem',
+                                          padding: '6px 4px',
+                                        }
+                                      }}
+                                      SelectProps={{
+                                        MenuProps: {
+                                          PaperProps: {
+                                            sx: {
+                                              '& .MuiMenuItem-root': {
+                                                fontSize: '0.875rem',
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <MenuItem value="percent">%</MenuItem>
+                                      <MenuItem value="amount">RM</MenuItem>
+                                    </TextField>
+                                  )}
+                                />
+                              </Box>
                             </TableCell>
                             <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
                               <Box sx={{
