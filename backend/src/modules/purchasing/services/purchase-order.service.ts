@@ -1,11 +1,9 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
-import { 
-  PurchaseOrder, 
+import {
+  PurchaseOrder,
   PurchaseOrderItem,
-  PurchaseOrderStatus, 
-  PurchaseOrderPriority,
   Supplier,
   User,
   Product
@@ -16,9 +14,6 @@ import {
   PurchaseOrderQueryDto,
   PurchaseOrderResponseDto,
   PurchaseOrderListResponseDto,
-  ApprovePurchaseOrderDto,
-  AcknowledgePurchaseOrderDto,
-  CancelPurchaseOrderDto,
   PurchaseOrderSummaryDto,
 } from '../dto';
 import { SupplierService } from './supplier.service';
@@ -79,8 +74,6 @@ export class PurchaseOrderService {
         ...createPurchaseOrderDto,
         orderDate: new Date(createPurchaseOrderDto.orderDate),
         createdByUserId: validUserId,
-        status: PurchaseOrderStatus.DRAFT,
-        priority: PurchaseOrderPriority.NORMAL,
         paymentTermsDays: createPurchaseOrderDto.paymentTermsDays || 30,
       });
 
@@ -184,8 +177,6 @@ export class PurchaseOrderService {
       limit = 10,
       search,
       supplierId,
-      status,
-      priority,
       createdByUserId,
       orderDateFrom,
       orderDateTo,
@@ -216,14 +207,6 @@ export class PurchaseOrderService {
     // Apply filters
     if (supplierId) {
       queryBuilder.andWhere('po.supplierId = :supplierId', { supplierId });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('po.status = :status', { status });
-    }
-
-    if (priority) {
-      queryBuilder.andWhere('po.priority = :priority', { priority });
     }
 
     if (createdByUserId) {
@@ -341,10 +324,6 @@ export class PurchaseOrderService {
     }
 
     // Check if order can be modified
-    if (purchaseOrder.isCompleted) {
-      throw new BadRequestException('Cannot modify completed purchase order');
-    }
-
     try {
       // Update basic fields
       Object.assign(purchaseOrder, {
@@ -415,212 +394,6 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Approve purchase order
-   */
-  async approve(
-    id: string, 
-    approveDto: ApprovePurchaseOrderDto, 
-    userId: string
-  ): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Approving purchase order: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-      relations: ['supplier'],
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order with ID ${id} not found`);
-    }
-
-    if (!purchaseOrder.canApprove) {
-      throw new BadRequestException('Purchase order cannot be approved in current status');
-    }
-
-    try {
-      purchaseOrder.approve(userId);
-      if (approveDto.comments) {
-        purchaseOrder.internalNotes = (purchaseOrder.internalNotes || '') + 
-          `\nApproved: ${approveDto.comments}`;
-      }
-
-      const updatedOrder = await this.purchaseOrderRepository.save(purchaseOrder);
-
-      this.logger.log(`Purchase order approved successfully: ${updatedOrder.orderNumber}`);
-      return await this.findOne(updatedOrder.id);
-    } catch (error) {
-      this.logger.error(`Error approving purchase order: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to approve purchase order');
-    }
-  }
-
-  /**
-   * Send purchase order to supplier
-   */
-  async send(id: string): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Sending purchase order: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order with ID ${id} not found`);
-    }
-
-    if (!purchaseOrder.canSend) {
-      throw new BadRequestException('Purchase order cannot be sent in current status');
-    }
-
-    try {
-      purchaseOrder.send();
-      const updatedOrder = await this.purchaseOrderRepository.save(purchaseOrder);
-
-      this.logger.log(`Purchase order sent successfully: ${updatedOrder.orderNumber}`);
-      return await this.findOne(updatedOrder.id);
-    } catch (error) {
-      this.logger.error(`Error sending purchase order: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to send purchase order');
-    }
-  }
-
-  /**
-   * Acknowledge purchase order from supplier
-   */
-  async acknowledge(
-    id: string, 
-    acknowledgeDto: AcknowledgePurchaseOrderDto
-  ): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Acknowledging purchase order: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order with ID ${id} not found`);
-    }
-
-    if (purchaseOrder.status !== PurchaseOrderStatus.SENT) {
-      throw new BadRequestException('Purchase order cannot be acknowledged in current status');
-    }
-
-    try {
-      const expectedDeliveryDate = acknowledgeDto.expectedDeliveryDate ?
-        new Date(acknowledgeDto.expectedDeliveryDate) : undefined;
-      
-      purchaseOrder.acknowledge(expectedDeliveryDate);
-      
-      if (acknowledgeDto.notes) {
-        purchaseOrder.internalNotes = (purchaseOrder.internalNotes || '') + 
-          `\nAcknowledged: ${acknowledgeDto.notes}`;
-      }
-
-      const updatedOrder = await this.purchaseOrderRepository.save(purchaseOrder);
-
-      this.logger.log(`Purchase order acknowledged successfully: ${updatedOrder.orderNumber}`);
-      return await this.findOne(updatedOrder.id);
-    } catch (error) {
-      this.logger.error(`Error acknowledging purchase order: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to acknowledge purchase order');
-    }
-  }
-
-  /**
-   * Cancel purchase order
-   */
-  async cancel(
-    id: string, 
-    cancelDto: CancelPurchaseOrderDto
-  ): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Cancelling purchase order: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order with ID ${id} not found`);
-    }
-
-    if (!purchaseOrder.canCancel()) {
-      throw new BadRequestException('Purchase order cannot be cancelled in current status');
-    }
-
-    try {
-      purchaseOrder.cancel(cancelDto.reason);
-      const updatedOrder = await this.purchaseOrderRepository.save(purchaseOrder);
-
-      this.logger.log(`Purchase order cancelled successfully: ${updatedOrder.orderNumber}`);
-      return await this.findOne(updatedOrder.id);
-    } catch (error) {
-      this.logger.error(`Error cancelling purchase order: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to cancel purchase order');
-    }
-  }
-
-  /**
-   * Mark purchase order as received
-   */
-  async markAsReceived(id: string): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Marking purchase order as received: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-      relations: ['items'],
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order with ID ${id} not found`);
-    }
-
-    if (!purchaseOrder.isReceivable) {
-      throw new BadRequestException('Purchase order cannot be marked as received in current status');
-    }
-
-    try {
-      purchaseOrder.markAsReceived();
-      const updatedOrder = await this.purchaseOrderRepository.save(purchaseOrder);
-
-      this.logger.log(`Purchase order marked as received: ${updatedOrder.orderNumber}`);
-      return await this.findOne(updatedOrder.id);
-    } catch (error) {
-      this.logger.error(`Error marking purchase order as received: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to mark purchase order as received');
-    }
-  }
-
-  /**
-   * Complete purchase order
-   */
-  async complete(id: string): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Completing purchase order: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order with ID ${id} not found`);
-    }
-
-    if (purchaseOrder.status !== PurchaseOrderStatus.RECEIVED) {
-      throw new BadRequestException('Purchase order cannot be completed in current status');
-    }
-
-    try {
-      purchaseOrder.complete();
-      const updatedOrder = await this.purchaseOrderRepository.save(purchaseOrder);
-
-      this.logger.log(`Purchase order completed successfully: ${updatedOrder.orderNumber}`);
-      return await this.findOne(updatedOrder.id);
-    } catch (error) {
-      this.logger.error(`Error completing purchase order: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to complete purchase order');
-    }
-  }
-
-  /**
    * Get purchase order summary
    */
   async getSummary(): Promise<PurchaseOrderSummaryDto> {
@@ -630,15 +403,12 @@ export class PurchaseOrderService {
       const [
         totalOrders,
         totalAmount,
-        ordersByStatus,
-        ordersByPriority,
         overdueOrders,
-        pendingApproval,
         topSuppliers,
       ] = await Promise.all([
         // Total orders count
         this.purchaseOrderRepository.count(),
-        
+
         // Total amount
         this.purchaseOrderRepository
           .createQueryBuilder('po')
@@ -646,47 +416,10 @@ export class PurchaseOrderService {
           .getRawOne()
           .then(result => parseFloat(result.total) || 0),
 
-        // Orders by status
-        this.purchaseOrderRepository
-          .createQueryBuilder('po')
-          .select('po.status', 'status')
-          .addSelect('COUNT(*)', 'count')
-          .groupBy('po.status')
-          .getRawMany()
-          .then(results => 
-            results.reduce((acc, row) => {
-              acc[row.status] = parseInt(row.count);
-              return acc;
-            }, {} as Record<string, number>)
-          ),
-
-        // Orders by priority
-        this.purchaseOrderRepository
-          .createQueryBuilder('po')
-          .select('po.priority', 'priority')
-          .addSelect('COUNT(*)', 'count')
-          .groupBy('po.priority')
-          .getRawMany()
-          .then(results => 
-            results.reduce((acc, row) => {
-              acc[row.priority] = parseInt(row.count);
-              return acc;
-            }, {} as Record<string, number>)
-          ),
-
         // Overdue orders
         this.purchaseOrderRepository
           .createQueryBuilder('po')
           .where('po.requiredDate < :now', { now: new Date() })
-          .andWhere('po.status NOT IN (:...statuses)', {
-            statuses: ['received', 'completed', 'cancelled']
-          })
-          .getCount(),
-
-        // Pending approval
-        this.purchaseOrderRepository
-          .createQueryBuilder('po')
-          .where('po.status = :status', { status: PurchaseOrderStatus.PENDING })
           .getCount(),
 
         // Top suppliers by volume
@@ -702,7 +435,7 @@ export class PurchaseOrderService {
           .orderBy('SUM(po.totalAmount)', 'DESC')
           .limit(5)
           .getRawMany()
-          .then(results => 
+          .then(results =>
             results.map(row => ({
               supplierId: row.supplierId,
               companyName: row.companyName,
@@ -717,11 +450,8 @@ export class PurchaseOrderService {
       return {
         totalOrders,
         totalAmount,
-        ordersByStatus,
-        ordersByPriority,
         averageOrderValue,
         overdueOrders,
-        pendingApprovalCount: pendingApproval,
         topSuppliers,
       };
     } catch (error) {
@@ -737,8 +467,6 @@ export class PurchaseOrderService {
     return {
       id: purchaseOrder.id,
       orderNumber: purchaseOrder.orderNumber,
-      status: purchaseOrder.status,
-      priority: purchaseOrder.priority,
       supplier: {
         id: purchaseOrder.supplier.id,
         supplierCode: purchaseOrder.supplier.id.slice(0, 8).toUpperCase(),
@@ -771,8 +499,6 @@ export class PurchaseOrderService {
       subtotal: Number(purchaseOrder.subtotal),
       discountPercent: Number(purchaseOrder.discountPercent),
       discountAmount: Number(purchaseOrder.discountAmount),
-      taxPercent: Number(purchaseOrder.taxPercent),
-      taxAmount: Number(purchaseOrder.taxAmount),
       shippingAmount: Number(purchaseOrder.shippingAmount),
       totalAmount: Number(purchaseOrder.totalAmount),
       paymentTermsDays: purchaseOrder.paymentTermsDays,
@@ -782,11 +508,6 @@ export class PurchaseOrderService {
       internalNotes: purchaseOrder.internalNotes,
       supplierQuoteRef: purchaseOrder.supplierQuoteRef,
       isOverdue: purchaseOrder.isOverdue,
-      isReceivable: purchaseOrder.isReceivable,
-      isCompleted: purchaseOrder.isCompleted,
-      canApprove: purchaseOrder.canApprove,
-      canSend: purchaseOrder.canSend,
-      canCancel: purchaseOrder.canCancel(),
       isFullyReceived: purchaseOrder.isFullyReceived(),
       totalReceivedQuantity: purchaseOrder.getTotalReceivedQuantity(),
       totalOrderedQuantity: purchaseOrder.getTotalOrderedQuantity(),

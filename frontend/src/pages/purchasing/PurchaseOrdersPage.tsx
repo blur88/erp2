@@ -72,8 +72,6 @@ interface PurchaseOrdersPageState {
   search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
-  statusFilter: string
-  priorityFilter: string
   supplierFilter: string
   dateFilter: string
   customFromDate: string
@@ -92,33 +90,6 @@ interface OrderRowProps {
 const OrderRow = memo(({ order, index, selectedOrderId, focusedOrderIndex, onOrderSelect }: OrderRowProps) => {
   const isSelected = selectedOrderId === order.id
   const isFocused = index === focusedOrderIndex
-
-  // Status color mapping
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      draft: 'default',
-      pending: 'warning',
-      approved: 'info',
-      sent: 'primary',
-      acknowledged: 'info',
-      partially_received: 'warning',
-      received: 'success',
-      completed: 'success',
-      cancelled: 'error',
-    }
-    return colors[status] || 'default'
-  }
-
-  // Priority color mapping
-  const getPriorityColor = (priority: string) => {
-    const colors: Record<string, string> = {
-      low: 'success',
-      normal: 'info',
-      high: 'warning',
-      urgent: 'error',
-    }
-    return colors[priority] || 'default'
-  }
 
   return (
     <TableRow
@@ -152,29 +123,13 @@ const OrderRow = memo(({ order, index, selectedOrderId, focusedOrderIndex, onOrd
         >
           {order.orderNumber}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-          <Chip
-            label={order.status?.replace('_', ' ').toUpperCase()}
-            color={getStatusColor(order.status) as any}
-            size="small"
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-              height: TYPOGRAPHY_STYLES.chip.extraSmall.height
-            }}
-          />
-          {order.priority && order.priority !== 'normal' && (
-            <Chip
-              label={order.priority?.toUpperCase()}
-              color={getPriorityColor(order.priority) as any}
-              size="small"
-              variant="outlined"
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                height: TYPOGRAPHY_STYLES.chip.extraSmall.height
-              }}
-            />
-          )}
-        </Box>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mt: 0.5 }}
+        >
+          {order.supplier?.companyName}
+        </Typography>
       </TableCell>
     </TableRow>
   )
@@ -202,8 +157,6 @@ const PurchaseOrdersPage: React.FC = () => {
     search: '',
     sortBy: 'orderDate',
     sortOrder: 'desc',
-    statusFilter: 'all',
-    priorityFilter: 'all',
     supplierFilter: 'all',
     dateFilter: 'all',
     customFromDate: '',
@@ -225,8 +178,6 @@ const PurchaseOrdersPage: React.FC = () => {
       sortOrder: state.sortOrder.toUpperCase() as 'ASC' | 'DESC',
       search: state.search,
       supplierId: state.supplierFilter === 'all' ? undefined : state.supplierFilter,
-      status: state.statusFilter === 'all' ? undefined : state.statusFilter,
-      priority: state.priorityFilter === 'all' ? undefined : state.priorityFilter,
       orderDateFrom: dateRange.fromDate,
       orderDateTo: dateRange.toDate,
     } as any))
@@ -488,44 +439,7 @@ const PurchaseOrdersPage: React.FC = () => {
           </Select>
         </FormControl>
 
-        <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={state.statusFilter}
-            label="Status"
-            onChange={(e) => setState(prev => ({ ...prev, statusFilter: e.target.value, page: 0 }))}
-            sx={{ fontSize: '0.875rem' }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="draft">Draft</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="approved">Approved</MenuItem>
-            <MenuItem value="sent">Sent</MenuItem>
-            <MenuItem value="acknowledged">Acknowledged</MenuItem>
-            <MenuItem value="partially_received">Partially Received</MenuItem>
-            <MenuItem value="received">Received</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-            <MenuItem value="cancelled">Cancelled</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
-          <InputLabel>Priority</InputLabel>
-          <Select
-            value={state.priorityFilter}
-            label="Priority"
-            onChange={(e) => setState(prev => ({ ...prev, priorityFilter: e.target.value, page: 0 }))}
-            sx={{ fontSize: '0.875rem' }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="low">Low</MenuItem>
-            <MenuItem value="normal">Normal</MenuItem>
-            <MenuItem value="high">High</MenuItem>
-            <MenuItem value="urgent">Urgent</MenuItem>
-          </Select>
-        </FormControl>
-
-        {(state.dateFilter !== 'all' || state.supplierFilter !== 'all' || state.statusFilter !== 'all' || state.priorityFilter !== 'all') && (
+        {(state.dateFilter !== 'all' || state.supplierFilter !== 'all') && (
           <Button
             variant="outlined"
             size="medium"
@@ -535,8 +449,6 @@ const PurchaseOrdersPage: React.FC = () => {
               customFromDate: '',
               customToDate: '',
               supplierFilter: 'all',
-              statusFilter: 'all',
-              priorityFilter: 'all',
               page: 0
             }))}
             sx={{
@@ -718,14 +630,6 @@ const PurchaseOrdersPage: React.FC = () => {
                               <Typography>{formatDate(selectedOrder.requiredDate)}</Typography>
                             </Box>
                           )}
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography color="text.secondary">Status:</Typography>
-                            <Chip label={selectedOrder.status?.replace('_', ' ').toUpperCase()} size="small" />
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography color="text.secondary">Priority:</Typography>
-                            <Chip label={selectedOrder.priority?.toUpperCase()} size="small" variant="outlined" />
-                          </Box>
                         </Stack>
                       </CardContent>
                     </Card>
@@ -742,10 +646,6 @@ const PurchaseOrdersPage: React.FC = () => {
                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography color="text.secondary">Subtotal:</Typography>
                             <Typography>{formatCurrency(selectedOrder.subtotal || 0)}</Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography color="text.secondary">Tax:</Typography>
-                            <Typography>{formatCurrency(selectedOrder.taxAmount || 0)}</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography color="text.secondary">Shipping:</Typography>
