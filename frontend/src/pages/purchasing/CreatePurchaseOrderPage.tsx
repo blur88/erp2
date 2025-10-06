@@ -471,6 +471,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                     variant="outlined"
                                     inputProps={{ min: 1, style: { textAlign: 'center', fontSize: '0.875rem' } }}
                                     error={!!errors.items?.[index]?.quantity}
+                                    sx={{
+                                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                        display: 'none',
+                                      },
+                                      '& input[type=number]': {
+                                        MozAppearance: 'textfield',
+                                      },
+                                    }}
                                   />
                                 )}
                               />
@@ -514,7 +522,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                         style: { textAlign: 'right', fontSize: '0.875rem' }
                                       }}
                                       error={!!errors.items?.[index]?.discountValue}
-                                      sx={{ flex: 1 }}
+                                      sx={{
+                                        flex: 1,
+                                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                          display: 'none',
+                                        },
+                                        '& input[type=number]': {
+                                          MozAppearance: 'textfield',
+                                        },
+                                      }}
                                     />
                                   )}
                                 />
