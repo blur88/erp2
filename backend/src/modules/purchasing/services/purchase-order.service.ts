@@ -74,11 +74,9 @@ export class PurchaseOrderService {
       const purchaseOrder = this.purchaseOrderRepository.create({
         ...createPurchaseOrderDto,
         orderDate: new Date(createPurchaseOrderDto.orderDate),
-        requiredDate: createPurchaseOrderDto.requiredDate ? 
-          new Date(createPurchaseOrderDto.requiredDate) : undefined,
         createdByUserId: userId,
         status: PurchaseOrderStatus.DRAFT,
-        priority: createPurchaseOrderDto.priority || PurchaseOrderPriority.NORMAL,
+        priority: PurchaseOrderPriority.NORMAL,
         paymentTermsDays: createPurchaseOrderDto.paymentTermsDays || supplier.paymentTermsDays,
       });
 
@@ -90,29 +88,23 @@ export class PurchaseOrderService {
       let subtotal = 0;
 
       for (const itemDto of createPurchaseOrderDto.items) {
-        let product: Product | undefined;
-        
-        // Validate product if specified
-        if (itemDto.productId) {
-          product = await this.productRepository.findOne({
-            where: { id: itemDto.productId },
-          });
-          
-          if (!product) {
-            throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
-          }
+        // Validate product
+        const product = await this.productRepository.findOne({
+          where: { id: itemDto.productId },
+        });
+
+        if (!product) {
+          throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
         }
 
         const item = this.purchaseOrderItemRepository.create({
           productId: itemDto.productId,
-          description: itemDto.description,
+          description: product.name,
           quantity: itemDto.quantity,
           unitPrice: itemDto.unitPrice,
-          unit: itemDto.unit || product?.unit,
+          unit: 'pcs',
           discountPercent: itemDto.discountPercent || 0,
-          taxPercent: itemDto.taxPercent || 0,
-          notes: itemDto.notes,
-          requiredDate: itemDto.requiredDate ? new Date(itemDto.requiredDate) : undefined,
+          taxPercent: 0,
           status: 'pending',
           receivedQuantity: 0,
           rejectedQuantity: 0,

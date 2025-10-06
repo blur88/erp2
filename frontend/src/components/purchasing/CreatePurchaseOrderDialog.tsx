@@ -36,23 +36,17 @@ import { ApiService } from '@/services/api'
 import { formatCurrency } from '@/utils/formatters'
 
 interface PurchaseOrderItem {
-  productId?: string
+  productId: string
   product?: any
-  description: string
   quantity: number
   unitPrice: number
-  unit?: string
   discountPercent: number
-  taxPercent: number
   totalPrice: number
-  notes?: string
 }
 
 interface CreatePurchaseOrderFormData {
   supplierId: string
   orderDate: string
-  requiredDate?: string
-  priority: string
   notes?: string
   items: PurchaseOrderItem[]
 }
@@ -60,20 +54,14 @@ interface CreatePurchaseOrderFormData {
 const schema = yup.object({
   supplierId: yup.string().required('Supplier is required'),
   orderDate: yup.string().required('Order date is required'),
-  requiredDate: yup.string().optional(),
-  priority: yup.string().optional(),
   notes: yup.string().optional(),
   items: yup.array().of(
     yup.object({
-      productId: yup.string().optional(),
-      description: yup.string().required('Description is required'),
+      productId: yup.string().required('Product is required'),
       quantity: yup.number().positive('Quantity must be positive').required(),
       unitPrice: yup.number().min(0).required(),
-      unit: yup.string().optional(),
       discountPercent: yup.number().min(0).max(100).optional(),
-      taxPercent: yup.number().min(0).max(100).optional(),
       totalPrice: yup.number().min(0).required(),
-      notes: yup.string().optional(),
     })
   ).min(1, 'At least one item is required'),
 })
@@ -99,20 +87,14 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
     defaultValues: {
       supplierId: '',
       orderDate: new Date().toISOString().split('T')[0],
-      requiredDate: '',
-      priority: 'normal',
       notes: '',
       items: [
         {
           productId: '',
-          description: '',
           quantity: 1,
           unitPrice: 0,
-          unit: '',
           discountPercent: 0,
-          taxPercent: 0,
           totalPrice: 0,
-          notes: '',
         }
       ],
     },
@@ -138,9 +120,7 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
       if (item.quantity && item.unitPrice !== undefined) {
         const subtotal = Number(item.quantity) * Number(item.unitPrice)
         const discountAmount = subtotal * (Number(item.discountPercent || 0) / 100)
-        const afterDiscount = subtotal - discountAmount
-        const taxAmount = afterDiscount * (Number(item.taxPercent || 0) / 100)
-        const total = afterDiscount + taxAmount
+        const total = subtotal - discountAmount
 
         if (Math.abs(item.totalPrice - total) > 0.01) {
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
@@ -176,18 +156,12 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
       const orderData = {
         supplierId: data.supplierId,
         orderDate: data.orderDate,
-        requiredDate: data.requiredDate || undefined,
-        priority: data.priority || 'normal',
         notes: data.notes || undefined,
         items: data.items.map(item => ({
-          productId: item.productId || undefined,
-          description: item.description,
+          productId: item.productId,
           quantity: Number(item.quantity),
           unitPrice: Number(item.unitPrice),
-          unit: item.unit || undefined,
           discountPercent: Number(item.discountPercent || 0),
-          taxPercent: Number(item.taxPercent || 0),
-          notes: item.notes || undefined,
         })),
       }
 
@@ -207,9 +181,7 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
   const handleProductSelect = (index: number, product: any) => {
     if (product) {
       setValue(`items.${index}.productId`, product.id)
-      setValue(`items.${index}.description`, product.name)
       setValue(`items.${index}.unitPrice`, Number(product.baseCost || 0))
-      setValue(`items.${index}.unit`, 'pcs')
     }
   }
 
@@ -254,25 +226,6 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
               />
             </Grid>
 
-            {/* Priority */}
-            <Grid item xs={12} md={6}>
-              <Controller
-                name="priority"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth>
-                    <InputLabel>Priority</InputLabel>
-                    <Select {...field} label="Priority">
-                      <MenuItem value="low">Low</MenuItem>
-                      <MenuItem value="normal">Normal</MenuItem>
-                      <MenuItem value="high">High</MenuItem>
-                      <MenuItem value="urgent">Urgent</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Grid>
-
             {/* Order Date */}
             <Grid item xs={12} md={6}>
               <Controller
@@ -287,23 +240,6 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
                     InputLabelProps={{ shrink: true }}
                     error={!!errors.orderDate}
                     helperText={errors.orderDate?.message}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Required Date */}
-            <Grid item xs={12} md={6}>
-              <Controller
-                name="requiredDate"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Required Date"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
                   />
                 )}
               />
@@ -335,14 +271,10 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
                 startIcon={<AddIcon />}
                 onClick={() => append({
                   productId: '',
-                  description: '',
                   quantity: 1,
                   unitPrice: 0,
-                  unit: '',
                   discountPercent: 0,
-                  taxPercent: 0,
                   totalPrice: 0,
-                  notes: '',
                 })}
                 size="small"
               >
@@ -354,41 +286,40 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Product</TableCell>
-                    <TableCell>Description *</TableCell>
-                    <TableCell width="100px">Qty *</TableCell>
-                    <TableCell width="120px">Unit Price *</TableCell>
-                    <TableCell width="80px">Disc %</TableCell>
-                    <TableCell width="80px">Tax %</TableCell>
-                    <TableCell width="120px">Total</TableCell>
-                    <TableCell width="50px"></TableCell>
+                    <TableCell>Product *</TableCell>
+                    <TableCell width="120px">Qty *</TableCell>
+                    <TableCell width="150px">Unit Price *</TableCell>
+                    <TableCell width="120px">Disc %</TableCell>
+                    <TableCell width="150px">Total</TableCell>
+                    <TableCell width="60px"></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {fields.map((field, index) => (
                     <TableRow key={field.id}>
                       <TableCell>
-                        <Autocomplete
-                          options={products}
-                          getOptionLabel={(option) => option.name || ''}
-                          onChange={(_, value) => handleProductSelect(index, value)}
-                          renderInput={(params) => (
-                            <TextField {...params} size="small" placeholder="Select product" />
-                          )}
-                          size="small"
-                          sx={{ minWidth: 150 }}
-                        />
-                      </TableCell>
-                      <TableCell>
                         <Controller
-                          name={`items.${index}.description`}
+                          name={`items.${index}.productId`}
                           control={control}
                           render={({ field }) => (
-                            <TextField
-                              {...field}
+                            <Autocomplete
+                              options={products}
+                              getOptionLabel={(option) => option.name || ''}
+                              value={products.find(p => p.id === field.value) || null}
+                              onChange={(_, value) => {
+                                field.onChange(value?.id || '')
+                                handleProductSelect(index, value)
+                              }}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  size="small"
+                                  placeholder="Select product"
+                                  error={!!errors.items?.[index]?.productId}
+                                />
+                              )}
                               size="small"
-                              fullWidth
-                              error={!!errors.items?.[index]?.description}
+                              sx={{ minWidth: 200 }}
                             />
                           )}
                         />
@@ -426,21 +357,6 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
                       <TableCell>
                         <Controller
                           name={`items.${index}.discountPercent`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              type="number"
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 0, max: 100, step: 0.01 }}
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Controller
-                          name={`items.${index}.taxPercent`}
                           control={control}
                           render={({ field }) => (
                             <TextField

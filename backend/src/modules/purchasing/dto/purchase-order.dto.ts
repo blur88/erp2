@@ -23,16 +23,9 @@ import {
 } from '../../../database/entities/purchase-order.entity';
 
 export class CreatePurchaseOrderItemDto {
-  @ApiPropertyOptional({ description: 'Product ID if from catalog' })
-  @IsOptional()
+  @ApiProperty({ description: 'Product ID from catalog' })
   @IsUUID()
-  productId?: string;
-
-  @ApiProperty({ description: 'Item description', maxLength: 500 })
-  @IsString()
-  @MaxLength(500)
-  @MinLength(3)
-  description: string;
+  productId: string;
 
   @ApiProperty({ description: 'Quantity ordered' })
   @IsDecimal({ decimal_digits: '0,4' })
@@ -46,12 +39,6 @@ export class CreatePurchaseOrderItemDto {
   @Transform(({ value }) => parseFloat(value))
   unitPrice: number;
 
-  @ApiPropertyOptional({ description: 'Unit of measurement', maxLength: 50 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  unit?: string;
-
   @ApiPropertyOptional({ description: 'Discount percentage', default: 0 })
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,2' })
@@ -59,24 +46,6 @@ export class CreatePurchaseOrderItemDto {
   @Max(100)
   @Transform(({ value }) => parseFloat(value))
   discountPercent?: number;
-
-  @ApiPropertyOptional({ description: 'Tax percentage', default: 0 })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  @Max(100)
-  @Transform(({ value }) => parseFloat(value))
-  taxPercent?: number;
-
-  @ApiPropertyOptional({ description: 'Item-specific notes' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({ description: 'Required delivery date' })
-  @IsOptional()
-  @IsDateString()
-  requiredDate?: string;
 }
 
 export class CreatePurchaseOrderDto {
@@ -84,19 +53,9 @@ export class CreatePurchaseOrderDto {
   @IsUUID()
   supplierId: string;
 
-  @ApiPropertyOptional({ description: 'Purchase order priority', enum: PurchaseOrderPriority, default: PurchaseOrderPriority.NORMAL })
-  @IsOptional()
-  @IsEnum(PurchaseOrderPriority)
-  priority?: PurchaseOrderPriority;
-
   @ApiProperty({ description: 'Order date' })
   @IsDateString()
   orderDate: string;
-
-  @ApiPropertyOptional({ description: 'Required delivery date' })
-  @IsOptional()
-  @IsDateString()
-  requiredDate?: string;
 
   @ApiPropertyOptional({ description: 'Delivery address' })
   @IsOptional()
