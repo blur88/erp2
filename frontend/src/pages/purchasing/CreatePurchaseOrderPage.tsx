@@ -50,6 +50,7 @@ interface CreatePurchaseOrderFormData {
   supplierId: string
   orderDate: string
   notes?: string
+  shipping: number
   items: PurchaseOrderItem[]
 }
 
@@ -57,6 +58,7 @@ const schema = yup.object({
   supplierId: yup.string().required('Supplier is required'),
   orderDate: yup.string().required('Order date is required'),
   notes: yup.string().optional(),
+  shipping: yup.number().min(0).optional(),
   items: yup.array().of(
     yup.object({
       productId: yup.string().required('Product is required'),
@@ -84,6 +86,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       supplierId: '',
       orderDate: new Date().toISOString().split('T')[0],
       notes: '',
+      shipping: 0,
       items: [
         {
           productId: '',
@@ -104,6 +107,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   })
 
   const watchedItems = watch('items')
+  const watchedShipping = watch('shipping')
 
   useEffect(() => {
     loadSuppliers()
@@ -211,8 +215,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
   }
 
   const calculateOrderTotals = () => {
-    const totalAmount = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
-    return { totalAmount }
+    const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+    const shipping = Number(watchedShipping) || 0
+    const totalAmount = subtotal + shipping
+    return { subtotal, shipping, totalAmount }
   }
 
   const addItem = () => {
@@ -646,9 +652,50 @@ const CreatePurchaseOrderPage: React.FC = () => {
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Order Summary</Typography>
 
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                    <Typography variant="h6" sx={{ fontSize: '0.875rem' }}>Total:</Typography>
-                    <Typography variant="h6" sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.totalAmount)}</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
+                    <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem' }}>Shipping:</Typography>
+                    <Controller
+                      name="shipping"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          type="number"
+                          variant="outlined"
+                          size="small"
+                          inputProps={{
+                            min: 0,
+                            step: 0.01,
+                            style: { textAlign: 'right', fontSize: '0.875rem' }
+                          }}
+                          sx={{
+                            width: '120px',
+                            '& .MuiInputBase-input': {
+                              padding: '4px 8px',
+                            },
+                            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                              display: 'none',
+                            },
+                            '& input[type=number]': {
+                              MozAppearance: 'textfield',
+                            },
+                          }}
+                          InputProps={{
+                            startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                          }}
+                        />
+                      )}
+                    />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: '1px solid #e0e0e0' }}>
+                    <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Total:</Typography>
+                    <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 2 }}>
