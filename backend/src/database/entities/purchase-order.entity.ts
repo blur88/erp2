@@ -23,24 +23,6 @@ import { User } from './user.entity';
 import { PurchaseOrderItem } from './purchase-order-item.entity';
 import { GoodsReceivedNote } from './goods-received-note.entity';
 
-export enum PurchaseOrderStatus {
-  DRAFT = 'draft',
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  SENT = 'sent',
-  ACKNOWLEDGED = 'acknowledged',
-  PARTIALLY_RECEIVED = 'partially_received',
-  RECEIVED = 'received',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-}
-
-export enum PurchaseOrderPriority {
-  LOW = 'low',
-  NORMAL = 'normal',
-  HIGH = 'high',
-  URGENT = 'urgent',
-}
 
 /**
  * Purchase Order entity for managing supplier orders
@@ -49,11 +31,9 @@ export enum PurchaseOrderPriority {
 @Entity('purchase_orders')
 @Index(['orderNumber'], { unique: true })
 @Index(['supplierId'])
-@Index(['status'])
 @Index(['orderDate'])
 @Index(['requiredDate'])
 @Index(['createdByUserId'])
-@Index(['priority'])
 export class PurchaseOrder extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -64,24 +44,6 @@ export class PurchaseOrder extends BaseEntity {
   @IsString()
   @MaxLength(30)
   orderNumber: string;
-
-  @Column({
-    type: 'enum',
-    enum: PurchaseOrderStatus,
-    default: PurchaseOrderStatus.DRAFT,
-    comment: 'Purchase order status',
-  })
-  @IsEnum(PurchaseOrderStatus)
-  status: PurchaseOrderStatus;
-
-  @Column({
-    type: 'enum',
-    enum: PurchaseOrderPriority,
-    default: PurchaseOrderPriority.NORMAL,
-    comment: 'Order priority',
-  })
-  @IsEnum(PurchaseOrderPriority)
-  priority: PurchaseOrderPriority;
 
   @Column({
     type: 'date',
@@ -168,28 +130,6 @@ export class PurchaseOrder extends BaseEntity {
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   discountAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-    comment: 'Tax percentage',
-  })
-  @IsDecimal({ decimal_digits: '0,2' })
-  @Min(0)
-  taxPercent: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Tax amount',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  taxAmount: number;
 
   @Column({
     type: 'decimal',
@@ -423,24 +363,7 @@ export class PurchaseOrder extends BaseEntity {
 
   get isOverdue(): boolean {
     if (!this.requiredDate) return false;
-    return new Date() > this.requiredDate && 
-           ![PurchaseOrderStatus.RECEIVED, PurchaseOrderStatus.COMPLETED, PurchaseOrderStatus.CANCELLED].includes(this.status);
-  }
-
-  get isReceivable(): boolean {
-    return [PurchaseOrderStatus.SENT, PurchaseOrderStatus.ACKNOWLEDGED].includes(this.status);
-  }
-
-  get isCompleted(): boolean {
-    return [PurchaseOrderStatus.COMPLETED, PurchaseOrderStatus.CANCELLED].includes(this.status);
-  }
-
-  get canApprove(): boolean {
-    return this.status === PurchaseOrderStatus.PENDING;
-  }
-
-  get canSend(): boolean {
-    return this.status === PurchaseOrderStatus.APPROVED;
+    return new Date() > this.requiredDate;
   }
 
   // Hooks
@@ -466,74 +389,11 @@ export class PurchaseOrder extends BaseEntity {
       this.discountAmount = (Number(this.subtotal) * Number(this.discountPercent)) / 100;
     }
 
-    // Calculate tax amount (on subtotal after discount)
-    const taxableAmount = Number(this.subtotal) - Number(this.discountAmount);
-    if (this.taxPercent > 0) {
-      this.taxAmount = (taxableAmount * Number(this.taxPercent)) / 100;
-    }
-
-    // Calculate total
-    this.totalAmount = taxableAmount + Number(this.taxAmount) + Number(this.shippingAmount);
+    // Calculate total (subtotal - discount + shipping)
+    const subtotalAfterDiscount = Number(this.subtotal) - Number(this.discountAmount);
+    this.totalAmount = subtotalAfterDiscount + Number(this.shippingAmount);
   }
 
-  approve(approvedByUserId: string): void {
-    if (this.canApprove) {
-      this.status = PurchaseOrderStatus.APPROVED;
-      this.approvedByUserId = approvedByUserId;
-    }
-  }
-
-  send(): void {
-    if (this.canSend) {
-      this.status = PurchaseOrderStatus.SENT;
-      this.sentDate = new Date();
-    }
-  }
-
-  acknowledge(expectedDeliveryDate?: Date): void {
-    if (this.status === PurchaseOrderStatus.SENT) {
-      this.status = PurchaseOrderStatus.ACKNOWLEDGED;
-      this.acknowledgedDate = new Date();
-      if (expectedDeliveryDate) {
-        this.expectedDeliveryDate = expectedDeliveryDate;
-      }
-    }
-  }
-
-  markAsPartiallyReceived(): void {
-    if (this.isReceivable || this.status === PurchaseOrderStatus.ACKNOWLEDGED) {
-      this.status = PurchaseOrderStatus.PARTIALLY_RECEIVED;
-    }
-  }
-
-  markAsReceived(): void {
-    if ([PurchaseOrderStatus.SENT, PurchaseOrderStatus.ACKNOWLEDGED, 
-         PurchaseOrderStatus.PARTIALLY_RECEIVED].includes(this.status)) {
-      this.status = PurchaseOrderStatus.RECEIVED;
-      this.deliveredDate = new Date();
-    }
-  }
-
-  complete(): void {
-    if (this.status === PurchaseOrderStatus.RECEIVED) {
-      this.status = PurchaseOrderStatus.COMPLETED;
-    }
-  }
-
-  cancel(reason?: string): void {
-    if (!this.isCompleted) {
-      this.status = PurchaseOrderStatus.CANCELLED;
-      if (reason) {
-        this.internalNotes = `Cancelled: ${reason}`;
-      }
-    }
-  }
-
-  // Check if order can be cancelled
-  canCancel(): boolean {
-    return ![PurchaseOrderStatus.RECEIVED, PurchaseOrderStatus.COMPLETED, 
-             PurchaseOrderStatus.CANCELLED].includes(this.status);
-  }
 
   // Get total received quantities for all items
   getTotalReceivedQuantity(): number {

@@ -17,10 +17,6 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import {
-  PurchaseOrderStatus,
-  PurchaseOrderPriority
-} from '../../../database/entities/purchase-order.entity';
 
 export class CreatePurchaseOrderItemDto {
   @ApiProperty({ description: 'Product ID from catalog' })
@@ -106,14 +102,6 @@ export class CreatePurchaseOrderDto {
   @Max(100)
   discountPercent?: number;
 
-  @ApiPropertyOptional({ description: 'Tax percentage for entire order', default: 0 })
-  @IsOptional()
-  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  taxPercent?: number;
-
   @ApiPropertyOptional({ description: 'Shipping/freight charges', default: 0 })
   @IsOptional()
   @Transform(({ value }) => value == null ? 0 : parseFloat(value))
@@ -167,11 +155,6 @@ export class CreatePurchaseOrderDto {
 }
 
 export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {
-  @ApiPropertyOptional({ description: 'Purchase order status', enum: PurchaseOrderStatus })
-  @IsOptional()
-  @IsEnum(PurchaseOrderStatus)
-  status?: PurchaseOrderStatus;
-
   @ApiPropertyOptional({ description: 'Expected delivery date from supplier' })
   @IsOptional()
   @IsDateString()
@@ -203,16 +186,6 @@ export class PurchaseOrderQueryDto {
   @IsOptional()
   @IsUUID()
   supplierId?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by status', enum: PurchaseOrderStatus })
-  @IsOptional()
-  @IsEnum(PurchaseOrderStatus)
-  status?: PurchaseOrderStatus;
-
-  @ApiPropertyOptional({ description: 'Filter by priority', enum: PurchaseOrderPriority })
-  @IsOptional()
-  @IsEnum(PurchaseOrderPriority)
-  priority?: PurchaseOrderPriority;
 
   @ApiPropertyOptional({ description: 'Filter by created user ID' })
   @IsOptional()
@@ -286,12 +259,6 @@ export class PurchaseOrderItemResponseDto {
   @ApiProperty({ description: 'Discount amount' })
   discountAmount: number;
 
-  @ApiProperty({ description: 'Tax percentage' })
-  taxPercent: number;
-
-  @ApiProperty({ description: 'Tax amount' })
-  taxAmount: number;
-
   @ApiProperty({ description: 'Total amount for this line' })
   totalAmount: number;
 
@@ -320,12 +287,6 @@ export class PurchaseOrderResponseDto {
 
   @ApiProperty({ description: 'Order number' })
   orderNumber: string;
-
-  @ApiProperty({ description: 'Status' })
-  status: PurchaseOrderStatus;
-
-  @ApiProperty({ description: 'Priority' })
-  priority: PurchaseOrderPriority;
 
   @ApiProperty({ description: 'Supplier information' })
   supplier: {
@@ -389,12 +350,6 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Discount amount' })
   discountAmount: number;
 
-  @ApiProperty({ description: 'Tax percentage' })
-  taxPercent: number;
-
-  @ApiProperty({ description: 'Tax amount' })
-  taxAmount: number;
-
   @ApiProperty({ description: 'Shipping amount' })
   shippingAmount: number;
 
@@ -421,21 +376,6 @@ export class PurchaseOrderResponseDto {
 
   @ApiProperty({ description: 'Is overdue' })
   isOverdue: boolean;
-
-  @ApiProperty({ description: 'Is receivable' })
-  isReceivable: boolean;
-
-  @ApiProperty({ description: 'Is completed' })
-  isCompleted: boolean;
-
-  @ApiProperty({ description: 'Can approve' })
-  canApprove: boolean;
-
-  @ApiProperty({ description: 'Can send' })
-  canSend: boolean;
-
-  @ApiProperty({ description: 'Can cancel' })
-  canCancel: boolean;
 
   @ApiProperty({ description: 'Is fully received' })
   isFullyReceived: boolean;
@@ -543,20 +483,11 @@ export class PurchaseOrderSummaryDto {
   @ApiProperty({ description: 'Total purchase amount' })
   totalAmount: number;
 
-  @ApiProperty({ description: 'Orders by status' })
-  ordersByStatus: Record<string, number>;
-
-  @ApiProperty({ description: 'Orders by priority' })
-  ordersByPriority: Record<string, number>;
-
   @ApiProperty({ description: 'Average order value' })
   averageOrderValue: number;
 
   @ApiProperty({ description: 'Overdue orders count' })
   overdueOrders: number;
-
-  @ApiProperty({ description: 'Pending approval count' })
-  pendingApprovalCount: number;
 
   @ApiProperty({ description: 'Top suppliers by volume' })
   topSuppliers: Array<{

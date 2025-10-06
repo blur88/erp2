@@ -340,7 +340,6 @@ export interface PurchaseOrder {
   supplier: Supplier;
   items: PurchaseOrderItem[];
   total: number;
-  status: 'draft' | 'sent' | 'confirmed' | 'received' | 'cancelled';
   orderDate: Date;
   expectedDate?: Date;
   receivedDate?: Date;
