@@ -4,7 +4,7 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
-  IsDecimal,
+  IsNumber,
   IsInt,
   MaxLength,
   MinLength,
@@ -28,23 +28,23 @@ export class CreatePurchaseOrderItemDto {
   productId: string;
 
   @ApiProperty({ description: 'Quantity ordered' })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0.0001)
   @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @Min(0.0001)
   quantity: number;
 
   @ApiProperty({ description: 'Unit price' })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @Min(0)
   unitPrice: number;
 
   @ApiPropertyOptional({ description: 'Discount percentage', default: 0 })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
+  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @IsNumber()
   @Min(0)
   @Max(100)
-  @Transform(({ value }) => parseFloat(value))
   discountPercent?: number;
 }
 
@@ -100,25 +100,25 @@ export class CreatePurchaseOrderDto {
 
   @ApiPropertyOptional({ description: 'Discount percentage for entire order', default: 0 })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
+  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @IsNumber()
   @Min(0)
   @Max(100)
-  @Transform(({ value }) => parseFloat(value))
   discountPercent?: number;
 
   @ApiPropertyOptional({ description: 'Tax percentage for entire order', default: 0 })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2' })
+  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @IsNumber()
   @Min(0)
   @Max(100)
-  @Transform(({ value }) => parseFloat(value))
   taxPercent?: number;
 
   @ApiPropertyOptional({ description: 'Shipping/freight charges', default: 0 })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @IsNumber()
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
   shippingAmount?: number;
 
   @ApiPropertyOptional({ description: 'Payment terms in days', default: 30 })
@@ -337,8 +337,8 @@ export class PurchaseOrderResponseDto {
     phone?: string;
   };
 
-  @ApiProperty({ description: 'Created by user' })
-  createdByUser: {
+  @ApiPropertyOptional({ description: 'Created by user' })
+  createdByUser?: {
     id: string;
     username: string;
     firstName?: string;

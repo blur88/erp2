@@ -45,8 +45,8 @@ export class PurchaseOrderService {
    * Create a new purchase order
    */
   async create(
-    createPurchaseOrderDto: CreatePurchaseOrderDto, 
-    userId: string
+    createPurchaseOrderDto: CreatePurchaseOrderDto,
+    userId: string = 'system'
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Creating purchase order for supplier: ${createPurchaseOrderDto.supplierId}`);
 
@@ -63,10 +63,14 @@ export class PurchaseOrderService {
       throw new BadRequestException('Cannot create purchase order for inactive supplier');
     }
 
-    // Validate user exists
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
+    // Validate user exists (skip for system user after auth removal)
+    let validUserId: string | null = null;
+    if (userId !== 'system') {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      validUserId = userId;
     }
 
     try {
@@ -74,10 +78,10 @@ export class PurchaseOrderService {
       const purchaseOrder = this.purchaseOrderRepository.create({
         ...createPurchaseOrderDto,
         orderDate: new Date(createPurchaseOrderDto.orderDate),
-        createdByUserId: userId,
+        createdByUserId: validUserId,
         status: PurchaseOrderStatus.DRAFT,
         priority: PurchaseOrderPriority.NORMAL,
-        paymentTermsDays: createPurchaseOrderDto.paymentTermsDays || supplier.paymentTermsDays,
+        paymentTermsDays: createPurchaseOrderDto.paymentTermsDays || 30,
       });
 
       // Generate order number
@@ -87,6 +91,7 @@ export class PurchaseOrderService {
       const orderItems: PurchaseOrderItem[] = [];
       let subtotal = 0;
 
+      let lineNum = 1;
       for (const itemDto of createPurchaseOrderDto.items) {
         // Validate product
         const product = await this.productRepository.findOne({
@@ -99,22 +104,33 @@ export class PurchaseOrderService {
 
         const item = this.purchaseOrderItemRepository.create({
           productId: itemDto.productId,
-          description: product.name,
+          productSku: product.barcode || '',
+          productName: product.name,
+          productDescription: product.description,
           quantity: itemDto.quantity,
-          unitPrice: itemDto.unitPrice,
+          unitCost: itemDto.unitPrice,
           unit: 'pcs',
           discountPercent: itemDto.discountPercent || 0,
-          taxPercent: 0,
-          status: 'pending',
+          status: 'pending' as any,
           receivedQuantity: 0,
           rejectedQuantity: 0,
+          acceptedQuantity: 0,
+          lineNumber: lineNum,
         });
 
-        // Calculate amounts
-        item.calculateAmounts();
+        this.logger.debug(`Created item with lineNumber: ${item.lineNumber}, lineNum variable: ${lineNum}`);
+
+        // Calculate totals
+        item.calculateTotals();
+
+        this.logger.debug(`After calculateTotals, lineNumber: ${item.lineNumber}`);
+
         orderItems.push(item);
         subtotal += Number(item.totalAmount);
+        lineNum++;
       }
+
+      this.logger.debug(`Total items created: ${orderItems.length}, checking lineNumbers: ${orderItems.map(i => i.lineNumber).join(', ')}`);
 
       // Set purchase order totals
       purchaseOrder.subtotal = subtotal;
@@ -122,7 +138,7 @@ export class PurchaseOrderService {
 
       // Check supplier credit limit
       const canPurchase = await this.supplierService.canPurchase(
-        supplier.id, 
+        supplier.id,
         Number(purchaseOrder.totalAmount)
       );
 
@@ -130,16 +146,11 @@ export class PurchaseOrderService {
         throw new BadRequestException('Purchase amount exceeds supplier credit limit');
       }
 
-      // Save purchase order
-      const savedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
+      // Attach items to purchase order before saving (cascade save will handle items)
+      purchaseOrder.items = orderItems;
 
-      // Save order items
-      for (const item of orderItems) {
-        item.purchaseOrderId = savedPurchaseOrder.id;
-      }
-      
-      await this.purchaseOrderItemRepository.save(orderItems);
-      savedPurchaseOrder.items = orderItems;
+      // Save purchase order with items (cascade will save items automatically)
+      const savedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
 
       // Update supplier metrics if this is a new order
       const isFirstOrder = supplier.totalOrders === 0;
@@ -338,8 +349,6 @@ export class PurchaseOrderService {
       // Update basic fields
       Object.assign(purchaseOrder, {
         ...updatePurchaseOrderDto,
-        requiredDate: updatePurchaseOrderDto.requiredDate ? 
-          new Date(updatePurchaseOrderDto.requiredDate) : purchaseOrder.requiredDate,
         expectedDeliveryDate: updatePurchaseOrderDto.expectedDeliveryDate ?
           new Date(updatePurchaseOrderDto.expectedDeliveryDate) : purchaseOrder.expectedDeliveryDate,
       });
@@ -352,35 +361,42 @@ export class PurchaseOrderService {
         // Create new items
         const orderItems: PurchaseOrderItem[] = [];
         let subtotal = 0;
+        let lineNum = 1;
 
         for (const itemDto of updatePurchaseOrderDto.items) {
           let product: Product | undefined;
-          
+
           if (itemDto.productId) {
             product = await this.productRepository.findOne({
               where: { id: itemDto.productId },
             });
           }
 
+          if (!product) {
+            throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
+          }
+
           const item = this.purchaseOrderItemRepository.create({
             purchaseOrderId: id,
             productId: itemDto.productId,
-            description: itemDto.description,
+            productSku: product.barcode || '',
+            productName: product.name,
+            productDescription: product.description,
             quantity: itemDto.quantity,
-            unitPrice: itemDto.unitPrice,
-            unit: itemDto.unit || product?.unit,
+            unitCost: itemDto.unitPrice,
+            unit: 'pcs',
             discountPercent: itemDto.discountPercent || 0,
-            taxPercent: itemDto.taxPercent || 0,
-            notes: itemDto.notes,
-            requiredDate: itemDto.requiredDate ? new Date(itemDto.requiredDate) : undefined,
-            status: 'pending',
+            status: 'pending' as any,
             receivedQuantity: 0,
             rejectedQuantity: 0,
+            acceptedQuantity: 0,
+            lineNumber: lineNum,
           });
 
-          item.calculateAmounts();
+          item.calculateTotals();
           orderItems.push(item);
           subtotal += Number(item.totalAmount);
+          lineNum++;
         }
 
         await this.purchaseOrderItemRepository.save(orderItems);
@@ -725,18 +741,18 @@ export class PurchaseOrderService {
       priority: purchaseOrder.priority,
       supplier: {
         id: purchaseOrder.supplier.id,
-        supplierCode: purchaseOrder.supplier.supplierCode,
+        supplierCode: purchaseOrder.supplier.id.slice(0, 8).toUpperCase(),
         companyName: purchaseOrder.supplier.companyName,
         contactPerson: purchaseOrder.supplier.contactPerson,
-        email: purchaseOrder.supplier.email,
+        email: undefined,
         phone: purchaseOrder.supplier.phone,
       },
-      createdByUser: {
+      createdByUser: purchaseOrder.createdByUser ? {
         id: purchaseOrder.createdByUser.id,
         username: purchaseOrder.createdByUser.username,
         firstName: purchaseOrder.createdByUser.firstName,
         lastName: purchaseOrder.createdByUser.lastName,
-      },
+      } : undefined,
       approvedByUser: purchaseOrder.approvedByUser ? {
         id: purchaseOrder.approvedByUser.id,
         username: purchaseOrder.approvedByUser.username,
@@ -778,18 +794,18 @@ export class PurchaseOrderService {
         id: item.id,
         product: item.product ? {
           id: item.product.id,
-          sku: item.product.sku,
+          sku: item.productSku,
           name: item.product.name,
-          unit: item.product.unit,
+          unit: item.unit,
         } : undefined,
-        description: item.description,
+        description: item.productName,
         quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
+        unitPrice: Number(item.unitCost),
         unit: item.unit,
         discountPercent: Number(item.discountPercent),
         discountAmount: Number(item.discountAmount),
-        taxPercent: Number(item.taxPercent),
-        taxAmount: Number(item.taxAmount),
+        taxPercent: 0,
+        taxAmount: 0,
         totalAmount: Number(item.totalAmount),
         receivedQuantity: Number(item.receivedQuantity),
         rejectedQuantity: Number(item.rejectedQuantity),

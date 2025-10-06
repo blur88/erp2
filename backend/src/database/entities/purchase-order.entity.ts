@@ -362,9 +362,11 @@ export class PurchaseOrder extends BaseEntity {
 
   @Column({
     type: 'uuid',
+    nullable: true,
     comment: 'User who created the order',
   })
-  createdByUserId: string;
+  @IsOptional()
+  createdByUserId?: string;
 
   @Column({
     type: 'uuid',
@@ -383,10 +385,11 @@ export class PurchaseOrder extends BaseEntity {
   supplier: Supplier;
 
   @ManyToOne(() => User, (user) => user.purchaseOrders, {
-    onDelete: 'RESTRICT',
+    onDelete: 'SET NULL',
+    nullable: true,
   })
   @JoinColumn({ name: 'createdByUserId' })
-  createdByUser: User;
+  createdByUser?: User;
 
   @ManyToOne(() => User, {
     onDelete: 'SET NULL',

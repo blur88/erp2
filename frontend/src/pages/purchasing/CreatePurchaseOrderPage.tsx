@@ -168,14 +168,30 @@ const CreatePurchaseOrderPage: React.FC = () => {
         supplierId: data.supplierId,
         orderDate: data.orderDate,
         notes: data.notes || undefined,
-        items: data.items.map(item => ({
-          productId: item.productId,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-          discountPercent: Number(item.discountPercent || 0),
-        })),
+        shippingAmount: data.shipping && Number(data.shipping) > 0 ? Number(data.shipping) : undefined,
+        items: data.items.map(item => {
+          // Calculate discount percent based on type
+          let discountPercent = 0
+          if (item.discountType === 'percent') {
+            discountPercent = Number(item.discountValue || 0)
+          } else if (item.discountType === 'amount' && item.discountValue) {
+            // Convert fixed amount to percentage
+            const subtotal = Number(item.quantity) * Number(item.unitPrice)
+            if (subtotal > 0) {
+              discountPercent = (Number(item.discountValue) / subtotal) * 100
+            }
+          }
+
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountPercent: discountPercent || 0,
+          }
+        }),
       }
 
+      console.log('Sending order data:', JSON.stringify(orderData, null, 2))
       await purchasingApi.createPurchaseOrder(orderData as any)
 
       showSuccess('Purchase order created successfully')
