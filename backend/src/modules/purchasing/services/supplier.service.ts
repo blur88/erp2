@@ -3,9 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
 import {
   Supplier,
-  SupplierStatus,
   SupplierType,
-  SupplierRating
 } from '../../../database/entities/supplier.entity';
 import {
   CreateSupplierDto,
@@ -13,9 +11,6 @@ import {
   SupplierQueryDto,
   SupplierResponseDto,
   SupplierListResponseDto,
-  SupplierPerformanceDto,
-  UpdateSupplierBalanceDto,
-  SupplierPerformanceMetricsDto,
 } from '../dto';
 
 @Injectable()
@@ -33,39 +28,25 @@ export class SupplierService {
   async create(createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
     this.logger.log(`Creating supplier: ${createSupplierDto.companyName}`);
 
-    // Check for duplicate supplier code
-    const existingByCode = await this.supplierRepository.findOne({
-      where: { supplierCode: createSupplierDto.supplierCode },
-    });
+    // Check for duplicate company name (case-insensitive)
+    const existingSupplier = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', {
+        companyName: createSupplierDto.companyName
+      })
+      .getOne();
 
-    if (existingByCode) {
-      throw new ConflictException(`Supplier with code ${createSupplierDto.supplierCode} already exists`);
-    }
-
-    // Check for duplicate email if provided
-    if (createSupplierDto.email) {
-      const existingByEmail = await this.supplierRepository.findOne({
-        where: { email: createSupplierDto.email },
-      });
-
-      if (existingByEmail) {
-        throw new ConflictException(`Supplier with email ${createSupplierDto.email} already exists`);
-      }
+    if (existingSupplier) {
+      this.logger.warn(`Duplicate company name detected: ${createSupplierDto.companyName}`);
+      throw new ConflictException(`Supplier with company name "${createSupplierDto.companyName}" already exists`);
     }
 
     try {
       const supplier = this.supplierRepository.create({
         ...createSupplierDto,
-        status: createSupplierDto.status || SupplierStatus.ACTIVE,
-        isActive: true,
-        rating: SupplierRating.UNRATED,
-        paymentTermsDays: createSupplierDto.paymentTermsDays || 30,
         currency: createSupplierDto.currency || 'USD',
         totalPurchases: 0,
         totalOrders: 0,
-        averageDeliveryTime: 0,
-        onTimeDeliveryRate: 100,
-        qualityRate: 100,
       });
 
       const savedSupplier = await this.supplierRepository.save(supplier);
@@ -91,8 +72,6 @@ export class SupplierService {
       limit = 10,
       search,
       type,
-      status,
-      rating,
       isActive,
       sortBy = 'companyName',
       sortOrder = 'ASC',
@@ -104,7 +83,7 @@ export class SupplierService {
     // Apply search filter
     if (search) {
       queryBuilder.andWhere(
-        '(supplier.companyName ILIKE :search OR supplier.supplierCode ILIKE :search OR supplier.contactPerson ILIKE :search OR supplier.email ILIKE :search)',
+        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -114,22 +93,14 @@ export class SupplierService {
       queryBuilder.andWhere('supplier.type = :type', { type });
     }
 
-    if (status) {
-      queryBuilder.andWhere('supplier.status = :status', { status });
-    }
-
-    if (rating) {
-      queryBuilder.andWhere('supplier.rating = :rating', { rating });
-    }
-
     if (isActive !== undefined) {
       queryBuilder.andWhere('supplier.isActive = :isActive', { isActive });
     }
 
     // Apply sorting
     const validSortFields = [
-      'companyName', 'supplierCode', 'type', 'status', 'rating',
-      'totalPurchases', 'totalOrders', 'onTimeDeliveryRate', 'qualityRate',
+      'companyName', 'type',
+      'totalPurchases', 'totalOrders',
       'createdAt', 'lastPurchaseDate'
     ];
 
@@ -195,25 +166,17 @@ export class SupplierService {
       throw new NotFoundException(`Supplier with ID ${id} not found`);
     }
 
-    // Check for duplicate supplier code if changed
-    if (updateSupplierDto.supplierCode && updateSupplierDto.supplierCode !== supplier.supplierCode) {
-      const existingByCode = await this.supplierRepository.findOne({
-        where: { supplierCode: updateSupplierDto.supplierCode },
-      });
+    // Check for duplicate company name (case-insensitive, excluding current supplier)
+    if (updateSupplierDto.companyName) {
+      const existingSupplier = await this.supplierRepository
+        .createQueryBuilder('supplier')
+        .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName: updateSupplierDto.companyName })
+        .andWhere('supplier.id != :id', { id })
+        .getOne();
 
-      if (existingByCode) {
-        throw new ConflictException(`Supplier with code ${updateSupplierDto.supplierCode} already exists`);
-      }
-    }
-
-    // Check for duplicate email if changed
-    if (updateSupplierDto.email && updateSupplierDto.email !== supplier.email) {
-      const existingByEmail = await this.supplierRepository.findOne({
-        where: { email: updateSupplierDto.email },
-      });
-
-      if (existingByEmail) {
-        throw new ConflictException(`Supplier with email ${updateSupplierDto.email} already exists`);
+      if (existingSupplier) {
+        this.logger.warn(`Duplicate company name detected: ${updateSupplierDto.companyName}`);
+        throw new ConflictException(`Supplier with company name "${updateSupplierDto.companyName}" already exists`);
       }
     }
 
@@ -229,6 +192,35 @@ export class SupplierService {
       this.logger.error(`Error updating supplier: ${errorMessage}`, errorStack);
       throw new BadRequestException('Failed to update supplier');
     }
+  }
+
+  /**
+   * Check if company name already exists (case-insensitive)
+   */
+  async checkDuplicateCompanyName(
+    companyName: string,
+    excludeId?: string,
+  ): Promise<{ exists: boolean; message?: string }> {
+    this.logger.log(`Checking duplicate company name: ${companyName}`);
+
+    const queryBuilder = this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName });
+
+    if (excludeId) {
+      queryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
+    }
+
+    const existingSupplier = await queryBuilder.getOne();
+
+    if (existingSupplier) {
+      return {
+        exists: true,
+        message: `Supplier with company name "${companyName}" already exists`,
+      };
+    }
+
+    return { exists: false };
   }
 
   /**
@@ -258,52 +250,18 @@ export class SupplierService {
     }
 
     try {
-      supplier.isActive = false;
-      supplier.status = SupplierStatus.INACTIVE;
-      await this.supplierRepository.save(supplier);
+      // Soft delete the supplier using TypeORM's soft delete
+      await this.supplierRepository.softDelete(id);
 
-      this.logger.log(`Supplier deactivated successfully: ${id}`);
+      this.logger.log(`Supplier soft deleted successfully: ${id}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error deactivating supplier: ${errorMessage}`, errorStack);
-      throw new BadRequestException('Failed to deactivate supplier');
+      this.logger.error(`Error soft deleting supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to soft delete supplier');
     }
   }
 
-  /**
-   * Update supplier performance metrics
-   */
-  async updatePerformanceMetrics(
-    supplierId: string, 
-    performanceData: SupplierPerformanceDto
-  ): Promise<void> {
-    this.logger.log(`Updating performance metrics for supplier: ${supplierId}`);
-
-    const supplier = await this.supplierRepository.findOne({ 
-      where: { id: supplierId } 
-    });
-
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
-    }
-
-    try {
-      supplier.updatePerformanceMetrics(
-        performanceData.deliveryTime,
-        performanceData.wasOnTime,
-        performanceData.wasQualityAccepted
-      );
-
-      await this.supplierRepository.save(supplier);
-      this.logger.log(`Performance metrics updated for supplier: ${supplierId}`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error updating performance metrics: ${errorMessage}`, errorStack);
-      throw new BadRequestException('Failed to update performance metrics');
-    }
-  }
 
   /**
    * Update supplier purchase metrics
@@ -370,47 +328,6 @@ export class SupplierService {
   //   }
   // }
 
-  /**
-   * Get supplier performance metrics
-   */
-  async getPerformanceMetrics(
-    supplierIds?: string[],
-    includeInactive: boolean = false
-  ): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log('Getting supplier performance metrics');
-
-    const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
-
-    if (supplierIds && supplierIds.length > 0) {
-      queryBuilder.andWhere('supplier.id IN (:...supplierIds)', { supplierIds });
-    }
-
-    if (!includeInactive) {
-      queryBuilder.andWhere('supplier.isActive = true');
-    }
-
-    queryBuilder
-      .andWhere('supplier.totalOrders > 0')
-      .orderBy('supplier.totalPurchases', 'DESC');
-
-    const suppliers = await queryBuilder.getMany();
-
-    // Calculate total spend for percentage calculations
-    const totalSpend = suppliers.reduce((sum, s) => sum + Number(s.totalPurchases), 0);
-
-    return suppliers.map(supplier => ({
-      supplierId: supplier.id,
-      companyName: supplier.companyName,
-      rating: supplier.rating,
-      totalOrders: supplier.totalOrders,
-      totalPurchases: Number(supplier.totalPurchases),
-      averageDeliveryTime: Number(supplier.averageDeliveryTime),
-      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
-      qualityRate: Number(supplier.qualityRate),
-      performanceScore: supplier.overallPerformanceScore,
-      spendPercentage: totalSpend > 0 ? (Number(supplier.totalPurchases) / totalSpend) * 100 : 0,
-    }));
-  }
 
   /**
    * Check if supplier can make purchase
@@ -418,7 +335,7 @@ export class SupplierService {
    * NOTE: Amount checking is not implemented as credit limit functionality has been removed.
    * This method only checks if the supplier is generally eligible to make purchases.
    */
-  async canPurchase(supplierId: string, amount: number): Promise<boolean> {
+  async canPurchase(supplierId: string, _amount?: number): Promise<boolean> {
     this.logger.log(`Checking purchase eligibility for supplier: ${supplierId}`);
 
     const supplier = await this.supplierRepository.findOne({
@@ -442,7 +359,6 @@ export class SupplierService {
     const suppliers = await this.supplierRepository.find({
       where: [
         { companyName: Like(`%${query}%`) },
-        { supplierCode: Like(`%${query}%`) },
         { contactPerson: Like(`%${query}%`) },
       ],
       take: limit,
@@ -466,19 +382,6 @@ export class SupplierService {
     return suppliers.map(supplier => this.mapToResponseDto(supplier));
   }
 
-  /**
-   * Get suppliers by rating
-   */
-  async findByRating(rating: SupplierRating): Promise<SupplierResponseDto[]> {
-    this.logger.log(`Finding suppliers by rating: ${rating}`);
-
-    const suppliers = await this.supplierRepository.find({
-      where: { rating, isActive: true },
-      order: { companyName: 'ASC' },
-    });
-
-    return suppliers.map(supplier => this.mapToResponseDto(supplier));
-  }
 
   // Credit limit functionality removed - method disabled
   // async findOverCreditLimit(): Promise<SupplierResponseDto[]> {
@@ -491,33 +394,6 @@ export class SupplierService {
   //   return suppliers.map(supplier => this.mapToResponseDto(supplier));
   // }
 
-  /**
-   * Get top suppliers by purchase volume
-   */
-  async getTopSuppliers(limit: number = 10): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log(`Getting top ${limit} suppliers by purchase volume`);
-
-    const suppliers = await this.supplierRepository.find({
-      where: { isActive: true },
-      order: { totalPurchases: 'DESC' },
-      take: limit,
-    });
-
-    const totalSpend = suppliers.reduce((sum, s) => sum + Number(s.totalPurchases), 0);
-
-    return suppliers.map(supplier => ({
-      supplierId: supplier.id,
-      companyName: supplier.companyName,
-      rating: supplier.rating,
-      totalOrders: supplier.totalOrders,
-      totalPurchases: Number(supplier.totalPurchases),
-      averageDeliveryTime: Number(supplier.averageDeliveryTime),
-      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
-      qualityRate: Number(supplier.qualityRate),
-      performanceScore: supplier.overallPerformanceScore,
-      spendPercentage: totalSpend > 0 ? (Number(supplier.totalPurchases) / totalSpend) * 100 : 0,
-    }));
-  }
 
   /**
    * Activate supplier
@@ -535,7 +411,6 @@ export class SupplierService {
 
     try {
       supplier.isActive = true;
-      supplier.status = SupplierStatus.ACTIVE;
       const updatedSupplier = await this.supplierRepository.save(supplier);
 
       this.logger.log(`Supplier activated successfully: ${supplierId}`);
@@ -563,7 +438,6 @@ export class SupplierService {
     }
 
     try {
-      supplier.status = SupplierStatus.SUSPENDED;
       supplier.notes = (supplier.notes || '') + `\nSuspended: ${reason}`;
       const updatedSupplier = await this.supplierRepository.save(supplier);
 
@@ -578,42 +452,211 @@ export class SupplierService {
   }
 
   /**
+   * Get all soft-deleted suppliers
+   */
+  async findDeleted(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
+    this.logger.log('Finding deleted suppliers');
+
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      type,
+      sortBy = 'companyName',
+      sortOrder = 'ASC',
+    } = query;
+
+    const skip = (page - 1) * Math.min(limit, 100);
+    const take = Math.min(limit, 100);
+
+    const queryBuilder = this.supplierRepository
+      .createQueryBuilder('supplier')
+      .withDeleted()
+      .where('supplier.deletedAt IS NOT NULL');
+
+    // Apply filters
+    if (search) {
+      queryBuilder.andWhere(
+        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (type) {
+      queryBuilder.andWhere('supplier.type = :type', { type });
+    }
+
+    // Count total
+    const total = await queryBuilder.getCount();
+
+    // Apply sorting and pagination
+    const validSortFields = ['companyName', 'type', 'createdAt', 'deletedAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
+    queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
+    queryBuilder.skip(skip).take(take);
+
+    const suppliers = await queryBuilder.getMany();
+
+    const totalPages = Math.ceil(total / take);
+
+    return {
+      suppliers: suppliers.map(supplier => this.mapToResponseDto(supplier)),
+      total,
+      page,
+      limit: take,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+  }
+
+  /**
+   * Restore a soft-deleted supplier
+   */
+  async restore(id: string): Promise<SupplierResponseDto> {
+    this.logger.log(`Restoring supplier: ${id}`);
+
+    const supplier = await this.supplierRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    if (!supplier.deletedAt) {
+      throw new BadRequestException('Supplier is not deleted');
+    }
+
+    try {
+      await this.supplierRepository.restore(id);
+
+      // Fetch the restored supplier
+      const restoredSupplier = await this.supplierRepository.findOne({
+        where: { id },
+      });
+
+      if (!restoredSupplier) {
+        throw new NotFoundException(`Supplier with ID ${id} not found after restore`);
+      }
+
+      // No need to update status as it was removed
+
+      this.logger.log(`Supplier restored successfully: ${id}`);
+      return this.mapToResponseDto(restoredSupplier);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error restoring supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to restore supplier');
+    }
+  }
+
+  /**
+   * Permanently delete a supplier
+   */
+  async permanentDelete(id: string): Promise<void> {
+    this.logger.log(`Permanently deleting supplier: ${id}`);
+
+    const supplier = await this.supplierRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Supplier with ID ${id} not found`);
+    }
+
+    if (!supplier.deletedAt) {
+      throw new BadRequestException('Supplier must be soft-deleted before permanent deletion');
+    }
+
+    try {
+      await this.supplierRepository.remove(supplier);
+      this.logger.log(`Supplier permanently deleted: ${id}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error permanently deleting supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to permanently delete supplier');
+    }
+  }
+
+  /**
+   * Bulk restore suppliers
+   */
+  async bulkRestore(supplierIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${supplierIds.length} suppliers`);
+
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    for (const id of supplierIds) {
+      try {
+        await this.restore(id);
+        restoredCount++;
+      } catch (error) {
+        this.logger.error(`Failed to restore supplier ${id}:`, error);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`);
+    return { restoredCount, failedIds };
+  }
+
+  /**
+   * Bulk permanent delete suppliers
+   */
+  async bulkPermanentDelete(supplierIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${supplierIds.length} suppliers`);
+
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    for (const id of supplierIds) {
+      try {
+        await this.permanentDelete(id);
+        deletedCount++;
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete supplier ${id}:`, error);
+        failedIds.push(id);
+      }
+    }
+
+    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
+    return { deletedCount, failedIds };
+  }
+
+  /**
    * Map supplier entity to response DTO
    */
   private mapToResponseDto(supplier: Supplier): SupplierResponseDto {
     return {
       id: supplier.id,
-      supplierCode: supplier.supplierCode,
       type: supplier.type,
       companyName: supplier.companyName,
       contactPerson: supplier.contactPerson,
       contactTitle: supplier.contactTitle,
-      email: supplier.email,
       phone: supplier.phone,
       alternativePhone: supplier.alternativePhone,
       fax: supplier.fax,
       website: supplier.website,
       taxId: supplier.taxId,
       fullAddress: supplier.fullAddress,
-      status: supplier.status,
-      isActive: supplier.isActive,
-      rating: supplier.rating,
-      paymentTermsDays: supplier.paymentTermsDays,
       currency: supplier.currency,
       totalPurchases: Number(supplier.totalPurchases),
       totalOrders: supplier.totalOrders,
       averageOrderValue: supplier.averageOrderValue,
       lastPurchaseDate: supplier.lastPurchaseDate,
       firstPurchaseDate: supplier.firstPurchaseDate,
-      averageDeliveryTime: Number(supplier.averageDeliveryTime),
-      onTimeDeliveryRate: Number(supplier.onTimeDeliveryRate),
-      qualityRate: Number(supplier.qualityRate),
-      overallPerformanceScore: supplier.overallPerformanceScore,
       categories: supplier.categories,
       certifications: supplier.certifications,
       notes: supplier.notes,
       createdAt: supplier.createdAt,
       updatedAt: supplier.updatedAt,
+      deletedAt: supplier.deletedAt,
     };
   }
 }

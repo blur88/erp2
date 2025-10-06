@@ -1,7 +1,6 @@
 // @ts-nocheck
 import {
   IsString,
-  IsEmail,
   IsBoolean,
   IsOptional,
   IsEnum,
@@ -19,15 +18,9 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { SupplierType, SupplierStatus, SupplierRating } from '../../../database/entities/supplier.entity';
+import { SupplierType } from '../../../database/entities/supplier.entity';
 
 export class CreateSupplierDto {
-  @IsString()
-  @MinLength(3)
-  @MaxLength(20)
-  @ApiProperty({ description: 'Supplier code/number', maxLength: 20 })
-  supplierCode!: string;
-
   @ApiProperty({ description: 'Supplier type', enum: SupplierType })
   @IsEnum(SupplierType)
   type!: SupplierType;
@@ -49,12 +42,6 @@ export class CreateSupplierDto {
   @IsString()
   @MaxLength(100)
   contactTitle?: string;
-
-  @ApiPropertyOptional({ description: 'Email address', maxLength: 100 })
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(100)
-  email?: string;
 
   @ApiPropertyOptional({ description: 'Primary phone number' })
   @IsOptional()
@@ -113,18 +100,6 @@ export class CreateSupplierDto {
   @MaxLength(100)
   country?: string;
 
-  @ApiPropertyOptional({ description: 'Supplier status', enum: SupplierStatus, default: SupplierStatus.ACTIVE })
-  @IsOptional()
-  @IsEnum(SupplierStatus)
-  status?: SupplierStatus;
-
-  @ApiPropertyOptional({ description: 'Payment terms in days', default: 30 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(365)
-  paymentTermsDays?: number;
-
   @ApiPropertyOptional({ description: 'Preferred currency', default: 'USD' })
   @IsOptional()
   @IsString()
@@ -158,11 +133,6 @@ export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
-
-  @ApiPropertyOptional({ description: 'Supplier rating', enum: SupplierRating })
-  @IsOptional()
-  @IsEnum(SupplierRating)
-  rating?: SupplierRating;
 }
 
 export class SupplierQueryDto {
@@ -191,19 +161,9 @@ export class SupplierQueryDto {
   @IsEnum(SupplierType)
   type?: SupplierType;
 
-  @ApiPropertyOptional({ description: 'Filter by status', enum: SupplierStatus })
-  @IsOptional()
-  @IsEnum(SupplierStatus)
-  status?: SupplierStatus;
-
-  @ApiPropertyOptional({ description: 'Filter by rating', enum: SupplierRating })
-  @IsOptional()
-  @IsEnum(SupplierRating)
-  rating?: SupplierRating;
-
   @ApiPropertyOptional({ description: 'Filter active suppliers only' })
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isActive?: boolean;
 
@@ -222,9 +182,6 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Supplier ID' })
   id!: string;
 
-  @ApiProperty({ description: 'Supplier code' })
-  supplierCode!: string;
-
   @ApiProperty({ description: 'Supplier type' })
   type!: SupplierType;
 
@@ -236,9 +193,6 @@ export class SupplierResponseDto {
 
   @ApiProperty({ description: 'Contact person title' })
   contactTitle?: string;
-
-  @ApiProperty({ description: 'Email address' })
-  email?: string;
 
   @ApiProperty({ description: 'Primary phone number' })
   phone?: string;
@@ -258,18 +212,6 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Full address' })
   fullAddress!: string;
 
-  @ApiProperty({ description: 'Supplier status' })
-  status!: SupplierStatus;
-
-  @ApiProperty({ description: 'Is supplier active' })
-  isActive!: boolean;
-
-  @ApiProperty({ description: 'Supplier rating' })
-  rating!: SupplierRating;
-
-  @ApiProperty({ description: 'Payment terms in days' })
-  paymentTermsDays!: number;
-
   @ApiProperty({ description: 'Currency' })
   currency!: string;
 
@@ -288,18 +230,6 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'First purchase date' })
   firstPurchaseDate?: Date;
 
-  @ApiProperty({ description: 'Average delivery time in days' })
-  averageDeliveryTime!: number;
-
-  @ApiProperty({ description: 'On-time delivery rate percentage' })
-  onTimeDeliveryRate!: number;
-
-  @ApiProperty({ description: 'Quality acceptance rate percentage' })
-  qualityRate!: number;
-
-  @ApiProperty({ description: 'Overall performance score' })
-  overallPerformanceScore!: number;
-
   @ApiProperty({ description: 'Product categories', type: [String] })
   categories?: string[];
 
@@ -314,33 +244,11 @@ export class SupplierResponseDto {
 
   @ApiProperty({ description: 'Updated date' })
   updatedAt!: Date;
+
+  @ApiProperty({ description: 'Deleted date (for soft-deleted suppliers)' })
+  deletedAt?: Date;
 }
 
-export class SupplierPerformanceDto {
-  @ApiProperty({ description: 'Supplier ID' })
-  supplierId!: string;
-
-  @ApiProperty({ description: 'Company name' })
-  companyName!: string;
-
-  @ApiProperty({ description: 'Delivery time in days' })
-  @IsInt()
-  @Min(0)
-  deliveryTime!: number;
-
-  @ApiProperty({ description: 'Was delivery on time' })
-  @IsBoolean()
-  wasOnTime!: boolean;
-
-  @ApiProperty({ description: 'Was quality accepted' })
-  @IsBoolean()
-  wasQualityAccepted!: boolean;
-
-  @ApiPropertyOptional({ description: 'Performance notes' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-}
 
 export class UpdateSupplierBalanceDto {
   @ApiProperty({ description: 'Amount to add or subtract' })
@@ -412,34 +320,3 @@ export class SupplierAnalyticsDto {
   includeSpending?: boolean;
 }
 
-export class SupplierPerformanceMetricsDto {
-  @ApiProperty({ description: 'Supplier ID' })
-  supplierId!: string;
-
-  @ApiProperty({ description: 'Company name' })
-  companyName!: string;
-
-  @ApiProperty({ description: 'Rating' })
-  rating!: SupplierRating;
-
-  @ApiProperty({ description: 'Total orders' })
-  totalOrders!: number;
-
-  @ApiProperty({ description: 'Total purchase amount' })
-  totalPurchases!: number;
-
-  @ApiProperty({ description: 'Average delivery time' })
-  averageDeliveryTime!: number;
-
-  @ApiProperty({ description: 'On-time delivery rate' })
-  onTimeDeliveryRate!: number;
-
-  @ApiProperty({ description: 'Quality rate' })
-  qualityRate!: number;
-
-  @ApiProperty({ description: 'Performance score' })
-  performanceScore!: number;
-
-  @ApiProperty({ description: 'Spend percentage' })
-  spendPercentage!: number;
-}

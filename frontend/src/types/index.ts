@@ -291,17 +291,47 @@ export interface Payment {
 }
 
 // Purchasing types
+export enum SupplierType {
+  LOCAL = 'local',
+  INTERNATIONAL = 'international',
+}
+
 export interface Supplier {
   id: string;
-  name: string;
-  email?: string;
+  type: SupplierType;
+  companyName: string;
+  contactPerson?: string;
+  contactTitle?: string;
   phone?: string;
-  address?: Address;
+  alternativePhone?: string;
+  fax?: string;
+  website?: string;
   taxId?: string;
-  paymentTerms?: string;
-  isActive: boolean;
+  // Address
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  // Business
+  currency: string;
+  // Metrics
+  totalPurchases: number;
+  totalOrders: number;
+  lastPurchaseDate?: Date;
+  firstPurchaseDate?: Date;
+  // Additional
+  categories?: string[];
+  certifications?: string[];
+  notes?: string;
+  metadata?: Record<string, any>;
+  // Computed
+  fullAddress?: string;
+  averageOrderValue?: number;
+  // Timestamps
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date;
 }
 
 export interface PurchaseOrder {

@@ -1366,7 +1366,6 @@ const OrdersPage: React.FC = () => {
                 }}>
                   <IconButton
                     size="small"
-                    color="primary"
                     title="Edit Order"
                     onClick={handleEditOrder}
                     sx={{
@@ -1374,7 +1373,12 @@ const OrdersPage: React.FC = () => {
                       width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
                       minHeight: 20, // Reduced minimum size for better scaling
                       minWidth: 20,
-                      p: 0.125 // Reduced padding for better proportion
+                      p: 0.125, // Reduced padding for better proportion
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        color: 'primary.dark'
+                      }
                     }}
                   >
                     <EditIcon sx={{
@@ -1383,7 +1387,6 @@ const OrdersPage: React.FC = () => {
                   </IconButton>
                   <IconButton
                     size="small"
-                    color="error"
                     title="Delete Order"
                     onClick={() => handleOrderAction('delete', selectedOrder.id)}
                     sx={{
@@ -1391,7 +1394,12 @@ const OrdersPage: React.FC = () => {
                       width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
                       minHeight: 20, // Reduced minimum size for better scaling
                       minWidth: 20,
-                      p: 0.125 // Reduced padding for better proportion
+                      p: 0.125, // Reduced padding for better proportion
+                      color: 'error.main',
+                      '&:hover': {
+                        backgroundColor: 'error.light',
+                        color: 'error.dark'
+                      }
                     }}
                   >
                     <DeleteIcon sx={{

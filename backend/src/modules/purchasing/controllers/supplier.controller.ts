@@ -29,14 +29,10 @@ import {
   SupplierQueryDto,
   SupplierResponseDto,
   SupplierListResponseDto,
-  SupplierPerformanceDto,
-  UpdateSupplierBalanceDto,
-  SupplierPerformanceMetricsDto,
-  SupplierAnalyticsDto,
 } from '../dto';
 
 @ApiTags('Suppliers')
-@Controller('suppliers')
+@Controller('purchasing/suppliers')
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class SupplierController {
   private readonly logger = new Logger(SupplierController.name);
@@ -84,8 +80,34 @@ export class SupplierController {
     return await this.supplierService.findAll(query);
   }
 
+  @Get('check-duplicate')
+  @ApiOperation({
+    summary: 'Check for duplicate company name',
+    description: 'Check if a company name already exists in the system.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Duplicate check completed',
+    schema: {
+      type: 'object',
+      properties: {
+        exists: { type: 'boolean' },
+        message: { type: 'string' }
+      }
+    }
+  })
+  @ApiQuery({ name: 'companyName', required: true, type: String, description: 'Company name to check' })
+  @ApiQuery({ name: 'excludeId', required: false, type: String, description: 'Supplier ID to exclude from check (for updates)' })
+  async checkDuplicate(
+    @Query('companyName') companyName: string,
+    @Query('excludeId') excludeId?: string,
+  ): Promise<{ exists: boolean; message?: string }> {
+    this.logger.log(`Checking duplicate company name: ${companyName}`);
+    return await this.supplierService.checkDuplicateCompanyName(companyName, excludeId);
+  }
+
   @Get('search')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Search suppliers',
     description: 'Quick search suppliers by name, code, or contact person with limited results.'
   })
@@ -104,65 +126,25 @@ export class SupplierController {
     return await this.supplierService.searchSuppliers(query, limit);
   }
 
-  @Get('performance-metrics')
-  @ApiOperation({ 
-    summary: 'Get supplier performance metrics',
-    description: 'Retrieve performance metrics for all or specific suppliers including delivery rates, quality scores, and spending analysis.'
+
+
+  @Get('deleted')
+  @ApiOperation({
+    summary: 'Get deleted suppliers',
+    description: 'Retrieve all soft-deleted suppliers with pagination.'
   })
   @ApiResponse({
     status: 200,
-    description: 'Performance metrics retrieved successfully',
-    type: [SupplierPerformanceMetricsDto],
+    description: 'Deleted suppliers retrieved successfully',
+    type: SupplierListResponseDto,
   })
-  @ApiQuery({ name: 'supplierIds', required: false, type: [String], description: 'Specific supplier IDs (comma separated)' })
-  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean, description: 'Include inactive suppliers' })
-  async getPerformanceMetrics(
-    @Query('supplierIds') supplierIds?: string[],
-    @Query('includeInactive') includeInactive?: boolean,
-  ): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log('Getting supplier performance metrics');
-    
-    // Parse comma-separated supplier IDs if provided as string
-    const parsedSupplierIds = typeof supplierIds === 'string' 
-      ? supplierIds.split(',').map(id => id.trim())
-      : supplierIds;
-
-    return await this.supplierService.getPerformanceMetrics(parsedSupplierIds, includeInactive);
-  }
-
-  @Get('top-suppliers')
-  @ApiOperation({ 
-    summary: 'Get top suppliers by purchase volume',
-    description: 'Retrieve top performing suppliers ranked by total purchase volume with performance metrics.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Top suppliers retrieved successfully',
-    type: [SupplierPerformanceMetricsDto],
-  })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of top suppliers (default: 10)' })
-  async getTopSuppliers(@Query('limit') limit?: number): Promise<SupplierPerformanceMetricsDto[]> {
-    this.logger.log(`Getting top ${limit || 10} suppliers`);
-    return await this.supplierService.getTopSuppliers(limit);
-  }
-
-  @Get('over-credit-limit')
-  @ApiOperation({ 
-    summary: 'Get suppliers over credit limit',
-    description: 'Retrieve suppliers whose current balance exceeds their credit limit.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Suppliers over credit limit retrieved successfully',
-    type: [SupplierResponseDto],
-  })
-  async getSuppliersOverCreditLimit(): Promise<SupplierResponseDto[]> {
-    this.logger.log('Getting suppliers over credit limit');
-    return await this.supplierService.findOverCreditLimit();
+  async findDeleted(@Query() query: SupplierQueryDto): Promise<SupplierListResponseDto> {
+    this.logger.log('Getting deleted suppliers');
+    return await this.supplierService.findDeleted(query);
   }
 
   @Get(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get supplier by ID',
     description: 'Retrieve detailed information about a specific supplier including relationships and performance data.'
   })
@@ -200,42 +182,7 @@ export class SupplierController {
     return await this.supplierService.update(id, updateSupplierDto);
   }
 
-  @Post(':id/performance')
-  @ApiOperation({ 
-    summary: 'Update supplier performance metrics',
-    description: 'Record delivery performance, quality assessment, and update supplier ratings based on actual performance data.'
-  })
-  @ApiResponse({ status: 200, description: 'Performance metrics updated successfully' })
-  @ApiResponse({ status: 404, description: 'Supplier not found' })
-  @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  @HttpCode(HttpStatus.OK)
-  async updatePerformanceMetrics(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() performanceDto: SupplierPerformanceDto,
-  ): Promise<void> {
-    this.logger.log(`Updating performance metrics for supplier: ${id}`);
-    await this.supplierService.updatePerformanceMetrics(id, performanceDto);
-  }
 
-  @Post(':id/balance')
-  @ApiOperation({ 
-    summary: 'Update supplier balance',
-    description: 'Increase or decrease supplier account balance for credit management and payment tracking.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Supplier balance updated successfully',
-    type: SupplierResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Supplier not found' })
-  @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  async updateBalance(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() balanceDto: UpdateSupplierBalanceDto,
-  ): Promise<SupplierResponseDto> {
-    this.logger.log(`Updating balance for supplier: ${id}`);
-    return await this.supplierService.updateBalance(id, balanceDto);
-  }
 
   @Post(':id/activate')
   @ApiOperation({ 
@@ -305,8 +252,90 @@ export class SupplierController {
     return { canPurchase };
   }
 
+  @Post(':id/restore')
+  @ApiOperation({
+    summary: 'Restore deleted supplier',
+    description: 'Restore a soft-deleted supplier to active status.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Supplier restored successfully',
+    type: SupplierResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Supplier not found' })
+  @ApiParam({ name: 'id', description: 'Supplier UUID' })
+  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<SupplierResponseDto> {
+    this.logger.log(`Restoring supplier: ${id}`);
+    return await this.supplierService.restore(id);
+  }
+
+  @Post('bulk-restore')
+  @ApiOperation({
+    summary: 'Bulk restore deleted suppliers',
+    description: 'Restore multiple soft-deleted suppliers to active status.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Suppliers restored successfully',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        supplierIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of supplier UUIDs to restore'
+        }
+      }
+    }
+  })
+  async bulkRestore(@Body() body: { supplierIds: string[] }): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${body.supplierIds.length} suppliers`);
+    return await this.supplierService.bulkRestore(body.supplierIds);
+  }
+
+  @Post('bulk-permanent-delete')
+  @ApiOperation({
+    summary: 'Bulk permanent delete suppliers',
+    description: 'Permanently delete multiple soft-deleted suppliers from the database. This action cannot be undone.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Suppliers permanently deleted successfully',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        supplierIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of supplier UUIDs to permanently delete'
+        }
+      }
+    }
+  })
+  async bulkPermanentDelete(@Body() body: { supplierIds: string[] }): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${body.supplierIds.length} suppliers`);
+    return await this.supplierService.bulkPermanentDelete(body.supplierIds);
+  }
+
+  @Delete(':id/permanent')
+  @ApiOperation({
+    summary: 'Permanently delete supplier',
+    description: 'Permanently delete a soft-deleted supplier from the database. This action cannot be undone.'
+  })
+  @ApiResponse({ status: 200, description: 'Supplier permanently deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Supplier not found' })
+  @ApiParam({ name: 'id', description: 'Supplier UUID' })
+  async permanentDelete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    this.logger.log(`Permanently deleting supplier: ${id}`);
+    return await this.supplierService.permanentDelete(id);
+  }
+
   @Delete(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Deactivate supplier',
     description: 'Soft delete (deactivate) supplier. Cannot be deleted if there are active purchase orders.'
   })

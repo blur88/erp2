@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   TextField,
   InputAdornment,
   Box,
@@ -20,8 +19,8 @@ import {
   IconButton,
   Tooltip,
   Alert,
-  Divider,
   CircularProgress,
+  Stack,
   Checkbox,
   useTheme,
   useMediaQuery,
@@ -29,98 +28,117 @@ import {
 import {
   Search as SearchIcon,
   Restore as RestoreIcon,
-  Delete as DeleteIcon,
   Close as CloseIcon,
-  Receipt as OrderIcon,
+  Business as BusinessIcon,
+  Phone as PhoneIcon,
+  DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import {
-  fetchDeletedOrders,
-  restoreOrder,
-  bulkRestoreOrders,
-  bulkDeleteOrders,
-  permanentDeleteOrder,
-  selectDeletedOrders,
-  selectSalesLoading,
-  fetchOrders
-} from '@/store/slices/salesSlice'
+import { purchasingApi } from '@/services/purchasingApi'
+import type { Supplier } from '@/types'
+import { SupplierType } from '@/types'
 import { useNotification } from '@/hooks/useNotification'
-import LoadingSpinner from '@/components/common/LoadingSpinner'
-import type { SalesOrder } from '@/types'
-import { formatCurrency, formatDate } from '@/utils/formatters'
 
-interface DeletedOrdersDialogProps {
+interface DeletedSuppliersDialogProps {
   open: boolean
   onClose: () => void
+  onRefresh?: () => void
 }
 
-const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
+const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, onClose, onRefresh }) => {
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
-  const deletedOrders = useSelector(selectDeletedOrders) || []
-  const loading = useSelector(selectSalesLoading)
 
+  const [deletedSuppliers, setDeletedSuppliers] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
-  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
-  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<SalesOrder | null>(null)
-  const [bulkRestoring, setBulkRestoring] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<Supplier | null>(null)
+  const [selectedSuppliers, setSelectedSuppliers] = useState<Set<string>>(new Set())
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
+  const [bulkRestoring, setBulkRestoring] = useState(false)
 
   useEffect(() => {
     if (open) {
-      dispatch(fetchDeletedOrders({}))
+      fetchDeletedSuppliers()
       // Reset selections when dialog opens
-      setSelectedOrders(new Set())
+      setSelectedSuppliers(new Set())
     }
-  }, [open, dispatch])
+  }, [open])
 
-  // Filter orders based on search term
-  const filteredOrders = deletedOrders.filter(order =>
-    order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  const fetchDeletedSuppliers = async () => {
+    setLoading(true)
+    try {
+      const response = await purchasingApi.getDeletedSuppliers({ limit: 100 })
+      const apiResponse = response as any
+      setDeletedSuppliers(apiResponse.suppliers || apiResponse.data || [])
+    } catch (error) {
+      console.error('Error fetching deleted suppliers:', error)
+      showError('Failed to fetch deleted suppliers')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filter suppliers based on search term
+  const filteredSuppliers = deletedSuppliers.filter(supplier =>
+    supplier.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    supplier.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    supplier.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Calculate selection state
-  const selectedCount = selectedOrders.size
-  const allSelected = filteredOrders.length > 0 && selectedOrders.size === filteredOrders.length
-  const partiallySelected = selectedOrders.size > 0 && selectedOrders.size < filteredOrders.length
+  const selectedCount = selectedSuppliers.size
+  const allSelected = filteredSuppliers.length > 0 && selectedSuppliers.size === filteredSuppliers.length
+  const partiallySelected = selectedSuppliers.size > 0 && selectedSuppliers.size < filteredSuppliers.length
 
-  const handleRestore = async (order: SalesOrder) => {
-    setRestoringId(order.id)
+  const handleRestore = async (supplier: Supplier) => {
+    setRestoringId(supplier.id)
     try {
-      const result = await dispatch(restoreOrder(order.id))
+      await purchasingApi.restoreSupplier(supplier.id)
+      showSuccess(`Supplier "${supplier.companyName}" restored successfully`)
 
-      if (restoreOrder.rejected.match(result)) {
-        throw new Error(result.payload as string)
+      // Refresh both deleted and active suppliers
+      await fetchDeletedSuppliers()
+      if (onRefresh) {
+        onRefresh()
       }
-
-      showSuccess(`Order "${order.orderNumber}" restored successfully`)
-      // Refresh both deleted and active orders
-      dispatch(fetchDeletedOrders({}))
-      dispatch(fetchOrders({}))
     } catch (error: any) {
-      console.error('Order restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore order'
+      console.error('Supplier restore error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore supplier'
       showError(errorMessage)
     } finally {
       setRestoringId(null)
     }
   }
 
-  const handleSelectOrder = (orderId: string, checked: boolean) => {
-    setSelectedOrders(prev => {
+  const handlePermanentDelete = async (supplier: Supplier) => {
+    setDeletingId(supplier.id)
+    try {
+      await purchasingApi.permanentDeleteSupplier(supplier.id)
+      showSuccess(`Supplier "${supplier.companyName}" permanently deleted`)
+      // Refresh deleted suppliers list
+      await fetchDeletedSuppliers()
+    } catch (error: any) {
+      console.error('Supplier permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete supplier'
+      showError(errorMessage)
+    } finally {
+      setDeletingId(null)
+      setConfirmDelete(null)
+    }
+  }
+
+  const handleSelectSupplier = (supplierId: string, checked: boolean) => {
+    setSelectedSuppliers(prev => {
       const newSet = new Set(prev)
       if (checked) {
-        newSet.add(orderId)
+        newSet.add(supplierId)
       } else {
-        newSet.delete(orderId)
+        newSet.delete(supplierId)
       }
       return newSet
     })
@@ -128,42 +146,38 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedOrders(new Set(filteredOrders.map(o => o.id)))
+      setSelectedSuppliers(new Set(filteredSuppliers.map(s => s.id)))
     } else {
-      setSelectedOrders(new Set())
+      setSelectedSuppliers(new Set())
     }
   }
 
   const handleBulkRestore = async () => {
     setBulkRestoring(true)
     try {
-      const orderIds = Array.from(selectedOrders)
-      const result = await dispatch(bulkRestoreOrders(orderIds))
+      const supplierIds = Array.from(selectedSuppliers)
+      const response = await purchasingApi.bulkRestoreSuppliers(supplierIds)
 
-      if (bulkRestoreOrders.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('Bulk restore payload:', payload) // Debug log
-      const restoredCount = payload?.restoredCount || 0
-      const failedIds = payload?.failedIds || []
+      const restoredCount = (response as any)?.data?.restoredCount || 0
+      const failedIds = (response as any)?.data?.failedIds || []
 
       if (restoredCount > 0) {
-        showSuccess(`Successfully restored ${restoredCount} orders`)
+        showSuccess(`Successfully restored ${restoredCount} suppliers`)
       }
 
       if (failedIds.length > 0) {
-        showError(`Failed to restore ${failedIds.length} orders`)
+        showError(`Failed to restore ${failedIds.length} suppliers`)
       }
 
-      // Refresh both deleted and active orders and clear selections
-      dispatch(fetchDeletedOrders({}))
-      dispatch(fetchOrders({}))
-      setSelectedOrders(new Set())
+      // Refresh both deleted and active suppliers and clear selections
+      await fetchDeletedSuppliers()
+      if (onRefresh) {
+        onRefresh()
+      }
+      setSelectedSuppliers(new Set())
     } catch (error: any) {
       console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore orders'
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore suppliers'
       showError(errorMessage)
     } finally {
       setBulkRestoring(false)
@@ -171,61 +185,42 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
     }
   }
 
-  const handlePermanentDelete = async (order: SalesOrder) => {
-    setDeletingId(order.id)
-    try {
-      const result = await dispatch(permanentDeleteOrder(order.id))
-
-      if (permanentDeleteOrder.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      showSuccess(`Order "${order.orderNumber}" permanently deleted`)
-      // No need to refresh as the Redux reducer removes it from the list
-    } catch (error: any) {
-      console.error('Order permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete order'
-      showError(errorMessage)
-    } finally {
-      setDeletingId(null)
-      setShowDeleteConfirm(null)
-    }
-  }
-
-  const handleBulkDelete = async () => {
+  const handleBulkPermanentDelete = async () => {
     setBulkDeleting(true)
     try {
-      const orderIds = Array.from(selectedOrders)
-      const result = await dispatch(bulkDeleteOrders(orderIds))
+      const supplierIds = Array.from(selectedSuppliers)
+      const response = await purchasingApi.bulkPermanentDeleteSuppliers(supplierIds)
 
-      if (bulkDeleteOrders.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('Bulk delete payload:', payload) // Debug log
-      const deletedCount = payload?.deletedCount || 0
-      const failedIds = payload?.failedIds || []
+      const deletedCount = (response as any)?.data?.deletedCount || 0
+      const failedIds = (response as any)?.data?.failedIds || []
 
       if (deletedCount > 0) {
-        showSuccess(`Successfully permanently deleted ${deletedCount} orders`)
+        showSuccess(`Successfully permanently deleted ${deletedCount} suppliers`)
       }
 
       if (failedIds.length > 0) {
-        showError(`Failed to delete ${failedIds.length} orders`)
+        showError(`Failed to delete ${failedIds.length} suppliers`)
       }
 
-      // Refresh deleted orders list and clear selections
-      dispatch(fetchDeletedOrders({}))
-      setSelectedOrders(new Set())
+      // Refresh deleted suppliers list and clear selections
+      await fetchDeletedSuppliers()
+      setSelectedSuppliers(new Set())
     } catch (error: any) {
-      console.error('Bulk delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete orders'
+      console.error('Bulk permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete suppliers'
       showError(errorMessage)
     } finally {
       setBulkDeleting(false)
-      setShowBulkDeleteConfirm(false)
+      setShowBulkConfirm(false)
     }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
   }
 
   return (
@@ -239,9 +234,9 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <OrderIcon sx={{ color: 'error.main' }} />
+            <BusinessIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
-              Deleted Sales Orders
+              Deleted Suppliers
             </Typography>
           </Box>
           <IconButton onClick={onClose} size="small">
@@ -249,20 +244,22 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
           </IconButton>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Manage soft-deleted sales orders ({filteredOrders.length} {searchTerm ? 'found' : 'total'})
+          Manage soft-deleted suppliers ({filteredSuppliers.length} {searchTerm ? 'found' : 'total'})
         </Typography>
       </DialogTitle>
 
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
-            These sales orders have been soft-deleted. You can restore them to make them active again.
+            These suppliers have been soft-deleted. You can restore them or permanently delete them from the database.
+            <br />
+            <strong>Warning:</strong> Permanent deletion cannot be undone!
           </Alert>
 
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <TextField
               fullWidth
-              placeholder="Search deleted orders..."
+              placeholder="Search deleted suppliers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
@@ -290,9 +287,9 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                 <Button
                   variant="contained"
                   color="error"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => setShowBulkDeleteConfirm(true)}
-                  disabled={bulkRestoring || bulkDeleting}
+                  startIcon={<DeleteForeverIcon />}
+                  onClick={() => setShowBulkConfirm(true)}
+                  disabled={bulkDeleting || bulkRestoring}
                   sx={{ whiteSpace: 'nowrap' }}
                 >
                   Delete Selected ({selectedCount})
@@ -302,7 +299,7 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
           </Box>
         </Box>
 
-        {loading?.deletedOrders ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
@@ -330,38 +327,31 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                       size="small"
                     />
                   </TableCell>
-                  <TableCell sx={{ width: isMobile ? '25%' : '20%' }}>
+                  <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Order Number
+                      Supplier Details
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
+                  <TableCell sx={{ width: isMobile ? '20%' : '15%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Customer
+                      Type
                     </Typography>
                   </TableCell>
                   {!isMobile && (
-                    <TableCell sx={{ width: '15%' }}>
+                    <TableCell sx={{ width: '20%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Order Date
+                        Contact
                       </Typography>
                     </TableCell>
                   )}
                   {!isMobile && (
-                    <TableCell align="right" sx={{ width: '15%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Total Amount
-                      </Typography>
-                    </TableCell>
-                  )}
-                  {!isMobile && (
-                    <TableCell sx={{ width: '15%' }}>
+                    <TableCell sx={{ width: '20%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Deleted Date
                       </Typography>
                     </TableCell>
                   )}
-                  <TableCell align="right" sx={{ width: isMobile ? '45%' : '10%' }}>
+                  <TableCell align="right" sx={{ width: isMobile ? '25%' : '13%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                       Actions
                     </Typography>
@@ -369,23 +359,23 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredOrders.length === 0 ? (
+                {filteredSuppliers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isMobile ? 5 : 7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 5 : 6} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary">
-                        {searchTerm ? 'No deleted orders match your search.' : 'No deleted orders found.'}
+                        {searchTerm ? 'No deleted suppliers match your search.' : 'No deleted suppliers found.'}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredOrders.map((order) => (
+                  filteredSuppliers.map((supplier) => (
                     <TableRow
-                      key={order.id}
+                      key={supplier.id}
                       hover
                       sx={{
                         '&:hover, &:focus-within': {
                           backgroundColor: 'action.hover',
-                          '& .order-actions': {
+                          '& .supplier-actions': {
                             opacity: 1
                           }
                         },
@@ -396,59 +386,65 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                     >
                       <TableCell sx={{ padding: '8px' }}>
                         <Checkbox
-                          checked={selectedOrders.has(order.id)}
-                          onChange={(e) => handleSelectOrder(order.id, e.target.checked)}
+                          checked={selectedSuppliers.has(supplier.id)}
+                          onChange={(e) => handleSelectSupplier(supplier.id, e.target.checked)}
                           size="small"
                         />
                       </TableCell>
                       <TableCell>
                         <Box>
                           <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                            {order.orderNumber}
+                            {supplier.companyName}
                           </Typography>
-                          {isMobile && (
+                          {isMobile && supplier.contactPerson && (
                             <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
                               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                {formatDate(order.orderDate)}
+                                {supplier.contactPerson}
                               </Typography>
-                              {order.totalAmount && (
-                                <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
-                                  • {formatCurrency(order.totalAmount)}
-                                </Typography>
-                              )}
                             </Box>
                           )}
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                          {order.customer?.name || 'Unknown Customer'}
-                        </Typography>
+                        <Chip
+                          label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
+                          size="small"
+                          color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
+                          sx={{
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            height: 20
+                          }}
+                        />
                       </TableCell>
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                            {formatDate(order.orderDate)}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      {!isMobile && (
-                        <TableCell align="right">
-                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
-                            {formatCurrency(order.totalAmount)}
-                          </Typography>
+                          <Stack spacing={0.5}>
+                            {supplier.contactPerson && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <BusinessIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{supplier.contactPerson}</Typography>
+                              </Box>
+                            )}
+                            {supplier.phone && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{supplier.phone}</Typography>
+                              </Box>
+                            )}
+                          </Stack>
                         </TableCell>
                       )}
                       {!isMobile && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                            {order.deletedAt ? formatDate(order.deletedAt) : 'Unknown'}
+                            {supplier.deletedAt ? formatDate(supplier.deletedAt.toString()) : 'Unknown'}
                           </Typography>
                         </TableCell>
                       )}
                       <TableCell align="right">
                         <Box
-                          className="order-actions"
+                          className="supplier-actions"
                           sx={{
                             display: 'flex',
                             justifyContent: 'flex-end',
@@ -457,10 +453,10 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                             transition: 'opacity 0.2s ease'
                           }}
                         >
-                          <Tooltip title="Restore Order">
+                          <Tooltip title="Restore Supplier">
                             <IconButton
-                              onClick={() => handleRestore(order)}
-                              disabled={restoringId === order.id || deletingId === order.id}
+                              onClick={() => handleRestore(supplier)}
+                              disabled={restoringId === supplier.id || deletingId === supplier.id}
                               size="small"
                               sx={{
                                 color: 'success.main',
@@ -471,13 +467,17 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                                 p: 0.5
                               }}
                             >
-                              <RestoreIcon fontSize="small" />
+                              {restoringId === supplier.id ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <RestoreIcon fontSize="small" />
+                              )}
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Permanently Delete Order">
+                          <Tooltip title="Permanently Delete (Cannot be undone)">
                             <IconButton
-                              onClick={() => setShowDeleteConfirm(order)}
-                              disabled={restoringId === order.id || deletingId === order.id}
+                              onClick={() => setConfirmDelete(supplier)}
+                              disabled={restoringId === supplier.id || deletingId === supplier.id}
                               size="small"
                               sx={{
                                 color: 'error.main',
@@ -488,18 +488,18 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                                 p: 0.5
                               }}
                             >
-                              <DeleteIcon fontSize="small" />
+                              <DeleteForeverIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        {isMobile && order.deletedAt && (
+                        {isMobile && supplier.deletedAt && (
                           <Typography variant="caption" color="text.secondary" sx={{
                             display: 'block',
                             textAlign: 'right',
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date(order.deletedAt).toLocaleDateString('en-US', {
+                            {new Date(supplier.deletedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: '2-digit'
@@ -522,6 +522,63 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
         </Button>
       </DialogActions>
 
+      {/* Permanent Delete Confirmation Dialog */}
+      <Dialog
+        open={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">
+          <Box display="flex" alignItems="center" gap={1}>
+            <DeleteForeverIcon color="error" />
+            Permanently Delete Supplier
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            This action cannot be undone! The supplier will be completely removed from the database.
+          </Alert>
+
+          {confirmDelete && (
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                Are you sure you want to permanently delete this supplier?
+              </Typography>
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  {confirmDelete.companyName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Contact: {confirmDelete.contactPerson || 'N/A'}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+                This will permanently remove the supplier and all related data from the database.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setConfirmDelete(null)}
+            variant="outlined"
+            disabled={deletingId === confirmDelete?.id}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => confirmDelete && handlePermanentDelete(confirmDelete)}
+            variant="contained"
+            color="error"
+            disabled={deletingId === confirmDelete?.id}
+            startIcon={deletingId === confirmDelete?.id ? undefined : <DeleteForeverIcon />}
+          >
+            {deletingId === confirmDelete?.id ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Bulk Restore Confirmation Dialog */}
       <Dialog
         open={showBulkRestoreConfirm}
@@ -532,29 +589,29 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
         <DialogTitle color="success">
           <Box display="flex" alignItems="center" gap={1}>
             <RestoreIcon color="success" />
-            Bulk Restore Orders
+            Bulk Restore Suppliers
           </Box>
         </DialogTitle>
         <DialogContent>
           <Alert severity="success" sx={{ mb: 2 }}>
-            This will restore the selected sales orders back to active status and make them available for management.
+            This will restore the selected suppliers back to active status and make them available for use.
           </Alert>
 
           <Typography variant="body1" gutterBottom>
-            Are you sure you want to restore <strong>{selectedCount}</strong> selected orders?
+            Are you sure you want to restore <strong>{selectedCount}</strong> selected suppliers?
           </Typography>
 
           {selectedCount <= 5 && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                Orders to be restored:
+                Suppliers to be restored:
               </Typography>
-              {Array.from(selectedOrders).slice(0, 5).map(orderId => {
-                const order = filteredOrders.find((o: SalesOrder) => o.id === orderId)
-                return order ? (
-                  <Box key={orderId} sx={{ mb: 0.5 }}>
+              {Array.from(selectedSuppliers).slice(0, 5).map(supplierId => {
+                const supplier = filteredSuppliers.find((s: Supplier) => s.id === supplierId)
+                return supplier ? (
+                  <Box key={supplierId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {order.orderNumber} ({order.customer?.name || 'Unknown Customer'})
+                      • {supplier.companyName}
                     </Typography>
                   </Box>
                 ) : null
@@ -563,7 +620,7 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
           )}
 
           <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-            This will move the selected orders back to the active orders list and make them available for processing.
+            This will move the selected suppliers back to the active suppliers list and make them available for purchase orders.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -581,44 +638,44 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
             disabled={bulkRestoring}
             startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
           >
-            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Orders`}
+            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Suppliers`}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog
-        open={showBulkDeleteConfirm}
-        onClose={() => !bulkDeleting && setShowBulkDeleteConfirm(false)}
+        open={showBulkConfirm}
+        onClose={() => !bulkDeleting && setShowBulkConfirm(false)}
         maxWidth="sm"
         fullWidth
       >
         <DialogTitle color="error">
           <Box display="flex" alignItems="center" gap={1}>
-            <DeleteIcon color="error" />
-            Permanent Delete Orders
+            <DeleteForeverIcon color="error" />
+            Bulk Permanent Delete
           </Box>
         </DialogTitle>
         <DialogContent>
           <Alert severity="error" sx={{ mb: 2 }}>
-            <strong>Warning:</strong> This action cannot be undone. The selected sales orders will be permanently deleted from the system.
+            This action cannot be undone! The selected suppliers will be completely removed from the database.
           </Alert>
 
           <Typography variant="body1" gutterBottom>
-            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected orders?
+            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected suppliers?
           </Typography>
 
           {selectedCount <= 5 && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                Orders to be deleted:
+                Suppliers to be deleted:
               </Typography>
-              {Array.from(selectedOrders).slice(0, 5).map(orderId => {
-                const order = filteredOrders.find((o: SalesOrder) => o.id === orderId)
-                return order ? (
-                  <Box key={orderId} sx={{ mb: 0.5 }}>
+              {Array.from(selectedSuppliers).slice(0, 5).map(supplierId => {
+                const supplier = filteredSuppliers.find((s: Supplier) => s.id === supplierId)
+                return supplier ? (
+                  <Box key={supplierId} sx={{ mb: 0.5 }}>
                     <Typography variant="body2">
-                      • {order.orderNumber} ({order.customer?.name || 'Unknown Customer'})
+                      • {supplier.companyName}
                     </Typography>
                   </Box>
                 ) : null
@@ -627,90 +684,25 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
           )}
 
           <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-            These orders will be permanently removed from the database and cannot be recovered.
+            This will permanently remove all selected suppliers and their data from the database.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setShowBulkDeleteConfirm(false)}
+            onClick={() => setShowBulkConfirm(false)}
             variant="outlined"
             disabled={bulkDeleting}
           >
             Cancel
           </Button>
           <Button
-            onClick={handleBulkDelete}
+            onClick={handleBulkPermanentDelete}
             variant="contained"
             color="error"
             disabled={bulkDeleting}
-            startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteIcon />}
+            startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
           >
-            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Orders`}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Individual Delete Confirmation Dialog */}
-      <Dialog
-        open={!!showDeleteConfirm}
-        onClose={() => !deletingId && setShowDeleteConfirm(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
-            <DeleteIcon color="error" />
-            Permanent Delete Order
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="error" sx={{ mb: 2 }}>
-            <strong>Warning:</strong> This action cannot be undone. The sales order will be permanently deleted from the system.
-          </Alert>
-
-          {showDeleteConfirm && (
-            <>
-              <Typography variant="body1" gutterBottom>
-                Are you sure you want to permanently delete order <strong>{showDeleteConfirm.orderNumber}</strong>?
-              </Typography>
-
-              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Order Details:
-                </Typography>
-                <Typography variant="body2">
-                  • Customer: {showDeleteConfirm.customer?.name || 'Unknown Customer'}
-                </Typography>
-                <Typography variant="body2">
-                  • Order Date: {formatDate(showDeleteConfirm.orderDate)}
-                </Typography>
-                <Typography variant="body2">
-                  • Total Amount: {formatCurrency(showDeleteConfirm.totalAmount)}
-                </Typography>
-              </Box>
-
-              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
-                This order will be permanently removed from the database and cannot be recovered.
-              </Typography>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setShowDeleteConfirm(null)}
-            variant="outlined"
-            disabled={!!deletingId}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => showDeleteConfirm && handlePermanentDelete(showDeleteConfirm)}
-            variant="contained"
-            color="error"
-            disabled={!!deletingId}
-            startIcon={deletingId ? <CircularProgress size={16} /> : <DeleteIcon />}
-          >
-            {deletingId ? 'Deleting...' : 'Permanently Delete'}
+            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Suppliers`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -718,4 +710,4 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
   )
 }
 
-export default DeletedOrdersDialog
+export default DeletedSuppliersDialog

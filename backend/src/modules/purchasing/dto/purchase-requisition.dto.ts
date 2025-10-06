@@ -16,11 +16,11 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { 
-  PurchaseRequisitionStatus, 
+import {
+  PurchaseRequisitionStatus,
   PurchaseRequisitionPriority,
-  PurchaseRequisitionType 
-} from '../../../database/entities';
+  PurchaseRequisitionType
+} from '../../../database/entities/purchase-requisition.entity';
 
 export class CreatePurchaseRequisitionItemDto {
   @ApiPropertyOptional({ description: 'Product ID if from catalog' })

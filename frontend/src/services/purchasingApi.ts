@@ -16,7 +16,7 @@ export const purchasingApi = {
   },
 
   async updateSupplier(id: string, supplierData: Partial<Supplier>) {
-    return ApiService.put<Supplier>(`/purchasing/suppliers/${id}`, supplierData)
+    return ApiService.patch<Supplier>(`/purchasing/suppliers/${id}`, supplierData)
   },
 
   async deleteSupplier(id: string) {
@@ -25,6 +25,36 @@ export const purchasingApi = {
 
   async getSupplierProducts(id: string, params?: QueryParams) {
     return ApiService.get<PaginatedResponse<any>>(`/purchasing/suppliers/${id}/products`, { params })
+  },
+
+  async getDeletedSuppliers(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<Supplier>>('/purchasing/suppliers/deleted', { params })
+  },
+
+  async restoreSupplier(id: string) {
+    return ApiService.post<Supplier>(`/purchasing/suppliers/${id}/restore`)
+  },
+
+  async permanentDeleteSupplier(id: string) {
+    return ApiService.delete(`/purchasing/suppliers/${id}/permanent`)
+  },
+
+  async bulkRestoreSuppliers(supplierIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('/purchasing/suppliers/bulk-restore', {
+      supplierIds
+    })
+  },
+
+  async bulkPermanentDeleteSuppliers(supplierIds: string[]) {
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('/purchasing/suppliers/bulk-permanent-delete', {
+      supplierIds
+    })
+  },
+
+  async checkDuplicateCompanyName(companyName: string, excludeId?: string) {
+    return ApiService.get<{ exists: boolean; message?: string }>('/purchasing/suppliers/check-duplicate', {
+      params: { companyName, excludeId }
+    })
   },
 
   // Purchase Orders
