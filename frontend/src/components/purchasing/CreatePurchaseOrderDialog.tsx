@@ -34,6 +34,7 @@ import * as yup from 'yup'
 import { purchasingApi } from '@/services/purchasingApi'
 import { ApiService } from '@/services/api'
 import { formatCurrency } from '@/utils/formatters'
+import { formatCurrencyInput } from '@/utils/currency'
 
 interface PurchaseOrderItem {
   productId: string
@@ -138,10 +139,13 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
     }
   }
 
-  const loadProducts = async () => {
+  const loadProducts = async (searchTerm: string = '') => {
     try {
-      const api = new ApiService()
-      const response = await api.get('/inventory/products', { params: { limit: 1000 } })
+      const params: any = { limit: 100 }
+      if (searchTerm && searchTerm.trim().length >= 1) {
+        params.search = searchTerm.trim()
+      }
+      const response = await ApiService.get('/inventory/products', { params })
       setProducts(response.data?.data || [])
     } catch (err) {
       console.error('Error loading products:', err)
@@ -182,51 +186,97 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
     if (product) {
       setValue(`items.${index}.productId`, product.id)
       setValue(`items.${index}.unitPrice`, Number(product.baseCost || 0))
+      setValue(`items.${index}.product`, product)
     }
   }
 
-  const calculateGrandTotal = () => {
-    return watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+  const handlePriceChange = (index: number, value: string) => {
+    const numericValue = parseFloat(value.replace(/,/g, '')) || 0
+    setValue(`items.${index}.unitPrice`, numericValue)
   }
 
+  const formatPriceInput = (value: string) => {
+    const cleanValue = value.replace(/[^0-9.]/g, '')
+    const parts = cleanValue.split('.')
+    if (parts.length > 2) {
+      return parts[0] + '.' + parts.slice(1).join('')
+    }
+    if (parts.length === 2) {
+      parts[1] = parts[1].substring(0, 4)
+    }
+    return parts.join('.')
+  }
+
+  const calculateOrderTotals = () => {
+    const totalAmount = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+    return { totalAmount }
+  }
+
+  const addItem = () => {
+    append({
+      productId: '',
+      quantity: 1,
+      unitPrice: 0,
+      discountPercent: 0,
+      totalPrice: 0,
+    })
+  }
+
+  const totals = calculateOrderTotals()
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{
+        sx: {
+          maxHeight: '90vh',
+          width: '70vw',
+          maxWidth: '900px',
+        }
+      }}
+    >
       <DialogTitle>Create Purchase Order</DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 3 }}>
               {error}
             </Alert>
           )}
 
-          <Grid container spacing={2}>
-            {/* Supplier Selection */}
+          <Grid container spacing={3}>
+            {/* Order Header */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>Order Information</Typography>
+            </Grid>
+
             <Grid item xs={12} md={6}>
               <Controller
                 name="supplierId"
                 control={control}
                 render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.supplierId}>
-                    <InputLabel>Supplier *</InputLabel>
-                    <Select {...field} label="Supplier *">
-                      {suppliers.map((supplier) => (
-                        <MenuItem key={supplier.id} value={supplier.id}>
-                          {supplier.companyName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.supplierId && (
-                      <Typography variant="caption" color="error">
-                        {errors.supplierId.message}
-                      </Typography>
+                  <Autocomplete
+                    options={suppliers}
+                    getOptionLabel={(option) => option.companyName}
+                    value={suppliers.find(s => s.id === field.value) || null}
+                    onChange={(_, value) => field.onChange(value?.id || '')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Supplier"
+                        error={!!errors.supplierId}
+                        helperText={errors.supplierId?.message}
+                        required
+                      />
                     )}
-                  </FormControl>
+                  />
                 )}
               />
             </Grid>
 
-            {/* Order Date */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="orderDate"
@@ -234,175 +284,262 @@ const CreatePurchaseOrderDialog: React.FC<CreatePurchaseOrderDialogProps> = ({
                 render={({ field }) => (
                   <TextField
                     {...field}
-                    fullWidth
-                    label="Order Date *"
+                    label="Order Date"
                     type="date"
                     InputLabelProps={{ shrink: true }}
                     error={!!errors.orderDate}
                     helperText={errors.orderDate?.message}
+                    required
+                    fullWidth
                   />
                 )}
               />
             </Grid>
 
-            {/* Notes */}
+            {/* Order Items */}
             <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">Order Items</Typography>
+                <Button
+                  startIcon={<AddIcon />}
+                  onClick={addItem}
+                  variant="outlined"
+                >
+                  Add Item
+                </Button>
+              </Box>
+
+              <TableContainer component={Paper} sx={{ border: '1px solid #e0e0e0' }}>
+                <Table
+                  size="small"
+                  sx={{
+                    '& .MuiTableCell-root': {
+                      border: '1px solid #e0e0e0',
+                      padding: '4px 8px',
+                      fontSize: '0.875rem',
+                    },
+                    '& .MuiTableHead-root .MuiTableCell-root': {
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 600,
+                      color: '#424242',
+                      border: '1px solid #d0d0d0',
+                    },
+                    '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                      backgroundColor: '#f9f9f9',
+                    },
+                    '& .MuiTextField-root': {
+                      '& .MuiOutlinedInput-root': {
+                        border: 'none',
+                        '& fieldset': {
+                          border: 'none',
+                        },
+                        '&:hover fieldset': {
+                          border: '1px solid #1976d2',
+                        },
+                        '&.Mui-focused fieldset': {
+                          border: '1px solid #1976d2',
+                        },
+                        backgroundColor: 'transparent',
+                        fontSize: '0.875rem',
+                      },
+                      '& .MuiInputBase-input': {
+                        padding: '6px 8px',
+                        textAlign: 'center',
+                      },
+                      '& .MuiFormHelperText-root': {
+                        position: 'absolute',
+                        bottom: '-20px',
+                        fontSize: '0.75rem',
+                      },
+                    },
+                    '& .MuiAutocomplete-root .MuiTextField-root .MuiInputBase-input': {
+                      textAlign: 'left',
+                    }
+                  }}
+                >
+                  <TableHead>
+                    <TableRow>
+                      <TableCell align="center" sx={{ width: '35%', minWidth: 200 }}>Product</TableCell>
+                      <TableCell align="center" sx={{ width: '10%', minWidth: 80 }}>Qty</TableCell>
+                      <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Unit Price</TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 90 }}>Disc %</TableCell>
+                      <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Total</TableCell>
+                      <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
+                      <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {fields.map((field, index) => (
+                      <TableRow key={field.id}>
+                        <TableCell sx={{ padding: '2px !important' }}>
+                          <Controller
+                            name={`items.${index}.productId`}
+                            control={control}
+                            render={({ field: productField }) => (
+                              <Autocomplete
+                                options={products}
+                                getOptionLabel={(option) => option.name}
+                                value={products.find(p => p.id === productField.value) || null}
+                                onChange={(_, value) => handleProductSelect(index, value)}
+                                onInputChange={(_, value, reason) => {
+                                  if (reason === 'input' && value.trim().length >= 1) {
+                                    loadProducts(value)
+                                  } else if (reason === 'input') {
+                                    loadProducts('')
+                                  }
+                                }}
+                                filterOptions={(options) => options}
+                                size="small"
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="Search by name or barcode..."
+                                    variant="outlined"
+                                    error={!!errors.items?.[index]?.productId}
+                                    sx={{
+                                      '& .MuiInputBase-input': {
+                                        textAlign: 'left !important',
+                                        padding: '6px 8px !important',
+                                      }
+                                    }}
+                                  />
+                                )}
+                                sx={{
+                                  '& .MuiAutocomplete-inputRoot': {
+                                    padding: '0 !important',
+                                  }
+                                }}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
+                          <Controller
+                            name={`items.${index}.quantity`}
+                            control={control}
+                            render={({ field: qtyField }) => (
+                              <TextField
+                                {...qtyField}
+                                type="number"
+                                variant="outlined"
+                                inputProps={{ min: 1, style: { textAlign: 'center' } }}
+                                error={!!errors.items?.[index]?.quantity}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
+                          <Controller
+                            name={`items.${index}.unitPrice`}
+                            control={control}
+                            render={({ field: priceField }) => (
+                              <TextField
+                                value={formatCurrencyInput(priceField.value)}
+                                onChange={(e) => {
+                                  const formattedValue = formatPriceInput(e.target.value)
+                                  handlePriceChange(index, formattedValue)
+                                }}
+                                variant="outlined"
+                                inputProps={{
+                                  style: { textAlign: 'right' }
+                                }}
+                                InputProps={{
+                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '12px', color: '#666' }}>RM</span>
+                                }}
+                                error={!!errors.items?.[index]?.unitPrice}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
+                          <Controller
+                            name={`items.${index}.discountPercent`}
+                            control={control}
+                            render={({ field: discountField }) => (
+                              <TextField
+                                {...discountField}
+                                type="number"
+                                variant="outlined"
+                                inputProps={{
+                                  min: 0,
+                                  max: 100,
+                                  step: 0.01,
+                                  style: { textAlign: 'center' }
+                                }}
+                                error={!!errors.items?.[index]?.discountPercent}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
+                          <Box sx={{
+                            backgroundColor: '#f8f9fa',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid #e9ecef',
+                            minHeight: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end'
+                          }}>
+                            <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
+                              {formatCurrency(watchedItems[index]?.totalPrice || 0)}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center" sx={{ padding: '2px !important' }}>
+                          <IconButton
+                            onClick={() => remove(index)}
+                            disabled={fields.length === 1}
+                            size="small"
+                            sx={{
+                              color: '#dc3545',
+                              '&:hover': { backgroundColor: '#f8d7da' },
+                              '&.Mui-disabled': { color: '#ccc' }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                        <TableCell sx={{ width: 40, padding: '2px !important', backgroundColor: '#f8f9fa' }}>
+                          <Typography variant="caption" sx={{ color: '#6c757d', fontSize: '0.75rem' }}>
+                            {index + 1}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+
+            {/* Order Totals and Notes */}
+            <Grid item xs={12} md={8}>
               <Controller
                 name="notes"
                 control={control}
                 render={({ field }) => (
                   <TextField
                     {...field}
-                    fullWidth
                     label="Notes"
                     multiline
-                    rows={2}
+                    rows={3}
+                    fullWidth
                   />
                 )}
               />
             </Grid>
+            <Grid item xs={12} md={4}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom>Order Summary</Typography>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="h6">Total:</Typography>
+                  <Typography variant="h6">{formatCurrency(totals.totalAmount)}</Typography>
+                </Box>
+              </Paper>
+            </Grid>
           </Grid>
-
-          {/* Order Items */}
-          <Box sx={{ mt: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">Order Items</Typography>
-              <Button
-                startIcon={<AddIcon />}
-                onClick={() => append({
-                  productId: '',
-                  quantity: 1,
-                  unitPrice: 0,
-                  discountPercent: 0,
-                  totalPrice: 0,
-                })}
-                size="small"
-              >
-                Add Item
-              </Button>
-            </Box>
-
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Product *</TableCell>
-                    <TableCell width="120px">Qty *</TableCell>
-                    <TableCell width="150px">Unit Price *</TableCell>
-                    <TableCell width="120px">Disc %</TableCell>
-                    <TableCell width="150px">Total</TableCell>
-                    <TableCell width="60px"></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {fields.map((field, index) => (
-                    <TableRow key={field.id}>
-                      <TableCell>
-                        <Controller
-                          name={`items.${index}.productId`}
-                          control={control}
-                          render={({ field }) => (
-                            <Autocomplete
-                              options={products}
-                              getOptionLabel={(option) => option.name || ''}
-                              value={products.find(p => p.id === field.value) || null}
-                              onChange={(_, value) => {
-                                field.onChange(value?.id || '')
-                                handleProductSelect(index, value)
-                              }}
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  size="small"
-                                  placeholder="Select product"
-                                  error={!!errors.items?.[index]?.productId}
-                                />
-                              )}
-                              size="small"
-                              sx={{ minWidth: 200 }}
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Controller
-                          name={`items.${index}.quantity`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              type="number"
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 0, step: 1 }}
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Controller
-                          name={`items.${index}.unitPrice`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              type="number"
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 0, step: 0.01 }}
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Controller
-                          name={`items.${index}.discountPercent`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              type="number"
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 0, max: 100, step: 0.01 }}
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {formatCurrency(watchedItems[index]?.totalPrice || 0)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => remove(index)}
-                          disabled={fields.length === 1}
-                          color="error"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            {/* Grand Total */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Typography variant="h6">
-                Grand Total: {formatCurrency(calculateGrandTotal())}
-              </Typography>
-            </Box>
-
-            {errors.items && typeof errors.items.message === 'string' && (
-              <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                {errors.items.message}
-              </Typography>
-            )}
-          </Box>
         </DialogContent>
 
         <DialogActions>
