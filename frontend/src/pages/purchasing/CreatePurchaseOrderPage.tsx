@@ -268,6 +268,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 }}
                               />
                             )}
+                            slotProps={{
+                              paper: {
+                                sx: {
+                                  '& .MuiAutocomplete-option': {
+                                    fontSize: '0.875rem',
+                                  }
+                                }
+                              }
+                            }}
                           />
                         )}
                       />
@@ -411,6 +420,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                           '& .MuiInputBase-input': {
                                             textAlign: 'left !important',
                                             padding: '6px 8px !important',
+                                            fontSize: '0.875rem',
                                           }
                                         }}
                                       />
@@ -418,6 +428,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                     sx={{
                                       '& .MuiAutocomplete-inputRoot': {
                                         padding: '0 !important',
+                                      }
+                                    }}
+                                    slotProps={{
+                                      paper: {
+                                        sx: {
+                                          '& .MuiAutocomplete-option': {
+                                            fontSize: '0.875rem',
+                                          }
+                                        }
                                       }
                                     }}
                                   />
@@ -433,7 +452,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                     {...qtyField}
                                     type="number"
                                     variant="outlined"
-                                    inputProps={{ min: 1, style: { textAlign: 'center' } }}
+                                    inputProps={{ min: 1, style: { textAlign: 'center', fontSize: '0.875rem' } }}
                                     error={!!errors.items?.[index]?.quantity}
                                   />
                                 )}
@@ -452,10 +471,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                     }}
                                     variant="outlined"
                                     inputProps={{
-                                      style: { textAlign: 'right' }
+                                      style: { textAlign: 'right', fontSize: '0.875rem' }
                                     }}
                                     InputProps={{
-                                      startAdornment: <span style={{ marginRight: '4px', fontSize: '12px', color: '#666' }}>RM</span>
+                                      startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
                                     }}
                                     error={!!errors.items?.[index]?.unitPrice}
                                   />
@@ -475,7 +494,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                       min: 0,
                                       max: 100,
                                       step: 0.01,
-                                      style: { textAlign: 'center' }
+                                      style: { textAlign: 'center', fontSize: '0.875rem' }
                                     }}
                                     error={!!errors.items?.[index]?.discountPercent}
                                   />
@@ -540,6 +559,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
                         multiline
                         rows={4}
                         fullWidth
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.875rem',
+                          },
+                          '& .MuiInputLabel-root': {
+                            fontSize: '0.875rem',
+                          }
+                        }}
                       />
                     )}
                   />
@@ -553,8 +580,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   <Typography variant="h6" gutterBottom>Order Summary</Typography>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                    <Typography variant="h6">Total:</Typography>
-                    <Typography variant="h6">{formatCurrency(totals.totalAmount)}</Typography>
+                    <Typography variant="h6" sx={{ fontSize: '0.875rem' }}>Total:</Typography>
+                    <Typography variant="h6" sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.totalAmount)}</Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 2 }}>
