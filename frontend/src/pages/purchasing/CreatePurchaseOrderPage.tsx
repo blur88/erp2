@@ -495,14 +495,21 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 control={control}
                                 render={({ field: priceField }) => (
                                   <TextField
-                                    value={formatCurrencyInput(priceField.value)}
-                                    onChange={(e) => {
-                                      const formattedValue = formatPriceInput(e.target.value)
-                                      handlePriceChange(index, formattedValue)
-                                    }}
+                                    {...priceField}
+                                    type="number"
                                     variant="outlined"
                                     inputProps={{
+                                      min: 0,
+                                      step: 0.01,
                                       style: { textAlign: 'right', fontSize: '0.875rem' }
+                                    }}
+                                    sx={{
+                                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                        display: 'none',
+                                      },
+                                      '& input[type=number]': {
+                                        MozAppearance: 'textfield',
+                                      },
                                     }}
                                     InputProps={{
                                       startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
@@ -519,19 +526,23 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                   control={control}
                                   render={({ field: discountField }) => (
                                     <TextField
-                                      value={formatCurrencyInput(discountField.value)}
-                                      onChange={(e) => {
-                                        const formattedValue = formatPriceInput(e.target.value)
-                                        const numericValue = parseFloat(formattedValue.replace(/,/g, '')) || 0
-                                        discountField.onChange(numericValue)
-                                      }}
+                                      {...discountField}
+                                      type="number"
                                       variant="outlined"
                                       inputProps={{
+                                        min: 0,
+                                        step: 0.01,
                                         style: { textAlign: 'right', fontSize: '0.875rem' }
                                       }}
                                       error={!!errors.items?.[index]?.discountValue}
                                       sx={{
                                         flex: 1,
+                                        '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                                          display: 'none',
+                                        },
+                                        '& input[type=number]': {
+                                          MozAppearance: 'textfield',
+                                        },
                                       }}
                                     />
                                   )}
@@ -660,21 +671,25 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       control={control}
                       render={({ field }) => (
                         <TextField
-                          value={formatCurrencyInput(field.value)}
-                          onChange={(e) => {
-                            const formattedValue = formatPriceInput(e.target.value)
-                            const numericValue = parseFloat(formattedValue.replace(/,/g, '')) || 0
-                            field.onChange(numericValue)
-                          }}
+                          {...field}
+                          type="number"
                           variant="outlined"
                           size="small"
                           inputProps={{
+                            min: 0,
+                            step: 0.01,
                             style: { textAlign: 'right', fontSize: '0.875rem' }
                           }}
                           sx={{
                             width: '120px',
                             '& .MuiInputBase-input': {
                               padding: '4px 8px',
+                            },
+                            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                              display: 'none',
+                            },
+                            '& input[type=number]': {
+                              MozAppearance: 'textfield',
                             },
                           }}
                           InputProps={{
