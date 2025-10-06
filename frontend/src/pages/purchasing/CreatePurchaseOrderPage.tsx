@@ -121,7 +121,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const loadSuppliers = async () => {
     try {
       const response = await purchasingApi.getSuppliers({ limit: 1000 })
-      setSuppliers(response.suppliers || [])
+      setSuppliers((response as any).suppliers || [])
     } catch (err) {
       console.error('Error loading suppliers:', err)
     }
@@ -134,7 +134,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         params.search = searchTerm.trim()
       }
       const response = await ApiService.get('/inventory/products', { params })
-      setProducts(response.data?.data || [])
+      setProducts((response as any).data?.data || [])
     } catch (err) {
       console.error('Error loading products:', err)
     }
@@ -249,6 +249,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             getOptionLabel={(option) => option.companyName}
                             value={suppliers.find(s => s.id === field.value) || null}
                             onChange={(_, value) => field.onChange(value?.id || '')}
+                            size="small"
                             renderInput={(params) => (
                               <TextField
                                 {...params}
@@ -256,6 +257,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 error={!!errors.supplierId}
                                 helperText={errors.supplierId?.message}
                                 required
+                                size="small"
+                                sx={{
+                                  '& .MuiInputBase-input': {
+                                    fontSize: '0.875rem',
+                                  },
+                                  '& .MuiInputLabel-root': {
+                                    fontSize: '0.875rem',
+                                  }
+                                }}
                               />
                             )}
                           />
@@ -277,6 +287,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             helperText={errors.orderDate?.message}
                             required
                             fullWidth
+                            size="small"
+                            sx={{
+                              '& .MuiInputBase-input': {
+                                fontSize: '0.875rem',
+                              },
+                              '& .MuiInputLabel-root': {
+                                fontSize: '0.875rem',
+                              }
+                            }}
                           />
                         )}
                       />
