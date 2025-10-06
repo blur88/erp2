@@ -65,6 +65,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import CreatePurchaseOrderDialog from '@/components/purchasing/CreatePurchaseOrderDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -210,6 +211,7 @@ const PurchaseOrdersPage: React.FC = () => {
   })
 
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -385,7 +387,7 @@ const PurchaseOrdersPage: React.FC = () => {
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
             size="medium"
-            onClick={() => {/* TODO: Add create dialog */}}
+            onClick={() => setCreateDialogOpen(true)}
             fullWidth={isMobile}
           >
             {isMobile ? "Create New Order" : "Create Order"}
@@ -813,6 +815,17 @@ const PurchaseOrdersPage: React.FC = () => {
       <KeyboardShortcutsHelp
         open={keyboardHelpOpen}
         onClose={() => setKeyboardHelpOpen(false)}
+      />
+
+      {/* Create Purchase Order Dialog */}
+      <CreatePurchaseOrderDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onOrderCreated={() => {
+          setCreateDialogOpen(false)
+          loadOrders()
+          showSuccess('Purchase order created successfully')
+        }}
       />
     </Box>
   )
