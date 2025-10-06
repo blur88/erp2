@@ -676,8 +676,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
             {/* Notes and Summary */}
             <Grid item xs={12} md={8}>
-              <Card>
-                <CardContent>
+              <Card sx={{ height: '100%' }}>
+                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Controller
                     name="notes"
                     control={control}
@@ -686,9 +686,13 @@ const CreatePurchaseOrderPage: React.FC = () => {
                         {...field}
                         label="Notes"
                         multiline
-                        rows={4}
                         fullWidth
                         sx={{
+                          flex: 1,
+                          '& .MuiInputBase-root': {
+                            height: '100%',
+                            alignItems: 'flex-start',
+                          },
                           '& .MuiInputBase-input': {
                             fontSize: '0.875rem',
                           },
@@ -704,8 +708,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
             </Grid>
 
             <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
+              <Card sx={{ height: '100%' }}>
+                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" gutterBottom>Order Summary</Typography>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -769,7 +773,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
                   </Box>
 
-                  <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Box sx={{ display: 'flex', gap: 2, mt: 'auto' }}>
                     <Button
                       variant="outlined"
                       fullWidth
