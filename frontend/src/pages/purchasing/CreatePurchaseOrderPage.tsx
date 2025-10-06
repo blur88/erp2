@@ -134,7 +134,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         }
       }
     })
-  }, [watchedItems, setValue])
+  }, [JSON.stringify(watchedItems), setValue])
 
   const loadSuppliers = async () => {
     try {
