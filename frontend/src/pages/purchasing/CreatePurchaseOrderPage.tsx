@@ -129,12 +129,13 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
   const loadProducts = async (searchTerm: string = '') => {
     try {
-      const params: any = { limit: 100 }
+      const params: any = { limit: 100, isActive: true }
       if (searchTerm && searchTerm.trim().length >= 1) {
         params.search = searchTerm.trim()
       }
       const response = await ApiService.get('/inventory/products', { params })
-      setProducts((response as any).data?.data || [])
+      console.log('Products loaded:', response)
+      setProducts((response as any).data || [])
     } catch (err) {
       console.error('Error loading products:', err)
     }
