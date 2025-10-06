@@ -65,7 +65,6 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
-import CreatePurchaseOrderDialog from '@/components/purchasing/CreatePurchaseOrderDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -186,6 +185,7 @@ OrderRow.displayName = 'OrderRow'
 const PurchaseOrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
@@ -211,7 +211,6 @@ const PurchaseOrdersPage: React.FC = () => {
   })
 
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -387,7 +386,7 @@ const PurchaseOrdersPage: React.FC = () => {
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
             size="medium"
-            onClick={() => setCreateDialogOpen(true)}
+            onClick={() => navigate('/purchasing/orders/create')}
             fullWidth={isMobile}
           >
             {isMobile ? "Create New Order" : "Create Order"}
@@ -815,17 +814,6 @@ const PurchaseOrdersPage: React.FC = () => {
       <KeyboardShortcutsHelp
         open={keyboardHelpOpen}
         onClose={() => setKeyboardHelpOpen(false)}
-      />
-
-      {/* Create Purchase Order Dialog */}
-      <CreatePurchaseOrderDialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        onOrderCreated={() => {
-          setCreateDialogOpen(false)
-          loadOrders()
-          showSuccess('Purchase order created successfully')
-        }}
       />
     </Box>
   )

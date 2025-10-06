@@ -21,6 +21,7 @@ const PaymentsPage = React.lazy(() => import('./pages/sales/PaymentsPage'))
 const PurchasingPage = React.lazy(() => import('./pages/purchasing/PurchasingPage'))
 const SuppliersPage = React.lazy(() => import('./pages/purchasing/SuppliersPage'))
 const PurchaseOrdersPage = React.lazy(() => import('./pages/purchasing/PurchaseOrdersPage'))
+const CreatePurchaseOrderPage = React.lazy(() => import('./pages/purchasing/CreatePurchaseOrderPage'))
 const GRNPage = React.lazy(() => import('./pages/purchasing/GRNPage'))
 const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'))
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
@@ -73,6 +74,7 @@ function App() {
                     <Route path="/purchasing" element={<PurchasingPage />} />
                     <Route path="/purchasing/suppliers" element={<SuppliersPage />} />
                     <Route path="/purchasing/orders" element={<PurchaseOrdersPage />} />
+                    <Route path="/purchasing/orders/create" element={<CreatePurchaseOrderPage />} />
                     <Route path="/purchasing/grn" element={<GRNPage />} />
 
                     {/* Reports */}
