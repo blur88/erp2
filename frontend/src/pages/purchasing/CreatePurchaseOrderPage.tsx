@@ -157,7 +157,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         })),
       }
 
-      await purchasingApi.createPurchaseOrder(orderData)
+      await purchasingApi.createPurchaseOrder(orderData as any)
 
       showSuccess('Purchase order created successfully')
       navigate('/purchasing/orders')
