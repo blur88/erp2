@@ -155,6 +155,48 @@ export class PurchaseOrderController {
     return { data };
   }
 
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Bulk restore deleted purchase orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase orders restored successfully',
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkRestore(
+    @Body() body: { orderIds: string[] },
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    return this.purchaseOrderService.bulkRestore(body.orderIds, 'system');
+  }
+
+  @Post('bulk-permanent-delete')
+  @ApiOperation({ summary: 'Permanently delete multiple purchase orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase orders permanently deleted successfully',
+  })
+  @HttpCode(HttpStatus.OK)
+  async bulkPermanentDelete(
+    @Body() body: { orderIds: string[] },
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+    return this.purchaseOrderService.bulkPermanentDelete(body.orderIds);
+  }
+
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  @HttpCode(HttpStatus.OK)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ message: string }> {
+    await this.purchaseOrderService.permanentDelete(id);
+    return { message: 'Purchase order permanently deleted successfully' };
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete purchase order (soft delete)' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })

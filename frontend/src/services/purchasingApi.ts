@@ -86,6 +86,22 @@ export const purchasingApi = {
     return ApiService.post<PurchaseOrder>(`/purchasing/orders/${id}/restore`)
   },
 
+  async permanentDeletePurchaseOrder(id: string) {
+    return ApiService.delete(`/purchasing/orders/${id}/permanent`)
+  },
+
+  async bulkRestorePurchaseOrders(orderIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('/purchasing/orders/bulk-restore', {
+      orderIds
+    })
+  },
+
+  async bulkPermanentDeletePurchaseOrders(orderIds: string[]) {
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('/purchasing/orders/bulk-permanent-delete', {
+      orderIds
+    })
+  },
+
   async sendPurchaseOrder(id: string, options?: {
     email?: string
     subject?: string

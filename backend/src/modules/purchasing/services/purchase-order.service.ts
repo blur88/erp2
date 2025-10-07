@@ -576,6 +576,74 @@ export class PurchaseOrderService {
   }
 
   /**
+   * Bulk restore deleted purchase orders
+   */
+  async bulkRestore(orderIds: string[], userId: string = 'system'): Promise<{ restoredCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk restoring ${orderIds.length} purchase orders`);
+
+    const restoredCount = 0;
+    const failedIds: string[] = [];
+    let successCount = 0;
+
+    for (const orderId of orderIds) {
+      try {
+        await this.restore(orderId, userId);
+        successCount++;
+      } catch (error) {
+        this.logger.error(`Failed to restore purchase order ${orderId}: ${error.message}`);
+        failedIds.push(orderId);
+      }
+    }
+
+    this.logger.log(`Bulk restore completed: ${successCount} restored, ${failedIds.length} failed`);
+    return { restoredCount: successCount, failedIds };
+  }
+
+  /**
+   * Permanently delete a purchase order
+   */
+  async permanentDelete(id: string): Promise<void> {
+    this.logger.log(`Permanently deleting purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Hard delete - remove from database completely
+    await this.purchaseOrderRepository.remove(purchaseOrder);
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} permanently deleted`);
+  }
+
+  /**
+   * Bulk permanently delete purchase orders
+   */
+  async bulkPermanentDelete(orderIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+    this.logger.log(`Bulk permanently deleting ${orderIds.length} purchase orders`);
+
+    const failedIds: string[] = [];
+    let successCount = 0;
+
+    for (const orderId of orderIds) {
+      try {
+        await this.permanentDelete(orderId);
+        successCount++;
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete purchase order ${orderId}: ${error.message}`);
+        failedIds.push(orderId);
+      }
+    }
+
+    this.logger.log(`Bulk permanent delete completed: ${successCount} deleted, ${failedIds.length} failed`);
+    return { deletedCount: successCount, failedIds };
+  }
+
+  /**
    * Soft delete a purchase order
    */
   async remove(id: string, userId: string = 'system'): Promise<void> {
