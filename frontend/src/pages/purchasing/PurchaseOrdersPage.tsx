@@ -66,6 +66,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -161,6 +162,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
+  const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -335,7 +337,7 @@ const PurchaseOrdersPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => showError('Deleted purchase orders feature coming soon')}
+            onClick={() => setDeletedOrdersDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
@@ -745,6 +747,13 @@ const PurchaseOrdersPage: React.FC = () => {
         message={`Are you sure you want to delete purchase order ${orderToDelete?.orderNumber}? This action can be undone from the deleted orders list.`}
         confirmText="Delete"
         severity="error"
+      />
+
+      {/* Deleted Purchase Orders Dialog */}
+      <DeletedPurchaseOrdersDialog
+        open={deletedOrdersDialogOpen}
+        onClose={() => setDeletedOrdersDialogOpen(false)}
+        onRefresh={loadOrders}
       />
     </Box>
   )

@@ -490,6 +490,92 @@ export class PurchaseOrderService {
   }
 
   /**
+   * Get deleted purchase orders
+   */
+  async findDeleted(query: PurchaseOrderQueryDto): Promise<PurchaseOrderListResponseDto> {
+    this.logger.log('Getting deleted purchase orders');
+
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.purchaseOrderRepository
+      .createQueryBuilder('po')
+      .leftJoinAndSelect('po.supplier', 'supplier')
+      .leftJoinAndSelect('po.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('po.createdByUser', 'createdByUser')
+      .leftJoinAndSelect('po.approvedByUser', 'approvedByUser')
+      .withDeleted() // Include soft-deleted records
+      .where('po.deletedAt IS NOT NULL'); // Only get deleted ones
+
+    // Apply search filter
+    if (query.search) {
+      queryBuilder.andWhere(
+        '(po.orderNumber ILIKE :search OR supplier.companyName ILIKE :search OR po.notes ILIKE :search)',
+        { search: `%${query.search}%` }
+      );
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply sorting
+    const sortBy = query.sortBy || 'deletedAt';
+    const sortOrder = query.sortOrder || 'DESC';
+    queryBuilder.orderBy(`po.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+
+    // Apply pagination
+    queryBuilder.skip(skip).take(limit);
+
+    const purchaseOrders = await queryBuilder.getMany();
+
+    return {
+      orders: purchaseOrders.map(po => this.mapToResponseDto(po)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1,
+    };
+  }
+
+  /**
+   * Restore a deleted purchase order
+   */
+  async restore(id: string, userId: string = 'system'): Promise<PurchaseOrderResponseDto> {
+    this.logger.log(`Restoring purchase order: ${id}`);
+
+    // Check if the order exists in deleted records
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      withDeleted: true,
+      relations: ['supplier', 'items', 'items.product', 'createdByUser', 'approvedByUser'],
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    if (!purchaseOrder.deletedAt) {
+      throw new BadRequestException('Purchase order is not deleted');
+    }
+
+    // Restore using TypeORM's restore method
+    await this.purchaseOrderRepository.restore(id);
+
+    // Fetch the restored order
+    const restoredOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: ['supplier', 'items', 'items.product', 'createdByUser', 'approvedByUser'],
+    });
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} restored successfully`);
+    return this.mapToResponseDto(restoredOrder);
+  }
+
+  /**
    * Soft delete a purchase order
    */
   async remove(id: string, userId: string = 'system'): Promise<void> {

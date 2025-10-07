@@ -51,6 +51,21 @@ export class PurchaseOrderController {
     return { data };
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all deleted purchase orders' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of deleted purchase orders retrieved successfully',
+    type: PurchaseOrderListResponseDto,
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  async findDeleted(
+    @Query() query: PurchaseOrderQueryDto,
+  ): Promise<PurchaseOrderListResponseDto> {
+    return this.purchaseOrderService.findDeleted(query);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all purchase orders with filtering and pagination' })
   @ApiResponse({
@@ -120,6 +135,23 @@ export class PurchaseOrderController {
     @Body() updatePurchaseOrderDto: UpdatePurchaseOrderDto,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
     const data = await this.purchaseOrderService.update(id, updatePurchaseOrderDto);
+    return { data };
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a deleted purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order restored successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  @HttpCode(HttpStatus.OK)
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.restore(id, 'system');
     return { data };
   }
 

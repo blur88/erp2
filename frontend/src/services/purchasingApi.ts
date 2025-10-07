@@ -78,6 +78,14 @@ export const purchasingApi = {
     return ApiService.delete(`/purchasing/orders/${id}`)
   },
 
+  async getDeletedPurchaseOrders(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<PurchaseOrder>>('/purchasing/orders/deleted', { params })
+  },
+
+  async restorePurchaseOrder(id: string) {
+    return ApiService.post<PurchaseOrder>(`/purchasing/orders/${id}/restore`)
+  },
+
   async sendPurchaseOrder(id: string, options?: {
     email?: string
     subject?: string
