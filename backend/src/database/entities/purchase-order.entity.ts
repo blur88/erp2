@@ -369,11 +369,9 @@ export class PurchaseOrder extends BaseEntity {
   // Hooks
   @BeforeInsert()
   generateOrderNumber() {
-    if (!this.orderNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-      this.orderNumber = `PO-${timestamp}-${random}`;
-    }
+    // Order number will be set by the service using sequential numbering
+    // This hook is kept for backward compatibility but does nothing
+    // if orderNumber is already set by the service
   }
 
   // Helper methods

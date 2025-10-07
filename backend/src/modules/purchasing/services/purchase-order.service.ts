@@ -37,6 +37,34 @@ export class PurchaseOrderService {
   ) {}
 
   /**
+   * Generate sequential purchase order number in format PO-000001
+   */
+  private async generateSequentialOrderNumber(): Promise<string> {
+    // Get all existing order numbers that match the sequential format
+    const orders = await this.purchaseOrderRepository.find({
+      select: ['orderNumber']
+    });
+
+    let maxNumber = 0;
+    for (const order of orders) {
+      // Extract number from format PO-000001 (only sequential format)
+      const match = order.orderNumber.match(/^PO-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    // Next sequential number
+    const nextNumber = maxNumber + 1;
+
+    // Format with leading zeros (6 digits)
+    return `PO-${nextNumber.toString().padStart(6, '0')}`;
+  }
+
+  /**
    * Create a new purchase order
    */
   async create(
@@ -69,16 +97,17 @@ export class PurchaseOrderService {
     }
 
     try {
+      // Generate sequential order number
+      const orderNumber = await this.generateSequentialOrderNumber();
+
       // Create purchase order
       const purchaseOrder = this.purchaseOrderRepository.create({
         ...createPurchaseOrderDto,
+        orderNumber,
         orderDate: new Date(createPurchaseOrderDto.orderDate),
         createdByUserId: validUserId,
         paymentTermsDays: createPurchaseOrderDto.paymentTermsDays || 30,
       });
-
-      // Generate order number
-      purchaseOrder.generateOrderNumber();
 
       // Create order items
       const orderItems: PurchaseOrderItem[] = [];
