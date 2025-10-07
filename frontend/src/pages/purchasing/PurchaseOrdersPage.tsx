@@ -749,7 +749,14 @@ const PurchaseOrdersPage: React.FC = () => {
                         <Stack spacing={1}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography color="text.secondary">Subtotal:</Typography>
-                            <Typography>{formatCurrency(selectedOrder.subtotal || 0)}</Typography>
+                            <Typography>{formatCurrency(
+                              selectedOrder.subtotal ||
+                              (selectedOrder.items?.reduce((sum: number, item: any) =>
+                                sum + (item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0))), 0
+                              )) ||
+                              (selectedOrder as any).total ||
+                              0
+                            )}</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography color="text.secondary">Shipping:</Typography>
@@ -758,7 +765,14 @@ const PurchaseOrdersPage: React.FC = () => {
                           <Divider />
                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography variant="h6">Total:</Typography>
-                            <Typography variant="h6">{formatCurrency(selectedOrder.totalAmount || 0)}</Typography>
+                            <Typography variant="h6">{formatCurrency(
+                              selectedOrder.totalAmount ||
+                              ((selectedOrder.items?.reduce((sum: number, item: any) =>
+                                sum + (item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0))), 0
+                              ) || 0) + (selectedOrder.shippingAmount || 0)) ||
+                              (selectedOrder as any).total ||
+                              0
+                            )}</Typography>
                           </Box>
                         </Stack>
                       </CardContent>
@@ -786,10 +800,10 @@ const PurchaseOrdersPage: React.FC = () => {
                               <TableBody>
                                 {selectedOrder.items.map((item: any, index: number) => (
                                   <TableRow key={index}>
-                                    <TableCell>{item.description}</TableCell>
+                                    <TableCell>{item.description || item.productName || 'N/A'}</TableCell>
                                     <TableCell align="right">{item.quantity}</TableCell>
-                                    <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
-                                    <TableCell align="right">{formatCurrency(item.totalAmount)}</TableCell>
+                                    <TableCell align="right">{formatCurrency(item.unitPrice || item.unitCost || 0)}</TableCell>
+                                    <TableCell align="right">{formatCurrency(item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0)))}</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>

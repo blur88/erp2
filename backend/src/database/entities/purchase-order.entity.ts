@@ -376,20 +376,31 @@ export class PurchaseOrder extends BaseEntity {
 
   // Helper methods
   calculateTotals(): void {
+    // Initialize default values
+    if (!this.subtotal) {
+      this.subtotal = 0;
+    }
+    if (!this.discountAmount) {
+      this.discountAmount = 0;
+    }
+    if (!this.shippingAmount) {
+      this.shippingAmount = 0;
+    }
+
     // This should be called after items are loaded
     if (this.items && this.items.length > 0) {
-      this.subtotal = this.items.reduce((sum, item) => 
-        sum + Number(item.totalAmount), 0);
+      this.subtotal = this.items.reduce((sum, item) =>
+        sum + Number(item.totalAmount || 0), 0);
     }
 
     // Calculate discount amount
     if (this.discountPercent > 0) {
-      this.discountAmount = (Number(this.subtotal) * Number(this.discountPercent)) / 100;
+      this.discountAmount = (Number(this.subtotal || 0) * Number(this.discountPercent)) / 100;
     }
 
     // Calculate total (subtotal - discount + shipping)
-    const subtotalAfterDiscount = Number(this.subtotal) - Number(this.discountAmount);
-    this.totalAmount = subtotalAfterDiscount + Number(this.shippingAmount);
+    const subtotalAfterDiscount = Number(this.subtotal || 0) - Number(this.discountAmount || 0);
+    this.totalAmount = subtotalAfterDiscount + Number(this.shippingAmount || 0);
   }
 
 

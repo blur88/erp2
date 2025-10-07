@@ -317,14 +317,19 @@ export class PurchaseOrderItem extends BaseEntity {
   @BeforeUpdate()
   calculateTotals() {
     const lineTotal = this.lineTotal;
-    
+
+    // Ensure discountAmount is initialized
+    if (!this.discountAmount) {
+      this.discountAmount = 0;
+    }
+
     // Calculate discount amount if percentage is set
     if (this.discountPercent > 0) {
       this.discountAmount = (lineTotal * Number(this.discountPercent)) / 100;
     }
-    
+
     // Calculate total amount
-    this.totalAmount = lineTotal - Number(this.discountAmount);
+    this.totalAmount = lineTotal - Number(this.discountAmount || 0);
   }
 
   @BeforeInsert()

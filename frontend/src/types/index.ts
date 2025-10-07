@@ -340,6 +340,10 @@ export interface PurchaseOrder {
   supplier: Supplier;
   items: PurchaseOrderItem[];
   total: number;
+  subtotal?: number;
+  discountAmount?: number;
+  shippingAmount?: number;
+  totalAmount?: number;
   orderDate: Date;
   expectedDate?: Date;
   receivedDate?: Date;
