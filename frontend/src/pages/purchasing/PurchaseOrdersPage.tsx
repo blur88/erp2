@@ -123,13 +123,6 @@ const OrderRow = memo(({ order, index, selectedOrderId, focusedOrderIndex, onOrd
         >
           {order.orderNumber}
         </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: 'block', mt: 0.5 }}
-        >
-          {order.supplier?.companyName}
-        </Typography>
       </TableCell>
     </TableRow>
   )
@@ -517,7 +510,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                Order List ({pagination?.total || 0})
+                Purchase Order List ({pagination?.total || 0})
               </Typography>
             </Box>
 
@@ -578,7 +571,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Order Details - {selectedOrder.orderNumber}
+                  Purchase Order Details - {selectedOrder.orderNumber}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                   <IconButton
