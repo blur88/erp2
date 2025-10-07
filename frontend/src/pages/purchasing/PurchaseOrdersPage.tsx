@@ -65,6 +65,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -158,6 +159,8 @@ const PurchaseOrdersPage: React.FC = () => {
 
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [orderToDelete, setOrderToDelete] = useState<any>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -254,6 +257,26 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
+  const handleDeleteClick = () => {
+    if (!selectedOrder) return
+    setOrderToDelete(selectedOrder)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!orderToDelete) return
+    try {
+      await purchasingApi.deletePurchaseOrder(orderToDelete.id)
+      showSuccess('Purchase order deleted successfully')
+      setDeleteConfirmOpen(false)
+      setOrderToDelete(null)
+      dispatch(setSelectedPurchaseOrder(null))
+      loadOrders()
+    } catch (err: any) {
+      showError(err?.response?.data?.message || 'Failed to delete purchase order')
+    }
+  }
+
   // Auto-focus first order when orders load
   useEffect(() => {
     if (purchaseOrders.length > 0 && focusedOrderIndex === -1) {
@@ -312,7 +335,7 @@ const PurchaseOrdersPage: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => {/* TODO: Add deleted orders dialog */}}
+            onClick={() => showError('Deleted purchase orders feature coming soon')}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
@@ -588,6 +611,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   <IconButton
                     size="small"
                     title="Delete Order"
+                    onClick={handleDeleteClick}
                     sx={{
                       height: `${TABLE_STYLES.row.height * 0.75}px`,
                       width: `${TABLE_STYLES.row.height * 0.75}px`,
@@ -707,6 +731,20 @@ const PurchaseOrdersPage: React.FC = () => {
       <KeyboardShortcutsHelp
         open={keyboardHelpOpen}
         onClose={() => setKeyboardHelpOpen(false)}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        onCancel={() => {
+          setDeleteConfirmOpen(false)
+          setOrderToDelete(null)
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Purchase Order"
+        message={`Are you sure you want to delete purchase order ${orderToDelete?.orderNumber}? This action can be undone from the deleted orders list.`}
+        confirmText="Delete"
+        severity="error"
       />
     </Box>
   )

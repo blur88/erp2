@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -26,9 +27,6 @@ import {
   PurchaseOrderQueryDto,
   PurchaseOrderResponseDto,
   PurchaseOrderListResponseDto,
-  ApprovePurchaseOrderDto,
-  AcknowledgePurchaseOrderDto,
-  CancelPurchaseOrderDto,
   PurchaseOrderSummaryDto,
 } from '../dto';
 
@@ -125,109 +123,19 @@ export class PurchaseOrderController {
     return { data };
   }
 
-  @Patch(':id/approve')
-  @ApiOperation({ summary: 'Approve purchase order' })
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete purchase order (soft delete)' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
   @ApiResponse({
     status: 200,
-    description: 'Purchase order approved successfully',
-    type: PurchaseOrderResponseDto,
+    description: 'Purchase order deleted successfully',
   })
-  @ApiResponse({ status: 400, description: 'Purchase order cannot be approved in current status' })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  async approve(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() approveDto: ApprovePurchaseOrderDto,
-  ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.approve(id, approveDto, 'system');
-    return { data };
-  }
-
-  @Patch(':id/send')
-  @ApiOperation({ summary: 'Send purchase order to supplier' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase order sent successfully',
-    type: PurchaseOrderResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Purchase order cannot be sent in current status' })
   @ApiResponse({ status: 404, description: 'Purchase order not found' })
   @HttpCode(HttpStatus.OK)
-  async send(
+  async remove(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.send(id);
-    return { data };
-  }
-
-  @Patch(':id/acknowledge')
-  @ApiOperation({ summary: 'Acknowledge purchase order from supplier' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase order acknowledged successfully',
-    type: PurchaseOrderResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Purchase order cannot be acknowledged in current status' })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  async acknowledge(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() acknowledgeDto: AcknowledgePurchaseOrderDto,
-  ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.acknowledge(id, acknowledgeDto);
-    return { data };
-  }
-
-  @Patch(':id/cancel')
-  @ApiOperation({ summary: 'Cancel purchase order' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase order cancelled successfully',
-    type: PurchaseOrderResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Purchase order cannot be cancelled in current status' })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  async cancel(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() cancelDto: CancelPurchaseOrderDto,
-  ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.cancel(id, cancelDto);
-    return { data };
-  }
-
-  @Patch(':id/receive')
-  @ApiOperation({ summary: 'Mark purchase order as received' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase order marked as received',
-    type: PurchaseOrderResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Purchase order cannot be received in current status' })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  async markAsReceived(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.markAsReceived(id);
-    return { data };
-  }
-
-  @Patch(':id/complete')
-  @ApiOperation({ summary: 'Complete purchase order' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase order completed successfully',
-    type: PurchaseOrderResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Purchase order cannot be completed in current status' })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  async complete(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.complete(id);
-    return { data };
+  ): Promise<{ message: string }> {
+    await this.purchaseOrderService.remove(id, 'system');
+    return { message: 'Purchase order deleted successfully' };
   }
 }

@@ -490,6 +490,26 @@ export class PurchaseOrderService {
   }
 
   /**
+   * Soft delete a purchase order
+   */
+  async remove(id: string, userId: string = 'system'): Promise<void> {
+    this.logger.log(`Soft deleting purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Soft delete using TypeORM's softDelete method
+    await this.purchaseOrderRepository.softDelete(id);
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted successfully`);
+  }
+
+  /**
    * Map purchase order entity to response DTO
    */
   private mapToResponseDto(purchaseOrder: PurchaseOrder): PurchaseOrderResponseDto {
