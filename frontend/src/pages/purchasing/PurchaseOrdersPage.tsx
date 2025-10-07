@@ -63,6 +63,7 @@ import {
 import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -288,6 +289,43 @@ const PurchaseOrdersPage: React.FC = () => {
       }
     }
   }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch])
+
+  // Keyboard shortcuts
+  const handleNavigateUp = useCallback(() => {
+    if (focusedOrderIndex > 0) {
+      const newIndex = focusedOrderIndex - 1
+      setFocusedOrderIndex(newIndex)
+      dispatch(setSelectedPurchaseOrder(purchaseOrders[newIndex]))
+    }
+  }, [focusedOrderIndex, purchaseOrders, dispatch])
+
+  const handleNavigateDown = useCallback(() => {
+    if (focusedOrderIndex < purchaseOrders.length - 1) {
+      const newIndex = focusedOrderIndex + 1
+      setFocusedOrderIndex(newIndex)
+      dispatch(setSelectedPurchaseOrder(purchaseOrders[newIndex]))
+    }
+  }, [focusedOrderIndex, purchaseOrders, dispatch])
+
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus()
+  }, [])
+
+  const handleViewDeletedAction = useCallback(() => {
+    setDeletedOrdersDialogOpen(true)
+  }, [])
+
+  const handleRefreshAction = useCallback(() => {
+    loadOrders()
+  }, [loadOrders])
+
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onRefresh: handleRefreshAction,
+    onViewDeleted: handleViewDeletedAction,
+    onArrowUp: handleNavigateUp,
+    onArrowDown: handleNavigateDown,
+  })
 
   return (
     <Box>
