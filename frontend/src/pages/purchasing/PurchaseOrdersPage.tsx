@@ -268,12 +268,29 @@ const PurchaseOrdersPage: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!orderToDelete) return
+
+    // Find the index of the order being deleted
+    const deletedIndex = purchaseOrders.findIndex(o => o.id === orderToDelete.id)
+
     try {
       await purchasingApi.deletePurchaseOrder(orderToDelete.id)
       showSuccess('Purchase order deleted successfully')
       setDeleteConfirmOpen(false)
       setOrderToDelete(null)
-      dispatch(setSelectedPurchaseOrder(null))
+
+      // Select previous order, or next if deleting first order, or null if last order
+      if (purchaseOrders.length > 1) {
+        const newIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
+        const orderToSelect = purchaseOrders[newIndex].id === orderToDelete.id
+          ? purchaseOrders[newIndex + 1]
+          : purchaseOrders[newIndex]
+        dispatch(setSelectedPurchaseOrder(orderToSelect))
+        setFocusedOrderIndex(newIndex)
+      } else {
+        dispatch(setSelectedPurchaseOrder(null))
+        setFocusedOrderIndex(-1)
+      }
+
       loadOrders()
     } catch (err: any) {
       showError(err?.response?.data?.message || 'Failed to delete purchase order')
