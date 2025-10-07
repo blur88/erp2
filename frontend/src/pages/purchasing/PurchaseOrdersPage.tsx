@@ -398,16 +398,22 @@ const PurchaseOrdersPage: React.FC = () => {
           }}
         />
 
-        <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            width: isMobile ? 'auto' : 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+            }
+          }}
+        >
           <InputLabel>Date Filter</InputLabel>
           <Select
             value={state.dateFilter}
             label="Date Filter"
             onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value, page: 0 }))}
-            sx={{
-              fontSize: '0.875rem',
-              height: TYPOGRAPHY_STYLES.searchField.input.height
-            }}
+            sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="today">Today</MenuItem>
@@ -429,7 +435,7 @@ const PurchaseOrdersPage: React.FC = () => {
               onChange={(e) => setState(prev => ({ ...prev, customFromDate: e.target.value }))}
               size="medium"
               sx={{
-                minWidth: 120,
+                minWidth: isMobile ? 'auto' : 120,
                 '& .MuiOutlinedInput-root': {
                   height: TYPOGRAPHY_STYLES.searchField.input.height,
                   fontSize: '0.875rem',
@@ -444,7 +450,7 @@ const PurchaseOrdersPage: React.FC = () => {
               onChange={(e) => setState(prev => ({ ...prev, customToDate: e.target.value }))}
               size="medium"
               sx={{
-                minWidth: 120,
+                minWidth: isMobile ? 'auto' : 120,
                 '& .MuiOutlinedInput-root': {
                   height: TYPOGRAPHY_STYLES.searchField.input.height,
                   fontSize: '0.875rem',
@@ -455,16 +461,22 @@ const PurchaseOrdersPage: React.FC = () => {
           </>
         )}
 
-        <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            width: isMobile ? 'auto' : 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+            }
+          }}
+        >
           <InputLabel>Supplier</InputLabel>
           <Select
             value={state.supplierFilter}
             label="Supplier"
             onChange={(e) => setState(prev => ({ ...prev, supplierFilter: e.target.value, page: 0 }))}
-            sx={{
-              fontSize: '0.875rem',
-              height: TYPOGRAPHY_STYLES.searchField.input.height
-            }}
+            sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
             {suppliers.map((supplier: any) => (
