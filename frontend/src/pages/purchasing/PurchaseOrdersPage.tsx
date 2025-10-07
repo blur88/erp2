@@ -404,7 +404,10 @@ const PurchaseOrdersPage: React.FC = () => {
             value={state.dateFilter}
             label="Date Filter"
             onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value, page: 0 }))}
-            sx={{ fontSize: '0.875rem' }}
+            sx={{
+              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height
+            }}
           >
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="today">Today</MenuItem>
@@ -425,7 +428,13 @@ const PurchaseOrdersPage: React.FC = () => {
               value={state.customFromDate}
               onChange={(e) => setState(prev => ({ ...prev, customFromDate: e.target.value }))}
               size="medium"
-              sx={{ minWidth: 120 }}
+              sx={{
+                minWidth: 120,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem',
+                }
+              }}
               InputLabelProps={{ shrink: true }}
             />
             <TextField
@@ -434,7 +443,13 @@ const PurchaseOrdersPage: React.FC = () => {
               value={state.customToDate}
               onChange={(e) => setState(prev => ({ ...prev, customToDate: e.target.value }))}
               size="medium"
-              sx={{ minWidth: 120 }}
+              sx={{
+                minWidth: 120,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem',
+                }
+              }}
               InputLabelProps={{ shrink: true }}
             />
           </>
@@ -446,7 +461,10 @@ const PurchaseOrdersPage: React.FC = () => {
             value={state.supplierFilter}
             label="Supplier"
             onChange={(e) => setState(prev => ({ ...prev, supplierFilter: e.target.value, page: 0 }))}
-            sx={{ fontSize: '0.875rem' }}
+            sx={{
+              fontSize: '0.875rem',
+              height: TYPOGRAPHY_STYLES.searchField.input.height
+            }}
           >
             <MenuItem value="all">All</MenuItem>
             {suppliers.map((supplier: any) => (
