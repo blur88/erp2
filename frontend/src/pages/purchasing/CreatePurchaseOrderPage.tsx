@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -74,10 +74,13 @@ const schema = yup.object({
 
 const CreatePurchaseOrderPage: React.FC = () => {
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
+  const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreatePurchaseOrderFormData>({
@@ -113,6 +116,54 @@ const CreatePurchaseOrderPage: React.FC = () => {
     loadSuppliers()
     loadProducts()
   }, [])
+
+  // Load purchase order data in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadPurchaseOrder(id)
+    }
+  }, [isEditMode, id])
+
+  const loadPurchaseOrder = async (orderId: string) => {
+    setLoadingOrder(true)
+    try {
+      const response = await purchasingApi.getPurchaseOrder(orderId)
+      const order = (response as any).data || response
+
+      // Map order data to form
+      reset({
+        supplierId: order.supplierId || order.supplier?.id || '',
+        orderDate: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        notes: order.notes || '',
+        shipping: order.shippingAmount || 0,
+        items: order.items?.map((item: any) => ({
+          productId: item.productId || '',
+          product: item.product,
+          quantity: item.quantity || 1,
+          unitPrice: item.unitPrice || item.unitCost || 0,
+          discountType: (item.discountPercent > 0 ? 'percent' : 'amount') as 'percent' | 'amount',
+          discountValue: item.discountPercent || item.discountAmount || 0,
+          discountPercent: item.discountPercent || 0,
+          totalPrice: item.totalAmount || 0,
+        })) || [
+          {
+            productId: '',
+            quantity: 1,
+            unitPrice: 0,
+            discountType: 'percent' as const,
+            discountValue: 0,
+            discountPercent: 0,
+            totalPrice: 0,
+          }
+        ],
+      })
+    } catch (err: any) {
+      showError(err?.response?.data?.message || 'Failed to load purchase order')
+      setError('Failed to load purchase order')
+    } finally {
+      setLoadingOrder(false)
+    }
+  }
 
   // Recalculate totals when items change
   useEffect(() => {
@@ -192,9 +243,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
       }
 
       console.log('Sending order data:', JSON.stringify(orderData, null, 2))
-      await purchasingApi.createPurchaseOrder(orderData as any)
 
-      showSuccess('Purchase order created successfully')
+      if (isEditMode && id) {
+        await purchasingApi.updatePurchaseOrder(id, orderData as any)
+        showSuccess('Purchase order updated successfully')
+      } else {
+        await purchasingApi.createPurchaseOrder(orderData as any)
+        showSuccess('Purchase order created successfully')
+      }
+
       navigate('/purchasing/orders')
     } catch (err: any) {
       console.error('Error creating purchase order:', err)
@@ -259,10 +316,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">
-            Create Purchase Order
+            {isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
           </Typography>
         </Box>
 
+        {loadingOrder ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <Typography>Loading purchase order...</Typography>
+          </Box>
+        ) : (
         <form onSubmit={handleSubmit(onSubmit)}>
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
@@ -804,7 +866,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       fullWidth
                       disabled={loading}
                     >
-                      {loading ? 'Creating...' : 'Create Order'}
+                      {loading
+                        ? (isEditMode ? 'Updating...' : 'Creating...')
+                        : (isEditMode ? 'Update Order' : 'Create Order')
+                      }
                     </Button>
                   </Box>
                 </CardContent>
@@ -812,6 +877,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             </Grid>
           </Grid>
         </form>
+        )}
       </Box>
     </Container>
   )

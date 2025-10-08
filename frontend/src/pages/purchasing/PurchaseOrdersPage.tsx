@@ -680,6 +680,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   <IconButton
                     size="small"
                     title="Edit Order"
+                    onClick={() => navigate(`/purchasing/orders/${selectedOrder.id}/edit`)}
                     sx={{
                       height: `${TABLE_STYLES.row.height * 0.75}px`,
                       width: `${TABLE_STYLES.row.height * 0.75}px`,

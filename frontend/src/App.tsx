@@ -75,6 +75,7 @@ function App() {
                     <Route path="/purchasing/suppliers" element={<SuppliersPage />} />
                     <Route path="/purchasing/orders" element={<PurchaseOrdersPage />} />
                     <Route path="/purchasing/orders/create" element={<CreatePurchaseOrderPage />} />
+                    <Route path="/purchasing/orders/:id/edit" element={<CreatePurchaseOrderPage />} />
                     <Route path="/purchasing/grn" element={<GRNPage />} />
 
                     {/* Reports */}
