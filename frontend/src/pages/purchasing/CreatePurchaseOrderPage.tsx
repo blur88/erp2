@@ -215,16 +215,20 @@ const CreatePurchaseOrderPage: React.FC = () => {
   useEffect(() => {
     watchedItems.forEach((item, index) => {
       if (item.quantity && item.unitPrice !== undefined) {
-        const subtotal = Number(item.quantity) * Number(item.unitPrice)
-        let discountAmount = 0
+        const quantity = Number(item.quantity)
+        const unitPrice = Number(item.unitPrice)
+        let unitDiscount = 0
 
         if (item.discountType === 'percent') {
-          discountAmount = subtotal * (Number(item.discountValue || 0) / 100)
+          // Percentage discount: apply to unit price
+          unitDiscount = unitPrice * (Number(item.discountValue || 0) / 100)
         } else {
-          discountAmount = Number(item.discountValue || 0)
+          // Fixed amount discount: per unit
+          unitDiscount = Number(item.discountValue || 0)
         }
 
-        const total = subtotal - discountAmount
+        const discountedUnitPrice = unitPrice - unitDiscount
+        const total = discountedUnitPrice * quantity
 
         if (Math.abs(item.totalPrice - total) > 0.01) {
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
@@ -274,24 +278,17 @@ const CreatePurchaseOrderPage: React.FC = () => {
         notes: data.notes || undefined,
         shippingAmount: Number(data.shipping) || 0,
         items: data.items.map((item, index) => {
-          // Calculate discount percent based on type
-          let discountPercent = 0
-          if (item.discountType === 'percent') {
-            discountPercent = Number(item.discountValue || 0)
-          } else if (item.discountType === 'amount' && item.discountValue) {
-            // Convert fixed amount to percentage
-            const subtotal = Number(item.quantity) * Number(item.unitPrice)
-            if (subtotal > 0) {
-              discountPercent = (Number(item.discountValue) / subtotal) * 100
-            }
-          }
+          // Map frontend discount type to backend format
+          const discountType = item.discountType === 'percent' ? 'percentage' : 'fixed_amount'
 
           return {
             lineNumber: index + 1,
             productId: item.productId,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            discountPercent: discountPercent || 0,
+            discountType: discountType,
+            discountPercent: item.discountType === 'percent' ? Number(item.discountValue || 0) : 0,
+            discountAmount: item.discountType === 'amount' ? Number(item.discountValue || 0) : 0,
           }
         }),
       }

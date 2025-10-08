@@ -35,13 +35,25 @@ export class CreatePurchaseOrderItemDto {
   @Min(0)
   unitPrice: number;
 
-  @ApiPropertyOptional({ description: 'Discount percentage', default: 0 })
+  @ApiPropertyOptional({ description: 'Discount type: percentage or fixed_amount', default: 'percentage' })
+  @IsOptional()
+  @IsEnum(['percentage', 'fixed_amount'])
+  discountType?: 'percentage' | 'fixed_amount';
+
+  @ApiPropertyOptional({ description: 'Discount percentage (used when discountType is percentage)', default: 0 })
   @IsOptional()
   @Transform(({ value }) => value == null ? 0 : parseFloat(value))
   @IsNumber()
   @Min(0)
   @Max(100)
   discountPercent?: number;
+
+  @ApiPropertyOptional({ description: 'Discount amount per unit (used when discountType is fixed_amount)', default: 0 })
+  @IsOptional()
+  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @IsNumber()
+  @Min(0)
+  discountAmount?: number;
 }
 
 export class CreatePurchaseOrderDto {

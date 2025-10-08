@@ -132,7 +132,9 @@ export class PurchaseOrderService {
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
           unit: 'pcs',
+          discountType: itemDto.discountType || 'percentage',
           discountPercent: itemDto.discountPercent || 0,
+          discountAmount: itemDto.discountAmount || 0,
           status: 'pending' as any,
           receivedQuantity: 0,
           rejectedQuantity: 0,
@@ -143,11 +145,17 @@ export class PurchaseOrderService {
         this.logger.debug(`Created item with lineNumber: ${item.lineNumber}, lineNum variable: ${lineNum}`);
 
         // Calculate totals manually to get the amount before saving
-        const lineTotal = Number(item.quantity) * Number(item.unitCost);
-        const discountAmount = item.discountPercent > 0
-          ? (lineTotal * Number(item.discountPercent)) / 100
-          : 0;
-        const totalAmount = lineTotal - discountAmount;
+        // Discount is applied to unit price first, then multiplied by quantity
+        let unitDiscount = 0;
+        if (item.discountType === 'percentage') {
+          unitDiscount = item.discountPercent > 0
+            ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
+            : 0;
+        } else if (item.discountType === 'fixed_amount') {
+          unitDiscount = Number(item.discountAmount) || 0;
+        }
+        const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
+        const totalAmount = discountedUnitPrice * Number(item.quantity);
 
         this.logger.debug(`After manual calculation, lineNumber: ${item.lineNumber}, totalAmount: ${totalAmount}`);
 
@@ -398,7 +406,9 @@ export class PurchaseOrderService {
           item.quantity = itemDto.quantity;
           item.unitCost = itemDto.unitPrice;
           item.unit = 'pcs';
+          item.discountType = itemDto.discountType || 'percentage';
           item.discountPercent = itemDto.discountPercent || 0;
+          item.discountAmount = itemDto.discountAmount || 0;
           item.status = 'pending' as any;
           item.receivedQuantity = 0;
           item.rejectedQuantity = 0;
@@ -408,11 +418,17 @@ export class PurchaseOrderService {
           this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productSku: ${item.productSku}, quantity: ${item.quantity}`);
 
           // Calculate totals manually to get the amount before saving
-          const lineTotal = Number(item.quantity) * Number(item.unitCost);
-          const discountAmount = item.discountPercent > 0
-            ? (lineTotal * Number(item.discountPercent)) / 100
-            : 0;
-          const totalAmount = lineTotal - discountAmount;
+          // Discount is applied to unit price first, then multiplied by quantity
+          let unitDiscount = 0;
+          if (item.discountType === 'percentage') {
+            unitDiscount = item.discountPercent > 0
+              ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
+              : 0;
+          } else if (item.discountType === 'fixed_amount') {
+            unitDiscount = Number(item.discountAmount) || 0;
+          }
+          const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
+          const totalAmount = discountedUnitPrice * Number(item.quantity);
 
           orderItems.push(item);
           subtotal += totalAmount;
