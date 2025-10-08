@@ -126,9 +126,9 @@ export class PurchaseOrderService {
 
         const item = this.purchaseOrderItemRepository.create({
           productId: itemDto.productId,
-          productSku: product.barcode || '',
+          productSku: product.barcode || product.id.substring(0, 8).toUpperCase(),
           productName: product.name,
-          productDescription: product.description,
+          productDescription: product.description || '',
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
           unit: 'pcs',
@@ -142,13 +142,17 @@ export class PurchaseOrderService {
 
         this.logger.debug(`Created item with lineNumber: ${item.lineNumber}, lineNum variable: ${lineNum}`);
 
-        // Calculate totals
-        item.calculateTotals();
+        // Calculate totals manually to get the amount before saving
+        const lineTotal = Number(item.quantity) * Number(item.unitCost);
+        const discountAmount = item.discountPercent > 0
+          ? (lineTotal * Number(item.discountPercent)) / 100
+          : 0;
+        const totalAmount = lineTotal - discountAmount;
 
-        this.logger.debug(`After calculateTotals, lineNumber: ${item.lineNumber}`);
+        this.logger.debug(`After manual calculation, lineNumber: ${item.lineNumber}, totalAmount: ${totalAmount}`);
 
         orderItems.push(item);
-        subtotal += Number(item.totalAmount);
+        subtotal += totalAmount;
         lineNum++;
       }
 
@@ -345,7 +349,7 @@ export class PurchaseOrderService {
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['items'],
+      // Don't load items relation to avoid cascade issues when we manually save them
     });
 
     if (!purchaseOrder) {
@@ -354,9 +358,10 @@ export class PurchaseOrderService {
 
     // Check if order can be modified
     try {
-      // Update basic fields
+      // Update basic fields (exclude items as they're handled separately)
+      const { items: _, ...updateFields } = updatePurchaseOrderDto;
       Object.assign(purchaseOrder, {
-        ...updatePurchaseOrderDto,
+        ...updateFields,
         expectedDeliveryDate: updatePurchaseOrderDto.expectedDeliveryDate ?
           new Date(updatePurchaseOrderDto.expectedDeliveryDate) : purchaseOrder.expectedDeliveryDate,
       });
@@ -384,30 +389,47 @@ export class PurchaseOrderService {
             throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
           }
 
-          const item = this.purchaseOrderItemRepository.create({
-            purchaseOrderId: id,
-            productId: itemDto.productId,
-            productSku: product.barcode || '',
-            productName: product.name,
-            productDescription: product.description,
-            quantity: itemDto.quantity,
-            unitCost: itemDto.unitPrice,
-            unit: 'pcs',
-            discountPercent: itemDto.discountPercent || 0,
-            status: 'pending' as any,
-            receivedQuantity: 0,
-            rejectedQuantity: 0,
-            acceptedQuantity: 0,
-            lineNumber: lineNum,
-          });
+          const item = new PurchaseOrderItem();
+          item.purchaseOrderId = id;
+          item.productId = itemDto.productId;
+          item.productSku = product.barcode || product.id.substring(0, 8).toUpperCase();
+          item.productName = product.name;
+          item.productDescription = product.description || '';
+          item.quantity = itemDto.quantity;
+          item.unitCost = itemDto.unitPrice;
+          item.unit = 'pcs';
+          item.discountPercent = itemDto.discountPercent || 0;
+          item.status = 'pending' as any;
+          item.receivedQuantity = 0;
+          item.rejectedQuantity = 0;
+          item.acceptedQuantity = 0;
+          item.lineNumber = lineNum;
 
-          item.calculateTotals();
+          this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productSku: ${item.productSku}, quantity: ${item.quantity}`);
+
+          // Calculate totals manually to get the amount before saving
+          const lineTotal = Number(item.quantity) * Number(item.unitCost);
+          const discountAmount = item.discountPercent > 0
+            ? (lineTotal * Number(item.discountPercent)) / 100
+            : 0;
+          const totalAmount = lineTotal - discountAmount;
+
           orderItems.push(item);
-          subtotal += Number(item.totalAmount);
+          subtotal += totalAmount;
           lineNum++;
         }
 
-        await this.purchaseOrderItemRepository.save(orderItems);
+        this.logger.debug(`About to save ${orderItems.length} items. LineNumbers: ${orderItems.map(i => `${i.lineNumber}`).join(', ')}`);
+
+        try {
+          const savedItems = await this.purchaseOrderItemRepository.save(orderItems);
+          this.logger.debug(`Saved ${savedItems.length} items successfully`);
+        } catch (saveError) {
+          this.logger.error(`Failed to save items: ${saveError.message}`);
+          this.logger.debug(`Item details before save attempt: ${JSON.stringify(orderItems.map(i => ({ lineNumber: i.lineNumber, productSku: i.productSku, quantity: i.quantity })))}`);
+          throw saveError;
+        }
+
         purchaseOrder.subtotal = subtotal;
         purchaseOrder.calculateTotals();
       }
