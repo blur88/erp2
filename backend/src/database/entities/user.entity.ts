@@ -3,8 +3,6 @@ import {
   Column,
   Index,
   OneToMany,
-  BeforeInsert,
-  BeforeUpdate,
 } from 'typeorm';
 import {
   IsEmail,
@@ -16,7 +14,6 @@ import {
   MaxLength,
   IsPhoneNumber,
 } from 'class-validator';
-import * as bcrypt from 'bcrypt';
 import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
 import { PurchaseOrder } from './purchase-order.entity';
@@ -201,35 +198,5 @@ export class User extends BaseEntity {
 
   get isLocked(): boolean {
     return this.lockedUntil && this.lockedUntil > new Date();
-  }
-
-  // Password hashing hooks
-  @BeforeInsert()
-  @BeforeUpdate()
-  async hashPassword() {
-    if (this.password && !this.password.startsWith('$2b$')) {
-      const saltRounds = 12;
-      this.password = await bcrypt.hash(this.password, saltRounds);
-    }
-  }
-
-  // Helper methods
-  async validatePassword(plainPassword: string): Promise<boolean> {
-    return bcrypt.compare(plainPassword, this.password);
-  }
-
-  incrementFailedAttempts(): void {
-    this.failedLoginAttempts += 1;
-    
-    // Lock account after 5 failed attempts for 30 minutes
-    if (this.failedLoginAttempts >= 5) {
-      this.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
-    }
-  }
-
-  resetFailedAttempts(): void {
-    this.failedLoginAttempts = 0;
-    this.lockedUntil = null;
-    this.lastLoginAt = new Date();
   }
 }
