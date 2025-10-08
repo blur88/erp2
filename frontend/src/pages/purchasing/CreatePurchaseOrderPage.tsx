@@ -272,7 +272,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         supplierId: data.supplierId,
         orderDate: data.orderDate,
         notes: data.notes || undefined,
-        shippingAmount: data.shipping && Number(data.shipping) > 0 ? Number(data.shipping) : undefined,
+        shippingAmount: Number(data.shipping) || 0,
         items: data.items.map((item, index) => {
           // Calculate discount percent based on type
           let discountPercent = 0
@@ -876,15 +876,22 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             onChange={(e) => {
                               const value = e.target.value.replace(/[^0-9.]/g, '')
                               setDisplayValue(value)
-                              field.onChange(parseFormattedNumber(value))
+                              // Allow empty string or parse the number
+                              const numValue = value === '' ? 0 : parseFloat(value.replace(/,/g, ''))
+                              field.onChange(isNaN(numValue) ? 0 : numValue)
                             }}
                             onFocus={() => {
                               setIsFocused(true)
-                              setDisplayValue(field.value?.toString() || '')
+                              // Show the actual value, including 0
+                              setDisplayValue(field.value === 0 ? '0' : (field.value?.toString() || '0'))
                             }}
                             onBlur={() => {
                               setIsFocused(false)
-                              setDisplayValue(formatNumberWithCommas(field.value))
+                              // If empty or invalid, set to 0
+                              if (displayValue === '' || displayValue === '.') {
+                                field.onChange(0)
+                              }
+                              setDisplayValue(formatNumberWithCommas(field.value || 0))
                             }}
                             variant="outlined"
                             size="small"
