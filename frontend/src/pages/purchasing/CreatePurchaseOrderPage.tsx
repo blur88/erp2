@@ -34,6 +34,8 @@ import { ApiService } from '@/services/api'
 import { formatCurrency } from '@/utils/formatters'
 import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
+import { useAppDispatch } from '@/hooks/useRedux'
+import { updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
 
 interface PurchaseOrderItem {
   productId: string
@@ -74,6 +76,7 @@ const schema = yup.object({
 
 const CreatePurchaseOrderPage: React.FC = () => {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
@@ -296,13 +299,19 @@ const CreatePurchaseOrderPage: React.FC = () => {
       console.log('Sending order data:', JSON.stringify(orderData, null, 2))
 
       if (isEditMode && id) {
-        await purchasingApi.updatePurchaseOrder(id, orderData as any)
+        const response = await purchasingApi.updatePurchaseOrder(id, orderData as any)
+        const updatedOrder = (response as any).data || response
+
+        // Update Redux state directly - this will auto-refresh the list
+        dispatch(updatePurchaseOrderInPlace(updatedOrder))
+
         showSuccess('Purchase order updated successfully')
       } else {
         await purchasingApi.createPurchaseOrder(orderData as any)
         showSuccess('Purchase order created successfully')
       }
 
+      // Navigate back without needing refresh state
       navigate('/purchasing/orders')
     } catch (err: any) {
       console.error('Error creating purchase order:', err)

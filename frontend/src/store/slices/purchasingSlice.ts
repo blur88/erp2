@@ -143,6 +143,18 @@ const purchasingSlice = createSlice({
     setSelectedGRN: (state, action: PayloadAction<GoodsReceivedNote | null>) => {
       state.selectedGRN = action.payload
     },
+    updatePurchaseOrderInPlace: (state, action: PayloadAction<PurchaseOrder>) => {
+      const updatedOrder = action.payload
+      // Find and update the order in the list
+      const index = state.purchaseOrders.findIndex(order => order.id === updatedOrder.id)
+      if (index !== -1) {
+        state.purchaseOrders[index] = updatedOrder
+      }
+      // Update selected order if it's the same one
+      if (state.selectedPurchaseOrder?.id === updatedOrder.id) {
+        state.selectedPurchaseOrder = updatedOrder
+      }
+    },
     clearError: (state) => {
       state.error = null
     },
@@ -246,6 +258,7 @@ export const {
   setSelectedSupplier,
   setSelectedPurchaseOrder,
   setSelectedGRN,
+  updatePurchaseOrderInPlace,
   clearError,
 } = purchasingSlice.actions
 
