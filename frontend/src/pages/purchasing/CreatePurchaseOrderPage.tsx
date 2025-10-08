@@ -82,6 +82,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [orderToLoad, setOrderToLoad] = useState<any>(null)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreatePurchaseOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -130,14 +131,47 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const response = await purchasingApi.getPurchaseOrder(orderId)
       const order = (response as any).data || response
 
-      // Map order data to form
-      reset({
-        supplierId: order.supplierId || order.supplier?.id || '',
-        orderDate: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        notes: order.notes || '',
-        shipping: order.shippingAmount || 0,
-        items: order.items?.map((item: any) => ({
-          productId: item.productId || '',
+      // Extract products from order items and add to products state
+      if (order.items && order.items.length > 0) {
+        const orderProducts = order.items
+          .filter((item: any) => item.product)
+          .map((item: any) => item.product)
+
+        console.log('Order products:', orderProducts)
+
+        // Merge with existing products, avoiding duplicates
+        setProducts((prevProducts) => {
+          const existingIds = new Set(prevProducts.map(p => p.id))
+          const newProducts = orderProducts.filter((p: any) => !existingIds.has(p.id))
+          console.log('Merged products:', [...prevProducts, ...newProducts])
+          return [...prevProducts, ...newProducts]
+        })
+      }
+
+      // Store order data to be loaded after products are set
+      setOrderToLoad(order)
+    } catch (err: any) {
+      showError(err?.response?.data?.message || 'Failed to load purchase order')
+      setError('Failed to load purchase order')
+      setLoadingOrder(false)
+    }
+  }
+
+  // Reset form after products are loaded
+  useEffect(() => {
+    if (orderToLoad && products.length > 0) {
+      console.log('=== RESETTING FORM ===')
+      console.log('Products array length:', products.length)
+      console.log('Products array:', products)
+      console.log('Order items:', orderToLoad.items)
+
+      const itemsToReset = orderToLoad.items?.map((item: any) => {
+        const productId = item.productId || item.product?.id || ''
+        const foundProduct = products.find(p => p.id === productId)
+        console.log(`Item productId: ${productId}, Found in products: ${!!foundProduct}`, foundProduct)
+
+        return {
+          productId,
           product: item.product,
           quantity: item.quantity || 1,
           unitPrice: item.unitPrice || item.unitCost || 0,
@@ -145,7 +179,18 @@ const CreatePurchaseOrderPage: React.FC = () => {
           discountValue: item.discountPercent || item.discountAmount || 0,
           discountPercent: item.discountPercent || 0,
           totalPrice: item.totalAmount || 0,
-        })) || [
+        }
+      })
+
+      console.log('Items to reset:', itemsToReset)
+
+      // Map order data to form
+      reset({
+        supplierId: orderToLoad.supplierId || orderToLoad.supplier?.id || '',
+        orderDate: orderToLoad.orderDate ? new Date(orderToLoad.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        notes: orderToLoad.notes || '',
+        shipping: orderToLoad.shippingAmount || 0,
+        items: itemsToReset || [
           {
             productId: '',
             quantity: 1,
@@ -157,13 +202,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
           }
         ],
       })
-    } catch (err: any) {
-      showError(err?.response?.data?.message || 'Failed to load purchase order')
-      setError('Failed to load purchase order')
-    } finally {
+
+      setOrderToLoad(null)
       setLoadingOrder(false)
     }
-  }
+  }, [orderToLoad, products, reset])
 
   // Recalculate totals when items change
   useEffect(() => {
@@ -204,7 +247,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
       }
       const response = await ApiService.get('/inventory/products', { params })
       console.log('Products loaded:', response)
-      setProducts((response as any).data || [])
+      const newProducts = (response as any).data || []
+
+      // Merge with existing products to preserve order item products
+      setProducts((prevProducts) => {
+        const existingIds = new Set(prevProducts.map(p => p.id))
+        const productsToAdd = newProducts.filter((p: any) => !existingIds.has(p.id))
+        return [...prevProducts, ...productsToAdd]
+      })
     } catch (err) {
       console.error('Error loading products:', err)
     }
