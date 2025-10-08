@@ -220,7 +220,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         orderDate: data.orderDate,
         notes: data.notes || undefined,
         shippingAmount: data.shipping && Number(data.shipping) > 0 ? Number(data.shipping) : undefined,
-        items: data.items.map(item => {
+        items: data.items.map((item, index) => {
           // Calculate discount percent based on type
           let discountPercent = 0
           if (item.discountType === 'percent') {
@@ -234,6 +234,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           }
 
           return {
+            lineNumber: index + 1,
             productId: item.productId,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
