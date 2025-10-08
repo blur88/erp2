@@ -900,7 +900,7 @@ const PurchaseOrdersPage: React.FC = () => {
                       >
                         <TableHead>
                           <TableRow>
-                            <TableCell colSpan={4} sx={{
+                            <TableCell colSpan={5} sx={{
                               borderBottom: TABLE_STYLES.cell.border,
                               pb: TABLE_STYLES.cell.padding.py * 0.67
                             }}>
@@ -939,6 +939,13 @@ const PurchaseOrdersPage: React.FC = () => {
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                               color: 'text.secondary'
                             }}>
+                              Discount
+                            </TableCell>
+                            <TableCell align="right" sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                              color: 'text.secondary'
+                            }}>
                               Total
                             </TableCell>
                           </TableRow>
@@ -957,13 +964,25 @@ const PurchaseOrdersPage: React.FC = () => {
                                   {formatCurrency(item.unitPrice || item.unitCost || 0)}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                  {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
+                                  {item.discountPercent > 0 && (
+                                    <Typography sx={{
+                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                      color: 'text.secondary',
+                                      display: 'block'
+                                    }}>
+                                      ({item.discountPercent}%)
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                   {formatCurrency(item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0)))}
                                 </TableCell>
                               </TableRow>
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={4}>
+                              <TableCell colSpan={5}>
                                 <Alert severity="info">No items in this order</Alert>
                               </TableCell>
                             </TableRow>
