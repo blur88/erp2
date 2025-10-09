@@ -23,6 +23,7 @@ import {
   Skeleton,
   Alert,
   Grid,
+  Stack,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -844,6 +845,30 @@ const PurchaseOrdersPage: React.FC = () => {
                                 (selectedOrder as any).total ||
                                 0
                               )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{ pt: 2, pb: 1 }}>
+                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  color="primary"
+                                  sx={{ minWidth: 110 }}
+                                  onClick={() => {}}
+                                >
+                                  Pay
+                                </Button>
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  color="success"
+                                  sx={{ minWidth: 110 }}
+                                  onClick={() => {}}
+                                >
+                                  Receive
+                                </Button>
+                              </Stack>
                             </TableCell>
                           </TableRow>
                         </TableBody>
