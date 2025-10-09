@@ -933,7 +933,7 @@ const PurchaseOrdersPage: React.FC = () => {
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                               color: 'text.secondary'
                             }}>
-                              Unit Price
+                              Price
                             </TableCell>
                             <TableCell align="right" sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
@@ -947,7 +947,7 @@ const PurchaseOrdersPage: React.FC = () => {
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                               color: 'text.secondary'
                             }}>
-                              Total
+                              Sub-total
                             </TableCell>
                           </TableRow>
                         </TableHead>

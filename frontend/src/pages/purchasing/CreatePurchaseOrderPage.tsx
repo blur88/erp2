@@ -539,9 +539,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
                         <TableRow>
                           <TableCell align="center" sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
                           <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>Qty</TableCell>
-                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Unit Price</TableCell>
+                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Price</TableCell>
                           <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>Discount</TableCell>
-                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Total</TableCell>
+                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Sub-total</TableCell>
                           <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
                           <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
                         </TableRow>
