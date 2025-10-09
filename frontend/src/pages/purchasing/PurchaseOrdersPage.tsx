@@ -929,16 +929,20 @@ const PurchaseOrdersPage: React.FC = () => {
                                   {formatCurrency(item.unitPrice || item.unitCost || 0)}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                  {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                                  {item.discountPercent > 0 && (
-                                    <Typography sx={{
-                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary',
-                                      display: 'block'
-                                    }}>
-                                      ({item.discountPercent}%)
-                                    </Typography>
-                                  )}
+                                  {item.discountAmount ? (
+                                    <Box component="span">
+                                      {`-${formatCurrency(item.discountAmount)}`}
+                                      {item.discountPercent > 0 && (
+                                        <Typography component="span" sx={{
+                                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                          color: 'text.secondary',
+                                          ml: 0.5
+                                        }}>
+                                          ({item.discountPercent}%)
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  ) : '-'}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                   {formatCurrency(item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0)))}
