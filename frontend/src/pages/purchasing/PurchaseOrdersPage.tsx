@@ -154,25 +154,6 @@ const PurchaseOrdersPage: React.FC = () => {
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Load purchase orders
-  const loadOrders = useCallback(() => {
-    const dateRange = getDateRange(state.dateFilter)
-    dispatch(fetchPurchaseOrders({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
-      sortBy: state.sortBy,
-      sortOrder: state.sortOrder.toUpperCase() as 'ASC' | 'DESC',
-      search: state.search,
-      supplierId: state.supplierFilter === 'all' ? undefined : state.supplierFilter,
-      orderDateFrom: dateRange.fromDate,
-      orderDateTo: dateRange.toDate,
-    } as any))
-  }, [dispatch, state])
-
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
-
   // Fetch suppliers on mount
   useEffect(() => {
     dispatch(fetchSuppliers({ limit: 1000 }))
@@ -209,6 +190,25 @@ const PurchaseOrdersPage: React.FC = () => {
         return { fromDate: undefined, toDate: undefined }
     }
   }, [state.customFromDate, state.customToDate])
+
+  // Load purchase orders
+  const loadOrders = useCallback(() => {
+    const dateRange = getDateRange(state.dateFilter)
+    dispatch(fetchPurchaseOrders({
+      page: state.page + 1,
+      limit: state.rowsPerPage,
+      sortBy: state.sortBy,
+      sortOrder: state.sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      search: state.search,
+      supplierId: state.supplierFilter === 'all' ? undefined : state.supplierFilter,
+      orderDateFrom: dateRange.fromDate,
+      orderDateTo: dateRange.toDate,
+    } as any))
+  }, [dispatch, state, getDateRange])
+
+  useEffect(() => {
+    loadOrders()
+  }, [loadOrders])
 
   const handleSort = useCallback((field: string) => {
     setState(prev => ({
