@@ -38,11 +38,14 @@ export class PurchaseOrderService {
 
   /**
    * Generate sequential purchase order number in format PO-000001
+   * Checks both active and soft-deleted orders to ensure unique numbering
    */
   private async generateSequentialOrderNumber(): Promise<string> {
     // Get all existing order numbers that match the sequential format
+    // Include soft-deleted records to avoid number collision
     const orders = await this.purchaseOrderRepository.find({
-      select: ['orderNumber']
+      select: ['orderNumber'],
+      withDeleted: true, // Include soft-deleted records
     });
 
     let maxNumber = 0;
