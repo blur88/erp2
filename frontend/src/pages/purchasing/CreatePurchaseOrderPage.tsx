@@ -35,7 +35,7 @@ import { formatCurrency } from '@/utils/formatters'
 import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
+import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction } from '@/store/slices/purchasingSlice'
 
 interface PurchaseOrderItem {
   productId: string
@@ -304,7 +304,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
         showSuccess('Purchase order updated successfully')
       } else {
-        await purchasingApi.createPurchaseOrder(orderData as any)
+        // Use Redux action to create order - this will auto-select it
+        await dispatch(createPurchaseOrderAction(orderData as any)).unwrap()
         showSuccess('Purchase order created successfully')
       }
 

@@ -241,6 +241,8 @@ const purchasingSlice = createSlice({
       .addCase(createPurchaseOrder.fulfilled, (state, action) => {
         if (action.payload) {
           state.purchaseOrders.unshift(action.payload)
+          // Auto-select the newly created purchase order
+          state.selectedPurchaseOrder = action.payload
         }
       })
 
