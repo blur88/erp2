@@ -781,6 +781,7 @@ export class PurchaseOrderService {
       })) || [],
       createdAt: purchaseOrder.createdAt,
       updatedAt: purchaseOrder.updatedAt,
+      deletedAt: purchaseOrder.deletedAt,
     };
   }
 }

@@ -406,6 +406,9 @@ export class PurchaseOrderResponseDto {
 
   @ApiProperty({ description: 'Updated date' })
   updatedAt: Date;
+
+  @ApiPropertyOptional({ description: 'Deleted date (for soft-deleted records)' })
+  deletedAt?: Date;
 }
 
 export class ApprovePurchaseOrderDto {
