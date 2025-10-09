@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -11,7 +11,6 @@ import {
   TableHead,
   TableRow,
   Button,
-  Chip,
   IconButton,
   TablePagination,
   TextField,
@@ -35,12 +34,9 @@ import {
   Refresh as RefreshIcon,
   ShoppingCart as OrderIcon,
   RestoreFromTrash as RestoreIcon,
-  Keyboard as KeyboardIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
-  Send as SendIcon,
-  CheckCircle as ApproveIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -58,7 +54,6 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
 
@@ -152,7 +147,6 @@ const PurchaseOrdersPage: React.FC = () => {
     customToDate: '',
   })
 
-  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
@@ -321,18 +315,8 @@ const PurchaseOrdersPage: React.FC = () => {
     searchInputRef.current?.focus()
   }, [])
 
-  const handleViewDeletedAction = useCallback(() => {
-    setDeletedOrdersDialogOpen(true)
-  }, [])
-
-  const handleRefreshAction = useCallback(() => {
-    loadOrders()
-  }, [loadOrders])
-
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onRefresh: handleRefreshAction,
-    onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
   })
@@ -571,26 +555,6 @@ const PurchaseOrdersPage: React.FC = () => {
           }}
         >
           Sort
-        </Button>
-
-        <Button
-          variant="outlined"
-          startIcon={<KeyboardIcon />}
-          size="medium"
-          onClick={() => setKeyboardHelpOpen(true)}
-          sx={{
-            flex: 'none',
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: '0.875rem',
-            color: 'info.main',
-            borderColor: 'info.main',
-            '&:hover': {
-              borderColor: 'info.dark',
-              backgroundColor: 'info.light'
-            }
-          }}
-        >
-          Shortcuts
         </Button>
       </Box>
 
@@ -1004,12 +968,6 @@ const PurchaseOrdersPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={keyboardHelpOpen}
-        onClose={() => setKeyboardHelpOpen(false)}
-      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
