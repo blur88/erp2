@@ -848,8 +848,8 @@ const PurchaseOrdersPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell colSpan={2} sx={{ pt: 2, pb: 1 }}>
-                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
+                              <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                                 <Button
                                   variant="contained"
                                   size="small"
