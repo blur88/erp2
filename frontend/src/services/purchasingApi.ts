@@ -140,7 +140,31 @@ export const purchasingApi = {
   },
 
   async deleteGoodsReceivedNote(id: string) {
-    return ApiService.delete(`/purchasing/grn/${id}`)
+    return ApiService.delete(`/purchasing/goods-received-notes/${id}`)
+  },
+
+  async getDeletedGRNs(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/goods-received-notes/deleted', { params })
+  },
+
+  async restoreGRN(id: string) {
+    return ApiService.post<GoodsReceivedNote>(`/purchasing/goods-received-notes/${id}/restore`)
+  },
+
+  async bulkRestoreGRNs(grnIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('/purchasing/goods-received-notes/bulk-restore', {
+      grnIds
+    })
+  },
+
+  async bulkPermanentDeleteGRNs(grnIds: string[]) {
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('/purchasing/goods-received-notes/bulk-permanent-delete', {
+      grnIds
+    })
+  },
+
+  async permanentDeleteGRN(id: string) {
+    return ApiService.delete(`/purchasing/goods-received-notes/${id}/permanent`)
   },
 
   async receiveGoods(purchaseOrderId: string, items: Array<{

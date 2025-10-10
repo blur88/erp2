@@ -6,6 +6,7 @@ interface PurchasingState {
   suppliers: Supplier[]
   purchaseOrders: PurchaseOrder[]
   goodsReceivedNotes: GoodsReceivedNote[]
+  deletedGRNs: GoodsReceivedNote[]
   selectedSupplier: Supplier | null
   selectedPurchaseOrder: PurchaseOrder | null
   selectedGRN: GoodsReceivedNote | null
@@ -13,6 +14,7 @@ interface PurchasingState {
     suppliers: boolean
     purchaseOrders: boolean
     goodsReceivedNotes: boolean
+    deletedGRNs: boolean
   }
   error: string | null
   pagination: {
@@ -41,6 +43,7 @@ const initialState: PurchasingState = {
   suppliers: [],
   purchaseOrders: [],
   goodsReceivedNotes: [],
+  deletedGRNs: [],
   selectedSupplier: null,
   selectedPurchaseOrder: null,
   selectedGRN: null,
@@ -48,6 +51,7 @@ const initialState: PurchasingState = {
     suppliers: false,
     purchaseOrders: false,
     goodsReceivedNotes: false,
+    deletedGRNs: false,
   },
   error: null,
   pagination: {
@@ -126,6 +130,42 @@ export const createGoodsReceivedNote = createAsyncThunk(
       return response.data
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create GRN')
+    }
+  }
+)
+
+export const fetchDeletedGRNs = createAsyncThunk(
+  'purchasing/fetchDeletedGRNs',
+  async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
+    try {
+      const response = await purchasingApi.getDeletedGRNs(params)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted GRNs')
+    }
+  }
+)
+
+export const restoreGRN = createAsyncThunk(
+  'purchasing/restoreGRN',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await purchasingApi.restoreGRN(id)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore GRN')
+    }
+  }
+)
+
+export const bulkRestoreGRNs = createAsyncThunk(
+  'purchasing/bulkRestoreGRNs',
+  async (grnIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await purchasingApi.bulkRestoreGRNs(grnIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore GRNs')
     }
   }
 )
@@ -253,6 +293,48 @@ const purchasingSlice = createSlice({
           state.goodsReceivedNotes.unshift(action.payload)
         }
       })
+
+    // Fetch Deleted GRNs
+    builder
+      .addCase(fetchDeletedGRNs.pending, (state) => {
+        state.loading.deletedGRNs = true
+        state.error = null
+      })
+      .addCase(fetchDeletedGRNs.fulfilled, (state, action) => {
+        state.loading.deletedGRNs = false
+        if (action.payload) {
+          const payload = action.payload as any
+          state.deletedGRNs = payload.data || payload.grns || []
+        }
+      })
+      .addCase(fetchDeletedGRNs.rejected, (state, action) => {
+        state.loading.deletedGRNs = false
+        state.error = action.payload as string
+      })
+
+    // Restore GRN
+    builder
+      .addCase(restoreGRN.pending, (state) => {
+        state.error = null
+      })
+      .addCase(restoreGRN.fulfilled, (state, action) => {
+        // GRN will be removed from deletedGRNs when refetched
+      })
+      .addCase(restoreGRN.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Bulk Restore GRNs
+    builder
+      .addCase(bulkRestoreGRNs.pending, (state) => {
+        state.error = null
+      })
+      .addCase(bulkRestoreGRNs.fulfilled, (state, action) => {
+        // GRNs will be removed from deletedGRNs when refetched
+      })
+      .addCase(bulkRestoreGRNs.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
   },
 })
 
@@ -268,6 +350,13 @@ export const {
 export const selectSuppliers = (state: any) => state.purchasing?.suppliers
 export const selectPurchaseOrders = (state: any) => state.purchasing?.purchaseOrders
 export const selectGoodsReceivedNotes = (state: any) => state.purchasing?.goodsReceivedNotes
+export const selectDeletedGRNs = (state: any) => state.purchasing?.deletedGRNs
+export const selectGRNsState = (state: any) => ({
+  goodsReceivedNotes: state.purchasing?.goodsReceivedNotes || [],
+  loading: state.purchasing?.loading?.goodsReceivedNotes || false,
+  error: state.purchasing?.error || null,
+  pagination: state.purchasing?.pagination?.goodsReceivedNotes || { page: 1, limit: 20, total: 0, totalPages: 0 }
+})
 export const selectSelectedSupplier = (state: any) => state.purchasing?.selectedSupplier
 export const selectSelectedPurchaseOrder = (state: any) => state.purchasing?.selectedPurchaseOrder
 export const selectSelectedGRN = (state: any) => state.purchasing?.selectedGRN
