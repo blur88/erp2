@@ -898,7 +898,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                 fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                                 fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                               }}>
-                                Order Items
+                                Purchase Order Items
                               </Typography>
                             </TableCell>
                           </TableRow>
