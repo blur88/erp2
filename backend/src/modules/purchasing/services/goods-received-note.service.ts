@@ -46,10 +46,10 @@ export class GoodsReceivedNoteService {
       throw new NotFoundException(`Purchase Order with ID ${createDto.purchaseOrderId} not found`);
     }
 
-    // Get user (defaults to system if not found)
-    const receivedByUser = await this.userRepository.findOne({
-      where: { id: receivedByUserId },
-    });
+    // Get user (skip lookup if 'system' since auth was removed)
+    const receivedByUser = receivedByUserId && receivedByUserId !== 'system'
+      ? await this.userRepository.findOne({ where: { id: receivedByUserId } })
+      : null;
 
     try {
       // Create GRN with items received from PO items
@@ -69,7 +69,7 @@ export class GoodsReceivedNoteService {
       const grn = this.grnRepository.create({
         purchaseOrderId: purchaseOrder.id,
         supplierId: purchaseOrder.supplier.id,
-        receivedByUserId: receivedByUser?.id || receivedByUserId,
+        receivedByUserId: receivedByUser?.id || null, // Nullable since auth was removed
         receivedDate: new Date(createDto.receiptDate),
         deliveryReference: createDto.deliveryNoteRef,
         vehicleDetails: createDto.vehicleDetails,

@@ -308,9 +308,11 @@ export class GoodsReceivedNote extends BaseEntity {
 
   @Column({
     type: 'uuid',
+    nullable: true, // Nullable since auth was removed
     comment: 'User who received the goods',
   })
-  receivedByUserId: string;
+  @IsOptional()
+  receivedByUserId?: string;
 
   @Column({
     type: 'uuid',
@@ -337,10 +339,11 @@ export class GoodsReceivedNote extends BaseEntity {
   supplier: Supplier;
 
   @ManyToOne(() => User, {
-    onDelete: 'RESTRICT',
+    onDelete: 'SET NULL',
+    nullable: true,
   })
   @JoinColumn({ name: 'receivedByUserId' })
-  receivedByUser: User;
+  receivedByUser?: User;
 
   @ManyToOne(() => User, {
     onDelete: 'SET NULL',

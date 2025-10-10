@@ -263,10 +263,10 @@ const PurchaseOrdersPage: React.FC = () => {
         receiptDate: today,
         items: selectedOrder.items.map((item: any) => ({
           purchaseOrderItemId: item.id,
-          receivedQuantity: item.quantity, // Receive full quantity
-          acceptedQuantity: item.quantity, // Accept full quantity by default
-          rejectedQuantity: 0,
-          unitPrice: item.unitPrice || item.unitCost || 0,
+          receivedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
+          acceptedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
+          rejectedQuantity: '0.00', // Format as decimal string for @IsDecimal validation
+          unitPrice: parseFloat((item.unitPrice || item.unitCost || 0).toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
           qualityResult: 'pending',
           condition: 'good',
         }))
@@ -276,6 +276,7 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods Received Note created successfully')
       loadOrders() // Reload to show updated GRN number
     } catch (err: any) {
+      console.error('GRN creation error:', err)
       showError(err?.response?.data?.message || 'Failed to create GRN')
     }
   }

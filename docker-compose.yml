@@ -43,6 +43,7 @@ services:
       - DB_DATABASE=erp_db
       - DB_USERNAME=erp_user
       - DB_PASSWORD=erp_password
+      - DB_SYNCHRONIZE=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=redis_password

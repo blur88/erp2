@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsArray,
   IsDecimal,
+  IsNumber,
   IsInt,
   MaxLength,
   MinLength,
@@ -25,30 +26,30 @@ export class CreateGrnItemDto {
   purchaseOrderItemId: string;
 
   @ApiProperty({ description: 'Quantity received' })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   receivedQuantity: number;
 
   @ApiPropertyOptional({ description: 'Quantity rejected', default: 0 })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   rejectedQuantity?: number;
 
   @ApiPropertyOptional({ description: 'Quantity accepted', default: 0 })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   acceptedQuantity?: number;
 
   @ApiPropertyOptional({ description: 'Unit price at receipt' })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   unitPrice?: number;
 
   @ApiPropertyOptional({ description: 'Batch or lot number', maxLength: 100 })
@@ -493,16 +494,16 @@ export class InspectItemDto {
 
   @ApiPropertyOptional({ description: 'Final accepted quantity' })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   acceptedQuantity?: number;
 
   @ApiPropertyOptional({ description: 'Final rejected quantity' })
   @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   rejectedQuantity?: number;
 
   @ApiPropertyOptional({ description: 'Rejection reason' })
