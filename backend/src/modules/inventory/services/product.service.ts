@@ -749,21 +749,21 @@ export class ProductService {
 
     // Stock status is computed automatically in the entity
 
-    // Use direct update for better control over what gets updated
+    // Use direct update with ID string for better control over what gets updated
     const updateResult = await this.productRepository.update(
-      { id: product.id },
+      id,  // Use the ID parameter directly, not product.id
       updateData
     );
     console.log('UPDATE RESULT:', updateResult);
 
     const updatedProduct = await this.productRepository.findOne({
-      where: { id: product.id },
+      where: { id },
     });
     console.log('POST-UPDATE updatedProduct.categoryId:', updatedProduct?.categoryId);
 
     // Reload the product with category relation to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({
-      where: { id: product.id },
+      where: { id },
       relations: ['category'],
     });
     console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);

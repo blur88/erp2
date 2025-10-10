@@ -60,10 +60,10 @@ const initialState: PurchasingState = {
 // Async thunks
 export const fetchSuppliers = createAsyncThunk(
   'purchasing/fetchSuppliers',
-  async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
+  async (params: any, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.getSuppliers(params)
-      return response.data
+      return response // response is already the data from ApiService.get
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch suppliers')
     }
@@ -72,10 +72,10 @@ export const fetchSuppliers = createAsyncThunk(
 
 export const fetchPurchaseOrders = createAsyncThunk(
   'purchasing/fetchPurchaseOrders',
-  async (params: { page?: number; limit?: number; supplierId?: string; status?: string }, { rejectWithValue }) => {
+  async (params: any, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.getPurchaseOrders(params)
-      return response.data
+      return response // response is already the data from ApiService.get
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch purchase orders')
     }
@@ -143,6 +143,18 @@ const purchasingSlice = createSlice({
     setSelectedGRN: (state, action: PayloadAction<GoodsReceivedNote | null>) => {
       state.selectedGRN = action.payload
     },
+    updatePurchaseOrderInPlace: (state, action: PayloadAction<PurchaseOrder>) => {
+      const updatedOrder = action.payload
+      // Find and update the order in the list
+      const index = state.purchaseOrders.findIndex(order => order.id === updatedOrder.id)
+      if (index !== -1) {
+        state.purchaseOrders[index] = updatedOrder
+      }
+      // Update selected order if it's the same one
+      if (state.selectedPurchaseOrder?.id === updatedOrder.id) {
+        state.selectedPurchaseOrder = updatedOrder
+      }
+    },
     clearError: (state) => {
       state.error = null
     },
@@ -157,8 +169,15 @@ const purchasingSlice = createSlice({
       .addCase(fetchSuppliers.fulfilled, (state, action) => {
         state.loading.suppliers = false
         if (action.payload) {
-          state.suppliers = action.payload.data
-          state.pagination.suppliers = action.payload.meta
+          // API returns { suppliers: [], total: 3, page: 1, limit: 10, ... }
+          const response = action.payload as any
+          state.suppliers = response.suppliers || response.data || []
+          state.pagination.suppliers = response.meta || {
+            page: response.page || 1,
+            limit: response.limit || 20,
+            total: response.total || 0,
+            totalPages: response.totalPages || Math.ceil((response.total || 0) / (response.limit || 20))
+          }
         }
       })
       .addCase(fetchSuppliers.rejected, (state, action) => {
@@ -175,8 +194,15 @@ const purchasingSlice = createSlice({
       .addCase(fetchPurchaseOrders.fulfilled, (state, action) => {
         state.loading.purchaseOrders = false
         if (action.payload) {
-          state.purchaseOrders = action.payload.data
-          state.pagination.purchaseOrders = action.payload.meta
+          // API returns { orders: [], total: 3, page: 1, limit: 10, ... }
+          const response = action.payload as any
+          state.purchaseOrders = response.orders || []
+          state.pagination.purchaseOrders = {
+            page: response.page || 1,
+            limit: response.limit || 20,
+            total: response.total || 0,
+            totalPages: response.totalPages || Math.ceil((response.total || 0) / (response.limit || 20))
+          }
         }
       })
       .addCase(fetchPurchaseOrders.rejected, (state, action) => {
@@ -215,6 +241,8 @@ const purchasingSlice = createSlice({
       .addCase(createPurchaseOrder.fulfilled, (state, action) => {
         if (action.payload) {
           state.purchaseOrders.unshift(action.payload)
+          // Auto-select the newly created purchase order
+          state.selectedPurchaseOrder = action.payload
         }
       })
 
@@ -232,6 +260,7 @@ export const {
   setSelectedSupplier,
   setSelectedPurchaseOrder,
   setSelectedGRN,
+  updatePurchaseOrderInPlace,
   clearError,
 } = purchasingSlice.actions
 

@@ -126,6 +126,15 @@ export class PurchaseOrderItem extends BaseEntity {
   unitCost: number;
 
   @Column({
+    type: 'varchar',
+    length: 20,
+    default: 'percentage',
+    comment: 'Discount type: percentage or fixed_amount',
+  })
+  @IsString()
+  discountType: 'percentage' | 'fixed_amount' = 'percentage';
+
+  @Column({
     type: 'decimal',
     precision: 5,
     scale: 2,
@@ -141,7 +150,7 @@ export class PurchaseOrderItem extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Line item discount amount',
+    comment: 'Line item discount amount (total for all units or per-unit based on discountType)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
@@ -316,15 +325,47 @@ export class PurchaseOrderItem extends BaseEntity {
   @BeforeInsert()
   @BeforeUpdate()
   calculateTotals() {
-    const lineTotal = this.lineTotal;
-    
-    // Calculate discount amount if percentage is set
-    if (this.discountPercent > 0) {
-      this.discountAmount = (lineTotal * Number(this.discountPercent)) / 100;
+    // Ensure discountType has a default
+    if (!this.discountType) {
+      this.discountType = 'percentage';
     }
-    
-    // Calculate total amount
-    this.totalAmount = lineTotal - Number(this.discountAmount);
+
+    let unitDiscount = 0;
+    let totalDiscountAmount = 0;
+
+    console.log('[calculateTotals] discountType:', this.discountType);
+    console.log('[calculateTotals] discountAmount:', this.discountAmount);
+    console.log('[calculateTotals] discountPercent:', this.discountPercent);
+    console.log('[calculateTotals] unitCost:', this.unitCost);
+    console.log('[calculateTotals] quantity:', this.quantity);
+
+    if (this.discountType === 'percentage') {
+      // Percentage discount: apply to unit price
+      unitDiscount = this.discountPercent > 0
+        ? (Number(this.unitCost) * Number(this.discountPercent)) / 100
+        : 0;
+      totalDiscountAmount = unitDiscount * Number(this.quantity);
+    } else if (this.discountType === 'fixed_amount') {
+      // Fixed amount discount: discountAmount is per unit
+      unitDiscount = Number(this.discountAmount) || 0;
+      totalDiscountAmount = unitDiscount * Number(this.quantity);
+    }
+
+    console.log('[calculateTotals] unitDiscount:', unitDiscount);
+    console.log('[calculateTotals] totalDiscountAmount:', totalDiscountAmount);
+
+    // Discounted unit price
+    const discountedUnitPrice = Number(this.unitCost) - unitDiscount;
+
+    // Store total discount amount
+    if (this.discountType === 'percentage') {
+      this.discountAmount = totalDiscountAmount;
+    }
+
+    // Calculate total amount: discounted unit price × quantity
+    this.totalAmount = discountedUnitPrice * Number(this.quantity);
+
+    console.log('[calculateTotals] totalAmount:', this.totalAmount);
   }
 
   @BeforeInsert()

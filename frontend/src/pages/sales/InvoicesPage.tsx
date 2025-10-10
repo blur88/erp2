@@ -1151,7 +1151,7 @@ const InvoicesPage: React.FC = () => {
                               }}
                             >
                               <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {(item as any).productName || item.product?.name || 'Unknown Product'}
+                                {item.product?.name || (item as any).productName || 'Unknown Product'}
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                                 {item.quantity}
