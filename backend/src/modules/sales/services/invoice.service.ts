@@ -6,14 +6,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, ILike, In } from 'typeorm';
-import { 
-  Invoice, 
-  InvoiceStatus, 
-  InvoiceType 
+import {
+  Invoice,
+  InvoiceStatus,
+  InvoiceType
 } from '../../../database/entities/invoice.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Payment } from '../../../database/entities/payment.entity';
+import { Product } from '../../../database/entities/product.entity';
 import {
   CreateInvoiceDto,
   UpdateInvoiceDto,
@@ -37,6 +38,8 @@ export class InvoiceService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
     // private readonly emailService: EmailService, // Temporarily disabled
   ) {}
 
@@ -185,8 +188,13 @@ export class InvoiceService {
       total = invoices.length;
     }
 
+    // Map invoices to response DTOs with product information
+    const data = await Promise.all(
+      invoices.map(invoice => this.mapToResponseDto(invoice))
+    );
+
     return {
-      data: invoices.map(invoice => this.mapToResponseDto(invoice)),
+      data,
       total,
       page,
       limit,
@@ -848,7 +856,10 @@ export class InvoiceService {
 
     const [invoices, total] = await queryBuilder.getManyAndCount();
 
-    const data = invoices.map(invoice => this.mapToResponseDto(invoice));
+    // Map invoices to response DTOs with product information
+    const data = await Promise.all(
+      invoices.map(invoice => this.mapToResponseDto(invoice))
+    );
 
     return {
       data,
@@ -918,7 +929,37 @@ export class InvoiceService {
 
   // Helper methods
 
-  private mapToResponseDto(invoice: Invoice): InvoiceResponseDto {
+  private async mapToResponseDto(invoice: Invoice): Promise<InvoiceResponseDto> {
+    // Enhance line items with current product information
+    let enhancedLineItems = invoice.lineItems;
+    if (invoice.lineItems && invoice.lineItems.length > 0) {
+      // Extract all product IDs from line items
+      const productIds = invoice.lineItems
+        .map(item => item.productId)
+        .filter(id => id); // Remove null/undefined
+
+      // Fetch current product information for all products at once
+      const products = productIds.length > 0
+        ? await this.productRepository.findBy({ id: In(productIds) })
+        : [];
+
+      // Create a map for quick lookup
+      const productMap = new Map(products.map(p => [p.id, p]));
+
+      // Enhance line items with current product information
+      enhancedLineItems = invoice.lineItems.map(item => {
+        const product = productMap.get(item.productId);
+        return {
+          ...item,
+          product: product ? {
+            id: product.id,
+            name: product.name,
+            barcode: product.barcode,
+          } : undefined,
+        };
+      });
+    }
+
     return {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
@@ -939,7 +980,7 @@ export class InvoiceService {
       customerName: invoice.customerName,
       billingAddress: invoice.billingAddress,
       customerPoNumber: invoice.customerPoNumber,
-      lineItems: invoice.lineItems,
+      lineItems: enhancedLineItems, // Use enhanced line items with product info
       customerId: invoice.customerId,
       salesOrderId: invoice.salesOrderId,
       customer: invoice.customer ? {

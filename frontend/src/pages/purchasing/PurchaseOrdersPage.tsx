@@ -945,7 +945,7 @@ const PurchaseOrdersPage: React.FC = () => {
                             selectedOrder.items.map((item: any, index: number) => (
                               <TableRow key={index} sx={{ backgroundColor: index % 2 === 0 ? 'grey.50' : 'inherit' }}>
                                 <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                  {item.description || item.productName || 'N/A'}
+                                  {item.product?.name || item.productName || item.description || 'N/A'}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                                   {item.quantity}
