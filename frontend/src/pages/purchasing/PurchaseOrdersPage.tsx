@@ -748,10 +748,12 @@ const PurchaseOrdersPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              Status
+                              GRN No
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {selectedOrder.status || 'Pending'}
+                              {selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0
+                                ? selectedOrder.goodsReceivedNotes.map((grn: any) => grn.grnNumber).join(', ')
+                                : '-'}
                             </TableCell>
                           </TableRow>
                         </TableBody>
