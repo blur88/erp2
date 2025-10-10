@@ -124,19 +124,19 @@ export const purchasingApi = {
 
   // Goods Received Notes (GRN)
   async getGoodsReceivedNotes(params?: QueryParams & { supplierId?: string; purchaseOrderId?: string }) {
-    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/grn', { params })
+    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/goods-received-notes', { params })
   },
 
   async getGoodsReceivedNote(id: string) {
-    return ApiService.get<GoodsReceivedNote>(`/purchasing/grn/${id}`)
+    return ApiService.get<GoodsReceivedNote>(`/purchasing/goods-received-notes/${id}`)
   },
 
   async createGoodsReceivedNote(grnData: Partial<GoodsReceivedNote>) {
-    return ApiService.post<GoodsReceivedNote>('/purchasing/grn', grnData)
+    return ApiService.post<GoodsReceivedNote>('/purchasing/goods-received-notes', grnData)
   },
 
   async updateGoodsReceivedNote(id: string, grnData: Partial<GoodsReceivedNote>) {
-    return ApiService.put<GoodsReceivedNote>(`/purchasing/grn/${id}`, grnData)
+    return ApiService.put<GoodsReceivedNote>(`/purchasing/goods-received-notes/${id}`, grnData)
   },
 
   async deleteGoodsReceivedNote(id: string) {
@@ -179,7 +179,7 @@ export const purchasingApi = {
   },
 
   async printGoodsReceivedNote(id: string) {
-    return ApiService.downloadFile(`/purchasing/grn/${id}/print`, `grn-${id}.pdf`)
+    return ApiService.downloadFile(`/purchasing/goods-received-notes/${id}/print`, `grn-${id}.pdf`)
   },
 
   // Purchase Requisitions
