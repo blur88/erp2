@@ -248,6 +248,38 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
+  const handleReceive = async () => {
+    if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
+      showError('No items to receive in this order')
+      return
+    }
+
+    try {
+      // Create GRN with all items from the purchase order
+      const today = new Date().toISOString().split('T')[0]
+
+      const grnData = {
+        purchaseOrderId: selectedOrder.id,
+        receiptDate: today,
+        items: selectedOrder.items.map((item: any) => ({
+          purchaseOrderItemId: item.id,
+          receivedQuantity: item.quantity, // Receive full quantity
+          acceptedQuantity: item.quantity, // Accept full quantity by default
+          rejectedQuantity: 0,
+          unitPrice: item.unitPrice || item.unitCost || 0,
+          qualityResult: 'pending',
+          condition: 'good',
+        }))
+      }
+
+      await purchasingApi.createGoodsReceivedNote(grnData)
+      showSuccess('Goods Received Note created successfully')
+      loadOrders() // Reload to show updated GRN number
+    } catch (err: any) {
+      showError(err?.response?.data?.message || 'Failed to create GRN')
+    }
+  }
+
   const handleDeleteClick = () => {
     if (!selectedOrder) return
     setOrderToDelete(selectedOrder)
@@ -866,7 +898,8 @@ const PurchaseOrdersPage: React.FC = () => {
                                   size="small"
                                   color="success"
                                   sx={{ minWidth: 110 }}
-                                  onClick={() => {}}
+                                  onClick={handleReceive}
+                                  disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
                                 >
                                   Receive
                                 </Button>
