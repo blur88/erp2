@@ -33,7 +33,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  ShoppingCart as OrderIcon,
+  Description as OrderIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,

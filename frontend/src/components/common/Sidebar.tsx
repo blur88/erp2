@@ -16,7 +16,7 @@ import {
   Dashboard as DashboardIcon,
   Inventory as InventoryIcon,
   PointOfSale as SalesIcon,
-  ShoppingCart as PurchasingIcon,
+  Assignment as PurchasingIcon,
   Assessment as ReportsIcon,
   Settings as SettingsIcon,
   ExpandLess,
@@ -31,6 +31,7 @@ import {
   LocalShipping as GRNIcon,
   Person as UsersIcon,
   Tune as SystemSettingsIcon,
+  Description as PurchaseOrderIcon,
 } from '@mui/icons-material'
 import { moduleApi } from '@/services/moduleApi'
 
@@ -152,7 +153,7 @@ const menuSections: MenuSection[] = [
           {
             id: 'purchase-orders',
             title: 'Purchase Orders',
-            icon: <OrdersIcon />,
+            icon: <PurchaseOrderIcon />,
             path: '/purchasing/orders',
           },
           {

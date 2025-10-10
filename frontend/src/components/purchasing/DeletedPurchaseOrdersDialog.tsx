@@ -28,7 +28,7 @@ import {
   Restore as RestoreIcon,
   Delete as DeleteIcon,
   Close as CloseIcon,
-  ShoppingCart as OrderIcon,
+  Description as OrderIcon,
 } from '@mui/icons-material'
 import { purchasingApi } from '@/services/purchasingApi'
 import type { PurchaseOrder } from '@/types'
