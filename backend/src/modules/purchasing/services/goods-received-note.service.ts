@@ -32,6 +32,37 @@ export class GoodsReceivedNoteService {
   ) {}
 
   /**
+   * Generate sequential GRN number in format GRN-000001
+   * Checks both active and soft-deleted GRNs to ensure unique numbering
+   */
+  private async generateSequentialGrnNumber(): Promise<string> {
+    // Get all existing GRN numbers that match the sequential format
+    // Include soft-deleted records to avoid number collision
+    const grns = await this.grnRepository.find({
+      select: ['grnNumber'],
+      withDeleted: true, // Include soft-deleted records
+    });
+
+    let maxNumber = 0;
+    for (const grn of grns) {
+      // Extract number from format GRN-000001 (only sequential format)
+      const match = grn.grnNumber.match(/^GRN-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    // Next sequential number
+    const nextNumber = maxNumber + 1;
+
+    // Format with leading zeros (6 digits)
+    return `GRN-${nextNumber.toString().padStart(6, '0')}`;
+  }
+
+  /**
    * Create a new goods received note
    */
   async create(createDto: CreateGoodsReceivedNoteDto, receivedByUserId: string = 'system'): Promise<GoodsReceivedNoteResponseDto> {
@@ -62,6 +93,9 @@ export class GoodsReceivedNoteService {
       : null;
 
     try {
+      // Generate sequential GRN number
+      const grnNumber = await this.generateSequentialGrnNumber();
+
       // Create GRN with items - either from DTO or auto-generated from PO items
       let itemsReceived: any[];
 
@@ -96,6 +130,7 @@ export class GoodsReceivedNoteService {
       }
 
       const grn = this.grnRepository.create({
+        grnNumber, // Set the sequential number
         purchaseOrderId: purchaseOrder.id,
         supplierId: purchaseOrder.supplier.id,
         receivedByUserId: receivedByUser?.id || null, // Nullable since auth was removed

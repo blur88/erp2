@@ -387,10 +387,9 @@ export class GoodsReceivedNote extends BaseEntity {
   // Hooks
   @BeforeInsert()
   generateGrnNumber() {
-    if (!this.grnNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.grnNumber = `GRN-${timestamp}`;
-    }
+    // GRN number will be set by the service using sequential numbering
+    // This hook is kept for backward compatibility but does nothing
+    // if grnNumber is already set by the service
   }
 
   @BeforeInsert()
