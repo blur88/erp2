@@ -254,22 +254,22 @@ const PurchaseOrdersPage: React.FC = () => {
       return
     }
 
-    try {
-      // Create GRN - backend automatically creates items from purchase order
-      const today = new Date().toISOString().split('T')[0]
-
-      const grnData = {
-        purchaseOrderId: selectedOrder.id,
-        receiptDate: today,
-        type: 'standard'
+    // Check GRN status
+    if (selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0) {
+      const grn = selectedOrder.goodsReceivedNotes[0]
+      if (grn.status !== 'draft') {
+        showError('GRN must be in draft status to receive goods')
+        return
       }
+    }
 
-      await purchasingApi.createGoodsReceivedNote(grnData as any)
-      showSuccess('Goods Received Note created successfully')
-      loadOrders() // Reload to show updated GRN number
+    try {
+      await purchasingApi.receiveGoods(selectedOrder.id)
+      showSuccess('Goods received successfully. Product quantities updated.')
+      loadOrders() // Reload to show updated status
     } catch (err: any) {
-      console.error('GRN creation error:', err)
-      showError(err?.response?.data?.message || 'Failed to create GRN')
+      console.error('Receive error:', err)
+      showError(err?.response?.data?.message || 'Failed to receive goods')
     }
   }
 
@@ -279,17 +279,20 @@ const PurchaseOrdersPage: React.FC = () => {
       return
     }
 
-    try {
-      // Hard delete all GRNs associated with this purchase order
-      for (const grn of selectedOrder.goodsReceivedNotes) {
-        await purchasingApi.permanentDeleteGRN(grn.id)
-      }
+    // Check GRN status
+    const grn = selectedOrder.goodsReceivedNotes[0]
+    if (grn.status !== 'received') {
+      showError('GRN must be in received status to return goods')
+      return
+    }
 
-      showSuccess('GRN deleted successfully')
+    try {
+      await purchasingApi.returnGoods(selectedOrder.id)
+      showSuccess('Goods returned successfully. Product quantities reverted.')
       loadOrders() // Reload to update the button state
     } catch (err: any) {
-      console.error('GRN deletion error:', err)
-      showError(err?.response?.data?.message || 'Failed to delete GRN')
+      console.error('Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to return goods')
     }
   }
 
@@ -906,7 +909,9 @@ const PurchaseOrdersPage: React.FC = () => {
                                 >
                                   Pay
                                 </Button>
-                                {selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0 ? (
+                                {selectedOrder.goodsReceivedNotes &&
+                                 selectedOrder.goodsReceivedNotes.length > 0 &&
+                                 selectedOrder.goodsReceivedNotes[0].status === 'received' ? (
                                   <Button
                                     variant="contained"
                                     size="small"

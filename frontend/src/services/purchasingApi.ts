@@ -167,15 +167,13 @@ export const purchasingApi = {
     return ApiService.delete(`/purchasing/goods-received-notes/${id}/permanent`)
   },
 
-  async receiveGoods(purchaseOrderId: string, items: Array<{
-    productId: string
-    receivedQuantity: number
-    damagedQuantity?: number
-    notes?: string
-  }>) {
-    return ApiService.post<GoodsReceivedNote>(`/purchasing/orders/${purchaseOrderId}/receive`, {
-      items,
-    })
+  // Receive/Return operations
+  async receiveGoods(purchaseOrderId: string) {
+    return ApiService.post<PurchaseOrder>(`/purchasing/orders/${purchaseOrderId}/receive`)
+  },
+
+  async returnGoods(purchaseOrderId: string) {
+    return ApiService.post<PurchaseOrder>(`/purchasing/orders/${purchaseOrderId}/return`)
   },
 
   async printGoodsReceivedNote(id: string) {
