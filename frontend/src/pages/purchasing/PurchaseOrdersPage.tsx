@@ -274,27 +274,22 @@ const PurchaseOrdersPage: React.FC = () => {
   }
 
   const handleReturn = async () => {
-    if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
-      showError('No items to return in this order')
+    if (!selectedOrder || !selectedOrder.goodsReceivedNotes || selectedOrder.goodsReceivedNotes.length === 0) {
+      showError('No GRN found to return')
       return
     }
 
     try {
-      // Create return GRN - backend automatically creates items from purchase order
-      const today = new Date().toISOString().split('T')[0]
-
-      const grnData = {
-        purchaseOrderId: selectedOrder.id,
-        receiptDate: today,
-        type: 'return' // Mark as return type
+      // Hard delete all GRNs associated with this purchase order
+      for (const grn of selectedOrder.goodsReceivedNotes) {
+        await purchasingApi.permanentDeleteGRN(grn.id)
       }
 
-      await purchasingApi.createGoodsReceivedNote(grnData as any)
-      showSuccess('Return GRN created successfully')
-      loadOrders() // Reload to show updated GRN number
+      showSuccess('GRN deleted successfully')
+      loadOrders() // Reload to update the button state
     } catch (err: any) {
-      console.error('Return GRN creation error:', err)
-      showError(err?.response?.data?.message || 'Failed to create return GRN')
+      console.error('GRN deletion error:', err)
+      showError(err?.response?.data?.message || 'Failed to delete GRN')
     }
   }
 

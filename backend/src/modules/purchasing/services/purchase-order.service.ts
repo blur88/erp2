@@ -238,7 +238,8 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('po.createdByUser', 'createdByUser')
       .leftJoinAndSelect('po.approvedByUser', 'approvedByUser')
       .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('items.product', 'product');
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns');
 
     // Apply search filter
     if (search) {
@@ -778,6 +779,12 @@ export class PurchaseOrderService {
         status: item.status,
         requiredDate: item.requiredDate,
         notes: item.notes,
+      })) || [],
+      goodsReceivedNotes: purchaseOrder.goodsReceivedNotes?.map(grn => ({
+        id: grn.id,
+        grnNumber: grn.grnNumber,
+        status: grn.status,
+        receiptDate: grn.receivedDate,
       })) || [],
       createdAt: purchaseOrder.createdAt,
       updatedAt: purchaseOrder.updatedAt,
