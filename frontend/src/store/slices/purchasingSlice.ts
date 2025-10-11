@@ -91,7 +91,7 @@ export const fetchGoodsReceivedNotes = createAsyncThunk(
   async (params: { page?: number; limit?: number; supplierId?: string }, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.getGoodsReceivedNotes(params)
-      return response.data
+      return response // response is already the data from ApiService.get
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch GRNs')
     }
@@ -259,8 +259,15 @@ const purchasingSlice = createSlice({
       .addCase(fetchGoodsReceivedNotes.fulfilled, (state, action) => {
         state.loading.goodsReceivedNotes = false
         if (action.payload) {
-          state.goodsReceivedNotes = action.payload.data
-          state.pagination.goodsReceivedNotes = action.payload.meta
+          // API returns { grns: [], total: 3, page: 1, limit: 10, ... }
+          const response = action.payload as any
+          state.goodsReceivedNotes = response.grns || []
+          state.pagination.goodsReceivedNotes = {
+            page: response.page || 1,
+            limit: response.limit || 20,
+            total: response.total || 0,
+            totalPages: response.totalPages || Math.ceil((response.total || 0) / (response.limit || 20))
+          }
         }
       })
       .addCase(fetchGoodsReceivedNotes.rejected, (state, action) => {

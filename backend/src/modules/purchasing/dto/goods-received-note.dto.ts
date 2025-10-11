@@ -168,12 +168,9 @@ export class CreateGoodsReceivedNoteDto {
   @IsString()
   internalNotes?: string;
 
-  @ApiProperty({ description: 'GRN items', type: [CreateGrnItemDto] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => CreateGrnItemDto)
-  items: CreateGrnItemDto[];
+  @ApiPropertyOptional({ description: 'GRN items (optional - will be auto-generated from PO if not provided)', type: [CreateGrnItemDto] })
+  @IsOptional()
+  items?: CreateGrnItemDto[];
 
   @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()

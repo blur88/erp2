@@ -255,24 +255,16 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     try {
-      // Create GRN with all items from the purchase order
+      // Create GRN - backend automatically creates items from purchase order
       const today = new Date().toISOString().split('T')[0]
 
       const grnData = {
         purchaseOrderId: selectedOrder.id,
         receiptDate: today,
-        items: selectedOrder.items.map((item: any) => ({
-          purchaseOrderItemId: item.id,
-          receivedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
-          acceptedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
-          rejectedQuantity: '0.00', // Format as decimal string for @IsDecimal validation
-          unitPrice: parseFloat((item.unitPrice || item.unitCost || 0).toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
-          qualityResult: 'pending',
-          condition: 'good',
-        }))
+        type: 'standard'
       }
 
-      await purchasingApi.createGoodsReceivedNote(grnData)
+      await purchasingApi.createGoodsReceivedNote(grnData as any)
       showSuccess('Goods Received Note created successfully')
       loadOrders() // Reload to show updated GRN number
     } catch (err: any) {
@@ -288,25 +280,16 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     try {
-      // Create return GRN with all items from the purchase order
+      // Create return GRN - backend automatically creates items from purchase order
       const today = new Date().toISOString().split('T')[0]
 
       const grnData = {
         purchaseOrderId: selectedOrder.id,
         receiptDate: today,
-        type: 'return', // Mark as return type
-        items: selectedOrder.items.map((item: any) => ({
-          purchaseOrderItemId: item.id,
-          receivedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
-          acceptedQuantity: '0.00', // All items rejected for return
-          rejectedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // All items rejected
-          unitPrice: parseFloat((item.unitPrice || item.unitCost || 0).toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
-          qualityResult: 'rejected',
-          condition: 'return',
-        }))
+        type: 'return' // Mark as return type
       }
 
-      await purchasingApi.createGoodsReceivedNote(grnData)
+      await purchasingApi.createGoodsReceivedNote(grnData as any)
       showSuccess('Return GRN created successfully')
       loadOrders() // Reload to show updated GRN number
     } catch (err: any) {

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import {
   GoodsReceivedNote,
+  GrnType,
   PurchaseOrder,
   Supplier,
   User,
@@ -52,19 +53,38 @@ export class GoodsReceivedNoteService {
       : null;
 
     try {
-      // Create GRN with items received from PO items
-      const itemsReceived = (purchaseOrder.items || []).map((item: any) => ({
-        productId: item.product.id,
-        productSku: item.product.barcode || item.product.id,
-        productName: item.product.name,
-        orderedQuantity: Number(item.quantity),
-        receivedQuantity: Number(item.quantity), // Default to ordered quantity
-        acceptedQuantity: Number(item.quantity),
-        rejectedQuantity: 0,
-        unitCost: Number(item.unitPrice),
-        notes: '',
-        condition: 'good' as const,
-      }));
+      // Create GRN with items - either from DTO or auto-generated from PO items
+      let itemsReceived: any[];
+
+      if (createDto.items && createDto.items.length > 0) {
+        // Use items from DTO if provided
+        itemsReceived = createDto.items.map((item: any) => ({
+          productId: item.productId,
+          productSku: item.productSku || '',
+          productName: item.productName || '',
+          orderedQuantity: Number(item.orderedQuantity || 0),
+          receivedQuantity: Number(item.receivedQuantity || 0),
+          acceptedQuantity: Number(item.acceptedQuantity || 0),
+          rejectedQuantity: Number(item.rejectedQuantity || 0),
+          unitCost: Number(item.unitCost || 0),
+          notes: item.notes || '',
+          condition: item.condition || 'good',
+        }));
+      } else {
+        // Auto-generate items from PO items
+        itemsReceived = (purchaseOrder.items || []).map((item: any) => ({
+          productId: item.product.id,
+          productSku: item.product.barcode || item.product.id,
+          productName: item.product.name,
+          orderedQuantity: Number(item.quantity),
+          receivedQuantity: Number(item.quantity), // Default to ordered quantity
+          acceptedQuantity: Number(item.quantity),
+          rejectedQuantity: 0,
+          unitCost: Number(item.unitPrice),
+          notes: '',
+          condition: 'good' as const,
+        }));
+      }
 
       const grn = this.grnRepository.create({
         purchaseOrderId: purchaseOrder.id,
@@ -79,6 +99,7 @@ export class GoodsReceivedNoteService {
         itemsReceived,
         qualityInspected: createDto.inspectionRequired || false,
         metadata: createDto.metadata,
+        type: createDto.type || GrnType.STANDARD, // Add type support
       });
 
       const savedGrn = await this.grnRepository.save(grn);
