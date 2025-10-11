@@ -364,14 +364,13 @@ const GoodsReceivedPage: React.FC = () => {
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
                       <TableCell>GRN Number</TableCell>
-                      <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading && paginatedGRNs.length === 0 ? (
                       [...Array(10)].map((_, i) => (
                         <TableRow key={`skeleton-${i}`}>
-                          <TableCell colSpan={2}>
+                          <TableCell>
                             <Skeleton height={40} />
                           </TableCell>
                         </TableRow>
@@ -403,14 +402,6 @@ const GoodsReceivedPage: React.FC = () => {
                             >
                               {grn.grnNumber}
                             </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={grn.status}
-                              size="small"
-                              color={getStatusColor(grn.status) as any}
-                              sx={{ textTransform: 'capitalize', fontSize: '0.7rem' }}
-                            />
                           </TableCell>
                         </TableRow>
                       ))

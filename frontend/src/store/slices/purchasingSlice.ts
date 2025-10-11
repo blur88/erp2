@@ -88,7 +88,7 @@ export const fetchPurchaseOrders = createAsyncThunk(
 
 export const fetchGoodsReceivedNotes = createAsyncThunk(
   'purchasing/fetchGoodsReceivedNotes',
-  async (params: { page?: number; limit?: number; supplierId?: string }, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; supplierId?: string; search?: string }, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.getGoodsReceivedNotes(params)
       return response // response is already the data from ApiService.get
