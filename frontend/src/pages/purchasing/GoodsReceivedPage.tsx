@@ -7,7 +7,6 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
   TableRow,
   Button,
   Chip,
@@ -356,16 +355,6 @@ const GoodsReceivedPage: React.FC = () => {
                     }
                   }}
                 >
-                  <TableHead>
-                    <TableRow sx={{ '& .MuiTableCell-head': {
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      backgroundColor: 'grey.50',
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                    } }}>
-                      <TableCell>GRN Number</TableCell>
-                    </TableRow>
-                  </TableHead>
                   <TableBody>
                     {loading && paginatedGRNs.length === 0 ? (
                       [...Array(10)].map((_, i) => (
