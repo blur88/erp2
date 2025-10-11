@@ -593,7 +593,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Restore a deleted purchase order
+   * Restore a deleted purchase order and its associated GRN
    */
   async restore(id: string, userId: string = 'system'): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Restoring purchase order: ${id}`);
@@ -611,6 +611,17 @@ export class PurchaseOrderService {
 
     if (!purchaseOrder.deletedAt) {
       throw new BadRequestException('Purchase order is not deleted');
+    }
+
+    // Find and restore associated GRN
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+      withDeleted: true,
+    });
+
+    if (grn && grn.deletedAt) {
+      await this.grnRepository.restore(grn.id);
+      this.logger.log(`Associated GRN ${grn.grnNumber} restored`);
     }
 
     // Restore using TypeORM's restore method
@@ -632,7 +643,6 @@ export class PurchaseOrderService {
   async bulkRestore(orderIds: string[], userId: string = 'system'): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${orderIds.length} purchase orders`);
 
-    const restoredCount = 0;
     const failedIds: string[] = [];
     let successCount = 0;
 
@@ -651,7 +661,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Permanently delete a purchase order
+   * Permanently delete a purchase order and its associated GRN
    */
   async permanentDelete(id: string): Promise<void> {
     this.logger.log(`Permanently deleting purchase order: ${id}`);
@@ -663,6 +673,17 @@ export class PurchaseOrderService {
 
     if (!purchaseOrder) {
       throw new NotFoundException('Purchase order not found');
+    }
+
+    // Find and permanently delete associated GRN (including soft-deleted)
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+      withDeleted: true,
+    });
+
+    if (grn) {
+      await this.grnRepository.remove(grn);
+      this.logger.log(`Associated GRN ${grn.grnNumber} permanently deleted`);
     }
 
     // Hard delete - remove from database completely
@@ -695,9 +716,9 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Soft delete a purchase order
+   * Soft delete a purchase order and its associated GRN
    */
-  async remove(id: string, userId: string = 'system'): Promise<void> {
+  async remove(id: string): Promise<void> {
     this.logger.log(`Soft deleting purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -706,6 +727,16 @@ export class PurchaseOrderService {
 
     if (!purchaseOrder) {
       throw new NotFoundException('Purchase order not found');
+    }
+
+    // Find and soft delete associated GRN
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+    });
+
+    if (grn) {
+      await this.grnRepository.softDelete(grn.id);
+      this.logger.log(`Associated GRN ${grn.grnNumber} soft deleted`);
     }
 
     // Soft delete using TypeORM's softDelete method
