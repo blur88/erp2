@@ -3,11 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import {
   GoodsReceivedNote,
-  GrnType,
   PurchaseOrder,
   Supplier,
   User,
 } from '../../../database/entities';
+import { GrnType } from '../../../database/entities/goods-received-note.entity';
 import {
   CreateGoodsReceivedNoteDto,
   UpdateGoodsReceivedNoteDto,
@@ -45,6 +45,15 @@ export class GoodsReceivedNoteService {
 
     if (!purchaseOrder) {
       throw new NotFoundException(`Purchase Order with ID ${createDto.purchaseOrderId} not found`);
+    }
+
+    // Check if a GRN already exists for this purchase order
+    const existingGrn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: createDto.purchaseOrderId },
+    });
+
+    if (existingGrn) {
+      throw new BadRequestException(`A Goods Received Note already exists for this purchase order (GRN: ${existingGrn.grnNumber})`);
     }
 
     // Get user (skip lookup if 'system' since auth was removed)
@@ -458,12 +467,11 @@ export class GoodsReceivedNoteService {
       purchaseOrder: grn.purchaseOrder ? {
         id: grn.purchaseOrder.id,
         orderNumber: grn.purchaseOrder.orderNumber,
-        status: grn.purchaseOrder.status,
         totalAmount: Number(grn.purchaseOrder.totalAmount),
       } : null as any,
       supplier: grn.supplier ? {
         id: grn.supplier.id,
-        supplierCode: grn.supplier.supplierCode || grn.supplier.id.substring(0, 8).toUpperCase(),
+        supplierCode: grn.supplier.id.substring(0, 8).toUpperCase(),
         companyName: grn.supplier.companyName,
         contactPerson: grn.supplier.contactPerson,
       } : null as any,
