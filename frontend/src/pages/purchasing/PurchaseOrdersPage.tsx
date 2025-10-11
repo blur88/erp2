@@ -264,9 +264,15 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     try {
-      await purchasingApi.receiveGoods(selectedOrder.id)
+      const response = await purchasingApi.receiveGoods(selectedOrder.id)
       showSuccess('Goods received successfully. Product quantities updated.')
-      loadOrders() // Reload to show updated status
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      loadOrders() // Reload to update the list
     } catch (err: any) {
       console.error('Receive error:', err)
       showError(err?.response?.data?.message || 'Failed to receive goods')
@@ -287,9 +293,15 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     try {
-      await purchasingApi.returnGoods(selectedOrder.id)
+      const response = await purchasingApi.returnGoods(selectedOrder.id)
       showSuccess('Goods returned successfully. Product quantities reverted.')
-      loadOrders() // Reload to update the button state
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      loadOrders() // Reload to update the list
     } catch (err: any) {
       console.error('Return error:', err)
       showError(err?.response?.data?.message || 'Failed to return goods')
