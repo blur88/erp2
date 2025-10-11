@@ -286,9 +286,11 @@ export class Payment extends BaseEntity {
 
   @Column({
     type: 'uuid',
+    nullable: true,
     comment: 'User who recorded the payment',
   })
-  recordedByUserId: string;
+  @IsOptional()
+  recordedByUserId?: string;
 
   // Relationships
   @ManyToOne(() => Customer, (customer) => customer.payments, {
@@ -307,10 +309,11 @@ export class Payment extends BaseEntity {
   invoice?: Invoice;
 
   @ManyToOne(() => User, (user) => user.payments, {
-    onDelete: 'RESTRICT',
+    onDelete: 'SET NULL',
+    nullable: true,
   })
   @JoinColumn({ name: 'recordedByUserId' })
-  recordedByUser: User;
+  recordedByUser?: User;
 
   // Computed properties
   get isCompleted(): boolean {
