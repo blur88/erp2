@@ -281,6 +281,40 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
+  const handleReturn = async () => {
+    if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
+      showError('No items to return in this order')
+      return
+    }
+
+    try {
+      // Create return GRN with all items from the purchase order
+      const today = new Date().toISOString().split('T')[0]
+
+      const grnData = {
+        purchaseOrderId: selectedOrder.id,
+        receiptDate: today,
+        type: 'return', // Mark as return type
+        items: selectedOrder.items.map((item: any) => ({
+          purchaseOrderItemId: item.id,
+          receivedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
+          acceptedQuantity: '0.00', // All items rejected for return
+          rejectedQuantity: parseFloat(item.quantity.toString()).toFixed(2), // All items rejected
+          unitPrice: parseFloat((item.unitPrice || item.unitCost || 0).toString()).toFixed(2), // Format as decimal string for @IsDecimal validation
+          qualityResult: 'rejected',
+          condition: 'return',
+        }))
+      }
+
+      await purchasingApi.createGoodsReceivedNote(grnData)
+      showSuccess('Return GRN created successfully')
+      loadOrders() // Reload to show updated GRN number
+    } catch (err: any) {
+      console.error('Return GRN creation error:', err)
+      showError(err?.response?.data?.message || 'Failed to create return GRN')
+    }
+  }
+
   const handleDeleteClick = () => {
     if (!selectedOrder) return
     setOrderToDelete(selectedOrder)
@@ -894,16 +928,29 @@ const PurchaseOrdersPage: React.FC = () => {
                                 >
                                   Pay
                                 </Button>
-                                <Button
-                                  variant="contained"
-                                  size="small"
-                                  color="success"
-                                  sx={{ minWidth: 110 }}
-                                  onClick={handleReceive}
-                                  disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
-                                >
-                                  Receive
-                                </Button>
+                                {selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0 ? (
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    color="warning"
+                                    sx={{ minWidth: 110 }}
+                                    onClick={handleReturn}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                  >
+                                    Return
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    color="success"
+                                    sx={{ minWidth: 110 }}
+                                    onClick={handleReceive}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                  >
+                                    Receive
+                                  </Button>
+                                )}
                               </Stack>
                             </TableCell>
                           </TableRow>
