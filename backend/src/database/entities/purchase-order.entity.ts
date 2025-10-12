@@ -387,11 +387,13 @@ export class PurchaseOrder extends BaseEntity {
       this.shippingAmount = 0;
     }
 
-    // This should be called after items are loaded
-    if (this.items && this.items.length > 0) {
+    // Only recalculate subtotal from items if items have totalAmount already set
+    // (i.e., items were loaded from database, not newly created)
+    if (this.items && this.items.length > 0 && this.items[0].totalAmount !== undefined && this.items[0].totalAmount !== 0) {
       this.subtotal = this.items.reduce((sum, item) =>
         sum + Number(item.totalAmount || 0), 0);
     }
+    // Otherwise, trust the subtotal value that was set by the service
 
     // Calculate discount amount
     if (this.discountPercent > 0) {

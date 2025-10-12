@@ -177,6 +177,11 @@ export class PurchaseOrderService {
 
       // Set purchase order totals
       purchaseOrder.subtotal = subtotal;
+
+      // Attach items to purchase order before calculating totals (needed for calculateTotals)
+      purchaseOrder.items = orderItems;
+
+      // Calculate totals after items are attached
       purchaseOrder.calculateTotals();
 
       // Check supplier credit limit
@@ -188,9 +193,6 @@ export class PurchaseOrderService {
       if (!canPurchase) {
         throw new BadRequestException('Purchase amount exceeds supplier credit limit');
       }
-
-      // Attach items to purchase order before saving (cascade save will handle items)
-      purchaseOrder.items = orderItems;
 
       // Save purchase order with items (cascade will save items automatically)
       const savedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
@@ -460,6 +462,8 @@ export class PurchaseOrderService {
         }
 
         purchaseOrder.subtotal = subtotal;
+        // Attach items to purchase order before calculating totals
+        purchaseOrder.items = orderItems;
         purchaseOrder.calculateTotals();
       }
 
