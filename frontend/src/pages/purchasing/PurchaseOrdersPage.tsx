@@ -355,6 +355,14 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch])
 
+  // Clear selection when no orders exist
+  useEffect(() => {
+    if (purchaseOrders.length === 0 && selectedOrder) {
+      dispatch(setSelectedPurchaseOrder(null))
+      setFocusedOrderIndex(-1)
+    }
+  }, [purchaseOrders.length, selectedOrder, dispatch])
+
   // Keyboard shortcuts
   const handleNavigateUp = useCallback(() => {
     if (focusedOrderIndex > 0) {
