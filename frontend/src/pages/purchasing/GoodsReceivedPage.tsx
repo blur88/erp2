@@ -345,7 +345,7 @@ const GoodsReceivedPage: React.FC = () => {
       {/* Split Layout: GRN List and GRN Details */}
       <Grid container spacing={3}>
         {/* Left Side - GRN List */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -433,7 +433,7 @@ const GoodsReceivedPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - GRN Details */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={9}>
           {selectedGRN ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with GRN Info */}
