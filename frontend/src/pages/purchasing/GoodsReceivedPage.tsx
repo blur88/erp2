@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
 import {
   Box,
   Typography,
@@ -37,6 +37,7 @@ import {
   selectGRNsState,
   setSelectedGRN
 } from '@/store/slices/purchasingSlice'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
 
 interface GoodsReceivedPageState {
@@ -50,6 +51,58 @@ interface GRNFilters {
   sortOrder: 'asc' | 'desc'
   status: string
 }
+
+// Memoized GRN Row Component
+interface GRNRowProps {
+  grn: any
+  index: number
+  selectedGRNId?: string
+  focusedGRNIndex: number
+  onGRNSelect: (grn: any) => void
+}
+
+const GRNRow = memo(({ grn, index, selectedGRNId, focusedGRNIndex, onGRNSelect }: GRNRowProps) => {
+  const isSelected = selectedGRNId === grn.id
+  const isFocused = index === focusedGRNIndex
+
+  return (
+    <TableRow
+      key={grn.id}
+      hover
+      onClick={() => onGRNSelect(grn)}
+      data-grn-index={index}
+      sx={{
+        cursor: 'pointer',
+        backgroundColor: isSelected ? 'action.selected' : isFocused ? 'action.focus' : 'inherit',
+        '&:hover': {
+          backgroundColor: isSelected ? 'action.selected' : 'action.hover'
+        },
+        transition: 'background-color 0.2s ease',
+        height: TABLE_STYLES.row.height,
+        ...(isFocused && {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: '-2px'
+        })
+      }}
+    >
+      <TableCell>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          sx={{
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+          }}
+        >
+          {grn.grnNumber}
+        </Typography>
+      </TableCell>
+    </TableRow>
+  )
+})
+
+GRNRow.displayName = 'GRNRow'
 
 const GoodsReceivedPage: React.FC = () => {
   const theme = useTheme()
@@ -72,6 +125,9 @@ const GoodsReceivedPage: React.FC = () => {
   })
 
   const [deletedGRNsDialogOpen, setDeletedGRNsDialogOpen] = useState(false)
+  const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
+  const grnListRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Load GRNs on component mount and filter changes
   useEffect(() => {
@@ -130,20 +186,26 @@ const GoodsReceivedPage: React.FC = () => {
   const handleGRNSelect = useCallback((grn: any) => {
     setSelectedGRNLocal(grn)
     dispatch(setSelectedGRN(grn))
-  }, [dispatch])
+    const grnIndex = paginatedGRNs.findIndex(g => g.id === grn.id)
+    setFocusedGRNIndex(grnIndex)
+  }, [dispatch, paginatedGRNs])
 
   // Auto-select first GRN when GRNs load
   useEffect(() => {
-    if (paginatedGRNs.length > 0 && !selectedGRN) {
-      handleGRNSelect(paginatedGRNs[0])
+    if (paginatedGRNs.length > 0 && focusedGRNIndex === -1) {
+      if (!selectedGRN && searchInputRef.current !== document.activeElement) {
+        setFocusedGRNIndex(0)
+        handleGRNSelect(paginatedGRNs[0])
+      }
     }
-  }, [paginatedGRNs, selectedGRN, handleGRNSelect])
+  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect])
 
   // Clear selection when no GRNs exist
   useEffect(() => {
     if (paginatedGRNs.length === 0 && selectedGRN) {
       setSelectedGRNLocal(null)
       dispatch(setSelectedGRN(null))
+      setFocusedGRNIndex(-1)
     }
   }, [paginatedGRNs.length, selectedGRN, dispatch])
 
@@ -173,6 +235,33 @@ const GoodsReceivedPage: React.FC = () => {
         return 'default'
     }
   }
+
+  // Keyboard navigation handlers
+  const handleNavigateUp = useCallback(() => {
+    if (focusedGRNIndex > 0) {
+      const newIndex = focusedGRNIndex - 1
+      setFocusedGRNIndex(newIndex)
+      handleGRNSelect(paginatedGRNs[newIndex])
+    }
+  }, [focusedGRNIndex, paginatedGRNs, handleGRNSelect])
+
+  const handleNavigateDown = useCallback(() => {
+    if (focusedGRNIndex < paginatedGRNs.length - 1) {
+      const newIndex = focusedGRNIndex + 1
+      setFocusedGRNIndex(newIndex)
+      handleGRNSelect(paginatedGRNs[newIndex])
+    }
+  }, [focusedGRNIndex, paginatedGRNs, handleGRNSelect])
+
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus()
+  }, [])
+
+  useKeyboardShortcuts({
+    onSearch: focusSearchInput,
+    onArrowUp: handleNavigateUp,
+    onArrowDown: handleNavigateDown,
+  })
 
   return (
     <Box>
@@ -251,6 +340,7 @@ const GoodsReceivedPage: React.FC = () => {
         }
       }}>
         <TextField
+          inputRef={searchInputRef}
           placeholder="Search GRNs..."
           value={filters.search}
           onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
@@ -358,7 +448,7 @@ const GoodsReceivedPage: React.FC = () => {
               </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={grnListRef}>
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                 <Table
                   size={TABLE_STYLES.size}
@@ -380,34 +470,15 @@ const GoodsReceivedPage: React.FC = () => {
                         </TableRow>
                       ))
                     ) : (
-                      paginatedGRNs.map((grn: any) => (
-                        <TableRow
+                      paginatedGRNs.map((grn: any, index: number) => (
+                        <GRNRow
                           key={grn.id}
-                          hover
-                          onClick={() => handleGRNSelect(grn)}
-                          sx={{
-                            cursor: 'pointer',
-                            backgroundColor: selectedGRN?.id === grn.id ? 'action.selected' : 'inherit',
-                            '&:hover': {
-                              backgroundColor: selectedGRN?.id === grn.id ? 'action.selected' : 'action.hover'
-                            },
-                            transition: 'background-color 0.2s ease',
-                            height: TABLE_STYLES.row.height,
-                          }}
-                        >
-                          <TableCell>
-                            <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-                              sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                              }}
-                            >
-                              {grn.grnNumber}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
+                          grn={grn}
+                          index={index}
+                          selectedGRNId={selectedGRN?.id}
+                          focusedGRNIndex={focusedGRNIndex}
+                          onGRNSelect={handleGRNSelect}
+                        />
                       ))
                     )}
                   </TableBody>
