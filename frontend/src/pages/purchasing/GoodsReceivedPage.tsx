@@ -132,6 +132,21 @@ const GoodsReceivedPage: React.FC = () => {
     dispatch(setSelectedGRN(grn))
   }, [dispatch])
 
+  // Auto-select first GRN when GRNs load
+  useEffect(() => {
+    if (paginatedGRNs.length > 0 && !selectedGRN) {
+      handleGRNSelect(paginatedGRNs[0])
+    }
+  }, [paginatedGRNs, selectedGRN, handleGRNSelect])
+
+  // Clear selection when no GRNs exist
+  useEffect(() => {
+    if (paginatedGRNs.length === 0 && selectedGRN) {
+      setSelectedGRNLocal(null)
+      dispatch(setSelectedGRN(null))
+    }
+  }, [paginatedGRNs.length, selectedGRN, dispatch])
+
   const handleRefreshAction = () => {
     dispatch(fetchGoodsReceivedNotes({
       page: state.page + 1,
