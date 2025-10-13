@@ -29,6 +29,9 @@ import {
   Refresh as RefreshIcon,
   LocalShipping as GRNIcon,
   RestoreFromTrash as RestoreIcon,
+  Sort as SortIcon,
+  ArrowUpward as ArrowUpIcon,
+  ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -121,7 +124,7 @@ const GoodsReceivedPage: React.FC = () => {
 
   const [filters, setFilters] = useState<GRNFilters>({
     search: '',
-    sortBy: 'receivedDate',
+    sortBy: 'grnNumber',
     sortOrder: 'desc',
     status: 'all',
   })
@@ -137,47 +140,22 @@ const GoodsReceivedPage: React.FC = () => {
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }))
-  }, [dispatch, state.page, state.rowsPerPage, filters.search])
+  }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder])
 
-  // Filter and sort GRNs
+  // Filter GRNs (status filter only - backend handles search and sorting)
   const filteredGRNs = useMemo(() => {
     let filtered = [...(goodsReceivedNotes || [])]
 
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filtered = filtered.filter((grn: any) =>
-        grn.grnNumber?.toLowerCase().includes(searchLower) ||
-        grn.supplier?.companyName?.toLowerCase().includes(searchLower) ||
-        grn.purchaseOrder?.orderNumber?.toLowerCase().includes(searchLower)
-      )
-    }
-
-    // Status filter
+    // Status filter (client-side only)
     if (filters.status !== 'all') {
       filtered = filtered.filter((grn: any) => grn.status === filters.status)
     }
 
-    // Sort
-    filtered.sort((a: any, b: any) => {
-      let aValue: any = a[filters.sortBy]
-      let bValue: any = b[filters.sortBy]
-
-      if (filters.sortBy === 'receivedDate' || filters.sortBy === 'receiptDate') {
-        aValue = new Date(aValue || 0).getTime()
-        bValue = new Date(bValue || 0).getTime()
-      }
-
-      if (filters.sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-
     return filtered
-  }, [goodsReceivedNotes, filters])
+  }, [goodsReceivedNotes, filters.status])
 
   // Pagination
   const paginatedGRNs = useMemo(() => {
@@ -228,11 +206,22 @@ const GoodsReceivedPage: React.FC = () => {
     }
   }, [paginatedGRNs.length, selectedGRN, dispatch])
 
+  const handleSort = useCallback((field: string) => {
+    setFilters(prev => ({
+      ...prev,
+      sortBy: field,
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
+    }))
+    setState(prev => ({ ...prev, page: 0 }))
+  }, [])
+
   const handleRefreshAction = () => {
     dispatch(fetchGoodsReceivedNotes({
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }))
   }
 
@@ -426,7 +415,7 @@ const GoodsReceivedPage: React.FC = () => {
             onClick={() => {
               setFilters({
                 search: '',
-                sortBy: 'receivedDate',
+                sortBy: 'grnNumber',
                 sortOrder: 'desc',
                 status: 'all',
               })
@@ -442,6 +431,21 @@ const GoodsReceivedPage: React.FC = () => {
             Clear Filters
           </Button>
         )}
+
+        <Button
+          variant={filters.sortBy === 'grnNumber' ? 'contained' : 'outlined'}
+          size="medium"
+          startIcon={filters.sortBy === 'grnNumber' ? (filters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          onClick={() => handleSort('grnNumber')}
+          sx={{
+            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            fontSize: '0.875rem',
+            minWidth: 'auto',
+            px: 2
+          }}
+        >
+          Sort
+        </Button>
       </Box>
 
       {/* Error Display */}
