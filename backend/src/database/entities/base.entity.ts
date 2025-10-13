@@ -56,69 +56,17 @@ export abstract class BaseEntity {
   @IsBoolean()
   isActive: boolean;
 
-  @Column({
-    type: 'varchar',
-    length: 256,
-    nullable: true,
-    comment: 'SHA-256 hash for audit trail integrity',
-  })
-  @IsOptional()
-  auditHash?: string;
-
+  
   @BeforeInsert()
   async beforeInsert() {
     // Set default values
     if (this.isActive === undefined) {
       this.isActive = true;
     }
-    
-    // Generate audit hash for integrity
-    await this.generateAuditHash();
   }
 
   @BeforeUpdate()
   async beforeUpdate() {
-    // Update audit hash
-    await this.generateAuditHash();
-  }
-
-  /**
-   * Generate SHA-256 hash of audit fields for integrity verification
-   */
-  private async generateAuditHash(): Promise<void> {
-    try {
-      const crypto = await import('crypto');
-      const auditData = {
-        id: this.id,
-        createdAt: this.createdAt?.toISOString(),
-        updatedAt: this.updatedAt?.toISOString(),
-        deletedAt: this.deletedAt?.toISOString(),
-        isActive: this.isActive,
-      };
-
-      this.auditHash = crypto
-        .createHash('sha256')
-        .update(JSON.stringify(auditData))
-        .digest('hex');
-    } catch (error) {
-      // Fallback if crypto is not available
-      this.auditHash = undefined;
-    }
-  }
-
-  /**
-   * Verify audit hash integrity
-   */
-  async verifyAuditHash(): Promise<boolean> {
-    if (!this.auditHash) return true; // Skip verification if no hash
-    
-    const originalHash = this.auditHash;
-    await this.generateAuditHash();
-    const currentHash = this.auditHash;
-    
-    // Restore original hash
-    this.auditHash = originalHash;
-    
-    return originalHash === currentHash;
+    // No audit hash generation needed
   }
 }
