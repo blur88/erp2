@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -128,6 +128,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const purchaseOrders = useAppSelector(selectPurchaseOrders) || []
   const suppliers = useAppSelector((state: any) => state.purchasing.suppliers) || []
@@ -210,6 +211,21 @@ const PurchaseOrdersPage: React.FC = () => {
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  // Handle poId query parameter to auto-select PO from GRN page
+  useEffect(() => {
+    const poId = searchParams.get('poId')
+    if (poId && purchaseOrders.length > 0) {
+      const po = purchaseOrders.find((order: any) => order.id === poId)
+      if (po) {
+        dispatch(setSelectedPurchaseOrder(po))
+        const orderIndex = purchaseOrders.findIndex((o: any) => o.id === po.id)
+        setFocusedOrderIndex(orderIndex)
+        // Remove the query parameter after selection
+        setSearchParams({})
+      }
+    }
+  }, [searchParams, purchaseOrders, dispatch, setSearchParams])
 
   const handleSort = useCallback((field: string) => {
     setState(prev => ({
@@ -349,11 +365,15 @@ const PurchaseOrdersPage: React.FC = () => {
   useEffect(() => {
     if (purchaseOrders.length > 0 && focusedOrderIndex === -1) {
       if (!selectedOrder && searchInputRef.current !== document.activeElement) {
-        setFocusedOrderIndex(0)
-        dispatch(setSelectedPurchaseOrder(purchaseOrders[0]))
+        // Don't auto-select if we have a poId query parameter
+        const poId = searchParams.get('poId')
+        if (!poId) {
+          setFocusedOrderIndex(0)
+          dispatch(setSelectedPurchaseOrder(purchaseOrders[0]))
+        }
       }
     }
-  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch])
+  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch, searchParams])
 
   // Clear selection when no orders exist
   useEffect(() => {

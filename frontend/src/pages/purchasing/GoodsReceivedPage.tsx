@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -581,7 +581,23 @@ const GoodsReceivedPage: React.FC = () => {
                                 PO Number
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedGRN.purchaseOrder.orderNumber}
+                                <Link
+                                  to={`/purchasing/orders?poId=${selectedGRN.purchaseOrder.id}`}
+                                  style={{
+                                    color: '#1976d2',
+                                    textDecoration: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'color 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = '#1565c0'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '#1976d2'
+                                  }}
+                                >
+                                  {selectedGRN.purchaseOrder.orderNumber}
+                                </Link>
                               </TableCell>
                             </TableRow>
                           )}
