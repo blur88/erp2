@@ -141,7 +141,7 @@ const GoodsReceivedPage: React.FC = () => {
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      sortOrder: filters.sortOrder,
     }))
   }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder])
 
@@ -221,7 +221,7 @@ const GoodsReceivedPage: React.FC = () => {
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      sortOrder: filters.sortOrder,
     }))
   }
 

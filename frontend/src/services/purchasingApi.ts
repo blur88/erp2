@@ -124,7 +124,12 @@ export const purchasingApi = {
 
   // Goods Received Notes (GRN)
   async getGoodsReceivedNotes(params?: QueryParams & { supplierId?: string; purchaseOrderId?: string }) {
-    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/goods-received-notes', { params })
+    // Convert sortOrder to uppercase for backend compatibility
+    const apiParams = params ? {
+      ...params,
+      sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() : undefined
+    } : undefined
+    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/goods-received-notes', { params: apiParams })
   },
 
   async getGoodsReceivedNote(id: string) {
