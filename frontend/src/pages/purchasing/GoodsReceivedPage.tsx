@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -107,6 +108,7 @@ GRNRow.displayName = 'GRNRow'
 const GoodsReceivedPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const dispatch = useAppDispatch()
   const { goodsReceivedNotes, loading, error, pagination } = useAppSelector(selectGRNsState)
@@ -190,15 +192,32 @@ const GoodsReceivedPage: React.FC = () => {
     setFocusedGRNIndex(grnIndex)
   }, [dispatch, paginatedGRNs])
 
+  // Handle grnId query parameter to auto-select GRN from PO page
+  useEffect(() => {
+    const grnId = searchParams.get('grnId')
+    if (grnId && goodsReceivedNotes.length > 0) {
+      const grn = goodsReceivedNotes.find((g: any) => g.id === grnId)
+      if (grn) {
+        handleGRNSelect(grn)
+        // Remove the query parameter after selection
+        setSearchParams({})
+      }
+    }
+  }, [searchParams, goodsReceivedNotes, handleGRNSelect, setSearchParams])
+
   // Auto-select first GRN when GRNs load
   useEffect(() => {
     if (paginatedGRNs.length > 0 && focusedGRNIndex === -1) {
       if (!selectedGRN && searchInputRef.current !== document.activeElement) {
-        setFocusedGRNIndex(0)
-        handleGRNSelect(paginatedGRNs[0])
+        // Don't auto-select if we have a grnId query parameter
+        const grnId = searchParams.get('grnId')
+        if (!grnId) {
+          setFocusedGRNIndex(0)
+          handleGRNSelect(paginatedGRNs[0])
+        }
       }
     }
-  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect])
+  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams])
 
   // Clear selection when no GRNs exist
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -820,7 +820,28 @@ const PurchaseOrdersPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0
-                                ? selectedOrder.goodsReceivedNotes.map((grn: any) => grn.grnNumber).join(', ')
+                                ? selectedOrder.goodsReceivedNotes.map((grn: any, index: number) => (
+                                    <Box key={grn.id} component="span">
+                                      {index > 0 && ', '}
+                                      <Link
+                                        to={`/purchasing/goods-received?grnId=${grn.id}`}
+                                        style={{
+                                          color: 'inherit',
+                                          textDecoration: 'underline',
+                                          cursor: 'pointer',
+                                          transition: 'color 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = '#1976d2'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = 'inherit'
+                                        }}
+                                      >
+                                        {grn.grnNumber}
+                                      </Link>
+                                    </Box>
+                                  ))
                                 : '-'}
                             </TableCell>
                           </TableRow>
