@@ -47,15 +47,7 @@ export abstract class BaseEntity {
 
   
   
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who deleted this record',
-  })
-  @IsOptional()
-  @IsUUID(4)
-  deletedBy?: string;
-
+  
   @Column({
     type: 'boolean',
     default: true,
@@ -101,7 +93,6 @@ export abstract class BaseEntity {
         createdAt: this.createdAt?.toISOString(),
         updatedAt: this.updatedAt?.toISOString(),
         deletedAt: this.deletedAt?.toISOString(),
-        deletedBy: this.deletedBy,
         isActive: this.isActive,
       };
 
