@@ -46,15 +46,7 @@ export abstract class BaseEntity {
   readonly deletedAt?: Date;
 
   
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who last updated this record',
-  })
-  @IsOptional()
-  @IsUUID(4)
-  updatedBy?: string;
-
+  
   @Column({
     type: 'uuid',
     nullable: true,
@@ -108,7 +100,6 @@ export abstract class BaseEntity {
         id: this.id,
         createdAt: this.createdAt?.toISOString(),
         updatedAt: this.updatedAt?.toISOString(),
-        updatedBy: this.updatedBy,
         deletedAt: this.deletedAt?.toISOString(),
         deletedBy: this.deletedBy,
         isActive: this.isActive,

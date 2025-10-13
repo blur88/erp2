@@ -568,7 +568,6 @@ export class CategoryService {
     // Also update isActive to true since this project uses both soft delete approaches
     await this.categoryRepository.update(id, {
       isActive: true,
-      updatedBy: userId || null,
     });
 
     // Fetch the updated category after restore
