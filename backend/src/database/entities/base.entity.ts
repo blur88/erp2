@@ -45,15 +45,7 @@ export abstract class BaseEntity {
   @IsDate()
   readonly deletedAt?: Date;
 
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who created this record',
-  })
-  @IsOptional()
-  @IsUUID(4)
-  createdBy?: string;
-
+  
   @Column({
     type: 'uuid',
     nullable: true,
@@ -115,14 +107,13 @@ export abstract class BaseEntity {
       const auditData = {
         id: this.id,
         createdAt: this.createdAt?.toISOString(),
-        createdBy: this.createdBy,
         updatedAt: this.updatedAt?.toISOString(),
         updatedBy: this.updatedBy,
         deletedAt: this.deletedAt?.toISOString(),
         deletedBy: this.deletedBy,
         isActive: this.isActive,
       };
-      
+
       this.auditHash = crypto
         .createHash('sha256')
         .update(JSON.stringify(auditData))
