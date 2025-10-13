@@ -886,7 +886,6 @@ export class CategoryService {
     const response: CategoryResponseDto = {
       id: category.id,
       name: category.name,
-      imageUrl: category.imageUrl,
       sortOrder: category.sortOrder,
       path: category.path,
       level: category.level,
