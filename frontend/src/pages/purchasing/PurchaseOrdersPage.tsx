@@ -826,16 +826,16 @@ const PurchaseOrdersPage: React.FC = () => {
                                       <Link
                                         to={`/purchasing/goods-received?grnId=${grn.id}`}
                                         style={{
-                                          color: 'inherit',
-                                          textDecoration: 'underline',
+                                          color: '#1976d2',
+                                          textDecoration: 'none',
                                           cursor: 'pointer',
                                           transition: 'color 0.2s ease'
                                         }}
                                         onMouseEnter={(e) => {
-                                          e.currentTarget.style.color = '#1976d2'
+                                          e.currentTarget.style.color = '#1565c0'
                                         }}
                                         onMouseLeave={(e) => {
-                                          e.currentTarget.style.color = 'inherit'
+                                          e.currentTarget.style.color = '#1976d2'
                                         }}
                                       >
                                         {grn.grnNumber}
