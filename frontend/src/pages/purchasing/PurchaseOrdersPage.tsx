@@ -57,6 +57,7 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
+import UnreturnPurchaseOrderDialog from '@/components/purchasing/UnreturnPurchaseOrderDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -153,6 +154,8 @@ const PurchaseOrdersPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
+  const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -321,6 +324,70 @@ const PurchaseOrdersPage: React.FC = () => {
     } catch (err: any) {
       console.error('Return error:', err)
       showError(err?.response?.data?.message || 'Failed to return goods')
+    }
+  }
+
+  const handleEditClick = () => {
+    if (!selectedOrder) return
+
+    // Check if order is received before allowing edit
+    const isReceived = selectedOrder.goodsReceivedNotes &&
+      selectedOrder.goodsReceivedNotes.length > 0 &&
+      selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+    if (isReceived) {
+      setUnreturnDialogOpen(true)
+    } else {
+      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+    }
+  }
+
+  const handleReturnAndEdit = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      showSuccess('Goods returned successfully. You can now edit the order.')
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+
+      // Navigate to edit page
+      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+    } catch (err: any) {
+      console.error('Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to return goods')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleReturnOnly = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      showSuccess('Goods returned successfully. Product quantities reverted.')
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to return goods')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -733,7 +800,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   <IconButton
                     size="small"
                     title="Edit Order"
-                    onClick={() => navigate(`/purchasing/orders/${selectedOrder.id}/edit`)}
+                    onClick={handleEditClick}
                     sx={{
                       height: `${TABLE_STYLES.row.height * 0.75}px`,
                       width: `${TABLE_STYLES.row.height * 0.75}px`,
@@ -1145,6 +1212,18 @@ const PurchaseOrdersPage: React.FC = () => {
         onClose={() => setDeletedOrdersDialogOpen(false)}
         onRefresh={loadOrders}
       />
+
+      {/* Unreturn Purchase Order Dialog */}
+      {selectedOrder && (
+        <UnreturnPurchaseOrderDialog
+          open={unreturnDialogOpen}
+          orderNumber={selectedOrder.orderNumber}
+          onClose={() => setUnreturnDialogOpen(false)}
+          onReturnAndEdit={handleReturnAndEdit}
+          onReturnOnly={handleReturnOnly}
+          loading={isLoading}
+        />
+      )}
     </Box>
   )
 }
