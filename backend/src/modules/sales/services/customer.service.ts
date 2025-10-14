@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
 import { Customer, PriceLevel } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateCustomerDto,
@@ -334,6 +334,7 @@ export class CustomerService {
     const orderStats = await this.salesOrderRepository
       .createQueryBuilder('order')
       .where('order.customerId = :customerId', { customerId })
+      .andWhere('order.deletedAt IS NULL')
       .select([
         'COUNT(*) as totalOrders',
         'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
@@ -680,6 +681,97 @@ export class CustomerService {
     // Return updated customer
     const updatedCustomer = await this.customerRepository.findOne({ where: { id: customerId } });
     return this.mapToResponseDto(updatedCustomer);
+  }
+
+  /**
+   * Recalculate all customer totals from actual sales order data
+   * This method fixes discrepancies in customer financial metrics
+   */
+  async recalculateAllCustomerTotals(): Promise<{ updated: number; message: string }> {
+    console.log('🔄 Starting recalculation of all customer totals...');
+
+    // Get all customers
+    const customers = await this.customerRepository.find({
+      where: { isActive: true },
+      relations: ['salesOrders']
+    });
+
+    let updatedCount = 0;
+
+    for (const customer of customers) {
+      // Calculate actual totals from sales orders
+      const orderStats = await this.salesOrderRepository
+        .createQueryBuilder('order')
+        .where('order.customerId = :customerId', { customerId: customer.id })
+        .andWhere('order.deletedAt IS NULL')
+        .select([
+          'COUNT(*) as totalOrders',
+          'COALESCE(SUM(order.totalAmount), 0) as totalSales',
+          'MIN(order.orderDate) as firstOrderDate',
+          'MAX(order.orderDate) as lastOrderDate',
+        ])
+        .getRawOne();
+
+      const actualTotalOrders = parseInt(orderStats.totalOrders) || 0;
+      const actualTotalSales = parseFloat(orderStats.totalSales) || 0;
+      const firstOrderDate = orderStats.firstOrderDate;
+      const lastOrderDate = orderStats.lastOrderDate;
+
+      // Check if there's a discrepancy
+      const hasDiscrepancy =
+        customer.totalOrders !== actualTotalOrders ||
+        Number(customer.totalSales) !== actualTotalSales;
+
+      if (hasDiscrepancy) {
+        console.log(`📊 Updating customer ${customer.name}:`);
+        console.log(`   Before: ${customer.totalOrders} orders, $${customer.totalSales} sales`);
+        console.log(`   After:  ${actualTotalOrders} orders, $${actualTotalSales} sales`);
+
+        // Update customer metrics
+        customer.totalOrders = actualTotalOrders;
+        customer.totalSales = actualTotalSales;
+        customer.firstPurchaseDate = firstOrderDate;
+        customer.lastPurchaseDate = lastOrderDate;
+
+        await this.customerRepository.save(customer);
+        updatedCount++;
+      }
+    }
+
+    const message = `Recalculation complete. Updated ${updatedCount} customers out of ${customers.length}.`;
+    console.log(`✅ ${message}`);
+
+    return { updated: updatedCount, message };
+  }
+
+  /**
+   * Update customer metrics for a specific customer based on their sales orders
+   */
+  async updateCustomerMetrics(customerId: string): Promise<void> {
+    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    // Calculate actual totals from sales orders
+    const orderStats = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.customerId = :customerId', { customerId })
+      .andWhere('order.deletedAt IS NULL')
+      .select([
+        'COUNT(*) as totalOrders',
+        'COALESCE(SUM(order.totalAmount), 0) as totalSales',
+        'MIN(order.orderDate) as firstOrderDate',
+        'MAX(order.orderDate) as lastOrderDate',
+      ])
+      .getRawOne();
+
+    customer.totalOrders = parseInt(orderStats.totalOrders) || 0;
+    customer.totalSales = parseFloat(orderStats.totalSales) || 0;
+    customer.firstPurchaseDate = orderStats.firstOrderDate;
+    customer.lastPurchaseDate = orderStats.lastOrderDate;
+
+    await this.customerRepository.save(customer);
   }
 
   // Internal helper methods

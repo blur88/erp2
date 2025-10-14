@@ -203,6 +203,29 @@ export class CustomerController {
     return this.customerService.getCustomerStatistics(id);
   }
 
+  @Post('recalculate-totals')
+  @ApiOperation({ summary: 'Recalculate all customer totals from sales data' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer totals recalculated successfully',
+  })
+  async recalculateCustomerTotals() {
+    return this.customerService.recalculateAllCustomerTotals();
+  }
+
+  @Post(':id/update-metrics')
+  @ApiOperation({ summary: 'Update specific customer metrics' })
+  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer metrics updated successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  async updateCustomerMetrics(@Param('id', ParseUUIDPipe) id: string) {
+    await this.customerService.updateCustomerMetrics(id);
+    return { message: 'Customer metrics updated successfully' };
+  }
+
   @Post('bulk-restore')
   @ApiOperation({ summary: 'Bulk restore soft-deleted customers' })
   @ApiResponse({

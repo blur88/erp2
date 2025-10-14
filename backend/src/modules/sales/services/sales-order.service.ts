@@ -189,6 +189,14 @@ export class SalesOrderService {
       }))
     );
 
+    // Update customer metrics immediately
+    try {
+      await this.updateCustomerSalesMetrics(customer.id, totalAmount);
+    } catch (error) {
+      console.error('Failed to update customer metrics:', error.message);
+      // Don't fail the order creation if customer metric update fails
+    }
+
     // Automatically generate invoice when order is created
     try {
       // Reload order with customer relation to populate customerName for invoice
@@ -1051,6 +1059,19 @@ export class SalesOrderService {
   }
 
   // Helper methods
+
+  /**
+   * Update customer sales metrics when an order is created
+   */
+  private async updateCustomerSalesMetrics(customerId: string, orderAmount: number): Promise<void> {
+    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    if (customer) {
+      // Use the entity's built-in method to update metrics
+      const isFirstOrder = customer.totalOrders === 0;
+      customer.updateSalesMetrics(orderAmount, isFirstOrder);
+      await this.customerRepository.save(customer);
+    }
+  }
 
   private async validateAndProcessItems(items: any[]) {
     const processedItems = [];
