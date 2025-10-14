@@ -149,7 +149,7 @@ export class GoodsReceivedNote extends BaseEntity {
   // Items received (denormalized for performance and audit)
   @Column({
     type: 'json',
-    comment: 'Details of items received with quantities and condition',
+    comment: 'Details of items received with quantities',
   })
   @IsJSON()
   itemsReceived: Array<{
@@ -158,11 +158,9 @@ export class GoodsReceivedNote extends BaseEntity {
     productName: string;
     orderedQuantity: number;
     receivedQuantity: number;
-    unitCost: number;
     notes?: string;
     batchNumber?: string;
     expiryDate?: string;
-    condition?: 'good' | 'damaged' | 'expired' | 'defective';
   }>;
 
   // Quality Inspection
@@ -398,7 +396,6 @@ export class GoodsReceivedNote extends BaseEntity {
     inspectionResults: Array<{
       productId: string;
       receivedQuantity: number;
-      condition?: string;
       notes?: string;
     }>,
     inspectionNotes?: string
@@ -415,7 +412,6 @@ export class GoodsReceivedNote extends BaseEntity {
         return {
           ...item,
           receivedQuantity: result.receivedQuantity,
-          condition: result.condition as any,
           notes: result.notes,
         };
       }

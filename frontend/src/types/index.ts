@@ -373,10 +373,14 @@ export interface GoodsReceivedNote {
 export interface GRNItem {
   id: string;
   product: Product;
+  productName?: string;
   orderedQuantity: number;
   receivedQuantity: number;
-  damagedQuantity?: number;
   notes?: string;
+  purchaseOrderItem?: {
+    id: string;
+    product?: Product;
+  };
 }
 
 // Common types

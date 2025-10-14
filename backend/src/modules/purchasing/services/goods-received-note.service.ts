@@ -134,13 +134,9 @@ export class GoodsReceivedNoteService {
           unit: poItem.unit || 'pcs',
           orderedQuantity: Number(poItem.quantity),
           receivedQuantity: Number(poItem.quantity), // Default to ordered quantity
-          unitCost: Number(poItem.unitCost),
-          condition: 'good',
           purchaseOrderItemId: poItem.id,
         });
 
-        // Calculate total amount
-        grnItem.calculateTotal();
         grnItems.push(grnItem);
       }
 
@@ -515,8 +511,6 @@ export class GoodsReceivedNoteService {
 
     for (const itemData of items) {
       const grnItem = this.grnItemRepository.create(itemData) as unknown as GoodsReceivedNoteItem;
-      // Calculate total for each item
-      grnItem.totalAmount = Number(grnItem.receivedQuantity) * Number(grnItem.unitCost);
       grnItems.push(grnItem);
     }
 
@@ -580,7 +574,6 @@ export class GoodsReceivedNoteService {
               id: item.purchaseOrderItemId || '',
               description: item.productDescription || '',
               quantity: Number(item.orderedQuantity),
-              unitPrice: Number(item.unitCost),
               unit: item.unit,
               product: {
                 id: item.productId,
@@ -590,18 +583,11 @@ export class GoodsReceivedNoteService {
             },
             orderedQuantity: Number(item.orderedQuantity),
             receivedQuantity: Number(item.receivedQuantity),
-            unitPrice: Number(item.unitCost),
-            totalAmount: Number(item.totalAmount),
             batchNumber: item.batchNumber,
             expiryDate: item.expiryDate,
-            qualityResult: item.condition === 'good' ? 'passed' : 'failed',
             qualityNotes: item.qualityNotes,
             storageLocation: item.storageLocation,
-            condition: item.condition,
-            rejectionReason: item.rejectionReason,
             isFullyReceived: item.isFullyReceived,
-            hasQualityIssues: item.condition !== 'good',
-            acceptanceRate: item.isFullyReceived ? 100 : 0,
             notes: item.notes,
           }))
         : (grn.itemsReceived || []).map((item: any) => ({
@@ -610,7 +596,6 @@ export class GoodsReceivedNoteService {
               id: '',
               description: '',
               quantity: Number(item.orderedQuantity || 0),
-              unitPrice: Number(item.unitCost || 0),
               unit: 'pcs',
               product: {
                 id: item.productId || '',
@@ -620,18 +605,11 @@ export class GoodsReceivedNoteService {
             },
             orderedQuantity: Number(item.orderedQuantity || 0),
             receivedQuantity: Number(item.receivedQuantity || 0),
-            unitPrice: Number(item.unitCost || 0),
-            totalAmount: Number(item.receivedQuantity || 0) * Number(item.unitCost || 0),
             batchNumber: item.batchNumber,
             expiryDate: item.expiryDate,
-            qualityResult: item.condition === 'good' ? 'passed' : 'failed',
             qualityNotes: item.notes,
             storageLocation: undefined,
-            condition: item.condition || 'good',
-            rejectionReason: undefined,
             isFullyReceived: Number(item.receivedQuantity || 0) >= Number(item.orderedQuantity || 0),
-            hasQualityIssues: item.condition !== 'good',
-            acceptanceRate: 0,
             notes: item.notes,
           })),
       createdAt: grn.createdAt,

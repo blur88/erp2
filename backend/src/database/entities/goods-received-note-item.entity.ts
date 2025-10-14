@@ -93,36 +93,7 @@ export class GoodsReceivedNoteItem extends BaseEntity {
   @Min(0)
   receivedQuantity: number;
 
-  // Pricing
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    comment: 'Unit cost at time of receipt',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  unitCost: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    comment: 'Total amount for this line (receivedQuantity × unitCost)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  totalAmount: number;
-
   // Quality Information
-  @Column({
-    type: 'varchar',
-    length: 20,
-    default: 'good',
-    comment: 'Item condition at receipt',
-  })
-  @IsString()
-  condition: 'good' | 'damaged' | 'expired' | 'defective';
 
   @Column({
     type: 'text',
@@ -233,9 +204,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
     return Number(this.receivedQuantity) >= Number(this.orderedQuantity);
   }
 
-  get hasQualityIssues(): boolean {
-    return this.condition !== 'good';
-  }
 
   get varianceQuantity(): number {
     return Number(this.receivedQuantity) - Number(this.orderedQuantity);
@@ -248,21 +216,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
   }
 
   // Helper methods
-  calculateTotal(): void {
-    this.totalAmount = Number(this.receivedQuantity) * Number(this.unitCost);
-  }
-
-  updateCondition(condition: 'good' | 'damaged' | 'expired' | 'defective', notes?: string, reason?: string): void {
-    this.condition = condition;
-
-    if (notes) {
-      this.qualityNotes = notes;
-    }
-
-    if (reason && condition !== 'good') {
-      this.rejectionReason = reason;
-    }
-  }
 
   // Static method to create from PO item
   static fromPurchaseOrderItem(
@@ -280,8 +233,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
       unit: poItem.unit,
       orderedQuantity: Number(poItem.quantity),
       receivedQuantity: qty,
-      unitCost: Number(poItem.unitCost),
-      condition: 'good',
     };
   }
 
@@ -290,15 +241,11 @@ export class GoodsReceivedNoteItem extends BaseEntity {
     orderedQuantity: number;
     receivedQuantity: number;
     variance: number;
-    hasIssues: boolean;
-    condition: string;
   } {
     return {
       orderedQuantity: Number(this.orderedQuantity),
       receivedQuantity: Number(this.receivedQuantity),
       variance: this.varianceQuantity,
-      hasIssues: this.hasQualityIssues,
-      condition: this.condition,
     };
   }
 }

@@ -34,7 +34,7 @@ import {
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -704,12 +704,9 @@ const GoodsReceivedPage: React.FC = () => {
                             color: TYPOGRAPHY_STYLES.tableHeader.color,
                             fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                           } }}>
-                            <TableCell sx={{ width: '30%' }}>Product</TableCell>
-                            <TableCell align="center" sx={{ width: '12%' }}>Ordered</TableCell>
-                            <TableCell align="center" sx={{ width: '12%' }}>Received</TableCell>
-                            <TableCell align="right" sx={{ width: '16%' }}>Unit Cost</TableCell>
-                            <TableCell align="right" sx={{ width: '16%' }}>Total</TableCell>
-                            <TableCell sx={{ width: '14%' }}>Condition</TableCell>
+                            <TableCell sx={{ width: '50%' }}>Product</TableCell>
+                            <TableCell align="center" sx={{ width: '25%' }}>Ordered</TableCell>
+                            <TableCell align="center" sx={{ width: '25%' }}>Received</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -731,20 +728,6 @@ const GoodsReceivedPage: React.FC = () => {
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                                 {item.receivedQuantity || 0}
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                {formatCurrency(item.unitCost || 0)}
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                {formatCurrency(item.totalAmount || 0)}
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                <Chip
-                                  label={item.condition || 'good'}
-                                  size="small"
-                                  color={item.condition === 'good' ? 'success' : item.condition === 'damaged' ? 'warning' : 'error'}
-                                  sx={{ fontSize: '0.65rem', height: '20px', textTransform: 'capitalize' }}
-                                />
                               </TableCell>
                             </TableRow>
                           ))}
