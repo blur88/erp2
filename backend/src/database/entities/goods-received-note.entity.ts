@@ -25,10 +25,6 @@ import { User } from './user.entity';
 export enum GrnStatus {
   DRAFT = 'draft',
   RECEIVED = 'received',
-  INSPECTED = 'inspected',
-  ACCEPTED = 'accepted',
-  REJECTED = 'rejected',
-  PARTIALLY_ACCEPTED = 'partially_accepted',
 }
 
 export enum GrnType {
@@ -415,18 +411,11 @@ export class GoodsReceivedNote extends BaseEntity {
 
   // Helper methods
   updateStatus(): void {
-    if (this.qualityInspected) {
-      if (this.isFullyAccepted) {
-        this.status = GrnStatus.ACCEPTED;
-      } else if (this.isFullyRejected) {
-        this.status = GrnStatus.REJECTED;
-      } else if (this.isPartiallyAccepted) {
-        this.status = GrnStatus.PARTIALLY_ACCEPTED;
-      } else {
-        this.status = GrnStatus.INSPECTED;
-      }
-    } else {
+    // Simplified status logic - only DRAFT or RECEIVED
+    if (this.receivedDate) {
       this.status = GrnStatus.RECEIVED;
+    } else {
+      this.status = GrnStatus.DRAFT;
     }
   }
 

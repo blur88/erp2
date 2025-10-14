@@ -231,14 +231,6 @@ const GoodsReceivedPage: React.FC = () => {
         return 'success'
       case 'draft':
         return 'default'
-      case 'inspected':
-        return 'info'
-      case 'accepted':
-        return 'success'
-      case 'rejected':
-        return 'error'
-      case 'partially_accepted':
-        return 'warning'
       default:
         return 'default'
     }
@@ -401,10 +393,6 @@ const GoodsReceivedPage: React.FC = () => {
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="draft">Draft</MenuItem>
             <MenuItem value="received">Received</MenuItem>
-            <MenuItem value="inspected">Inspected</MenuItem>
-            <MenuItem value="accepted">Accepted</MenuItem>
-            <MenuItem value="rejected">Rejected</MenuItem>
-            <MenuItem value="partially_accepted">Partially Accepted</MenuItem>
           </Select>
         </FormControl>
 
