@@ -523,6 +523,24 @@ export class GoodsReceivedNoteService {
    * Map GRN entity to response DTO
    */
   private mapToResponseDto(grn: GoodsReceivedNote): GoodsReceivedNoteResponseDto {
+    // Calculate totals from items if available, otherwise use database columns
+    const itemsSource = grn.items?.length > 0 ? grn.items : grn.itemsReceived;
+    let totalOrderedQty = Number(grn.totalQuantityOrdered);
+    let totalReceivedQty = Number(grn.totalQuantityReceived);
+
+    if (itemsSource && itemsSource.length > 0) {
+      totalOrderedQty = itemsSource.reduce(
+        (sum, item) => sum + Number(item.orderedQuantity || 0), 0
+      );
+      totalReceivedQty = itemsSource.reduce(
+        (sum, item) => sum + Number(item.receivedQuantity || 0), 0
+      );
+    }
+
+    const receivedPercentage = totalOrderedQty > 0
+      ? (totalReceivedQty / totalOrderedQty) * 100
+      : 0;
+
     return {
       id: grn.id,
       grnNumber: grn.grnNumber,
@@ -560,9 +578,9 @@ export class GoodsReceivedNoteService {
       inspectionRequired: grn.qualityInspected,
       inspectionResult: undefined,
       inspectionNotes: grn.inspectionNotes,
-      totalOrderedQuantity: Number(grn.totalQuantityOrdered),
-      totalReceivedQuantity: Number(grn.totalQuantityReceived),
-      receivedPercentage: grn.receivedPercentage,
+      totalOrderedQuantity: totalOrderedQty,
+      totalReceivedQuantity: totalReceivedQty,
+      receivedPercentage: receivedPercentage,
       hasQualityIssues: false, // No longer tracking rejected quantities
       requiresInspection: grn.qualityInspected && !grn.inspectedDate,
       isCompleted: grn.status === 'received',
