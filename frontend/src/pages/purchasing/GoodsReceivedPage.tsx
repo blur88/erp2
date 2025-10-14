@@ -625,34 +625,18 @@ const GoodsReceivedPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
-                              Total Value
+                              Ordered Qty
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(selectedGRN.totalAmount || selectedGRN.totalValue || 0)}
+                              {selectedGRN.totalQuantityOrdered || 0}
                             </TableCell>
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Received Qty
                             </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {selectedGRN.totalReceivedQuantity || selectedGRN.totalQuantityReceived || 0}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Accepted Qty
-                            </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem', color: 'success.main' }}>
-                              {selectedGRN.totalAcceptedQuantity || selectedGRN.totalQuantityAccepted || 0}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Rejected Qty
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem', color: 'error.main' }}>
-                              {selectedGRN.totalRejectedQuantity || selectedGRN.totalQuantityRejected || 0}
+                              {selectedGRN.totalReceivedQuantity || selectedGRN.totalQuantityReceived || 0}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -698,8 +682,6 @@ const GoodsReceivedPage: React.FC = () => {
                             <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Product</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Ordered</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Received</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Accepted</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Rejected</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Unit Cost</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Total</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Condition</TableCell>
@@ -717,19 +699,13 @@ const GoodsReceivedPage: React.FC = () => {
                                 </Box>
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.75rem' }} align="right">
-                                {item.purchaseOrderItem?.quantity || 0}
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.75rem' }} align="right">
-                                {item.receivedQuantity || 0}
+                                {item.orderedQuantity || 0}
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.75rem', color: 'success.main' }} align="right">
-                                {item.acceptedQuantity || 0}
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.75rem', color: item.rejectedQuantity > 0 ? 'error.main' : 'inherit' }} align="right">
-                                {item.rejectedQuantity || 0}
+                                {item.receivedQuantity || 0}
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.75rem' }} align="right">
-                                {formatCurrency(item.unitPrice || 0)}
+                                {formatCurrency(item.unitCost || 0)}
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.75rem', fontWeight: 500 }} align="right">
                                 {formatCurrency(item.totalAmount || 0)}
