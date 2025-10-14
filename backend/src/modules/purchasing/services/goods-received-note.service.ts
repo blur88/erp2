@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import {
   GoodsReceivedNote,
+  GoodsReceivedNoteItem,
   PurchaseOrder,
   Supplier,
   User,
@@ -23,6 +24,8 @@ export class GoodsReceivedNoteService {
   constructor(
     @InjectRepository(GoodsReceivedNote)
     private readonly grnRepository: Repository<GoodsReceivedNote>,
+    @InjectRepository(GoodsReceivedNoteItem)
+    private readonly grnItemRepository: Repository<GoodsReceivedNoteItem>,
     @InjectRepository(PurchaseOrder)
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(Supplier)
@@ -96,58 +99,64 @@ export class GoodsReceivedNoteService {
       // Generate sequential GRN number
       const grnNumber = await this.generateSequentialGrnNumber();
 
-      // Create GRN with items - either from DTO or auto-generated from PO items
-      let itemsReceived: any[];
-
-      if (createDto.items && createDto.items.length > 0) {
-        // Use items from DTO if provided
-        itemsReceived = createDto.items.map((item: any) => ({
-          productId: item.productId,
-          productSku: item.productSku || '',
-          productName: item.productName || '',
-          orderedQuantity: Number(item.orderedQuantity || 0),
-          receivedQuantity: Number(item.receivedQuantity || 0),
-          acceptedQuantity: Number(item.acceptedQuantity || 0),
-          rejectedQuantity: Number(item.rejectedQuantity || 0),
-          unitCost: Number(item.unitCost || 0),
-          notes: item.notes || '',
-          condition: item.condition || 'good',
-        }));
-      } else {
-        // Auto-generate items from PO items
-        itemsReceived = (purchaseOrder.items || []).map((item: any) => ({
-          productId: item.product.id,
-          productSku: item.product.barcode || item.product.id,
-          productName: item.product.name,
-          orderedQuantity: Number(item.quantity),
-          receivedQuantity: Number(item.quantity), // Default to ordered quantity
-          acceptedQuantity: Number(item.quantity),
-          rejectedQuantity: 0,
-          unitCost: Number(item.unitPrice),
-          notes: '',
-          condition: 'good' as const,
-        }));
-      }
-
+      // Create GRN entity first (without items)
       const grn = this.grnRepository.create({
-        grnNumber, // Set the sequential number
+        grnNumber,
         purchaseOrderId: purchaseOrder.id,
         supplierId: purchaseOrder.supplier.id,
-        receivedByUserId: receivedByUser?.id || null, // Nullable since auth was removed
+        receivedByUserId: receivedByUser?.id || null,
         receivedDate: new Date(createDto.receiptDate),
         deliveryReference: createDto.deliveryNoteRef,
         vehicleDetails: createDto.vehicleDetails,
         driverName: createDto.deliveryPerson,
         notes: createDto.notes,
         internalNotes: createDto.internalNotes,
-        itemsReceived,
+        itemsReceived: [], // Keep empty JSON array for backward compatibility
         qualityInspected: createDto.inspectionRequired || false,
         metadata: createDto.metadata,
-        type: createDto.type || GrnType.STANDARD, // Add type support
+        type: createDto.type || GrnType.STANDARD,
       });
 
       const savedGrn = await this.grnRepository.save(grn);
-      this.logger.log(`GRN created successfully: ${savedGrn.id}`);
+
+      // Create GRN items from PO items
+      const grnItems: GoodsReceivedNoteItem[] = [];
+      let lineNumber = 1;
+
+      for (const poItem of purchaseOrder.items || []) {
+        const grnItem = this.grnItemRepository.create({
+          grnId: savedGrn.id,
+          lineNumber: lineNumber++,
+          productId: poItem.product.id,
+          productSku: poItem.product.barcode || poItem.product.id,
+          productName: poItem.product.name,
+          productDescription: poItem.product.description,
+          unit: poItem.unit || 'pcs',
+          orderedQuantity: Number(poItem.quantity),
+          receivedQuantity: Number(poItem.quantity), // Default to ordered quantity
+          acceptedQuantity: Number(poItem.quantity),
+          rejectedQuantity: 0,
+          unitCost: Number(poItem.unitCost),
+          condition: 'good',
+          purchaseOrderItemId: poItem.id,
+        });
+
+        // Calculate total amount
+        grnItem.calculateTotal();
+        grnItems.push(grnItem);
+      }
+
+      // Save all GRN items
+      if (grnItems.length > 0) {
+        await this.grnItemRepository.save(grnItems);
+      }
+
+      // Update GRN totals
+      savedGrn.items = grnItems;
+      savedGrn.calculateTotals();
+      await this.grnRepository.save(savedGrn);
+
+      this.logger.log(`GRN created successfully with ${grnItems.length} items: ${savedGrn.id}`);
 
       return this.findOne(savedGrn.id);
     } catch (error) {
@@ -247,7 +256,7 @@ export class GoodsReceivedNoteService {
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: ['supplier', 'purchaseOrder', 'receivedByUser', 'inspectedByUser'],
+      relations: ['supplier', 'purchaseOrder', 'receivedByUser', 'inspectedByUser', 'items', 'items.product'],
     });
 
     if (!grn) {
@@ -542,7 +551,69 @@ export class GoodsReceivedNoteService {
       canApprove: false,
       notes: grn.notes,
       internalNotes: grn.internalNotes,
-      items: [],
+      items: (grn.items?.length > 0)
+        ? grn.items.map(item => ({
+            id: item.id,
+            purchaseOrderItem: {
+              id: item.purchaseOrderItemId || '',
+              description: item.productDescription || '',
+              quantity: Number(item.orderedQuantity),
+              unitPrice: Number(item.unitCost),
+              unit: item.unit,
+              product: {
+                id: item.productId,
+                sku: item.productSku,
+                name: item.productName,
+              },
+            },
+            receivedQuantity: Number(item.receivedQuantity),
+            rejectedQuantity: Number(item.rejectedQuantity),
+            acceptedQuantity: Number(item.acceptedQuantity),
+            unitPrice: Number(item.unitCost),
+            totalAmount: Number(item.totalAmount),
+            batchNumber: item.batchNumber,
+            expiryDate: item.expiryDate,
+            qualityResult: item.rejectedQuantity > 0 ? 'failed' : 'passed',
+            qualityNotes: item.qualityNotes,
+            storageLocation: item.storageLocation,
+            condition: item.condition,
+            rejectionReason: item.rejectionReason,
+            isFullyReceived: item.isFullyReceived,
+            hasQualityIssues: item.hasQualityIssues,
+            acceptanceRate: item.acceptanceRate,
+            notes: item.notes,
+          }))
+        : (grn.itemsReceived || []).map((item: any) => ({
+            id: '',
+            purchaseOrderItem: {
+              id: '',
+              description: '',
+              quantity: Number(item.orderedQuantity || 0),
+              unitPrice: Number(item.unitCost || 0),
+              unit: 'pcs',
+              product: {
+                id: item.productId || '',
+                sku: item.productSku || '',
+                name: item.productName || '',
+              },
+            },
+            receivedQuantity: Number(item.receivedQuantity || 0),
+            rejectedQuantity: Number(item.rejectedQuantity || 0),
+            acceptedQuantity: Number(item.acceptedQuantity || 0),
+            unitPrice: Number(item.unitCost || 0),
+            totalAmount: Number(item.receivedQuantity || 0) * Number(item.unitCost || 0),
+            batchNumber: item.batchNumber,
+            expiryDate: item.expiryDate,
+            qualityResult: item.rejectedQuantity > 0 ? 'failed' : 'passed',
+            qualityNotes: item.notes,
+            storageLocation: undefined,
+            condition: item.condition || 'good',
+            rejectionReason: undefined,
+            isFullyReceived: Number(item.receivedQuantity || 0) >= Number(item.orderedQuantity || 0),
+            hasQualityIssues: Number(item.rejectedQuantity || 0) > 0,
+            acceptanceRate: 0,
+            notes: item.notes,
+          })),
       createdAt: grn.createdAt,
       updatedAt: grn.updatedAt,
     };

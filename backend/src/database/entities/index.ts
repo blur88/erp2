@@ -38,7 +38,8 @@ export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPriority } from './pur
 export { PurchaseOrderItem } from './purchase-order-item.entity';
 export { PurchaseRequisition } from './purchase-requisition.entity';
 export { PurchaseRequisitionItem } from './purchase-requisition-item.entity';
-export { GoodsReceivedNote } from './goods-received-note.entity';
+export { GoodsReceivedNote, GrnStatus, GrnType } from './goods-received-note.entity';
+export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 export { SupplierInvoice } from './supplier-invoice.entity';
 export { SupplierInvoiceItem } from './supplier-invoice-item.entity';
 

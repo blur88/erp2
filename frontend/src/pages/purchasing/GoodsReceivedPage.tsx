@@ -684,6 +684,71 @@ const GoodsReceivedPage: React.FC = () => {
                     </TableContainer>
                   </Box>
                 )}
+
+                {/* GRN Items Section */}
+                {selectedGRN.items && selectedGRN.items.length > 0 && (
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem', mb: 2 }}>
+                      Items Received ({selectedGRN.items.length})
+                    </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableBody>
+                          <TableRow sx={{ backgroundColor: 'grey.100' }}>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Product</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Ordered</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Received</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Accepted</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Rejected</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Unit Cost</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Total</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Condition</TableCell>
+                          </TableRow>
+                          {selectedGRN.items.map((item: any, index: number) => (
+                            <TableRow key={item.id || index} sx={{ '&:nth-of-type(odd)': { backgroundColor: 'grey.50' } }}>
+                              <TableCell sx={{ fontSize: '0.75rem' }}>
+                                <Box>
+                                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                                    {item.purchaseOrderItem?.product?.name || 'N/A'}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
+                                    {item.purchaseOrderItem?.product?.sku || 'N/A'}
+                                  </Typography>
+                                </Box>
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem' }} align="right">
+                                {item.purchaseOrderItem?.quantity || 0}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem' }} align="right">
+                                {item.receivedQuantity || 0}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem', color: 'success.main' }} align="right">
+                                {item.acceptedQuantity || 0}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem', color: item.rejectedQuantity > 0 ? 'error.main' : 'inherit' }} align="right">
+                                {item.rejectedQuantity || 0}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem' }} align="right">
+                                {formatCurrency(item.unitPrice || 0)}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem', fontWeight: 500 }} align="right">
+                                {formatCurrency(item.totalAmount || 0)}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem' }}>
+                                <Chip
+                                  label={item.condition || 'good'}
+                                  size="small"
+                                  color={item.condition === 'good' ? 'success' : item.condition === 'damaged' ? 'warning' : 'error'}
+                                  sx={{ fontSize: '0.65rem', height: '20px' }}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
               </Box>
             </Paper>
           ) : (

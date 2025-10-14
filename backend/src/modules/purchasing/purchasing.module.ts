@@ -7,6 +7,7 @@ import {
   PurchaseOrder,
   PurchaseOrderItem,
   GoodsReceivedNote,
+  GoodsReceivedNoteItem,
   Product,
   User,
 } from '../../database/entities';
@@ -30,6 +31,7 @@ import {
       PurchaseOrder,
       PurchaseOrderItem,
       GoodsReceivedNote,
+      GoodsReceivedNoteItem,
       Product,
       User,
     ]),

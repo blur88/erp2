@@ -3,6 +3,7 @@ import {
   Column,
   Index,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   BeforeInsert,
 } from 'typeorm';
@@ -21,6 +22,7 @@ import { BaseEntity } from './base.entity';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Supplier } from './supplier.entity';
 import { User } from './user.entity';
+import { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 
 export enum GrnStatus {
   DRAFT = 'draft',
@@ -348,6 +350,12 @@ export class GoodsReceivedNote extends BaseEntity {
   @JoinColumn({ name: 'inspectedByUserId' })
   inspectedByUser?: User;
 
+  @OneToMany(() => GoodsReceivedNoteItem, (item) => item.grn, {
+    cascade: true,
+    eager: false,
+  })
+  items: GoodsReceivedNoteItem[];
+
   // Computed properties
   get isFullyAccepted(): boolean {
     return Number(this.totalQuantityAccepted) === Number(this.totalQuantityReceived) && 
@@ -390,20 +398,23 @@ export class GoodsReceivedNote extends BaseEntity {
 
   @BeforeInsert()
   calculateTotals() {
-    if (this.itemsReceived && this.itemsReceived.length > 0) {
-      this.totalQuantityReceived = this.itemsReceived.reduce(
+    // Calculate from items relation if available, otherwise from JSON (for backward compatibility)
+    const itemsSource = this.items?.length > 0 ? this.items : this.itemsReceived;
+
+    if (itemsSource && itemsSource.length > 0) {
+      this.totalQuantityReceived = itemsSource.reduce(
         (sum, item) => sum + Number(item.receivedQuantity), 0
       );
 
-      this.totalQuantityAccepted = this.itemsReceived.reduce(
+      this.totalQuantityAccepted = itemsSource.reduce(
         (sum, item) => sum + Number(item.acceptedQuantity || item.receivedQuantity), 0
       );
 
-      this.totalQuantityRejected = this.itemsReceived.reduce(
+      this.totalQuantityRejected = itemsSource.reduce(
         (sum, item) => sum + Number(item.rejectedQuantity || 0), 0
       );
 
-      this.totalValue = this.itemsReceived.reduce(
+      this.totalValue = itemsSource.reduce(
         (sum, item) => sum + (Number(item.receivedQuantity) * Number(item.unitCost)), 0
       );
     }
