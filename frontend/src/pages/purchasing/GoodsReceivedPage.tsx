@@ -184,6 +184,23 @@ const GoodsReceivedPage: React.FC = () => {
     }
   }, [searchParams, goodsReceivedNotes, handleGRNSelect, setSearchParams])
 
+  // Auto-refresh selected GRN when the list updates (e.g., after PO edit)
+  useEffect(() => {
+    if (selectedGRN && goodsReceivedNotes.length > 0) {
+      const updatedGRN = goodsReceivedNotes.find((g: any) => g.id === selectedGRN.id)
+      if (updatedGRN) {
+        // Check if the data has changed by comparing JSON strings
+        const currentData = JSON.stringify(selectedGRN)
+        const updatedData = JSON.stringify(updatedGRN)
+        if (currentData !== updatedData) {
+          // Update the selected GRN with fresh data
+          setSelectedGRNLocal(updatedGRN)
+          dispatch(setSelectedGRN(updatedGRN))
+        }
+      }
+    }
+  }, [goodsReceivedNotes, selectedGRN, dispatch])
+
   // Auto-select first GRN when GRNs load
   useEffect(() => {
     if (paginatedGRNs.length > 0 && focusedGRNIndex === -1) {
