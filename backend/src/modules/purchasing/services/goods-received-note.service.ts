@@ -172,8 +172,8 @@ export class GoodsReceivedNoteService {
       type,
       supplierId,
       purchaseOrderId,
-      sortBy = 'receivedDate',
-      sortOrder = 'DESC',
+      sortBy = 'grnNumber',
+      sortOrder = 'ASC',
     } = query;
 
     const skip = (page - 1) * limit;
@@ -215,7 +215,7 @@ export class GoodsReceivedNoteService {
     if (validSortFields.includes(sortBy)) {
       queryBuilder.orderBy(`grn.${sortBy}`, sortOrder);
     } else {
-      queryBuilder.orderBy('grn.receivedDate', 'DESC');
+      queryBuilder.orderBy('grn.grnNumber', 'ASC');
     }
 
     // Get total count

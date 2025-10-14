@@ -125,7 +125,7 @@ const GoodsReceivedPage: React.FC = () => {
   const [filters, setFilters] = useState<GRNFilters>({
     search: '',
     sortBy: 'grnNumber',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     status: 'all',
   })
 
@@ -210,7 +210,7 @@ const GoodsReceivedPage: React.FC = () => {
     setFilters(prev => ({
       ...prev,
       sortBy: field,
-      sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
     }))
     setState(prev => ({ ...prev, page: 0 }))
   }, [])
@@ -416,7 +416,7 @@ const GoodsReceivedPage: React.FC = () => {
               setFilters({
                 search: '',
                 sortBy: 'grnNumber',
-                sortOrder: 'desc',
+                sortOrder: 'asc',
                 status: 'all',
               })
               setState((prev) => ({ ...prev, page: 0 }))
@@ -435,7 +435,7 @@ const GoodsReceivedPage: React.FC = () => {
         <Button
           variant={filters.sortBy === 'grnNumber' ? 'contained' : 'outlined'}
           size="medium"
-          startIcon={filters.sortBy === 'grnNumber' ? (filters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          startIcon={filters.sortBy === 'grnNumber' ? (filters.sortOrder === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />) : <SortIcon />}
           onClick={() => handleSort('grnNumber')}
           sx={{
             height: TYPOGRAPHY_STYLES.searchField.input.height,
