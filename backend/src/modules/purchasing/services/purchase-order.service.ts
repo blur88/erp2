@@ -792,6 +792,7 @@ export class PurchaseOrderService {
 
       // Remove existing GRN items (since PO items were updated)
       if (grn.items && grn.items.length > 0) {
+        this.logger.debug(`Removing ${grn.items.length} existing GRN items`);
         await this.grnService.removeGrnItems(grn.id);
       }
 
@@ -810,24 +811,33 @@ export class PurchaseOrderService {
           unit: poItem.unit || 'pcs',
           orderedQuantity: Number(poItem.quantity),
           receivedQuantity: 0, // Reset to 0 for draft
-          acceptedQuantity: 0,
-          rejectedQuantity: 0,
-          unitCost: Number(poItem.unitCost),
-          condition: 'good' as const,
           purchaseOrderItemId: poItem.id,
         };
 
         grnItems.push(grnItem);
+        this.logger.debug(`Created GRN item: ${grnItem.productName}, ordered: ${grnItem.orderedQuantity}`);
       }
 
+      this.logger.debug(`Saving ${grnItems.length} new GRN items`);
       // Save updated GRN items
       await this.grnService.updateGrnItems(grn.id, grnItems);
 
-      // Update GRN totals
-      grn.calculateTotals();
-      await this.grnRepository.save(grn);
+      // Reload GRN with fresh items from database
+      this.logger.debug(`Reloading GRN ${grn.id} with items`);
+      const updatedGrn = await this.grnRepository.findOne({
+        where: { id: grn.id },
+        relations: ['items'],
+      });
 
-      this.logger.log(`GRN ${grn.grnNumber} synced successfully with ${grnItems.length} items`);
+      if (updatedGrn) {
+        this.logger.debug(`Reloaded GRN has ${updatedGrn.items?.length || 0} items`);
+        // Update GRN totals with fresh data
+        updatedGrn.calculateTotals();
+        await this.grnRepository.save(updatedGrn);
+        this.logger.log(`GRN ${grn.grnNumber} synced successfully with ${grnItems.length} items`);
+      } else {
+        this.logger.warn(`Failed to reload GRN ${grn.id} after sync`);
+      }
     } catch (error) {
       this.logger.error(`Error syncing draft GRN: ${error.message}`, error.stack);
       // Don't throw - GRN sync failure shouldn't block PO update
@@ -867,21 +877,7 @@ export class PurchaseOrderService {
         throw new NotFoundException('Purchase order not found');
       }
 
-      // Auto-generate items from PO items
-      const itemsReceived = (fullPO.items || []).map((item: any) => ({
-        productId: item.product.id,
-        productSku: item.product.barcode || item.product.id,
-        productName: item.product.name,
-        orderedQuantity: Number(item.quantity),
-        receivedQuantity: 0, // Set to 0 for draft status
-        acceptedQuantity: 0,
-        rejectedQuantity: 0,
-        unitCost: Number(item.unitCost),
-        notes: '',
-        condition: 'good' as const,
-      }));
-
-      // Create GRN with draft status
+      // Create GRN with draft status (empty JSON for backward compatibility)
       const grn = this.grnRepository.create({
         grnNumber,
         purchaseOrderId: fullPO.id,
@@ -893,19 +889,47 @@ export class PurchaseOrderService {
         driverName: null,
         notes: null,
         internalNotes: null,
-        itemsReceived,
+        itemsReceived: [], // Empty JSON - using relational items instead
         qualityInspected: false,
         metadata: null,
         type: GrnType.STANDARD,
-        status: GrnStatus.DRAFT, // Set to draft
+        status: GrnStatus.DRAFT,
+        totalQuantityOrdered: 0,
         totalQuantityReceived: 0,
-        totalQuantityAccepted: 0,
-        totalQuantityRejected: 0,
-        totalValue: 0,
       });
 
-      await this.grnRepository.save(grn);
-      this.logger.log(`Draft GRN ${grnNumber} created for PO ${fullPO.orderNumber}`);
+      const savedGrn = await this.grnRepository.save(grn);
+
+      // Create GRN items using relational table
+      const grnItems: any[] = [];
+      let lineNumber = 1;
+
+      for (const poItem of fullPO.items || []) {
+        const grnItem = {
+          grnId: savedGrn.id,
+          lineNumber: lineNumber++,
+          productId: poItem.product.id,
+          productSku: poItem.product.barcode || poItem.product.id,
+          productName: poItem.product.name,
+          productDescription: poItem.product.description,
+          unit: poItem.unit || 'pcs',
+          orderedQuantity: Number(poItem.quantity),
+          receivedQuantity: 0, // Set to 0 for draft status
+          purchaseOrderItemId: poItem.id,
+        };
+
+        grnItems.push(grnItem);
+      }
+
+      // Save GRN items
+      await this.grnService.updateGrnItems(savedGrn.id, grnItems);
+
+      // Update GRN totals based on relational items
+      savedGrn.items = grnItems as any;
+      savedGrn.calculateTotals();
+      await this.grnRepository.save(savedGrn);
+
+      this.logger.log(`Draft GRN ${grnNumber} created for PO ${fullPO.orderNumber} with ${grnItems.length} items`);
     } catch (error) {
       this.logger.error(`Error creating draft GRN: ${error.message}`, error.stack);
       // Don't throw error - GRN creation failure shouldn't block PO creation
@@ -927,9 +951,10 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
-    // Find the GRN linked to this PO
+    // Find the GRN linked to this PO with relational items
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
+      relations: ['items'],
     });
 
     if (!grn) {
@@ -941,18 +966,29 @@ export class PurchaseOrderService {
     }
 
     try {
-      // Update GRN status to received and set quantities
-      const updatedItems = grn.itemsReceived.map((item: any) => ({
-        ...item,
-        receivedQuantity: item.orderedQuantity,
-        acceptedQuantity: item.orderedQuantity,
-        rejectedQuantity: 0,
-      }));
+      // Update GRN items to set received quantities
+      if (grn.items && grn.items.length > 0) {
+        for (const grnItem of grn.items) {
+          grnItem.receivedQuantity = grnItem.orderedQuantity;
+          await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
+            id: item.id,
+            grnId: item.grnId,
+            lineNumber: item.lineNumber,
+            productId: item.productId,
+            productSku: item.productSku,
+            productName: item.productName,
+            productDescription: item.productDescription,
+            unit: item.unit,
+            orderedQuantity: Number(item.orderedQuantity),
+            receivedQuantity: Number(item.orderedQuantity), // Set received = ordered
+            purchaseOrderItemId: item.purchaseOrderItemId,
+          })));
+        }
+      }
 
-      grn.itemsReceived = updatedItems;
+      // Update GRN status and totals
       grn.status = GrnStatus.RECEIVED;
       grn.calculateTotals();
-
       await this.grnRepository.save(grn);
 
       // Update product quantities
@@ -995,9 +1031,10 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
-    // Find the GRN linked to this PO
+    // Find the GRN linked to this PO with relational items
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
+      relations: ['items'],
     });
 
     if (!grn) {
@@ -1009,18 +1046,26 @@ export class PurchaseOrderService {
     }
 
     try {
-      // Update GRN status to draft (return)
-      const updatedItems = grn.itemsReceived.map((item: any) => ({
-        ...item,
-        receivedQuantity: 0,
-        acceptedQuantity: 0,
-        rejectedQuantity: 0,
-      }));
+      // Reset GRN items received quantities to 0
+      if (grn.items && grn.items.length > 0) {
+        await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
+          id: item.id,
+          grnId: item.grnId,
+          lineNumber: item.lineNumber,
+          productId: item.productId,
+          productSku: item.productSku,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          unit: item.unit,
+          orderedQuantity: Number(item.orderedQuantity),
+          receivedQuantity: 0, // Reset to 0 (return)
+          purchaseOrderItemId: item.purchaseOrderItemId,
+        })));
+      }
 
-      grn.itemsReceived = updatedItems;
-      grn.status = GrnStatus.DRAFT; // Set back to draft (return)
+      // Update GRN status back to draft and recalculate totals
+      grn.status = GrnStatus.DRAFT;
       grn.calculateTotals();
-
       await this.grnRepository.save(grn);
 
       // Revert product quantities

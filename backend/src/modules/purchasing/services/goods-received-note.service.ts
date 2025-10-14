@@ -186,6 +186,8 @@ export class GoodsReceivedNoteService {
       .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('grn.receivedByUser', 'receivedByUser')
       .leftJoinAndSelect('grn.inspectedByUser', 'inspectedByUser')
+      .leftJoinAndSelect('grn.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
       .where('grn.deletedAt IS NULL');
 
     // Apply search filter
