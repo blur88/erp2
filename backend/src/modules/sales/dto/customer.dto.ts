@@ -196,9 +196,6 @@ export class CustomerResponseDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
 
-  @ApiProperty({ example: 'CUST001' })
-  customerCode: string;
-
   @ApiProperty({ enum: CustomerType, example: CustomerType.BUSINESS })
   type: CustomerType;
 
@@ -247,9 +244,6 @@ export class CustomerResponseDto {
 export class CustomerSummaryDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
-
-  @ApiProperty({ example: 'CUST001' })
-  customerCode: string;
 
   @ApiProperty({ example: 'Acme Corporation' })
   name: string;

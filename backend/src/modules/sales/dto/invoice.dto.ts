@@ -424,7 +424,6 @@ export class InvoiceResponseDto {
   @ApiProperty()
   customer: {
     id: string;
-    customerCode: string;
     name: string;
     email?: string;
     phone?: string;

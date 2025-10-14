@@ -1756,7 +1756,6 @@ export class SalesOrderService {
       createdByUserId: order.createdByUserId,
       customer: order.customer ? {
         id: order.customer.id,
-        customerCode: order.customer.customerCode,
         name: order.customer.name,
         phone: order.customer.phone,
       } : undefined,

@@ -8,7 +8,6 @@ interface CustomerQueryParams extends QueryParams {
 
 interface CustomerSummary {
   id: string;
-  customerCode?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -24,10 +23,7 @@ export const salesApi = {
     return ApiService.get<Customer>(`customers/${id}`)
   },
 
-  async getCustomerByCode(customerCode: string) {
-    return ApiService.get<Customer>(`customers/code/${customerCode}`)
-  },
-
+  
   async getCustomerSummaries() {
     return ApiService.get<CustomerSummary[]>('customers/summary')
   },

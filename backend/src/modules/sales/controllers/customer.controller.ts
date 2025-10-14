@@ -105,19 +105,7 @@ export class CustomerController {
     return this.customerService.findById(id);
   }
 
-  @Get('code/:customerCode')
-  @ApiOperation({ summary: 'Get customer by customer code' })
-  @ApiParam({ name: 'customerCode', description: 'Customer code', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer retrieved successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async getCustomerByCode(@Param('customerCode') customerCode: string): Promise<CustomerResponseDto> {
-    return this.customerService.findByCode(customerCode);
-  }
-
+  
   @Put(':id')
   @ApiOperation({ summary: 'Update customer' })
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
@@ -150,7 +138,6 @@ export class CustomerController {
         error: { type: 'string', example: 'DELETION_PREVENTED_BY_DEPENDENCIES' },
         customerName: { type: 'string', example: 'John Doe' },
         customerId: { type: 'string', example: 'uuid' },
-        customerCode: { type: 'string', example: 'CUST2401' },
         dependencies: {
           type: 'object',
           properties: {
@@ -163,7 +150,7 @@ export class CustomerController {
           items: { type: 'string' },
           example: ['Remove or reassign the 3 orders first', 'Remove or reassign the 2 invoices first']
         },
-        details: { type: 'string', example: 'Customer \'John Doe\' (CUST2401) cannot be deleted due to existing business relationships.' }
+        details: { type: 'string', example: 'Customer \'John Doe\' (uuid) cannot be deleted due to existing business relationships.' }
       }
     }
   })
@@ -310,7 +297,6 @@ export class CustomerController {
         error: { type: 'string', example: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES' },
         customerName: { type: 'string', example: 'John Doe' },
         customerId: { type: 'string', example: 'uuid' },
-        customerCode: { type: 'string', example: 'CUST2401' },
         dependencies: {
           type: 'object',
           properties: {
@@ -324,7 +310,7 @@ export class CustomerController {
           items: { type: 'string' },
           example: ['Complete and archive all pending orders first', 'Ensure all invoices are fully paid and closed']
         },
-        details: { type: 'string', example: 'Customer \'John Doe\' (CUST2401) has 2 active orders, 1 active invoice. Permanent deletion is blocked to preserve financial audit trails and data integrity.' }
+        details: { type: 'string', example: 'Customer \'John Doe\' (uuid) has 2 active orders, 1 active invoice. Permanent deletion is blocked to preserve financial audit trails and data integrity.' }
       }
     }
   })

@@ -985,7 +985,6 @@ export class InvoiceService {
       salesOrderId: invoice.salesOrderId,
       customer: invoice.customer ? {
         id: invoice.customer.id,
-        customerCode: invoice.customer.customerCode,
         name: invoice.customer.name,
         email: undefined, // Customer email field removed from entity
         phone: invoice.customer.phone,
