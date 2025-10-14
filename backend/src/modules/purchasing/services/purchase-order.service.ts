@@ -469,6 +469,11 @@ export class PurchaseOrderService {
 
       const updatedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
 
+      // Sync GRN if it exists and is in draft status
+      if (updatePurchaseOrderDto.items) {
+        await this.syncDraftGrn(updatedPurchaseOrder.id);
+      }
+
       this.logger.log(`Purchase order updated successfully: ${updatedPurchaseOrder.orderNumber}`);
       return await this.findOne(updatedPurchaseOrder.id);
     } catch (error) {
@@ -747,6 +752,86 @@ export class PurchaseOrderService {
     await this.purchaseOrderRepository.softDelete(id);
 
     this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted successfully`);
+  }
+
+  /**
+   * Sync draft GRN with updated PO items
+   * Only syncs if GRN is in DRAFT status
+   */
+  private async syncDraftGrn(purchaseOrderId: string): Promise<void> {
+    try {
+      // Find GRN associated with this PO
+      const grn = await this.grnRepository.findOne({
+        where: { purchaseOrderId },
+        relations: ['items'],
+      });
+
+      if (!grn) {
+        this.logger.debug(`No GRN found for PO ${purchaseOrderId}`);
+        return;
+      }
+
+      // Only sync if GRN is in DRAFT status
+      if (grn.status !== GrnStatus.DRAFT) {
+        this.logger.debug(`GRN ${grn.grnNumber} is in ${grn.status} status, skipping sync`);
+        return;
+      }
+
+      // Fetch full PO with relations
+      const fullPO = await this.purchaseOrderRepository.findOne({
+        where: { id: purchaseOrderId },
+        relations: ['supplier', 'items', 'items.product'],
+      });
+
+      if (!fullPO) {
+        this.logger.warn(`PO ${purchaseOrderId} not found during GRN sync`);
+        return;
+      }
+
+      this.logger.log(`Syncing GRN ${grn.grnNumber} with updated PO ${fullPO.orderNumber}`);
+
+      // Remove existing GRN items (since PO items were updated)
+      if (grn.items && grn.items.length > 0) {
+        await this.grnService.removeGrnItems(grn.id);
+      }
+
+      // Recreate GRN items from updated PO items
+      const grnItems: any[] = [];
+      let lineNumber = 1;
+
+      for (const poItem of fullPO.items || []) {
+        const grnItem = {
+          grnId: grn.id,
+          lineNumber: lineNumber++,
+          productId: poItem.product.id,
+          productSku: poItem.product.barcode || poItem.product.id,
+          productName: poItem.product.name,
+          productDescription: poItem.product.description,
+          unit: poItem.unit || 'pcs',
+          orderedQuantity: Number(poItem.quantity),
+          receivedQuantity: 0, // Reset to 0 for draft
+          acceptedQuantity: 0,
+          rejectedQuantity: 0,
+          unitCost: Number(poItem.unitCost),
+          condition: 'good' as const,
+          purchaseOrderItemId: poItem.id,
+        };
+
+        grnItems.push(grnItem);
+      }
+
+      // Save updated GRN items
+      await this.grnService.updateGrnItems(grn.id, grnItems);
+
+      // Update GRN totals
+      grn.calculateTotals();
+      await this.grnRepository.save(grn);
+
+      this.logger.log(`GRN ${grn.grnNumber} synced successfully with ${grnItems.length} items`);
+    } catch (error) {
+      this.logger.error(`Error syncing draft GRN: ${error.message}`, error.stack);
+      // Don't throw - GRN sync failure shouldn't block PO update
+    }
   }
 
   /**

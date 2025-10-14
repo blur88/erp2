@@ -500,6 +500,32 @@ export class GoodsReceivedNoteService {
   }
 
   /**
+   * Remove all GRN items for a given GRN (helper for sync operations)
+   */
+  async removeGrnItems(grnId: string): Promise<void> {
+    this.logger.log(`Removing GRN items for GRN: ${grnId}`);
+    await this.grnItemRepository.delete({ grnId });
+  }
+
+  /**
+   * Update GRN items (helper for sync operations)
+   */
+  async updateGrnItems(grnId: string, items: any[]): Promise<void> {
+    this.logger.log(`Updating ${items.length} GRN items for GRN: ${grnId}`);
+
+    const grnItems: GoodsReceivedNoteItem[] = [];
+
+    for (const itemData of items) {
+      const grnItem = this.grnItemRepository.create(itemData) as unknown as GoodsReceivedNoteItem;
+      // Calculate total for each item
+      grnItem.totalAmount = Number(grnItem.receivedQuantity) * Number(grnItem.unitCost);
+      grnItems.push(grnItem);
+    }
+
+    await this.grnItemRepository.save(grnItems);
+  }
+
+  /**
    * Map GRN entity to response DTO
    */
   private mapToResponseDto(grn: GoodsReceivedNote): GoodsReceivedNoteResponseDto {
