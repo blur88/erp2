@@ -31,19 +31,6 @@ export class CreateGrnItemDto {
   @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   receivedQuantity: number;
 
-  @ApiPropertyOptional({ description: 'Quantity rejected', default: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
-  rejectedQuantity?: number;
-
-  @ApiPropertyOptional({ description: 'Quantity accepted', default: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
-  acceptedQuantity?: number;
 
   @ApiPropertyOptional({ description: 'Unit price at receipt' })
   @IsOptional()
@@ -284,14 +271,11 @@ export class GrnItemResponseDto {
     };
   };
 
+  @ApiProperty({ description: 'Ordered quantity' })
+  orderedQuantity: number;
+
   @ApiProperty({ description: 'Received quantity' })
   receivedQuantity: number;
-
-  @ApiProperty({ description: 'Rejected quantity' })
-  rejectedQuantity: number;
-
-  @ApiProperty({ description: 'Accepted quantity' })
-  acceptedQuantity: number;
 
   @ApiProperty({ description: 'Unit price at receipt' })
   unitPrice: number;
@@ -405,20 +389,14 @@ export class GoodsReceivedNoteResponseDto {
   @ApiProperty({ description: 'Inspection notes' })
   inspectionNotes?: string;
 
-  @ApiProperty({ description: 'Total amount received' })
-  totalAmount: number;
+  @ApiProperty({ description: 'Total quantity ordered' })
+  totalOrderedQuantity: number;
 
   @ApiProperty({ description: 'Total quantity received' })
   totalReceivedQuantity: number;
 
-  @ApiProperty({ description: 'Total quantity accepted' })
-  totalAcceptedQuantity: number;
-
-  @ApiProperty({ description: 'Total quantity rejected' })
-  totalRejectedQuantity: number;
-
-  @ApiProperty({ description: 'Overall acceptance rate percentage' })
-  overallAcceptanceRate: number;
+  @ApiProperty({ description: 'Received percentage' })
+  receivedPercentage: number;
 
   @ApiProperty({ description: 'Has quality issues' })
   hasQualityIssues: boolean;

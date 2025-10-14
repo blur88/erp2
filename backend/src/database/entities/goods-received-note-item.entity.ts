@@ -93,28 +93,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
   @Min(0)
   receivedQuantity: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Quantity accepted (passed quality check)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  acceptedQuantity: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Quantity rejected (failed quality check)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  rejectedQuantity: number;
-
   // Pricing
   @Column({
     type: 'decimal',
@@ -256,14 +234,7 @@ export class GoodsReceivedNoteItem extends BaseEntity {
   }
 
   get hasQualityIssues(): boolean {
-    return Number(this.rejectedQuantity) > 0 || this.condition !== 'good';
-  }
-
-  get acceptanceRate(): number {
-    const totalInspected = Number(this.acceptedQuantity) + Number(this.rejectedQuantity);
-    return totalInspected > 0
-      ? (Number(this.acceptedQuantity) / totalInspected) * 100
-      : 0;
+    return this.condition !== 'good';
   }
 
   get varianceQuantity(): number {
@@ -281,28 +252,15 @@ export class GoodsReceivedNoteItem extends BaseEntity {
     this.totalAmount = Number(this.receivedQuantity) * Number(this.unitCost);
   }
 
-  inspectItem(acceptedQty: number, rejectedQty: number, notes?: string, reason?: string): void {
-    const totalInspected = Number(acceptedQty) + Number(rejectedQty);
-    if (totalInspected > Number(this.receivedQuantity)) {
-      throw new Error('Cannot inspect more than received quantity');
-    }
-
-    this.acceptedQuantity = Number(acceptedQty);
-    this.rejectedQuantity = Number(rejectedQty);
+  updateCondition(condition: 'good' | 'damaged' | 'expired' | 'defective', notes?: string, reason?: string): void {
+    this.condition = condition;
 
     if (notes) {
       this.qualityNotes = notes;
     }
 
-    if (reason && Number(rejectedQty) > 0) {
+    if (reason && condition !== 'good') {
       this.rejectionReason = reason;
-    }
-
-    // Auto-set condition based on rejection
-    if (Number(rejectedQty) === 0) {
-      this.condition = 'good';
-    } else if (Number(acceptedQty) === 0) {
-      this.condition = 'defective';
     }
   }
 
@@ -322,8 +280,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
       unit: poItem.unit,
       orderedQuantity: Number(poItem.quantity),
       receivedQuantity: qty,
-      acceptedQuantity: qty,
-      rejectedQuantity: 0,
       unitCost: Number(poItem.unitCost),
       condition: 'good',
     };
@@ -331,18 +287,16 @@ export class GoodsReceivedNoteItem extends BaseEntity {
 
   // Get quality summary for reporting
   getQualitySummary(): {
-    totalReceived: number;
-    totalAccepted: number;
-    totalRejected: number;
-    acceptanceRate: number;
+    orderedQuantity: number;
+    receivedQuantity: number;
+    variance: number;
     hasIssues: boolean;
     condition: string;
   } {
     return {
-      totalReceived: Number(this.receivedQuantity),
-      totalAccepted: Number(this.acceptedQuantity),
-      totalRejected: Number(this.rejectedQuantity),
-      acceptanceRate: this.acceptanceRate,
+      orderedQuantity: Number(this.orderedQuantity),
+      receivedQuantity: Number(this.receivedQuantity),
+      variance: this.varianceQuantity,
       hasIssues: this.hasQualityIssues,
       condition: this.condition,
     };
