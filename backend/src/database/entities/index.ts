@@ -26,7 +26,7 @@ export { Customer, CustomerType, PriceLevel } from './customer.entity';
 // export { SalesOrderItem, SalesOrderItemStatus } from './sales-order-item.entity';
 
 // Financial Management (SalesModule) - Temporarily disabled for startup
-// export { Invoice, InvoiceStatus, InvoiceType } from './invoice.entity';
+// export { Invoice, InvoiceStatus } from './invoice.entity';
 // export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.entity';
 
 // Inventory Management (InventoryModule)

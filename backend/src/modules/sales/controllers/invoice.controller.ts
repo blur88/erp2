@@ -30,7 +30,6 @@ import {
   SendInvoiceDto,
   InvoicePaymentAllocationDto,
   VoidInvoiceDto,
-  CreditNoteDto,
 } from '../dto/invoice.dto';
 
 @ApiTags('Invoices')
@@ -62,8 +61,7 @@ export class InvoiceController {
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
   @ApiQuery({ name: 'salesOrderId', required: false, description: 'Filter by sales order ID' })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by invoice status' })
-  @ApiQuery({ name: 'type', required: false, description: 'Filter by invoice type' })
-  @ApiQuery({ name: 'fromDate', required: false, description: 'Filter invoices from date' })
+    @ApiQuery({ name: 'fromDate', required: false, description: 'Filter invoices from date' })
   @ApiQuery({ name: 'toDate', required: false, description: 'Filter invoices to date' })
   @ApiQuery({ name: 'overdue', required: false, type: Boolean, description: 'Filter overdue invoices' })
   @ApiQuery({ name: 'unpaid', required: false, type: Boolean, description: 'Filter unpaid invoices' })
@@ -246,23 +244,7 @@ export class InvoiceController {
     return this.invoiceService.voidInvoice(id, voidInvoiceDto.reason);
   }
 
-  @Post(':id/credit-note')
-  @ApiOperation({ summary: 'Create credit note for invoice' })
-  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
-  @ApiResponse({
-    status: 201,
-    description: 'Credit note created successfully',
-    type: InvoiceResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Invoice not found' })
-  @ApiResponse({ status: 409, description: 'Cannot create credit note for invoice' })
-  async createCreditNote(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() creditNoteDto: CreditNoteDto,
-  ): Promise<InvoiceResponseDto> {
-    return this.invoiceService.createCreditNote(id, creditNoteDto);
-  }
-
+  
   @Post(':id/duplicate')
   @ApiOperation({ summary: 'Duplicate invoice' })
   @ApiParam({ name: 'id', description: 'Invoice ID to duplicate', type: 'string' })

@@ -27,12 +27,6 @@ export enum InvoiceStatus {
   PAID = 'paid',
 }
 
-export enum InvoiceType {
-  STANDARD = 'standard',
-  PROFORMA = 'proforma',
-  CREDIT_NOTE = 'credit_note',
-  DEBIT_NOTE = 'debit_note',
-}
 
 /**
  * Invoice entity for billing customers
@@ -45,7 +39,6 @@ export enum InvoiceType {
 @Index(['status'])
 @Index(['invoiceDate'])
 @Index(['dueDate'])
-@Index(['type'])
 export class Invoice extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -57,15 +50,7 @@ export class Invoice extends BaseEntity {
   @MaxLength(30)
   invoiceNumber: string;
 
-  @Column({
-    type: 'enum',
-    enum: InvoiceType,
-    default: InvoiceType.STANDARD,
-    comment: 'Invoice type',
-  })
-  @IsEnum(InvoiceType)
-  type: InvoiceType;
-
+  
   @Column({
     type: 'enum',
     enum: InvoiceStatus,
