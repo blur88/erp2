@@ -345,6 +345,12 @@ export interface PurchaseOrder {
   expectedDate?: Date;
   receivedDate?: Date;
   notes?: string;
+  goodsReceivedNotes?: Array<{
+    id: string;
+    grnNumber: string;
+    status: string;
+    receiptDate?: Date;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }

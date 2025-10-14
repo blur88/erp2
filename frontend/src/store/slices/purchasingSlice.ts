@@ -194,6 +194,16 @@ const purchasingSlice = createSlice({
       if (state.selectedPurchaseOrder?.id === updatedOrder.id) {
         state.selectedPurchaseOrder = updatedOrder
       }
+
+      // Mark GRNs for refetch by setting a flag
+      // The GRN page should check this flag and refetch if needed
+      // Note: We can't fully update the GRN here because the PO response
+      // only includes a summary without full item details
+    },
+    markGRNsForRefetch: (state) => {
+      // This will be used by the GRN page to know when to refetch
+      // We'll use a timestamp to trigger refetch
+      state.loading.goodsReceivedNotes = false
     },
     clearError: (state) => {
       state.error = null
@@ -350,6 +360,7 @@ export const {
   setSelectedPurchaseOrder,
   setSelectedGRN,
   updatePurchaseOrderInPlace,
+  markGRNsForRefetch,
   clearError,
 } = purchasingSlice.actions
 

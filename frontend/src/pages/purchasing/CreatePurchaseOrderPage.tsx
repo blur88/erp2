@@ -35,7 +35,7 @@ import { formatCurrency } from '@/utils/formatters'
 import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction } from '@/store/slices/purchasingSlice'
+import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction, fetchGoodsReceivedNotes } from '@/store/slices/purchasingSlice'
 
 interface PurchaseOrderItem {
   productId: string
@@ -301,6 +301,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
         // Update Redux state directly - this will auto-refresh the list
         dispatch(updatePurchaseOrderInPlace(updatedOrder))
+
+        // Refetch GRNs to update the GRN page with latest data
+        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
 
         showSuccess('Purchase order updated successfully')
       } else {
