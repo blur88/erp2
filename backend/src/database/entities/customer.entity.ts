@@ -12,7 +12,6 @@ import {
   MaxLength,
   IsDecimal,
   Min,
-  IsObject,
   Matches,
   IsNotEmpty,
 } from 'class-validator';
@@ -143,15 +142,6 @@ export class Customer extends BaseEntity {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Additional customer metadata - LIMITED TO SAFE DATA ONLY',
-  })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, string | number | boolean>;
 
   // Relationships
   @OneToMany(() => SalesOrder, (salesOrder) => salesOrder.customer, {
