@@ -968,28 +968,35 @@ export class PurchaseOrderService {
     try {
       // Update GRN items to set received quantities
       if (grn.items && grn.items.length > 0) {
-        for (const grnItem of grn.items) {
-          grnItem.receivedQuantity = grnItem.orderedQuantity;
-          await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
-            id: item.id,
-            grnId: item.grnId,
-            lineNumber: item.lineNumber,
-            productId: item.productId,
-            productSku: item.productSku,
-            productName: item.productName,
-            productDescription: item.productDescription,
-            unit: item.unit,
-            orderedQuantity: Number(item.orderedQuantity),
-            receivedQuantity: Number(item.orderedQuantity), // Set received = ordered
-            purchaseOrderItemId: item.purchaseOrderItemId,
-          })));
-        }
+        await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
+          id: item.id,
+          grnId: item.grnId,
+          lineNumber: item.lineNumber,
+          productId: item.productId,
+          productSku: item.productSku,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          unit: item.unit,
+          orderedQuantity: Number(item.orderedQuantity),
+          receivedQuantity: Number(item.orderedQuantity), // Set received = ordered
+          purchaseOrderItemId: item.purchaseOrderItemId,
+        })));
       }
 
-      // Update GRN status and totals
-      grn.status = GrnStatus.RECEIVED;
-      grn.calculateTotals();
-      await this.grnRepository.save(grn);
+      // Reload GRN with fresh items from database
+      const updatedGrn = await this.grnRepository.findOne({
+        where: { id: grn.id },
+        relations: ['items'],
+      });
+
+      if (!updatedGrn) {
+        throw new NotFoundException('GRN not found after updating items');
+      }
+
+      // Update GRN status and recalculate totals with fresh data
+      updatedGrn.status = GrnStatus.RECEIVED;
+      updatedGrn.calculateTotals();
+      await this.grnRepository.save(updatedGrn);
 
       // Update product quantities
       for (const item of purchaseOrder.items) {
@@ -1063,10 +1070,20 @@ export class PurchaseOrderService {
         })));
       }
 
-      // Update GRN status back to draft and recalculate totals
-      grn.status = GrnStatus.DRAFT;
-      grn.calculateTotals();
-      await this.grnRepository.save(grn);
+      // Reload GRN with fresh items from database
+      const updatedGrn = await this.grnRepository.findOne({
+        where: { id: grn.id },
+        relations: ['items'],
+      });
+
+      if (!updatedGrn) {
+        throw new NotFoundException('GRN not found after updating items');
+      }
+
+      // Update GRN status back to draft and recalculate totals with fresh data
+      updatedGrn.status = GrnStatus.DRAFT;
+      updatedGrn.calculateTotals();
+      await this.grnRepository.save(updatedGrn);
 
       // Revert product quantities
       for (const item of purchaseOrder.items) {

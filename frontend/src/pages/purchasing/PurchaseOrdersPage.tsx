@@ -43,6 +43,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchPurchaseOrders,
   fetchSuppliers,
+  fetchGoodsReceivedNotes,
   setSelectedPurchaseOrder,
   selectPurchaseOrders,
   selectSelectedPurchaseOrder,
@@ -292,6 +293,8 @@ const PurchaseOrdersPage: React.FC = () => {
       }
 
       loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
     } catch (err: any) {
       console.error('Receive error:', err)
       showError(err?.response?.data?.message || 'Failed to receive goods')
@@ -321,6 +324,8 @@ const PurchaseOrdersPage: React.FC = () => {
       }
 
       loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
     } catch (err: any) {
       console.error('Return error:', err)
       showError(err?.response?.data?.message || 'Failed to return goods')
@@ -357,6 +362,8 @@ const PurchaseOrdersPage: React.FC = () => {
 
       setUnreturnDialogOpen(false)
       loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
 
       // Navigate to edit page
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
@@ -383,6 +390,8 @@ const PurchaseOrdersPage: React.FC = () => {
 
       setUnreturnDialogOpen(false)
       loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
     } catch (err: any) {
       console.error('Return error:', err)
       showError(err?.response?.data?.message || 'Failed to return goods')
