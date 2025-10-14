@@ -8,6 +8,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableHead,
   TableRow,
   Button,
   Chip,
@@ -669,53 +670,80 @@ const GoodsReceivedPage: React.FC = () => {
                   </Box>
                 )}
 
+                {/* Page Break */}
+                <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
+
                 {/* GRN Items Section */}
-                {selectedGRN.items && selectedGRN.items.length > 0 && (
-                  <Box sx={{ mt: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem', mb: 2 }}>
-                      Items Received ({selectedGRN.items.length})
-                    </Typography>
-                    <TableContainer>
-                      <Table size="small">
-                        <TableBody>
-                          <TableRow sx={{ backgroundColor: 'grey.100' }}>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Product</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Ordered</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Received</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Unit Cost</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="right">Total</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Condition</TableCell>
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    mb: 1
+                  }}>
+                    GRN Received Items
+                  </Typography>
+
+                  {(selectedGRN.items && selectedGRN.items.length > 0) ? (
+                    <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          '& .MuiTableCell-root': {
+                            borderBottom: TABLE_STYLES.cell.border,
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px
+                          }
+                        }}
+                      >
+                        <TableHead>
+                          <TableRow sx={{ '& .MuiTableCell-head': {
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            backgroundColor: 'grey.50',
+                            color: TYPOGRAPHY_STYLES.tableHeader.color,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                          } }}>
+                            <TableCell sx={{ width: '30%' }}>Product</TableCell>
+                            <TableCell align="center" sx={{ width: '12%' }}>Ordered</TableCell>
+                            <TableCell align="center" sx={{ width: '12%' }}>Received</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Unit Cost</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Total</TableCell>
+                            <TableCell sx={{ width: '14%' }}>Condition</TableCell>
                           </TableRow>
+                        </TableHead>
+                        <TableBody>
                           {selectedGRN.items.map((item: any, index: number) => (
-                            <TableRow key={item.id || index} sx={{ '&:nth-of-type(odd)': { backgroundColor: 'grey.50' } }}>
-                              <TableCell sx={{ fontSize: '0.75rem' }}>
-                                <Box>
-                                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
-                                    {item.purchaseOrderItem?.product?.name || 'N/A'}
-                                  </Typography>
-                                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                                    {item.purchaseOrderItem?.product?.sku || 'N/A'}
-                                  </Typography>
-                                </Box>
+                            <TableRow
+                              key={item.id || index}
+                              hover
+                              sx={{
+                                '&:hover': { backgroundColor: 'action.hover' },
+                                transition: 'background-color 0.2s ease',
+                                height: TABLE_STYLES.row.height
+                              }}
+                            >
+                              <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                                {item.purchaseOrderItem?.product?.name || item.productName || 'N/A'}
                               </TableCell>
-                              <TableCell sx={{ fontSize: '0.75rem' }} align="right">
+                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                                 {item.orderedQuantity || 0}
                               </TableCell>
-                              <TableCell sx={{ fontSize: '0.75rem', color: 'success.main' }} align="right">
+                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                                 {item.receivedQuantity || 0}
                               </TableCell>
-                              <TableCell sx={{ fontSize: '0.75rem' }} align="right">
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                 {formatCurrency(item.unitCost || 0)}
                               </TableCell>
-                              <TableCell sx={{ fontSize: '0.75rem', fontWeight: 500 }} align="right">
+                              <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
                                 {formatCurrency(item.totalAmount || 0)}
                               </TableCell>
-                              <TableCell sx={{ fontSize: '0.75rem' }}>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
                                 <Chip
                                   label={item.condition || 'good'}
                                   size="small"
                                   color={item.condition === 'good' ? 'success' : item.condition === 'damaged' ? 'warning' : 'error'}
-                                  sx={{ fontSize: '0.65rem', height: '20px' }}
+                                  sx={{ fontSize: '0.65rem', height: '20px', textTransform: 'capitalize' }}
                                 />
                               </TableCell>
                             </TableRow>
@@ -723,8 +751,10 @@ const GoodsReceivedPage: React.FC = () => {
                         </TableBody>
                       </Table>
                     </TableContainer>
-                  </Box>
-                )}
+                  ) : (
+                    <Alert severity="info">No items in this GRN</Alert>
+                  )}
+                </Box>
               </Box>
             </Paper>
           ) : (
