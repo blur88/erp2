@@ -699,7 +699,7 @@ const GoodsReceivedPage: React.FC = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Received Date
+                              GRN Date
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatDate(selectedGRN.receiptDate || selectedGRN.receivedDate)}

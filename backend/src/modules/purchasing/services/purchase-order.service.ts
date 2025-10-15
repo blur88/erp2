@@ -381,10 +381,16 @@ export class PurchaseOrderService {
 
     // Check if order can be modified
     try {
+      // Track if orderDate is being changed
+      const orderDateChanged = updatePurchaseOrderDto.orderDate &&
+        new Date(updatePurchaseOrderDto.orderDate).getTime() !== new Date(purchaseOrder.orderDate).getTime();
+
       // Update basic fields (exclude items as they're handled separately)
       const { items: _, ...updateFields } = updatePurchaseOrderDto;
       Object.assign(purchaseOrder, {
         ...updateFields,
+        orderDate: updatePurchaseOrderDto.orderDate ?
+          new Date(updatePurchaseOrderDto.orderDate) : purchaseOrder.orderDate,
         expectedDeliveryDate: updatePurchaseOrderDto.expectedDeliveryDate ?
           new Date(updatePurchaseOrderDto.expectedDeliveryDate) : purchaseOrder.expectedDeliveryDate,
       });
@@ -472,6 +478,11 @@ export class PurchaseOrderService {
       // Sync GRN if it exists and is in draft status
       if (updatePurchaseOrderDto.items) {
         await this.syncDraftGrn(updatedPurchaseOrder.id);
+      }
+
+      // Sync GRN date if PO order date changed
+      if (orderDateChanged) {
+        await this.syncGrnDate(updatedPurchaseOrder.id, new Date(updatePurchaseOrderDto.orderDate));
       }
 
       this.logger.log(`Purchase order updated successfully: ${updatedPurchaseOrder.orderNumber}`);
@@ -841,6 +852,32 @@ export class PurchaseOrderService {
     } catch (error) {
       this.logger.error(`Error syncing draft GRN: ${error.message}`, error.stack);
       // Don't throw - GRN sync failure shouldn't block PO update
+    }
+  }
+
+  /**
+   * Sync GRN receivedDate with PO orderDate when PO date is changed
+   */
+  private async syncGrnDate(purchaseOrderId: string, newOrderDate: Date): Promise<void> {
+    try {
+      // Find GRN associated with this PO
+      const grn = await this.grnRepository.findOne({
+        where: { purchaseOrderId },
+      });
+
+      if (!grn) {
+        this.logger.debug(`No GRN found for PO ${purchaseOrderId}`);
+        return;
+      }
+
+      // Update GRN receivedDate to match PO orderDate
+      grn.receivedDate = newOrderDate;
+      await this.grnRepository.save(grn);
+
+      this.logger.log(`GRN ${grn.grnNumber} date synced to ${newOrderDate.toISOString()}`);
+    } catch (error) {
+      this.logger.error(`Error syncing GRN date: ${error.message}`, error.stack);
+      // Don't throw - GRN date sync failure shouldn't block PO update
     }
   }
 
