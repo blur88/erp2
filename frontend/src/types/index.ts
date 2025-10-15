@@ -387,6 +387,26 @@ export interface GRNItem {
   };
 }
 
+export interface VendorPayment {
+  id: string;
+  paymentNumber: string;
+  supplier: Supplier;
+  supplierId: string;
+  purchaseOrder?: PurchaseOrder;
+  purchaseOrderId?: string;
+  amount: number;
+  paymentDate: Date | string;
+  paymentMethod: 'cash' | 'bank_transfer' | 'check' | 'card';
+  referenceNumber?: string;
+  notes?: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
 // Common types
 export interface Address {
   street1: string;
