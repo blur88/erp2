@@ -836,7 +836,7 @@ const PurchaseOrdersPage: React.FC = () => {
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 <Grid container spacing={3}>
                   {/* Left Column - Order Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -966,7 +966,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Financial Summary */}
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1099,113 +1099,95 @@ const PurchaseOrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Order Items Section */}
-                  <Grid item xs={12}>
-                    <TableContainer>
-                      <Table
-                        size={TABLE_STYLES.size}
-                        sx={{
-                          '& .MuiTableCell-root': {
-                            py: TABLE_STYLES.cell.padding.py,
-                            px: TABLE_STYLES.cell.padding.px,
-                          }
-                        }}
-                      >
-                        <TableHead>
-                          <TableRow>
-                            <TableCell colSpan={5} sx={{
-                              borderBottom: TABLE_STYLES.cell.border,
-                              pb: TABLE_STYLES.cell.padding.py * 0.67
-                            }}>
-                              <Typography variant="h6" sx={{
+                  <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                    {/* Page Break */}
+                    <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
+
+                    <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        mb: 1
+                      }}>
+                        Purchase Order Items
+                      </Typography>
+
+                      {(selectedOrder.items && selectedOrder.items.length > 0) ? (
+                        <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                          <Table
+                            size={TABLE_STYLES.size}
+                            sx={{
+                              '& .MuiTableCell-root': {
+                                borderBottom: TABLE_STYLES.cell.border,
+                                py: TABLE_STYLES.cell.padding.py,
+                                px: TABLE_STYLES.cell.padding.px
+                              }
+                            }}
+                          >
+                            <TableHead>
+                              <TableRow sx={{ '& .MuiTableCell-head': {
                                 fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                backgroundColor: 'grey.50',
+                                color: TYPOGRAPHY_STYLES.tableHeader.color,
                                 fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                              }}>
-                                Purchase Order Items
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              color: 'text.secondary'
-                            }}>
-                              Product
-                            </TableCell>
-                            <TableCell align="right" sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              color: 'text.secondary'
-                            }}>
-                              Quantity
-                            </TableCell>
-                            <TableCell align="right" sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              color: 'text.secondary'
-                            }}>
-                              Price
-                            </TableCell>
-                            <TableCell align="right" sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              color: 'text.secondary'
-                            }}>
-                              Discount
-                            </TableCell>
-                            <TableCell align="right" sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              color: 'text.secondary'
-                            }}>
-                              Sub-total
-                            </TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                            selectedOrder.items.map((item: any, index: number) => (
-                              <TableRow key={index} sx={{ backgroundColor: index % 2 === 0 ? 'grey.50' : 'inherit' }}>
-                                <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                  {item.product?.name || item.productName || item.description || 'N/A'}
-                                </TableCell>
-                                <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                  {item.quantity}
-                                </TableCell>
-                                <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                  {formatCurrency(item.unitPrice || item.unitCost || 0)}
-                                </TableCell>
-                                <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                  {item.discountAmount ? (
-                                    <Box component="span">
-                                      {`-${formatCurrency(item.discountAmount)}`}
-                                      {item.discountPercent > 0 && (
-                                        <Typography component="span" sx={{
-                                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                          color: 'text.secondary',
-                                          ml: 0.5
-                                        }}>
-                                          ({item.discountPercent}%)
-                                        </Typography>
-                                      )}
-                                    </Box>
-                                  ) : '-'}
-                                </TableCell>
-                                <TableCell align="right" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                  {formatCurrency(item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0)))}
-                                </TableCell>
+                              } }}>
+                                <TableCell sx={{ width: '35%' }}>Product</TableCell>
+                                <TableCell align="center" sx={{ width: '13%' }}>Quantity</TableCell>
+                                <TableCell align="center" sx={{ width: '13%' }}>Price</TableCell>
+                                <TableCell align="center" sx={{ width: '13%' }}>Discount</TableCell>
+                                <TableCell align="center" sx={{ width: '13%' }}>Sub-total</TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={5}>
-                                <Alert severity="info">No items in this order</Alert>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                            </TableHead>
+                            <TableBody>
+                              {selectedOrder.items.map((item: any, index: number) => (
+                                <TableRow
+                                  key={item.id || index}
+                                  hover
+                                  sx={{
+                                    '&:hover': { backgroundColor: 'action.hover' },
+                                    transition: 'background-color 0.2s ease',
+                                    height: TABLE_STYLES.row.height
+                                  }}
+                                >
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    {item.product?.name || item.productName || item.description || 'N/A'}
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                    {item.quantity}
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                    {formatCurrency(item.unitPrice || item.unitCost || 0)}
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                    {item.discountAmount ? (
+                                      <Box component="span">
+                                        {`-${formatCurrency(item.discountAmount)}`}
+                                        {item.discountPercent > 0 && (
+                                          <Typography component="span" sx={{
+                                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                                            color: 'text.secondary',
+                                            ml: 0.5
+                                          }}>
+                                            ({item.discountPercent}%)
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                    ) : '-'}
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                    {formatCurrency(item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0)))}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      ) : (
+                        <Alert severity="info">No items in this order</Alert>
+                      )}
+                    </Box>
                   </Grid>
                 </Grid>
               </Box>
