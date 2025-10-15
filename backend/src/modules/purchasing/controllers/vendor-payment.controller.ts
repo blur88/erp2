@@ -52,6 +52,16 @@ export class VendorPaymentController {
     return this.vendorPaymentService.findAll(query);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all deleted vendor payments' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns paginated deleted vendor payments',
+  })
+  findDeleted(@Query() query: QueryVendorPaymentsDto) {
+    return this.vendorPaymentService.findDeleted(query);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a vendor payment by ID' })
   @ApiParam({ name: 'id', description: 'Vendor payment UUID' })
@@ -78,6 +88,40 @@ export class VendorPaymentController {
     @Body() updateVendorPaymentDto: UpdateVendorPaymentDto,
   ) {
     return this.vendorPaymentService.update(id, updateVendorPaymentDto);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft deleted vendor payment' })
+  @ApiParam({ name: 'id', description: 'Vendor payment UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor payment restored successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Vendor payment not found' })
+  restore(@Param('id', ParseUUIDPipe) id: string) {
+    return this.vendorPaymentService.restore(id);
+  }
+
+  @Post('bulk-restore')
+  @ApiOperation({ summary: 'Bulk restore soft deleted vendor payments' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        paymentIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of vendor payment IDs to restore'
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor payments restored successfully',
+  })
+  bulkRestore(@Body('paymentIds') paymentIds: string[]) {
+    return this.vendorPaymentService.bulkRestore(paymentIds);
   }
 
   @Delete(':id')

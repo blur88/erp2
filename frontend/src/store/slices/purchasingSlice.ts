@@ -195,7 +195,8 @@ export const fetchVendorPayments = createAsyncThunk(
       const response = await purchasingApi.getVendorPayments(params)
       return response
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch vendor payments')
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch vendor payments'
+      return rejectWithValue(errorMessage)
     }
   }
 )
@@ -432,8 +433,8 @@ const purchasingSlice = createSlice({
         state.loading.vendorPayments = false
         if (action.payload) {
           const response = action.payload as any
-          state.vendorPayments = response.payments || response.data || []
-          state.pagination.vendorPayments = response.meta || {
+          state.vendorPayments = response.data || response.payments || []
+          state.pagination.vendorPayments = {
             page: response.page || 1,
             limit: response.limit || 20,
             total: response.total || 0,

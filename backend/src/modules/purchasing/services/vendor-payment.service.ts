@@ -6,8 +6,8 @@ import {
   CreateVendorPaymentDto,
   UpdateVendorPaymentDto,
   QueryVendorPaymentsDto,
-} from '../dto/vendor-payment.dto';
-import { PaginatedResponse } from '../../../common/dto/paginated-response.dto';
+  PaginatedResponse,
+} from '../dto';
 
 @Injectable()
 export class VendorPaymentService {
@@ -28,8 +28,6 @@ export class VendorPaymentService {
     const vendorPayment = this.vendorPaymentRepository.create({
       ...createDto,
       paymentNumber,
-      createdBy: user,
-      updatedBy: user,
     });
 
     return this.vendorPaymentRepository.save(vendorPayment);
@@ -100,12 +98,12 @@ export class VendorPaymentService {
 
     return {
       data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1,
     };
   }
 
@@ -144,13 +142,127 @@ export class VendorPaymentService {
   }
 
   /**
+   * Find deleted vendor payments with filters and pagination
+   */
+  async findDeleted(
+    query: QueryVendorPaymentsDto,
+  ): Promise<PaginatedResponse<VendorPayment>> {
+    const {
+      supplierId,
+      status,
+      paymentMethod,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 20,
+    } = query;
+
+    const queryBuilder = this.vendorPaymentRepository
+      .createQueryBuilder('vendorPayment')
+      .leftJoinAndSelect('vendorPayment.supplier', 'supplier')
+      .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
+      .where('vendorPayment.isActive = :isActive', { isActive: false });
+
+    // Apply filters
+    if (supplierId) {
+      queryBuilder.andWhere('vendorPayment.supplierId = :supplierId', {
+        supplierId,
+      });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('vendorPayment.status = :status', { status });
+    }
+
+    if (paymentMethod) {
+      queryBuilder.andWhere('vendorPayment.paymentMethod = :paymentMethod', {
+        paymentMethod,
+      });
+    }
+
+    if (startDate && endDate) {
+      queryBuilder.andWhere(
+        'vendorPayment.paymentDate BETWEEN :startDate AND :endDate',
+        { startDate, endDate },
+      );
+    } else if (startDate) {
+      queryBuilder.andWhere('vendorPayment.paymentDate >= :startDate', {
+        startDate,
+      });
+    } else if (endDate) {
+      queryBuilder.andWhere('vendorPayment.paymentDate <= :endDate', {
+        endDate,
+      });
+    }
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // Order by payment date descending
+    queryBuilder.orderBy('vendorPayment.paymentDate', 'DESC');
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1,
+    };
+  }
+
+  /**
+   * Restore a soft deleted vendor payment
+   */
+  async restore(id: string, user: string = 'system'): Promise<VendorPayment> {
+    const vendorPayment = await this.vendorPaymentRepository.findOne({
+      where: { id, isActive: false },
+      withDeleted: true,
+    });
+
+    if (!vendorPayment) {
+      throw new NotFoundException(`Deleted vendor payment with ID ${id} not found`);
+    }
+
+    vendorPayment.isActive = true;
+
+    await this.vendorPaymentRepository.restore(id);
+    return this.vendorPaymentRepository.save(vendorPayment);
+  }
+
+  /**
+   * Bulk restore soft deleted vendor payments
+   */
+  async bulkRestore(
+    ids: string[],
+    user: string = 'system',
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    for (const id of ids) {
+      try {
+        await this.restore(id, user);
+        restoredCount++;
+      } catch (error) {
+        failedIds.push(id);
+      }
+    }
+
+    return { restoredCount, failedIds };
+  }
+
+  /**
    * Soft delete a vendor payment
    */
   async remove(id: string, user: string = 'system'): Promise<void> {
     const vendorPayment = await this.findOne(id);
 
     vendorPayment.isActive = false;
-    vendorPayment.updatedBy = user;
 
     await this.vendorPaymentRepository.save(vendorPayment);
     await this.vendorPaymentRepository.softDelete(id);

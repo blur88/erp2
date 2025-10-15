@@ -8,6 +8,7 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateVendorPaymentDto {
@@ -145,12 +146,14 @@ export class QueryVendorPaymentsDto {
 
   @ApiPropertyOptional({ description: 'Page number', example: 1, default: 1 })
   @IsOptional()
+  @Transform(({ value }) => value ? parseInt(value, 10) : 1)
   @IsNumber()
   @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ description: 'Items per page', example: 20, default: 20 })
   @IsOptional()
+  @Transform(({ value }) => value ? parseInt(value, 10) : 20)
   @IsNumber()
   @Min(1)
   limit?: number;
