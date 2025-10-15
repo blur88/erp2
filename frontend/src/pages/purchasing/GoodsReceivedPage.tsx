@@ -845,7 +845,7 @@ const GoodsReceivedPage: React.FC = () => {
                               }}
                             >
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {item.purchaseOrderItem?.product?.name || item.productName || 'N/A'}
+                                {item.purchaseOrderItem?.product?.name || item.product?.name || 'N/A'}
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                                 {item.orderedQuantity || 0}

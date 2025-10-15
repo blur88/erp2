@@ -35,24 +35,8 @@ export class GoodsReceivedNoteItem extends BaseEntity {
   @Min(1)
   lineNumber: number;
 
-  // Product Information (captured from PO item at time of receipt)
-  @Column({
-    type: 'varchar',
-    length: 50,
-    comment: 'Product SKU at time of receipt',
-  })
-  @IsString()
-  @MaxLength(50)
-  productSku: string;
-
-  @Column({
-    type: 'varchar',
-    length: 200,
-    comment: 'Product name at time of receipt',
-  })
-  @IsString()
-  @MaxLength(200)
-  productName: string;
+  // Product Information
+  // Note: Product details (name, SKU/barcode) are accessed via the product relationship
 
   @Column({
     type: 'text',
@@ -227,8 +211,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
     return {
       purchaseOrderItemId: poItem.id,
       productId: poItem.productId,
-      productSku: poItem.productSku,
-      productName: poItem.productName,
       productDescription: poItem.productDescription,
       unit: poItem.unit,
       orderedQuantity: Number(poItem.quantity),

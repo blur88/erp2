@@ -1152,7 +1152,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                   }}
                                 >
                                   <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {item.product?.name || item.productName || item.description || 'N/A'}
+                                    {item.product?.name || item.description || 'N/A'}
                                   </TableCell>
                                   <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                                     {item.quantity}
