@@ -35,7 +35,7 @@ import { formatCurrency } from '@/utils/formatters'
 import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction } from '@/store/slices/purchasingSlice'
+import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction, fetchGoodsReceivedNotes } from '@/store/slices/purchasingSlice'
 
 interface PurchaseOrderItem {
   productId: string
@@ -302,6 +302,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
         // Update Redux state directly - this will auto-refresh the list
         dispatch(updatePurchaseOrderInPlace(updatedOrder))
 
+        // Refetch GRNs to update the GRN page with latest data
+        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+
         showSuccess('Purchase order updated successfully')
       } else {
         // Use Redux action to create order - this will auto-select it
@@ -348,6 +351,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
     const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
     const shipping = Number(watchedShipping) || 0
     const totalAmount = subtotal + shipping
+    console.log('[calculateOrderTotals] subtotal:', subtotal, 'shipping:', shipping, 'total:', totalAmount)
+    console.log('[calculateOrderTotals] watchedItems:', watchedItems)
     return { subtotal, shipping, totalAmount }
   }
 
@@ -363,7 +368,13 @@ const CreatePurchaseOrderPage: React.FC = () => {
     })
   }
 
-  const totals = calculateOrderTotals()
+  // Calculate totals reactively - recalculates whenever watchedItems or watchedShipping changes
+  // Note: We use JSON.stringify for watchedItems because it's a proxy object from watch()
+  // and the reference doesn't change when item values change
+  const totals = React.useMemo(() => {
+    console.log('[useMemo] Recalculating totals')
+    return calculateOrderTotals()
+  }, [JSON.stringify(watchedItems), watchedShipping])
 
   return (
     <Container maxWidth="xl">

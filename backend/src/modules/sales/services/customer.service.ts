@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
 import { Customer, PriceLevel } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateCustomerDto,
@@ -39,12 +39,8 @@ export class CustomerService {
       await this.validatePhoneUniqueness(createCustomerDto.phone);
     }
 
-    // Generate customer code
-    const customerCode = await this.generateCustomerCode();
-
     const customer = this.customerRepository.create({
       ...createCustomerDto,
-      customerCode,
       priceLevel: createCustomerDto.priceLevel || PriceLevel.RETAIL,
     });
 
@@ -82,7 +78,7 @@ export class CustomerService {
     // Apply search conditions
     if (search) {
       queryBuilder.andWhere(
-        '(customer.name ILIKE :search OR customer.phone ILIKE :search OR customer.customerCode ILIKE :search)',
+        '(customer.name ILIKE :search OR customer.phone ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -125,7 +121,7 @@ export class CustomerService {
     // Add search conditions
     if (search) {
       queryBuilder.andWhere(
-        '(customer.name ILIKE :search OR customer.phone ILIKE :search OR customer.customerCode ILIKE :search)',
+        '(customer.name ILIKE :search OR customer.phone ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -155,12 +151,11 @@ export class CustomerService {
     const customers = await this.customerRepository.find({
       where: { isActive: true },
       order: { name: 'ASC' },
-      select: ['id', 'customerCode', 'name', 'phone'],
+      select: ['id', 'name', 'phone'],
     });
 
     return customers.map(customer => ({
       id: customer.id,
-      customerCode: customer.customerCode,
       name: customer.name,
       phone: customer.phone,
     }));
@@ -174,14 +169,7 @@ export class CustomerService {
     return this.mapToResponseDto(customer);
   }
 
-  async findByCode(customerCode: string): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({ where: { customerCode } });
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
-    return this.mapToResponseDto(customer);
-  }
-
+  
   async update(id: string, updateCustomerDto: UpdateCustomerDto): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({ where: { id } });
     if (!customer) {
@@ -243,13 +231,12 @@ export class CustomerService {
         error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
         customerId: customer.id,
-        customerCode: customer.customerCode,
         dependencies: {
           orders: activeOrderCount,
           invoices: activeInvoiceCount
         },
         suggestions,
-        details: `Customer '${customer.name}' (${customer.customerCode}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`
+        details: `Customer '${customer.name}' (${customer.id}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`
       };
 
       // Use BadRequestException with the full error object
@@ -347,6 +334,7 @@ export class CustomerService {
     const orderStats = await this.salesOrderRepository
       .createQueryBuilder('order')
       .where('order.customerId = :customerId', { customerId })
+      .andWhere('order.deletedAt IS NULL')
       .select([
         'COUNT(*) as totalOrders',
         'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
@@ -375,7 +363,6 @@ export class CustomerService {
       customerId,
       customer: {
         name: customer.name,
-        customerCode: customer.customerCode,
       },
       orders: {
         totalOrders: parseInt(orderStats.totalOrders) || 0,
@@ -502,11 +489,10 @@ export class CustomerService {
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
-            `Cannot permanently delete customer '${customer.name}' (${customer.customerCode}) due to active dependencies: ${dependencyDetails}. Complete all business transactions first.`,
+            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to active dependencies: ${dependencyDetails}. Complete all business transactions first.`,
             'DEPENDENCY_ERROR',
             {
               customerName: customer.name,
-              customerCode: customer.customerCode,
               dependencies: {
                 orders: orderCount,
                 invoices: invoiceCount,
@@ -603,13 +589,12 @@ export class CustomerService {
         error: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
         customerId: customer.id,
-        customerCode: customer.customerCode,
         dependencies: {
           orders: orderCount,
           invoices: invoiceCount,
           payments: paymentCount
         },
-        details: `Customer '${customer.name}' (${customer.customerCode}) has ${dependencyDetails}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
+        details: `Customer '${customer.name}' (${customer.id}) has ${dependencyDetails}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
         suggestions: [
           'Complete and archive all pending orders first',
           'Ensure all invoices are fully paid and closed',
@@ -698,6 +683,97 @@ export class CustomerService {
     return this.mapToResponseDto(updatedCustomer);
   }
 
+  /**
+   * Recalculate all customer totals from actual sales order data
+   * This method fixes discrepancies in customer financial metrics
+   */
+  async recalculateAllCustomerTotals(): Promise<{ updated: number; message: string }> {
+    console.log('🔄 Starting recalculation of all customer totals...');
+
+    // Get all customers
+    const customers = await this.customerRepository.find({
+      where: { isActive: true },
+      relations: ['salesOrders']
+    });
+
+    let updatedCount = 0;
+
+    for (const customer of customers) {
+      // Calculate actual totals from sales orders
+      const orderStats = await this.salesOrderRepository
+        .createQueryBuilder('order')
+        .where('order.customerId = :customerId', { customerId: customer.id })
+        .andWhere('order.deletedAt IS NULL')
+        .select([
+          'COUNT(*) as totalOrders',
+          'COALESCE(SUM(order.totalAmount), 0) as totalSales',
+          'MIN(order.orderDate) as firstOrderDate',
+          'MAX(order.orderDate) as lastOrderDate',
+        ])
+        .getRawOne();
+
+      const actualTotalOrders = parseInt(orderStats.totalOrders) || 0;
+      const actualTotalSales = parseFloat(orderStats.totalSales) || 0;
+      const firstOrderDate = orderStats.firstOrderDate;
+      const lastOrderDate = orderStats.lastOrderDate;
+
+      // Check if there's a discrepancy
+      const hasDiscrepancy =
+        customer.totalOrders !== actualTotalOrders ||
+        Number(customer.totalSales) !== actualTotalSales;
+
+      if (hasDiscrepancy) {
+        console.log(`📊 Updating customer ${customer.name}:`);
+        console.log(`   Before: ${customer.totalOrders} orders, $${customer.totalSales} sales`);
+        console.log(`   After:  ${actualTotalOrders} orders, $${actualTotalSales} sales`);
+
+        // Update customer metrics
+        customer.totalOrders = actualTotalOrders;
+        customer.totalSales = actualTotalSales;
+        customer.firstPurchaseDate = firstOrderDate;
+        customer.lastPurchaseDate = lastOrderDate;
+
+        await this.customerRepository.save(customer);
+        updatedCount++;
+      }
+    }
+
+    const message = `Recalculation complete. Updated ${updatedCount} customers out of ${customers.length}.`;
+    console.log(`✅ ${message}`);
+
+    return { updated: updatedCount, message };
+  }
+
+  /**
+   * Update customer metrics for a specific customer based on their sales orders
+   */
+  async updateCustomerMetrics(customerId: string): Promise<void> {
+    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    // Calculate actual totals from sales orders
+    const orderStats = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.customerId = :customerId', { customerId })
+      .andWhere('order.deletedAt IS NULL')
+      .select([
+        'COUNT(*) as totalOrders',
+        'COALESCE(SUM(order.totalAmount), 0) as totalSales',
+        'MIN(order.orderDate) as firstOrderDate',
+        'MAX(order.orderDate) as lastOrderDate',
+      ])
+      .getRawOne();
+
+    customer.totalOrders = parseInt(orderStats.totalOrders) || 0;
+    customer.totalSales = parseFloat(orderStats.totalSales) || 0;
+    customer.firstPurchaseDate = orderStats.firstOrderDate;
+    customer.lastPurchaseDate = orderStats.lastOrderDate;
+
+    await this.customerRepository.save(customer);
+  }
+
   // Internal helper methods
 
   private async validatePhoneUniqueness(phone: string, excludeId?: string): Promise<void> {
@@ -731,7 +807,7 @@ export class CustomerService {
 
     if (duplicateCustomer) {
       throw new ConflictException(
-        `A customer with phone number "${phone}" already exists (Customer: ${duplicateCustomer.name} - ${duplicateCustomer.customerCode})`
+        `A customer with phone number "${phone}" already exists (Customer: ${duplicateCustomer.name})`
       );
     }
   }
@@ -744,42 +820,10 @@ export class CustomerService {
     return customer;
   }
 
-  private async generateCustomerCode(): Promise<string> {
-    const year = new Date().getFullYear().toString().slice(-2);
-
-    // Get all existing customer codes (including soft-deleted ones) for this year
-    const existingCodes = await this.customerRepository.find({
-      select: ['customerCode'],
-      withDeleted: true
-    });
-
-    const yearPrefix = `CUST${year}`;
-    const usedNumbers = existingCodes
-      .map(customer => customer.customerCode)
-      .filter(code => code && code.startsWith(yearPrefix))
-      .map(code => parseInt(code.substring(yearPrefix.length)))
-      .filter(num => !isNaN(num))
-      .sort((a, b) => a - b);
-
-    // Find the next available number (starting from 1)
-    let nextNumber = 1;
-    for (const usedNumber of usedNumbers) {
-      if (nextNumber === usedNumber) {
-        nextNumber++;
-      } else {
-        // Found a gap, use this number
-        break;
-      }
-    }
-
-    const sequence = nextNumber.toString().padStart(4, '0');
-    return `${yearPrefix}${sequence}`;
-  }
-
+  
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
     return {
       id: customer.id,
-      customerCode: customer.customerCode,
       type: customer.type,
       name: customer.name,
       phone: customer.phone,

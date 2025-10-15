@@ -124,38 +124,65 @@ export const purchasingApi = {
 
   // Goods Received Notes (GRN)
   async getGoodsReceivedNotes(params?: QueryParams & { supplierId?: string; purchaseOrderId?: string }) {
-    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/grn', { params })
+    // Convert sortOrder to uppercase for backend compatibility
+    const apiParams = params ? {
+      ...params,
+      sortOrder: params.sortOrder ? params.sortOrder.toUpperCase() : undefined
+    } : undefined
+    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/goods-received-notes', { params: apiParams })
   },
 
   async getGoodsReceivedNote(id: string) {
-    return ApiService.get<GoodsReceivedNote>(`/purchasing/grn/${id}`)
+    return ApiService.get<GoodsReceivedNote>(`/purchasing/goods-received-notes/${id}`)
   },
 
   async createGoodsReceivedNote(grnData: Partial<GoodsReceivedNote>) {
-    return ApiService.post<GoodsReceivedNote>('/purchasing/grn', grnData)
+    return ApiService.post<GoodsReceivedNote>('/purchasing/goods-received-notes', grnData)
   },
 
   async updateGoodsReceivedNote(id: string, grnData: Partial<GoodsReceivedNote>) {
-    return ApiService.put<GoodsReceivedNote>(`/purchasing/grn/${id}`, grnData)
+    return ApiService.put<GoodsReceivedNote>(`/purchasing/goods-received-notes/${id}`, grnData)
   },
 
   async deleteGoodsReceivedNote(id: string) {
-    return ApiService.delete(`/purchasing/grn/${id}`)
+    return ApiService.delete(`/purchasing/goods-received-notes/${id}`)
   },
 
-  async receiveGoods(purchaseOrderId: string, items: Array<{
-    productId: string
-    receivedQuantity: number
-    damagedQuantity?: number
-    notes?: string
-  }>) {
-    return ApiService.post<GoodsReceivedNote>(`/purchasing/orders/${purchaseOrderId}/receive`, {
-      items,
+  async getDeletedGRNs(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<GoodsReceivedNote>>('/purchasing/goods-received-notes/deleted', { params })
+  },
+
+  async restoreGRN(id: string) {
+    return ApiService.post<GoodsReceivedNote>(`/purchasing/goods-received-notes/${id}/restore`)
+  },
+
+  async bulkRestoreGRNs(grnIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('/purchasing/goods-received-notes/bulk-restore', {
+      grnIds
     })
   },
 
+  async bulkPermanentDeleteGRNs(grnIds: string[]) {
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('/purchasing/goods-received-notes/bulk-permanent-delete', {
+      grnIds
+    })
+  },
+
+  async permanentDeleteGRN(id: string) {
+    return ApiService.delete(`/purchasing/goods-received-notes/${id}/permanent`)
+  },
+
+  // Receive/Return operations
+  async receiveGoods(purchaseOrderId: string) {
+    return ApiService.post<PurchaseOrder>(`/purchasing/orders/${purchaseOrderId}/receive`)
+  },
+
+  async returnGoods(purchaseOrderId: string) {
+    return ApiService.post<PurchaseOrder>(`/purchasing/orders/${purchaseOrderId}/return`)
+  },
+
   async printGoodsReceivedNote(id: string) {
-    return ApiService.downloadFile(`/purchasing/grn/${id}/print`, `grn-${id}.pdf`)
+    return ApiService.downloadFile(`/purchasing/goods-received-notes/${id}/print`, `grn-${id}.pdf`)
   },
 
   // Purchase Requisitions

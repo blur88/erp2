@@ -8,8 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, ILike, In } from 'typeorm';
 import {
   Invoice,
-  InvoiceStatus,
-  InvoiceType
+  InvoiceStatus
 } from '../../../database/entities/invoice.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
@@ -23,7 +22,6 @@ import {
   InvoiceSummaryDto,
   SendInvoiceDto,
   InvoicePaymentAllocationDto,
-  CreditNoteDto,
 } from '../dto/invoice.dto';
 // import { EmailService } from '../../auth/services/email.service'; // Temporarily disabled
 
@@ -122,7 +120,6 @@ export class InvoiceService {
       customerId,
       salesOrderId,
       status,
-      type,
       fromDate,
       toDate,
       overdue,
@@ -138,7 +135,6 @@ export class InvoiceService {
     if (customerId) where.customerId = customerId;
     if (salesOrderId) where.salesOrderId = salesOrderId;
     if (status) where.status = status;
-    if (type) where.type = type;
     
     if (fromDate) {
       where.invoiceDate = MoreThanOrEqual(new Date(fromDate));
@@ -555,50 +551,7 @@ export class InvoiceService {
     return this.findById(savedInvoice.id);
   }
 
-  async createCreditNote(id: string, creditNoteDto: CreditNoteDto): Promise<InvoiceResponseDto> {
-    const originalInvoice = await this.invoiceRepository.findOne({
-      where: { id },
-      relations: ['customer'],
-    });
-
-    if (!originalInvoice) {
-      throw new NotFoundException('Invoice not found');
-    }
-
-    if (creditNoteDto.creditAmount > Number(originalInvoice.totalAmount)) {
-      throw new ConflictException('Credit amount cannot exceed original invoice amount');
-    }
-
-    const creditNote = this.invoiceRepository.create({
-      customerId: originalInvoice.customerId,
-      type: InvoiceType.CREDIT_NOTE,
-      invoiceDate: new Date(),
-      dueDate: new Date(), // Credit notes are immediate
-      customerName: originalInvoice.customerName,
-      billingAddress: originalInvoice.billingAddress,
-      subtotal: -Math.abs(creditNoteDto.creditAmount), // Negative amount
-      totalAmount: -Math.abs(creditNoteDto.creditAmount),
-      balanceDue: -Math.abs(creditNoteDto.creditAmount),
-      paidAmount: -Math.abs(creditNoteDto.creditAmount),
-      status: InvoiceStatus.PAID, // Credit notes are immediately applied
-      notes: `Credit note for Invoice ${originalInvoice.invoiceNumber}`,
-      internalNotes: creditNoteDto.reason,
-      lineItems: creditNoteDto.lineItems || [],
-    });
-
-    // Apply credit note to original invoice
-    originalInvoice.paidAmount = Number(originalInvoice.paidAmount) + creditNoteDto.creditAmount;
-    originalInvoice.calculateTotals();
-    originalInvoice.updateStatus();
-
-    const [savedCreditNote] = await Promise.all([
-      this.invoiceRepository.save(creditNote),
-      this.invoiceRepository.save(originalInvoice),
-    ]);
-
-    return this.findById(savedCreditNote.id);
-  }
-
+  
   async duplicateInvoice(id: string): Promise<InvoiceResponseDto> {
     const originalInvoice = await this.invoiceRepository.findOne({ where: { id } });
     if (!originalInvoice) {
@@ -608,7 +561,6 @@ export class InvoiceService {
     const duplicateData: CreateInvoiceDto = {
       customerId: originalInvoice.customerId,
       salesOrderId: originalInvoice.salesOrderId,
-      type: originalInvoice.type,
       subtotal: Number(originalInvoice.subtotal),
       paymentTermsDays: originalInvoice.paymentTermsDays,
       paymentTerms: originalInvoice.paymentTerms,
@@ -963,7 +915,6 @@ export class InvoiceService {
     return {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
-      type: invoice.type,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
       dueDate: invoice.dueDate,
@@ -985,7 +936,6 @@ export class InvoiceService {
       salesOrderId: invoice.salesOrderId,
       customer: invoice.customer ? {
         id: invoice.customer.id,
-        customerCode: invoice.customer.customerCode,
         name: invoice.customer.name,
         email: undefined, // Customer email field removed from entity
         phone: invoice.customer.phone,

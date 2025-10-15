@@ -401,6 +401,14 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Order items', type: [PurchaseOrderItemResponseDto] })
   items: PurchaseOrderItemResponseDto[];
 
+  @ApiPropertyOptional({ description: 'Goods Received Notes associated with this order' })
+  goodsReceivedNotes?: Array<{
+    id: string;
+    grnNumber: string;
+    status: string;
+    receiptDate: Date;
+  }>;
+
   @ApiProperty({ description: 'Created date' })
   createdAt: Date;
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -43,6 +43,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchPurchaseOrders,
   fetchSuppliers,
+  fetchGoodsReceivedNotes,
   setSelectedPurchaseOrder,
   selectPurchaseOrders,
   selectSelectedPurchaseOrder,
@@ -57,6 +58,7 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
+import UnreturnPurchaseOrderDialog from '@/components/purchasing/UnreturnPurchaseOrderDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -128,6 +130,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const purchaseOrders = useAppSelector(selectPurchaseOrders) || []
   const suppliers = useAppSelector((state: any) => state.purchasing.suppliers) || []
@@ -152,6 +155,8 @@ const PurchaseOrdersPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
+  const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -211,6 +216,21 @@ const PurchaseOrdersPage: React.FC = () => {
     loadOrders()
   }, [loadOrders])
 
+  // Handle poId query parameter to auto-select PO from GRN page
+  useEffect(() => {
+    const poId = searchParams.get('poId')
+    if (poId && purchaseOrders.length > 0) {
+      const po = purchaseOrders.find((order: any) => order.id === poId)
+      if (po) {
+        dispatch(setSelectedPurchaseOrder(po))
+        const orderIndex = purchaseOrders.findIndex((o: any) => o.id === po.id)
+        setFocusedOrderIndex(orderIndex)
+        // Remove the query parameter after selection
+        setSearchParams({})
+      }
+    }
+  }, [searchParams, purchaseOrders, dispatch, setSearchParams])
+
   const handleSort = useCallback((field: string) => {
     setState(prev => ({
       ...prev,
@@ -245,6 +265,138 @@ const PurchaseOrdersPage: React.FC = () => {
       loadOrders()
     } catch (err: any) {
       showError(err?.response?.data?.message || 'Failed to send order')
+    }
+  }
+
+  const handleReceive = async () => {
+    if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
+      showError('No items to receive in this order')
+      return
+    }
+
+    // Check GRN status
+    if (selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0) {
+      const grn = selectedOrder.goodsReceivedNotes[0]
+      if (grn.status !== 'draft') {
+        showError('GRN must be in draft status to receive goods')
+        return
+      }
+    }
+
+    try {
+      const response = await purchasingApi.receiveGoods(selectedOrder.id)
+      showSuccess('Goods received successfully. Product quantities updated.')
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+    } catch (err: any) {
+      console.error('Receive error:', err)
+      showError(err?.response?.data?.message || 'Failed to receive goods')
+    }
+  }
+
+  const handleReturn = async () => {
+    if (!selectedOrder || !selectedOrder.goodsReceivedNotes || selectedOrder.goodsReceivedNotes.length === 0) {
+      showError('No GRN found to return')
+      return
+    }
+
+    // Check GRN status
+    const grn = selectedOrder.goodsReceivedNotes[0]
+    if (grn.status !== 'received') {
+      showError('GRN must be in received status to return goods')
+      return
+    }
+
+    try {
+      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      showSuccess('Goods returned successfully. Product quantities reverted.')
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+    } catch (err: any) {
+      console.error('Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to return goods')
+    }
+  }
+
+  const handleEditClick = () => {
+    if (!selectedOrder) return
+
+    // Check if order is received before allowing edit
+    const isReceived = selectedOrder.goodsReceivedNotes &&
+      selectedOrder.goodsReceivedNotes.length > 0 &&
+      selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+    if (isReceived) {
+      setUnreturnDialogOpen(true)
+    } else {
+      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+    }
+  }
+
+  const handleReturnAndEdit = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      showSuccess('Goods returned successfully. You can now edit the order.')
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+
+      // Navigate to edit page
+      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+    } catch (err: any) {
+      console.error('Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to return goods')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleReturnOnly = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      showSuccess('Goods returned successfully. Product quantities reverted.')
+
+      // Update the selected order with the new data
+      if (response.data) {
+        dispatch(setSelectedPurchaseOrder(response.data))
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+    } catch (err: any) {
+      console.error('Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to return goods')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -289,11 +441,23 @@ const PurchaseOrdersPage: React.FC = () => {
   useEffect(() => {
     if (purchaseOrders.length > 0 && focusedOrderIndex === -1) {
       if (!selectedOrder && searchInputRef.current !== document.activeElement) {
-        setFocusedOrderIndex(0)
-        dispatch(setSelectedPurchaseOrder(purchaseOrders[0]))
+        // Don't auto-select if we have a poId query parameter
+        const poId = searchParams.get('poId')
+        if (!poId) {
+          setFocusedOrderIndex(0)
+          dispatch(setSelectedPurchaseOrder(purchaseOrders[0]))
+        }
       }
     }
-  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch])
+  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch, searchParams])
+
+  // Clear selection when no orders exist
+  useEffect(() => {
+    if (purchaseOrders.length === 0 && selectedOrder) {
+      dispatch(setSelectedPurchaseOrder(null))
+      setFocusedOrderIndex(-1)
+    }
+  }, [purchaseOrders.length, selectedOrder, dispatch])
 
   // Keyboard shortcuts
   const handleNavigateUp = useCallback(() => {
@@ -645,7 +809,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   <IconButton
                     size="small"
                     title="Edit Order"
-                    onClick={() => navigate(`/purchasing/orders/${selectedOrder.id}/edit`)}
+                    onClick={handleEditClick}
                     sx={{
                       height: `${TABLE_STYLES.row.height * 0.75}px`,
                       width: `${TABLE_STYLES.row.height * 0.75}px`,
@@ -748,10 +912,33 @@ const PurchaseOrdersPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              Status
+                              GRN No
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {selectedOrder.status || 'Pending'}
+                              {selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0
+                                ? selectedOrder.goodsReceivedNotes.map((grn: any, index: number) => (
+                                    <Box key={grn.id} component="span">
+                                      {index > 0 && ', '}
+                                      <Link
+                                        to={`/purchasing/goods-received?grnId=${grn.id}`}
+                                        style={{
+                                          color: '#1976d2',
+                                          textDecoration: 'none',
+                                          cursor: 'pointer',
+                                          transition: 'color 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = '#1565c0'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = '#1976d2'
+                                        }}
+                                      >
+                                        {grn.grnNumber}
+                                      </Link>
+                                    </Box>
+                                  ))
+                                : '-'}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -859,15 +1046,31 @@ const PurchaseOrdersPage: React.FC = () => {
                                 >
                                   Pay
                                 </Button>
-                                <Button
-                                  variant="contained"
-                                  size="small"
-                                  color="success"
-                                  sx={{ minWidth: 110 }}
-                                  onClick={() => {}}
-                                >
-                                  Receive
-                                </Button>
+                                {selectedOrder.goodsReceivedNotes &&
+                                 selectedOrder.goodsReceivedNotes.length > 0 &&
+                                 selectedOrder.goodsReceivedNotes[0].status === 'received' ? (
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    color="warning"
+                                    sx={{ minWidth: 110 }}
+                                    onClick={handleReturn}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                  >
+                                    Return
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    color="success"
+                                    sx={{ minWidth: 110 }}
+                                    onClick={handleReceive}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                  >
+                                    Receive
+                                  </Button>
+                                )}
                               </Stack>
                             </TableCell>
                           </TableRow>
@@ -1018,6 +1221,18 @@ const PurchaseOrdersPage: React.FC = () => {
         onClose={() => setDeletedOrdersDialogOpen(false)}
         onRefresh={loadOrders}
       />
+
+      {/* Unreturn Purchase Order Dialog */}
+      {selectedOrder && (
+        <UnreturnPurchaseOrderDialog
+          open={unreturnDialogOpen}
+          orderNumber={selectedOrder.orderNumber}
+          onClose={() => setUnreturnDialogOpen(false)}
+          onReturnAndEdit={handleReturnAndEdit}
+          onReturnOnly={handleReturnOnly}
+          loading={isLoading}
+        />
+      )}
     </Box>
   )
 }

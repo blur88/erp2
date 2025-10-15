@@ -15,7 +15,6 @@ import {
   MaxLength,
   IsInt,
   Min,
-  IsUrl,
   Matches,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
@@ -42,18 +41,7 @@ export class Category extends BaseEntity {
   name: string;
 
 
-  @Column({
-    type: 'varchar',
-    length: 255,
-    nullable: true,
-    comment: 'Category image URL or path',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  @IsUrl({}, { message: 'Invalid URL format for image' })
-  imageUrl?: string;
-
+  
 
   @Column({
     type: 'int',

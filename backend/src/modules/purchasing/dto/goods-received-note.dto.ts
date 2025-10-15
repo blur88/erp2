@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsArray,
   IsDecimal,
+  IsNumber,
   IsInt,
   MaxLength,
   MinLength,
@@ -25,31 +26,12 @@ export class CreateGrnItemDto {
   purchaseOrderItemId: string;
 
   @ApiProperty({ description: 'Quantity received' })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   receivedQuantity: number;
 
-  @ApiPropertyOptional({ description: 'Quantity rejected', default: 0 })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  rejectedQuantity?: number;
 
-  @ApiPropertyOptional({ description: 'Quantity accepted', default: 0 })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  acceptedQuantity?: number;
-
-  @ApiPropertyOptional({ description: 'Unit price at receipt' })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  unitPrice?: number;
 
   @ApiPropertyOptional({ description: 'Batch or lot number', maxLength: 100 })
   @IsOptional()
@@ -77,16 +59,6 @@ export class CreateGrnItemDto {
   @IsString()
   @MaxLength(100)
   storageLocation?: string;
-
-  @ApiPropertyOptional({ description: 'Item condition at receipt' })
-  @IsOptional()
-  @IsEnum(['good', 'damaged', 'defective'])
-  condition?: 'good' | 'damaged' | 'defective';
-
-  @ApiPropertyOptional({ description: 'Rejection reason if applicable' })
-  @IsOptional()
-  @IsString()
-  rejectionReason?: string;
 
   @ApiPropertyOptional({ description: 'Item-specific notes' })
   @IsOptional()
@@ -167,12 +139,9 @@ export class CreateGoodsReceivedNoteDto {
   @IsString()
   internalNotes?: string;
 
-  @ApiProperty({ description: 'GRN items', type: [CreateGrnItemDto] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => CreateGrnItemDto)
-  items: CreateGrnItemDto[];
+  @ApiPropertyOptional({ description: 'GRN items (optional - will be auto-generated from PO if not provided)', type: [CreateGrnItemDto] })
+  @IsOptional()
+  items?: CreateGrnItemDto[];
 
   @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
@@ -277,7 +246,6 @@ export class GrnItemResponseDto {
     id: string;
     description: string;
     quantity: number;
-    unitPrice: number;
     unit?: string;
     product?: {
       id: string;
@@ -286,20 +254,11 @@ export class GrnItemResponseDto {
     };
   };
 
+  @ApiProperty({ description: 'Ordered quantity' })
+  orderedQuantity: number;
+
   @ApiProperty({ description: 'Received quantity' })
   receivedQuantity: number;
-
-  @ApiProperty({ description: 'Rejected quantity' })
-  rejectedQuantity: number;
-
-  @ApiProperty({ description: 'Accepted quantity' })
-  acceptedQuantity: number;
-
-  @ApiProperty({ description: 'Unit price at receipt' })
-  unitPrice: number;
-
-  @ApiProperty({ description: 'Total amount for this line' })
-  totalAmount: number;
 
   @ApiProperty({ description: 'Batch or lot number' })
   batchNumber?: string;
@@ -316,20 +275,8 @@ export class GrnItemResponseDto {
   @ApiProperty({ description: 'Storage location' })
   storageLocation?: string;
 
-  @ApiProperty({ description: 'Item condition' })
-  condition?: string;
-
-  @ApiProperty({ description: 'Rejection reason' })
-  rejectionReason?: string;
-
   @ApiProperty({ description: 'Is fully received' })
   isFullyReceived: boolean;
-
-  @ApiProperty({ description: 'Has quality issues' })
-  hasQualityIssues: boolean;
-
-  @ApiProperty({ description: 'Acceptance rate percentage' })
-  acceptanceRate: number;
 
   @ApiProperty({ description: 'Notes' })
   notes?: string;
@@ -407,20 +354,14 @@ export class GoodsReceivedNoteResponseDto {
   @ApiProperty({ description: 'Inspection notes' })
   inspectionNotes?: string;
 
-  @ApiProperty({ description: 'Total amount received' })
-  totalAmount: number;
+  @ApiProperty({ description: 'Total quantity ordered' })
+  totalOrderedQuantity: number;
 
   @ApiProperty({ description: 'Total quantity received' })
   totalReceivedQuantity: number;
 
-  @ApiProperty({ description: 'Total quantity accepted' })
-  totalAcceptedQuantity: number;
-
-  @ApiProperty({ description: 'Total quantity rejected' })
-  totalRejectedQuantity: number;
-
-  @ApiProperty({ description: 'Overall acceptance rate percentage' })
-  overallAcceptanceRate: number;
+  @ApiProperty({ description: 'Received percentage' })
+  receivedPercentage: number;
 
   @ApiProperty({ description: 'Has quality issues' })
   hasQualityIssues: boolean;
@@ -491,24 +432,6 @@ export class InspectItemDto {
   @IsString()
   qualityNotes?: string;
 
-  @ApiPropertyOptional({ description: 'Final accepted quantity' })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  acceptedQuantity?: number;
-
-  @ApiPropertyOptional({ description: 'Final rejected quantity' })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  rejectedQuantity?: number;
-
-  @ApiPropertyOptional({ description: 'Rejection reason' })
-  @IsOptional()
-  @IsString()
-  rejectionReason?: string;
 
   @ApiPropertyOptional({ description: 'Storage location' })
   @IsOptional()

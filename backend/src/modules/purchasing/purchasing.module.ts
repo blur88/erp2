@@ -6,6 +6,8 @@ import {
   Supplier,
   PurchaseOrder,
   PurchaseOrderItem,
+  GoodsReceivedNote,
+  GoodsReceivedNoteItem,
   Product,
   User,
 } from '../../database/entities';
@@ -13,11 +15,13 @@ import {
 // Services
 import { SupplierService } from './services/supplier.service';
 import { PurchaseOrderService } from './services/purchase-order.service';
+import { GoodsReceivedNoteService } from './services/goods-received-note.service';
 
 // Controllers
 import {
   SupplierController,
   PurchaseOrderController,
+  GoodsReceivedNoteController,
 } from './controllers';
 
 @Module({
@@ -26,6 +30,8 @@ import {
       Supplier,
       PurchaseOrder,
       PurchaseOrderItem,
+      GoodsReceivedNote,
+      GoodsReceivedNoteItem,
       Product,
       User,
     ]),
@@ -34,16 +40,19 @@ import {
   controllers: [
     SupplierController,
     PurchaseOrderController,
+    GoodsReceivedNoteController,
   ],
 
   providers: [
     SupplierService,
     PurchaseOrderService,
+    GoodsReceivedNoteService,
   ],
 
   exports: [
     SupplierService,
     PurchaseOrderService,
+    GoodsReceivedNoteService,
   ],
 })
 export class PurchasingModule {}

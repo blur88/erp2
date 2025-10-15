@@ -80,7 +80,6 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  imageUrl?: string | null;
   sortOrder: number;
   path?: string | null;
   level: number;
@@ -123,8 +122,6 @@ export interface StockMovement {
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 
@@ -143,7 +140,6 @@ export enum PriceLevel {
 
 export interface Customer {
   id: string;
-  customerCode?: string;
   type: CustomerType;
   name: string;
   contactPerson?: string;
@@ -348,6 +344,12 @@ export interface PurchaseOrder {
   expectedDate?: Date;
   receivedDate?: Date;
   notes?: string;
+  goodsReceivedNotes?: Array<{
+    id: string;
+    grnNumber: string;
+    status: string;
+    receiptDate?: Date;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -376,10 +378,14 @@ export interface GoodsReceivedNote {
 export interface GRNItem {
   id: string;
   product: Product;
+  productName?: string;
   orderedQuantity: number;
   receivedQuantity: number;
-  damagedQuantity?: number;
   notes?: string;
+  purchaseOrderItem?: {
+    id: string;
+    product?: Product;
+  };
 }
 
 // Common types

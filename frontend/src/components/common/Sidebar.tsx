@@ -160,7 +160,7 @@ const menuSections: MenuSection[] = [
             id: 'grn',
             title: 'Goods Received',
             icon: <GRNIcon />,
-            path: '/purchasing/grn',
+            path: '/purchasing/goods-received',
           },
         ],
       },

@@ -12,7 +12,6 @@ import {
   MaxLength,
   IsDecimal,
   Min,
-  IsObject,
   Matches,
   IsNotEmpty,
 } from 'class-validator';
@@ -39,23 +38,11 @@ export enum PriceLevel {
  * Includes credit management and pricing level assignment
  */
 @Entity('customers')
-@Index(['customerCode'], { unique: true })
 @Index(['phone'])
 @Index(['type'])
 @Index(['priceLevel'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 20,
-    unique: true,
-    comment: 'Unique customer code/number',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(20)
-  @Matches(/^[A-Za-z0-9_-]+$/, { message: 'Customer code must contain only alphanumeric characters, underscores, and hyphens' })
-  customerCode: string;
 
   @Column({
     type: 'enum',
@@ -155,15 +142,6 @@ export class Customer extends BaseEntity {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Additional customer metadata - LIMITED TO SAFE DATA ONLY',
-  })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, string | number | boolean>;
 
   // Relationships
   @OneToMany(() => SalesOrder, (salesOrder) => salesOrder.customer, {

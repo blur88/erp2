@@ -509,7 +509,9 @@ export class SupplierInvoice extends BaseEntity {
 
     // Compare amounts
     const poAmount = Number(this.purchaseOrder.totalAmount);
-    const grnAmount = Number(this.goodsReceivedNote.totalValue);
+    // GRN verification is now quantity-based only, not amount-based
+    // We only verify that goods were received, not the total value
+    const grnAmount = poAmount; // Use PO amount as reference since GRN no longer tracks costs
     const invoiceAmount = Number(this.netAmount);
 
     this.poMatchedAmount = poAmount;

@@ -14,9 +14,8 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { 
-  InvoiceStatus, 
-  InvoiceType 
+import {
+  InvoiceStatus
 } from '../../../database/entities/invoice.entity';
 
 export class InvoiceLineItemDto {
@@ -77,14 +76,7 @@ export class CreateInvoiceDto {
   @IsUUID()
   salesOrderId?: string;
 
-  @ApiProperty({
-    description: 'Invoice type',
-    enum: InvoiceType,
-    example: InvoiceType.STANDARD,
-  })
-  @IsEnum(InvoiceType)
-  type: InvoiceType;
-
+  
   @ApiPropertyOptional({
     description: 'Invoice date (defaults to today)',
     example: '2024-01-01',
@@ -267,15 +259,7 @@ export class QueryInvoicesDto {
   @IsEnum(InvoiceStatus)
   status?: InvoiceStatus;
 
-  @ApiPropertyOptional({
-    description: 'Filter by invoice type',
-    enum: InvoiceType,
-    example: InvoiceType.STANDARD,
-  })
-  @IsOptional()
-  @IsEnum(InvoiceType)
-  type?: InvoiceType;
-
+  
   @ApiPropertyOptional({
     description: 'Filter invoices from date',
     example: '2024-01-01',
@@ -355,9 +339,7 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: 'INV-2024-001' })
   invoiceNumber: string;
 
-  @ApiProperty({ enum: InvoiceType, example: InvoiceType.STANDARD })
-  type: InvoiceType;
-
+  
   @ApiProperty({ enum: InvoiceStatus, example: InvoiceStatus.DRAFT })
   status: InvoiceStatus;
 
@@ -424,7 +406,6 @@ export class InvoiceResponseDto {
   @ApiProperty()
   customer: {
     id: string;
-    customerCode: string;
     name: string;
     email?: string;
     phone?: string;
@@ -568,30 +549,3 @@ export class VoidInvoiceDto {
   reason: string;
 }
 
-export class CreditNoteDto {
-  @ApiProperty({
-    description: 'Credit amount',
-    example: 200.00,
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0.01)
-  @Transform(({ value }) => parseFloat(value))
-  creditAmount: number;
-
-  @ApiProperty({
-    description: 'Reason for credit note',
-    example: 'Product return - defective items',
-  })
-  @IsString()
-  reason: string;
-
-  @ApiPropertyOptional({
-    description: 'Credit note line items',
-    type: [InvoiceLineItemDto],
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => InvoiceLineItemDto)
-  lineItems?: InvoiceLineItemDto[];
-}

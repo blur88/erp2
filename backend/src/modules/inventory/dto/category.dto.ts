@@ -20,12 +20,7 @@ export class CreateCategoryDto {
   name: string;
 
 
-  @ApiPropertyOptional({ description: 'Category image URL or path', maxLength: 255 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  imageUrl?: string;
-
+  
 
   @ApiPropertyOptional({ description: 'Display order for sorting', minimum: 0, default: 0 })
   @IsOptional()
@@ -114,9 +109,7 @@ export class CategoryResponseDto {
   name: string;
 
 
-  @ApiPropertyOptional({ description: 'Category image URL' })
-  imageUrl?: string;
-
+  
 
   @ApiProperty({ description: 'Sort order' })
   sortOrder: number;

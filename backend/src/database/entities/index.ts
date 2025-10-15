@@ -26,7 +26,7 @@ export { Customer, CustomerType, PriceLevel } from './customer.entity';
 // export { SalesOrderItem, SalesOrderItemStatus } from './sales-order-item.entity';
 
 // Financial Management (SalesModule) - Temporarily disabled for startup
-// export { Invoice, InvoiceStatus, InvoiceType } from './invoice.entity';
+// export { Invoice, InvoiceStatus } from './invoice.entity';
 // export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.entity';
 
 // Inventory Management (InventoryModule)
@@ -38,7 +38,8 @@ export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPriority } from './pur
 export { PurchaseOrderItem } from './purchase-order-item.entity';
 export { PurchaseRequisition } from './purchase-requisition.entity';
 export { PurchaseRequisitionItem } from './purchase-requisition-item.entity';
-export { GoodsReceivedNote } from './goods-received-note.entity';
+export { GoodsReceivedNote, GrnStatus, GrnType } from './goods-received-note.entity';
+export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 export { SupplierInvoice } from './supplier-invoice.entity';
 export { SupplierInvoiceItem } from './supplier-invoice-item.entity';
 

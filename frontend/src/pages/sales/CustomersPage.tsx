@@ -188,7 +188,7 @@ const CustomersPage: React.FC = () => {
         })
 
         if (duplicateCustomer) {
-          setPhoneError(`Phone number already exists for customer: ${duplicateCustomer.name} (${duplicateCustomer.customerCode})`)
+          setPhoneError(`Phone number already exists for customer: ${duplicateCustomer.name}`)
         }
       }
     } catch (error) {

@@ -6,7 +6,8 @@ import {
   PurchaseOrderItem,
   Supplier,
   User,
-  Product
+  Product,
+  GoodsReceivedNote
 } from '../../../database/entities';
 import {
   CreatePurchaseOrderDto,
@@ -17,6 +18,8 @@ import {
   PurchaseOrderSummaryDto,
 } from '../dto';
 import { SupplierService } from './supplier.service';
+import { GoodsReceivedNoteService } from './goods-received-note.service';
+import { GrnStatus, GrnType } from '../../../database/entities/goods-received-note.entity';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -33,7 +36,10 @@ export class PurchaseOrderService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(GoodsReceivedNote)
+    private readonly grnRepository: Repository<GoodsReceivedNote>,
     private readonly supplierService: SupplierService,
+    private readonly grnService: GoodsReceivedNoteService,
   ) {}
 
   /**
@@ -171,6 +177,11 @@ export class PurchaseOrderService {
 
       // Set purchase order totals
       purchaseOrder.subtotal = subtotal;
+
+      // Attach items to purchase order before calculating totals (needed for calculateTotals)
+      purchaseOrder.items = orderItems;
+
+      // Calculate totals after items are attached
       purchaseOrder.calculateTotals();
 
       // Check supplier credit limit
@@ -183,19 +194,19 @@ export class PurchaseOrderService {
         throw new BadRequestException('Purchase amount exceeds supplier credit limit');
       }
 
-      // Attach items to purchase order before saving (cascade save will handle items)
-      purchaseOrder.items = orderItems;
-
       // Save purchase order with items (cascade will save items automatically)
       const savedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
 
       // Update supplier metrics if this is a new order
       const isFirstOrder = supplier.totalOrders === 0;
       await this.supplierService.updatePurchaseMetrics(
-        supplier.id, 
-        Number(savedPurchaseOrder.totalAmount), 
+        supplier.id,
+        Number(savedPurchaseOrder.totalAmount),
         isFirstOrder
       );
+
+      // Auto-create GRN in draft status
+      await this.createDraftGrn(savedPurchaseOrder);
 
       this.logger.log(`Purchase order created successfully: ${savedPurchaseOrder.orderNumber}`);
       return await this.findOne(savedPurchaseOrder.id);
@@ -238,7 +249,8 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('po.createdByUser', 'createdByUser')
       .leftJoinAndSelect('po.approvedByUser', 'approvedByUser')
       .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('items.product', 'product');
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns');
 
     // Apply search filter
     if (search) {
@@ -369,10 +381,16 @@ export class PurchaseOrderService {
 
     // Check if order can be modified
     try {
+      // Track if orderDate is being changed
+      const orderDateChanged = updatePurchaseOrderDto.orderDate &&
+        new Date(updatePurchaseOrderDto.orderDate).getTime() !== new Date(purchaseOrder.orderDate).getTime();
+
       // Update basic fields (exclude items as they're handled separately)
       const { items: _, ...updateFields } = updatePurchaseOrderDto;
       Object.assign(purchaseOrder, {
         ...updateFields,
+        orderDate: updatePurchaseOrderDto.orderDate ?
+          new Date(updatePurchaseOrderDto.orderDate) : purchaseOrder.orderDate,
         expectedDeliveryDate: updatePurchaseOrderDto.expectedDeliveryDate ?
           new Date(updatePurchaseOrderDto.expectedDeliveryDate) : purchaseOrder.expectedDeliveryDate,
       });
@@ -450,10 +468,22 @@ export class PurchaseOrderService {
         }
 
         purchaseOrder.subtotal = subtotal;
+        // Attach items to purchase order before calculating totals
+        purchaseOrder.items = orderItems;
         purchaseOrder.calculateTotals();
       }
 
       const updatedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
+
+      // Sync GRN if it exists and is in draft status
+      if (updatePurchaseOrderDto.items) {
+        await this.syncDraftGrn(updatedPurchaseOrder.id);
+      }
+
+      // Sync GRN date if PO order date changed
+      if (orderDateChanged) {
+        await this.syncGrnDate(updatedPurchaseOrder.id, new Date(updatePurchaseOrderDto.orderDate));
+      }
 
       this.logger.log(`Purchase order updated successfully: ${updatedPurchaseOrder.orderNumber}`);
       return await this.findOne(updatedPurchaseOrder.id);
@@ -583,7 +613,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Restore a deleted purchase order
+   * Restore a deleted purchase order and its associated GRN
    */
   async restore(id: string, userId: string = 'system'): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Restoring purchase order: ${id}`);
@@ -601,6 +631,17 @@ export class PurchaseOrderService {
 
     if (!purchaseOrder.deletedAt) {
       throw new BadRequestException('Purchase order is not deleted');
+    }
+
+    // Find and restore associated GRN
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+      withDeleted: true,
+    });
+
+    if (grn && grn.deletedAt) {
+      await this.grnRepository.restore(grn.id);
+      this.logger.log(`Associated GRN ${grn.grnNumber} restored`);
     }
 
     // Restore using TypeORM's restore method
@@ -622,7 +663,6 @@ export class PurchaseOrderService {
   async bulkRestore(orderIds: string[], userId: string = 'system'): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${orderIds.length} purchase orders`);
 
-    const restoredCount = 0;
     const failedIds: string[] = [];
     let successCount = 0;
 
@@ -641,7 +681,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Permanently delete a purchase order
+   * Permanently delete a purchase order and its associated GRN
    */
   async permanentDelete(id: string): Promise<void> {
     this.logger.log(`Permanently deleting purchase order: ${id}`);
@@ -653,6 +693,17 @@ export class PurchaseOrderService {
 
     if (!purchaseOrder) {
       throw new NotFoundException('Purchase order not found');
+    }
+
+    // Find and permanently delete associated GRN (including soft-deleted)
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+      withDeleted: true,
+    });
+
+    if (grn) {
+      await this.grnRepository.remove(grn);
+      this.logger.log(`Associated GRN ${grn.grnNumber} permanently deleted`);
     }
 
     // Hard delete - remove from database completely
@@ -685,9 +736,9 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Soft delete a purchase order
+   * Soft delete a purchase order and its associated GRN
    */
-  async remove(id: string, userId: string = 'system'): Promise<void> {
+  async remove(id: string): Promise<void> {
     this.logger.log(`Soft deleting purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -698,10 +749,402 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
+    // Find and soft delete associated GRN
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+    });
+
+    if (grn) {
+      await this.grnRepository.softDelete(grn.id);
+      this.logger.log(`Associated GRN ${grn.grnNumber} soft deleted`);
+    }
+
     // Soft delete using TypeORM's softDelete method
     await this.purchaseOrderRepository.softDelete(id);
 
     this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted successfully`);
+  }
+
+  /**
+   * Sync draft GRN with updated PO items
+   * Only syncs if GRN is in DRAFT status
+   */
+  private async syncDraftGrn(purchaseOrderId: string): Promise<void> {
+    try {
+      // Find GRN associated with this PO
+      const grn = await this.grnRepository.findOne({
+        where: { purchaseOrderId },
+        relations: ['items'],
+      });
+
+      if (!grn) {
+        this.logger.debug(`No GRN found for PO ${purchaseOrderId}`);
+        return;
+      }
+
+      // Only sync if GRN is in DRAFT status
+      if (grn.status !== GrnStatus.DRAFT) {
+        this.logger.debug(`GRN ${grn.grnNumber} is in ${grn.status} status, skipping sync`);
+        return;
+      }
+
+      // Fetch full PO with relations
+      const fullPO = await this.purchaseOrderRepository.findOne({
+        where: { id: purchaseOrderId },
+        relations: ['supplier', 'items', 'items.product'],
+      });
+
+      if (!fullPO) {
+        this.logger.warn(`PO ${purchaseOrderId} not found during GRN sync`);
+        return;
+      }
+
+      this.logger.log(`Syncing GRN ${grn.grnNumber} with updated PO ${fullPO.orderNumber}`);
+
+      // Remove existing GRN items (since PO items were updated)
+      if (grn.items && grn.items.length > 0) {
+        this.logger.debug(`Removing ${grn.items.length} existing GRN items`);
+        await this.grnService.removeGrnItems(grn.id);
+      }
+
+      // Recreate GRN items from updated PO items
+      const grnItems: any[] = [];
+      let lineNumber = 1;
+
+      for (const poItem of fullPO.items || []) {
+        const grnItem = {
+          grnId: grn.id,
+          lineNumber: lineNumber++,
+          productId: poItem.product.id,
+          productSku: poItem.product.barcode || poItem.product.id,
+          productName: poItem.product.name,
+          productDescription: poItem.product.description,
+          unit: poItem.unit || 'pcs',
+          orderedQuantity: Number(poItem.quantity),
+          receivedQuantity: 0, // Reset to 0 for draft
+          purchaseOrderItemId: poItem.id,
+        };
+
+        grnItems.push(grnItem);
+        this.logger.debug(`Created GRN item: ${grnItem.productName}, ordered: ${grnItem.orderedQuantity}`);
+      }
+
+      this.logger.debug(`Saving ${grnItems.length} new GRN items`);
+      // Save updated GRN items
+      await this.grnService.updateGrnItems(grn.id, grnItems);
+
+      // Reload GRN with fresh items from database
+      this.logger.debug(`Reloading GRN ${grn.id} with items`);
+      const updatedGrn = await this.grnRepository.findOne({
+        where: { id: grn.id },
+        relations: ['items'],
+      });
+
+      if (updatedGrn) {
+        this.logger.debug(`Reloaded GRN has ${updatedGrn.items?.length || 0} items`);
+        // Update GRN totals with fresh data
+        updatedGrn.calculateTotals();
+        await this.grnRepository.save(updatedGrn);
+        this.logger.log(`GRN ${grn.grnNumber} synced successfully with ${grnItems.length} items`);
+      } else {
+        this.logger.warn(`Failed to reload GRN ${grn.id} after sync`);
+      }
+    } catch (error) {
+      this.logger.error(`Error syncing draft GRN: ${error.message}`, error.stack);
+      // Don't throw - GRN sync failure shouldn't block PO update
+    }
+  }
+
+  /**
+   * Sync GRN receivedDate with PO orderDate when PO date is changed
+   */
+  private async syncGrnDate(purchaseOrderId: string, newOrderDate: Date): Promise<void> {
+    try {
+      // Find GRN associated with this PO
+      const grn = await this.grnRepository.findOne({
+        where: { purchaseOrderId },
+      });
+
+      if (!grn) {
+        this.logger.debug(`No GRN found for PO ${purchaseOrderId}`);
+        return;
+      }
+
+      // Update GRN receivedDate to match PO orderDate
+      grn.receivedDate = newOrderDate;
+      await this.grnRepository.save(grn);
+
+      this.logger.log(`GRN ${grn.grnNumber} date synced to ${newOrderDate.toISOString()}`);
+    } catch (error) {
+      this.logger.error(`Error syncing GRN date: ${error.message}`, error.stack);
+      // Don't throw - GRN date sync failure shouldn't block PO update
+    }
+  }
+
+  /**
+   * Create a draft GRN for a new purchase order
+   */
+  private async createDraftGrn(purchaseOrder: PurchaseOrder): Promise<void> {
+    try {
+      // Generate sequential GRN number
+      const grns = await this.grnRepository.find({
+        select: ['grnNumber'],
+        withDeleted: true,
+      });
+
+      let maxNumber = 0;
+      for (const grn of grns) {
+        const match = grn.grnNumber.match(/^GRN-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      }
+      const grnNumber = `GRN-${(maxNumber + 1).toString().padStart(6, '0')}`;
+
+      // Fetch full PO with relations for GRN creation
+      const fullPO = await this.purchaseOrderRepository.findOne({
+        where: { id: purchaseOrder.id },
+        relations: ['supplier', 'items', 'items.product'],
+      });
+
+      if (!fullPO) {
+        throw new NotFoundException('Purchase order not found');
+      }
+
+      // Create GRN with draft status (empty JSON for backward compatibility)
+      const grn = this.grnRepository.create({
+        grnNumber,
+        purchaseOrderId: fullPO.id,
+        supplierId: fullPO.supplier.id,
+        receivedByUserId: null,
+        receivedDate: new Date(),
+        deliveryReference: null,
+        vehicleDetails: null,
+        driverName: null,
+        notes: null,
+        internalNotes: null,
+        itemsReceived: [], // Empty JSON - using relational items instead
+        qualityInspected: false,
+        metadata: null,
+        type: GrnType.STANDARD,
+        status: GrnStatus.DRAFT,
+        totalQuantityOrdered: 0,
+        totalQuantityReceived: 0,
+      });
+
+      const savedGrn = await this.grnRepository.save(grn);
+
+      // Create GRN items using relational table
+      const grnItems: any[] = [];
+      let lineNumber = 1;
+
+      for (const poItem of fullPO.items || []) {
+        const grnItem = {
+          grnId: savedGrn.id,
+          lineNumber: lineNumber++,
+          productId: poItem.product.id,
+          productSku: poItem.product.barcode || poItem.product.id,
+          productName: poItem.product.name,
+          productDescription: poItem.product.description,
+          unit: poItem.unit || 'pcs',
+          orderedQuantity: Number(poItem.quantity),
+          receivedQuantity: 0, // Set to 0 for draft status
+          purchaseOrderItemId: poItem.id,
+        };
+
+        grnItems.push(grnItem);
+      }
+
+      // Save GRN items
+      await this.grnService.updateGrnItems(savedGrn.id, grnItems);
+
+      // Update GRN totals based on relational items
+      savedGrn.items = grnItems as any;
+      savedGrn.calculateTotals();
+      await this.grnRepository.save(savedGrn);
+
+      this.logger.log(`Draft GRN ${grnNumber} created for PO ${fullPO.orderNumber} with ${grnItems.length} items`);
+    } catch (error) {
+      this.logger.error(`Error creating draft GRN: ${error.message}`, error.stack);
+      // Don't throw error - GRN creation failure shouldn't block PO creation
+    }
+  }
+
+  /**
+   * Receive goods - change GRN status to received and update product quantities
+   */
+  async receiveGoods(id: string): Promise<PurchaseOrderResponseDto> {
+    this.logger.log(`Receiving goods for purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: ['items', 'items.product', 'supplier'],
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Find the GRN linked to this PO with relational items
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+      relations: ['items'],
+    });
+
+    if (!grn) {
+      throw new NotFoundException('Goods Received Note not found for this purchase order');
+    }
+
+    if (grn.status !== GrnStatus.DRAFT) {
+      throw new BadRequestException('GRN must be in draft status to receive goods');
+    }
+
+    try {
+      // Update GRN items to set received quantities
+      if (grn.items && grn.items.length > 0) {
+        await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
+          id: item.id,
+          grnId: item.grnId,
+          lineNumber: item.lineNumber,
+          productId: item.productId,
+          productSku: item.productSku,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          unit: item.unit,
+          orderedQuantity: Number(item.orderedQuantity),
+          receivedQuantity: Number(item.orderedQuantity), // Set received = ordered
+          purchaseOrderItemId: item.purchaseOrderItemId,
+        })));
+      }
+
+      // Reload GRN with fresh items from database
+      const updatedGrn = await this.grnRepository.findOne({
+        where: { id: grn.id },
+        relations: ['items'],
+      });
+
+      if (!updatedGrn) {
+        throw new NotFoundException('GRN not found after updating items');
+      }
+
+      // Update GRN status and recalculate totals with fresh data
+      updatedGrn.status = GrnStatus.RECEIVED;
+      updatedGrn.calculateTotals();
+      await this.grnRepository.save(updatedGrn);
+
+      // Update product quantities
+      for (const item of purchaseOrder.items) {
+        const product = await this.productRepository.findOne({
+          where: { id: item.productId },
+        });
+
+        if (product) {
+          product.adjustStock(Number(item.quantity), 'increase');
+          await this.productRepository.save(product);
+        }
+
+        // Update PO item received quantity
+        item.receivedQuantity = item.quantity;
+        item.acceptedQuantity = item.quantity;
+        await this.purchaseOrderItemRepository.save(item);
+      }
+
+      this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
+      return await this.findOne(id);
+    } catch (error) {
+      this.logger.error(`Error receiving goods: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to receive goods');
+    }
+  }
+
+  /**
+   * Return goods - change GRN status to return and revert product quantities
+   */
+  async returnGoods(id: string): Promise<PurchaseOrderResponseDto> {
+    this.logger.log(`Returning goods for purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: ['items', 'items.product', 'supplier'],
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Find the GRN linked to this PO with relational items
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+      relations: ['items'],
+    });
+
+    if (!grn) {
+      throw new NotFoundException('Goods Received Note not found for this purchase order');
+    }
+
+    if (grn.status !== GrnStatus.RECEIVED) {
+      throw new BadRequestException('GRN must be in received status to return goods');
+    }
+
+    try {
+      // Reset GRN items received quantities to 0
+      if (grn.items && grn.items.length > 0) {
+        await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
+          id: item.id,
+          grnId: item.grnId,
+          lineNumber: item.lineNumber,
+          productId: item.productId,
+          productSku: item.productSku,
+          productName: item.productName,
+          productDescription: item.productDescription,
+          unit: item.unit,
+          orderedQuantity: Number(item.orderedQuantity),
+          receivedQuantity: 0, // Reset to 0 (return)
+          purchaseOrderItemId: item.purchaseOrderItemId,
+        })));
+      }
+
+      // Reload GRN with fresh items from database
+      const updatedGrn = await this.grnRepository.findOne({
+        where: { id: grn.id },
+        relations: ['items'],
+      });
+
+      if (!updatedGrn) {
+        throw new NotFoundException('GRN not found after updating items');
+      }
+
+      // Update GRN status back to draft and recalculate totals with fresh data
+      updatedGrn.status = GrnStatus.DRAFT;
+      updatedGrn.calculateTotals();
+      await this.grnRepository.save(updatedGrn);
+
+      // Revert product quantities
+      for (const item of purchaseOrder.items) {
+        const product = await this.productRepository.findOne({
+          where: { id: item.productId },
+        });
+
+        if (product) {
+          product.adjustStock(Number(item.quantity), 'decrease');
+          await this.productRepository.save(product);
+        }
+
+        // Reset PO item received quantity
+        item.receivedQuantity = 0;
+        item.acceptedQuantity = 0;
+        await this.purchaseOrderItemRepository.save(item);
+      }
+
+      this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
+      return await this.findOne(id);
+    } catch (error) {
+      this.logger.error(`Error returning goods: ${error.message}`, error.stack);
+      throw new BadRequestException('Failed to return goods');
+    }
   }
 
   /**
@@ -778,6 +1221,12 @@ export class PurchaseOrderService {
         status: item.status,
         requiredDate: item.requiredDate,
         notes: item.notes,
+      })) || [],
+      goodsReceivedNotes: purchaseOrder.goodsReceivedNotes?.map(grn => ({
+        id: grn.id,
+        grnNumber: grn.grnNumber,
+        status: grn.status,
+        receiptDate: grn.receivedDate,
       })) || [],
       createdAt: purchaseOrder.createdAt,
       updatedAt: purchaseOrder.updatedAt,

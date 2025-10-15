@@ -3,6 +3,7 @@ import {
   Column,
   Index,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   BeforeInsert,
 } from 'typeorm';
@@ -21,14 +22,11 @@ import { BaseEntity } from './base.entity';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Supplier } from './supplier.entity';
 import { User } from './user.entity';
+import { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 
 export enum GrnStatus {
   DRAFT = 'draft',
   RECEIVED = 'received',
-  INSPECTED = 'inspected',
-  ACCEPTED = 'accepted',
-  REJECTED = 'rejected',
-  PARTIALLY_ACCEPTED = 'partially_accepted',
 }
 
 export enum GrnType {
@@ -151,7 +149,7 @@ export class GoodsReceivedNote extends BaseEntity {
   // Items received (denormalized for performance and audit)
   @Column({
     type: 'json',
-    comment: 'Details of items received with quantities and condition',
+    comment: 'Details of items received with quantities',
   })
   @IsJSON()
   itemsReceived: Array<{
@@ -160,13 +158,9 @@ export class GoodsReceivedNote extends BaseEntity {
     productName: string;
     orderedQuantity: number;
     receivedQuantity: number;
-    acceptedQuantity?: number;
-    rejectedQuantity?: number;
-    unitCost: number;
     notes?: string;
     batchNumber?: string;
     expiryDate?: string;
-    condition?: 'good' | 'damaged' | 'expired' | 'defective';
   }>;
 
   // Quality Inspection
@@ -212,44 +206,22 @@ export class GoodsReceivedNote extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
+    comment: 'Total quantity ordered (from PO)',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  totalQuantityOrdered: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    default: 0,
     comment: 'Total quantity received',
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   totalQuantityReceived: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Total quantity accepted',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  totalQuantityAccepted: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Total quantity rejected',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  totalQuantityRejected: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Total value of goods received',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  totalValue: number;
 
   // Additional Information
   @Column({
@@ -308,9 +280,11 @@ export class GoodsReceivedNote extends BaseEntity {
 
   @Column({
     type: 'uuid',
+    nullable: true, // Nullable since auth was removed
     comment: 'User who received the goods',
   })
-  receivedByUserId: string;
+  @IsOptional()
+  receivedByUserId?: string;
 
   @Column({
     type: 'uuid',
@@ -337,10 +311,11 @@ export class GoodsReceivedNote extends BaseEntity {
   supplier: Supplier;
 
   @ManyToOne(() => User, {
-    onDelete: 'RESTRICT',
+    onDelete: 'SET NULL',
+    nullable: true,
   })
   @JoinColumn({ name: 'receivedByUserId' })
-  receivedByUser: User;
+  receivedByUser?: User;
 
   @ManyToOne(() => User, {
     onDelete: 'SET NULL',
@@ -349,24 +324,25 @@ export class GoodsReceivedNote extends BaseEntity {
   @JoinColumn({ name: 'inspectedByUserId' })
   inspectedByUser?: User;
 
+  @OneToMany(() => GoodsReceivedNoteItem, (item) => item.grn, {
+    cascade: true,
+    eager: false,
+  })
+  items: GoodsReceivedNoteItem[];
+
   // Computed properties
-  get isFullyAccepted(): boolean {
-    return Number(this.totalQuantityAccepted) === Number(this.totalQuantityReceived) && 
-           Number(this.totalQuantityRejected) === 0;
+  get isFullyReceived(): boolean {
+    return Number(this.totalQuantityReceived) >= Number(this.totalQuantityOrdered);
   }
 
-  get isPartiallyAccepted(): boolean {
-    return Number(this.totalQuantityAccepted) > 0 && Number(this.totalQuantityRejected) > 0;
+  get isPartiallyReceived(): boolean {
+    return Number(this.totalQuantityReceived) > 0 &&
+           Number(this.totalQuantityReceived) < Number(this.totalQuantityOrdered);
   }
 
-  get isFullyRejected(): boolean {
-    return Number(this.totalQuantityRejected) === Number(this.totalQuantityReceived) &&
-           Number(this.totalQuantityAccepted) === 0;
-  }
-
-  get acceptanceRate(): number {
-    return Number(this.totalQuantityReceived) > 0 
-      ? (Number(this.totalQuantityAccepted) / Number(this.totalQuantityReceived)) * 100 
+  get receivedPercentage(): number {
+    return Number(this.totalQuantityOrdered) > 0
+      ? (Number(this.totalQuantityReceived) / Number(this.totalQuantityOrdered)) * 100
       : 0;
   }
 
@@ -384,57 +360,42 @@ export class GoodsReceivedNote extends BaseEntity {
   // Hooks
   @BeforeInsert()
   generateGrnNumber() {
-    if (!this.grnNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.grnNumber = `GRN-${timestamp}`;
-    }
+    // GRN number will be set by the service using sequential numbering
+    // This hook is kept for backward compatibility but does nothing
+    // if grnNumber is already set by the service
   }
 
   @BeforeInsert()
   calculateTotals() {
-    if (this.itemsReceived && this.itemsReceived.length > 0) {
-      this.totalQuantityReceived = this.itemsReceived.reduce(
-        (sum, item) => sum + Number(item.receivedQuantity), 0
+    // Calculate from items relation if available, otherwise from JSON (for backward compatibility)
+    const itemsSource = this.items?.length > 0 ? this.items : this.itemsReceived;
+
+    if (itemsSource && itemsSource.length > 0) {
+      this.totalQuantityOrdered = itemsSource.reduce(
+        (sum, item) => sum + Number(item.orderedQuantity || 0), 0
       );
 
-      this.totalQuantityAccepted = this.itemsReceived.reduce(
-        (sum, item) => sum + Number(item.acceptedQuantity || item.receivedQuantity), 0
-      );
-
-      this.totalQuantityRejected = this.itemsReceived.reduce(
-        (sum, item) => sum + Number(item.rejectedQuantity || 0), 0
-      );
-
-      this.totalValue = this.itemsReceived.reduce(
-        (sum, item) => sum + (Number(item.receivedQuantity) * Number(item.unitCost)), 0
+      this.totalQuantityReceived = itemsSource.reduce(
+        (sum, item) => sum + Number(item.receivedQuantity || 0), 0
       );
     }
   }
 
   // Helper methods
   updateStatus(): void {
-    if (this.qualityInspected) {
-      if (this.isFullyAccepted) {
-        this.status = GrnStatus.ACCEPTED;
-      } else if (this.isFullyRejected) {
-        this.status = GrnStatus.REJECTED;
-      } else if (this.isPartiallyAccepted) {
-        this.status = GrnStatus.PARTIALLY_ACCEPTED;
-      } else {
-        this.status = GrnStatus.INSPECTED;
-      }
-    } else {
+    // Simplified status logic - only DRAFT or RECEIVED
+    if (this.receivedDate) {
       this.status = GrnStatus.RECEIVED;
+    } else {
+      this.status = GrnStatus.DRAFT;
     }
   }
 
   performQualityInspection(
-    inspectedByUserId: string, 
+    inspectedByUserId: string,
     inspectionResults: Array<{
       productId: string;
-      acceptedQuantity: number;
-      rejectedQuantity: number;
-      condition?: string;
+      receivedQuantity: number;
       notes?: string;
     }>,
     inspectionNotes?: string
@@ -450,9 +411,7 @@ export class GoodsReceivedNote extends BaseEntity {
       if (result) {
         return {
           ...item,
-          acceptedQuantity: result.acceptedQuantity,
-          rejectedQuantity: result.rejectedQuantity,
-          condition: result.condition as any,
+          receivedQuantity: result.receivedQuantity,
           notes: result.notes,
         };
       }
@@ -480,51 +439,41 @@ export class GoodsReceivedNote extends BaseEntity {
   // Get summary for reporting
   getSummary(): {
     itemCount: number;
+    totalOrdered: number;
     totalReceived: number;
-    totalAccepted: number;
-    totalRejected: number;
-    acceptanceRate: number;
+    receivedPercentage: number;
     isLateDelivery: boolean;
     deliveryDelayDays: number;
   } {
     return {
       itemCount: this.itemsReceived?.length || 0,
+      totalOrdered: Number(this.totalQuantityOrdered),
       totalReceived: Number(this.totalQuantityReceived),
-      totalAccepted: Number(this.totalQuantityAccepted),
-      totalRejected: Number(this.totalQuantityRejected),
-      acceptanceRate: this.acceptanceRate,
+      receivedPercentage: this.receivedPercentage,
       isLateDelivery: this.isLateDelivery,
       deliveryDelayDays: this.deliveryDelayDays,
     };
   }
 
-  // Validate that inspection quantities match received quantities
-  validateInspectionQuantities(): boolean {
-    if (!this.itemsReceived) return false;
-
-    return this.itemsReceived.every(item => {
-      const inspectedTotal = Number(item.acceptedQuantity || 0) + Number(item.rejectedQuantity || 0);
-      return inspectedTotal <= Number(item.receivedQuantity);
-    });
-  }
-
-  // Get items that failed quality inspection
-  getFailedItems(): Array<{
+  // Get items with variance (received != ordered)
+  getItemsWithVariance(): Array<{
     productSku: string;
     productName: string;
-    rejectedQuantity: number;
-    condition?: string;
+    orderedQuantity: number;
+    receivedQuantity: number;
+    variance: number;
     notes?: string;
   }> {
     if (!this.itemsReceived) return [];
 
     return this.itemsReceived
-      .filter(item => Number(item.rejectedQuantity || 0) > 0)
+      .filter(item => Number(item.receivedQuantity || 0) !== Number(item.orderedQuantity || 0))
       .map(item => ({
         productSku: item.productSku,
         productName: item.productName,
-        rejectedQuantity: Number(item.rejectedQuantity || 0),
-        condition: item.condition,
+        orderedQuantity: Number(item.orderedQuantity || 0),
+        receivedQuantity: Number(item.receivedQuantity || 0),
+        variance: Number(item.receivedQuantity || 0) - Number(item.orderedQuantity || 0),
         notes: item.notes,
       }));
   }

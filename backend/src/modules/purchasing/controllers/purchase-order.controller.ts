@@ -197,6 +197,42 @@ export class PurchaseOrderController {
     return { message: 'Purchase order permanently deleted successfully' };
   }
 
+  @Post(':id/receive')
+  @ApiOperation({ summary: 'Receive goods for purchase order - changes GRN status to received and updates product quantities' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Goods received successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  @ApiResponse({ status: 400, description: 'GRN must be in draft status' })
+  @HttpCode(HttpStatus.OK)
+  async receiveGoods(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.receiveGoods(id);
+    return { data };
+  }
+
+  @Post(':id/return')
+  @ApiOperation({ summary: 'Return goods for purchase order - changes GRN status back to draft and reverts product quantities' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Goods returned successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  @ApiResponse({ status: 400, description: 'GRN must be in received status' })
+  @HttpCode(HttpStatus.OK)
+  async returnGoods(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.returnGoods(id);
+    return { data };
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete purchase order (soft delete)' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
