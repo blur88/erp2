@@ -753,7 +753,7 @@ const GoodsReceivedPage: React.FC = () => {
                               Ordered Qty
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {selectedGRN.totalOrderedQuantity || selectedGRN.totalQuantityOrdered || 0}
+                              {(selectedGRN.items && selectedGRN.items.reduce((sum: number, item: any) => sum + (item.orderedQuantity || 0), 0)) || 0}
                             </TableCell>
                           </TableRow>
                           <TableRow>

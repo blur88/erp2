@@ -106,14 +106,6 @@ export class GoodsReceivedNoteService {
         supplierId: purchaseOrder.supplier.id,
         receivedByUserId: receivedByUser?.id || null,
         receivedDate: new Date(createDto.receiptDate),
-        deliveryReference: createDto.deliveryNoteRef,
-        vehicleDetails: createDto.vehicleDetails,
-        driverName: createDto.deliveryPerson,
-        notes: createDto.notes,
-        internalNotes: createDto.internalNotes,
-        itemsReceived: [], // Keep empty JSON array for backward compatibility
-        qualityInspected: createDto.inspectionRequired || false,
-        metadata: createDto.metadata,
         type: createDto.type || GrnType.STANDARD,
       });
 
@@ -181,7 +173,6 @@ export class GoodsReceivedNoteService {
       .leftJoinAndSelect('grn.supplier', 'supplier')
       .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('grn.receivedByUser', 'receivedByUser')
-      .leftJoinAndSelect('grn.inspectedByUser', 'inspectedByUser')
       .leftJoinAndSelect('grn.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .where('grn.deletedAt IS NULL');
@@ -248,7 +239,7 @@ export class GoodsReceivedNoteService {
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: ['supplier', 'purchaseOrder', 'receivedByUser', 'inspectedByUser', 'items', 'items.product'],
+      relations: ['supplier', 'purchaseOrder', 'receivedByUser', 'items', 'items.product'],
     });
 
     if (!grn) {
@@ -273,13 +264,8 @@ export class GoodsReceivedNoteService {
     try {
       Object.assign(grn, {
         ...(updateDto.receiptDate && { receivedDate: new Date(updateDto.receiptDate) }),
-        ...(updateDto.deliveryNoteRef && { deliveryReference: updateDto.deliveryNoteRef }),
-        ...(updateDto.vehicleDetails && { vehicleDetails: updateDto.vehicleDetails }),
-        ...(updateDto.deliveryPerson && { driverName: updateDto.deliveryPerson }),
-        ...(updateDto.notes && { notes: updateDto.notes }),
-        ...(updateDto.internalNotes && { internalNotes: updateDto.internalNotes }),
         ...(updateDto.status && { status: updateDto.status }),
-        ...(updateDto.inspectionRequired !== undefined && { qualityInspected: updateDto.inspectionRequired }),
+        ...(updateDto.type && { type: updateDto.type }),
       });
 
       const updatedGrn = await this.grnRepository.save(grn);
@@ -561,24 +547,6 @@ export class GoodsReceivedNoteService {
    * Map GRN entity to response DTO
    */
   private mapToResponseDto(grn: GoodsReceivedNote): GoodsReceivedNoteResponseDto {
-    // Calculate totals from items if available, otherwise use database columns
-    const itemsSource = grn.items?.length > 0 ? grn.items : grn.itemsReceived;
-    let totalOrderedQty = Number(grn.totalQuantityOrdered);
-    let totalReceivedQty = Number(grn.totalQuantityReceived);
-
-    if (itemsSource && itemsSource.length > 0) {
-      totalOrderedQty = itemsSource.reduce(
-        (sum, item) => sum + Number(item.orderedQuantity || 0), 0
-      );
-      totalReceivedQty = itemsSource.reduce(
-        (sum, item) => sum + Number(item.receivedQuantity || 0), 0
-      );
-    }
-
-    const receivedPercentage = totalOrderedQty > 0
-      ? (totalReceivedQty / totalOrderedQty) * 100
-      : 0;
-
     return {
       id: grn.id,
       grnNumber: grn.grnNumber,
@@ -588,77 +556,40 @@ export class GoodsReceivedNoteService {
         id: grn.purchaseOrder.id,
         orderNumber: grn.purchaseOrder.orderNumber,
         totalAmount: Number(grn.purchaseOrder.totalAmount),
-      } : null as any,
-      supplier: grn.supplier ? {
+      } : undefined,
+      supplier: {
         id: grn.supplier.id,
         supplierCode: grn.supplier.id.substring(0, 8).toUpperCase(),
         companyName: grn.supplier.companyName,
         contactPerson: grn.supplier.contactPerson,
-      } : null as any,
+      },
       receivedByUser: grn.receivedByUser ? {
         id: grn.receivedByUser.id,
         username: grn.receivedByUser.username,
         firstName: grn.receivedByUser.firstName,
         lastName: grn.receivedByUser.lastName,
-      } : null as any,
-      inspectedByUser: grn.inspectedByUser ? {
-        id: grn.inspectedByUser.id,
-        username: grn.inspectedByUser.username,
-        firstName: grn.inspectedByUser.firstName,
-        lastName: grn.inspectedByUser.lastName,
       } : undefined,
       receiptDate: grn.receivedDate,
-      inspectionDate: grn.inspectedDate,
-      deliveryNoteRef: grn.deliveryReference,
-      vehicleDetails: grn.vehicleDetails,
-      deliveryPerson: grn.driverName,
-      supplierInvoiceRef: undefined,
-      inspectionRequired: grn.qualityInspected,
-      inspectionResult: undefined,
-      inspectionNotes: grn.inspectionNotes,
-      totalOrderedQuantity: totalOrderedQty,
-      totalReceivedQuantity: totalReceivedQty,
-      receivedPercentage: receivedPercentage,
-      hasQualityIssues: false, // No longer tracking rejected quantities
-      requiresInspection: grn.qualityInspected && !grn.inspectedDate,
-      isCompleted: grn.status === 'received',
-      canApprove: false,
-      notes: grn.notes,
-      internalNotes: grn.internalNotes,
-      items: (grn.items?.length > 0)
-        ? grn.items.map(item => ({
-            id: item.id,
-            purchaseOrderItem: {
-              id: item.purchaseOrderItemId || '',
-              description: item.product?.description || '',
-              quantity: Number(item.orderedQuantity),
-              product: {
-                id: item.productId,
-                sku: item.product?.barcode || item.productId,
-                name: item.product?.name || 'Unknown Product',
-              },
-            },
-            orderedQuantity: Number(item.orderedQuantity),
-            receivedQuantity: Number(item.receivedQuantity),
-            isFullyReceived: item.isFullyReceived,
-          }))
-        : (grn.itemsReceived || []).map((item: any) => ({
-            id: '',
-            purchaseOrderItem: {
-              id: '',
-              description: '',
-              quantity: Number(item.orderedQuantity || 0),
-              unit: 'pcs',
-              product: {
-                id: item.productId || '',
-                sku: item.productId || '',
-                name: 'Unknown Product',
-              },
-            },
-            orderedQuantity: Number(item.orderedQuantity || 0),
-            receivedQuantity: Number(item.receivedQuantity || 0),
-            isFullyReceived: Number(item.receivedQuantity || 0) >= Number(item.orderedQuantity || 0),
-          })),
+      totalReceivedQuantity: Number(grn.totalQuantityReceived),
+      receivedPercentage: grn.receivedPercentage,
+      isFullyReceived: grn.isFullyReceived,
+      isPartiallyReceived: grn.isPartiallyReceived,
+      items: (grn.items || []).map(item => ({
+        id: item.id,
+        purchaseOrderItem: {
+          id: item.purchaseOrderItemId || '',
+          description: item.product?.description || '',
+          quantity: Number(item.orderedQuantity),
+          product: {
+            id: item.productId,
+            sku: item.product?.barcode || item.productId,
+            name: item.product?.name || 'Unknown Product',
+          },
+        },
+        orderedQuantity: Number(item.orderedQuantity),
+        receivedQuantity: Number(item.receivedQuantity),
+        isFullyReceived: Number(item.receivedQuantity) >= Number(item.orderedQuantity),
+      })),
       createdAt: grn.createdAt,
       updatedAt: grn.updatedAt,
       deletedAt: grn.deletedAt,
