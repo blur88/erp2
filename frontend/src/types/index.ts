@@ -381,7 +381,6 @@ export interface GRNItem {
   productName?: string;
   orderedQuantity: number;
   receivedQuantity: number;
-  notes?: string;
   purchaseOrderItem?: {
     id: string;
     product?: Product;

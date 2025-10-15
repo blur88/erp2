@@ -30,40 +30,6 @@ export class CreateGrnItemDto {
   @Min(0)
   @Transform(({ value }) => typeof value === 'string' ? parseFloat(value) : value)
   receivedQuantity: number;
-
-
-
-  @ApiPropertyOptional({ description: 'Batch or lot number', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  batchNumber?: string;
-
-  @ApiPropertyOptional({ description: 'Expiry date' })
-  @IsOptional()
-  @IsDateString()
-  expiryDate?: string;
-
-  @ApiPropertyOptional({ description: 'Quality inspection result' })
-  @IsOptional()
-  @IsEnum(['passed', 'failed', 'pending'])
-  qualityResult?: 'passed' | 'failed' | 'pending';
-
-  @ApiPropertyOptional({ description: 'Quality inspection notes' })
-  @IsOptional()
-  @IsString()
-  qualityNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Storage location', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  storageLocation?: string;
-
-  @ApiPropertyOptional({ description: 'Item-specific notes' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
 }
 
 export class CreateGoodsReceivedNoteDto {
@@ -246,7 +212,6 @@ export class GrnItemResponseDto {
     id: string;
     description: string;
     quantity: number;
-    unit?: string;
     product?: {
       id: string;
       sku: string;
@@ -260,26 +225,8 @@ export class GrnItemResponseDto {
   @ApiProperty({ description: 'Received quantity' })
   receivedQuantity: number;
 
-  @ApiProperty({ description: 'Batch or lot number' })
-  batchNumber?: string;
-
-  @ApiProperty({ description: 'Expiry date' })
-  expiryDate?: Date;
-
-  @ApiProperty({ description: 'Quality inspection result' })
-  qualityResult?: string;
-
-  @ApiProperty({ description: 'Quality inspection notes' })
-  qualityNotes?: string;
-
-  @ApiProperty({ description: 'Storage location' })
-  storageLocation?: string;
-
   @ApiProperty({ description: 'Is fully received' })
   isFullyReceived: boolean;
-
-  @ApiProperty({ description: 'Notes' })
-  notes?: string;
 }
 
 export class GoodsReceivedNoteResponseDto {
@@ -429,17 +376,6 @@ export class InspectItemDto {
   @ApiProperty({ description: 'Quality inspection result' })
   @IsEnum(['passed', 'failed'])
   qualityResult: 'passed' | 'failed';
-
-  @ApiPropertyOptional({ description: 'Quality inspection notes' })
-  @IsOptional()
-  @IsString()
-  qualityNotes?: string;
-
-
-  @ApiPropertyOptional({ description: 'Storage location' })
-  @IsOptional()
-  @IsString()
-  storageLocation?: string;
 }
 
 export class ApproveGoodsReceivedNoteDto {

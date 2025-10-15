@@ -128,8 +128,6 @@ export class GoodsReceivedNoteService {
           grnId: savedGrn.id,
           lineNumber: lineNumber++,
           productId: poItem.product.id,
-          productDescription: poItem.product.description,
-          unit: poItem.unit || 'pcs',
           orderedQuantity: Number(poItem.quantity),
           receivedQuantity: Number(poItem.quantity), // Default to ordered quantity
           purchaseOrderItemId: poItem.id,
@@ -632,9 +630,8 @@ export class GoodsReceivedNoteService {
             id: item.id,
             purchaseOrderItem: {
               id: item.purchaseOrderItemId || '',
-              description: item.productDescription || '',
+              description: item.product?.description || '',
               quantity: Number(item.orderedQuantity),
-              unit: item.unit,
               product: {
                 id: item.productId,
                 sku: item.product?.barcode || item.productId,
@@ -643,12 +640,7 @@ export class GoodsReceivedNoteService {
             },
             orderedQuantity: Number(item.orderedQuantity),
             receivedQuantity: Number(item.receivedQuantity),
-            batchNumber: item.batchNumber,
-            expiryDate: item.expiryDate,
-            qualityNotes: item.qualityNotes,
-            storageLocation: item.storageLocation,
             isFullyReceived: item.isFullyReceived,
-            notes: item.notes,
           }))
         : (grn.itemsReceived || []).map((item: any) => ({
             id: '',
@@ -665,12 +657,7 @@ export class GoodsReceivedNoteService {
             },
             orderedQuantity: Number(item.orderedQuantity || 0),
             receivedQuantity: Number(item.receivedQuantity || 0),
-            batchNumber: item.batchNumber,
-            expiryDate: item.expiryDate,
-            qualityNotes: item.notes,
-            storageLocation: undefined,
             isFullyReceived: Number(item.receivedQuantity || 0) >= Number(item.orderedQuantity || 0),
-            notes: item.notes,
           })),
       createdAt: grn.createdAt,
       updatedAt: grn.updatedAt,
