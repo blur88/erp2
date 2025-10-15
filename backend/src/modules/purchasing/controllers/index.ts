@@ -8,7 +8,3 @@
 export * from './supplier.controller';
 export * from './purchase-order.controller';
 export * from './goods-received-note.controller';
-// TODO: Implement remaining controllers
-// export * from './purchase-requisition.controller';
-// export * from './supplier-invoice.controller';
-// export * from './purchasing-analytics.controller';

@@ -133,27 +133,20 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
               >
                 <TableHead>
                   <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                    <TableCell sx={{ width: isMobile ? '35%' : '25%' }}>
+                    <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         GRN Number
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ width: isMobile ? '40%' : '30%' }}>
+                    <TableCell sx={{ width: isMobile ? '40%' : '35%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
                         Supplier
                       </Typography>
                     </TableCell>
                     {!isMobile && (
-                      <TableCell align="right" sx={{ width: '15%' }}>
+                      <TableCell sx={{ width: '20%' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                          Total Value
-                        </Typography>
-                      </TableCell>
-                    )}
-                    {!isMobile && (
-                      <TableCell sx={{ width: '15%' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                          Received Date
+                          GRN Date
                         </Typography>
                       </TableCell>
                     )}
@@ -169,7 +162,7 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
                 <TableBody>
                   {filteredGRNs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMobile ? 2 : 5} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={isMobile ? 2 : 4} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           {searchTerm ? 'No deleted GRNs match your search.' : 'No deleted GRNs found.'}
                         </Typography>
@@ -193,8 +186,8 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
                             </Typography>
                             {isMobile && (
                               <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                                <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
-                                  {formatCurrency(grn.totalAmount || 0)}
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                  {grn.receiptDate ? formatDate(grn.receiptDate) : 'Unknown'}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                                   • {grn.deletedAt ? formatDate(grn.deletedAt) : 'Unknown'}
@@ -208,13 +201,6 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
                             {grn.supplier?.companyName || 'Unknown'}
                           </Typography>
                         </TableCell>
-                        {!isMobile && (
-                          <TableCell align="right">
-                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
-                              {formatCurrency(grn.totalAmount || 0)}
-                            </Typography>
-                          </TableCell>
-                        )}
                         {!isMobile && (
                           <TableCell>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>

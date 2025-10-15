@@ -6,9 +6,7 @@ import {
   GoodsReceivedNoteItem,
   PurchaseOrder,
   Supplier,
-  User,
 } from '../../../database/entities';
-import { GrnType } from '../../../database/entities/goods-received-note.entity';
 import {
   CreateGoodsReceivedNoteDto,
   UpdateGoodsReceivedNoteDto,
@@ -30,8 +28,6 @@ export class GoodsReceivedNoteService {
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
   ) {}
 
   /**
@@ -68,7 +64,7 @@ export class GoodsReceivedNoteService {
   /**
    * Create a new goods received note
    */
-  async create(createDto: CreateGoodsReceivedNoteDto, receivedByUserId: string = 'system'): Promise<GoodsReceivedNoteResponseDto> {
+  async create(createDto: CreateGoodsReceivedNoteDto): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Creating GRN for PO: ${createDto.purchaseOrderId}`);
 
     // Validate purchase order exists
@@ -90,11 +86,6 @@ export class GoodsReceivedNoteService {
       throw new BadRequestException(`A Goods Received Note already exists for this purchase order (GRN: ${existingGrn.grnNumber})`);
     }
 
-    // Get user (skip lookup if 'system' since auth was removed)
-    const receivedByUser = receivedByUserId && receivedByUserId !== 'system'
-      ? await this.userRepository.findOne({ where: { id: receivedByUserId } })
-      : null;
-
     try {
       // Generate sequential GRN number
       const grnNumber = await this.generateSequentialGrnNumber();
@@ -104,17 +95,7 @@ export class GoodsReceivedNoteService {
         grnNumber,
         purchaseOrderId: purchaseOrder.id,
         supplierId: purchaseOrder.supplier.id,
-        receivedByUserId: receivedByUser?.id || null,
         receivedDate: new Date(createDto.receiptDate),
-        deliveryReference: createDto.deliveryNoteRef,
-        vehicleDetails: createDto.vehicleDetails,
-        driverName: createDto.deliveryPerson,
-        notes: createDto.notes,
-        internalNotes: createDto.internalNotes,
-        itemsReceived: [], // Keep empty JSON array for backward compatibility
-        qualityInspected: createDto.inspectionRequired || false,
-        metadata: createDto.metadata,
-        type: createDto.type || GrnType.STANDARD,
       });
 
       const savedGrn = await this.grnRepository.save(grn);
@@ -128,10 +109,6 @@ export class GoodsReceivedNoteService {
           grnId: savedGrn.id,
           lineNumber: lineNumber++,
           productId: poItem.product.id,
-          productSku: poItem.product.barcode || poItem.product.id,
-          productName: poItem.product.name,
-          productDescription: poItem.product.description,
-          unit: poItem.unit || 'pcs',
           orderedQuantity: Number(poItem.quantity),
           receivedQuantity: Number(poItem.quantity), // Default to ordered quantity
           purchaseOrderItemId: poItem.id,
@@ -172,7 +149,6 @@ export class GoodsReceivedNoteService {
       limit = 10,
       search,
       status,
-      type,
       supplierId,
       purchaseOrderId,
       sortBy = 'grnNumber',
@@ -184,8 +160,6 @@ export class GoodsReceivedNoteService {
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.supplier', 'supplier')
       .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('grn.receivedByUser', 'receivedByUser')
-      .leftJoinAndSelect('grn.inspectedByUser', 'inspectedByUser')
       .leftJoinAndSelect('grn.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .where('grn.deletedAt IS NULL');
@@ -201,10 +175,6 @@ export class GoodsReceivedNoteService {
     // Apply filters
     if (status) {
       queryBuilder.andWhere('grn.status = :status', { status });
-    }
-
-    if (type) {
-      queryBuilder.andWhere('grn.type = :type', { type });
     }
 
     if (supplierId) {
@@ -252,7 +222,7 @@ export class GoodsReceivedNoteService {
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: ['supplier', 'purchaseOrder', 'receivedByUser', 'inspectedByUser', 'items', 'items.product'],
+      relations: ['supplier', 'purchaseOrder', 'items', 'items.product'],
     });
 
     if (!grn) {
@@ -277,13 +247,7 @@ export class GoodsReceivedNoteService {
     try {
       Object.assign(grn, {
         ...(updateDto.receiptDate && { receivedDate: new Date(updateDto.receiptDate) }),
-        ...(updateDto.deliveryNoteRef && { deliveryReference: updateDto.deliveryNoteRef }),
-        ...(updateDto.vehicleDetails && { vehicleDetails: updateDto.vehicleDetails }),
-        ...(updateDto.deliveryPerson && { driverName: updateDto.deliveryPerson }),
-        ...(updateDto.notes && { notes: updateDto.notes }),
-        ...(updateDto.internalNotes && { internalNotes: updateDto.internalNotes }),
         ...(updateDto.status && { status: updateDto.status }),
-        ...(updateDto.inspectionRequired !== undefined && { qualityInspected: updateDto.inspectionRequired }),
       });
 
       const updatedGrn = await this.grnRepository.save(grn);
@@ -299,20 +263,44 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Soft delete GRN
+   * Soft delete GRN and sync deletedAt with associated PO using same timestamp
    */
   async remove(id: string): Promise<void> {
     this.logger.log(`Soft deleting GRN: ${id}`);
 
-    const grn = await this.grnRepository.findOne({ where: { id } });
+    const grn = await this.grnRepository.findOne({
+      where: { id },
+      relations: ['purchaseOrder']
+    });
 
     if (!grn) {
       throw new NotFoundException(`Goods Received Note with ID ${id} not found`);
     }
 
     try {
-      await this.grnRepository.softDelete(id);
-      this.logger.log(`GRN soft deleted successfully: ${id}`);
+      // Use the same deletedAt timestamp for both GRN and PO
+      const deletedAt = new Date();
+
+      // Soft delete the GRN with timestamp
+      await this.grnRepository
+        .createQueryBuilder()
+        .update()
+        .set({ deletedAt })
+        .where('id = :id', { id })
+        .execute();
+
+      // Sync deletedAt with associated PO if it exists (same timestamp)
+      if (grn.purchaseOrderId) {
+        await this.purchaseOrderRepository
+          .createQueryBuilder()
+          .update()
+          .set({ deletedAt })
+          .where('id = :id', { id: grn.purchaseOrderId })
+          .execute();
+        this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} soft deleted with timestamp ${deletedAt.toISOString()}`);
+      }
+
+      this.logger.log(`GRN soft deleted successfully with timestamp ${deletedAt.toISOString()}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -342,7 +330,6 @@ export class GoodsReceivedNoteService {
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.supplier', 'supplier')
       .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('grn.receivedByUser', 'receivedByUser')
       .withDeleted()
       .where('grn.deletedAt IS NOT NULL');
 
@@ -379,7 +366,7 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Restore a soft-deleted GRN
+   * Restore a soft-deleted GRN and sync deletedAt with associated PO (sets to null)
    */
   async restore(id: string): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Restoring GRN: ${id}`);
@@ -387,6 +374,7 @@ export class GoodsReceivedNoteService {
     const grn = await this.grnRepository.findOne({
       where: { id },
       withDeleted: true,
+      relations: ['purchaseOrder']
     });
 
     if (!grn) {
@@ -398,18 +386,35 @@ export class GoodsReceivedNoteService {
     }
 
     try {
-      await this.grnRepository.restore(id);
+      // Restore the GRN (set deletedAt to null)
+      await this.grnRepository
+        .createQueryBuilder()
+        .update()
+        .set({ deletedAt: null })
+        .where('id = :id', { id })
+        .execute();
+
+      // Sync restore with associated PO if it exists (set deletedAt to null)
+      if (grn.purchaseOrderId) {
+        await this.purchaseOrderRepository
+          .createQueryBuilder()
+          .update()
+          .set({ deletedAt: null })
+          .where('id = :id', { id: grn.purchaseOrderId })
+          .execute();
+        this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} restored (deletedAt set to null)`);
+      }
 
       const restoredGrn = await this.grnRepository.findOne({
         where: { id },
-        relations: ['supplier', 'purchaseOrder', 'receivedByUser'],
+        relations: ['supplier', 'purchaseOrder'],
       });
 
       if (!restoredGrn) {
         throw new NotFoundException(`Goods Received Note with ID ${id} not found after restore`);
       }
 
-      this.logger.log(`GRN restored successfully: ${id}`);
+      this.logger.log(`GRN restored successfully (deletedAt set to null)`);
       return this.mapToResponseDto(restoredGrn);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -523,117 +528,45 @@ export class GoodsReceivedNoteService {
    * Map GRN entity to response DTO
    */
   private mapToResponseDto(grn: GoodsReceivedNote): GoodsReceivedNoteResponseDto {
-    // Calculate totals from items if available, otherwise use database columns
-    const itemsSource = grn.items?.length > 0 ? grn.items : grn.itemsReceived;
-    let totalOrderedQty = Number(grn.totalQuantityOrdered);
-    let totalReceivedQty = Number(grn.totalQuantityReceived);
-
-    if (itemsSource && itemsSource.length > 0) {
-      totalOrderedQty = itemsSource.reduce(
-        (sum, item) => sum + Number(item.orderedQuantity || 0), 0
-      );
-      totalReceivedQty = itemsSource.reduce(
-        (sum, item) => sum + Number(item.receivedQuantity || 0), 0
-      );
-    }
-
-    const receivedPercentage = totalOrderedQty > 0
-      ? (totalReceivedQty / totalOrderedQty) * 100
-      : 0;
-
     return {
       id: grn.id,
       grnNumber: grn.grnNumber,
       status: grn.status,
-      type: grn.type,
       purchaseOrder: grn.purchaseOrder ? {
         id: grn.purchaseOrder.id,
         orderNumber: grn.purchaseOrder.orderNumber,
         totalAmount: Number(grn.purchaseOrder.totalAmount),
-      } : null as any,
-      supplier: grn.supplier ? {
+      } : undefined,
+      supplier: {
         id: grn.supplier.id,
         supplierCode: grn.supplier.id.substring(0, 8).toUpperCase(),
         companyName: grn.supplier.companyName,
         contactPerson: grn.supplier.contactPerson,
-      } : null as any,
-      receivedByUser: grn.receivedByUser ? {
-        id: grn.receivedByUser.id,
-        username: grn.receivedByUser.username,
-        firstName: grn.receivedByUser.firstName,
-        lastName: grn.receivedByUser.lastName,
-      } : null as any,
-      inspectedByUser: grn.inspectedByUser ? {
-        id: grn.inspectedByUser.id,
-        username: grn.inspectedByUser.username,
-        firstName: grn.inspectedByUser.firstName,
-        lastName: grn.inspectedByUser.lastName,
-      } : undefined,
+      },
       receiptDate: grn.receivedDate,
-      inspectionDate: grn.inspectedDate,
-      deliveryNoteRef: grn.deliveryReference,
-      vehicleDetails: grn.vehicleDetails,
-      deliveryPerson: grn.driverName,
-      supplierInvoiceRef: undefined,
-      inspectionRequired: grn.qualityInspected,
-      inspectionResult: undefined,
-      inspectionNotes: grn.inspectionNotes,
-      totalOrderedQuantity: totalOrderedQty,
-      totalReceivedQuantity: totalReceivedQty,
-      receivedPercentage: receivedPercentage,
-      hasQualityIssues: false, // No longer tracking rejected quantities
-      requiresInspection: grn.qualityInspected && !grn.inspectedDate,
-      isCompleted: grn.status === 'received',
-      canApprove: false,
-      notes: grn.notes,
-      internalNotes: grn.internalNotes,
-      items: (grn.items?.length > 0)
-        ? grn.items.map(item => ({
-            id: item.id,
-            purchaseOrderItem: {
-              id: item.purchaseOrderItemId || '',
-              description: item.productDescription || '',
-              quantity: Number(item.orderedQuantity),
-              unit: item.unit,
-              product: {
-                id: item.productId,
-                sku: item.productSku,
-                name: item.productName,
-              },
-            },
-            orderedQuantity: Number(item.orderedQuantity),
-            receivedQuantity: Number(item.receivedQuantity),
-            batchNumber: item.batchNumber,
-            expiryDate: item.expiryDate,
-            qualityNotes: item.qualityNotes,
-            storageLocation: item.storageLocation,
-            isFullyReceived: item.isFullyReceived,
-            notes: item.notes,
-          }))
-        : (grn.itemsReceived || []).map((item: any) => ({
-            id: '',
-            purchaseOrderItem: {
-              id: '',
-              description: '',
-              quantity: Number(item.orderedQuantity || 0),
-              unit: 'pcs',
-              product: {
-                id: item.productId || '',
-                sku: item.productSku || '',
-                name: item.productName || '',
-              },
-            },
-            orderedQuantity: Number(item.orderedQuantity || 0),
-            receivedQuantity: Number(item.receivedQuantity || 0),
-            batchNumber: item.batchNumber,
-            expiryDate: item.expiryDate,
-            qualityNotes: item.notes,
-            storageLocation: undefined,
-            isFullyReceived: Number(item.receivedQuantity || 0) >= Number(item.orderedQuantity || 0),
-            notes: item.notes,
-          })),
+      totalReceivedQuantity: Number(grn.totalQuantityReceived),
+      receivedPercentage: grn.receivedPercentage,
+      isFullyReceived: grn.isFullyReceived,
+      isPartiallyReceived: grn.isPartiallyReceived,
+      items: (grn.items || []).map(item => ({
+        id: item.id,
+        purchaseOrderItem: {
+          id: item.purchaseOrderItemId || '',
+          description: item.product?.description || '',
+          quantity: Number(item.orderedQuantity),
+          product: {
+            id: item.productId,
+            sku: item.product?.barcode || item.productId,
+            name: item.product?.name || 'Unknown Product',
+          },
+        },
+        orderedQuantity: Number(item.orderedQuantity),
+        receivedQuantity: Number(item.receivedQuantity),
+        isFullyReceived: Number(item.receivedQuantity) >= Number(item.orderedQuantity),
+      })),
       createdAt: grn.createdAt,
       updatedAt: grn.updatedAt,
+      deletedAt: grn.deletedAt,
     };
   }
 }

@@ -8,17 +8,11 @@
 // Supplier DTOs
 export * from './supplier.dto';
 
-// Purchase Order DTOs  
+// Purchase Order DTOs
 export * from './purchase-order.dto';
-
-// Purchase Requisition DTOs
-export * from './purchase-requisition.dto';
 
 // Goods Received Note DTOs
 export * from './goods-received-note.dto';
-
-// Supplier Invoice DTOs
-export * from './supplier-invoice.dto';
 
 // Common response types
 export interface PaginatedResponse<T> {

@@ -6,9 +6,6 @@ import {
   JoinColumn,
 } from 'typeorm';
 import {
-  IsString,
-  IsOptional,
-  MaxLength,
   IsDecimal,
   Min,
   IsInt,
@@ -35,42 +32,8 @@ export class GoodsReceivedNoteItem extends BaseEntity {
   @Min(1)
   lineNumber: number;
 
-  // Product Information (captured from PO item at time of receipt)
-  @Column({
-    type: 'varchar',
-    length: 50,
-    comment: 'Product SKU at time of receipt',
-  })
-  @IsString()
-  @MaxLength(50)
-  productSku: string;
-
-  @Column({
-    type: 'varchar',
-    length: 200,
-    comment: 'Product name at time of receipt',
-  })
-  @IsString()
-  @MaxLength(200)
-  productName: string;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Product description at time of receipt',
-  })
-  @IsOptional()
-  @IsString()
-  productDescription?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    comment: 'Unit of measurement',
-  })
-  @IsString()
-  @MaxLength(20)
-  unit: string;
+  // Product Information
+  // Note: Product details (name, SKU/barcode) are accessed via the product relationship
 
   // Quantity Information
   @Column({
@@ -93,68 +56,8 @@ export class GoodsReceivedNoteItem extends BaseEntity {
   @Min(0)
   receivedQuantity: number;
 
-  // Quality Information
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Quality inspection notes',
-  })
-  @IsOptional()
-  @IsString()
-  qualityNotes?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 500,
-    nullable: true,
-    comment: 'Rejection reason if applicable',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  rejectionReason?: string;
-
-  // Batch and Tracking
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Batch or lot number',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  batchNumber?: string;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Expiry date for batch',
-  })
-  @IsOptional()
-  expiryDate?: Date;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Storage location',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  storageLocation?: string;
-
-  // Additional Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Item-specific notes',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
+  // Quality Information - Removed unused fields
+  // (qualityNotes, rejectionReason were not used in frontend)
 
   // Foreign Keys
   @Column({
@@ -174,7 +77,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
     nullable: true,
     comment: 'Reference to original purchase order item',
   })
-  @IsOptional()
   purchaseOrderItemId?: string;
 
   // Relationships
@@ -227,10 +129,6 @@ export class GoodsReceivedNoteItem extends BaseEntity {
     return {
       purchaseOrderItemId: poItem.id,
       productId: poItem.productId,
-      productSku: poItem.productSku,
-      productName: poItem.productName,
-      productDescription: poItem.productDescription,
-      unit: poItem.unit,
       orderedQuantity: Number(poItem.quantity),
       receivedQuantity: qty,
     };

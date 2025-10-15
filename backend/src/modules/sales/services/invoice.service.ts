@@ -85,8 +85,7 @@ export class InvoiceService {
     }
 
     // Calculate totals (simplified - line items already include discounts)
-    const subtotal = createInvoiceDto.subtotal;
-    const totalAmount = subtotal; // Same as subtotal
+    const totalAmount = createInvoiceDto.totalAmount;
 
     // Generate sequential invoice number
     const invoiceNumber = await this.generateSequentialInvoiceNumber();
@@ -102,7 +101,6 @@ export class InvoiceService {
       invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
       dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
       paymentTermsDays: invoiceData.paymentTermsDays || 30,
-      subtotal,
       totalAmount,
       balanceDue: totalAmount,
       paidAmount: 0,
@@ -392,9 +390,8 @@ export class InvoiceService {
 
     // Recalculate totals if line items changed
     if (updateInvoiceDto.lineItems !== undefined) {
-      const subtotal = updateInvoiceDto.lineItems.reduce((sum, item) => sum + item.totalAmount, 0);
-      invoice.subtotal = subtotal;
-      invoice.totalAmount = subtotal;
+      const totalAmount = updateInvoiceDto.lineItems.reduce((sum, item) => sum + item.totalAmount, 0);
+      invoice.totalAmount = totalAmount;
       invoice.calculateTotals();
     }
 
@@ -473,10 +470,7 @@ export class InvoiceService {
       */
     }
 
-    // Mark as sent if requested
-    if (sendInvoiceDto.markAsSent !== false) {
-      invoice.markAsSent();
-    }
+    // Mark as sent functionality removed as sentDate field is no longer available
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
@@ -488,7 +482,7 @@ export class InvoiceService {
       throw new NotFoundException('Invoice not found');
     }
 
-    invoice.markAsSent();
+    // Functionality removed as sentDate field is no longer available
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
   }
@@ -543,9 +537,8 @@ export class InvoiceService {
       throw new ConflictException('Cannot void paid invoice. Create a credit note instead.');
     }
 
-    // Mark as voided in internal notes
+    // Mark as voided
     invoice.cancel();
-    invoice.internalNotes = `${invoice.internalNotes || ''}\nVoided: ${reason}`;
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
@@ -561,11 +554,8 @@ export class InvoiceService {
     const duplicateData: CreateInvoiceDto = {
       customerId: originalInvoice.customerId,
       salesOrderId: originalInvoice.salesOrderId,
-      subtotal: Number(originalInvoice.subtotal),
+      totalAmount: Number(originalInvoice.totalAmount),
       paymentTermsDays: originalInvoice.paymentTermsDays,
-      paymentTerms: originalInvoice.paymentTerms,
-      notes: originalInvoice.notes,
-      customerPoNumber: originalInvoice.customerPoNumber,
       lineItems: originalInvoice.lineItems || [],
     };
 
@@ -651,14 +641,7 @@ export class InvoiceService {
       amount: Number(invoice.totalAmount),
     });
 
-    // Add sent event if applicable
-    if (invoice.sentDate) {
-      history.push({
-        date: invoice.sentDate,
-        event: 'sent',
-        description: 'Invoice sent to customer',
-      });
-    }
+    // Sent event functionality removed as sentDate field is no longer available
 
     // Add payment events
     if (invoice.payments) {
@@ -918,19 +901,13 @@ export class InvoiceService {
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
       dueDate: invoice.dueDate,
-      sentDate: invoice.sentDate,
       paidDate: invoice.paidDate,
-      subtotal: Number(invoice.subtotal),
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
       balanceDue: Number(invoice.balanceDue),
       paymentTermsDays: invoice.paymentTermsDays,
-      paymentTerms: invoice.paymentTerms,
-      notes: invoice.notes,
-      internalNotes: invoice.internalNotes,
       customerName: invoice.customerName,
       billingAddress: invoice.billingAddress,
-      customerPoNumber: invoice.customerPoNumber,
       lineItems: enhancedLineItems, // Use enhanced line items with product info
       customerId: invoice.customerId,
       salesOrderId: invoice.salesOrderId,
