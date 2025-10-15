@@ -11,6 +11,7 @@ import {
   ValidateNested,
   IsInt,
   IsBoolean,
+  IsNumber,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
@@ -49,6 +50,15 @@ export class InvoiceLineItemDto {
   @Min(0)
   @Transform(({ value }) => parseFloat(value))
   unitPrice: number;
+
+  @ApiProperty({
+    description: 'Discount amount',
+    example: 0,
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  @Transform(({ value }) => parseFloat(value))
+  discount: number;
 
   @ApiProperty({
     description: 'Total amount for this line item',
@@ -93,15 +103,6 @@ export class CreateInvoiceDto {
   @IsDateString()
   dueDate?: string;
 
-  @ApiProperty({
-    description: 'Subtotal amount (sum of line items - discounts tracked at line item level)',
-    example: 1000.00,
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  subtotal: number;
-
   @ApiPropertyOptional({
     description: 'Payment terms in days',
     example: 30,
@@ -111,38 +112,14 @@ export class CreateInvoiceDto {
   @Min(0)
   paymentTermsDays?: number;
 
-  @ApiPropertyOptional({
-    description: 'Payment terms description',
-    example: 'Net 30 days',
+  @ApiProperty({
+    description: 'Total invoice amount',
+    example: 1000.00,
   })
-  @IsOptional()
-  @IsString()
-  paymentTerms?: string;
-
-  @ApiPropertyOptional({
-    description: 'Additional notes for the customer',
-    example: 'Thank you for your business!',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({
-    description: 'Internal notes',
-    example: 'Customer requested special handling',
-  })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
-  @ApiPropertyOptional({
-    description: 'Customer purchase order number',
-    example: 'PO-2024-001',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  customerPoNumber?: string;
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Transform(({ value }) => parseFloat(value))
+  totalAmount: number;
 
   @ApiProperty({
     description: 'Invoice line items',
@@ -180,39 +157,6 @@ export class UpdateInvoiceDto {
   @IsInt()
   @Min(0)
   paymentTermsDays?: number;
-
-  @ApiPropertyOptional({
-    description: 'Payment terms description',
-    example: 'Net 45 days',
-  })
-  @IsOptional()
-  @IsString()
-  paymentTerms?: string;
-
-  @ApiPropertyOptional({
-    description: 'Additional notes for the customer',
-    example: 'Updated terms and conditions',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({
-    description: 'Internal notes',
-    example: 'Customer requested extended payment terms',
-  })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
-  @ApiPropertyOptional({
-    description: 'Customer purchase order number',
-    example: 'PO-2024-002',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  customerPoNumber?: string;
 
   @ApiPropertyOptional({
     description: 'Invoice line items',
@@ -349,14 +293,8 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: '2024-01-31' })
   dueDate: Date;
 
-  @ApiProperty({ example: '2024-01-02', nullable: true })
-  sentDate?: Date;
-
   @ApiProperty({ example: '2024-01-30', nullable: true })
   paidDate?: Date;
-
-  @ApiProperty({ example: 1000.00 })
-  subtotal: number;
 
   @ApiProperty({ example: 1000.00 })
   totalAmount: number;
@@ -370,23 +308,11 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: 30 })
   paymentTermsDays: number;
 
-  @ApiProperty({ example: 'Net 30 days', nullable: true })
-  paymentTerms?: string;
-
-  @ApiProperty({ example: 'Thank you for your business!', nullable: true })
-  notes?: string;
-
-  @ApiProperty({ example: 'Customer requested special handling', nullable: true })
-  internalNotes?: string;
-
   @ApiProperty({ example: 'Acme Corporation' })
   customerName: string;
 
   @ApiProperty({ example: '123 Main Street, New York, NY, 10001', nullable: true })
   billingAddress?: string;
-
-  @ApiProperty({ example: 'PO-2024-001', nullable: true })
-  customerPoNumber?: string;
 
   @ApiProperty()
   lineItems?: Array<{

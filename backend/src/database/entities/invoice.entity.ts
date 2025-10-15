@@ -98,17 +98,6 @@ export class Invoice extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Subtotal amount (sum of line items)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  subtotal: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
     comment: 'Total invoice amount (same as subtotal - discounts tracked at line item level)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
@@ -145,33 +134,6 @@ export class Invoice extends BaseEntity {
   })
   paymentTermsDays: number;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Payment terms description',
-  })
-  @IsOptional()
-  @IsString()
-  paymentTerms?: string;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Additional notes for the customer',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Internal notes',
-  })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
   // Billing Address (captured at time of invoice)
   @Column({
     type: 'varchar',
@@ -193,17 +155,6 @@ export class Invoice extends BaseEntity {
 
   // Reference Information
   @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: true,
-    comment: 'Customer purchase order number',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  customerPoNumber?: string;
-
-  @Column({
     type: 'json',
     nullable: true,
     comment: 'Invoice line items (denormalized for performance)',
@@ -216,14 +167,6 @@ export class Invoice extends BaseEntity {
     unitPrice: number;
     totalAmount: number;
   }>;
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Additional invoice metadata',
-  })
-  @IsOptional()
-  metadata?: Record<string, any>;
 
   // Foreign Keys
   @Column({
@@ -336,16 +279,11 @@ export class Invoice extends BaseEntity {
     this.updateStatus();
   }
 
-  markAsSent(): void {
-    // Just mark the sent date, status is determined by payment state
-    if (!this.sentDate) {
-      this.sentDate = new Date();
-    }
-  }
+  // Note: markAsSent method removed as sentDate field is no longer available
 
   cancel(): void {
-    // Mark as cancelled in internal notes, status remains as-is (DRAFT, PARTIAL_PAID, or PAID)
-    this.internalNotes = `${this.internalNotes || ''}\nCancelled on ${new Date().toISOString()}`;
+    // Invoice cancelled - status remains as-is (DRAFT, PARTIAL_PAID, or PAID)
+    // Cancellation tracking removed as internalNotes field is no longer available
   }
 
   // Static factory method
@@ -358,9 +296,7 @@ export class Invoice extends BaseEntity {
       customerId: salesOrder.customerId,
       salesOrderId: salesOrder.id,
       customerName: salesOrder.customer?.name,
-      customerPoNumber: salesOrder.customerPoNumber,
-      subtotal: totalAmount, // Line items already include discounts
-      totalAmount: totalAmount, // Same as subtotal
+      totalAmount: totalAmount, // Line items already include discounts
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
