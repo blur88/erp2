@@ -844,7 +844,7 @@ const GoodsReceivedPage: React.FC = () => {
                                 height: TABLE_STYLES.row.height
                               }}
                             >
-                              <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
                                 {item.purchaseOrderItem?.product?.name || item.productName || 'N/A'}
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
