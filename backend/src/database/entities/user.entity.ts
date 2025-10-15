@@ -17,7 +17,6 @@ import {
 import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
 import { PurchaseOrder } from './purchase-order.entity';
-import { PurchaseRequisition } from './purchase-requisition.entity';
 import { Payment } from './payment.entity';
 
 export enum UserRole {
@@ -180,11 +179,6 @@ export class User extends BaseEntity {
     cascade: false,
   })
   purchaseOrders: PurchaseOrder[];
-
-  @OneToMany(() => PurchaseRequisition, (requisition) => requisition.requestedByUser, {
-    cascade: false,
-  })
-  purchaseRequisitions: PurchaseRequisition[];
 
   @OneToMany(() => Payment, (payment) => payment.recordedByUser, {
     cascade: false,

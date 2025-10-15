@@ -17,7 +17,6 @@ import {
 import { BaseEntity } from './base.entity';
 import { PurchaseOrder } from './purchase-order.entity';
 import { GoodsReceivedNote } from './goods-received-note.entity';
-import { SupplierInvoice } from './supplier-invoice.entity';
 
 export enum SupplierType {
   LOCAL = 'local',
@@ -272,11 +271,6 @@ export class Supplier extends BaseEntity {
     cascade: false,
   })
   goodsReceivedNotes: GoodsReceivedNote[];
-
-  @OneToMany(() => SupplierInvoice, (invoice) => invoice.supplier, {
-    cascade: false,
-  })
-  invoices: SupplierInvoice[];
 
   // Computed properties
   get fullAddress(): string {
