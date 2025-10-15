@@ -806,7 +806,7 @@ const GoodsReceivedPage: React.FC = () => {
                     letterSpacing: '0.5px',
                     mb: 1
                   }}>
-                    GRN Received Items
+                    GRN Items
                   </Typography>
 
                   {(selectedGRN.items && selectedGRN.items.length > 0) ? (

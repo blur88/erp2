@@ -302,7 +302,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                   </TableCell>
                   <TableCell sx={{ width: isMobile ? '25%' : '20%' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Order Number
+                      PO Number
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
@@ -313,14 +313,14 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                   {!isMobile && (
                     <TableCell sx={{ width: '15%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Order Date
+                        PO Date
                       </Typography>
                     </TableCell>
                   )}
                   {!isMobile && (
                     <TableCell align="right" sx={{ width: '15%' }}>
                       <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Total Amount
+                        PO Amount
                       </Typography>
                     </TableCell>
                   )}
