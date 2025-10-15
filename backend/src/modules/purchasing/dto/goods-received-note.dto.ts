@@ -389,6 +389,9 @@ export class GoodsReceivedNoteResponseDto {
 
   @ApiProperty({ description: 'Updated date' })
   updatedAt: Date;
+
+  @ApiProperty({ description: 'Deleted date (if soft deleted)' })
+  deletedAt?: Date;
 }
 
 export class InspectGoodsReceivedNoteDto {

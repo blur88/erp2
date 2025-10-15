@@ -613,7 +613,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Restore a deleted purchase order and its associated GRN
+   * Restore a deleted purchase order and its associated GRN (sets deletedAt to null for both)
    */
   async restore(id: string, userId: string = 'system'): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Restoring purchase order: ${id}`);
@@ -633,19 +633,29 @@ export class PurchaseOrderService {
       throw new BadRequestException('Purchase order is not deleted');
     }
 
-    // Find and restore associated GRN
+    // Find and restore associated GRN (set deletedAt to null)
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
       withDeleted: true,
     });
 
     if (grn && grn.deletedAt) {
-      await this.grnRepository.restore(grn.id);
-      this.logger.log(`Associated GRN ${grn.grnNumber} restored`);
+      await this.grnRepository
+        .createQueryBuilder()
+        .update()
+        .set({ deletedAt: null })
+        .where('id = :id', { id: grn.id })
+        .execute();
+      this.logger.log(`Associated GRN ${grn.grnNumber} restored (deletedAt set to null)`);
     }
 
-    // Restore using TypeORM's restore method
-    await this.purchaseOrderRepository.restore(id);
+    // Restore PO (set deletedAt to null)
+    await this.purchaseOrderRepository
+      .createQueryBuilder()
+      .update()
+      .set({ deletedAt: null })
+      .where('id = :id', { id })
+      .execute();
 
     // Fetch the restored order
     const restoredOrder = await this.purchaseOrderRepository.findOne({
@@ -653,7 +663,7 @@ export class PurchaseOrderService {
       relations: ['supplier', 'items', 'items.product', 'createdByUser', 'approvedByUser'],
     });
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} restored successfully`);
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} restored successfully (deletedAt set to null)`);
     return this.mapToResponseDto(restoredOrder);
   }
 
@@ -736,7 +746,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Soft delete a purchase order and its associated GRN
+   * Soft delete a purchase order and its associated GRN with same deletedAt timestamp
    */
   async remove(id: string): Promise<void> {
     this.logger.log(`Soft deleting purchase order: ${id}`);
@@ -749,20 +759,33 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
-    // Find and soft delete associated GRN
+    // Use the same deletedAt timestamp for both PO and GRN
+    const deletedAt = new Date();
+
+    // Find and soft delete associated GRN with same timestamp
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
     });
 
     if (grn) {
-      await this.grnRepository.softDelete(grn.id);
-      this.logger.log(`Associated GRN ${grn.grnNumber} soft deleted`);
+      await this.grnRepository
+        .createQueryBuilder()
+        .update()
+        .set({ deletedAt })
+        .where('id = :id', { id: grn.id })
+        .execute();
+      this.logger.log(`Associated GRN ${grn.grnNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
     }
 
-    // Soft delete using TypeORM's softDelete method
-    await this.purchaseOrderRepository.softDelete(id);
+    // Soft delete PO with same timestamp
+    await this.purchaseOrderRepository
+      .createQueryBuilder()
+      .update()
+      .set({ deletedAt })
+      .where('id = :id', { id })
+      .execute();
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted successfully`);
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
   }
 
   /**

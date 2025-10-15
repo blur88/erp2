@@ -299,20 +299,44 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Soft delete GRN
+   * Soft delete GRN and sync deletedAt with associated PO using same timestamp
    */
   async remove(id: string): Promise<void> {
     this.logger.log(`Soft deleting GRN: ${id}`);
 
-    const grn = await this.grnRepository.findOne({ where: { id } });
+    const grn = await this.grnRepository.findOne({
+      where: { id },
+      relations: ['purchaseOrder']
+    });
 
     if (!grn) {
       throw new NotFoundException(`Goods Received Note with ID ${id} not found`);
     }
 
     try {
-      await this.grnRepository.softDelete(id);
-      this.logger.log(`GRN soft deleted successfully: ${id}`);
+      // Use the same deletedAt timestamp for both GRN and PO
+      const deletedAt = new Date();
+
+      // Soft delete the GRN with timestamp
+      await this.grnRepository
+        .createQueryBuilder()
+        .update()
+        .set({ deletedAt })
+        .where('id = :id', { id })
+        .execute();
+
+      // Sync deletedAt with associated PO if it exists (same timestamp)
+      if (grn.purchaseOrderId) {
+        await this.purchaseOrderRepository
+          .createQueryBuilder()
+          .update()
+          .set({ deletedAt })
+          .where('id = :id', { id: grn.purchaseOrderId })
+          .execute();
+        this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} soft deleted with timestamp ${deletedAt.toISOString()}`);
+      }
+
+      this.logger.log(`GRN soft deleted successfully with timestamp ${deletedAt.toISOString()}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -379,7 +403,7 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Restore a soft-deleted GRN
+   * Restore a soft-deleted GRN and sync deletedAt with associated PO (sets to null)
    */
   async restore(id: string): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Restoring GRN: ${id}`);
@@ -387,6 +411,7 @@ export class GoodsReceivedNoteService {
     const grn = await this.grnRepository.findOne({
       where: { id },
       withDeleted: true,
+      relations: ['purchaseOrder']
     });
 
     if (!grn) {
@@ -398,7 +423,24 @@ export class GoodsReceivedNoteService {
     }
 
     try {
-      await this.grnRepository.restore(id);
+      // Restore the GRN (set deletedAt to null)
+      await this.grnRepository
+        .createQueryBuilder()
+        .update()
+        .set({ deletedAt: null })
+        .where('id = :id', { id })
+        .execute();
+
+      // Sync restore with associated PO if it exists (set deletedAt to null)
+      if (grn.purchaseOrderId) {
+        await this.purchaseOrderRepository
+          .createQueryBuilder()
+          .update()
+          .set({ deletedAt: null })
+          .where('id = :id', { id: grn.purchaseOrderId })
+          .execute();
+        this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} restored (deletedAt set to null)`);
+      }
 
       const restoredGrn = await this.grnRepository.findOne({
         where: { id },
@@ -409,7 +451,7 @@ export class GoodsReceivedNoteService {
         throw new NotFoundException(`Goods Received Note with ID ${id} not found after restore`);
       }
 
-      this.logger.log(`GRN restored successfully: ${id}`);
+      this.logger.log(`GRN restored successfully (deletedAt set to null)`);
       return this.mapToResponseDto(restoredGrn);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -634,6 +676,7 @@ export class GoodsReceivedNoteService {
           })),
       createdAt: grn.createdAt,
       updatedAt: grn.updatedAt,
+      deletedAt: grn.deletedAt,
     };
   }
 }
