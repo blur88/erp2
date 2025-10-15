@@ -719,19 +719,6 @@ const GoodsReceivedPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Status
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              <Chip
-                                label={selectedGRN.status}
-                                size="small"
-                                color={getStatusColor(selectedGRN.status) as any}
-                                sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
-                              />
-                            </TableCell>
-                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -763,6 +750,19 @@ const GoodsReceivedPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem', color: 'success.main' }}>
                               {selectedGRN.totalReceivedQuantity || selectedGRN.totalQuantityReceived || 0}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Status
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              <Chip
+                                label={selectedGRN.status}
+                                size="small"
+                                color={getStatusColor(selectedGRN.status) as any}
+                                sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
+                              />
                             </TableCell>
                           </TableRow>
                         </TableBody>
