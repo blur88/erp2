@@ -402,11 +402,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
           )}
 
           <Grid container spacing={3}>
-            {/* Order Information Card */}
+            {/* PO Information Card */}
             <Grid item xs={12}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>Order Information</Typography>
+                  <Typography variant="h6" gutterBottom>PO Information</Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
                       <Controller
@@ -483,12 +483,12 @@ const CreatePurchaseOrderPage: React.FC = () => {
               </Card>
             </Grid>
 
-            {/* Order Items Card */}
+            {/* PO Items Card */}
             <Grid item xs={12}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">Order Items</Typography>
+                    <Typography variant="h6">PO Items</Typography>
                     <Button
                       startIcon={<AddIcon />}
                       onClick={addItem}
@@ -857,7 +857,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             <Grid item xs={12} md={4}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="h6" gutterBottom>Order Summary</Typography>
+                  <Typography variant="h6" gutterBottom>PO Summary</Typography>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
