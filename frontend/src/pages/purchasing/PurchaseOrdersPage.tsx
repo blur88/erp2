@@ -742,7 +742,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                Purchase Order List ({pagination?.total || 0})
+                PO List ({pagination?.total || 0})
               </Typography>
             </Box>
 
@@ -803,7 +803,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Purchase Order Details - {selectedOrder.orderNumber}
+                  PO Details - {selectedOrder.orderNumber}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                   <IconButton
@@ -835,7 +835,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 <Grid container spacing={3}>
-                  {/* Left Column - Order Information */}
+                  {/* Left Column - PO Information */}
                   <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
                     <TableContainer>
                       <Table
@@ -852,7 +852,7 @@ const PurchaseOrdersPage: React.FC = () => {
                         }}
                       >
                         <TableBody>
-                          {/* Order Information Section */}
+                          {/* PO Information Section */}
                           <TableRow>
                             <TableCell colSpan={2} sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
@@ -864,7 +864,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                 color: 'primary.main',
                                 fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                               }}>
-                                Order Information
+                                PO Information
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -886,7 +886,7 @@ const PurchaseOrdersPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              Order Date
+                              PO Date
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatDate(selectedOrder.orderDate)}
@@ -965,7 +965,7 @@ const PurchaseOrdersPage: React.FC = () => {
                     </TableContainer>
                   </Grid>
 
-                  {/* Right Column - Financial Summary */}
+                  {/* Right Column - PO Summary */}
                   <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
                     <TableContainer>
                       <Table
@@ -982,7 +982,7 @@ const PurchaseOrdersPage: React.FC = () => {
                         }}
                       >
                         <TableBody>
-                          {/* Financial Summary Section */}
+                          {/* PO Summary Section */}
                           <TableRow>
                             <TableCell colSpan={2} sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
@@ -994,7 +994,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                 color: 'primary.main',
                                 fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                               }}>
-                                Financial Summary
+                                PO Summary
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -1111,7 +1111,7 @@ const PurchaseOrdersPage: React.FC = () => {
                         letterSpacing: '0.5px',
                         mb: 1
                       }}>
-                        Purchase Order Items
+                        PO Items
                       </Typography>
 
                       {(selectedOrder.items && selectedOrder.items.length > 0) ? (
