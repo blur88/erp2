@@ -941,6 +941,25 @@ const PurchaseOrdersPage: React.FC = () => {
                                 : '-'}
                             </TableCell>
                           </TableRow>
+                          {selectedOrder.notes && (
+                            <TableRow sx={{ backgroundColor: 'inherit' }}>
+                              <TableCell sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                color: 'text.secondary',
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                verticalAlign: 'top'
+                              }}>
+                                Notes
+                              </TableCell>
+                              <TableCell sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}>
+                                {selectedOrder.notes}
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
