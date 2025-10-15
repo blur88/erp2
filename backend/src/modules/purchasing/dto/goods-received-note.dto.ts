@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { GrnStatus, GrnType } from '../../../database/entities/goods-received-note.entity';
+import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
 
 export class CreateGrnItemDto {
   @ApiProperty({ description: 'Purchase order item ID' })
@@ -31,11 +31,6 @@ export class CreateGoodsReceivedNoteDto {
   @ApiProperty({ description: 'Purchase order ID' })
   @IsUUID()
   purchaseOrderId: string;
-
-  @ApiPropertyOptional({ description: 'GRN type', enum: GrnType, default: GrnType.STANDARD })
-  @IsOptional()
-  @IsEnum(GrnType)
-  type?: GrnType;
 
   @ApiProperty({ description: 'Receipt date' })
   @IsDateString()
@@ -88,16 +83,6 @@ export class GoodsReceivedNoteQueryDto {
   @IsOptional()
   @IsEnum(GrnStatus)
   status?: GrnStatus;
-
-  @ApiPropertyOptional({ description: 'Filter by type', enum: GrnType })
-  @IsOptional()
-  @IsEnum(GrnType)
-  type?: GrnType;
-
-  @ApiPropertyOptional({ description: 'Filter by received user ID' })
-  @IsOptional()
-  @IsUUID()
-  receivedByUserId?: string;
 
   @ApiPropertyOptional({ description: 'Filter from receipt date' })
   @IsOptional()
@@ -156,9 +141,6 @@ export class GoodsReceivedNoteResponseDto {
   @ApiProperty({ description: 'Status' })
   status: GrnStatus;
 
-  @ApiProperty({ description: 'Type' })
-  type: GrnType;
-
   @ApiProperty({ description: 'Purchase order information' })
   purchaseOrder?: {
     id: string;
@@ -172,14 +154,6 @@ export class GoodsReceivedNoteResponseDto {
     supplierCode: string;
     companyName: string;
     contactPerson?: string;
-  };
-
-  @ApiProperty({ description: 'Received by user' })
-  receivedByUser?: {
-    id: string;
-    username: string;
-    firstName?: string;
-    lastName?: string;
   };
 
   @ApiProperty({ description: 'Receipt date' })

@@ -19,18 +19,11 @@ import {
 import { BaseEntity } from './base.entity';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Supplier } from './supplier.entity';
-import { User } from './user.entity';
 import { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 
 export enum GrnStatus {
   DRAFT = 'draft',
   RECEIVED = 'received',
-}
-
-export enum GrnType {
-  STANDARD = 'standard',
-  RETURN = 'return',
-  TRANSFER = 'transfer',
 }
 
 /**
@@ -41,10 +34,8 @@ export enum GrnType {
 @Index(['grnNumber'], { unique: true })
 @Index(['purchaseOrderId'])
 @Index(['supplierId'])
-@Index(['receivedByUserId'])
 @Index(['status'])
 @Index(['receivedDate'])
-@Index(['type'])
 export class GoodsReceivedNote extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -55,15 +46,6 @@ export class GoodsReceivedNote extends BaseEntity {
   @IsString()
   @MaxLength(30)
   grnNumber: string;
-
-  @Column({
-    type: 'enum',
-    enum: GrnType,
-    default: GrnType.STANDARD,
-    comment: 'Type of goods receipt',
-  })
-  @IsEnum(GrnType)
-  type: GrnType;
 
   @Column({
     type: 'enum',
@@ -93,18 +75,6 @@ export class GoodsReceivedNote extends BaseEntity {
   @Min(0)
   totalQuantityReceived: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Total quantity received',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  totalQuantityReceived: number;
-
-  
   // Foreign Keys
   @Column({
     type: 'uuid',
@@ -119,22 +89,6 @@ export class GoodsReceivedNote extends BaseEntity {
     comment: 'Supplier ID',
   })
   supplierId: string;
-
-  @Column({
-    type: 'uuid',
-    nullable: true, // Nullable since auth was removed
-    comment: 'User who received the goods',
-  })
-  @IsOptional()
-  receivedByUserId?: string;
-
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who performed quality inspection',
-  })
-  @IsOptional()
-  inspectedByUserId?: string;
 
   // Relationships
   @ManyToOne(() => PurchaseOrder, (purchaseOrder) => purchaseOrder.goodsReceivedNotes, {
@@ -152,20 +106,7 @@ export class GoodsReceivedNote extends BaseEntity {
   @JoinColumn({ name: 'supplierId' })
   supplier: Supplier;
 
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'receivedByUserId' })
-  receivedByUser?: User;
-
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'inspectedByUserId' })
-  inspectedByUser?: User;
-
+  
   @OneToMany(() => GoodsReceivedNoteItem, (item) => item.grn, {
     cascade: true,
     eager: false,

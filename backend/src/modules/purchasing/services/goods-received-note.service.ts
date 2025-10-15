@@ -6,9 +6,7 @@ import {
   GoodsReceivedNoteItem,
   PurchaseOrder,
   Supplier,
-  User,
 } from '../../../database/entities';
-import { GrnType } from '../../../database/entities/goods-received-note.entity';
 import {
   CreateGoodsReceivedNoteDto,
   UpdateGoodsReceivedNoteDto,
@@ -30,8 +28,6 @@ export class GoodsReceivedNoteService {
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
   ) {}
 
   /**
@@ -68,7 +64,7 @@ export class GoodsReceivedNoteService {
   /**
    * Create a new goods received note
    */
-  async create(createDto: CreateGoodsReceivedNoteDto, receivedByUserId: string = 'system'): Promise<GoodsReceivedNoteResponseDto> {
+  async create(createDto: CreateGoodsReceivedNoteDto): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Creating GRN for PO: ${createDto.purchaseOrderId}`);
 
     // Validate purchase order exists
@@ -90,11 +86,6 @@ export class GoodsReceivedNoteService {
       throw new BadRequestException(`A Goods Received Note already exists for this purchase order (GRN: ${existingGrn.grnNumber})`);
     }
 
-    // Get user (skip lookup if 'system' since auth was removed)
-    const receivedByUser = receivedByUserId && receivedByUserId !== 'system'
-      ? await this.userRepository.findOne({ where: { id: receivedByUserId } })
-      : null;
-
     try {
       // Generate sequential GRN number
       const grnNumber = await this.generateSequentialGrnNumber();
@@ -104,9 +95,7 @@ export class GoodsReceivedNoteService {
         grnNumber,
         purchaseOrderId: purchaseOrder.id,
         supplierId: purchaseOrder.supplier.id,
-        receivedByUserId: receivedByUser?.id || null,
         receivedDate: new Date(createDto.receiptDate),
-        type: createDto.type || GrnType.STANDARD,
       });
 
       const savedGrn = await this.grnRepository.save(grn);
@@ -160,7 +149,6 @@ export class GoodsReceivedNoteService {
       limit = 10,
       search,
       status,
-      type,
       supplierId,
       purchaseOrderId,
       sortBy = 'grnNumber',
@@ -172,7 +160,6 @@ export class GoodsReceivedNoteService {
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.supplier', 'supplier')
       .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('grn.receivedByUser', 'receivedByUser')
       .leftJoinAndSelect('grn.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .where('grn.deletedAt IS NULL');
@@ -188,10 +175,6 @@ export class GoodsReceivedNoteService {
     // Apply filters
     if (status) {
       queryBuilder.andWhere('grn.status = :status', { status });
-    }
-
-    if (type) {
-      queryBuilder.andWhere('grn.type = :type', { type });
     }
 
     if (supplierId) {
@@ -239,7 +222,7 @@ export class GoodsReceivedNoteService {
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: ['supplier', 'purchaseOrder', 'receivedByUser', 'items', 'items.product'],
+      relations: ['supplier', 'purchaseOrder', 'items', 'items.product'],
     });
 
     if (!grn) {
@@ -265,7 +248,6 @@ export class GoodsReceivedNoteService {
       Object.assign(grn, {
         ...(updateDto.receiptDate && { receivedDate: new Date(updateDto.receiptDate) }),
         ...(updateDto.status && { status: updateDto.status }),
-        ...(updateDto.type && { type: updateDto.type }),
       });
 
       const updatedGrn = await this.grnRepository.save(grn);
@@ -348,7 +330,6 @@ export class GoodsReceivedNoteService {
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.supplier', 'supplier')
       .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('grn.receivedByUser', 'receivedByUser')
       .withDeleted()
       .where('grn.deletedAt IS NOT NULL');
 
@@ -426,7 +407,7 @@ export class GoodsReceivedNoteService {
 
       const restoredGrn = await this.grnRepository.findOne({
         where: { id },
-        relations: ['supplier', 'purchaseOrder', 'receivedByUser'],
+        relations: ['supplier', 'purchaseOrder'],
       });
 
       if (!restoredGrn) {
@@ -551,7 +532,6 @@ export class GoodsReceivedNoteService {
       id: grn.id,
       grnNumber: grn.grnNumber,
       status: grn.status,
-      type: grn.type,
       purchaseOrder: grn.purchaseOrder ? {
         id: grn.purchaseOrder.id,
         orderNumber: grn.purchaseOrder.orderNumber,
@@ -563,12 +543,6 @@ export class GoodsReceivedNoteService {
         companyName: grn.supplier.companyName,
         contactPerson: grn.supplier.contactPerson,
       },
-      receivedByUser: grn.receivedByUser ? {
-        id: grn.receivedByUser.id,
-        username: grn.receivedByUser.username,
-        firstName: grn.receivedByUser.firstName,
-        lastName: grn.receivedByUser.lastName,
-      } : undefined,
       receiptDate: grn.receivedDate,
       totalReceivedQuantity: Number(grn.totalQuantityReceived),
       receivedPercentage: grn.receivedPercentage,
