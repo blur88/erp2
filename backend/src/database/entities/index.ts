@@ -38,6 +38,7 @@ export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPriority } from './pur
 export { PurchaseOrderItem } from './purchase-order-item.entity';
 export { GoodsReceivedNote, GrnStatus, GrnType } from './goods-received-note.entity';
 export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
+export { VendorPayment } from './vendor-payment.entity';
 
 // Import entities for array construction
 import { User } from './user.entity';

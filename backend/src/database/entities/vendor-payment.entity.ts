@@ -1,0 +1,45 @@
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { BaseEntity } from './base.entity';
+import { Supplier } from './supplier.entity';
+import { PurchaseOrder } from './purchase-order.entity';
+
+@Entity('vendor_payments')
+@Index(['supplierId', 'status'])
+@Index(['paymentDate'])
+export class VendorPayment extends BaseEntity {
+  @Column({ length: 50, unique: true })
+  paymentNumber: string;
+
+  @Column({ type: 'uuid' })
+  supplierId: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  purchaseOrderId: string;
+
+  @Column({ type: 'decimal', precision: 12, scale: 4, default: 0 })
+  amount: number;
+
+  @Column({ type: 'date' })
+  paymentDate: Date;
+
+  @Column({ length: 50 })
+  paymentMethod: string; // 'cash', 'bank_transfer', 'check', 'card'
+
+  @Column({ length: 100, nullable: true })
+  referenceNumber: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
+  @Column({ length: 20, default: 'pending' })
+  status: string; // 'pending', 'completed', 'cancelled'
+
+  // Relations
+  @ManyToOne(() => Supplier, { eager: true })
+  @JoinColumn({ name: 'supplierId' })
+  supplier: Supplier;
+
+  @ManyToOne(() => PurchaseOrder, { nullable: true })
+  @JoinColumn({ name: 'purchaseOrderId' })
+  purchaseOrder: PurchaseOrder;
+}

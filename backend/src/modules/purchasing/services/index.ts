@@ -8,3 +8,4 @@
 export * from './supplier.service';
 export * from './purchase-order.service';
 export * from './goods-received-note.service';
+export * from './vendor-payment.service';

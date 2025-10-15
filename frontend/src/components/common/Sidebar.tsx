@@ -32,6 +32,7 @@ import {
   Person as UsersIcon,
   Tune as SystemSettingsIcon,
   Description as PurchaseOrderIcon,
+  AccountBalance as VendorPaymentsIcon,
 } from '@mui/icons-material'
 import { moduleApi } from '@/services/moduleApi'
 
@@ -161,6 +162,12 @@ const menuSections: MenuSection[] = [
             title: 'Goods Received',
             icon: <GRNIcon />,
             path: '/purchasing/goods-received',
+          },
+          {
+            id: 'vendor-payments',
+            title: 'Vendor Payments',
+            icon: <VendorPaymentsIcon />,
+            path: '/purchasing/vendor-payments',
           },
         ],
       },
