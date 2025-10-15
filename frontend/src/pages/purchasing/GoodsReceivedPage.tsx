@@ -19,6 +19,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Divider,
   Skeleton,
   Alert,
   Grid,
@@ -55,6 +56,9 @@ interface GRNFilters {
   sortBy: string
   sortOrder: 'asc' | 'desc'
   status: string
+  dateFilter: string
+  customFromDate: string
+  customToDate: string
 }
 
 // Memoized GRN Row Component
@@ -128,6 +132,9 @@ const GoodsReceivedPage: React.FC = () => {
     sortBy: 'grnNumber',
     sortOrder: 'asc',
     status: 'all',
+    dateFilter: 'all',
+    customFromDate: '',
+    customToDate: '',
   })
 
   const [deletedGRNsDialogOpen, setDeletedGRNsDialogOpen] = useState(false)
@@ -135,16 +142,51 @@ const GoodsReceivedPage: React.FC = () => {
   const grnListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  // Helper function to calculate date ranges
+  const getDateRange = useCallback((filter: string) => {
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay())
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+    const formatDate = (date: Date) => date.toISOString().split('T')[0]
+
+    switch (filter) {
+      case 'today':
+        return { fromDate: formatDate(today), toDate: formatDate(today) }
+      case 'yesterday':
+        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
+      case 'this_week':
+        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
+      case 'this_month':
+        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
+      case 'this_year':
+        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
+      case 'custom':
+        return { fromDate: filters.customFromDate, toDate: filters.customToDate }
+      default:
+        return { fromDate: undefined, toDate: undefined }
+    }
+  }, [filters.customFromDate, filters.customToDate])
+
   // Load GRNs on component mount and filter changes
   useEffect(() => {
+    const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchGoodsReceivedNotes({
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-    }))
-  }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder])
+      receiptDateFrom: dateRange.fromDate,
+      receiptDateTo: dateRange.toDate,
+    } as any))
+  }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder, filters.dateFilter, getDateRange])
 
   // Filter GRNs (status filter only - backend handles search and sorting)
   const filteredGRNs = useMemo(() => {
@@ -230,13 +272,16 @@ const GoodsReceivedPage: React.FC = () => {
   }, [])
 
   const handleRefreshAction = () => {
+    const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchGoodsReceivedNotes({
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-    }))
+      receiptDateFrom: dateRange.fromDate,
+      receiptDateTo: dateRange.toDate,
+    } as any))
   }
 
   const getStatusColor = (status: string) => {
@@ -385,6 +430,70 @@ const GoodsReceivedPage: React.FC = () => {
           size="medium"
           sx={{
             minWidth: isMobile ? 'auto' : 120,
+            width: isMobile ? 'auto' : 120,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+            }
+          }}
+        >
+          <InputLabel>Date Filter</InputLabel>
+          <Select
+            value={filters.dateFilter}
+            label="Date Filter"
+            onChange={(e) => setFilters(prev => ({ ...prev, dateFilter: e.target.value }))}
+            sx={{ fontSize: '0.875rem' }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="today">Today</MenuItem>
+            <MenuItem value="yesterday">Yesterday</MenuItem>
+            <MenuItem value="this_week">This Week</MenuItem>
+            <MenuItem value="this_month">This Month</MenuItem>
+            <MenuItem value="this_year">This Year</MenuItem>
+            <Divider />
+            <MenuItem value="custom">Custom Date Range</MenuItem>
+          </Select>
+        </FormControl>
+
+        {filters.dateFilter === 'custom' && (
+          <>
+            <TextField
+              label="From Date"
+              type="date"
+              value={filters.customFromDate}
+              onChange={(e) => setFilters(prev => ({ ...prev, customFromDate: e.target.value }))}
+              size="medium"
+              sx={{
+                minWidth: isMobile ? 'auto' : 120,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem',
+                }
+              }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="To Date"
+              type="date"
+              value={filters.customToDate}
+              onChange={(e) => setFilters(prev => ({ ...prev, customToDate: e.target.value }))}
+              size="medium"
+              sx={{
+                minWidth: isMobile ? 'auto' : 120,
+                '& .MuiOutlinedInput-root': {
+                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem',
+                }
+              }}
+              InputLabelProps={{ shrink: true }}
+            />
+          </>
+        )}
+
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            width: isMobile ? 'auto' : 120,
             '& .MuiOutlinedInput-root': {
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem'
@@ -410,7 +519,7 @@ const GoodsReceivedPage: React.FC = () => {
           </Select>
         </FormControl>
 
-        {(filters.status !== 'all' || filters.search) && (
+        {(filters.dateFilter !== 'all' || filters.status !== 'all' || filters.search) && (
           <Button
             variant="outlined"
             size="medium"
@@ -420,6 +529,9 @@ const GoodsReceivedPage: React.FC = () => {
                 sortBy: 'grnNumber',
                 sortOrder: 'asc',
                 status: 'all',
+                dateFilter: 'all',
+                customFromDate: '',
+                customToDate: '',
               })
               setState((prev) => ({ ...prev, page: 0 }))
             }}
