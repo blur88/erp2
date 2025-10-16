@@ -132,6 +132,9 @@ const PurchaseOrdersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  // Debug logging
+  console.log('PurchaseOrdersPage rendering...')
+
   const purchaseOrders = useAppSelector(selectPurchaseOrders) || []
   const suppliers = useAppSelector((state: any) => state.purchasing.suppliers) || []
   const loading = useAppSelector(selectPurchasingLoading)?.purchaseOrders || false
@@ -157,6 +160,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState<{ [key: string]: boolean }>({})
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -230,6 +234,46 @@ const PurchaseOrdersPage: React.FC = () => {
       }
     }
   }, [searchParams, purchaseOrders, dispatch, setSearchParams])
+
+  // Check payment status when selected order changes
+  useEffect(() => {
+    if (selectedOrder) {
+      checkPaymentStatus(selectedOrder.id)
+    }
+  }, [selectedOrder])
+
+  // Function to check payment status for a PO
+  const checkPaymentStatus = async (poId: string) => {
+    try {
+      const response = await purchasingApi.getPurchaseOrderPaymentStatus(poId)
+      console.log('Payment status response:', response)
+
+      // Handle both direct response and wrapped response structure
+      let paymentData
+      if (response.data && typeof response.data === 'object' && 'isPaid' in response.data) {
+        // Direct response structure: { isPaid: boolean, payment?: any }
+        paymentData = response.data
+      } else if (response && typeof response === 'object' && 'isPaid' in response) {
+        // Direct response structure: { isPaid: boolean, payment?: any }
+        paymentData = response
+      } else {
+        // Fallback - assume unpaid if structure is unexpected
+        paymentData = { isPaid: false }
+      }
+
+      setPaymentStatus(prev => ({
+        ...prev,
+        [poId]: paymentData.isPaid
+      }))
+    } catch (error) {
+      console.error('Error checking payment status:', error)
+      // Set default to false on error
+      setPaymentStatus(prev => ({
+        ...prev,
+        [poId]: false
+      }))
+    }
+  }
 
   const handleSort = useCallback((field: string) => {
     setState(prev => ({
@@ -400,6 +444,70 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
+  const handlePay = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.markPurchaseOrderAsPaid(selectedOrder.id)
+      showSuccess(`Payment created: ${response.data.payment.paymentNumber}`)
+
+      // Update payment status
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: true
+      }))
+
+      // Update the selected order with the new data
+      if (response.data.data) {
+        dispatch(setSelectedPurchaseOrder(response.data.data))
+      }
+
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Pay error:', err)
+      if (err?.response?.status === 409) {
+        showError('This purchase order is already paid')
+      } else {
+        showError(err?.response?.data?.message || 'Failed to create payment')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpay = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+      showSuccess('Payment deleted successfully')
+
+      // Update payment status
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Update the selected order with the new data
+      if (response.data.data) {
+        dispatch(setSelectedPurchaseOrder(response.data.data))
+      }
+
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Unpay error:', err)
+      if (err?.response?.status === 404) {
+        showError('No payment found for this purchase order')
+      } else {
+        showError(err?.response?.data?.data?.message || 'Failed to delete payment')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleDeleteClick = () => {
     if (!selectedOrder) return
     setOrderToDelete(selectedOrder)
@@ -488,6 +596,13 @@ const PurchaseOrdersPage: React.FC = () => {
 
   return (
     <Box>
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Debug: PurchaseOrdersPage loaded | Orders: {purchaseOrders.length} | Loading: {loading} | Error: {error || 'None'}
+        </Alert>
+      )}
+
       {/* Header */}
       <Box sx={{
         display: 'flex',
@@ -1059,11 +1174,12 @@ const PurchaseOrdersPage: React.FC = () => {
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  color="primary"
+                                  color={paymentStatus[selectedOrder.id] ? "error" : "primary"}
                                   sx={{ minWidth: 110 }}
-                                  onClick={() => {}}
+                                  onClick={paymentStatus[selectedOrder.id] ? handleUnpay : handlePay}
+                                  disabled={isLoading}
                                 >
-                                  Pay
+                                  {paymentStatus[selectedOrder.id] ? "Unpay" : "Pay"}
                                 </Button>
                                 {selectedOrder.goodsReceivedNotes &&
                                  selectedOrder.goodsReceivedNotes.length > 0 &&
@@ -1074,7 +1190,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                     color="warning"
                                     sx={{ minWidth: 110 }}
                                     onClick={handleReturn}
-                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0 || isLoading}
                                   >
                                     Return
                                   </Button>
@@ -1085,7 +1201,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                     color="success"
                                     sx={{ minWidth: 110 }}
                                     onClick={handleReceive}
-                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0 || isLoading}
                                   >
                                     Receive
                                   </Button>

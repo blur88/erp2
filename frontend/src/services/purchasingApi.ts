@@ -181,6 +181,19 @@ export const purchasingApi = {
     return ApiService.post<PurchaseOrder>(`/purchasing/orders/${purchaseOrderId}/return`)
   },
 
+  // Pay/Unpay operations
+  async markPurchaseOrderAsPaid(purchaseOrderId: string) {
+    return ApiService.post<{ data: PurchaseOrder; payment: VendorPayment }>(`/purchasing/orders/${purchaseOrderId}/pay`)
+  },
+
+  async markPurchaseOrderAsUnpaid(purchaseOrderId: string) {
+    return ApiService.post<{ data: PurchaseOrder }>(`/purchasing/orders/${purchaseOrderId}/unpay`)
+  },
+
+  async getPurchaseOrderPaymentStatus(purchaseOrderId: string) {
+    return ApiService.get<{ isPaid: boolean; payment?: any }>(`/purchasing/orders/${purchaseOrderId}/payment-status`)
+  },
+
   async printGoodsReceivedNote(id: string) {
     return ApiService.downloadFile(`/purchasing/goods-received-notes/${id}/print`, `grn-${id}.pdf`)
   },

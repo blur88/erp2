@@ -136,4 +136,41 @@ export class VendorPaymentController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.vendorPaymentService.remove(id);
   }
+
+  @Delete(':id/permanent')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Hard delete a vendor payment' })
+  @ApiParam({ name: 'id', description: 'Vendor payment UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor payment permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Vendor payment not found' })
+  permanentDelete(@Param('id', ParseUUIDPipe) id: string) {
+    return this.vendorPaymentService.permanentDelete(id);
+  }
+
+  @Post('for-po/:poId')
+  @ApiOperation({ summary: 'Create vendor payment for purchase order' })
+  @ApiParam({ name: 'poId', description: 'Purchase Order UUID' })
+  @ApiResponse({
+    status: 201,
+    description: 'Vendor payment created successfully for PO',
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  createForPurchaseOrder(@Param('poId', ParseUUIDPipe) poId: string) {
+    return this.vendorPaymentService.createForPurchaseOrder(poId);
+  }
+
+  @Get('for-po/:poId')
+  @ApiOperation({ summary: 'Get vendor payment for purchase order' })
+  @ApiParam({ name: 'poId', description: 'Purchase Order UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor payment retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Vendor payment not found for this PO' })
+  findByPurchaseOrder(@Param('poId', ParseUUIDPipe) poId: string) {
+    return this.vendorPaymentService.findByPurchaseOrder(poId);
+  }
 }

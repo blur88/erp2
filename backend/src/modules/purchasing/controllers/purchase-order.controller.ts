@@ -233,6 +233,57 @@ export class PurchaseOrderController {
     return { data };
   }
 
+  @Post(':id/pay')
+  @ApiOperation({ summary: 'Mark purchase order as paid - creates vendor payment' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order marked as paid successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  @ApiResponse({ status: 400, description: 'Purchase order already paid' })
+  @HttpCode(HttpStatus.OK)
+  async markAsPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: PurchaseOrderResponseDto; payment: any }> {
+    const result = await this.purchaseOrderService.markAsPaid(id);
+    return { data: result.order, payment: result.payment };
+  }
+
+  @Post(':id/unpay')
+  @ApiOperation({ summary: 'Unmark purchase order as paid - hard deletes vendor payment' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order unmarked as paid successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  @ApiResponse({ status: 404, description: 'Vendor payment not found' })
+  @HttpCode(HttpStatus.OK)
+  async markAsUnpaid(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const result = await this.purchaseOrderService.markAsUnpaid(id);
+    return { data: result };
+  }
+
+  @Get(':id/payment-status')
+  @ApiOperation({ summary: 'Check payment status of purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment status retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  async getPaymentStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ isPaid: boolean; payment?: any }> {
+    const result = await this.purchaseOrderService.getPaymentStatus(id);
+    return result;
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete purchase order (soft delete)' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
@@ -245,7 +296,7 @@ export class PurchaseOrderController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<{ message: string }> {
-    await this.purchaseOrderService.remove(id, 'system');
+    await this.purchaseOrderService.remove(id);
     return { message: 'Purchase order deleted successfully' };
   }
 }

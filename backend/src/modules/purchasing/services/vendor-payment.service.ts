@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
+import { VendorPayment, PurchaseOrder } from '../../../database/entities';
 import {
   CreateVendorPaymentDto,
   UpdateVendorPaymentDto,
@@ -14,6 +14,8 @@ export class VendorPaymentService {
   constructor(
     @InjectRepository(VendorPayment)
     private vendorPaymentRepository: Repository<VendorPayment>,
+    @InjectRepository(PurchaseOrder)
+    private purchaseOrderRepository: Repository<PurchaseOrder>,
   ) {}
 
   /**
@@ -266,6 +268,79 @@ export class VendorPaymentService {
 
     await this.vendorPaymentRepository.save(vendorPayment);
     await this.vendorPaymentRepository.softDelete(id);
+  }
+
+  /**
+   * Create vendor payment for a purchase order
+   */
+  async createForPurchaseOrder(poId: string, user: string = 'system'): Promise<VendorPayment> {
+    // Find the purchase order
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id: poId },
+      relations: ['supplier'],
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Check if vendor payment already exists for this PO
+    const existingPayment = await this.vendorPaymentRepository.findOne({
+      where: {
+        purchaseOrderId: poId,
+        isActive: true
+      },
+    });
+
+    if (existingPayment) {
+      throw new BadRequestException('Vendor payment already exists for this purchase order');
+    }
+
+    // Create vendor payment
+    const paymentNumber = await this.generatePaymentNumber();
+
+    const vendorPayment = this.vendorPaymentRepository.create({
+      paymentNumber,
+      supplierId: purchaseOrder.supplierId,
+      purchaseOrderId: poId,
+      amount: Number(purchaseOrder.totalAmount),
+      paymentDate: new Date(),
+      paymentMethod: 'bank_transfer', // Default payment method
+      status: 'completed',
+      notes: `Auto-generated payment for PO ${purchaseOrder.orderNumber}`,
+    });
+
+    return this.vendorPaymentRepository.save(vendorPayment);
+  }
+
+  /**
+   * Find vendor payment by purchase order ID
+   */
+  async findByPurchaseOrder(poId: string): Promise<VendorPayment | null> {
+    return this.vendorPaymentRepository.findOne({
+      where: {
+        purchaseOrderId: poId,
+        isActive: true
+      },
+      relations: ['supplier', 'purchaseOrder'],
+    });
+  }
+
+  /**
+   * Hard delete vendor payment
+   */
+  async permanentDelete(id: string): Promise<{ message: string }> {
+    const vendorPayment = await this.vendorPaymentRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!vendorPayment) {
+      throw new NotFoundException('Vendor payment not found');
+    }
+
+    await this.vendorPaymentRepository.remove(vendorPayment);
+    return { message: 'Vendor payment permanently deleted successfully' };
   }
 
   /**

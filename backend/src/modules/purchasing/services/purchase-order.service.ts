@@ -7,7 +7,8 @@ import {
   Supplier,
   User,
   Product,
-  GoodsReceivedNote
+  GoodsReceivedNote,
+  VendorPayment
 } from '../../../database/entities';
 import {
   CreatePurchaseOrderDto,
@@ -19,7 +20,8 @@ import {
 } from '../dto';
 import { SupplierService } from './supplier.service';
 import { GoodsReceivedNoteService } from './goods-received-note.service';
-import { GrnStatus, GrnType } from '../../../database/entities/goods-received-note.entity';
+import { VendorPaymentService } from './vendor-payment.service';
+import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -38,8 +40,11 @@ export class PurchaseOrderService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(GoodsReceivedNote)
     private readonly grnRepository: Repository<GoodsReceivedNote>,
+    @InjectRepository(VendorPayment)
+    private readonly vendorPaymentRepository: Repository<VendorPayment>,
     private readonly supplierService: SupplierService,
     private readonly grnService: GoodsReceivedNoteService,
+    private readonly vendorPaymentService: VendorPaymentService,
   ) {}
 
   /**
@@ -839,17 +844,13 @@ export class PurchaseOrderService {
           grnId: grn.id,
           lineNumber: lineNumber++,
           productId: poItem.product.id,
-          productSku: poItem.product.barcode || poItem.product.id,
-          productName: poItem.product.name,
-          productDescription: poItem.product.description,
-          unit: poItem.unit || 'pcs',
           orderedQuantity: Number(poItem.quantity),
           receivedQuantity: 0, // Reset to 0 for draft
           purchaseOrderItemId: poItem.id,
         };
 
         grnItems.push(grnItem);
-        this.logger.debug(`Created GRN item: ${grnItem.productName}, ordered: ${grnItem.orderedQuantity}`);
+        this.logger.debug(`Created GRN item for product: ${poItem.product.name}, ordered: ${grnItem.orderedQuantity}`);
       }
 
       this.logger.debug(`Saving ${grnItems.length} new GRN items`);
@@ -937,24 +938,13 @@ export class PurchaseOrderService {
         throw new NotFoundException('Purchase order not found');
       }
 
-      // Create GRN with draft status (empty JSON for backward compatibility)
+      // Create GRN with draft status
       const grn = this.grnRepository.create({
         grnNumber,
         purchaseOrderId: fullPO.id,
         supplierId: fullPO.supplier.id,
-        receivedByUserId: null,
         receivedDate: new Date(),
-        deliveryReference: null,
-        vehicleDetails: null,
-        driverName: null,
-        notes: null,
-        internalNotes: null,
-        itemsReceived: [], // Empty JSON - using relational items instead
-        qualityInspected: false,
-        metadata: null,
-        type: GrnType.STANDARD,
         status: GrnStatus.DRAFT,
-        totalQuantityOrdered: 0,
         totalQuantityReceived: 0,
       });
 
@@ -969,10 +959,6 @@ export class PurchaseOrderService {
           grnId: savedGrn.id,
           lineNumber: lineNumber++,
           productId: poItem.product.id,
-          productSku: poItem.product.barcode || poItem.product.id,
-          productName: poItem.product.name,
-          productDescription: poItem.product.description,
-          unit: poItem.unit || 'pcs',
           orderedQuantity: Number(poItem.quantity),
           receivedQuantity: 0, // Set to 0 for draft status
           purchaseOrderItemId: poItem.id,
@@ -1033,10 +1019,6 @@ export class PurchaseOrderService {
           grnId: item.grnId,
           lineNumber: item.lineNumber,
           productId: item.productId,
-          productSku: item.productSku,
-          productName: item.productName,
-          productDescription: item.productDescription,
-          unit: item.unit,
           orderedQuantity: Number(item.orderedQuantity),
           receivedQuantity: Number(item.orderedQuantity), // Set received = ordered
           purchaseOrderItemId: item.purchaseOrderItemId,
@@ -1120,10 +1102,6 @@ export class PurchaseOrderService {
           grnId: item.grnId,
           lineNumber: item.lineNumber,
           productId: item.productId,
-          productSku: item.productSku,
-          productName: item.productName,
-          productDescription: item.productDescription,
-          unit: item.unit,
           orderedQuantity: Number(item.orderedQuantity),
           receivedQuantity: 0, // Reset to 0 (return)
           purchaseOrderItemId: item.purchaseOrderItemId,
@@ -1168,6 +1146,96 @@ export class PurchaseOrderService {
       this.logger.error(`Error returning goods: ${error.message}`, error.stack);
       throw new BadRequestException('Failed to return goods');
     }
+  }
+
+  /**
+   * Mark purchase order as paid by creating a vendor payment
+   */
+  async markAsPaid(id: string): Promise<{ order: PurchaseOrderResponseDto; payment: VendorPayment }> {
+    this.logger.log(`Marking purchase order as paid: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: ['supplier'],
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Check if payment already exists
+    const existingPayment = await this.vendorPaymentService.findByPurchaseOrder(id);
+    if (existingPayment) {
+      throw new BadRequestException('Purchase order is already paid');
+    }
+
+    // Create vendor payment
+    const payment = await this.vendorPaymentService.createForPurchaseOrder(id);
+
+    // Get updated order with payment status
+    const updatedOrder = await this.findOne(id);
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} marked as paid with payment ${payment.paymentNumber}`);
+    return { order: updatedOrder, payment };
+  }
+
+  /**
+   * Mark purchase order as unpaid by hard deleting the vendor payment
+   */
+  async markAsUnpaid(id: string): Promise<PurchaseOrderResponseDto> {
+    this.logger.log(`Marking purchase order as unpaid: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Find existing payment
+    const existingPayment = await this.vendorPaymentService.findByPurchaseOrder(id);
+    if (!existingPayment) {
+      throw new NotFoundException('No payment found for this purchase order');
+    }
+
+    // Hard delete the vendor payment
+    await this.vendorPaymentService.permanentDelete(existingPayment.id);
+
+    // Get updated order
+    const updatedOrder = await this.findOne(id);
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} marked as unpaid - payment deleted`);
+    return updatedOrder;
+  }
+
+  /**
+   * Get payment status of a purchase order
+   */
+  async getPaymentStatus(id: string): Promise<{ isPaid: boolean; payment?: any }> {
+    this.logger.log(`Checking payment status for purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    const payment = await this.vendorPaymentService.findByPurchaseOrder(id);
+
+    return {
+      isPaid: !!payment,
+      payment: payment ? {
+        id: payment.id,
+        paymentNumber: payment.paymentNumber,
+        amount: Number(payment.amount),
+        paymentDate: payment.paymentDate,
+        paymentMethod: payment.paymentMethod,
+        status: payment.status,
+      } : undefined,
+    };
   }
 
   /**
@@ -1225,14 +1293,14 @@ export class PurchaseOrderService {
         id: item.id,
         product: item.product ? {
           id: item.product.id,
-          sku: item.productSku,
+          sku: item.product.barcode || item.product.id.substring(0, 8).toUpperCase(),
           name: item.product.name,
-          unit: item.unit,
+          unit: 'pcs',
         } : undefined,
-        description: item.productName,
+        description: item.product?.name || 'Unknown Product',
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitCost),
-        unit: item.unit,
+        unit: 'pcs',
         discountPercent: Number(item.discountPercent),
         discountAmount: Number(item.discountAmount),
         taxPercent: 0,
