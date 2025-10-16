@@ -1102,25 +1102,6 @@ const PurchaseOrdersPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
-                          {selectedOrder.notes && (
-                            <TableRow sx={{ backgroundColor: 'inherit' }}>
-                              <TableCell sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                color: 'text.secondary',
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                verticalAlign: 'top'
-                              }}>
-                                Notes
-                              </TableCell>
-                              <TableCell sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word'
-                              }}>
-                                {selectedOrder.notes}
-                              </TableCell>
-                            </TableRow>
-                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -1351,6 +1332,37 @@ const PurchaseOrdersPage: React.FC = () => {
                       )}
                     </Box>
                   </Grid>
+
+                  {/* Notes Section */}
+                  {selectedOrder.notes && (
+                    <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                      {/* Page Break */}
+                      <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
+
+                      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          mb: 1
+                        }}>
+                          Notes
+                        </Typography>
+
+                        <Box sx={{
+                          p: 2,
+                          backgroundColor: 'grey.50',
+                          borderRadius: 1,
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}>
+                          {selectedOrder.notes}
+                        </Box>
+                      </Box>
+                    </Grid>
+                  )}
                 </Grid>
               </Box>
             </Paper>
