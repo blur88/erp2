@@ -107,16 +107,6 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
         >
           {payment.paymentNumber}
         </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            color: 'text.secondary',
-            fontSize: '0.7rem'
-          }}
-        >
-          {formatCurrency(payment.amount)}
-        </Typography>
       </TableCell>
     </TableRow>
   )
