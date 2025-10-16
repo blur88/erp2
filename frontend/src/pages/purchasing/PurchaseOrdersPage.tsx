@@ -450,17 +450,26 @@ const PurchaseOrdersPage: React.FC = () => {
     setIsLoading(true)
     try {
       const response = await purchasingApi.markPurchaseOrderAsPaid(selectedOrder.id)
-      showSuccess(`Payment created: ${response.data.payment.paymentNumber}`)
 
-      // Update payment status
+      // ApiService wraps response, so response.data contains { data: PO, payment: Payment }
+      const paymentData = response.data
+
+      // Show success message
+      if (paymentData.payment?.paymentNumber) {
+        showSuccess(`Payment created: ${paymentData.payment.paymentNumber}`)
+      } else {
+        showSuccess('Payment created successfully')
+      }
+
+      // Update payment status (optimistic update)
       setPaymentStatus(prev => ({
         ...prev,
         [selectedOrder.id]: true
       }))
 
       // Update the selected order with the new data
-      if (response.data.data) {
-        dispatch(setSelectedPurchaseOrder(response.data.data))
+      if (paymentData.data) {
+        dispatch(setSelectedPurchaseOrder(paymentData.data))
       }
 
       loadOrders() // Reload to update the list
@@ -484,15 +493,17 @@ const PurchaseOrdersPage: React.FC = () => {
       const response = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
       showSuccess('Payment deleted successfully')
 
-      // Update payment status
+      // Update payment status (optimistic update)
       setPaymentStatus(prev => ({
         ...prev,
         [selectedOrder.id]: false
       }))
 
       // Update the selected order with the new data
-      if (response.data.data) {
-        dispatch(setSelectedPurchaseOrder(response.data.data))
+      // ApiService wraps response, check both response.data.data and response.data
+      const updatedOrder = response.data.data || response.data
+      if (updatedOrder && (updatedOrder as any).id) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder as any))
       }
 
       loadOrders() // Reload to update the list
@@ -501,7 +512,7 @@ const PurchaseOrdersPage: React.FC = () => {
       if (err?.response?.status === 404) {
         showError('No payment found for this purchase order')
       } else {
-        showError(err?.response?.data?.data?.message || 'Failed to delete payment')
+        showError(err?.response?.data?.message || 'Failed to delete payment')
       }
     } finally {
       setIsLoading(false)
