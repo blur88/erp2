@@ -753,7 +753,7 @@ const VendorPaymentsPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           {selectedPayment.purchaseOrder && (
-                            <TableRow>
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 PO No
                               </TableCell>
@@ -773,7 +773,7 @@ const VendorPaymentsPage: React.FC = () => {
                             </TableRow>
                           )}
                             {selectedPayment.referenceNumber && (
-                            <TableRow>
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 Reference Number
                               </TableCell>
