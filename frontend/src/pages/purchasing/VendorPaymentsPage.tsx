@@ -734,36 +734,26 @@ const VendorPaymentsPage: React.FC = () => {
                               {selectedPayment.supplier?.companyName || 'Unknown'}
                             </TableCell>
                           </TableRow>
-                          <TableRow>
+                          {selectedPayment.purchaseOrder && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                PO Amount
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(selectedPayment.purchaseOrder.totalAmount)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              VP Date
+                              Payment Date
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatDate(selectedPayment.paymentDate)}
                             </TableCell>
                           </TableRow>
-                          {selectedPayment.purchaseOrder && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                PO No
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedPayment.purchaseOrder.orderNumber}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          {selectedPayment.grn && (
+                          {selectedPayment.referenceNumber && (
                             <TableRow>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                GRN No
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedPayment.grn.grnNumber}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                            {selectedPayment.referenceNumber && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 Reference Number
                               </TableCell>
@@ -785,25 +775,66 @@ const VendorPaymentsPage: React.FC = () => {
                           <TableRow>
                             <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
                               <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem' }}>
-                                VP Summary
+                                Related Information
                               </Typography>
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
-                              Amount
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.95rem', fontWeight: 700, color: 'success.main' }}>
-                              {formatCurrency(selectedPayment.amount)}
-                            </TableCell>
-                          </TableRow>
+                          {selectedPayment.purchaseOrder && (
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                                PO No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.purchaseOrder.orderNumber}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {selectedPayment.grn && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                GRN No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.grn.grnNumber}
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   </Grid>
                 </Grid>
 
-  
+                {/* Payment Notes Section */}
+                <Box sx={{ mt: 2 }}>
+                  <TableContainer>
+                    <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
+                              Notes
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {selectedPayment.purchaseOrder && selectedPayment.grn ? (
+                              `Payment recorded for purchase order ${selectedPayment.purchaseOrder.orderNumber} (GRN: ${selectedPayment.grn.grnNumber})`
+                            ) : selectedPayment.purchaseOrder ? (
+                              `Payment recorded for purchase order ${selectedPayment.purchaseOrder.orderNumber}`
+                            ) : selectedPayment.grn ? (
+                              `Payment recorded for GRN ${selectedPayment.grn.grnNumber}`
+                            ) : (
+                              selectedPayment.notes || 'Payment recorded'
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+
                 </Box>
             </Paper>
           ) : (
