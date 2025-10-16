@@ -451,12 +451,13 @@ const PurchaseOrdersPage: React.FC = () => {
     try {
       const response = await purchasingApi.markPurchaseOrderAsPaid(selectedOrder.id)
 
-      // ApiService wraps response, so response.data contains { data: PO, payment: Payment }
-      const paymentData = response.data
+      // Based on console logs: response.data is the PO object directly with vendorPayments populated
+      const updatedPO = response.data as any
 
-      // Show success message
-      if (paymentData.payment?.paymentNumber) {
-        showSuccess(`Payment created: ${paymentData.payment.paymentNumber}`)
+      // Show success message using the vendorPayments from the updated PO
+      if (updatedPO.vendorPayments && updatedPO.vendorPayments.length > 0) {
+        const latestPayment = updatedPO.vendorPayments[updatedPO.vendorPayments.length - 1]
+        showSuccess(`Payment created: ${latestPayment.paymentNumber}`)
       } else {
         showSuccess('Payment created successfully')
       }
@@ -468,9 +469,8 @@ const PurchaseOrdersPage: React.FC = () => {
       }))
 
       // Update the selected order with the new data
-      if (paymentData.data) {
-        dispatch(setSelectedPurchaseOrder(paymentData.data))
-      }
+      // The backend already includes vendorPayments in the updated PO
+      dispatch(setSelectedPurchaseOrder(updatedPO))
 
       loadOrders() // Reload to update the list
     } catch (err: any) {
@@ -503,7 +503,12 @@ const PurchaseOrdersPage: React.FC = () => {
       // ApiService wraps response, check both response.data.data and response.data
       const updatedOrder = response.data.data || response.data
       if (updatedOrder && (updatedOrder as any).id) {
-        dispatch(setSelectedPurchaseOrder(updatedOrder as any))
+        // Clear vendorPayments array when unpaying
+        const orderWithoutPayment = {
+          ...(updatedOrder as any),
+          vendorPayments: []
+        }
+        dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
       }
 
       loadOrders() // Reload to update the list
