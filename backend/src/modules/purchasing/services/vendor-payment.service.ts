@@ -369,16 +369,13 @@ export class VendorPaymentService {
    * Generate unique payment number
    */
   private async generatePaymentNumber(): Promise<string> {
-    const prefix = 'VPAY';
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const prefix = 'VP';
 
-    // Find the last payment number for this month
+    // Find the last payment number
     const lastPayment = await this.vendorPaymentRepository
       .createQueryBuilder('vendorPayment')
       .where('vendorPayment.paymentNumber LIKE :pattern', {
-        pattern: `${prefix}-${year}${month}%`,
+        pattern: `${prefix}-%`,
       })
       .orderBy('vendorPayment.paymentNumber', 'DESC')
       .getOne();
@@ -386,11 +383,11 @@ export class VendorPaymentService {
     let sequence = 1;
     if (lastPayment) {
       const lastSequence = parseInt(
-        lastPayment.paymentNumber.split('-')[1].slice(4),
+        lastPayment.paymentNumber.split('-')[1],
       );
       sequence = lastSequence + 1;
     }
 
-    return `${prefix}-${year}${month}${sequence.toString().padStart(4, '0')}`;
+    return `${prefix}-${sequence.toString().padStart(6, '0')}`;
   }
 }
