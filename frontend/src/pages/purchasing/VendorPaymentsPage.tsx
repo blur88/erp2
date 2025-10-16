@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -118,6 +118,7 @@ const VendorPaymentsPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   const dispatch = useAppDispatch()
   const { vendorPayments, loading, error, pagination } = useAppSelector(selectVendorPaymentsState)
@@ -785,7 +786,21 @@ const VendorPaymentsPage: React.FC = () => {
                                 PO No
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedPayment.purchaseOrder.orderNumber}
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    '&:hover': {
+                                      color: 'primary.dark',
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/purchasing/orders?poId=${selectedPayment.purchaseOrder.id}`)}
+                                >
+                                  {selectedPayment.purchaseOrder.orderNumber}
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           )}
@@ -795,7 +810,21 @@ const VendorPaymentsPage: React.FC = () => {
                                 GRN No
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedPayment.grn.grnNumber}
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    '&:hover': {
+                                      color: 'primary.dark',
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/purchasing/goods-received?grnId=${selectedPayment.grn.id}`)}
+                                >
+                                  {selectedPayment.grn.grnNumber}
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           )}
