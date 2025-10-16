@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { VendorPayment, PurchaseOrder } from '../../../database/entities';
+import { VendorPayment, PurchaseOrder, GoodsReceivedNote } from '../../../database/entities';
 import {
   CreateVendorPaymentDto,
   UpdateVendorPaymentDto,
@@ -16,6 +16,8 @@ export class VendorPaymentService {
     private vendorPaymentRepository: Repository<VendorPayment>,
     @InjectRepository(PurchaseOrder)
     private purchaseOrderRepository: Repository<PurchaseOrder>,
+    @InjectRepository(GoodsReceivedNote)
+    private grnRepository: Repository<GoodsReceivedNote>,
   ) {}
 
   /**
@@ -27,9 +29,21 @@ export class VendorPaymentService {
   ): Promise<VendorPayment> {
     const paymentNumber = await this.generatePaymentNumber();
 
+    // Automatically link GRN if purchaseOrderId is provided but grnId is not
+    let grnId = createDto.grnId;
+    if (createDto.purchaseOrderId && !grnId) {
+      const grn = await this.grnRepository.findOne({
+        where: { purchaseOrderId: createDto.purchaseOrderId },
+      });
+      if (grn) {
+        grnId = grn.id;
+      }
+    }
+
     const vendorPayment = this.vendorPaymentRepository.create({
       ...createDto,
       paymentNumber,
+      grnId,
     });
 
     return this.vendorPaymentRepository.save(vendorPayment);
@@ -298,6 +312,11 @@ export class VendorPaymentService {
       throw new BadRequestException('Vendor payment already exists for this purchase order');
     }
 
+    // Find GRN for this purchase order
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: poId },
+    });
+
     // Create vendor payment
     const paymentNumber = await this.generatePaymentNumber();
 
@@ -305,6 +324,7 @@ export class VendorPaymentService {
       paymentNumber,
       supplierId: purchaseOrder.supplierId,
       purchaseOrderId: poId,
+      grnId: grn?.id,
       amount: Number(purchaseOrder.totalAmount),
       paymentDate: new Date(),
       paymentMethod: 'bank_transfer', // Default payment method
