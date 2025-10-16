@@ -29,7 +29,7 @@ import {
 import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  Payment as PaymentIcon,
+  AccountBalance as PaymentIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
