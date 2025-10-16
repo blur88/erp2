@@ -762,13 +762,13 @@ const VendorPaymentsPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
-                          {selectedPayment.grnNumber && (
+                          {selectedPayment.grn && (
                             <TableRow>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 GRN No
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedPayment.grnNumber}
+                                {selectedPayment.grn.grnNumber}
                               </TableCell>
                             </TableRow>
                           )}

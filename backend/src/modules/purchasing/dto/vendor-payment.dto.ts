@@ -21,6 +21,11 @@ export class CreateVendorPaymentDto {
   @IsUUID()
   purchaseOrderId?: string;
 
+  @ApiPropertyOptional({ description: 'Goods Received Note ID', example: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  grnId?: string;
+
   @ApiProperty({ description: 'Payment amount', example: 1000.00 })
   @IsNumber()
   @Min(0)
@@ -72,6 +77,11 @@ export class UpdateVendorPaymentDto {
   @IsOptional()
   @IsUUID()
   purchaseOrderId?: string;
+
+  @ApiPropertyOptional({ description: 'Goods Received Note ID', example: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  grnId?: string;
 
   @ApiPropertyOptional({ description: 'Payment amount', example: 1000.00 })
   @IsOptional()
