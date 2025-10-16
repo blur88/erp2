@@ -409,6 +409,16 @@ export class PurchaseOrderResponseDto {
     receiptDate: Date;
   }>;
 
+  @ApiPropertyOptional({ description: 'Vendor Payments associated with this order' })
+  vendorPayments?: Array<{
+    id: string;
+    paymentNumber: string;
+    amount: number;
+    paymentDate: Date;
+    paymentMethod: string;
+    status: string;
+  }>;
+
   @ApiProperty({ description: 'Created date' })
   createdAt: Date;
 

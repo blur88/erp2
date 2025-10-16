@@ -1067,6 +1067,41 @@ const PurchaseOrdersPage: React.FC = () => {
                                 : '-'}
                             </TableCell>
                           </TableRow>
+                          {selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0 && (
+                            <TableRow sx={{ backgroundColor: selectedOrder.requiredDate ? 'grey.50' : 'inherit' }}>
+                              <TableCell sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                color: 'text.secondary',
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                              }}>
+                                VP No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                {selectedOrder.vendorPayments.map((payment: any, index: number) => (
+                                  <Box key={payment.id} component="span">
+                                    {index > 0 && ', '}
+                                    <Link
+                                      to={`/purchasing/vendor-payments?paymentId=${payment.id}`}
+                                      style={{
+                                        color: '#1976d2',
+                                        textDecoration: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s ease'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = '#1565c0'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = '#1976d2'
+                                      }}
+                                    >
+                                      {payment.paymentNumber}
+                                    </Link>
+                                  </Box>
+                                ))}
+                              </TableCell>
+                            </TableRow>
+                          )}
                           {selectedOrder.notes && (
                             <TableRow sx={{ backgroundColor: 'inherit' }}>
                               <TableCell sx={{

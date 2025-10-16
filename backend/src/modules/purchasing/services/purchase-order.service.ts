@@ -255,7 +255,8 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('po.approvedByUser', 'approvedByUser')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns');
+      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments');
 
     // Apply search filter
     if (search) {
@@ -356,6 +357,7 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
       .where('po.id = :id', { id })
       .getOne();
 
@@ -1318,6 +1320,14 @@ export class PurchaseOrderService {
         grnNumber: grn.grnNumber,
         status: grn.status,
         receiptDate: grn.receivedDate,
+      })) || [],
+      vendorPayments: purchaseOrder.vendorPayments?.map(payment => ({
+        id: payment.id,
+        paymentNumber: payment.paymentNumber,
+        amount: Number(payment.amount),
+        paymentDate: payment.paymentDate,
+        paymentMethod: payment.paymentMethod,
+        status: payment.status,
       })) || [],
       createdAt: purchaseOrder.createdAt,
       updatedAt: purchaseOrder.updatedAt,

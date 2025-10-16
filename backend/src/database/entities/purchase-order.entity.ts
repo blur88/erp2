@@ -22,6 +22,7 @@ import { Supplier } from './supplier.entity';
 import { User } from './user.entity';
 import { PurchaseOrderItem } from './purchase-order-item.entity';
 import { GoodsReceivedNote } from './goods-received-note.entity';
+import { VendorPayment } from './vendor-payment.entity';
 
 
 /**
@@ -348,6 +349,11 @@ export class PurchaseOrder extends BaseEntity {
     cascade: false,
   })
   goodsReceivedNotes: GoodsReceivedNote[];
+
+  @OneToMany(() => VendorPayment, (payment) => payment.purchaseOrder, {
+    cascade: false,
+  })
+  vendorPayments: VendorPayment[];
 
   // Computed properties
   get fullDeliveryAddress(): string {
