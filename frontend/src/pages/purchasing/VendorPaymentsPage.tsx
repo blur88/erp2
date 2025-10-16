@@ -628,7 +628,7 @@ const VendorPaymentsPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                Payment List ({pagination?.total || 0})
+                VP List ({pagination?.total || 0})
               </Typography>
             </Box>
 
@@ -706,7 +706,7 @@ const VendorPaymentsPage: React.FC = () => {
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
-                    Payment Details - {selectedPayment.paymentNumber}
+                    VP Details - {selectedPayment.paymentNumber}
                   </Typography>
                   <Chip
                     label={selectedPayment.status}
@@ -732,7 +732,7 @@ const VendorPaymentsPage: React.FC = () => {
                           <TableRow>
                             <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
                               <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem' }}>
-                                Payment Information
+                                VP Information
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -746,21 +746,33 @@ const VendorPaymentsPage: React.FC = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Payment Date
+                              VP Date
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatDate(selectedPayment.paymentDate)}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Payment Method
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {getPaymentMethodLabel(selectedPayment.paymentMethod)}
-                            </TableCell>
-                          </TableRow>
-                          {selectedPayment.referenceNumber && (
+                          {selectedPayment.purchaseOrder && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                PO No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.purchaseOrder.orderNumber}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {selectedPayment.grnNumber && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                GRN No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.grnNumber}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                            {selectedPayment.referenceNumber && (
                             <TableRow>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 Reference Number
@@ -783,7 +795,7 @@ const VendorPaymentsPage: React.FC = () => {
                           <TableRow>
                             <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
                               <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem' }}>
-                                Amount Information
+                                VP Summary
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -795,99 +807,14 @@ const VendorPaymentsPage: React.FC = () => {
                               {formatCurrency(selectedPayment.amount)}
                             </TableCell>
                           </TableRow>
-                          {selectedPayment.purchaseOrder && (
-                            <TableRow>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                PO Number
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {selectedPayment.purchaseOrder.orderNumber}
-                              </TableCell>
-                            </TableRow>
-                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   </Grid>
                 </Grid>
 
-                {/* Notes Section */}
-                {selectedPayment.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <TableContainer>
-                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
-                                Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                              {selectedPayment.notes}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
-
-                {/* Audit Information */}
-                <Box sx={{ mt: 3 }}>
-                  <TableContainer>
-                    <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.9rem' }}>
-                              Audit Information
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
-                            Created By
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {selectedPayment.createdBy || 'System'}
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                            Created At
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {formatDate(selectedPayment.createdAt)}
-                          </TableCell>
-                        </TableRow>
-                        {selectedPayment.updatedBy && (
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Last Updated By
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {selectedPayment.updatedBy}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        {selectedPayment.updatedAt && (
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Last Updated At
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatDate(selectedPayment.updatedAt)}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+  
                 </Box>
-              </Box>
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
