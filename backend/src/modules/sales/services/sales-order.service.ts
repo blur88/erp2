@@ -223,15 +223,7 @@ export class SalesOrderService {
         invoiceNumber,
       });
 
-      // Add line items from order
-      invoice.lineItems = createdItems.map(item => ({
-        productId: item.productId,
-        productName: item.productName || 'Unknown Product',
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        discount: Number(item.discountAmount),
-        totalAmount: Number(item.totalAmount),
-      }));
+      // lineItems removed from invoice model
 
       // Calculate totals and set correct status
       invoice.calculateTotals();
@@ -1038,15 +1030,7 @@ export class SalesOrderService {
     const invoiceData = Invoice.fromSalesOrder(order);
     const invoice = this.invoiceRepository.create(invoiceData);
     
-    // Add line items from order
-    invoice.lineItems = order.items.map(item => ({
-      productId: item.productId,
-      productName: item.product?.name || 'Unknown Product',
-      quantity: item.quantity,
-      unitPrice: Number(item.unitPrice),
-      discount: Number(item.discountAmount),
-      totalAmount: Number(item.totalAmount),
-    }));
+    // lineItems removed from invoice model
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
 
@@ -1456,31 +1440,14 @@ export class SalesOrderService {
           invoice.customerName = updatedOrder.customer.name;
         }
 
-        // Update purchase order number if changed
-        if (updatedOrder.customerPoNumber !== undefined) {
-          invoice.customerPoNumber = updatedOrder.customerPoNumber;
-        }
+        // customerPoNumber removed from invoice model
 
-        // Update billing address with customer's current address
-        if (updatedOrder.customer) {
-          invoice.billingAddress = updatedOrder.customer.name || '';
-        }
+        // billingAddress removed from invoice model
 
-        // Update line items to match the order
+        // Update total amount from order
         if (updatedOrder.items && updatedOrder.items.length > 0) {
-          invoice.lineItems = updatedOrder.items.map(item => ({
-            productId: item.productId,
-            productName: item.productName || item.product?.name || 'Unknown Product',
-            quantity: item.quantity,
-            unitPrice: Number(item.unitPrice),
-            totalAmount: Number(item.totalAmount),
-          }));
-
-          // Recalculate totals based on new line items
           const newSubtotal = updatedOrder.items.reduce((sum, item) =>
             sum + Number(item.totalAmount), 0);
-
-          invoice.subtotal = newSubtotal;
           invoice.totalAmount = newSubtotal;
         }
 

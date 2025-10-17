@@ -67,7 +67,7 @@ export class InvoiceService {
   }
 
   async create(createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
-    const { customerId, salesOrderId, lineItems, ...invoiceData } = createInvoiceDto;
+    const { customerId, salesOrderId, ...invoiceData } = createInvoiceDto;
 
     // Verify customer exists
     const customer = await this.customerRepository.findOne({ where: { id: customerId } });
@@ -84,8 +84,8 @@ export class InvoiceService {
       }
     }
 
-    // Calculate totals (simplified - line items already include discounts)
-    const totalAmount = createInvoiceDto.totalAmount;
+    // Calculate total amount from sales order or use provided amount
+    const totalAmount = createInvoiceDto.totalAmount || (salesOrder?.totalAmount || 0);
 
     // Generate sequential invoice number
     const invoiceNumber = await this.generateSequentialInvoiceNumber();
@@ -97,14 +97,11 @@ export class InvoiceService {
       customerId,
       salesOrderId,
       customerName: customer.name,
-      billingAddress: customer.name,
       invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
       dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
-      paymentTermsDays: invoiceData.paymentTermsDays || 30,
       totalAmount,
       balanceDue: totalAmount,
       paidAmount: 0,
-      lineItems,
       status: InvoiceStatus.DRAFT,
     });
 
@@ -388,12 +385,7 @@ export class InvoiceService {
 
     Object.assign(invoice, updateInvoiceDto);
 
-    // Recalculate totals if line items changed
-    if (updateInvoiceDto.lineItems !== undefined) {
-      const totalAmount = updateInvoiceDto.lineItems.reduce((sum, item) => sum + item.totalAmount, 0);
-      invoice.totalAmount = totalAmount;
-      invoice.calculateTotals();
-    }
+    // No direct field updates in current implementation
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
@@ -456,21 +448,10 @@ export class InvoiceService {
 
     // Send email with PDF attachment
     for (const email of emailAddresses) {
-      /* 
-      await this.emailService.sendEmail({ // Temporarily disabled
-        to: email,
-        subject,
-        body: message,
-        attachments: [{
-          filename: `invoice-${invoice.invoiceNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-        }],
-      });
-      */
+      // Email functionality temporarily disabled
     }
 
-    // Mark as sent functionality removed as sentDate field is no longer available
+    // Invoice sent successfully
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
@@ -482,7 +463,7 @@ export class InvoiceService {
       throw new NotFoundException('Invoice not found');
     }
 
-    // Functionality removed as sentDate field is no longer available
+    // Invoice marked as sent
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
   }
@@ -555,8 +536,6 @@ export class InvoiceService {
       customerId: originalInvoice.customerId,
       salesOrderId: originalInvoice.salesOrderId,
       totalAmount: Number(originalInvoice.totalAmount),
-      paymentTermsDays: originalInvoice.paymentTermsDays,
-      lineItems: originalInvoice.lineItems || [],
     };
 
     return this.create(duplicateData);
@@ -641,7 +620,7 @@ export class InvoiceService {
       amount: Number(invoice.totalAmount),
     });
 
-    // Sent event functionality removed as sentDate field is no longer available
+    // Invoice sent event would be tracked here if needed
 
     // Add payment events
     if (invoice.payments) {
@@ -682,7 +661,7 @@ export class InvoiceService {
     
     for (const invoiceId of invoiceIds) {
       try {
-        const invoice = await this.sendInvoice(invoiceId, { markAsSent: true });
+        const invoice = await this.sendInvoice(invoiceId, {});
         results.push({
           invoiceId,
           invoiceNumber: invoice.invoiceNumber,
@@ -865,36 +844,6 @@ export class InvoiceService {
   // Helper methods
 
   private async mapToResponseDto(invoice: Invoice): Promise<InvoiceResponseDto> {
-    // Enhance line items with current product information
-    let enhancedLineItems = invoice.lineItems;
-    if (invoice.lineItems && invoice.lineItems.length > 0) {
-      // Extract all product IDs from line items
-      const productIds = invoice.lineItems
-        .map(item => item.productId)
-        .filter(id => id); // Remove null/undefined
-
-      // Fetch current product information for all products at once
-      const products = productIds.length > 0
-        ? await this.productRepository.findBy({ id: In(productIds) })
-        : [];
-
-      // Create a map for quick lookup
-      const productMap = new Map(products.map(p => [p.id, p]));
-
-      // Enhance line items with current product information
-      enhancedLineItems = invoice.lineItems.map(item => {
-        const product = productMap.get(item.productId);
-        return {
-          ...item,
-          product: product ? {
-            id: product.id,
-            name: product.name,
-            barcode: product.barcode,
-          } : undefined,
-        };
-      });
-    }
-
     return {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
@@ -905,10 +854,7 @@ export class InvoiceService {
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
       balanceDue: Number(invoice.balanceDue),
-      paymentTermsDays: invoice.paymentTermsDays,
       customerName: invoice.customerName,
-      billingAddress: invoice.billingAddress,
-      lineItems: enhancedLineItems, // Use enhanced line items with product info
       customerId: invoice.customerId,
       salesOrderId: invoice.salesOrderId,
       customer: invoice.customer ? {

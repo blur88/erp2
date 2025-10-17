@@ -19,56 +19,6 @@ import {
   InvoiceStatus
 } from '../../../database/entities/invoice.entity';
 
-export class InvoiceLineItemDto {
-  @ApiProperty({
-    description: 'Product ID',
-    example: 'uuid-string',
-  })
-  @IsUUID()
-  productId: string;
-
-  @ApiProperty({
-    description: 'Product name',
-    example: 'Wireless Mouse',
-  })
-  @IsString()
-  productName: string;
-
-  @ApiProperty({
-    description: 'Quantity',
-    example: 10,
-  })
-  @IsInt()
-  @Min(1)
-  quantity: number;
-
-  @ApiProperty({
-    description: 'Unit price',
-    example: 25.50,
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  unitPrice: number;
-
-  @ApiProperty({
-    description: 'Discount amount',
-    example: 0,
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  discount: number;
-
-  @ApiProperty({
-    description: 'Total amount for this line item',
-    example: 255.00,
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  @Transform(({ value }) => parseFloat(value))
-  totalAmount: number;
-}
 
 export class CreateInvoiceDto {
   @ApiProperty({
@@ -103,15 +53,7 @@ export class CreateInvoiceDto {
   @IsDateString()
   dueDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Payment terms in days',
-    example: 30,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  paymentTermsDays?: number;
-
+  
   @ApiProperty({
     description: 'Total invoice amount',
     example: 1000.00,
@@ -121,15 +63,7 @@ export class CreateInvoiceDto {
   @Transform(({ value }) => parseFloat(value))
   totalAmount: number;
 
-  @ApiProperty({
-    description: 'Invoice line items',
-    type: [InvoiceLineItemDto],
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => InvoiceLineItemDto)
-  lineItems: InvoiceLineItemDto[];
-}
+  }
 
 export class UpdateInvoiceDto {
   @ApiPropertyOptional({
@@ -149,25 +83,7 @@ export class UpdateInvoiceDto {
   @IsDateString()
   dueDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Payment terms in days',
-    example: 45,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  paymentTermsDays?: number;
-
-  @ApiPropertyOptional({
-    description: 'Invoice line items',
-    type: [InvoiceLineItemDto],
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => InvoiceLineItemDto)
-  lineItems?: InvoiceLineItemDto[];
-}
+  }
 
 export class QueryInvoicesDto {
   @ApiPropertyOptional({
@@ -305,23 +221,8 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: 491.50 })
   balanceDue: number;
 
-  @ApiProperty({ example: 30 })
-  paymentTermsDays: number;
-
   @ApiProperty({ example: 'Acme Corporation' })
   customerName: string;
-
-  @ApiProperty({ example: '123 Main Street, New York, NY, 10001', nullable: true })
-  billingAddress?: string;
-
-  @ApiProperty()
-  lineItems?: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    totalAmount: number;
-  }>;
 
   @ApiProperty({ example: 'uuid-string' })
   customerId: string;
@@ -439,13 +340,7 @@ export class SendInvoiceDto {
   @IsString()
   message?: string;
 
-  @ApiPropertyOptional({
-    description: 'Whether to mark invoice as sent',
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  markAsSent?: boolean;
+  // Mark as sent functionality removed
 }
 
 export class InvoicePaymentAllocationDto {

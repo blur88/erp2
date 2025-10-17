@@ -241,7 +241,6 @@ export interface Invoice {
   invoiceNumber: string;
   customer: Customer;
   salesOrder?: SalesOrder;
-  items: InvoiceItem[];
   total: number;
   paidAmount: number;
   dueAmount: number;
@@ -249,7 +248,6 @@ export interface Invoice {
   issueDate: Date;
   dueDate: Date;
   paidDate?: Date;
-  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }

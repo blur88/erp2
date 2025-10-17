@@ -74,15 +74,7 @@ export class Invoice extends BaseEntity {
   @IsDate()
   dueDate: Date;
 
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Date when invoice was sent to customer',
-  })
-  @IsOptional()
-  @IsDate()
-  sentDate?: Date;
-
+  
   @Column({
     type: 'date',
     nullable: true,
@@ -126,15 +118,8 @@ export class Invoice extends BaseEntity {
   @Min(0)
   balanceDue: number;
 
-  // Terms and Conditions
-  @Column({
-    type: 'int',
-    default: 30,
-    comment: 'Payment terms in days',
-  })
-  paymentTermsDays: number;
-
-  // Billing Address (captured at time of invoice)
+  
+  // Billing Information (captured at time of invoice)
   @Column({
     type: 'varchar',
     length: 200,
@@ -144,30 +129,7 @@ export class Invoice extends BaseEntity {
   @MaxLength(200)
   customerName: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Billing address',
-  })
-  @IsOptional()
-  @IsString()
-  billingAddress?: string;
-
-  // Reference Information
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Invoice line items (denormalized for performance)',
-  })
-  @IsOptional()
-  lineItems?: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    totalAmount: number;
-  }>;
-
+  
   // Foreign Keys
   @Column({
     type: 'uuid',
@@ -243,7 +205,7 @@ export class Invoice extends BaseEntity {
   setDueDate() {
     if (!this.dueDate && this.invoiceDate) {
       this.dueDate = new Date(this.invoiceDate);
-      this.dueDate.setDate(this.dueDate.getDate() + this.paymentTermsDays);
+      this.dueDate.setDate(this.dueDate.getDate() + 30); // Fixed 30-day payment terms
     }
   }
 
@@ -296,12 +258,10 @@ export class Invoice extends BaseEntity {
       customerId: salesOrder.customerId,
       salesOrderId: salesOrder.id,
       customerName: salesOrder.customer?.name,
-      totalAmount: totalAmount, // Line items already include discounts
+      totalAmount: totalAmount, // Calculate from sales order total
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
-      billingAddress: salesOrder.customer?.name || '',
-      paymentTermsDays: 30,
     };
   }
 }

@@ -66,7 +66,6 @@ interface InvoiceListItem {
   balanceDue?: number
   status: 'draft' | 'partial_paid' | 'paid'
   isOverdue?: boolean
-  lineItems?: InvoiceItem[]
   notes?: string
   customer?: {
     id: string
@@ -272,7 +271,6 @@ const InvoicesPage: React.FC = () => {
       const invoiceDate = invoice.invoiceDate || invoice.issueDate
       const totalAmount = invoice.totalAmount || invoice.total || 0
       const balanceDue = invoice.balanceDue ?? invoice.dueAmount ?? (totalAmount - (invoice.paidAmount || 0))
-      const lineItems = invoice.lineItems || invoice.items || []
 
       return {
         ...invoice,
@@ -280,7 +278,6 @@ const InvoicesPage: React.FC = () => {
         invoiceDate,
         totalAmount,
         balanceDue,
-        lineItems,
         paidAmount: invoice.paidAmount || 0,
         isOverdue: invoice.isOverdue || false
       }
@@ -1113,7 +1110,7 @@ const InvoicesPage: React.FC = () => {
                     Invoice Items
                   </Typography>
 
-                  {((selectedInvoice.lineItems && selectedInvoice.lineItems.length > 0) || (selectedInvoice.items && selectedInvoice.items.length > 0)) ? (
+                  {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
                     <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1140,7 +1137,7 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {(selectedInvoice.lineItems || selectedInvoice.items || [])?.map((item: InvoiceItem, index: number) => (
+                          {selectedInvoice.items?.map((item: InvoiceItem, index: number) => (
                             <TableRow
                               key={item.id || index}
                               hover
