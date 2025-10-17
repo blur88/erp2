@@ -246,7 +246,6 @@ export interface Invoice {
   dueAmount: number;
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   issueDate: Date;
-  dueDate: Date;
   paidDate?: Date;
   createdAt: Date;
   updatedAt: Date;

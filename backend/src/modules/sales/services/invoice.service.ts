@@ -98,7 +98,6 @@ export class InvoiceService {
       salesOrderId,
       customerName: customer.name,
       invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
-      dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
       totalAmount,
       balanceDue: totalAmount,
       paidAmount: 0,
@@ -164,18 +163,9 @@ export class InvoiceService {
 
     let [invoices, total] = await this.invoiceRepository.findAndCount(findOptions);
 
-    // Filter overdue and unpaid invoices if requested
-    if (overdue !== undefined || unpaid !== undefined) {
-      invoices = invoices.filter(invoice => {
-        let match = true;
-        if (overdue !== undefined) {
-          match = match && (invoice.isOverdue === overdue);
-        }
-        if (unpaid !== undefined) {
-          match = match && (Number(invoice.balanceDue) > 0) === unpaid;
-        }
-        return match;
-      });
+    // Filter unpaid invoices if requested (overdue filtering removed as it depends on dueDate)
+    if (unpaid !== undefined) {
+      invoices = invoices.filter(invoice => (Number(invoice.balanceDue) > 0) === unpaid);
       total = invoices.length;
     }
 
@@ -205,12 +195,9 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
       customerName: invoice.customer?.name || invoice.customerName,
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
     }));
   }
 
@@ -224,7 +211,6 @@ export class InvoiceService {
       draftInvoices,
       partialPaidInvoices,
       paidInvoices,
-      overdueInvoices,
       thisMonthInvoices,
       thisWeekInvoices,
     ] = await Promise.all([
@@ -232,12 +218,7 @@ export class InvoiceService {
       this.invoiceRepository.count({ where: { status: InvoiceStatus.DRAFT } }),
       this.invoiceRepository.count({ where: { status: InvoiceStatus.PARTIAL_PAID } }),
       this.invoiceRepository.count({ where: { status: InvoiceStatus.PAID } }),
-      this.invoiceRepository
-        .createQueryBuilder('invoice')
-        .where('invoice.dueDate < :today', { today: new Date() })
-        .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
-        .andWhere('invoice.balanceDue > 0')
-        .getCount(),
+      // Overdue calculation removed as it depends on dueDate
       this.invoiceRepository.count({ where: { invoiceDate: MoreThanOrEqual(thisMonth) } }),
       this.invoiceRepository.count({ where: { invoiceDate: MoreThanOrEqual(thisWeek) } }),
     ]);
@@ -266,7 +247,7 @@ export class InvoiceService {
         draft: draftInvoices,
         partialPaid: partialPaidInvoices,
         paid: paidInvoices,
-        overdue: overdueInvoices,
+        overdue: 0, // Overdue tracking removed as it depends on dueDate
         thisMonth: thisMonthInvoices,
         thisWeek: thisWeekInvoices,
       },
@@ -278,73 +259,9 @@ export class InvoiceService {
     };
   }
 
-  async getOverdueInvoices(): Promise<InvoiceSummaryDto[]> {
-    const invoices = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .leftJoinAndSelect('invoice.customer', 'customer')
-      .where('invoice.dueDate < :today', { today: new Date() })
-      .andWhere('invoice.balanceDue > 0')
-      .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
-      .orderBy('invoice.dueDate', 'ASC')
-      .getMany();
+  // getOverdueInvoices method removed as it depends on dueDate
 
-    return invoices.map(invoice => ({
-      id: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      status: invoice.status,
-      invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
-      customerName: invoice.customer?.name || invoice.customerName,
-      totalAmount: Number(invoice.totalAmount),
-      balanceDue: Number(invoice.balanceDue),
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
-    }));
-  }
-
-  async getAgingReport() {
-    const today = new Date();
-    
-    const agingBuckets = {
-      current: 0,
-      days1to30: 0,
-      days31to60: 0,
-      days61to90: 0,
-      over90Days: 0,
-    };
-
-    const overdueInvoices = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .where('invoice.balanceDue > 0')
-      .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
-      .getMany();
-
-    overdueInvoices.forEach(invoice => {
-      const daysPastDue = invoice.daysPastDue;
-      const balanceDue = Number(invoice.balanceDue);
-
-      if (daysPastDue <= 0) {
-        agingBuckets.current += balanceDue;
-      } else if (daysPastDue <= 30) {
-        agingBuckets.days1to30 += balanceDue;
-      } else if (daysPastDue <= 60) {
-        agingBuckets.days31to60 += balanceDue;
-      } else if (daysPastDue <= 90) {
-        agingBuckets.days61to90 += balanceDue;
-      } else {
-        agingBuckets.over90Days += balanceDue;
-      }
-    });
-
-    const totalOutstanding = Object.values(agingBuckets).reduce((sum, amount) => sum + amount, 0);
-
-    return {
-      agingBuckets,
-      totalOutstanding,
-      invoiceCount: overdueInvoices.length,
-      generatedAt: new Date(),
-    };
-  }
+  // getAgingReport method removed as it depends on daysPastDue (which depends on dueDate)
 
   async findById(id: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
@@ -440,8 +357,8 @@ export class InvoiceService {
     const subject = sendInvoiceDto.subject || 
       `Invoice ${invoice.invoiceNumber} from Your Company`;
     
-    const message = sendInvoiceDto.message || 
-      `Please find attached your invoice. Payment is due by ${invoice.dueDate.toLocaleDateString()}.`;
+    const message = sendInvoiceDto.message ||
+      `Please find attached your invoice.`;
 
     // Generate PDF (implement PDF generation service)
     const pdfBuffer = await this.generatePdf(id);
@@ -591,11 +508,8 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
     }));
   }
 
@@ -849,7 +763,6 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
       paidDate: invoice.paidDate,
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
@@ -880,8 +793,7 @@ export class InvoiceService {
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
       deletedAt: invoice.deletedAt,
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
+      // isOverdue and daysPastDue removed as they depend on dueDate
       isPartiallyPaid: invoice.isPartiallyPaid,
       isFullyPaid: invoice.isFullyPaid,
       paymentProgress: invoice.paymentProgress,

@@ -1004,7 +1004,6 @@ export class SalesOrderService {
         invoiceNumber: invoice.invoiceNumber,
         status: invoice.status,
         invoiceDate: invoice.invoiceDate,
-        dueDate: invoice.dueDate,
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
         balanceDue: Number(invoice.balanceDue),

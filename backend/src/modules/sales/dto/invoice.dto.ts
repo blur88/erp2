@@ -45,14 +45,7 @@ export class CreateInvoiceDto {
   @IsDateString()
   invoiceDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Payment due date (calculated from payment terms if not provided)',
-    example: '2024-01-31',
-  })
-  @IsOptional()
-  @IsDateString()
-  dueDate?: string;
-
+  
   
   @ApiProperty({
     description: 'Total invoice amount',
@@ -75,14 +68,7 @@ export class UpdateInvoiceDto {
   @IsEnum(InvoiceStatus)
   status?: InvoiceStatus;
 
-  @ApiPropertyOptional({
-    description: 'Payment due date',
-    example: '2024-02-15',
-  })
-  @IsOptional()
-  @IsDateString()
-  dueDate?: string;
-
+  
   }
 
 export class QueryInvoicesDto {
@@ -206,9 +192,6 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: '2024-01-01' })
   invoiceDate: Date;
 
-  @ApiProperty({ example: '2024-01-31' })
-  dueDate: Date;
-
   @ApiProperty({ example: '2024-01-30', nullable: true })
   paidDate?: Date;
 
@@ -265,12 +248,7 @@ export class InvoiceResponseDto {
     status: string;
   }>;
 
-  // Computed properties
-  @ApiProperty({ example: false })
-  isOverdue: boolean;
-
-  @ApiProperty({ example: 5 })
-  daysPastDue: number;
+  // Computed properties - isOverdue and daysPastDue removed as they depend on dueDate
 
   @ApiProperty({ example: true })
   isPartiallyPaid: boolean;
@@ -295,9 +273,6 @@ export class InvoiceSummaryDto {
   @ApiProperty({ example: '2024-01-01' })
   invoiceDate: Date;
 
-  @ApiProperty({ example: '2024-01-31' })
-  dueDate: Date;
-
   @ApiProperty({ example: 'Acme Corporation' })
   customerName: string;
 
@@ -307,12 +282,7 @@ export class InvoiceSummaryDto {
   @ApiProperty({ example: 491.50 })
   balanceDue: number;
 
-  @ApiProperty({ example: false })
-  isOverdue: boolean;
-
-  @ApiProperty({ example: 5 })
-  daysPastDue: number;
-}
+  }
 
 export class SendInvoiceDto {
   @ApiPropertyOptional({

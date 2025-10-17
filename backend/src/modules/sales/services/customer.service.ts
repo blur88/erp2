@@ -295,11 +295,11 @@ export class CustomerService {
     await this.findCustomerEntity(customerId); // Verify customer exists
 
     const invoices = await this.invoiceRepository.find({
-      where: { 
+      where: {
         customerId,
         // Note: filtering for balanceDue > 0 will be done in code below
       },
-      order: { dueDate: 'ASC' },
+      order: { invoiceDate: 'ASC' },
     });
 
     const outstandingInvoices = invoices.filter(invoice => Number(invoice.balanceDue) > 0);
@@ -317,12 +317,10 @@ export class CustomerService {
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
-        dueDate: invoice.dueDate,
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
         balanceDue: Number(invoice.balanceDue),
-        daysPastDue: invoice.daysPastDue,
-        isOverdue: invoice.isOverdue,
+        // daysPastDue and isOverdue removed as they depend on dueDate
       })),
     };
   }

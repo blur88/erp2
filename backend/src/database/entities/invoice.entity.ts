@@ -38,7 +38,6 @@ export enum InvoiceStatus {
 @Index(['salesOrderId'])
 @Index(['status'])
 @Index(['invoiceDate'])
-@Index(['dueDate'])
 export class Invoice extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -67,13 +66,7 @@ export class Invoice extends BaseEntity {
   @IsDate()
   invoiceDate: Date;
 
-  @Column({
-    type: 'date',
-    comment: 'Payment due date',
-  })
-  @IsDate()
-  dueDate: Date;
-
+  
   
   @Column({
     type: 'date',
@@ -166,19 +159,7 @@ export class Invoice extends BaseEntity {
   payments: Payment[];
 
   // Computed properties
-  get isOverdue(): boolean {
-    if (this.status === InvoiceStatus.PAID) {
-      return false;
-    }
-    return new Date() > this.dueDate;
-  }
-
-  get daysPastDue(): number {
-    if (!this.isOverdue) return 0;
-    const today = new Date();
-    const diffTime = today.getTime() - this.dueDate.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }
+  // Note: isOverdue and daysPastDue properties removed as they depend on dueDate
 
   get isPartiallyPaid(): boolean {
     return Number(this.paidAmount) > 0 && Number(this.balanceDue) > 0;
@@ -201,14 +182,7 @@ export class Invoice extends BaseEntity {
     // Similar to SalesOrder entity pattern
   }
 
-  @BeforeInsert()
-  setDueDate() {
-    if (!this.dueDate && this.invoiceDate) {
-      this.dueDate = new Date(this.invoiceDate);
-      this.dueDate.setDate(this.dueDate.getDate() + 30); // Fixed 30-day payment terms
-    }
-  }
-
+  
   // Helper methods
   calculateTotals(): void {
     // Simplified: totalAmount is set from subtotal (line items already include discounts)
