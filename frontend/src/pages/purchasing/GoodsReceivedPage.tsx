@@ -706,30 +706,62 @@ const GoodsReceivedPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           {selectedGRN.purchaseOrder && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                PO Number
-                              </TableCell>
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                <Link
-                                  to={`/purchasing/orders?poId=${selectedGRN.purchaseOrder.id}`}
-                                  style={{
-                                    color: '#1976d2',
-                                    textDecoration: 'none',
-                                    cursor: 'pointer',
-                                    transition: 'color 0.2s ease'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = '#1565c0'
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = '#1976d2'
-                                  }}
-                                >
-                                  {selectedGRN.purchaseOrder.orderNumber}
-                                </Link>
-                              </TableCell>
-                            </TableRow>
+                            <>
+                              <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                                <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                  PO No
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '0.8rem' }}>
+                                  <Link
+                                    to={`/purchasing/orders?poId=${selectedGRN.purchaseOrder.id}`}
+                                    style={{
+                                      color: '#1976d2',
+                                      textDecoration: 'none',
+                                      cursor: 'pointer',
+                                      transition: 'color 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.color = '#1565c0'
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.color = '#1976d2'
+                                    }}
+                                  >
+                                    {selectedGRN.purchaseOrder.orderNumber}
+                                  </Link>
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                  VP No
+                                </TableCell>
+                                <TableCell sx={{ fontSize: '0.8rem' }}>
+                                  {selectedGRN.purchaseOrder.vendorPayments && selectedGRN.purchaseOrder.vendorPayments.length > 0 ? (
+                                    <Link
+                                      to={`/purchasing/vendor-payments?vpId=${selectedGRN.purchaseOrder.vendorPayments[0].id}`}
+                                      style={{
+                                        color: '#1976d2',
+                                        textDecoration: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s ease'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.color = '#1565c0'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.color = '#1976d2'
+                                      }}
+                                    >
+                                      {selectedGRN.purchaseOrder.vendorPayments[0].paymentNumber}
+                                    </Link>
+                                  ) : (
+                                    <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
+                                      Not yet paid
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            </>
                           )}
                         </TableBody>
                       </Table>

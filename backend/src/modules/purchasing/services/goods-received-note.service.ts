@@ -160,6 +160,7 @@ export class GoodsReceivedNoteService {
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.supplier', 'supplier')
       .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('purchaseOrder.vendorPayments', 'vendorPayments')
       .leftJoinAndSelect('grn.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .where('grn.deletedAt IS NULL');
@@ -536,6 +537,14 @@ export class GoodsReceivedNoteService {
         id: grn.purchaseOrder.id,
         orderNumber: grn.purchaseOrder.orderNumber,
         totalAmount: Number(grn.purchaseOrder.totalAmount),
+        vendorPayments: grn.purchaseOrder.vendorPayments?.map(payment => ({
+          id: payment.id,
+          paymentNumber: payment.paymentNumber,
+          amount: Number(payment.amount),
+          paymentDate: payment.paymentDate,
+          paymentMethod: payment.paymentMethod,
+          status: payment.status,
+        })) || [],
       } : undefined,
       supplier: {
         id: grn.supplier.id,
