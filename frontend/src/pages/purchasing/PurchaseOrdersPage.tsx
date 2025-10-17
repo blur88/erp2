@@ -58,7 +58,7 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
-import UnreturnPurchaseOrderDialog from '@/components/purchasing/UnreturnPurchaseOrderDialog'
+import BlockedPurchaseOrderDialog from '@/components/purchasing/BlockedPurchaseOrderDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -384,7 +384,11 @@ const PurchaseOrdersPage: React.FC = () => {
       selectedOrder.goodsReceivedNotes.length > 0 &&
       selectedOrder.goodsReceivedNotes[0].status === 'received'
 
-    if (isReceived) {
+    // Check if order is paid before allowing edit
+    const isPaid = paymentStatus[selectedOrder.id] === true
+
+    // If either received or paid, show dialog
+    if (isReceived || isPaid) {
       setUnreturnDialogOpen(true)
     } else {
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
@@ -439,6 +443,98 @@ const PurchaseOrdersPage: React.FC = () => {
     } catch (err: any) {
       console.error('Return error:', err)
       showError(err?.response?.data?.message || 'Failed to return goods')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayAndEdit = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if order is also received
+      const isReceived = selectedOrder.goodsReceivedNotes &&
+        selectedOrder.goodsReceivedNotes.length > 0 &&
+        selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+      // Step 1: Unpay first
+      const unpayResponse = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Step 2: If also received, return goods
+      if (isReceived) {
+        const returnResponse = await purchasingApi.returnGoods(selectedOrder.id)
+        showSuccess('Payment deleted and goods returned successfully. You can now edit the order.')
+
+        // Update with returned goods data
+        if (returnResponse.data) {
+          dispatch(setSelectedPurchaseOrder(returnResponse.data))
+        }
+
+        // Refetch GRNs to update the GRN page with latest data
+        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+      } else {
+        showSuccess('Payment deleted successfully. You can now edit the order.')
+
+        // Update the selected order with the unpay data
+        const updatedOrder = unpayResponse.data.data || unpayResponse.data
+        if (updatedOrder && (updatedOrder as any).id) {
+          const orderWithoutPayment = {
+            ...(updatedOrder as any),
+            vendorPayments: []
+          }
+          dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
+        }
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+
+      // Navigate to edit page
+      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+    } catch (err: any) {
+      console.error('Unpay/Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to prepare order for editing')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayOnly = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+      showSuccess('Payment deleted successfully.')
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Update the selected order with the new data
+      const updatedOrder = response.data.data || response.data
+      if (updatedOrder && (updatedOrder as any).id) {
+        const orderWithoutPayment = {
+          ...(updatedOrder as any),
+          vendorPayments: []
+        }
+        dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Unpay error:', err)
+      showError(err?.response?.data?.message || 'Failed to delete payment')
     } finally {
       setIsLoading(false)
     }
@@ -1402,14 +1498,22 @@ const PurchaseOrdersPage: React.FC = () => {
         onRefresh={loadOrders}
       />
 
-      {/* Unreturn Purchase Order Dialog */}
+      {/* Blocked Purchase Order Dialog */}
       {selectedOrder && (
-        <UnreturnPurchaseOrderDialog
+        <BlockedPurchaseOrderDialog
           open={unreturnDialogOpen}
           orderNumber={selectedOrder.orderNumber}
+          isReceived={
+            selectedOrder.goodsReceivedNotes &&
+            selectedOrder.goodsReceivedNotes.length > 0 &&
+            selectedOrder.goodsReceivedNotes[0].status === 'received'
+          }
+          isPaid={paymentStatus[selectedOrder.id] === true}
           onClose={() => setUnreturnDialogOpen(false)}
           onReturnAndEdit={handleReturnAndEdit}
           onReturnOnly={handleReturnOnly}
+          onUnpayAndEdit={handleUnpayAndEdit}
+          onUnpayOnly={handleUnpayOnly}
           loading={isLoading}
         />
       )}

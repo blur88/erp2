@@ -372,7 +372,7 @@ export class PurchaseOrderService {
    * Update purchase order
    */
   async update(
-    id: string, 
+    id: string,
     updatePurchaseOrderDto: UpdatePurchaseOrderDto
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Updating purchase order: ${id}`);
@@ -384,6 +384,25 @@ export class PurchaseOrderService {
 
     if (!purchaseOrder) {
       throw new NotFoundException(`Purchase order with ID ${id} not found`);
+    }
+
+    // Check if PO has received goods - must return before editing
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+    });
+
+    if (grn && grn.status === GrnStatus.RECEIVED) {
+      throw new BadRequestException(
+        'Cannot edit purchase order with received goods. Please return goods first.'
+      );
+    }
+
+    // Check if PO has been paid - must unpay before editing
+    const payment = await this.vendorPaymentService.findByPurchaseOrder(id);
+    if (payment) {
+      throw new BadRequestException(
+        'Cannot edit purchase order that has been paid. Please unpay first.'
+      );
     }
 
     // Check if order can be modified
