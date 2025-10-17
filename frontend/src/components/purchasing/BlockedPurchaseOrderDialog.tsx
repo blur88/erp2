@@ -22,11 +22,14 @@ interface BlockedPurchaseOrderDialogProps {
   orderNumber: string
   isReceived: boolean
   isPaid: boolean
+  actionType: 'edit' | 'delete'
   onClose: () => void
   onReturnAndEdit: () => void
   onReturnOnly: () => void
   onUnpayAndEdit: () => void
   onUnpayOnly: () => void
+  onReturnAndDelete?: () => void
+  onUnpayAndDelete?: () => void
   loading?: boolean
 }
 
@@ -35,17 +38,23 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
   orderNumber,
   isReceived,
   isPaid,
+  actionType,
   onClose,
   onReturnAndEdit,
   onReturnOnly,
   onUnpayAndEdit,
   onUnpayOnly,
+  onReturnAndDelete,
+  onUnpayAndDelete,
   loading = false
 }) => {
   // Determine blocking reasons
   const blockingReasons = []
   if (isReceived) blockingReasons.push('received')
   if (isPaid) blockingReasons.push('paid')
+
+  const actionVerb = actionType === 'edit' ? 'edit' : 'delete'
+  const actionVerbCap = actionType === 'edit' ? 'Edit' : 'Delete'
 
   const title = blockingReasons.length === 2
     ? 'Purchase Order Already Received & Paid'
@@ -85,11 +94,11 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
           <Alert severity="warning" sx={{ borderRadius: 1.5 }}>
             <Typography variant="body2">
               {blockingReasons.length === 2 ? (
-                <>This purchase order has been received and paid. To edit the order, you must first unpay it, then return the goods.</>
+                <>This purchase order has been received and paid. To {actionVerb} the order, you must first unpay it, then return the goods.</>
               ) : isReceived ? (
-                <>This purchase order has already been received. To edit the order, you must return it first. This action will revert the inventory quantities.</>
+                <>This purchase order has already been received. To {actionVerb} the order, you must return it first. This action will revert the inventory quantities.</>
               ) : (
-                <>This purchase order has been paid. To edit the order, you must unpay it first. This will delete the vendor payment record.</>
+                <>This purchase order has been paid. To {actionVerb} the order, you must unpay it first. This will delete the vendor payment record.</>
               )}
             </Typography>
           </Alert>
@@ -134,7 +143,7 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
                   <Typography variant="body2">
-                    Purchase order will become editable again
+                    Purchase order will become {actionType === 'edit' ? 'editable' : 'deletable'} again
                   </Typography>
                 </Box>
               )}
@@ -166,13 +175,13 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
               Unpay Only
             </Button>
             <Button
-              onClick={onUnpayAndEdit}
+              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
               variant="contained"
               color="error"
               disabled={loading}
               sx={{ minWidth: 180 }}
             >
-              Unpay, Return & Edit
+              Unpay, Return & {actionVerbCap}
             </Button>
           </>
         ) : isReceived ? (
@@ -188,13 +197,13 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
               Return Only
             </Button>
             <Button
-              onClick={onReturnAndEdit}
+              onClick={actionType === 'edit' ? onReturnAndEdit : onReturnAndDelete}
               variant="contained"
               color="warning"
               disabled={loading}
               sx={{ minWidth: 140 }}
             >
-              Return & Edit
+              Return & {actionVerbCap}
             </Button>
           </>
         ) : (
@@ -210,13 +219,13 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
               Unpay Only
             </Button>
             <Button
-              onClick={onUnpayAndEdit}
+              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
               variant="contained"
               color="error"
               disabled={loading}
               sx={{ minWidth: 140 }}
             >
-              Unpay & Edit
+              Unpay & {actionVerbCap}
             </Button>
           </>
         )}

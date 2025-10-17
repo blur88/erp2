@@ -159,6 +159,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
+  const [blockedDialogType, setBlockedDialogType] = useState<'edit' | 'delete'>('edit')
   const [isLoading, setIsLoading] = useState(false)
   const [paymentStatus, setPaymentStatus] = useState<{ [key: string]: boolean }>({})
   const orderListRef = useRef<HTMLDivElement>(null)
@@ -389,6 +390,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
     // If either received or paid, show dialog
     if (isReceived || isPaid) {
+      setBlockedDialogType('edit')
       setUnreturnDialogOpen(true)
     } else {
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
@@ -540,6 +542,105 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
+  const handleReturnAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // First return goods
+      const returnResponse = await purchasingApi.returnGoods(selectedOrder.id)
+
+      // Then delete the order
+      await purchasingApi.deletePurchaseOrder(selectedOrder.id)
+      showSuccess('Goods returned and purchase order deleted successfully.')
+
+      setUnreturnDialogOpen(false)
+
+      // Select previous order or null
+      const deletedIndex = purchaseOrders.findIndex(o => o.id === selectedOrder.id)
+      if (purchaseOrders.length > 1) {
+        const newIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
+        const orderToSelect = purchaseOrders[newIndex].id === selectedOrder.id
+          ? purchaseOrders[newIndex + 1]
+          : purchaseOrders[newIndex]
+        dispatch(setSelectedPurchaseOrder(orderToSelect))
+        setFocusedOrderIndex(newIndex)
+      } else {
+        dispatch(setSelectedPurchaseOrder(null))
+        setFocusedOrderIndex(-1)
+      }
+
+      loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+    } catch (err: any) {
+      console.error('Return/Delete error:', err)
+      showError(err?.response?.data?.message || 'Failed to return and delete order')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if order is also received
+      const isReceived = selectedOrder.goodsReceivedNotes &&
+        selectedOrder.goodsReceivedNotes.length > 0 &&
+        selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+      // Step 1: Unpay first
+      await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Step 2: If also received, return goods
+      if (isReceived) {
+        await purchasingApi.returnGoods(selectedOrder.id)
+        // Refetch GRNs to update the GRN page with latest data
+        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+      }
+
+      // Step 3: Delete the order
+      await purchasingApi.deletePurchaseOrder(selectedOrder.id)
+
+      if (isReceived) {
+        showSuccess('Payment deleted, goods returned, and purchase order deleted successfully.')
+      } else {
+        showSuccess('Payment deleted and purchase order deleted successfully.')
+      }
+
+      setUnreturnDialogOpen(false)
+
+      // Select previous order or null
+      const deletedIndex = purchaseOrders.findIndex(o => o.id === selectedOrder.id)
+      if (purchaseOrders.length > 1) {
+        const newIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
+        const orderToSelect = purchaseOrders[newIndex].id === selectedOrder.id
+          ? purchaseOrders[newIndex + 1]
+          : purchaseOrders[newIndex]
+        dispatch(setSelectedPurchaseOrder(orderToSelect))
+        setFocusedOrderIndex(newIndex)
+      } else {
+        dispatch(setSelectedPurchaseOrder(null))
+        setFocusedOrderIndex(-1)
+      }
+
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Unpay/Return/Delete error:', err)
+      showError(err?.response?.data?.message || 'Failed to prepare and delete order')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handlePay = async () => {
     if (!selectedOrder) return
 
@@ -622,8 +723,23 @@ const PurchaseOrdersPage: React.FC = () => {
 
   const handleDeleteClick = () => {
     if (!selectedOrder) return
-    setOrderToDelete(selectedOrder)
-    setDeleteConfirmOpen(true)
+
+    // Check if order is received or paid before allowing delete
+    const isReceived = selectedOrder.goodsReceivedNotes &&
+      selectedOrder.goodsReceivedNotes.length > 0 &&
+      selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+    const isPaid = paymentStatus[selectedOrder.id] === true
+
+    // If either received or paid, show blocking dialog
+    if (isReceived || isPaid) {
+      setBlockedDialogType('delete')
+      setUnreturnDialogOpen(true)
+    } else {
+      // Otherwise show normal delete confirmation
+      setOrderToDelete(selectedOrder)
+      setDeleteConfirmOpen(true)
+    }
   }
 
   const handleDeleteConfirm = async () => {
@@ -1509,11 +1625,14 @@ const PurchaseOrdersPage: React.FC = () => {
             selectedOrder.goodsReceivedNotes[0].status === 'received'
           }
           isPaid={paymentStatus[selectedOrder.id] === true}
+          actionType={blockedDialogType}
           onClose={() => setUnreturnDialogOpen(false)}
           onReturnAndEdit={handleReturnAndEdit}
           onReturnOnly={handleReturnOnly}
           onUnpayAndEdit={handleUnpayAndEdit}
           onUnpayOnly={handleUnpayOnly}
+          onReturnAndDelete={handleReturnAndDelete}
+          onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}
         />
       )}

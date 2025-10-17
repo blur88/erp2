@@ -785,14 +785,29 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
-    // Use the same deletedAt timestamp for both PO and GRN
-    const deletedAt = new Date();
-
-    // Find and soft delete associated GRN with same timestamp
+    // Check if PO has received goods - must return before deleting
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
     });
 
+    if (grn && grn.status === GrnStatus.RECEIVED) {
+      throw new BadRequestException(
+        'Cannot delete purchase order with received goods. Please return goods first.'
+      );
+    }
+
+    // Check if PO has been paid - must unpay before deleting
+    const payment = await this.vendorPaymentService.findByPurchaseOrder(id);
+    if (payment) {
+      throw new BadRequestException(
+        'Cannot delete purchase order that has been paid. Please unpay first.'
+      );
+    }
+
+    // Use the same deletedAt timestamp for both PO and GRN
+    const deletedAt = new Date();
+
+    // Soft delete associated GRN with same timestamp (reuse the grn variable from above)
     if (grn) {
       await this.grnRepository
         .createQueryBuilder()
