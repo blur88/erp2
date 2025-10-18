@@ -56,7 +56,7 @@ import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
-import UnfulfillOrderDialog from '@/components/sales/UnfulfillOrderDialog'
+import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -162,7 +162,8 @@ const OrdersPage: React.FC = () => {
   })
 
   const [viewDialog, setViewDialog] = useState(false)
-  const [unfulfillDialogOpen, setUnfulfillDialogOpen] = useState(false)
+  const [blockedDialogOpen, setBlockedDialogOpen] = useState(false)
+  const [blockedDialogAction, setBlockedDialogAction] = useState<'edit' | 'delete'>('edit')
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
@@ -311,6 +312,16 @@ const OrdersPage: React.FC = () => {
           // Show confirmation dialog instead of deleting immediately
           const order = orders.find(o => o.id === orderId)
           if (order) {
+            // Check if order is fulfilled or paid
+            const isFulfilled = order.isFulfilled
+            const isPaid = order.paidAmount && order.paidAmount > 0
+
+            if (isFulfilled || isPaid) {
+              dispatch(setSelectedOrder(order))
+              setBlockedDialogAction('delete')
+              setBlockedDialogOpen(true)
+              return
+            }
             setOrderToDelete(orderId)
             setOrderToDeleteName(order.orderNumber || order.id)
             setDeleteConfirmOpen(true)
@@ -361,12 +372,16 @@ const OrdersPage: React.FC = () => {
 
   const handleEditOrder = () => {
     if (selectedOrder) {
-      // Check if order is fulfilled before allowing edit
-      if (selectedOrder.isFulfilled) {
-        setUnfulfillDialogOpen(true)
-      } else {
-        navigate(`/sales/orders/${selectedOrder.id}/edit`)
+      // Check if order is fulfilled or paid before allowing edit
+      const isFulfilled = selectedOrder.isFulfilled
+      const isPaid = selectedOrder.paidAmount && selectedOrder.paidAmount > 0
+
+      if (isFulfilled || isPaid) {
+        setBlockedDialogAction('edit')
+        setBlockedDialogOpen(true)
+        return
       }
+      navigate(`/sales/orders/${selectedOrder.id}/edit`)
     }
   }
 
@@ -577,27 +592,52 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+      // Check if also paid - if so, need to unfulfill first, then unpay
+      const isPaid = selectedOrder.paidAmount && selectedOrder.paidAmount > 0
+
+      // Step 1: Unfulfill first (required before unpay)
+      const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
       })
 
-      if (response.ok) {
-        const updatedOrder = await response.json()
+      if (!unfulfillResponse.ok) {
+        const errorData = await unfulfillResponse.json()
+        throw new Error(errorData?.message || 'Failed to unfulfill order')
+      }
+
+      if (isPaid) {
+        // Step 2: Then unpay if needed
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (unpayResponse.ok) {
+          const updatedOrder = await unpayResponse.json()
+          dispatch(updateOrderInPlace(updatedOrder.data))
+          showSuccess('Order unfulfilled and unpaid successfully')
+          setBlockedDialogOpen(false)
+          navigate(`/sales/orders/${selectedOrder.id}/edit`)
+        } else {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+      } else {
+        // Only unfulfill
+        const updatedOrder = await unfulfillResponse.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         showSuccess('Order unfulfilled successfully')
-        setUnfulfillDialogOpen(false)
+        setBlockedDialogOpen(false)
         navigate(`/sales/orders/${selectedOrder.id}/edit`)
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to unfulfill order'
-        showError(errorMessage)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error unfulfilling order:', error)
-      showError('Error unfulfilling order. Please try again.')
+      showError(error.message || 'Error unfulfilling order. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -619,7 +659,7 @@ const OrdersPage: React.FC = () => {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         showSuccess('Order unfulfilled successfully - inventory restored')
-        setUnfulfillDialogOpen(false)
+        setBlockedDialogOpen(false)
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to unfulfill order'
@@ -628,6 +668,232 @@ const OrdersPage: React.FC = () => {
     } catch (error) {
       console.error('Error unfulfilling order:', error)
       showError('Error unfulfilling order. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayAndEdit = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if also fulfilled - if so, unfulfill first before unpay
+      const isFulfilled = selectedOrder.isFulfilled
+
+      if (isFulfilled) {
+        // Step 1: Unfulfill first (required before unpay)
+        const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unfulfillResponse.ok) {
+          const errorData = await unfulfillResponse.json()
+          throw new Error(errorData?.message || 'Failed to unfulfill order')
+        }
+
+        // Step 2: Then unpay
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (unpayResponse.ok) {
+          const updatedOrder = await unpayResponse.json()
+          dispatch(updateOrderInPlace(updatedOrder.data))
+          showSuccess('Order unfulfilled and unpaid successfully')
+          setBlockedDialogOpen(false)
+          navigate(`/sales/orders/${selectedOrder.id}/edit`)
+        } else {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+      } else {
+        // Only unpay, then edit
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        const updatedOrder = await unpayResponse.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unpaid successfully - payment removed')
+        setBlockedDialogOpen(false)
+        navigate(`/sales/orders/${selectedOrder.id}/edit`)
+      }
+    } catch (error: any) {
+      console.error('Error unpaying order:', error)
+      showError(error.message || 'Error unpaying order. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnfulfillAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if also paid - if so, unfulfill first, then unpay
+      const isPaid = selectedOrder.paidAmount && selectedOrder.paidAmount > 0
+
+      // Step 1: Unfulfill first (required before unpay)
+      const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!unfulfillResponse.ok) {
+        const errorData = await unfulfillResponse.json()
+        throw new Error(errorData?.message || 'Failed to unfulfill order')
+      }
+
+      if (isPaid) {
+        // Step 2: Then unpay if needed
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        showSuccess('Order unfulfilled and unpaid successfully')
+      } else {
+        showSuccess('Order unfulfilled successfully')
+      }
+
+      const updatedOrder = await unfulfillResponse.json()
+      dispatch(updateOrderInPlace(updatedOrder.data))
+
+      setBlockedDialogOpen(false)
+
+      // Now proceed with delete
+      setOrderToDelete(selectedOrder.id)
+      setOrderToDeleteName(selectedOrder.orderNumber || selectedOrder.id)
+      setDeleteConfirmOpen(true)
+    } catch (error: any) {
+      console.error('Error preparing order for deletion:', error)
+      showError(error.message || 'Error preparing order for deletion. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if also fulfilled - if so, unfulfill first before unpay
+      const isFulfilled = selectedOrder.isFulfilled
+
+      if (isFulfilled) {
+        // Step 1: Unfulfill first (required before unpay)
+        const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unfulfillResponse.ok) {
+          const errorData = await unfulfillResponse.json()
+          throw new Error(errorData?.message || 'Failed to unfulfill order')
+        }
+
+        // Step 2: Then unpay
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        const updatedOrder = await unpayResponse.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unfulfilled and unpaid successfully')
+      } else {
+        // Only unpay
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        const updatedOrder = await unpayResponse.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unpaid successfully')
+      }
+
+      setBlockedDialogOpen(false)
+
+      // Now proceed with delete
+      setOrderToDelete(selectedOrder.id)
+      setOrderToDeleteName(selectedOrder.orderNumber || selectedOrder.id)
+      setDeleteConfirmOpen(true)
+    } catch (error: any) {
+      console.error('Error preparing order for deletion:', error)
+      showError(error.message || 'Error preparing order for deletion. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayOnly = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unpaid successfully - payment removed')
+        setBlockedDialogOpen(false)
+      } else {
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to unpay order'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      console.error('Error unpaying order:', error)
+      showError('Error unpaying order. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -787,7 +1053,7 @@ const OrdersPage: React.FC = () => {
     setFocusedOrderIndex(-1)
     dispatch(setSelectedOrder(null))
     setViewDialog(false)
-    setUnfulfillDialogOpen(false)
+    setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
     setKeyboardHelpOpen(false)
@@ -795,7 +1061,7 @@ const OrdersPage: React.FC = () => {
 
   const clearDialogs = () => {
     setViewDialog(false)
-    setUnfulfillDialogOpen(false)
+    setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
     setKeyboardHelpOpen(false)
@@ -2149,14 +2415,22 @@ const OrdersPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Unfulfill Order Dialog */}
+      {/* Blocked Sales Order Dialog */}
       {selectedOrder && (
-        <UnfulfillOrderDialog
-          open={unfulfillDialogOpen}
+        <BlockedSalesOrderDialog
+          open={blockedDialogOpen}
           orderNumber={selectedOrder.orderNumber || selectedOrder.id}
-          onClose={() => setUnfulfillDialogOpen(false)}
+          isFulfilled={selectedOrder.isFulfilled}
+          isPaid={!!(selectedOrder.paidAmount && selectedOrder.paidAmount > 0)}
+          paidAmount={selectedOrder.paidAmount || 0}
+          actionType={blockedDialogAction}
+          onClose={() => setBlockedDialogOpen(false)}
           onUnfulfillAndEdit={handleUnfulfillAndEdit}
           onUnfulfillOnly={handleUnfulfillOnly}
+          onUnpayAndEdit={handleUnpayAndEdit}
+          onUnpayOnly={handleUnpayOnly}
+          onUnfulfillAndDelete={handleUnfulfillAndDelete}
+          onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}
         />
       )}

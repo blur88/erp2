@@ -650,6 +650,20 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
+    // Check if order has been fulfilled - must unfulfill before editing
+    if (order.isFulfilled) {
+      throw new BadRequestException(
+        'Cannot edit sales order that has been fulfilled. Please unfulfill first.'
+      );
+    }
+
+    // Check if order has been paid - must unpay before editing
+    if (Number(order.paidAmount || 0) > 0) {
+      throw new BadRequestException(
+        'Cannot edit sales order that has been paid. Please unpay first.'
+      );
+    }
+
     // Check if order can be updated
     if ([SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(order.status)) {
       throw new ConflictException('Cannot update order in current status');
@@ -730,6 +744,20 @@ export class SalesOrderService {
     const order = await this.salesOrderRepository.findOne({ where: { id } });
     if (!order) {
       throw new NotFoundException('Sales order not found');
+    }
+
+    // Check if order has been fulfilled - must unfulfill before deleting
+    if (order.isFulfilled) {
+      throw new BadRequestException(
+        'Cannot delete sales order that has been fulfilled. Please unfulfill first.'
+      );
+    }
+
+    // Check if order has been paid - must unpay before deleting
+    if (Number(order.paidAmount || 0) > 0) {
+      throw new BadRequestException(
+        'Cannot delete sales order that has been paid. Please unpay first.'
+      );
     }
 
     // Allow deletion of orders that haven't been shipped yet

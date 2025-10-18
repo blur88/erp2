@@ -156,7 +156,7 @@ export class SalesOrderController {
     type: SalesOrderResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 400, description: 'Invalid input data, order is fulfilled (unfulfill first), or order is paid (unpay first)' })
   async updateSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateSalesOrderDto: UpdateSalesOrderDto,
@@ -193,6 +193,7 @@ export class SalesOrderController {
     }
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 400, description: 'Order is fulfilled (unfulfill first) or order is paid (unpay first)' })
   @ApiResponse({ status: 409, description: 'Cannot delete order in current status' })
   async deleteSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<{
     data: SalesOrderResponseDto | null;
