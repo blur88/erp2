@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, ILike } from 'typeorm';
+import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike } from 'typeorm';
 import {
   SalesOrder,
   SalesOrderStatus,
@@ -424,12 +424,6 @@ export class SalesOrderService {
     console.log('🚀 findSummaries called with query:', JSON.stringify(query, null, 2));
     console.log('🚀 paymentStatus:', query.paymentStatus, 'fulfillmentStatus:', query.fulfillmentStatus);
 
-    // Test with a simple find to check relations
-    const testOrder = await this.salesOrderRepository.findOne({
-      where: { orderNumber: 'SO-000001' },
-      relations: ['invoices', 'customer', 'items']
-    });
-    console.log('🧪 Test order with relations:', JSON.stringify(testOrder, null, 2));
     const {
       search,
       customerId,
@@ -443,24 +437,7 @@ export class SalesOrderService {
       limit = 20,
     } = query;
 
-    // Build find options with filters
-    const where: any = { deletedAt: null };
-
-    if (customerId) {
-      where.customerId = customerId;
-    }
-
-    if (fromDate) {
-      where.orderDate = { ...where.orderDate, ...{ $gte: new Date(fromDate) } };
-    }
-
-    if (toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      where.orderDate = { ...where.orderDate, ...{ $lte: endDate } };
-    }
-
-    // Try simple repository approach with relations
+    // Build find options with filters using TypeORM operators
     let findOptions: any = {
       relations: ['customer', 'items', 'invoices'],
       where: { deletedAt: null },
@@ -474,14 +451,16 @@ export class SalesOrderService {
       findOptions.where.customerId = customerId;
     }
 
-    if (fromDate) {
-      findOptions.where.orderDate = { ...findOptions.where.orderDate, $gte: new Date(fromDate) };
-    }
-
-    if (toDate) {
+    if (fromDate && toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      findOptions.where.orderDate = { ...findOptions.where.orderDate, $lte: endDate };
+      findOptions.where.orderDate = Between(new Date(fromDate), endDate);
+    } else if (fromDate) {
+      findOptions.where.orderDate = MoreThanOrEqual(new Date(fromDate));
+    } else if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      findOptions.where.orderDate = LessThanOrEqual(endDate);
     }
 
     // For complex filters like search, payment status, etc., we'll need to fall back to QueryBuilder

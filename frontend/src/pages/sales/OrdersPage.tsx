@@ -176,6 +176,7 @@ const OrdersPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const processedHighlightRef = useRef<string | null>(null)
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -931,15 +932,23 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     const state = location.state as { highlightOrderId?: string }
     if (state?.highlightOrderId && orders.length > 0) {
-      const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
-      if (orderIndex >= 0) {
-        dispatch(setSelectedOrder(orders[orderIndex]))
-        setFocusedOrderIndex(orderIndex)
-        // Fetch full order details with invoices and payments
-        dispatch(fetchOrderById(orders[orderIndex].id) as any)
-        // Clear the state to prevent repeated highlighting
-        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      // Only process if we haven't already processed this highlight ID
+      if (processedHighlightRef.current !== state.highlightOrderId) {
+        const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
+        if (orderIndex >= 0) {
+          dispatch(setSelectedOrder(orders[orderIndex]))
+          setFocusedOrderIndex(orderIndex)
+          // Fetch full order details with invoices and payments
+          dispatch(fetchOrderById(orders[orderIndex].id) as any)
+          // Mark this ID as processed
+          processedHighlightRef.current = state.highlightOrderId
+          // Clear the state to prevent repeated highlighting
+          window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        }
       }
+    } else if (!state?.highlightOrderId) {
+      // Reset when there's no highlightOrderId (e.g., normal navigation)
+      processedHighlightRef.current = null
     }
   }, [orders, location.state, dispatch])
 
@@ -1007,13 +1016,13 @@ const OrdersPage: React.FC = () => {
 
   const handleEnterAction = useCallback(() => {
     if (focusedOrderIndex >= 0 && orders[focusedOrderIndex]) {
-      setEditDialog(true)
+      navigate(`/sales/orders/${orders[focusedOrderIndex].id}/edit`)
     }
-  }, [focusedOrderIndex, orders, dispatch])
+  }, [focusedOrderIndex, orders, navigate])
 
   const handleEditAction = () => {
     if (selectedOrder) {
-      setEditDialog(true)
+      navigate(`/sales/orders/${selectedOrder.id}/edit`)
     }
   }
 
