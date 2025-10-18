@@ -14,6 +14,7 @@ import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { Product } from '../../../database/entities/product.entity';
+import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import {
   CreateInvoiceDto,
   UpdateInvoiceDto,
@@ -38,6 +39,8 @@ export class InvoiceService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     // private readonly emailService: EmailService, // Temporarily disabled
   ) {}
 
@@ -155,7 +158,7 @@ export class InvoiceService {
 
     const findOptions: FindManyOptions<Invoice> = {
       where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
-      relations: ['customer', 'salesOrder', 'payments'],
+      relations: ['customer', 'salesOrder', 'payments', 'items', 'items.product'],
       order: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
       take: limit,
@@ -266,7 +269,7 @@ export class InvoiceService {
   async findById(id: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
-      relations: ['customer', 'salesOrder'],
+      relations: ['customer', 'salesOrder', 'items', 'items.product'],
     });
 
     if (!invoice) {
@@ -279,7 +282,7 @@ export class InvoiceService {
   async findByInvoiceNumber(invoiceNumber: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { invoiceNumber },
-      relations: ['customer', 'salesOrder'],
+      relations: ['customer', 'salesOrder', 'items', 'items.product'],
     });
 
     if (!invoice) {
@@ -789,6 +792,22 @@ export class InvoiceService {
         amount: Number(payment.amount),
         paymentMethod: payment.paymentMethod,
         status: payment.status,
+      })) : undefined,
+      items: invoice.items ? invoice.items.map(item => ({
+        id: item.id,
+        lineNumber: item.lineNumber,
+        productId: item.productId,
+        productName: item.productName,
+        productSku: item.productSku,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        discount: Number(item.discount),
+        totalAmount: Number(item.totalAmount),
+        product: item.product ? {
+          id: item.product.id,
+          name: item.product.name,
+          barcode: item.product.barcode,
+        } : undefined,
       })) : undefined,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,

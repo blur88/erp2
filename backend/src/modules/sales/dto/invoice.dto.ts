@@ -248,6 +248,24 @@ export class InvoiceResponseDto {
     status: string;
   }>;
 
+  @ApiProperty({ type: 'array', required: false })
+  items?: Array<{
+    id: string;
+    lineNumber: number;
+    productId: string;
+    productName: string;
+    productSku: string;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+    totalAmount: number;
+    product?: {
+      id: string;
+      name: string;
+      barcode: string;
+    };
+  }>;
+
   // Computed properties - isOverdue and daysPastDue removed as they depend on dueDate
 
   @ApiProperty({ example: true })
