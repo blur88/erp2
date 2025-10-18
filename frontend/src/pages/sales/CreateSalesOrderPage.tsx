@@ -132,7 +132,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const loadSalesOrder = async (orderId: string) => {
     setLoadingOrder(true)
     try {
-      const response = await salesApi.getOrderById(orderId)
+      const response = await salesApi.getOrder(orderId)
       const order = (response as any).data || response
 
       // Extract products from order items and add to products state
