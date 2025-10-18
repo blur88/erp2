@@ -55,7 +55,6 @@ import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import UnfulfillOrderDialog from '@/components/sales/UnfulfillOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -163,8 +162,6 @@ const OrdersPage: React.FC = () => {
   })
 
   const [viewDialog, setViewDialog] = useState(false)
-  const [createDialog, setCreateDialog] = useState(false)
-  const [editDialog, setEditDialog] = useState(false)
   const [unfulfillDialogOpen, setUnfulfillDialogOpen] = useState(false)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -362,45 +359,13 @@ const OrdersPage: React.FC = () => {
     setOrderToDeleteName('')
   }
 
-  const handleOrderCreated = (order: SalesOrder) => {
-    // Close dialog first
-    setCreateDialog(false)
-
-    // Show success notification
-    showSuccess(`Order ${order.orderNumber || order.id} created successfully!`)
-
-    // Auto-select the newly created order immediately (using the fresh data from API)
-    dispatch(setSelectedOrder(order))
-
-    // Set the pending order ID to focus on after orders reload
-    setPendingOrderToSelect(order.id)
-
-    // Reload orders to get the updated list
-    loadOrders()
-  }
-
-  const handleOrderUpdated = async (order: SalesOrder) => {
-    // Close the dialog first
-    setEditDialog(false)
-
-    // Show success notification
-    showSuccess(`Order ${order.orderNumber || order.id} updated successfully!`)
-
-    // Update the Redux state immediately with the updated order
-    // This automatically updates both the orders list and selected order
-    dispatch(updateOrderInPlace(order))
-
-    // Refresh invoices to show updated order details
-    dispatch(fetchInvoices({ page: 1, limit: 20 }))
-  }
-
   const handleEditOrder = () => {
     if (selectedOrder) {
       // Check if order is fulfilled before allowing edit
       if (selectedOrder.isFulfilled) {
         setUnfulfillDialogOpen(true)
       } else {
-        setEditDialog(true)
+        navigate(`/sales/orders/${selectedOrder.id}/edit`)
       }
     }
   }
@@ -624,7 +589,7 @@ const OrdersPage: React.FC = () => {
         dispatch(updateOrderInPlace(updatedOrder.data))
         showSuccess('Order unfulfilled successfully')
         setUnfulfillDialogOpen(false)
-        setEditDialog(true)
+        navigate(`/sales/orders/${selectedOrder.id}/edit`)
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to unfulfill order'
@@ -801,7 +766,7 @@ const OrdersPage: React.FC = () => {
   }
 
   const handleAddOrder = () => {
-    setCreateDialog(true)
+    navigate('/sales/orders/create')
   }
 
   const handleNavigateToInvoice = useCallback((invoiceId: string, event?: React.MouseEvent) => {
@@ -821,8 +786,6 @@ const OrdersPage: React.FC = () => {
   const handleEscapeAction = useCallback(() => {
     setFocusedOrderIndex(-1)
     dispatch(setSelectedOrder(null))
-    setCreateDialog(false)
-    setEditDialog(false)
     setViewDialog(false)
     setUnfulfillDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
@@ -831,8 +794,6 @@ const OrdersPage: React.FC = () => {
   }, [dispatch])
 
   const clearDialogs = () => {
-    setCreateDialog(false)
-    setEditDialog(false)
     setViewDialog(false)
     setUnfulfillDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
@@ -928,7 +889,7 @@ const OrdersPage: React.FC = () => {
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
             size="medium"
-            onClick={() => setCreateDialog(true)}
+            onClick={() => navigate('/sales/orders/create')}
             fullWidth={isMobile}
           >
             {isMobile ? "Create New Order" : "Create Order"}
@@ -2187,23 +2148,6 @@ const OrdersPage: React.FC = () => {
           <Button onClick={() => setViewDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-
-      {/* Create Order Dialog */}
-      <CreateOrderDialog
-        open={createDialog}
-        onClose={() => setCreateDialog(false)}
-        onOrderCreated={handleOrderCreated}
-      />
-
-      {/* Edit Order Dialog */}
-      {selectedOrder && (
-        <CreateOrderDialog
-          open={editDialog}
-          onClose={() => setEditDialog(false)}
-          onOrderCreated={handleOrderUpdated}
-          editOrder={selectedOrder}
-        />
-      )}
 
       {/* Unfulfill Order Dialog */}
       {selectedOrder && (

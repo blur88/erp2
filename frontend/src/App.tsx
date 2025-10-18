@@ -16,6 +16,7 @@ const CategoriesPage = React.lazy(() => import('./pages/inventory/CategoriesPage
 const SalesPage = React.lazy(() => import('./pages/sales/SalesPage'))
 const CustomersPage = React.lazy(() => import('./pages/sales/CustomersPage'))
 const OrdersPage = React.lazy(() => import('./pages/sales/OrdersPage'))
+const CreateSalesOrderPage = React.lazy(() => import('./pages/sales/CreateSalesOrderPage'))
 const InvoicesPage = React.lazy(() => import('./pages/sales/InvoicesPage'))
 const PaymentsPage = React.lazy(() => import('./pages/sales/PaymentsPage'))
 const PurchasingPage = React.lazy(() => import('./pages/purchasing/PurchasingPage'))
@@ -68,6 +69,8 @@ function App() {
                     <Route path="/sales" element={<SalesPage />} />
                     <Route path="/sales/customers" element={<CustomersPage />} />
                     <Route path="/sales/orders" element={<OrdersPage />} />
+                    <Route path="/sales/orders/create" element={<CreateSalesOrderPage />} />
+                    <Route path="/sales/orders/:id/edit" element={<CreateSalesOrderPage />} />
                     <Route path="/sales/invoices" element={<InvoicesPage />} />
                     <Route path="/sales/payments" element={<PaymentsPage />} />
 
