@@ -116,7 +116,7 @@ const menuSections: MenuSection[] = [
           },
           {
             id: 'orders',
-            title: 'Orders',
+            title: 'Sales Orders',
             icon: <OrdersIcon />,
             path: '/sales/orders',
           },

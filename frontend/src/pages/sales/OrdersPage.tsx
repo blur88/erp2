@@ -1259,7 +1259,7 @@ const OrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Split Layout: Order List and Order Details */}
+      {/* Split Layout: Order List and SO Details */}
       <Grid container spacing={3}>
         {/* Left Side - Order List */}
         <Grid item xs={12} md={3}>
@@ -1272,7 +1272,7 @@ const OrdersPage: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Order List ({pagination?.total || 0})
+                  SO List ({pagination?.total || 0})
                 </Typography>
                 {loading && orders.length > 0 && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1345,7 +1345,7 @@ const OrdersPage: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Right Side - Order Details */}
+        {/* Right Side - SO Details */}
         <Grid item xs={12} md={9}>
           {selectedOrder ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
@@ -1357,7 +1357,7 @@ const OrdersPage: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Order Details - {selectedOrder.orderNumber}
+                  SO Details - {selectedOrder.orderNumber}
                 </Typography>
                 <Box sx={{
                   display: 'flex',
@@ -1410,10 +1410,10 @@ const OrdersPage: React.FC = () => {
               </Box>
 
             <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-              {/* Order Details Section */}
+              {/* SO Details Section */}
               <Box>
                 <Grid container spacing={3}>
-                  {/* Left Column - Order Information */}
+                  {/* Left Column - SO Information */}
                   <Grid item xs={12} md={6}>
                     <TableContainer>
                       <Table
@@ -1430,7 +1430,7 @@ const OrdersPage: React.FC = () => {
                         }}
                       >
                         <TableBody>
-                          {/* Order Information Section */}
+                          {/* SO Information Section */}
                           <TableRow>
                             <TableCell colSpan={2} sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
@@ -1442,7 +1442,7 @@ const OrdersPage: React.FC = () => {
                                 color: 'primary.main',
                                 fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                               }}>
-                                Order Information
+                                SO Information
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -1460,7 +1460,7 @@ const OrdersPage: React.FC = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              Order Date
+                              SO Date
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatDate(selectedOrder.orderDate)}
@@ -1804,13 +1804,12 @@ const OrdersPage: React.FC = () => {
               <Box sx={{
                 borderTop: '2px solid',
                 borderColor: 'divider',
-                my: 3,
                 pageBreakBefore: 'always' // CSS page break for printing
               }} />
 
-              {/* Order Items Section */}
+              {/* SO Items Section */}
               <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {/* Order Items Header */}
+                {/* SO Items Header */}
                 <TableContainer>
                   <Table
                     size={TABLE_STYLES.size}
@@ -1836,7 +1835,7 @@ const OrdersPage: React.FC = () => {
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px'
                           }}>
-                            Order Items
+                            SO Items
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -1844,7 +1843,7 @@ const OrdersPage: React.FC = () => {
                   </Table>
                 </TableContainer>
 
-                {/* Order Items Table */}
+                {/* SO Items Table */}
                 <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
@@ -1973,7 +1972,7 @@ const OrdersPage: React.FC = () => {
       </Grid>
 
 
-      {/* Order Details Dialog */}
+      {/* SO Details Dialog */}
       <Dialog
         open={viewDialog}
         onClose={() => setViewDialog(false)}
@@ -1982,7 +1981,7 @@ const OrdersPage: React.FC = () => {
       >
         <DialogTitle>
           <Typography variant="h6">
-            Order Details - {selectedOrder?.orderNumber}
+            SO Details - {selectedOrder?.orderNumber}
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -1991,10 +1990,10 @@ const OrdersPage: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <Card>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>Order Information</Typography>
+                    <Typography variant="h6" gutterBottom>SO Information</Typography>
                     <Stack spacing={1}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography color="text.secondary">Order Date:</Typography>
+                        <Typography color="text.secondary">SO Date:</Typography>
                         <Typography>{formatDate(selectedOrder.orderDate)}</Typography>
                       </Box>
                       {selectedOrder.requiredDate && (
@@ -2040,11 +2039,11 @@ const OrdersPage: React.FC = () => {
                 </Card>
               </Grid>
               
-              {/* Order Items */}
+              {/* SO Items */}
               <Grid item xs={12}>
                 <Card>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>Order Items</Typography>
+                    <Typography variant="h6" gutterBottom>SO Items</Typography>
                     {selectedOrder.items && selectedOrder.items.length > 0 ? (
                       <TableContainer>
                         <Table
