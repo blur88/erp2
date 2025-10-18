@@ -1750,61 +1750,16 @@ const OrdersPage: React.FC = () => {
                   </Grid>
                 </Grid>
 
-                {/* Order Notes Section - below both columns if notes exist */}
-                {selectedOrder.notes && (
-                  <Box sx={{ mt: 1 }}>
-                    <TableContainer>
-                      <Table
-                        size={TABLE_STYLES.size}
-                        sx={{
-                          tableLayout: 'fixed',
-                          '& .MuiTableCell-root': {
-                            border: 'none',
-                            py: TABLE_STYLES.cell.padding.py,
-                            px: TABLE_STYLES.cell.padding.px,
-                          }
-                        }}
-                      >
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{
-                              pb: TABLE_STYLES.cell.padding.py * 0.67,
-                              py: TABLE_STYLES.cell.padding.py * 0.67,
-                              borderTop: TABLE_STYLES.cell.border
-                            }}>
-                              <Typography variant="h6" sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                color: 'info.main',
-                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                              }}>
-                                Order Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              <Typography sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {selectedOrder.notes}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
-
               </Box>
 
               {/* Page Break */}
               <Box sx={{
                 borderTop: '2px solid',
                 borderColor: 'divider',
-                pageBreakBefore: 'always' // CSS page break for printing
+                pageBreakBefore: 'always', // CSS page break for printing
+                '@media print': {
+                  pageBreakBefore: 'always'
+                }
               }} />
 
               {/* SO Items Section */}
@@ -1958,6 +1913,42 @@ const OrdersPage: React.FC = () => {
                 )}
                 </Box>
               </Box>
+
+              {/* Page Break after SO Items */}
+              <Box sx={{
+                borderTop: '2px solid',
+                borderColor: 'divider',
+                pageBreakBefore: 'always', // CSS page break for printing
+                '@media print': {
+                  pageBreakBefore: 'always'
+                }
+              }} />
+
+              {/* NOTES Section - below items */}
+              {selectedOrder.notes && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    mb: 1
+                  }}>
+                    NOTES
+                  </Typography>
+
+                  <Box sx={{
+                    p: 2,
+                    backgroundColor: 'grey.50',
+                    borderRadius: 1,
+                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}>
+                    {selectedOrder.notes}
+                  </Box>
+                </Box>
+              )}
 
             </Box>
             </Paper>
