@@ -15,6 +15,7 @@ import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-o
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
+import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { User } from '../../../database/entities/user.entity';
 import {
   CreateSalesOrderDto,
@@ -41,6 +42,8 @@ export class SalesOrderService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     // private readonly customerService: CustomerService,
@@ -1461,25 +1464,49 @@ export class SalesOrderService {
 
       // Update each invoice with the latest order data
       for (const invoice of invoices) {
+        // Skip fully paid invoices - they shouldn't be modified
+        if (invoice.status === 'paid' && Number(invoice.balanceDue) <= 0) {
+          console.log(`⏭️  Skipping paid invoice ${invoice.invoiceNumber}`);
+          continue;
+        }
+
         // Update customer information if changed
         if (updatedOrder.customer) {
           invoice.customerId = updatedOrder.customerId;
           invoice.customerName = updatedOrder.customer.name;
         }
 
-        // customerPoNumber removed from invoice model
-
-        // billingAddress removed from invoice model
-
-        // Update total amount from order
+        // Sync invoice items from sales order items
         if (updatedOrder.items && updatedOrder.items.length > 0) {
+          // Delete existing invoice items
+          await this.invoiceItemRepository.delete({ invoiceId: invoice.id });
+
+          // Create new invoice items from sales order
+          const invoiceItemsData = updatedOrder.items.map(soItem => ({
+            invoiceId: invoice.id,
+            lineNumber: soItem.lineNumber,
+            productId: soItem.productId,
+            productSku: soItem.productSku,
+            productName: soItem.productName,
+            productDescription: soItem.productDescription,
+            quantity: Number(soItem.quantity),
+            unitPrice: Number(soItem.unitPrice),
+            discount: Number(soItem.discountAmount),
+            totalAmount: Number(soItem.totalAmount),
+          }));
+
+          // Insert all items
+          await this.invoiceItemRepository.insert(invoiceItemsData);
+
+          // Update total amount from order
           const newSubtotal = updatedOrder.items.reduce((sum, item) =>
             sum + Number(item.totalAmount), 0);
           invoice.totalAmount = newSubtotal;
         }
 
-        // Recalculate balance due
-        invoice.calculateTotals();
+        // Preserve existing paidAmount and recalculate balance due
+        const currentPaidAmount = Number(invoice.paidAmount);
+        invoice.balanceDue = Number(invoice.totalAmount) - currentPaidAmount;
 
         // Update invoice status based on payment status
         invoice.updateStatus();
@@ -1487,7 +1514,7 @@ export class SalesOrderService {
         // Save the updated invoice
         await this.invoiceRepository.save(invoice);
 
-        console.log(`✅ Updated invoice ${invoice.invoiceNumber} for sales order ${updatedOrder.orderNumber}`);
+        console.log(`✅ Updated invoice ${invoice.invoiceNumber} (including items) for sales order ${updatedOrder.orderNumber}`);
       }
 
       console.log(`✅ Updated ${invoices.length} invoice(s) for sales order ${updatedOrder.orderNumber}`);

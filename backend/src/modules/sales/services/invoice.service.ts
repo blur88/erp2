@@ -78,10 +78,13 @@ export class InvoiceService {
       throw new NotFoundException('Customer not found');
     }
 
-    // Verify sales order exists if provided
+    // Verify sales order exists if provided and load its items
     let salesOrder: SalesOrder | null = null;
     if (salesOrderId) {
-      salesOrder = await this.salesOrderRepository.findOne({ where: { id: salesOrderId } });
+      salesOrder = await this.salesOrderRepository.findOne({
+        where: { id: salesOrderId },
+        relations: ['items']
+      });
       if (!salesOrder) {
         throw new NotFoundException('Sales order not found');
       }
@@ -108,6 +111,25 @@ export class InvoiceService {
     });
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
+
+    // Copy sales order items to invoice items if sales order exists
+    if (salesOrder && salesOrder.items && salesOrder.items.length > 0) {
+      const invoiceItemsData = salesOrder.items.map(soItem => ({
+        invoiceId: savedInvoice.id,
+        lineNumber: soItem.lineNumber,
+        productId: soItem.productId,
+        productSku: soItem.productSku,
+        productName: soItem.productName,
+        productDescription: soItem.productDescription,
+        quantity: Number(soItem.quantity),
+        unitPrice: Number(soItem.unitPrice),
+        discount: Number(soItem.discountAmount),
+        totalAmount: Number(soItem.totalAmount),
+      }));
+
+      await this.invoiceItemRepository.insert(invoiceItemsData);
+    }
+
     return this.findById(savedInvoice.id);
   }
 
@@ -309,6 +331,73 @@ export class InvoiceService {
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
+  }
+
+  async syncItemsFromSalesOrder(invoiceId: string): Promise<InvoiceResponseDto> {
+    const invoice = await this.invoiceRepository.findOne({
+      where: { id: invoiceId }
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    if (!invoice.salesOrderId) {
+      throw new BadRequestException('Invoice is not linked to a sales order');
+    }
+
+    // Check if invoice can be updated
+    if (invoice.status === InvoiceStatus.PAID) {
+      throw new ConflictException('Cannot sync items for fully paid invoice');
+    }
+
+    // Load the sales order with items
+    const salesOrder = await this.salesOrderRepository.findOne({
+      where: { id: invoice.salesOrderId },
+      relations: ['items']
+    });
+
+    if (!salesOrder) {
+      throw new NotFoundException('Related sales order not found');
+    }
+
+    if (!salesOrder.items || salesOrder.items.length === 0) {
+      throw new BadRequestException('Sales order has no items to sync');
+    }
+
+    // Delete existing invoice items using delete query
+    await this.invoiceItemRepository.delete({ invoiceId: invoice.id });
+
+    // Create new invoice items from sales order using insert (bypasses hooks)
+    const invoiceItemsData = salesOrder.items.map(soItem => ({
+      invoiceId: invoice.id,
+      lineNumber: soItem.lineNumber,
+      productId: soItem.productId,
+      productSku: soItem.productSku,
+      productName: soItem.productName,
+      productDescription: soItem.productDescription,
+      quantity: Number(soItem.quantity),
+      unitPrice: Number(soItem.unitPrice),
+      discount: Number(soItem.discountAmount),
+      totalAmount: Number(soItem.totalAmount),
+    }));
+
+    // Insert all items directly
+    await this.invoiceItemRepository.insert(invoiceItemsData);
+
+    // Update invoice total amount from sales order
+    // IMPORTANT: Preserve existing paidAmount - only update totalAmount and recalculate balanceDue
+    const currentPaidAmount = Number(invoice.paidAmount);
+    invoice.totalAmount = Number(salesOrder.totalAmount);
+    invoice.balanceDue = Number(salesOrder.totalAmount) - currentPaidAmount;
+
+    // Update status based on payment state
+    invoice.calculateTotals();
+    invoice.updateStatus();
+
+    await this.invoiceRepository.save(invoice);
+
+    return this.findById(invoice.id);
   }
 
   async delete(id: string): Promise<void> {

@@ -169,6 +169,23 @@ export class InvoiceController {
     return this.invoiceService.update(id, updateInvoiceDto);
   }
 
+  @Put(':id/sync-items')
+  @ApiOperation({ summary: 'Sync invoice items from linked sales order' })
+  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invoice items synced successfully from sales order',
+    type: InvoiceResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Invoice or sales order not found' })
+  @ApiResponse({ status: 400, description: 'Invoice not linked to sales order or sales order has no items' })
+  @ApiResponse({ status: 409, description: 'Cannot sync items for fully paid invoice' })
+  async syncItemsFromSalesOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.syncItemsFromSalesOrder(id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete invoice (soft delete)' })
   @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
