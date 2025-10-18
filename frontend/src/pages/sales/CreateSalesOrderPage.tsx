@@ -63,7 +63,7 @@ const schema = yup.object({
   items: yup.array().of(
     yup.object({
       productId: yup.string().required('Product is required'),
-      quantity: yup.number().positive('Quantity must be positive').required(),
+      quantity: yup.number().integer('Quantity must be a whole number').positive('Quantity must be positive').required(),
       unitPrice: yup.number().min(0).required(),
       discountType: yup.string().oneOf(['percentage', 'amount']).required(),
       discountValue: yup.number().min(0).optional(),
@@ -167,7 +167,7 @@ const CreateSalesOrderPage: React.FC = () => {
         return {
           productId,
           product: item.product,
-          quantity: item.quantity || 1,
+          quantity: parseInt(item.quantity) || 1,
           unitPrice: item.unitPrice || 0,
           discountType: (item.discountType || 'percentage') as 'percentage' | 'amount',
           discountValue: item.discountType === 'percentage' ? (item.discountPercent || 0) : (item.discountAmount || 0),
@@ -641,8 +641,13 @@ const CreateSalesOrderPage: React.FC = () => {
                                         setDisplayValue(formatQuantity(qtyField.value))
                                       }}
                                       variant="outlined"
-                                      inputProps={{ style: { textAlign: 'center', fontSize: '0.875rem' } }}
+                                      inputProps={{
+                                        style: { textAlign: 'center', fontSize: '0.875rem' },
+                                        inputMode: 'numeric',
+                                        pattern: '[0-9]*'
+                                      }}
                                       error={!!errors.items?.[index]?.quantity}
+                                      helperText={errors.items?.[index]?.quantity?.message}
                                     />
                                   )
                                 }}

@@ -98,13 +98,11 @@ export class SalesOrderItem extends BaseEntity {
 
   // Quantity and Pricing
   @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
+    type: 'int',
     comment: 'Ordered quantity',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
+  @IsInt()
+  @Min(1)
   quantity: number;
 
   @Column({
