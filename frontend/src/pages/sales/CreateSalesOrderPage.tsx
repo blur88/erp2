@@ -53,6 +53,7 @@ interface CreateOrderFormData {
   customerId: string
   orderDate: string
   notes?: string
+  shipping: number
   items: OrderItem[]
 }
 
@@ -60,6 +61,7 @@ const schema = yup.object({
   customerId: yup.string().required('Customer is required'),
   orderDate: yup.string().required('Order date is required'),
   notes: yup.string().optional(),
+  shipping: yup.number().min(0).optional(),
   items: yup.array().of(
     yup.object({
       productId: yup.string().required('Product is required'),
@@ -94,6 +96,7 @@ const CreateSalesOrderPage: React.FC = () => {
       customerId: '',
       orderDate: new Date().toISOString().split('T')[0],
       notes: '',
+      shipping: 0,
       items: [
         {
           productId: '',
@@ -116,6 +119,7 @@ const CreateSalesOrderPage: React.FC = () => {
   })
 
   const watchedItems = watch('items')
+  const watchedShipping = watch('shipping')
 
   useEffect(() => {
     loadCustomers()
@@ -183,6 +187,7 @@ const CreateSalesOrderPage: React.FC = () => {
         customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
         orderDate: orderToLoad.orderDate ? new Date(orderToLoad.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         notes: orderToLoad.notes || '',
+        shipping: orderToLoad.shippingAmount || 0,
         items: itemsToReset || [
           {
             productId: '',
@@ -284,6 +289,7 @@ const CreateSalesOrderPage: React.FC = () => {
         customerId: data.customerId,
         orderDate: data.orderDate,
         notes: data.notes || undefined,
+        shippingAmount: Number(data.shipping) || 0,
         items: data.items.map((item) => ({
           productId: item.productId,
           quantity: Number(item.quantity),
@@ -345,8 +351,10 @@ const CreateSalesOrderPage: React.FC = () => {
   }
 
   const calculateOrderTotals = () => {
-    const totalAmount = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
-    return { totalAmount }
+    const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+    const shipping = Number(watchedShipping) || 0
+    const totalAmount = subtotal + shipping
+    return { subtotal, shipping, totalAmount }
   }
 
   const addItem = () => {
@@ -365,7 +373,7 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const totals = React.useMemo(() => {
     return calculateOrderTotals()
-  }, [JSON.stringify(watchedItems)])
+  }, [JSON.stringify(watchedItems), watchedShipping])
 
   return (
     <Container maxWidth="xl">
@@ -854,6 +862,66 @@ const CreateSalesOrderPage: React.FC = () => {
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" gutterBottom>SO Summary</Typography>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
+                    <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem' }}>Shipping:</Typography>
+                    <Controller
+                      name="shipping"
+                      control={control}
+                      render={({ field }) => {
+                        const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(field.value))
+                        const [isFocused, setIsFocused] = React.useState(false)
+
+                        React.useEffect(() => {
+                          if (!isFocused) {
+                            setDisplayValue(formatNumberWithCommas(field.value))
+                          }
+                        }, [field.value, isFocused])
+
+                        return (
+                          <TextField
+                            value={displayValue}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9.]/g, '')
+                              setDisplayValue(value)
+                              const numValue = value === '' ? 0 : parseFloat(value.replace(/,/g, ''))
+                              field.onChange(isNaN(numValue) ? 0 : numValue)
+                            }}
+                            onFocus={() => {
+                              setIsFocused(true)
+                              setDisplayValue(field.value === 0 ? '0' : (field.value?.toString() || '0'))
+                            }}
+                            onBlur={() => {
+                              setIsFocused(false)
+                              if (displayValue === '' || displayValue === '.') {
+                                field.onChange(0)
+                              }
+                              setDisplayValue(formatNumberWithCommas(field.value || 0))
+                            }}
+                            variant="outlined"
+                            size="small"
+                            inputProps={{
+                              style: { textAlign: 'right', fontSize: '0.875rem' }
+                            }}
+                            sx={{
+                              width: '120px',
+                              '& .MuiInputBase-input': {
+                                padding: '4px 8px',
+                              },
+                            }}
+                            InputProps={{
+                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                            }}
+                          />
+                        )
+                      }}
+                    />
+                  </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: '1px solid #e0e0e0' }}>
                     <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Total:</Typography>

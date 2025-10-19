@@ -142,7 +142,9 @@ export class SalesOrderService {
 
     // Validate and calculate order totals
     const orderItems = await this.validateAndProcessItems(items);
-    const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+    const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+    const shippingAmount = Number(createSalesOrderDto.shippingAmount || 0);
+    const totalAmount = subtotal + shippingAmount;
 
     // Note: Credit limit check removed - customerService not available
 
@@ -165,6 +167,7 @@ export class SalesOrderService {
       customerId,
       createdByUserId: userId,
       orderDate: new Date(),
+      shippingAmount,
       totalAmount,
       status: SalesOrderStatus.DRAFT,
     });
@@ -678,7 +681,11 @@ export class SalesOrderService {
       // Validate and process new items
       const orderItems = await this.validateAndProcessItems(items);
 
-      const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+      const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+      const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
+        ? Number(updateSalesOrderDto.shippingAmount)
+        : Number(order.shippingAmount || 0);
+      const totalAmount = subtotal + shippingAmount;
 
       // Create new order items using direct object creation to avoid entity relations issues
       for (const itemData of orderItems) {
@@ -707,8 +714,15 @@ export class SalesOrderService {
         });
       }
 
-      // Add total amount to update data
+      // Add shipping and total amount to update data
+      updateData.shippingAmount = shippingAmount;
       updateData.totalAmount = totalAmount;
+    } else if (updateSalesOrderDto.shippingAmount !== undefined) {
+      // If only shipping is being updated (no items), recalculate total
+      const currentSubtotal = order.items?.reduce((sum, item) => sum + Number(item.totalAmount), 0) || 0;
+      const newShipping = Number(updateSalesOrderDto.shippingAmount);
+      updateData.shippingAmount = newShipping;
+      updateData.totalAmount = currentSubtotal + newShipping;
     }
 
     // Perform all updates in a single database call
@@ -1756,6 +1770,7 @@ export class SalesOrderService {
       shippedDate: order.shippedDate,
       deliveredDate: order.deliveredDate,
       fulfilledDate: order.fulfilledDate,
+      shippingAmount: Number(order.shippingAmount || 0),
       totalAmount: Number(order.totalAmount),
       paidAmount: Number(order.paidAmount),
       isFulfilled: order.isFulfilled,

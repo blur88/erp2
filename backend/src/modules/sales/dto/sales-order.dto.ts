@@ -161,6 +161,14 @@ export class CreateSalesOrderDto {
   @IsString()
   internalNotes?: string;
 
+  @ApiPropertyOptional({
+    description: 'Shipping/freight charges',
+    example: 50.00,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  shippingAmount?: number;
+
   @ApiProperty({
     description: 'Order items',
     type: [SalesOrderItemDto],
@@ -187,6 +195,14 @@ export class UpdateSalesOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping/freight charges',
+    example: 50.00,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  shippingAmount?: number;
 
   @ApiPropertyOptional({
     description: 'Order items',
@@ -348,6 +364,9 @@ export class SalesOrderResponseDto {
 
   @ApiProperty({ example: '2024-01-10', nullable: true })
   fulfilledDate?: Date;
+
+  @ApiProperty({ example: 50.00 })
+  shippingAmount: number;
 
   @ApiProperty({ example: 991.50 })
   totalAmount: number;
