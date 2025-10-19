@@ -885,14 +885,26 @@ const PaymentsPage: React.FC = () => {
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  Payment Details - {selectedPayment.paymentNumber}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Payment Details - {selectedPayment.paymentNumber}
+                  </Typography>
+                  <Chip
+                    label={selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
+                    color={getStatusColor(selectedPayment.status)}
+                    size="small"
+                    sx={{
+                      textTransform: 'capitalize',
+                      fontSize: '0.75rem',
+                      fontWeight: 600
+                    }}
+                  />
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -954,19 +966,6 @@ const PaymentsPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {getPaymentMethodLabel(selectedPayment.paymentMethod)}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Status
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              <Chip
-                                label={selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
-                                color={getStatusColor(selectedPayment.status)}
-                                size="small"
-                                sx={{ fontSize: '0.75rem' }}
-                              />
                             </TableCell>
                           </TableRow>
                           {selectedPayment.reference && (

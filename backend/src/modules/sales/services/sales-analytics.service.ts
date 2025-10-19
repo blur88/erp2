@@ -341,12 +341,12 @@ export class SalesAnalyticsService {
         .select([
           'COALESCE(SUM(CASE WHEN invoice.status = :paid THEN invoice.totalAmount ELSE 0 END), 0) as paidInvoicesAmount',
           'COALESCE(SUM(CASE WHEN invoice.status IN (:...pending) THEN invoice.balanceDue ELSE 0 END), 0) as pendingInvoicesAmount',
-          'COALESCE(SUM(CASE WHEN invoice.dueDate < :today AND invoice.balanceDue > 0 THEN invoice.balanceDue ELSE 0 END), 0) as overdueInvoicesAmount',
+          // Overdue calculation removed as it depends on dueDate
+          '0 as overdueInvoicesAmount',
         ])
         .setParameters({
           paid: InvoiceStatus.PAID,
           pending: [InvoiceStatus.DRAFT, InvoiceStatus.PARTIAL_PAID],
-          today: new Date(),
         })
         .getRawOne(),
 

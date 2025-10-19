@@ -14,6 +14,7 @@ import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { Product } from '../../../database/entities/product.entity';
+import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import {
   CreateInvoiceDto,
   UpdateInvoiceDto,
@@ -38,6 +39,8 @@ export class InvoiceService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     // private readonly emailService: EmailService, // Temporarily disabled
   ) {}
 
@@ -67,7 +70,7 @@ export class InvoiceService {
   }
 
   async create(createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
-    const { customerId, salesOrderId, lineItems, ...invoiceData } = createInvoiceDto;
+    const { customerId, salesOrderId, ...invoiceData } = createInvoiceDto;
 
     // Verify customer exists
     const customer = await this.customerRepository.findOne({ where: { id: customerId } });
@@ -75,17 +78,20 @@ export class InvoiceService {
       throw new NotFoundException('Customer not found');
     }
 
-    // Verify sales order exists if provided
+    // Verify sales order exists if provided and load its items
     let salesOrder: SalesOrder | null = null;
     if (salesOrderId) {
-      salesOrder = await this.salesOrderRepository.findOne({ where: { id: salesOrderId } });
+      salesOrder = await this.salesOrderRepository.findOne({
+        where: { id: salesOrderId },
+        relations: ['items']
+      });
       if (!salesOrder) {
         throw new NotFoundException('Sales order not found');
       }
     }
 
-    // Calculate totals (simplified - line items already include discounts)
-    const totalAmount = createInvoiceDto.totalAmount;
+    // Calculate total amount from sales order or use provided amount
+    const totalAmount = createInvoiceDto.totalAmount || (salesOrder?.totalAmount || 0);
 
     // Generate sequential invoice number
     const invoiceNumber = await this.generateSequentialInvoiceNumber();
@@ -97,18 +103,33 @@ export class InvoiceService {
       customerId,
       salesOrderId,
       customerName: customer.name,
-      billingAddress: customer.name,
       invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
-      dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
-      paymentTermsDays: invoiceData.paymentTermsDays || 30,
       totalAmount,
       balanceDue: totalAmount,
       paidAmount: 0,
-      lineItems,
       status: InvoiceStatus.DRAFT,
     });
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
+
+    // Copy sales order items to invoice items if sales order exists
+    if (salesOrder && salesOrder.items && salesOrder.items.length > 0) {
+      const invoiceItemsData = salesOrder.items.map(soItem => ({
+        invoiceId: savedInvoice.id,
+        lineNumber: soItem.lineNumber,
+        productId: soItem.productId,
+        productSku: soItem.productSku,
+        productName: soItem.productName,
+        productDescription: soItem.productDescription,
+        quantity: Number(soItem.quantity),
+        unitPrice: Number(soItem.unitPrice),
+        discount: Number(soItem.discountAmount),
+        totalAmount: Number(soItem.totalAmount),
+      }));
+
+      await this.invoiceItemRepository.insert(invoiceItemsData);
+    }
+
     return this.findById(savedInvoice.id);
   }
 
@@ -159,7 +180,7 @@ export class InvoiceService {
 
     const findOptions: FindManyOptions<Invoice> = {
       where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
-      relations: ['customer', 'salesOrder', 'payments'],
+      relations: ['customer', 'salesOrder', 'payments', 'items', 'items.product'],
       order: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
       take: limit,
@@ -167,18 +188,9 @@ export class InvoiceService {
 
     let [invoices, total] = await this.invoiceRepository.findAndCount(findOptions);
 
-    // Filter overdue and unpaid invoices if requested
-    if (overdue !== undefined || unpaid !== undefined) {
-      invoices = invoices.filter(invoice => {
-        let match = true;
-        if (overdue !== undefined) {
-          match = match && (invoice.isOverdue === overdue);
-        }
-        if (unpaid !== undefined) {
-          match = match && (Number(invoice.balanceDue) > 0) === unpaid;
-        }
-        return match;
-      });
+    // Filter unpaid invoices if requested (overdue filtering removed as it depends on dueDate)
+    if (unpaid !== undefined) {
+      invoices = invoices.filter(invoice => (Number(invoice.balanceDue) > 0) === unpaid);
       total = invoices.length;
     }
 
@@ -208,12 +220,9 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
       customerName: invoice.customer?.name || invoice.customerName,
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
     }));
   }
 
@@ -227,7 +236,6 @@ export class InvoiceService {
       draftInvoices,
       partialPaidInvoices,
       paidInvoices,
-      overdueInvoices,
       thisMonthInvoices,
       thisWeekInvoices,
     ] = await Promise.all([
@@ -235,12 +243,7 @@ export class InvoiceService {
       this.invoiceRepository.count({ where: { status: InvoiceStatus.DRAFT } }),
       this.invoiceRepository.count({ where: { status: InvoiceStatus.PARTIAL_PAID } }),
       this.invoiceRepository.count({ where: { status: InvoiceStatus.PAID } }),
-      this.invoiceRepository
-        .createQueryBuilder('invoice')
-        .where('invoice.dueDate < :today', { today: new Date() })
-        .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
-        .andWhere('invoice.balanceDue > 0')
-        .getCount(),
+      // Overdue calculation removed as it depends on dueDate
       this.invoiceRepository.count({ where: { invoiceDate: MoreThanOrEqual(thisMonth) } }),
       this.invoiceRepository.count({ where: { invoiceDate: MoreThanOrEqual(thisWeek) } }),
     ]);
@@ -269,7 +272,7 @@ export class InvoiceService {
         draft: draftInvoices,
         partialPaid: partialPaidInvoices,
         paid: paidInvoices,
-        overdue: overdueInvoices,
+        overdue: 0, // Overdue tracking removed as it depends on dueDate
         thisMonth: thisMonthInvoices,
         thisWeek: thisWeekInvoices,
       },
@@ -281,78 +284,14 @@ export class InvoiceService {
     };
   }
 
-  async getOverdueInvoices(): Promise<InvoiceSummaryDto[]> {
-    const invoices = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .leftJoinAndSelect('invoice.customer', 'customer')
-      .where('invoice.dueDate < :today', { today: new Date() })
-      .andWhere('invoice.balanceDue > 0')
-      .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
-      .orderBy('invoice.dueDate', 'ASC')
-      .getMany();
+  // getOverdueInvoices method removed as it depends on dueDate
 
-    return invoices.map(invoice => ({
-      id: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      status: invoice.status,
-      invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
-      customerName: invoice.customer?.name || invoice.customerName,
-      totalAmount: Number(invoice.totalAmount),
-      balanceDue: Number(invoice.balanceDue),
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
-    }));
-  }
-
-  async getAgingReport() {
-    const today = new Date();
-    
-    const agingBuckets = {
-      current: 0,
-      days1to30: 0,
-      days31to60: 0,
-      days61to90: 0,
-      over90Days: 0,
-    };
-
-    const overdueInvoices = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .where('invoice.balanceDue > 0')
-      .andWhere('invoice.status != :paid', { paid: InvoiceStatus.PAID })
-      .getMany();
-
-    overdueInvoices.forEach(invoice => {
-      const daysPastDue = invoice.daysPastDue;
-      const balanceDue = Number(invoice.balanceDue);
-
-      if (daysPastDue <= 0) {
-        agingBuckets.current += balanceDue;
-      } else if (daysPastDue <= 30) {
-        agingBuckets.days1to30 += balanceDue;
-      } else if (daysPastDue <= 60) {
-        agingBuckets.days31to60 += balanceDue;
-      } else if (daysPastDue <= 90) {
-        agingBuckets.days61to90 += balanceDue;
-      } else {
-        agingBuckets.over90Days += balanceDue;
-      }
-    });
-
-    const totalOutstanding = Object.values(agingBuckets).reduce((sum, amount) => sum + amount, 0);
-
-    return {
-      agingBuckets,
-      totalOutstanding,
-      invoiceCount: overdueInvoices.length,
-      generatedAt: new Date(),
-    };
-  }
+  // getAgingReport method removed as it depends on daysPastDue (which depends on dueDate)
 
   async findById(id: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
-      relations: ['customer', 'salesOrder'],
+      relations: ['customer', 'salesOrder', 'items', 'items.product'],
     });
 
     if (!invoice) {
@@ -365,7 +304,7 @@ export class InvoiceService {
   async findByInvoiceNumber(invoiceNumber: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { invoiceNumber },
-      relations: ['customer', 'salesOrder'],
+      relations: ['customer', 'salesOrder', 'items', 'items.product'],
     });
 
     if (!invoice) {
@@ -388,15 +327,77 @@ export class InvoiceService {
 
     Object.assign(invoice, updateInvoiceDto);
 
-    // Recalculate totals if line items changed
-    if (updateInvoiceDto.lineItems !== undefined) {
-      const totalAmount = updateInvoiceDto.lineItems.reduce((sum, item) => sum + item.totalAmount, 0);
-      invoice.totalAmount = totalAmount;
-      invoice.calculateTotals();
-    }
+    // No direct field updates in current implementation
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
+  }
+
+  async syncItemsFromSalesOrder(invoiceId: string): Promise<InvoiceResponseDto> {
+    const invoice = await this.invoiceRepository.findOne({
+      where: { id: invoiceId }
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    if (!invoice.salesOrderId) {
+      throw new BadRequestException('Invoice is not linked to a sales order');
+    }
+
+    // Check if invoice can be updated
+    if (invoice.status === InvoiceStatus.PAID) {
+      throw new ConflictException('Cannot sync items for fully paid invoice');
+    }
+
+    // Load the sales order with items
+    const salesOrder = await this.salesOrderRepository.findOne({
+      where: { id: invoice.salesOrderId },
+      relations: ['items']
+    });
+
+    if (!salesOrder) {
+      throw new NotFoundException('Related sales order not found');
+    }
+
+    if (!salesOrder.items || salesOrder.items.length === 0) {
+      throw new BadRequestException('Sales order has no items to sync');
+    }
+
+    // Delete existing invoice items using delete query
+    await this.invoiceItemRepository.delete({ invoiceId: invoice.id });
+
+    // Create new invoice items from sales order using insert (bypasses hooks)
+    const invoiceItemsData = salesOrder.items.map(soItem => ({
+      invoiceId: invoice.id,
+      lineNumber: soItem.lineNumber,
+      productId: soItem.productId,
+      productSku: soItem.productSku,
+      productName: soItem.productName,
+      productDescription: soItem.productDescription,
+      quantity: Number(soItem.quantity),
+      unitPrice: Number(soItem.unitPrice),
+      discount: Number(soItem.discountAmount),
+      totalAmount: Number(soItem.totalAmount),
+    }));
+
+    // Insert all items directly
+    await this.invoiceItemRepository.insert(invoiceItemsData);
+
+    // Update invoice total amount from sales order
+    // IMPORTANT: Preserve existing paidAmount - only update totalAmount and recalculate balanceDue
+    const currentPaidAmount = Number(invoice.paidAmount);
+    invoice.totalAmount = Number(salesOrder.totalAmount);
+    invoice.balanceDue = Number(salesOrder.totalAmount) - currentPaidAmount;
+
+    // Update status based on payment state
+    invoice.calculateTotals();
+    invoice.updateStatus();
+
+    await this.invoiceRepository.save(invoice);
+
+    return this.findById(invoice.id);
   }
 
   async delete(id: string): Promise<void> {
@@ -448,29 +449,18 @@ export class InvoiceService {
     const subject = sendInvoiceDto.subject || 
       `Invoice ${invoice.invoiceNumber} from Your Company`;
     
-    const message = sendInvoiceDto.message || 
-      `Please find attached your invoice. Payment is due by ${invoice.dueDate.toLocaleDateString()}.`;
+    const message = sendInvoiceDto.message ||
+      `Please find attached your invoice.`;
 
     // Generate PDF (implement PDF generation service)
     const pdfBuffer = await this.generatePdf(id);
 
     // Send email with PDF attachment
     for (const email of emailAddresses) {
-      /* 
-      await this.emailService.sendEmail({ // Temporarily disabled
-        to: email,
-        subject,
-        body: message,
-        attachments: [{
-          filename: `invoice-${invoice.invoiceNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-        }],
-      });
-      */
+      // Email functionality temporarily disabled
     }
 
-    // Mark as sent functionality removed as sentDate field is no longer available
+    // Invoice sent successfully
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
@@ -482,7 +472,7 @@ export class InvoiceService {
       throw new NotFoundException('Invoice not found');
     }
 
-    // Functionality removed as sentDate field is no longer available
+    // Invoice marked as sent
     const savedInvoice = await this.invoiceRepository.save(invoice);
     return this.findById(savedInvoice.id);
   }
@@ -555,8 +545,6 @@ export class InvoiceService {
       customerId: originalInvoice.customerId,
       salesOrderId: originalInvoice.salesOrderId,
       totalAmount: Number(originalInvoice.totalAmount),
-      paymentTermsDays: originalInvoice.paymentTermsDays,
-      lineItems: originalInvoice.lineItems || [],
     };
 
     return this.create(duplicateData);
@@ -612,11 +600,8 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
     }));
   }
 
@@ -641,7 +626,7 @@ export class InvoiceService {
       amount: Number(invoice.totalAmount),
     });
 
-    // Sent event functionality removed as sentDate field is no longer available
+    // Invoice sent event would be tracked here if needed
 
     // Add payment events
     if (invoice.payments) {
@@ -682,7 +667,7 @@ export class InvoiceService {
     
     for (const invoiceId of invoiceIds) {
       try {
-        const invoice = await this.sendInvoice(invoiceId, { markAsSent: true });
+        const invoice = await this.sendInvoice(invoiceId, {});
         results.push({
           invoiceId,
           invoiceNumber: invoice.invoiceNumber,
@@ -865,50 +850,16 @@ export class InvoiceService {
   // Helper methods
 
   private async mapToResponseDto(invoice: Invoice): Promise<InvoiceResponseDto> {
-    // Enhance line items with current product information
-    let enhancedLineItems = invoice.lineItems;
-    if (invoice.lineItems && invoice.lineItems.length > 0) {
-      // Extract all product IDs from line items
-      const productIds = invoice.lineItems
-        .map(item => item.productId)
-        .filter(id => id); // Remove null/undefined
-
-      // Fetch current product information for all products at once
-      const products = productIds.length > 0
-        ? await this.productRepository.findBy({ id: In(productIds) })
-        : [];
-
-      // Create a map for quick lookup
-      const productMap = new Map(products.map(p => [p.id, p]));
-
-      // Enhance line items with current product information
-      enhancedLineItems = invoice.lineItems.map(item => {
-        const product = productMap.get(item.productId);
-        return {
-          ...item,
-          product: product ? {
-            id: product.id,
-            name: product.name,
-            barcode: product.barcode,
-          } : undefined,
-        };
-      });
-    }
-
     return {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
-      dueDate: invoice.dueDate,
       paidDate: invoice.paidDate,
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
       balanceDue: Number(invoice.balanceDue),
-      paymentTermsDays: invoice.paymentTermsDays,
       customerName: invoice.customerName,
-      billingAddress: invoice.billingAddress,
-      lineItems: enhancedLineItems, // Use enhanced line items with product info
       customerId: invoice.customerId,
       salesOrderId: invoice.salesOrderId,
       customer: invoice.customer ? {
@@ -931,11 +882,26 @@ export class InvoiceService {
         paymentMethod: payment.paymentMethod,
         status: payment.status,
       })) : undefined,
+      items: invoice.items ? invoice.items.map(item => ({
+        id: item.id,
+        lineNumber: item.lineNumber,
+        productId: item.productId,
+        productName: item.productName,
+        productSku: item.productSku,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        discount: Number(item.discount),
+        totalAmount: Number(item.totalAmount),
+        product: item.product ? {
+          id: item.product.id,
+          name: item.product.name,
+          barcode: item.product.barcode,
+        } : undefined,
+      })) : undefined,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
       deletedAt: invoice.deletedAt,
-      isOverdue: invoice.isOverdue,
-      daysPastDue: invoice.daysPastDue,
+      // isOverdue and daysPastDue removed as they depend on dueDate
       isPartiallyPaid: invoice.isPartiallyPaid,
       isFullyPaid: invoice.isFullyPaid,
       paymentProgress: invoice.paymentProgress,

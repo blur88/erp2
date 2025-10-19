@@ -8,3 +8,4 @@
 export * from './supplier.controller';
 export * from './purchase-order.controller';
 export * from './goods-received-note.controller';
+export * from './vendor-payment.controller';

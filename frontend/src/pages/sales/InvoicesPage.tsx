@@ -66,7 +66,6 @@ interface InvoiceListItem {
   balanceDue?: number
   status: 'draft' | 'partial_paid' | 'paid'
   isOverdue?: boolean
-  lineItems?: InvoiceItem[]
   notes?: string
   customer?: {
     id: string
@@ -272,7 +271,6 @@ const InvoicesPage: React.FC = () => {
       const invoiceDate = invoice.invoiceDate || invoice.issueDate
       const totalAmount = invoice.totalAmount || invoice.total || 0
       const balanceDue = invoice.balanceDue ?? invoice.dueAmount ?? (totalAmount - (invoice.paidAmount || 0))
-      const lineItems = invoice.lineItems || invoice.items || []
 
       return {
         ...invoice,
@@ -280,7 +278,6 @@ const InvoicesPage: React.FC = () => {
         invoiceDate,
         totalAmount,
         balanceDue,
-        lineItems,
         paidAmount: invoice.paidAmount || 0,
         isOverdue: invoice.isOverdue || false
       }
@@ -875,14 +872,49 @@ const InvoicesPage: React.FC = () => {
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  Invoice Details - {selectedInvoice.invoiceNumber}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Invoice Details - {selectedInvoice.invoiceNumber}
+                  </Typography>
+                  {(() => {
+                    const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
+                    if (isOverpaid) {
+                      return (
+                        <Chip
+                          label="Overpaid"
+                          size="small"
+                          color="info"
+                          sx={{
+                            textTransform: 'capitalize',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                        />
+                      )
+                    }
+                    return (
+                      <Chip
+                        label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
+                        size="small"
+                        color={
+                          selectedInvoice.status === 'paid' ? 'success' :
+                          selectedInvoice.status === 'partial_paid' ? 'warning' :
+                          'default'
+                        }
+                        sx={{
+                          textTransform: 'capitalize',
+                          fontSize: '0.75rem',
+                          fontWeight: 600
+                        }}
+                      />
+                    )
+                  })()}
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -1036,38 +1068,6 @@ const InvoicesPage: React.FC = () => {
                               })()}
                             </TableCell>
                           </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Status
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {(() => {
-                                const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
-                                if (isOverpaid) {
-                                  return (
-                                    <Chip
-                                      label="Overpaid"
-                                      size="small"
-                                      color="info"
-                                      sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
-                                    />
-                                  )
-                                }
-                                return (
-                                  <Chip
-                                    label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
-                                    size="small"
-                                    color={
-                                      selectedInvoice.status === 'paid' ? 'success' :
-                                      selectedInvoice.status === 'partial_paid' ? 'warning' :
-                                      'default'
-                                    }
-                                    sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
-                                  />
-                                )
-                              })()}
-                            </TableCell>
-                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -1113,7 +1113,7 @@ const InvoicesPage: React.FC = () => {
                     Invoice Items
                   </Typography>
 
-                  {((selectedInvoice.lineItems && selectedInvoice.lineItems.length > 0) || (selectedInvoice.items && selectedInvoice.items.length > 0)) ? (
+                  {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
                     <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1140,7 +1140,7 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {(selectedInvoice.lineItems || selectedInvoice.items || [])?.map((item: InvoiceItem, index: number) => (
+                          {selectedInvoice.items?.map((item: InvoiceItem, index: number) => (
                             <TableRow
                               key={item.id || index}
                               hover

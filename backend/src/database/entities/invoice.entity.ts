@@ -20,6 +20,7 @@ import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrder } from './sales-order.entity';
 import { Payment } from './payment.entity';
+import { InvoiceItem } from './invoice-item.entity';
 
 export enum InvoiceStatus {
   DRAFT = 'draft',
@@ -38,7 +39,6 @@ export enum InvoiceStatus {
 @Index(['salesOrderId'])
 @Index(['status'])
 @Index(['invoiceDate'])
-@Index(['dueDate'])
 export class Invoice extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -67,22 +67,8 @@ export class Invoice extends BaseEntity {
   @IsDate()
   invoiceDate: Date;
 
-  @Column({
-    type: 'date',
-    comment: 'Payment due date',
-  })
-  @IsDate()
-  dueDate: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Date when invoice was sent to customer',
-  })
-  @IsOptional()
-  @IsDate()
-  sentDate?: Date;
-
+  
+  
   @Column({
     type: 'date',
     nullable: true,
@@ -126,15 +112,8 @@ export class Invoice extends BaseEntity {
   @Min(0)
   balanceDue: number;
 
-  // Terms and Conditions
-  @Column({
-    type: 'int',
-    default: 30,
-    comment: 'Payment terms in days',
-  })
-  paymentTermsDays: number;
-
-  // Billing Address (captured at time of invoice)
+  
+  // Billing Information (captured at time of invoice)
   @Column({
     type: 'varchar',
     length: 200,
@@ -144,30 +123,7 @@ export class Invoice extends BaseEntity {
   @MaxLength(200)
   customerName: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Billing address',
-  })
-  @IsOptional()
-  @IsString()
-  billingAddress?: string;
-
-  // Reference Information
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Invoice line items (denormalized for performance)',
-  })
-  @IsOptional()
-  lineItems?: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    totalAmount: number;
-  }>;
-
+  
   // Foreign Keys
   @Column({
     type: 'uuid',
@@ -203,20 +159,14 @@ export class Invoice extends BaseEntity {
   })
   payments: Payment[];
 
-  // Computed properties
-  get isOverdue(): boolean {
-    if (this.status === InvoiceStatus.PAID) {
-      return false;
-    }
-    return new Date() > this.dueDate;
-  }
+  @OneToMany(() => InvoiceItem, (item) => item.invoice, {
+    cascade: true,
+    eager: false,
+  })
+  items: InvoiceItem[];
 
-  get daysPastDue(): number {
-    if (!this.isOverdue) return 0;
-    const today = new Date();
-    const diffTime = today.getTime() - this.dueDate.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }
+  // Computed properties
+  // Note: isOverdue and daysPastDue properties removed as they depend on dueDate
 
   get isPartiallyPaid(): boolean {
     return Number(this.paidAmount) > 0 && Number(this.balanceDue) > 0;
@@ -239,14 +189,7 @@ export class Invoice extends BaseEntity {
     // Similar to SalesOrder entity pattern
   }
 
-  @BeforeInsert()
-  setDueDate() {
-    if (!this.dueDate && this.invoiceDate) {
-      this.dueDate = new Date(this.invoiceDate);
-      this.dueDate.setDate(this.dueDate.getDate() + this.paymentTermsDays);
-    }
-  }
-
+  
   // Helper methods
   calculateTotals(): void {
     // Simplified: totalAmount is set from subtotal (line items already include discounts)
@@ -296,12 +239,10 @@ export class Invoice extends BaseEntity {
       customerId: salesOrder.customerId,
       salesOrderId: salesOrder.id,
       customerName: salesOrder.customer?.name,
-      totalAmount: totalAmount, // Line items already include discounts
+      totalAmount: totalAmount, // Calculate from sales order total
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
-      billingAddress: salesOrder.customer?.name || '',
-      paymentTermsDays: 30,
     };
   }
 }

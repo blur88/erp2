@@ -34,10 +34,11 @@ export { StockMovement, StockMovementType, StockMovementStatus } from './stock-m
 
 // Purchasing Management (PurchasingModule)
 export { Supplier, SupplierType } from './supplier.entity';
-export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPriority } from './purchase-order.entity';
+export { PurchaseOrder } from './purchase-order.entity';
 export { PurchaseOrderItem } from './purchase-order-item.entity';
-export { GoodsReceivedNote, GrnStatus, GrnType } from './goods-received-note.entity';
+export { GoodsReceivedNote } from './goods-received-note.entity';
 export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
+export { VendorPayment } from './vendor-payment.entity';
 
 // Import entities for array construction
 import { User } from './user.entity';
@@ -163,7 +164,7 @@ export const ACTIVE_PERFORMANCE_INDEXES = {
     'products.categoryId_status_isActive',
     'sales_orders.customerId_status',
     'stock_movements.productId_movementType',
-    'invoices.customerId_status_dueDate',
+    'invoices.customerId_status',
     'payments.customerId_invoiceId',
     'categories.parentId_isActive',
   ],
@@ -172,7 +173,7 @@ export const ACTIVE_PERFORMANCE_INDEXES = {
   ANALYTICS: [
     'sales_orders.orderDate',
     'stock_movements.movementDate',
-    'invoices.invoiceDate_dueDate',
+    'invoices.invoiceDate',
     'payments.paymentDate',
     'products.createdAt_updatedAt',
   ],

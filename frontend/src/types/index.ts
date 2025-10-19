@@ -241,15 +241,12 @@ export interface Invoice {
   invoiceNumber: string;
   customer: Customer;
   salesOrder?: SalesOrder;
-  items: InvoiceItem[];
   total: number;
   paidAmount: number;
   dueAmount: number;
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   issueDate: Date;
-  dueDate: Date;
   paidDate?: Date;
-  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -385,6 +382,26 @@ export interface GRNItem {
     id: string;
     product?: Product;
   };
+}
+
+export interface VendorPayment {
+  id: string;
+  paymentNumber: string;
+  supplier: Supplier;
+  supplierId: string;
+  purchaseOrder?: PurchaseOrder;
+  purchaseOrderId?: string;
+  amount: number;
+  paymentDate: Date | string;
+  paymentMethod: 'cash' | 'bank_transfer' | 'check' | 'card';
+  referenceNumber?: string;
+  notes?: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 // Common types

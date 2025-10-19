@@ -1,5 +1,5 @@
 import { ApiService } from './api'
-import type { Supplier, PurchaseOrder, GoodsReceivedNote, PaginatedResponse, QueryParams } from '@/types'
+import type { Supplier, PurchaseOrder, GoodsReceivedNote, VendorPayment, PaginatedResponse, QueryParams } from '@/types'
 
 export const purchasingApi = {
   // Suppliers
@@ -181,8 +181,66 @@ export const purchasingApi = {
     return ApiService.post<PurchaseOrder>(`/purchasing/orders/${purchaseOrderId}/return`)
   },
 
+  // Pay/Unpay operations
+  async markPurchaseOrderAsPaid(purchaseOrderId: string) {
+    return ApiService.post<{ data: PurchaseOrder; payment: VendorPayment }>(`/purchasing/orders/${purchaseOrderId}/pay`)
+  },
+
+  async markPurchaseOrderAsUnpaid(purchaseOrderId: string) {
+    return ApiService.post<{ data: PurchaseOrder }>(`/purchasing/orders/${purchaseOrderId}/unpay`)
+  },
+
+  async getPurchaseOrderPaymentStatus(purchaseOrderId: string) {
+    return ApiService.get<{ isPaid: boolean; payment?: any }>(`/purchasing/orders/${purchaseOrderId}/payment-status`)
+  },
+
   async printGoodsReceivedNote(id: string) {
     return ApiService.downloadFile(`/purchasing/goods-received-notes/${id}/print`, `grn-${id}.pdf`)
+  },
+
+  // Vendor Payments
+  async getVendorPayments(params?: QueryParams & { supplierId?: string; status?: string; paymentMethod?: string; startDate?: string; endDate?: string }) {
+    return ApiService.get<PaginatedResponse<VendorPayment>>('/purchasing/vendor-payments', { params })
+  },
+
+  async getVendorPayment(id: string) {
+    return ApiService.get<VendorPayment>(`/purchasing/vendor-payments/${id}`)
+  },
+
+  async createVendorPayment(paymentData: Partial<VendorPayment>) {
+    return ApiService.post<VendorPayment>('/purchasing/vendor-payments', paymentData)
+  },
+
+  async updateVendorPayment(id: string, paymentData: Partial<VendorPayment>) {
+    return ApiService.patch<VendorPayment>(`/purchasing/vendor-payments/${id}`, paymentData)
+  },
+
+  async deleteVendorPayment(id: string) {
+    return ApiService.delete(`/purchasing/vendor-payments/${id}`)
+  },
+
+  async getDeletedVendorPayments(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<VendorPayment>>('/purchasing/vendor-payments/deleted', { params })
+  },
+
+  async restoreVendorPayment(id: string) {
+    return ApiService.post<VendorPayment>(`/purchasing/vendor-payments/${id}/restore`)
+  },
+
+  async bulkRestoreVendorPayments(paymentIds: string[]) {
+    return ApiService.post<{ restoredCount: number; failedIds: string[] }>('/purchasing/vendor-payments/bulk-restore', {
+      paymentIds
+    })
+  },
+
+  async bulkPermanentDeleteVendorPayments(paymentIds: string[]) {
+    return ApiService.post<{ deletedCount: number; failedIds: string[] }>('/purchasing/vendor-payments/bulk-permanent-delete', {
+      paymentIds
+    })
+  },
+
+  async permanentDeleteVendorPayment(id: string) {
+    return ApiService.delete(`/purchasing/vendor-payments/${id}/permanent`)
   },
 
   // Purchase Requisitions

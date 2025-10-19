@@ -58,7 +58,7 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
-import UnreturnPurchaseOrderDialog from '@/components/purchasing/UnreturnPurchaseOrderDialog'
+import BlockedPurchaseOrderDialog from '@/components/purchasing/BlockedPurchaseOrderDialog'
 
 interface PurchaseOrdersPageState {
   page: number
@@ -132,6 +132,9 @@ const PurchaseOrdersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  // Debug logging
+  console.log('PurchaseOrdersPage rendering...')
+
   const purchaseOrders = useAppSelector(selectPurchaseOrders) || []
   const suppliers = useAppSelector((state: any) => state.purchasing.suppliers) || []
   const loading = useAppSelector(selectPurchasingLoading)?.purchaseOrders || false
@@ -156,7 +159,9 @@ const PurchaseOrdersPage: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
+  const [blockedDialogType, setBlockedDialogType] = useState<'edit' | 'delete'>('edit')
   const [isLoading, setIsLoading] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState<{ [key: string]: boolean }>({})
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -230,6 +235,46 @@ const PurchaseOrdersPage: React.FC = () => {
       }
     }
   }, [searchParams, purchaseOrders, dispatch, setSearchParams])
+
+  // Check payment status when selected order changes
+  useEffect(() => {
+    if (selectedOrder) {
+      checkPaymentStatus(selectedOrder.id)
+    }
+  }, [selectedOrder])
+
+  // Function to check payment status for a PO
+  const checkPaymentStatus = async (poId: string) => {
+    try {
+      const response = await purchasingApi.getPurchaseOrderPaymentStatus(poId)
+      console.log('Payment status response:', response)
+
+      // Handle both direct response and wrapped response structure
+      let paymentData
+      if (response.data && typeof response.data === 'object' && 'isPaid' in response.data) {
+        // Direct response structure: { isPaid: boolean, payment?: any }
+        paymentData = response.data
+      } else if (response && typeof response === 'object' && 'isPaid' in response) {
+        // Direct response structure: { isPaid: boolean, payment?: any }
+        paymentData = response
+      } else {
+        // Fallback - assume unpaid if structure is unexpected
+        paymentData = { isPaid: false }
+      }
+
+      setPaymentStatus(prev => ({
+        ...prev,
+        [poId]: paymentData.isPaid
+      }))
+    } catch (error) {
+      console.error('Error checking payment status:', error)
+      // Set default to false on error
+      setPaymentStatus(prev => ({
+        ...prev,
+        [poId]: false
+      }))
+    }
+  }
 
   const handleSort = useCallback((field: string) => {
     setState(prev => ({
@@ -340,7 +385,12 @@ const PurchaseOrdersPage: React.FC = () => {
       selectedOrder.goodsReceivedNotes.length > 0 &&
       selectedOrder.goodsReceivedNotes[0].status === 'received'
 
-    if (isReceived) {
+    // Check if order is paid before allowing edit
+    const isPaid = paymentStatus[selectedOrder.id] === true
+
+    // If either received or paid, show dialog
+    if (isReceived || isPaid) {
+      setBlockedDialogType('edit')
       setUnreturnDialogOpen(true)
     } else {
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
@@ -400,10 +450,296 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
+  const handleUnpayAndEdit = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if order is also received
+      const isReceived = selectedOrder.goodsReceivedNotes &&
+        selectedOrder.goodsReceivedNotes.length > 0 &&
+        selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+      // Step 1: Unpay first
+      const unpayResponse = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Step 2: If also received, return goods
+      if (isReceived) {
+        const returnResponse = await purchasingApi.returnGoods(selectedOrder.id)
+        showSuccess('Payment deleted and goods returned successfully. You can now edit the order.')
+
+        // Update with returned goods data
+        if (returnResponse.data) {
+          dispatch(setSelectedPurchaseOrder(returnResponse.data))
+        }
+
+        // Refetch GRNs to update the GRN page with latest data
+        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+      } else {
+        showSuccess('Payment deleted successfully. You can now edit the order.')
+
+        // Update the selected order with the unpay data
+        const updatedOrder = unpayResponse.data.data || unpayResponse.data
+        if (updatedOrder && (updatedOrder as any).id) {
+          const orderWithoutPayment = {
+            ...(updatedOrder as any),
+            vendorPayments: []
+          }
+          dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
+        }
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+
+      // Navigate to edit page
+      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+    } catch (err: any) {
+      console.error('Unpay/Return error:', err)
+      showError(err?.response?.data?.message || 'Failed to prepare order for editing')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayOnly = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+      showSuccess('Payment deleted successfully.')
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Update the selected order with the new data
+      const updatedOrder = response.data.data || response.data
+      if (updatedOrder && (updatedOrder as any).id) {
+        const orderWithoutPayment = {
+          ...(updatedOrder as any),
+          vendorPayments: []
+        }
+        dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
+      }
+
+      setUnreturnDialogOpen(false)
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Unpay error:', err)
+      showError(err?.response?.data?.message || 'Failed to delete payment')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleReturnAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // First return goods
+      const returnResponse = await purchasingApi.returnGoods(selectedOrder.id)
+
+      // Then delete the order
+      await purchasingApi.deletePurchaseOrder(selectedOrder.id)
+      showSuccess('Goods returned and purchase order deleted successfully.')
+
+      setUnreturnDialogOpen(false)
+
+      // Select previous order or null
+      const deletedIndex = purchaseOrders.findIndex(o => o.id === selectedOrder.id)
+      if (purchaseOrders.length > 1) {
+        const newIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
+        const orderToSelect = purchaseOrders[newIndex].id === selectedOrder.id
+          ? purchaseOrders[newIndex + 1]
+          : purchaseOrders[newIndex]
+        dispatch(setSelectedPurchaseOrder(orderToSelect))
+        setFocusedOrderIndex(newIndex)
+      } else {
+        dispatch(setSelectedPurchaseOrder(null))
+        setFocusedOrderIndex(-1)
+      }
+
+      loadOrders() // Reload to update the list
+      // Refetch GRNs to update the GRN page with latest data
+      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+    } catch (err: any) {
+      console.error('Return/Delete error:', err)
+      showError(err?.response?.data?.message || 'Failed to return and delete order')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if order is also received
+      const isReceived = selectedOrder.goodsReceivedNotes &&
+        selectedOrder.goodsReceivedNotes.length > 0 &&
+        selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+      // Step 1: Unpay first
+      await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Step 2: If also received, return goods
+      if (isReceived) {
+        await purchasingApi.returnGoods(selectedOrder.id)
+        // Refetch GRNs to update the GRN page with latest data
+        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+      }
+
+      // Step 3: Delete the order
+      await purchasingApi.deletePurchaseOrder(selectedOrder.id)
+
+      if (isReceived) {
+        showSuccess('Payment deleted, goods returned, and purchase order deleted successfully.')
+      } else {
+        showSuccess('Payment deleted and purchase order deleted successfully.')
+      }
+
+      setUnreturnDialogOpen(false)
+
+      // Select previous order or null
+      const deletedIndex = purchaseOrders.findIndex(o => o.id === selectedOrder.id)
+      if (purchaseOrders.length > 1) {
+        const newIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
+        const orderToSelect = purchaseOrders[newIndex].id === selectedOrder.id
+          ? purchaseOrders[newIndex + 1]
+          : purchaseOrders[newIndex]
+        dispatch(setSelectedPurchaseOrder(orderToSelect))
+        setFocusedOrderIndex(newIndex)
+      } else {
+        dispatch(setSelectedPurchaseOrder(null))
+        setFocusedOrderIndex(-1)
+      }
+
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Unpay/Return/Delete error:', err)
+      showError(err?.response?.data?.message || 'Failed to prepare and delete order')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePay = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.markPurchaseOrderAsPaid(selectedOrder.id)
+
+      // Based on console logs: response.data is the PO object directly with vendorPayments populated
+      const updatedPO = response.data as any
+
+      // Show success message using the vendorPayments from the updated PO
+      if (updatedPO.vendorPayments && updatedPO.vendorPayments.length > 0) {
+        const latestPayment = updatedPO.vendorPayments[updatedPO.vendorPayments.length - 1]
+        showSuccess(`Payment created: ${latestPayment.paymentNumber}`)
+      } else {
+        showSuccess('Payment created successfully')
+      }
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: true
+      }))
+
+      // Update the selected order with the new data
+      // The backend already includes vendorPayments in the updated PO
+      dispatch(setSelectedPurchaseOrder(updatedPO))
+
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Pay error:', err)
+      if (err?.response?.status === 409) {
+        showError('This purchase order is already paid')
+      } else {
+        showError(err?.response?.data?.message || 'Failed to create payment')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpay = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+      showSuccess('Payment deleted successfully')
+
+      // Update payment status (optimistic update)
+      setPaymentStatus(prev => ({
+        ...prev,
+        [selectedOrder.id]: false
+      }))
+
+      // Update the selected order with the new data
+      // ApiService wraps response, check both response.data.data and response.data
+      const updatedOrder = response.data.data || response.data
+      if (updatedOrder && (updatedOrder as any).id) {
+        // Clear vendorPayments array when unpaying
+        const orderWithoutPayment = {
+          ...(updatedOrder as any),
+          vendorPayments: []
+        }
+        dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
+      }
+
+      loadOrders() // Reload to update the list
+    } catch (err: any) {
+      console.error('Unpay error:', err)
+      if (err?.response?.status === 404) {
+        showError('No payment found for this purchase order')
+      } else {
+        showError(err?.response?.data?.message || 'Failed to delete payment')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleDeleteClick = () => {
     if (!selectedOrder) return
-    setOrderToDelete(selectedOrder)
-    setDeleteConfirmOpen(true)
+
+    // Check if order is received or paid before allowing delete
+    const isReceived = selectedOrder.goodsReceivedNotes &&
+      selectedOrder.goodsReceivedNotes.length > 0 &&
+      selectedOrder.goodsReceivedNotes[0].status === 'received'
+
+    const isPaid = paymentStatus[selectedOrder.id] === true
+
+    // If either received or paid, show blocking dialog
+    if (isReceived || isPaid) {
+      setBlockedDialogType('delete')
+      setUnreturnDialogOpen(true)
+    } else {
+      // Otherwise show normal delete confirmation
+      setOrderToDelete(selectedOrder)
+      setDeleteConfirmOpen(true)
+    }
   }
 
   const handleDeleteConfirm = async () => {
@@ -488,6 +824,13 @@ const PurchaseOrdersPage: React.FC = () => {
 
   return (
     <Box>
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Debug: PurchaseOrdersPage loaded | Orders: {purchaseOrders.length} | Loading: {loading} | Error: {error || 'None'}
+        </Alert>
+      )}
+
       {/* Header */}
       <Box sx={{
         display: 'flex',
@@ -941,25 +1284,41 @@ const PurchaseOrdersPage: React.FC = () => {
                                 : '-'}
                             </TableCell>
                           </TableRow>
-                          {selectedOrder.notes && (
-                            <TableRow sx={{ backgroundColor: 'inherit' }}>
-                              <TableCell sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                color: 'text.secondary',
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                verticalAlign: 'top'
-                              }}>
-                                Notes
-                              </TableCell>
-                              <TableCell sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word'
-                              }}>
-                                {selectedOrder.notes}
-                              </TableCell>
-                            </TableRow>
-                          )}
+                          <TableRow sx={{ backgroundColor: selectedOrder.requiredDate ? 'grey.50' : 'inherit' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              VP No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0
+                                ? selectedOrder.vendorPayments.map((payment: any, index: number) => (
+                                    <Box key={payment.id} component="span">
+                                      {index > 0 && ', '}
+                                      <Link
+                                        to={`/purchasing/vendor-payments?paymentId=${payment.id}`}
+                                        style={{
+                                          color: '#1976d2',
+                                          textDecoration: 'none',
+                                          cursor: 'pointer',
+                                          transition: 'color 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.color = '#1565c0'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.color = '#1976d2'
+                                        }}
+                                      >
+                                        {payment.paymentNumber}
+                                      </Link>
+                                    </Box>
+                                  ))
+                                : '-'}
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -1059,11 +1418,12 @@ const PurchaseOrdersPage: React.FC = () => {
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  color="primary"
+                                  color={paymentStatus[selectedOrder.id] ? "error" : "primary"}
                                   sx={{ minWidth: 110 }}
-                                  onClick={() => {}}
+                                  onClick={paymentStatus[selectedOrder.id] ? handleUnpay : handlePay}
+                                  disabled={isLoading}
                                 >
-                                  Pay
+                                  {paymentStatus[selectedOrder.id] ? "Unpay" : "Pay"}
                                 </Button>
                                 {selectedOrder.goodsReceivedNotes &&
                                  selectedOrder.goodsReceivedNotes.length > 0 &&
@@ -1074,7 +1434,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                     color="warning"
                                     sx={{ minWidth: 110 }}
                                     onClick={handleReturn}
-                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0 || isLoading}
                                   >
                                     Return
                                   </Button>
@@ -1085,7 +1445,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                     color="success"
                                     sx={{ minWidth: 110 }}
                                     onClick={handleReceive}
-                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0}
+                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0 || isLoading}
                                   >
                                     Receive
                                   </Button>
@@ -1189,6 +1549,37 @@ const PurchaseOrdersPage: React.FC = () => {
                       )}
                     </Box>
                   </Grid>
+
+                  {/* Notes Section */}
+                  {selectedOrder.notes && (
+                    <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                      {/* Page Break */}
+                      <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
+
+                      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          mb: 1
+                        }}>
+                          Notes
+                        </Typography>
+
+                        <Box sx={{
+                          p: 2,
+                          backgroundColor: 'grey.50',
+                          borderRadius: 1,
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}>
+                          {selectedOrder.notes}
+                        </Box>
+                      </Box>
+                    </Grid>
+                  )}
                 </Grid>
               </Box>
             </Paper>
@@ -1223,14 +1614,25 @@ const PurchaseOrdersPage: React.FC = () => {
         onRefresh={loadOrders}
       />
 
-      {/* Unreturn Purchase Order Dialog */}
+      {/* Blocked Purchase Order Dialog */}
       {selectedOrder && (
-        <UnreturnPurchaseOrderDialog
+        <BlockedPurchaseOrderDialog
           open={unreturnDialogOpen}
           orderNumber={selectedOrder.orderNumber}
+          isReceived={
+            selectedOrder.goodsReceivedNotes &&
+            selectedOrder.goodsReceivedNotes.length > 0 &&
+            selectedOrder.goodsReceivedNotes[0].status === 'received'
+          }
+          isPaid={paymentStatus[selectedOrder.id] === true}
+          actionType={blockedDialogType}
           onClose={() => setUnreturnDialogOpen(false)}
           onReturnAndEdit={handleReturnAndEdit}
           onReturnOnly={handleReturnOnly}
+          onUnpayAndEdit={handleUnpayAndEdit}
+          onUnpayOnly={handleUnpayOnly}
+          onReturnAndDelete={handleReturnAndDelete}
+          onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}
         />
       )}

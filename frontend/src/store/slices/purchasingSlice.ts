@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
-import type { Supplier, PurchaseOrder, GoodsReceivedNote } from '@/types'
+import type { Supplier, PurchaseOrder, GoodsReceivedNote, VendorPayment } from '@/types'
 import { purchasingApi } from '@/services/purchasingApi'
 
 interface PurchasingState {
@@ -7,14 +7,19 @@ interface PurchasingState {
   purchaseOrders: PurchaseOrder[]
   goodsReceivedNotes: GoodsReceivedNote[]
   deletedGRNs: GoodsReceivedNote[]
+  vendorPayments: VendorPayment[]
+  deletedVendorPayments: VendorPayment[]
   selectedSupplier: Supplier | null
   selectedPurchaseOrder: PurchaseOrder | null
   selectedGRN: GoodsReceivedNote | null
+  selectedVendorPayment: VendorPayment | null
   loading: {
     suppliers: boolean
     purchaseOrders: boolean
     goodsReceivedNotes: boolean
     deletedGRNs: boolean
+    vendorPayments: boolean
+    deletedVendorPayments: boolean
   }
   error: string | null
   pagination: {
@@ -36,6 +41,12 @@ interface PurchasingState {
       total: number
       totalPages: number
     }
+    vendorPayments: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+    }
   }
 }
 
@@ -44,20 +55,26 @@ const initialState: PurchasingState = {
   purchaseOrders: [],
   goodsReceivedNotes: [],
   deletedGRNs: [],
+  vendorPayments: [],
+  deletedVendorPayments: [],
   selectedSupplier: null,
   selectedPurchaseOrder: null,
   selectedGRN: null,
+  selectedVendorPayment: null,
   loading: {
     suppliers: false,
     purchaseOrders: false,
     goodsReceivedNotes: false,
     deletedGRNs: false,
+    vendorPayments: false,
+    deletedVendorPayments: false,
   },
   error: null,
   pagination: {
     suppliers: { page: 1, limit: 20, total: 0, totalPages: 0 },
     purchaseOrders: { page: 1, limit: 20, total: 0, totalPages: 0 },
     goodsReceivedNotes: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    vendorPayments: { page: 1, limit: 20, total: 0, totalPages: 0 },
   },
 }
 
@@ -170,6 +187,56 @@ export const bulkRestoreGRNs = createAsyncThunk(
   }
 )
 
+// Vendor Payments thunks
+export const fetchVendorPayments = createAsyncThunk(
+  'purchasing/fetchVendorPayments',
+  async (params: any, { rejectWithValue }) => {
+    try {
+      const response = await purchasingApi.getVendorPayments(params)
+      return response
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch vendor payments'
+      return rejectWithValue(errorMessage)
+    }
+  }
+)
+
+export const fetchDeletedVendorPayments = createAsyncThunk(
+  'purchasing/fetchDeletedVendorPayments',
+  async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
+    try {
+      const response = await purchasingApi.getDeletedVendorPayments(params)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted vendor payments')
+    }
+  }
+)
+
+export const restoreVendorPayment = createAsyncThunk(
+  'purchasing/restoreVendorPayment',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await purchasingApi.restoreVendorPayment(id)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore vendor payment')
+    }
+  }
+)
+
+export const bulkRestoreVendorPayments = createAsyncThunk(
+  'purchasing/bulkRestoreVendorPayments',
+  async (paymentIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await purchasingApi.bulkRestoreVendorPayments(paymentIds)
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore vendor payments')
+    }
+  }
+)
+
 const purchasingSlice = createSlice({
   name: 'purchasing',
   initialState,
@@ -182,6 +249,9 @@ const purchasingSlice = createSlice({
     },
     setSelectedGRN: (state, action: PayloadAction<GoodsReceivedNote | null>) => {
       state.selectedGRN = action.payload
+    },
+    setSelectedVendorPayment: (state, action: PayloadAction<VendorPayment | null>) => {
+      state.selectedVendorPayment = action.payload
     },
     updatePurchaseOrderInPlace: (state, action: PayloadAction<PurchaseOrder>) => {
       const updatedOrder = action.payload
@@ -352,6 +422,72 @@ const purchasingSlice = createSlice({
       .addCase(bulkRestoreGRNs.rejected, (state, action) => {
         state.error = action.payload as string
       })
+
+    // Fetch Vendor Payments
+    builder
+      .addCase(fetchVendorPayments.pending, (state) => {
+        state.loading.vendorPayments = true
+        state.error = null
+      })
+      .addCase(fetchVendorPayments.fulfilled, (state, action) => {
+        state.loading.vendorPayments = false
+        if (action.payload) {
+          const response = action.payload as any
+          state.vendorPayments = response.data || response.payments || []
+          state.pagination.vendorPayments = {
+            page: response.page || 1,
+            limit: response.limit || 20,
+            total: response.total || 0,
+            totalPages: response.totalPages || Math.ceil((response.total || 0) / (response.limit || 20))
+          }
+        }
+      })
+      .addCase(fetchVendorPayments.rejected, (state, action) => {
+        state.loading.vendorPayments = false
+        state.error = action.payload as string
+      })
+
+    // Fetch Deleted Vendor Payments
+    builder
+      .addCase(fetchDeletedVendorPayments.pending, (state) => {
+        state.loading.deletedVendorPayments = true
+        state.error = null
+      })
+      .addCase(fetchDeletedVendorPayments.fulfilled, (state, action) => {
+        state.loading.deletedVendorPayments = false
+        if (action.payload) {
+          const payload = action.payload as any
+          state.deletedVendorPayments = payload.data || payload.payments || []
+        }
+      })
+      .addCase(fetchDeletedVendorPayments.rejected, (state, action) => {
+        state.loading.deletedVendorPayments = false
+        state.error = action.payload as string
+      })
+
+    // Restore Vendor Payment
+    builder
+      .addCase(restoreVendorPayment.pending, (state) => {
+        state.error = null
+      })
+      .addCase(restoreVendorPayment.fulfilled, (state, action) => {
+        // Payment will be removed from deletedVendorPayments when refetched
+      })
+      .addCase(restoreVendorPayment.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+
+    // Bulk Restore Vendor Payments
+    builder
+      .addCase(bulkRestoreVendorPayments.pending, (state) => {
+        state.error = null
+      })
+      .addCase(bulkRestoreVendorPayments.fulfilled, (state, action) => {
+        // Payments will be removed from deletedVendorPayments when refetched
+      })
+      .addCase(bulkRestoreVendorPayments.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
   },
 })
 
@@ -359,6 +495,7 @@ export const {
   setSelectedSupplier,
   setSelectedPurchaseOrder,
   setSelectedGRN,
+  setSelectedVendorPayment,
   updatePurchaseOrderInPlace,
   markGRNsForRefetch,
   clearError,
@@ -369,15 +506,24 @@ export const selectSuppliers = (state: any) => state.purchasing?.suppliers
 export const selectPurchaseOrders = (state: any) => state.purchasing?.purchaseOrders
 export const selectGoodsReceivedNotes = (state: any) => state.purchasing?.goodsReceivedNotes
 export const selectDeletedGRNs = (state: any) => state.purchasing?.deletedGRNs
+export const selectVendorPayments = (state: any) => state.purchasing?.vendorPayments
+export const selectDeletedVendorPayments = (state: any) => state.purchasing?.deletedVendorPayments
 export const selectGRNsState = (state: any) => ({
   goodsReceivedNotes: state.purchasing?.goodsReceivedNotes || [],
   loading: state.purchasing?.loading?.goodsReceivedNotes || false,
   error: state.purchasing?.error || null,
   pagination: state.purchasing?.pagination?.goodsReceivedNotes || { page: 1, limit: 20, total: 0, totalPages: 0 }
 })
+export const selectVendorPaymentsState = (state: any) => ({
+  vendorPayments: state.purchasing?.vendorPayments || [],
+  loading: state.purchasing?.loading?.vendorPayments || false,
+  error: state.purchasing?.error || null,
+  pagination: state.purchasing?.pagination?.vendorPayments || { page: 1, limit: 20, total: 0, totalPages: 0 }
+})
 export const selectSelectedSupplier = (state: any) => state.purchasing?.selectedSupplier
 export const selectSelectedPurchaseOrder = (state: any) => state.purchasing?.selectedPurchaseOrder
 export const selectSelectedGRN = (state: any) => state.purchasing?.selectedGRN
+export const selectSelectedVendorPayment = (state: any) => state.purchasing?.selectedVendorPayment
 export const selectPurchasingLoading = (state: any) => state.purchasing?.loading
 export const selectPurchasingError = (state: any) => state.purchasing?.error
 export const selectPurchasingPagination = (state: any) => state.purchasing?.pagination

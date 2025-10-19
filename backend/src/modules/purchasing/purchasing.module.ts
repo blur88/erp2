@@ -8,6 +8,7 @@ import {
   PurchaseOrderItem,
   GoodsReceivedNote,
   GoodsReceivedNoteItem,
+  VendorPayment,
   Product,
   User,
 } from '../../database/entities';
@@ -16,12 +17,14 @@ import {
 import { SupplierService } from './services/supplier.service';
 import { PurchaseOrderService } from './services/purchase-order.service';
 import { GoodsReceivedNoteService } from './services/goods-received-note.service';
+import { VendorPaymentService } from './services/vendor-payment.service';
 
 // Controllers
 import {
   SupplierController,
   PurchaseOrderController,
   GoodsReceivedNoteController,
+  VendorPaymentController,
 } from './controllers';
 
 @Module({
@@ -32,6 +35,7 @@ import {
       PurchaseOrderItem,
       GoodsReceivedNote,
       GoodsReceivedNoteItem,
+      VendorPayment,
       Product,
       User,
     ]),
@@ -41,18 +45,21 @@ import {
     SupplierController,
     PurchaseOrderController,
     GoodsReceivedNoteController,
+    VendorPaymentController,
   ],
 
   providers: [
     SupplierService,
     PurchaseOrderService,
     GoodsReceivedNoteService,
+    VendorPaymentService,
   ],
 
   exports: [
     SupplierService,
     PurchaseOrderService,
     GoodsReceivedNoteService,
+    VendorPaymentService,
   ],
 })
 export class PurchasingModule {}

@@ -146,6 +146,14 @@ export class GoodsReceivedNoteResponseDto {
     id: string;
     orderNumber: string;
     totalAmount: number;
+    vendorPayments?: Array<{
+      id: string;
+      paymentNumber: string;
+      amount: number;
+      paymentDate: Date;
+      paymentMethod?: string;
+      status: string;
+    }>;
   };
 
   @ApiProperty({ description: 'Supplier information' })

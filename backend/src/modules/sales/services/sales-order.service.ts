@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, ILike } from 'typeorm';
+import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike } from 'typeorm';
 import {
   SalesOrder,
   SalesOrderStatus,
@@ -15,6 +15,7 @@ import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-o
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
+import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { User } from '../../../database/entities/user.entity';
 import {
   CreateSalesOrderDto,
@@ -41,6 +42,8 @@ export class SalesOrderService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     // private readonly customerService: CustomerService,
@@ -223,15 +226,7 @@ export class SalesOrderService {
         invoiceNumber,
       });
 
-      // Add line items from order
-      invoice.lineItems = createdItems.map(item => ({
-        productId: item.productId,
-        productName: item.productName || 'Unknown Product',
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        discount: Number(item.discountAmount),
-        totalAmount: Number(item.totalAmount),
-      }));
+      // lineItems removed from invoice model
 
       // Calculate totals and set correct status
       invoice.calculateTotals();
@@ -429,12 +424,6 @@ export class SalesOrderService {
     console.log('🚀 findSummaries called with query:', JSON.stringify(query, null, 2));
     console.log('🚀 paymentStatus:', query.paymentStatus, 'fulfillmentStatus:', query.fulfillmentStatus);
 
-    // Test with a simple find to check relations
-    const testOrder = await this.salesOrderRepository.findOne({
-      where: { orderNumber: 'SO-000001' },
-      relations: ['invoices', 'customer', 'items']
-    });
-    console.log('🧪 Test order with relations:', JSON.stringify(testOrder, null, 2));
     const {
       search,
       customerId,
@@ -448,24 +437,7 @@ export class SalesOrderService {
       limit = 20,
     } = query;
 
-    // Build find options with filters
-    const where: any = { deletedAt: null };
-
-    if (customerId) {
-      where.customerId = customerId;
-    }
-
-    if (fromDate) {
-      where.orderDate = { ...where.orderDate, ...{ $gte: new Date(fromDate) } };
-    }
-
-    if (toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      where.orderDate = { ...where.orderDate, ...{ $lte: endDate } };
-    }
-
-    // Try simple repository approach with relations
+    // Build find options with filters using TypeORM operators
     let findOptions: any = {
       relations: ['customer', 'items', 'invoices'],
       where: { deletedAt: null },
@@ -479,14 +451,16 @@ export class SalesOrderService {
       findOptions.where.customerId = customerId;
     }
 
-    if (fromDate) {
-      findOptions.where.orderDate = { ...findOptions.where.orderDate, $gte: new Date(fromDate) };
-    }
-
-    if (toDate) {
+    if (fromDate && toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      findOptions.where.orderDate = { ...findOptions.where.orderDate, $lte: endDate };
+      findOptions.where.orderDate = Between(new Date(fromDate), endDate);
+    } else if (fromDate) {
+      findOptions.where.orderDate = MoreThanOrEqual(new Date(fromDate));
+    } else if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      findOptions.where.orderDate = LessThanOrEqual(endDate);
     }
 
     // For complex filters like search, payment status, etc., we'll need to fall back to QueryBuilder
@@ -658,6 +632,20 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
+    // Check if order has been fulfilled - must unfulfill before editing
+    if (order.isFulfilled) {
+      throw new BadRequestException(
+        'Cannot edit sales order that has been fulfilled. Please unfulfill first.'
+      );
+    }
+
+    // Check if order has been paid - must unpay before editing
+    if (Number(order.paidAmount || 0) > 0) {
+      throw new BadRequestException(
+        'Cannot edit sales order that has been paid. Please unpay first.'
+      );
+    }
+
     // Check if order can be updated
     if ([SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(order.status)) {
       throw new ConflictException('Cannot update order in current status');
@@ -738,6 +726,20 @@ export class SalesOrderService {
     const order = await this.salesOrderRepository.findOne({ where: { id } });
     if (!order) {
       throw new NotFoundException('Sales order not found');
+    }
+
+    // Check if order has been fulfilled - must unfulfill before deleting
+    if (order.isFulfilled) {
+      throw new BadRequestException(
+        'Cannot delete sales order that has been fulfilled. Please unfulfill first.'
+      );
+    }
+
+    // Check if order has been paid - must unpay before deleting
+    if (Number(order.paidAmount || 0) > 0) {
+      throw new BadRequestException(
+        'Cannot delete sales order that has been paid. Please unpay first.'
+      );
     }
 
     // Allow deletion of orders that haven't been shipped yet
@@ -1012,7 +1014,6 @@ export class SalesOrderService {
         invoiceNumber: invoice.invoiceNumber,
         status: invoice.status,
         invoiceDate: invoice.invoiceDate,
-        dueDate: invoice.dueDate,
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
         balanceDue: Number(invoice.balanceDue),
@@ -1038,15 +1039,7 @@ export class SalesOrderService {
     const invoiceData = Invoice.fromSalesOrder(order);
     const invoice = this.invoiceRepository.create(invoiceData);
     
-    // Add line items from order
-    invoice.lineItems = order.items.map(item => ({
-      productId: item.productId,
-      productName: item.product?.name || 'Unknown Product',
-      quantity: item.quantity,
-      unitPrice: Number(item.unitPrice),
-      discount: Number(item.discountAmount),
-      totalAmount: Number(item.totalAmount),
-    }));
+    // lineItems removed from invoice model
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
 
@@ -1450,42 +1443,49 @@ export class SalesOrderService {
 
       // Update each invoice with the latest order data
       for (const invoice of invoices) {
+        // Skip fully paid invoices - they shouldn't be modified
+        if (invoice.status === 'paid' && Number(invoice.balanceDue) <= 0) {
+          console.log(`⏭️  Skipping paid invoice ${invoice.invoiceNumber}`);
+          continue;
+        }
+
         // Update customer information if changed
         if (updatedOrder.customer) {
           invoice.customerId = updatedOrder.customerId;
           invoice.customerName = updatedOrder.customer.name;
         }
 
-        // Update purchase order number if changed
-        if (updatedOrder.customerPoNumber !== undefined) {
-          invoice.customerPoNumber = updatedOrder.customerPoNumber;
-        }
-
-        // Update billing address with customer's current address
-        if (updatedOrder.customer) {
-          invoice.billingAddress = updatedOrder.customer.name || '';
-        }
-
-        // Update line items to match the order
+        // Sync invoice items from sales order items
         if (updatedOrder.items && updatedOrder.items.length > 0) {
-          invoice.lineItems = updatedOrder.items.map(item => ({
-            productId: item.productId,
-            productName: item.productName || item.product?.name || 'Unknown Product',
-            quantity: item.quantity,
-            unitPrice: Number(item.unitPrice),
-            totalAmount: Number(item.totalAmount),
+          // Delete existing invoice items
+          await this.invoiceItemRepository.delete({ invoiceId: invoice.id });
+
+          // Create new invoice items from sales order
+          const invoiceItemsData = updatedOrder.items.map(soItem => ({
+            invoiceId: invoice.id,
+            lineNumber: soItem.lineNumber,
+            productId: soItem.productId,
+            productSku: soItem.productSku,
+            productName: soItem.productName,
+            productDescription: soItem.productDescription,
+            quantity: Number(soItem.quantity),
+            unitPrice: Number(soItem.unitPrice),
+            discount: Number(soItem.discountAmount),
+            totalAmount: Number(soItem.totalAmount),
           }));
 
-          // Recalculate totals based on new line items
+          // Insert all items
+          await this.invoiceItemRepository.insert(invoiceItemsData);
+
+          // Update total amount from order
           const newSubtotal = updatedOrder.items.reduce((sum, item) =>
             sum + Number(item.totalAmount), 0);
-
-          invoice.subtotal = newSubtotal;
           invoice.totalAmount = newSubtotal;
         }
 
-        // Recalculate balance due
-        invoice.calculateTotals();
+        // Preserve existing paidAmount and recalculate balance due
+        const currentPaidAmount = Number(invoice.paidAmount);
+        invoice.balanceDue = Number(invoice.totalAmount) - currentPaidAmount;
 
         // Update invoice status based on payment status
         invoice.updateStatus();
@@ -1493,7 +1493,7 @@ export class SalesOrderService {
         // Save the updated invoice
         await this.invoiceRepository.save(invoice);
 
-        console.log(`✅ Updated invoice ${invoice.invoiceNumber} for sales order ${updatedOrder.orderNumber}`);
+        console.log(`✅ Updated invoice ${invoice.invoiceNumber} (including items) for sales order ${updatedOrder.orderNumber}`);
       }
 
       console.log(`✅ Updated ${invoices.length} invoice(s) for sales order ${updatedOrder.orderNumber}`);

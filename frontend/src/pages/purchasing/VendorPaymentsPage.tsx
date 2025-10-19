@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -29,57 +29,58 @@ import {
 import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  LocalShipping as GRNIcon,
+  AccountBalance as PaymentIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material'
-import { formatDate } from '@/utils/formatters'
+import { formatDate, formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  fetchGoodsReceivedNotes,
-  selectGRNsState,
-  setSelectedGRN
+  fetchVendorPayments,
+  selectVendorPaymentsState,
+  setSelectedVendorPayment
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
+import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
 
-interface GoodsReceivedPageState {
+interface VendorPaymentsPageState {
   page: number
   rowsPerPage: number
 }
 
-interface GRNFilters {
+interface VendorPaymentFilters {
   search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
   status: string
+  paymentMethod: string
   dateFilter: string
   customFromDate: string
   customToDate: string
 }
 
-// Memoized GRN Row Component
-interface GRNRowProps {
-  grn: any
+// Memoized Payment Row Component
+interface PaymentRowProps {
+  payment: any
   index: number
-  selectedGRNId?: string
-  focusedGRNIndex: number
-  onGRNSelect: (grn: any) => void
+  selectedPaymentId?: string
+  focusedPaymentIndex: number
+  onPaymentSelect: (payment: any) => void
 }
 
-const GRNRow = memo(({ grn, index, selectedGRNId, focusedGRNIndex, onGRNSelect }: GRNRowProps) => {
-  const isSelected = selectedGRNId === grn.id
-  const isFocused = index === focusedGRNIndex
+const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentIndex, onPaymentSelect }: PaymentRowProps) => {
+  const isSelected = selectedPaymentId === payment.id
+  const isFocused = index === focusedPaymentIndex
 
   return (
     <TableRow
-      key={grn.id}
+      key={payment.id}
       hover
-      onClick={() => onGRNSelect(grn)}
-      data-grn-index={index}
+      onClick={() => onPaymentSelect(payment)}
+      data-payment-index={index}
       sx={{
         cursor: 'pointer',
         backgroundColor: isSelected ? 'action.selected' : isFocused ? 'action.focus' : 'inherit',
@@ -104,42 +105,44 @@ const GRNRow = memo(({ grn, index, selectedGRNId, focusedGRNIndex, onGRNSelect }
             lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
           }}
         >
-          {grn.grnNumber}
+          {payment.paymentNumber}
         </Typography>
       </TableCell>
     </TableRow>
   )
 })
 
-GRNRow.displayName = 'GRNRow'
+PaymentRow.displayName = 'PaymentRow'
 
-const GoodsReceivedPage: React.FC = () => {
+const VendorPaymentsPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   const dispatch = useAppDispatch()
-  const { goodsReceivedNotes, loading, error, pagination } = useAppSelector(selectGRNsState)
-  const [selectedGRN, setSelectedGRNLocal] = useState<any | null>(null)
+  const { vendorPayments, loading, error, pagination } = useAppSelector(selectVendorPaymentsState)
+  const [selectedPayment, setSelectedPaymentLocal] = useState<any | null>(null)
 
-  const [state, setState] = useState<GoodsReceivedPageState>({
+  const [state, setState] = useState<VendorPaymentsPageState>({
     page: 0,
     rowsPerPage: 20,
   })
 
-  const [filters, setFilters] = useState<GRNFilters>({
+  const [filters, setFilters] = useState<VendorPaymentFilters>({
     search: '',
-    sortBy: 'grnNumber',
-    sortOrder: 'asc',
+    sortBy: 'paymentNumber',
+    sortOrder: 'desc',
     status: 'all',
+    paymentMethod: 'all',
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
   })
 
-  const [deletedGRNsDialogOpen, setDeletedGRNsDialogOpen] = useState(false)
-  const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
-  const grnListRef = useRef<HTMLDivElement>(null)
+  const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
+  const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
+  const paymentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Helper function to calculate date ranges
@@ -158,109 +161,96 @@ const GoodsReceivedPage: React.FC = () => {
 
     switch (filter) {
       case 'today':
-        return { fromDate: formatDate(today), toDate: formatDate(today) }
+        return { startDate: formatDate(today), endDate: formatDate(today) }
       case 'yesterday':
-        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
+        return { startDate: formatDate(yesterday), endDate: formatDate(yesterday) }
       case 'this_week':
-        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
+        return { startDate: formatDate(startOfWeek), endDate: formatDate(today) }
       case 'this_month':
-        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
+        return { startDate: formatDate(startOfMonth), endDate: formatDate(today) }
       case 'this_year':
-        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
+        return { startDate: formatDate(startOfYear), endDate: formatDate(today) }
       case 'custom':
-        return { fromDate: filters.customFromDate, toDate: filters.customToDate }
+        return { startDate: filters.customFromDate, endDate: filters.customToDate }
       default:
-        return { fromDate: undefined, toDate: undefined }
+        return { startDate: undefined, endDate: undefined }
     }
   }, [filters.customFromDate, filters.customToDate])
 
-  // Load GRNs on component mount and filter changes
+  // Load vendor payments on component mount and filter changes
   useEffect(() => {
     const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchGoodsReceivedNotes({
+    dispatch(fetchVendorPayments({
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-      receiptDateFrom: dateRange.fromDate,
-      receiptDateTo: dateRange.toDate,
+      status: filters.status !== 'all' ? filters.status : undefined,
+      paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
     } as any))
-  }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder, filters.dateFilter, getDateRange])
-
-  // Filter GRNs (status filter only - backend handles search and sorting)
-  const filteredGRNs = useMemo(() => {
-    let filtered = [...(goodsReceivedNotes || [])]
-
-    // Status filter (client-side only)
-    if (filters.status !== 'all') {
-      filtered = filtered.filter((grn: any) => grn.status === filters.status)
-    }
-
-    return filtered
-  }, [goodsReceivedNotes, filters.status])
+  }, [dispatch, state.page, state.rowsPerPage, filters, getDateRange])
 
   // Pagination
-  const paginatedGRNs = useMemo(() => {
-    const startIndex = state.page * state.rowsPerPage
-    return filteredGRNs.slice(startIndex, startIndex + state.rowsPerPage)
-  }, [filteredGRNs, state.page, state.rowsPerPage])
+  const paginatedPayments = useMemo(() => {
+    return vendorPayments || []
+  }, [vendorPayments])
 
-  const handleGRNSelect = useCallback((grn: any) => {
-    setSelectedGRNLocal(grn)
-    dispatch(setSelectedGRN(grn))
-    const grnIndex = paginatedGRNs.findIndex(g => g.id === grn.id)
-    setFocusedGRNIndex(grnIndex)
-  }, [dispatch, paginatedGRNs])
+  const handlePaymentSelect = useCallback((payment: any) => {
+    setSelectedPaymentLocal(payment)
+    dispatch(setSelectedVendorPayment(payment))
+    const paymentIndex = paginatedPayments.findIndex(p => p.id === payment.id)
+    setFocusedPaymentIndex(paymentIndex)
+  }, [dispatch, paginatedPayments])
 
-  // Handle grnId query parameter to auto-select GRN from PO page
+  // Handle paymentId query parameter to auto-select payment
   useEffect(() => {
-    const grnId = searchParams.get('grnId')
-    if (grnId && goodsReceivedNotes.length > 0) {
-      const grn = goodsReceivedNotes.find((g: any) => g.id === grnId)
-      if (grn) {
-        handleGRNSelect(grn)
+    const paymentId = searchParams.get('paymentId')
+    if (paymentId && vendorPayments.length > 0) {
+      const payment = vendorPayments.find((p: any) => p.id === paymentId)
+      if (payment) {
+        handlePaymentSelect(payment)
         // Remove the query parameter after selection
         setSearchParams({})
       }
     }
-  }, [searchParams, goodsReceivedNotes, handleGRNSelect, setSearchParams])
+  }, [searchParams, vendorPayments, handlePaymentSelect, setSearchParams])
 
-  // Auto-refresh selected GRN when the list updates (e.g., after PO edit/return/receive)
+  // Auto-refresh selected payment when the list updates
   useEffect(() => {
-    if (selectedGRN && goodsReceivedNotes.length > 0) {
-      const updatedGRN = goodsReceivedNotes.find((g: any) => g.id === selectedGRN.id)
-      if (updatedGRN) {
-        // Always update to ensure fresh data, especially for status and quantity changes
-        setSelectedGRNLocal(updatedGRN)
-        dispatch(setSelectedGRN(updatedGRN))
+    if (selectedPayment && vendorPayments.length > 0) {
+      const updatedPayment = vendorPayments.find((p: any) => p.id === selectedPayment.id)
+      if (updatedPayment) {
+        setSelectedPaymentLocal(updatedPayment)
+        dispatch(setSelectedVendorPayment(updatedPayment))
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goodsReceivedNotes])
+  }, [vendorPayments])
 
-  // Auto-select first GRN when GRNs load
+  // Auto-select first payment when payments load
   useEffect(() => {
-    if (paginatedGRNs.length > 0 && focusedGRNIndex === -1) {
-      if (!selectedGRN && searchInputRef.current !== document.activeElement) {
-        // Don't auto-select if we have a grnId query parameter
-        const grnId = searchParams.get('grnId')
-        if (!grnId) {
-          setFocusedGRNIndex(0)
-          handleGRNSelect(paginatedGRNs[0])
+    if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
+      if (!selectedPayment && searchInputRef.current !== document.activeElement) {
+        const paymentId = searchParams.get('paymentId')
+        if (!paymentId) {
+          setFocusedPaymentIndex(0)
+          handlePaymentSelect(paginatedPayments[0])
         }
       }
     }
-  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams])
+  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams])
 
-  // Clear selection when no GRNs exist
+  // Clear selection when no payments exist
   useEffect(() => {
-    if (paginatedGRNs.length === 0 && selectedGRN) {
-      setSelectedGRNLocal(null)
-      dispatch(setSelectedGRN(null))
-      setFocusedGRNIndex(-1)
+    if (paginatedPayments.length === 0 && selectedPayment) {
+      setSelectedPaymentLocal(null)
+      dispatch(setSelectedVendorPayment(null))
+      setFocusedPaymentIndex(-1)
     }
-  }, [paginatedGRNs.length, selectedGRN, dispatch])
+  }, [paginatedPayments.length, selectedPayment, dispatch])
 
   const handleSort = useCallback((field: string) => {
     setFilters(prev => ({
@@ -273,44 +263,58 @@ const GoodsReceivedPage: React.FC = () => {
 
   const handleRefreshAction = () => {
     const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchGoodsReceivedNotes({
+    dispatch(fetchVendorPayments({
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-      receiptDateFrom: dateRange.fromDate,
-      receiptDateTo: dateRange.toDate,
+      status: filters.status !== 'all' ? filters.status : undefined,
+      paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
     } as any))
   }
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'received':
+      case 'completed':
         return 'success'
-      case 'draft':
-        return 'default'
+      case 'pending':
+        return 'warning'
+      case 'cancelled':
+        return 'error'
       default:
         return 'default'
     }
   }
 
+  const getPaymentMethodLabel = (method: string) => {
+    const labels: Record<string, string> = {
+      'cash': 'Cash',
+      'bank_transfer': 'Bank Transfer',
+      'check': 'Check',
+      'card': 'Card'
+    }
+    return labels[method] || method
+  }
+
   // Keyboard navigation handlers
   const handleNavigateUp = useCallback(() => {
-    if (focusedGRNIndex > 0) {
-      const newIndex = focusedGRNIndex - 1
-      setFocusedGRNIndex(newIndex)
-      handleGRNSelect(paginatedGRNs[newIndex])
+    if (focusedPaymentIndex > 0) {
+      const newIndex = focusedPaymentIndex - 1
+      setFocusedPaymentIndex(newIndex)
+      handlePaymentSelect(paginatedPayments[newIndex])
     }
-  }, [focusedGRNIndex, paginatedGRNs, handleGRNSelect])
+  }, [focusedPaymentIndex, paginatedPayments, handlePaymentSelect])
 
   const handleNavigateDown = useCallback(() => {
-    if (focusedGRNIndex < paginatedGRNs.length - 1) {
-      const newIndex = focusedGRNIndex + 1
-      setFocusedGRNIndex(newIndex)
-      handleGRNSelect(paginatedGRNs[newIndex])
+    if (focusedPaymentIndex < paginatedPayments.length - 1) {
+      const newIndex = focusedPaymentIndex + 1
+      setFocusedPaymentIndex(newIndex)
+      handlePaymentSelect(paginatedPayments[newIndex])
     }
-  }, [focusedGRNIndex, paginatedGRNs, handleGRNSelect])
+  }, [focusedPaymentIndex, paginatedPayments, handlePaymentSelect])
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus()
@@ -341,14 +345,14 @@ const GoodsReceivedPage: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <GRNIcon sx={{
+            <PaymentIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
-            Goods Received Notes
+            Vendor Payments
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Track and manage incoming goods from suppliers ({pagination?.total || 0} total)
+            Track and manage payments to suppliers ({pagination?.total || 0} total)
           </Typography>
         </Box>
         <Box sx={{
@@ -365,12 +369,12 @@ const GoodsReceivedPage: React.FC = () => {
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
           >
-            {isMobile ? "Refresh GRNs" : "Refresh"}
+            {isMobile ? "Refresh Payments" : "Refresh"}
           </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => setDeletedGRNsDialogOpen(true)}
+            onClick={() => setDeletedPaymentsDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
             fullWidth={isMobile}
             sx={{
@@ -400,7 +404,7 @@ const GoodsReceivedPage: React.FC = () => {
       }}>
         <TextField
           inputRef={searchInputRef}
-          placeholder="Search GRNs..."
+          placeholder="Search payments..."
           value={filters.search}
           onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
           size="medium"
@@ -514,21 +518,55 @@ const GoodsReceivedPage: React.FC = () => {
             }}
           >
             <MenuItem value="all">All</MenuItem>
-            <MenuItem value="draft">Draft</MenuItem>
-            <MenuItem value="received">Received</MenuItem>
+            <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="completed">Completed</MenuItem>
+            <MenuItem value="cancelled">Cancelled</MenuItem>
           </Select>
         </FormControl>
 
-        {(filters.dateFilter !== 'all' || filters.status !== 'all' || filters.search) && (
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 140,
+            width: isMobile ? 'auto' : 140,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem'
+            }
+          }}
+        >
+          <InputLabel>Payment Method</InputLabel>
+          <Select
+            value={filters.paymentMethod}
+            label="Payment Method"
+            onChange={(e) => setFilters((prev) => ({ ...prev, paymentMethod: e.target.value }))}
+            sx={{
+              fontSize: '0.875rem',
+              '& .MuiSelect-select': {
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
+              }
+            }}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="cash">Cash</MenuItem>
+            <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+            <MenuItem value="check">Check</MenuItem>
+            <MenuItem value="card">Card</MenuItem>
+          </Select>
+        </FormControl>
+
+        {(filters.dateFilter !== 'all' || filters.status !== 'all' || filters.paymentMethod !== 'all' || filters.search) && (
           <Button
             variant="outlined"
             size="medium"
             onClick={() => {
               setFilters({
                 search: '',
-                sortBy: 'grnNumber',
-                sortOrder: 'asc',
+                sortBy: 'paymentNumber',
+                sortOrder: 'desc',
                 status: 'all',
+                paymentMethod: 'all',
                 dateFilter: 'all',
                 customFromDate: '',
                 customToDate: '',
@@ -547,10 +585,10 @@ const GoodsReceivedPage: React.FC = () => {
         )}
 
         <Button
-          variant={filters.sortBy === 'grnNumber' ? 'contained' : 'outlined'}
+          variant={filters.sortBy === 'paymentNumber' ? 'contained' : 'outlined'}
           size="medium"
-          startIcon={filters.sortBy === 'grnNumber' ? (filters.sortOrder === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />) : <SortIcon />}
-          onClick={() => handleSort('grnNumber')}
+          startIcon={filters.sortBy === 'paymentNumber' ? (filters.sortOrder === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />) : <SortIcon />}
+          onClick={() => handleSort('paymentNumber')}
           sx={{
             height: TYPOGRAPHY_STYLES.searchField.input.height,
             fontSize: '0.875rem',
@@ -569,9 +607,9 @@ const GoodsReceivedPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Split Layout: GRN List and GRN Details */}
+      {/* Split Layout: Payment List and Payment Details */}
       <Grid container spacing={3}>
-        {/* Left Side - GRN List */}
+        {/* Left Side - Payment List */}
         <Grid item xs={12} md={3}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
@@ -581,11 +619,11 @@ const GoodsReceivedPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                GRN List ({pagination?.total || 0})
+                VP List ({pagination?.total || 0})
               </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={grnListRef}>
+            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={paymentListRef}>
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                 <Table
                   size={TABLE_STYLES.size}
@@ -598,7 +636,7 @@ const GoodsReceivedPage: React.FC = () => {
                   }}
                 >
                   <TableBody>
-                    {loading && paginatedGRNs.length === 0 ? (
+                    {loading && paginatedPayments.length === 0 ? (
                       [...Array(10)].map((_, i) => (
                         <TableRow key={`skeleton-${i}`}>
                           <TableCell>
@@ -607,14 +645,14 @@ const GoodsReceivedPage: React.FC = () => {
                         </TableRow>
                       ))
                     ) : (
-                      paginatedGRNs.map((grn: any, index: number) => (
-                        <GRNRow
-                          key={grn.id}
-                          grn={grn}
+                      paginatedPayments.map((payment: any, index: number) => (
+                        <PaymentRow
+                          key={payment.id}
+                          payment={payment}
                           index={index}
-                          selectedGRNId={selectedGRN?.id}
-                          focusedGRNIndex={focusedGRNIndex}
-                          onGRNSelect={handleGRNSelect}
+                          selectedPaymentId={selectedPayment?.id}
+                          focusedPaymentIndex={focusedPaymentIndex}
+                          onPaymentSelect={handlePaymentSelect}
                         />
                       ))
                     )}
@@ -640,11 +678,11 @@ const GoodsReceivedPage: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Right Side - GRN Details */}
+        {/* Right Side - Payment Details */}
         <Grid item xs={12} md={9}>
-          {selectedGRN ? (
+          {selectedPayment ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-              {/* Header with GRN Info */}
+              {/* Header with Payment Info */}
               <Box sx={{
                 p: TABLE_STYLES.cell.padding.px,
                 borderBottom: TABLE_STYLES.cell.border,
@@ -659,12 +697,12 @@ const GoodsReceivedPage: React.FC = () => {
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
-                    GRN Details - {selectedGRN.grnNumber}
+                    VP Details - {selectedPayment.paymentNumber}
                   </Typography>
                   <Chip
-                    label={selectedGRN.status}
+                    label={selectedPayment.status}
                     size="small"
-                    color={getStatusColor(selectedGRN.status) as any}
+                    color={getStatusColor(selectedPayment.status) as any}
                     sx={{
                       textTransform: 'capitalize',
                       fontSize: '0.75rem',
@@ -675,9 +713,9 @@ const GoodsReceivedPage: React.FC = () => {
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-                {/* GRN Details Section */}
+                {/* Payment Details Section */}
                 <Grid container spacing={3}>
-                  {/* Left Column - GRN Information */}
+                  {/* Left Column - Payment Information */}
                   <Grid item xs={12} md={6}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
@@ -685,7 +723,7 @@ const GoodsReceivedPage: React.FC = () => {
                           <TableRow>
                             <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
                               <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem' }}>
-                                GRN Information
+                                VP Information
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -694,81 +732,43 @@ const GoodsReceivedPage: React.FC = () => {
                               Supplier
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {selectedGRN.supplier?.companyName || 'Unknown'}
+                              {selectedPayment.supplier?.companyName || 'Unknown'}
                             </TableCell>
                           </TableRow>
-                          <TableRow>
+                          {selectedPayment.purchaseOrder && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                PO Amount
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(selectedPayment.purchaseOrder.totalAmount)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              GRN Date
+                              Payment Date
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatDate(selectedGRN.receiptDate || selectedGRN.receivedDate)}
+                              {formatDate(selectedPayment.paymentDate)}
                             </TableCell>
                           </TableRow>
-                          {selectedGRN.purchaseOrder && (
-                            <>
-                              <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                                <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                  PO No
-                                </TableCell>
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  <Link
-                                    to={`/purchasing/orders?poId=${selectedGRN.purchaseOrder.id}`}
-                                    style={{
-                                      color: '#1976d2',
-                                      textDecoration: 'none',
-                                      cursor: 'pointer',
-                                      transition: 'color 0.2s ease'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.color = '#1565c0'
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.color = '#1976d2'
-                                    }}
-                                  >
-                                    {selectedGRN.purchaseOrder.orderNumber}
-                                  </Link>
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                                  VP No
-                                </TableCell>
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {selectedGRN.purchaseOrder.vendorPayments && selectedGRN.purchaseOrder.vendorPayments.length > 0 ? (
-                                    <Link
-                                      to={`/purchasing/vendor-payments?vpId=${selectedGRN.purchaseOrder.vendorPayments[0].id}`}
-                                      style={{
-                                        color: '#1976d2',
-                                        textDecoration: 'none',
-                                        cursor: 'pointer',
-                                        transition: 'color 0.2s ease'
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.color = '#1565c0'
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.color = '#1976d2'
-                                      }}
-                                    >
-                                      {selectedGRN.purchaseOrder.vendorPayments[0].paymentNumber}
-                                    </Link>
-                                  ) : (
-                                    <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
-                                      Not yet paid
-                                    </Typography>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            </>
+                          {selectedPayment.referenceNumber && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                Reference Number
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {selectedPayment.referenceNumber}
+                              </TableCell>
+                            </TableRow>
                           )}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   </Grid>
 
-                  {/* Right Column - Quantity Information */}
+                  {/* Right Column - Amount Information */}
                   <Grid item xs={12} md={6}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
@@ -776,143 +776,113 @@ const GoodsReceivedPage: React.FC = () => {
                           <TableRow>
                             <TableCell colSpan={2} sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
                               <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.9rem' }}>
-                                Quantity Information
+                                Related Information
                               </Typography>
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
-                              Ordered Qty
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {(selectedGRN.items && selectedGRN.items.reduce((sum: number, item: any) => sum + (item.orderedQuantity || 0), 0)) || 0}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Received Qty
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem', color: 'success.main' }}>
-                              {selectedGRN.totalReceivedQuantity || selectedGRN.totalQuantityReceived || 0}
-                            </TableCell>
-                          </TableRow>
+                          {selectedPayment.purchaseOrder && (
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                                PO No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    '&:hover': {
+                                      color: 'primary.dark',
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/purchasing/orders?poId=${selectedPayment.purchaseOrder.id}`)}
+                                >
+                                  {selectedPayment.purchaseOrder.orderNumber}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {selectedPayment.grn && (
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                                GRN No
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    '&:hover': {
+                                      color: 'primary.dark',
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/purchasing/goods-received?grnId=${selectedPayment.grn.id}`)}
+                                >
+                                  {selectedPayment.grn.grnNumber}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   </Grid>
                 </Grid>
 
-                {/* Notes Section */}
-                {selectedGRN.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <TableContainer>
-                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
-                                Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                              {selectedGRN.notes}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
-
-                {/* Page Break */}
-                <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
-
-                {/* GRN Items Section */}
-                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    mb: 1
-                  }}>
-                    GRN Items
-                  </Typography>
-
-                  {(selectedGRN.items && selectedGRN.items.length > 0) ? (
-                    <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                      <Table
-                        size={TABLE_STYLES.size}
-                        sx={{
-                          '& .MuiTableCell-root': {
-                            borderBottom: TABLE_STYLES.cell.border,
-                            py: TABLE_STYLES.cell.padding.py,
-                            px: TABLE_STYLES.cell.padding.px
-                          }
-                        }}
-                      >
-                        <TableHead>
-                          <TableRow sx={{ '& .MuiTableCell-head': {
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            backgroundColor: 'grey.50',
-                            color: TYPOGRAPHY_STYLES.tableHeader.color,
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          } }}>
-                            <TableCell sx={{ width: '50%' }}>Product</TableCell>
-                            <TableCell align="center" sx={{ width: '25%' }}>Ordered</TableCell>
-                            <TableCell align="center" sx={{ width: '25%' }}>Received</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {selectedGRN.items.map((item: any, index: number) => (
-                            <TableRow
-                              key={item.id || index}
-                              hover
-                              sx={{
-                                '&:hover': { backgroundColor: 'action.hover' },
-                                transition: 'background-color 0.2s ease',
-                                height: TABLE_STYLES.row.height
-                              }}
-                            >
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {item.purchaseOrderItem?.product?.name || item.product?.name || 'N/A'}
-                              </TableCell>
-                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                {item.orderedQuantity || 0}
-                              </TableCell>
-                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                {item.receivedQuantity || 0}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  ) : (
-                    <Alert severity="info">No items in this GRN</Alert>
-                  )}
+                {/* Payment Notes Section */}
+                <Box sx={{ mt: 2 }}>
+                  <TableContainer>
+                    <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
+                              Notes
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {selectedPayment.purchaseOrder && selectedPayment.grn ? (
+                              `Payment recorded for purchase order ${selectedPayment.purchaseOrder.orderNumber} (GRN: ${selectedPayment.grn.grnNumber})`
+                            ) : selectedPayment.purchaseOrder ? (
+                              `Payment recorded for purchase order ${selectedPayment.purchaseOrder.orderNumber}`
+                            ) : selectedPayment.grn ? (
+                              `Payment recorded for GRN ${selectedPayment.grn.grnNumber}`
+                            ) : (
+                              selectedPayment.notes || 'Payment recorded'
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 </Box>
-              </Box>
+
+                </Box>
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="h6" color="text.secondary">
-                Select a GRN to view details
+                Select a payment to view details
               </Typography>
             </Paper>
           )}
         </Grid>
       </Grid>
 
-      {/* Deleted GRNs Dialog */}
-      <DeletedGRNsDialog
-        open={deletedGRNsDialogOpen}
-        onClose={() => setDeletedGRNsDialogOpen(false)}
+      {/* Deleted Vendor Payments Dialog */}
+      <DeletedVendorPaymentsDialog
+        open={deletedPaymentsDialogOpen}
+        onClose={() => setDeletedPaymentsDialogOpen(false)}
       />
     </Box>
   )
 }
 
-export default GoodsReceivedPage
+export default VendorPaymentsPage

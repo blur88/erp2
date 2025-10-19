@@ -55,9 +55,8 @@ import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-import CreateOrderDialog from '@/components/sales/CreateOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
-import UnfulfillOrderDialog from '@/components/sales/UnfulfillOrderDialog'
+import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -163,9 +162,8 @@ const OrdersPage: React.FC = () => {
   })
 
   const [viewDialog, setViewDialog] = useState(false)
-  const [createDialog, setCreateDialog] = useState(false)
-  const [editDialog, setEditDialog] = useState(false)
-  const [unfulfillDialogOpen, setUnfulfillDialogOpen] = useState(false)
+  const [blockedDialogOpen, setBlockedDialogOpen] = useState(false)
+  const [blockedDialogAction, setBlockedDialogAction] = useState<'edit' | 'delete'>('edit')
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
@@ -178,6 +176,7 @@ const OrdersPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const processedHighlightRef = useRef<string | null>(null)
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -314,6 +313,16 @@ const OrdersPage: React.FC = () => {
           // Show confirmation dialog instead of deleting immediately
           const order = orders.find(o => o.id === orderId)
           if (order) {
+            // Check if order is fulfilled or paid
+            const isFulfilled = order.isFulfilled
+            const isPaid = order.paidAmount && order.paidAmount > 0
+
+            if (isFulfilled || isPaid) {
+              dispatch(setSelectedOrder(order))
+              setBlockedDialogAction('delete')
+              setBlockedDialogOpen(true)
+              return
+            }
             setOrderToDelete(orderId)
             setOrderToDeleteName(order.orderNumber || order.id)
             setDeleteConfirmOpen(true)
@@ -362,46 +371,18 @@ const OrdersPage: React.FC = () => {
     setOrderToDeleteName('')
   }
 
-  const handleOrderCreated = (order: SalesOrder) => {
-    // Close dialog first
-    setCreateDialog(false)
-
-    // Show success notification
-    showSuccess(`Order ${order.orderNumber || order.id} created successfully!`)
-
-    // Auto-select the newly created order immediately (using the fresh data from API)
-    dispatch(setSelectedOrder(order))
-
-    // Set the pending order ID to focus on after orders reload
-    setPendingOrderToSelect(order.id)
-
-    // Reload orders to get the updated list
-    loadOrders()
-  }
-
-  const handleOrderUpdated = async (order: SalesOrder) => {
-    // Close the dialog first
-    setEditDialog(false)
-
-    // Show success notification
-    showSuccess(`Order ${order.orderNumber || order.id} updated successfully!`)
-
-    // Update the Redux state immediately with the updated order
-    // This automatically updates both the orders list and selected order
-    dispatch(updateOrderInPlace(order))
-
-    // Refresh invoices to show updated order details
-    dispatch(fetchInvoices({ page: 1, limit: 20 }))
-  }
-
   const handleEditOrder = () => {
     if (selectedOrder) {
-      // Check if order is fulfilled before allowing edit
-      if (selectedOrder.isFulfilled) {
-        setUnfulfillDialogOpen(true)
-      } else {
-        setEditDialog(true)
+      // Check if order is fulfilled or paid before allowing edit
+      const isFulfilled = selectedOrder.isFulfilled
+      const isPaid = selectedOrder.paidAmount && selectedOrder.paidAmount > 0
+
+      if (isFulfilled || isPaid) {
+        setBlockedDialogAction('edit')
+        setBlockedDialogOpen(true)
+        return
       }
+      navigate(`/sales/orders/${selectedOrder.id}/edit`)
     }
   }
 
@@ -612,27 +593,52 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+      // Check if also paid - if so, need to unfulfill first, then unpay
+      const isPaid = selectedOrder.paidAmount && selectedOrder.paidAmount > 0
+
+      // Step 1: Unfulfill first (required before unpay)
+      const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
       })
 
-      if (response.ok) {
-        const updatedOrder = await response.json()
+      if (!unfulfillResponse.ok) {
+        const errorData = await unfulfillResponse.json()
+        throw new Error(errorData?.message || 'Failed to unfulfill order')
+      }
+
+      if (isPaid) {
+        // Step 2: Then unpay if needed
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (unpayResponse.ok) {
+          const updatedOrder = await unpayResponse.json()
+          dispatch(updateOrderInPlace(updatedOrder.data))
+          showSuccess('Order unfulfilled and unpaid successfully')
+          setBlockedDialogOpen(false)
+          navigate(`/sales/orders/${selectedOrder.id}/edit`)
+        } else {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+      } else {
+        // Only unfulfill
+        const updatedOrder = await unfulfillResponse.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         showSuccess('Order unfulfilled successfully')
-        setUnfulfillDialogOpen(false)
-        setEditDialog(true)
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to unfulfill order'
-        showError(errorMessage)
+        setBlockedDialogOpen(false)
+        navigate(`/sales/orders/${selectedOrder.id}/edit`)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error unfulfilling order:', error)
-      showError('Error unfulfilling order. Please try again.')
+      showError(error.message || 'Error unfulfilling order. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -654,7 +660,7 @@ const OrdersPage: React.FC = () => {
         const updatedOrder = await response.json()
         dispatch(updateOrderInPlace(updatedOrder.data))
         showSuccess('Order unfulfilled successfully - inventory restored')
-        setUnfulfillDialogOpen(false)
+        setBlockedDialogOpen(false)
       } else {
         const errorData = await response.json()
         const errorMessage = errorData?.message || 'Failed to unfulfill order'
@@ -663,6 +669,232 @@ const OrdersPage: React.FC = () => {
     } catch (error) {
       console.error('Error unfulfilling order:', error)
       showError('Error unfulfilling order. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayAndEdit = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if also fulfilled - if so, unfulfill first before unpay
+      const isFulfilled = selectedOrder.isFulfilled
+
+      if (isFulfilled) {
+        // Step 1: Unfulfill first (required before unpay)
+        const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unfulfillResponse.ok) {
+          const errorData = await unfulfillResponse.json()
+          throw new Error(errorData?.message || 'Failed to unfulfill order')
+        }
+
+        // Step 2: Then unpay
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (unpayResponse.ok) {
+          const updatedOrder = await unpayResponse.json()
+          dispatch(updateOrderInPlace(updatedOrder.data))
+          showSuccess('Order unfulfilled and unpaid successfully')
+          setBlockedDialogOpen(false)
+          navigate(`/sales/orders/${selectedOrder.id}/edit`)
+        } else {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+      } else {
+        // Only unpay, then edit
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        const updatedOrder = await unpayResponse.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unpaid successfully - payment removed')
+        setBlockedDialogOpen(false)
+        navigate(`/sales/orders/${selectedOrder.id}/edit`)
+      }
+    } catch (error: any) {
+      console.error('Error unpaying order:', error)
+      showError(error.message || 'Error unpaying order. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnfulfillAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if also paid - if so, unfulfill first, then unpay
+      const isPaid = selectedOrder.paidAmount && selectedOrder.paidAmount > 0
+
+      // Step 1: Unfulfill first (required before unpay)
+      const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!unfulfillResponse.ok) {
+        const errorData = await unfulfillResponse.json()
+        throw new Error(errorData?.message || 'Failed to unfulfill order')
+      }
+
+      if (isPaid) {
+        // Step 2: Then unpay if needed
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        showSuccess('Order unfulfilled and unpaid successfully')
+      } else {
+        showSuccess('Order unfulfilled successfully')
+      }
+
+      const updatedOrder = await unfulfillResponse.json()
+      dispatch(updateOrderInPlace(updatedOrder.data))
+
+      setBlockedDialogOpen(false)
+
+      // Now proceed with delete
+      setOrderToDelete(selectedOrder.id)
+      setOrderToDeleteName(selectedOrder.orderNumber || selectedOrder.id)
+      setDeleteConfirmOpen(true)
+    } catch (error: any) {
+      console.error('Error preparing order for deletion:', error)
+      showError(error.message || 'Error preparing order for deletion. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayAndDelete = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      // Check if also fulfilled - if so, unfulfill first before unpay
+      const isFulfilled = selectedOrder.isFulfilled
+
+      if (isFulfilled) {
+        // Step 1: Unfulfill first (required before unpay)
+        const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unfulfillResponse.ok) {
+          const errorData = await unfulfillResponse.json()
+          throw new Error(errorData?.message || 'Failed to unfulfill order')
+        }
+
+        // Step 2: Then unpay
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        const updatedOrder = await unpayResponse.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unfulfilled and unpaid successfully')
+      } else {
+        // Only unpay
+        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!unpayResponse.ok) {
+          const errorData = await unpayResponse.json()
+          throw new Error(errorData?.message || 'Failed to unpay order')
+        }
+
+        const updatedOrder = await unpayResponse.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unpaid successfully')
+      }
+
+      setBlockedDialogOpen(false)
+
+      // Now proceed with delete
+      setOrderToDelete(selectedOrder.id)
+      setOrderToDeleteName(selectedOrder.orderNumber || selectedOrder.id)
+      setDeleteConfirmOpen(true)
+    } catch (error: any) {
+      console.error('Error preparing order for deletion:', error)
+      showError(error.message || 'Error preparing order for deletion. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUnpayOnly = async () => {
+    if (!selectedOrder) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(updateOrderInPlace(updatedOrder.data))
+        showSuccess('Order unpaid successfully - payment removed')
+        setBlockedDialogOpen(false)
+      } else {
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to unpay order'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      console.error('Error unpaying order:', error)
+      showError('Error unpaying order. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -700,15 +932,23 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     const state = location.state as { highlightOrderId?: string }
     if (state?.highlightOrderId && orders.length > 0) {
-      const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
-      if (orderIndex >= 0) {
-        dispatch(setSelectedOrder(orders[orderIndex]))
-        setFocusedOrderIndex(orderIndex)
-        // Fetch full order details with invoices and payments
-        dispatch(fetchOrderById(orders[orderIndex].id) as any)
-        // Clear the state to prevent repeated highlighting
-        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      // Only process if we haven't already processed this highlight ID
+      if (processedHighlightRef.current !== state.highlightOrderId) {
+        const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
+        if (orderIndex >= 0) {
+          dispatch(setSelectedOrder(orders[orderIndex]))
+          setFocusedOrderIndex(orderIndex)
+          // Fetch full order details with invoices and payments
+          dispatch(fetchOrderById(orders[orderIndex].id) as any)
+          // Mark this ID as processed
+          processedHighlightRef.current = state.highlightOrderId
+          // Clear the state to prevent repeated highlighting
+          window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        }
       }
+    } else if (!state?.highlightOrderId) {
+      // Reset when there's no highlightOrderId (e.g., normal navigation)
+      processedHighlightRef.current = null
     }
   }, [orders, location.state, dispatch])
 
@@ -776,13 +1016,13 @@ const OrdersPage: React.FC = () => {
 
   const handleEnterAction = useCallback(() => {
     if (focusedOrderIndex >= 0 && orders[focusedOrderIndex]) {
-      setEditDialog(true)
+      navigate(`/sales/orders/${orders[focusedOrderIndex].id}/edit`)
     }
-  }, [focusedOrderIndex, orders, dispatch])
+  }, [focusedOrderIndex, orders, navigate])
 
   const handleEditAction = () => {
     if (selectedOrder) {
-      setEditDialog(true)
+      navigate(`/sales/orders/${selectedOrder.id}/edit`)
     }
   }
 
@@ -801,7 +1041,7 @@ const OrdersPage: React.FC = () => {
   }
 
   const handleAddOrder = () => {
-    setCreateDialog(true)
+    navigate('/sales/orders/create')
   }
 
   const handleNavigateToInvoice = useCallback((invoiceId: string, event?: React.MouseEvent) => {
@@ -821,20 +1061,16 @@ const OrdersPage: React.FC = () => {
   const handleEscapeAction = useCallback(() => {
     setFocusedOrderIndex(-1)
     dispatch(setSelectedOrder(null))
-    setCreateDialog(false)
-    setEditDialog(false)
     setViewDialog(false)
-    setUnfulfillDialogOpen(false)
+    setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
     setKeyboardHelpOpen(false)
   }, [dispatch])
 
   const clearDialogs = () => {
-    setCreateDialog(false)
-    setEditDialog(false)
     setViewDialog(false)
-    setUnfulfillDialogOpen(false)
+    setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
     setKeyboardHelpOpen(false)
@@ -928,7 +1164,7 @@ const OrdersPage: React.FC = () => {
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
             size="medium"
-            onClick={() => setCreateDialog(true)}
+            onClick={() => navigate('/sales/orders/create')}
             fullWidth={isMobile}
           >
             {isMobile ? "Create New Order" : "Create Order"}
@@ -1259,7 +1495,7 @@ const OrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Split Layout: Order List and Order Details */}
+      {/* Split Layout: Order List and SO Details */}
       <Grid container spacing={3}>
         {/* Left Side - Order List */}
         <Grid item xs={12} md={3}>
@@ -1272,7 +1508,7 @@ const OrdersPage: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Order List ({pagination?.total || 0})
+                  SO List ({pagination?.total || 0})
                 </Typography>
                 {loading && orders.length > 0 && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1345,7 +1581,7 @@ const OrdersPage: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Right Side - Order Details */}
+        {/* Right Side - SO Details */}
         <Grid item xs={12} md={9}>
           {selectedOrder ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
@@ -1357,7 +1593,7 @@ const OrdersPage: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Order Details - {selectedOrder.orderNumber}
+                  SO Details - {selectedOrder.orderNumber}
                 </Typography>
                 <Box sx={{
                   display: 'flex',
@@ -1410,10 +1646,10 @@ const OrdersPage: React.FC = () => {
               </Box>
 
             <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-              {/* Order Details Section */}
+              {/* SO Details Section */}
               <Box>
                 <Grid container spacing={3}>
-                  {/* Left Column - Order Information */}
+                  {/* Left Column - SO Information */}
                   <Grid item xs={12} md={6}>
                     <TableContainer>
                       <Table
@@ -1430,7 +1666,7 @@ const OrdersPage: React.FC = () => {
                         }}
                       >
                         <TableBody>
-                          {/* Order Information Section */}
+                          {/* SO Information Section */}
                           <TableRow>
                             <TableCell colSpan={2} sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
@@ -1442,7 +1678,7 @@ const OrdersPage: React.FC = () => {
                                 color: 'primary.main',
                                 fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                               }}>
-                                Order Information
+                                SO Information
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -1460,7 +1696,7 @@ const OrdersPage: React.FC = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              Order Date
+                              SO Date
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatDate(selectedOrder.orderDate)}
@@ -1750,67 +1986,21 @@ const OrdersPage: React.FC = () => {
                   </Grid>
                 </Grid>
 
-                {/* Order Notes Section - below both columns if notes exist */}
-                {selectedOrder.notes && (
-                  <Box sx={{ mt: 1 }}>
-                    <TableContainer>
-                      <Table
-                        size={TABLE_STYLES.size}
-                        sx={{
-                          tableLayout: 'fixed',
-                          '& .MuiTableCell-root': {
-                            border: 'none',
-                            py: TABLE_STYLES.cell.padding.py,
-                            px: TABLE_STYLES.cell.padding.px,
-                          }
-                        }}
-                      >
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{
-                              pb: TABLE_STYLES.cell.padding.py * 0.67,
-                              py: TABLE_STYLES.cell.padding.py * 0.67,
-                              borderTop: TABLE_STYLES.cell.border
-                            }}>
-                              <Typography variant="h6" sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                color: 'info.main',
-                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                              }}>
-                                Order Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              <Typography sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {selectedOrder.notes}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
-
               </Box>
 
               {/* Page Break */}
               <Box sx={{
                 borderTop: '2px solid',
                 borderColor: 'divider',
-                my: 3,
-                pageBreakBefore: 'always' // CSS page break for printing
+                pageBreakBefore: 'always', // CSS page break for printing
+                '@media print': {
+                  pageBreakBefore: 'always'
+                }
               }} />
 
-              {/* Order Items Section */}
+              {/* SO Items Section */}
               <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {/* Order Items Header */}
+                {/* SO Items Header */}
                 <TableContainer>
                   <Table
                     size={TABLE_STYLES.size}
@@ -1836,7 +2026,7 @@ const OrdersPage: React.FC = () => {
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px'
                           }}>
-                            Order Items
+                            SO Items
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -1844,7 +2034,7 @@ const OrdersPage: React.FC = () => {
                   </Table>
                 </TableContainer>
 
-                {/* Order Items Table */}
+                {/* SO Items Table */}
                 <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
@@ -1960,6 +2150,42 @@ const OrdersPage: React.FC = () => {
                 </Box>
               </Box>
 
+              {/* Page Break after SO Items */}
+              <Box sx={{
+                borderTop: '2px solid',
+                borderColor: 'divider',
+                pageBreakBefore: 'always', // CSS page break for printing
+                '@media print': {
+                  pageBreakBefore: 'always'
+                }
+              }} />
+
+              {/* NOTES Section - below items */}
+              {selectedOrder.notes && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    mb: 1
+                  }}>
+                    NOTES
+                  </Typography>
+
+                  <Box sx={{
+                    p: 2,
+                    backgroundColor: 'grey.50',
+                    borderRadius: 1,
+                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}>
+                    {selectedOrder.notes}
+                  </Box>
+                </Box>
+              )}
+
             </Box>
             </Paper>
           ) : (
@@ -1973,7 +2199,7 @@ const OrdersPage: React.FC = () => {
       </Grid>
 
 
-      {/* Order Details Dialog */}
+      {/* SO Details Dialog */}
       <Dialog
         open={viewDialog}
         onClose={() => setViewDialog(false)}
@@ -1982,7 +2208,7 @@ const OrdersPage: React.FC = () => {
       >
         <DialogTitle>
           <Typography variant="h6">
-            Order Details - {selectedOrder?.orderNumber}
+            SO Details - {selectedOrder?.orderNumber}
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -1991,10 +2217,10 @@ const OrdersPage: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <Card>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>Order Information</Typography>
+                    <Typography variant="h6" gutterBottom>SO Information</Typography>
                     <Stack spacing={1}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography color="text.secondary">Order Date:</Typography>
+                        <Typography color="text.secondary">SO Date:</Typography>
                         <Typography>{formatDate(selectedOrder.orderDate)}</Typography>
                       </Box>
                       {selectedOrder.requiredDate && (
@@ -2040,11 +2266,11 @@ const OrdersPage: React.FC = () => {
                 </Card>
               </Grid>
               
-              {/* Order Items */}
+              {/* SO Items */}
               <Grid item xs={12}>
                 <Card>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>Order Items</Typography>
+                    <Typography variant="h6" gutterBottom>SO Items</Typography>
                     {selectedOrder.items && selectedOrder.items.length > 0 ? (
                       <TableContainer>
                         <Table
@@ -2198,31 +2424,22 @@ const OrdersPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Create Order Dialog */}
-      <CreateOrderDialog
-        open={createDialog}
-        onClose={() => setCreateDialog(false)}
-        onOrderCreated={handleOrderCreated}
-      />
-
-      {/* Edit Order Dialog */}
+      {/* Blocked Sales Order Dialog */}
       {selectedOrder && (
-        <CreateOrderDialog
-          open={editDialog}
-          onClose={() => setEditDialog(false)}
-          onOrderCreated={handleOrderUpdated}
-          editOrder={selectedOrder}
-        />
-      )}
-
-      {/* Unfulfill Order Dialog */}
-      {selectedOrder && (
-        <UnfulfillOrderDialog
-          open={unfulfillDialogOpen}
+        <BlockedSalesOrderDialog
+          open={blockedDialogOpen}
           orderNumber={selectedOrder.orderNumber || selectedOrder.id}
-          onClose={() => setUnfulfillDialogOpen(false)}
+          isFulfilled={selectedOrder.isFulfilled}
+          isPaid={!!(selectedOrder.paidAmount && selectedOrder.paidAmount > 0)}
+          paidAmount={selectedOrder.paidAmount || 0}
+          actionType={blockedDialogAction}
+          onClose={() => setBlockedDialogOpen(false)}
           onUnfulfillAndEdit={handleUnfulfillAndEdit}
           onUnfulfillOnly={handleUnfulfillOnly}
+          onUnpayAndEdit={handleUnpayAndEdit}
+          onUnpayOnly={handleUnpayOnly}
+          onUnfulfillAndDelete={handleUnfulfillAndDelete}
+          onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}
         />
       )}
