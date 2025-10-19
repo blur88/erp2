@@ -34,7 +34,7 @@ import { ApiService } from '@/services/api'
 import { formatCurrency } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updateOrderInPlace } from '@/store/slices/salesSlice'
+import { updateOrderInPlace, createOrder as createOrderAction } from '@/store/slices/salesSlice'
 
 interface OrderItem {
   productId: string
@@ -294,13 +294,15 @@ const CreateSalesOrderPage: React.FC = () => {
         dispatch(updateOrderInPlace(updatedOrder))
 
         showSuccess('Sales order updated successfully')
+        // Navigate to orders page with the updated order selected
+        navigate('/sales/orders', { state: { highlightOrderId: id } })
       } else {
-        await salesApi.createOrder(orderData as any)
+        // Use Redux action to create order - this will auto-add it to the list
+        const result = await dispatch(createOrderAction(orderData as any)).unwrap()
         showSuccess('Sales order created successfully')
+        // Navigate to orders page with the new order selected
+        navigate('/sales/orders', { state: { highlightOrderId: result.id } })
       }
-
-      // Navigate back
-      navigate('/sales/orders')
     } catch (err: any) {
       console.error('Error creating sales order:', err)
       setError(err.response?.data?.message || 'Failed to create sales order')
