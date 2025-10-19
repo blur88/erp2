@@ -872,14 +872,49 @@ const InvoicesPage: React.FC = () => {
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  Invoice Details - {selectedInvoice.invoiceNumber}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Invoice Details - {selectedInvoice.invoiceNumber}
+                  </Typography>
+                  {(() => {
+                    const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
+                    if (isOverpaid) {
+                      return (
+                        <Chip
+                          label="Overpaid"
+                          size="small"
+                          color="info"
+                          sx={{
+                            textTransform: 'capitalize',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                        />
+                      )
+                    }
+                    return (
+                      <Chip
+                        label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
+                        size="small"
+                        color={
+                          selectedInvoice.status === 'paid' ? 'success' :
+                          selectedInvoice.status === 'partial_paid' ? 'warning' :
+                          'default'
+                        }
+                        sx={{
+                          textTransform: 'capitalize',
+                          fontSize: '0.75rem',
+                          fontWeight: 600
+                        }}
+                      />
+                    )
+                  })()}
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -1030,38 +1065,6 @@ const InvoicesPage: React.FC = () => {
                                   return `+${formatCurrency(overpaid)}`
                                 }
                                 return formatCurrency(selectedInvoice.balanceDue)
-                              })()}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Status
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {(() => {
-                                const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
-                                if (isOverpaid) {
-                                  return (
-                                    <Chip
-                                      label="Overpaid"
-                                      size="small"
-                                      color="info"
-                                      sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
-                                    />
-                                  )
-                                }
-                                return (
-                                  <Chip
-                                    label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
-                                    size="small"
-                                    color={
-                                      selectedInvoice.status === 'paid' ? 'success' :
-                                      selectedInvoice.status === 'partial_paid' ? 'warning' :
-                                      'default'
-                                    }
-                                    sx={{ textTransform: 'capitalize', fontSize: '0.75rem' }}
-                                  />
-                                )
                               })()}
                             </TableCell>
                           </TableRow>
