@@ -1092,16 +1092,18 @@ export class SalesOrderService {
 
       const unitPrice = Number(item.unitPrice) || Number(product.retailPrice) || 0;
       const discountPercent = Number(item.discountPercent) || 0;
+      const discountAmount = Number(item.discountAmount) || 0;
 
-      // Calculate discount amount based on discount type
-      let discountAmount = 0;
+      // Discount is applied to unit price first, then multiplied by quantity
+      let unitDiscount = 0;
       if (item.discountType === DiscountType.PERCENTAGE && discountPercent > 0) {
-        discountAmount = (unitPrice * item.quantity * discountPercent) / 100;
-      } else if (item.discountType === DiscountType.AMOUNT && item.discountAmount > 0) {
-        discountAmount = Math.min(Number(item.discountAmount), unitPrice * item.quantity);
+        unitDiscount = (unitPrice * discountPercent) / 100;
+      } else if (item.discountType === DiscountType.AMOUNT && discountAmount > 0) {
+        unitDiscount = discountAmount;
       }
 
-      const totalAmount = (unitPrice * item.quantity) - discountAmount;
+      const discountedUnitPrice = unitPrice - unitDiscount;
+      const totalAmount = discountedUnitPrice * item.quantity;
 
       processedItems.push({
         lineNumber: lineNumber++,

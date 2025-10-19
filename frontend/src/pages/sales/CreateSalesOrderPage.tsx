@@ -214,35 +214,18 @@ const CreateSalesOrderPage: React.FC = () => {
       if (item.quantity && item.unitPrice !== undefined) {
         const quantity = Number(item.quantity)
         const unitPrice = Number(item.unitPrice)
-        const subtotal = quantity * unitPrice
-        let discountAmount = 0
-        let discountPercent = Number(item.discountPercent) || 0
+        let unitDiscount = 0
 
         if (item.discountType === 'percentage') {
-          // Percentage discount
-          discountPercent = Number(item.discountValue || 0)
-          discountAmount = subtotal * (discountPercent / 100)
-
-          if (Math.abs(item.discountPercent - discountPercent) > 0.01) {
-            setValue(`items.${index}.discountPercent`, Number(discountPercent.toFixed(2)))
-          }
-          if (Math.abs(item.discountAmount - discountAmount) > 0.01) {
-            setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
-          }
+          // Percentage discount: apply to unit price
+          unitDiscount = unitPrice * (Number(item.discountValue || 0) / 100)
         } else {
-          // Fixed amount discount
-          discountAmount = Math.min(Number(item.discountValue || 0), subtotal)
-          discountPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0
-
-          if (Math.abs(item.discountAmount - discountAmount) > 0.01) {
-            setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
-          }
-          if (Math.abs(item.discountPercent - discountPercent) > 0.01) {
-            setValue(`items.${index}.discountPercent`, Number(discountPercent.toFixed(2)))
-          }
+          // Fixed amount discount: per unit
+          unitDiscount = Number(item.discountValue || 0)
         }
 
-        const total = subtotal - discountAmount
+        const discountedUnitPrice = unitPrice - unitDiscount
+        const total = discountedUnitPrice * quantity
 
         if (Math.abs(item.totalPrice - total) > 0.01) {
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
