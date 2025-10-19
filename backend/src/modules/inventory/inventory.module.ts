@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from '../../database/entities/product.entity';
 import { Category } from '../../database/entities/category.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
+import { PurchaseCostHistory } from '../../database/entities/purchase-cost-history.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
@@ -20,6 +21,7 @@ import { CategoryService } from './services/category.service';
 import { StockMovementService } from './services/stock-movement.service';
 import { PricingService } from './services/pricing.service';
 import { IntegrationService } from './services/integration.service';
+import { BaseCostCalculatorService } from './services/base-cost-calculator.service';
 
 // Other modules
 import { UsersModule } from '../users/users.module';
@@ -31,6 +33,7 @@ import { UsersModule } from '../users/users.module';
       Product,
       Category,
       StockMovement,
+      PurchaseCostHistory,
       // Related entities for integration
       Customer,
       SalesOrder,
@@ -51,6 +54,7 @@ import { UsersModule } from '../users/users.module';
     StockMovementService,
     PricingService,
     IntegrationService,
+    BaseCostCalculatorService,
   ],
   exports: [
     // Export services for use by other modules
@@ -59,6 +63,7 @@ import { UsersModule } from '../users/users.module';
     StockMovementService,
     PricingService,
     IntegrationService,
+    BaseCostCalculatorService,
     // Export TypeORM repositories for direct access if needed
     TypeOrmModule,
   ],

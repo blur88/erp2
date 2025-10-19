@@ -27,6 +27,9 @@ import {
   VendorPaymentController,
 } from './controllers';
 
+// Import InventoryModule for BaseCostCalculatorService
+import { InventoryModule } from '../inventory/inventory.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -39,6 +42,7 @@ import {
       Product,
       User,
     ]),
+    InventoryModule, // Import to access BaseCostCalculatorService
   ],
 
   controllers: [

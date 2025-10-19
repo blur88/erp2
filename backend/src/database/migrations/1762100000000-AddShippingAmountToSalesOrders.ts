@@ -6,7 +6,7 @@ export class AddShippingAmountToSalesOrders1762100000000 implements MigrationInt
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "sales_orders"
-      ADD "shippingAmount" NUMERIC(15,4) NOT NULL DEFAULT 0
+      ADD COLUMN IF NOT EXISTS "shippingAmount" NUMERIC(15,4) NOT NULL DEFAULT 0
     `);
 
     await queryRunner.query(`

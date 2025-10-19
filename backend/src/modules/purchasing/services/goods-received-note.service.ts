@@ -14,6 +14,7 @@ import {
   GoodsReceivedNoteResponseDto,
   GoodsReceivedNoteListResponseDto,
 } from '../dto/goods-received-note.dto';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 
 @Injectable()
 export class GoodsReceivedNoteService {
@@ -28,6 +29,7 @@ export class GoodsReceivedNoteService {
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {}
 
   /**
@@ -126,6 +128,9 @@ export class GoodsReceivedNoteService {
       savedGrn.items = grnItems;
       savedGrn.calculateTotals();
       await this.grnRepository.save(savedGrn);
+
+      // Update base cost for each received item
+      await this.updateBaseCostsForGrn(savedGrn, purchaseOrder);
 
       this.logger.log(`GRN created successfully with ${grnItems.length} items: ${savedGrn.id}`);
 
@@ -577,5 +582,62 @@ export class GoodsReceivedNoteService {
       updatedAt: grn.updatedAt,
       deletedAt: grn.deletedAt,
     };
+  }
+
+  /**
+   * Update base costs for all products in a GRN
+   * Calculates shipping allocation BY VALUE and records cost history
+   */
+  private async updateBaseCostsForGrn(
+    grn: GoodsReceivedNote,
+    purchaseOrder: PurchaseOrder,
+  ): Promise<void> {
+    this.logger.log(`Updating base costs for GRN ${grn.grnNumber}`);
+
+    const po = purchaseOrder;
+    const poSubtotal = Number(po.subtotal || 0);
+    const poShipping = Number(po.shippingAmount || 0);
+
+    this.logger.log(
+      `PO ${po.orderNumber}: Subtotal RM ${poSubtotal.toFixed(2)}, Shipping RM ${poShipping.toFixed(2)}`
+    );
+
+    // Process each GRN item
+    for (const grnItem of grn.items) {
+      // Find corresponding PO item to get unit cost
+      const poItem = po.items?.find(item => item.id === grnItem.purchaseOrderItemId);
+
+      if (!poItem) {
+        this.logger.warn(`PO item not found for GRN item ${grnItem.id}, skipping base cost update`);
+        continue;
+      }
+
+      const unitCost = Number(poItem.unitCost);
+      const receivedQty = Number(grnItem.receivedQuantity);
+
+      // Calculate shipping per unit using BY VALUE method
+      const shippingPerUnit = this.baseCostCalculator.calculateShippingByValue(
+        unitCost,
+        receivedQty,
+        poSubtotal,
+        poShipping,
+      );
+
+      this.logger.log(
+        `Product ${grnItem.productId}: ${receivedQty} units @ RM ${unitCost.toFixed(4)} + RM ${shippingPerUnit.toFixed(4)} shipping`
+      );
+
+      // Add stock to cost history and recalculate base cost
+      await this.baseCostCalculator.addStock(
+        grnItem.productId,
+        grn.id,
+        receivedQty,
+        unitCost,
+        shippingPerUnit,
+        grn.receivedDate,
+      );
+    }
+
+    this.logger.log(`Base costs updated successfully for GRN ${grn.grnNumber}`);
   }
 }
