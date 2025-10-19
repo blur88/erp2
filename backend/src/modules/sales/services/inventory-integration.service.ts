@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +11,7 @@ import { Product, ProductType } from '../../../database/entities/product.entity'
 import { StockMovement, StockMovementType, StockMovementStatus } from '../../../database/entities/stock-movement.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 
 export interface StockItem {
   productId: string;
@@ -62,6 +65,8 @@ export class InventoryIntegrationService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(SalesOrderItem)
     private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+    @Inject(forwardRef(() => BaseCostCalculatorService))
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {}
 
   async checkAvailability(items: StockItem[]): Promise<AvailabilityCheck> {
@@ -442,6 +447,18 @@ export class InventoryIntegrationService {
     // Explicitly set as number to ensure TypeORM handles it correctly
     product.stockQuantity = Number(newStockQuantity);
     await this.productRepository.save(product);
+
+    // Update FIFO cost history for sales (negative quantity changes)
+    if (quantityChange < 0) {
+      const quantitySold = Math.abs(quantityChange);
+      try {
+        await this.baseCostCalculator.reduceStock(productId, quantitySold);
+      } catch (error) {
+        // Log warning but don't fail the stock adjustment
+        // This allows sales to proceed even if cost history is missing
+        console.warn(`Failed to update cost history for product ${productId}: ${error.message}`);
+      }
+    }
 
     // Create stock movement record
     const movementType = quantityChange > 0

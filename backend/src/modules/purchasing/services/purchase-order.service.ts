@@ -22,6 +22,7 @@ import { SupplierService } from './supplier.service';
 import { GoodsReceivedNoteService } from './goods-received-note.service';
 import { VendorPaymentService } from './vendor-payment.service';
 import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -45,6 +46,7 @@ export class PurchaseOrderService {
     private readonly supplierService: SupplierService,
     private readonly grnService: GoodsReceivedNoteService,
     private readonly vendorPaymentService: VendorPaymentService,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {}
 
   /**
@@ -1003,8 +1005,10 @@ export class PurchaseOrderService {
         grnItems.push(grnItem);
       }
 
-      // Save GRN items
-      await this.grnService.updateGrnItems(savedGrn.id, grnItems);
+      // Save GRN items only if we have items to save
+      if (grnItems.length > 0) {
+        await this.grnService.updateGrnItems(savedGrn.id, grnItems);
+      }
 
       // Update GRN totals based on relational items
       savedGrn.items = grnItems as any;
@@ -1014,7 +1018,9 @@ export class PurchaseOrderService {
       this.logger.log(`Draft GRN ${grnNumber} created for PO ${fullPO.orderNumber} with ${grnItems.length} items`);
     } catch (error) {
       this.logger.error(`Error creating draft GRN: ${error.message}`, error.stack);
-      // Don't throw error - GRN creation failure shouldn't block PO creation
+      // Log detailed error but don't throw - GRN creation failure shouldn't block PO creation
+      // However, we should clean up the partial GRN if it was created
+      this.logger.warn(`Draft GRN creation failed for PO ${purchaseOrder.orderNumber}. User will need to manually create or receive GRN.`);
     }
   }
 
@@ -1092,6 +1098,9 @@ export class PurchaseOrderService {
         item.acceptedQuantity = item.quantity;
         await this.purchaseOrderItemRepository.save(item);
       }
+
+      // Update base costs for all received products
+      await this.updateBaseCostsForGrn(updatedGrn, purchaseOrder);
 
       this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
@@ -1367,5 +1376,62 @@ export class PurchaseOrderService {
       updatedAt: purchaseOrder.updatedAt,
       deletedAt: purchaseOrder.deletedAt,
     };
+  }
+
+  /**
+   * Update base costs for all products in a GRN
+   * Calculates shipping allocation BY VALUE and records cost history
+   */
+  private async updateBaseCostsForGrn(
+    grn: GoodsReceivedNote,
+    purchaseOrder: PurchaseOrder,
+  ): Promise<void> {
+    this.logger.log(`Updating base costs for GRN ${grn.grnNumber}`);
+
+    const po = purchaseOrder;
+    const poSubtotal = Number(po.subtotal || 0);
+    const poShipping = Number(po.shippingAmount || 0);
+
+    this.logger.log(
+      `PO ${po.orderNumber}: Subtotal RM ${poSubtotal.toFixed(2)}, Shipping RM ${poShipping.toFixed(2)}`
+    );
+
+    // Process each GRN item
+    for (const grnItem of grn.items) {
+      // Find corresponding PO item to get unit cost
+      const poItem = po.items?.find(item => item.id === grnItem.purchaseOrderItemId);
+
+      if (!poItem) {
+        this.logger.warn(`PO item not found for GRN item ${grnItem.id}, skipping base cost update`);
+        continue;
+      }
+
+      const unitCost = Number(poItem.unitCost);
+      const receivedQty = Number(grnItem.receivedQuantity);
+
+      // Calculate shipping per unit using BY VALUE method
+      const shippingPerUnit = this.baseCostCalculator.calculateShippingByValue(
+        unitCost,
+        receivedQty,
+        poSubtotal,
+        poShipping,
+      );
+
+      this.logger.log(
+        `Product ${grnItem.productId}: ${receivedQty} units @ RM ${unitCost.toFixed(4)} + RM ${shippingPerUnit.toFixed(4)} shipping`
+      );
+
+      // Add stock to cost history and recalculate base cost
+      await this.baseCostCalculator.addStock(
+        grnItem.productId,
+        grn.id,
+        receivedQty,
+        unitCost,
+        shippingPerUnit,
+        grn.receivedDate,
+      );
+    }
+
+    this.logger.log(`Base costs updated successfully for GRN ${grn.grnNumber}`);
   }
 }
