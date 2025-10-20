@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -91,6 +91,7 @@ interface ProductFormData {
 const ProductsPage: React.FC = () => {
   const dispatch = useDispatch() as any
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
@@ -199,7 +200,22 @@ const ProductsPage: React.FC = () => {
     dispatch(fetchCategories({ includeProductCount: true }))
   }
 
-
+  // Auto-select product when navigating from create/edit page
+  useEffect(() => {
+    const state = location.state as { selectedProductId?: string }
+    if (state?.selectedProductId && products.length > 0) {
+      const product = products.find((p: Product) => p.id === state.selectedProductId)
+      if (product) {
+        setSelectedProductForDetails(product)
+        const index = products.findIndex((p: Product) => p.id === state.selectedProductId)
+        if (index >= 0) {
+          setFocusedProductIndex(index)
+        }
+        // Clear the state to prevent re-triggering on refresh
+        navigate(location.pathname, { replace: true })
+      }
+    }
+  }, [products, location.state, location.pathname, navigate])
 
   // Real-time duplicate checking for inline editing
   useEffect(() => {

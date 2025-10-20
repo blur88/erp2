@@ -193,19 +193,25 @@ const CreateProductPage: React.FC = () => {
         isActive: data.isActive,
       }
 
+      let productId = id
+
       if (isEditMode && id) {
         await ApiService.put(`/inventory/products/${id}`, productData)
         showSuccess('Product updated successfully')
       } else {
-        await ApiService.post('/inventory/products', productData)
+        const response = await ApiService.post('/inventory/products', productData)
+        // Extract the created product ID from the response
+        productId = (response as any)?.data?.id || (response as any)?.id
         showSuccess('Product created successfully')
       }
 
       // Refresh products list in Redux
       dispatch(fetchProducts({ page: 1, limit: 10 }))
 
-      // Navigate back to products page
-      navigate('/inventory/products')
+      // Navigate back to products page with the product ID in state
+      navigate('/inventory/products', {
+        state: { selectedProductId: productId }
+      })
     } catch (err: any) {
       console.error('Error saving product:', err)
       setError(err.response?.data?.message || 'Failed to save product')
