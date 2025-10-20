@@ -53,11 +53,11 @@ const productSchema = yup.object({
     'Please select a valid category',
     (value) => value !== 'main'
   ),
-  baseCost: yup.number().min(0, 'Base cost must be 0 or greater').required('Base cost is required'),
-  retailPrice: yup.number().min(0, 'Retail price must be 0 or greater').required('Retail price is required'),
-  wholesalePrice: yup.number().min(0, 'Wholesale price must be 0 or greater').required('Wholesale price is required'),
-  specialPrice: yup.number().min(0, 'Special price must be 0 or greater').required('Special price is required'),
-  stockQuantity: yup.number().integer('Stock must be a whole number').min(0, 'Stock must be 0 or greater').optional(),
+  baseCost: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Base cost must be 0 or greater').nullable().optional(),
+  retailPrice: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Retail price must be 0 or greater').nullable().optional(),
+  wholesalePrice: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Wholesale price must be 0 or greater').nullable().optional(),
+  specialPrice: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Special price must be 0 or greater').nullable().optional(),
+  stockQuantity: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).integer('Stock must be a whole number').min(0, 'Stock must be 0 or greater').nullable().optional(),
   notes: yup.string(),
   isActive: yup.boolean(),
 })
@@ -92,11 +92,11 @@ const CreateProductPage: React.FC = () => {
       barcode: '',
       type: 'Stocked Product',
       categoryId: '',
-      baseCost: 0,
-      retailPrice: 0,
-      wholesalePrice: 0,
-      specialPrice: 0,
-      stockQuantity: 0,
+      baseCost: undefined as any,
+      retailPrice: undefined as any,
+      wholesalePrice: undefined as any,
+      specialPrice: undefined as any,
+      stockQuantity: undefined,
       notes: '',
       isActive: true,
     },
@@ -184,11 +184,11 @@ const CreateProductPage: React.FC = () => {
         barcode: data.barcode || undefined,
         type: data.type,
         categoryId: data.categoryId,
-        baseCost: Number(data.baseCost),
-        retailPrice: Number(data.retailPrice),
-        wholesalePrice: Number(data.wholesalePrice),
-        specialPrice: Number(data.specialPrice),
-        stockQuantity: data.type === 'Stocked Product' ? Number(data.stockQuantity || 0) : 0,
+        baseCost: data.baseCost !== undefined && data.baseCost !== null ? Number(data.baseCost) : 0,
+        retailPrice: data.retailPrice !== undefined && data.retailPrice !== null ? Number(data.retailPrice) : 0,
+        wholesalePrice: data.wholesalePrice !== undefined && data.wholesalePrice !== null ? Number(data.wholesalePrice) : 0,
+        specialPrice: data.specialPrice !== undefined && data.specialPrice !== null ? Number(data.specialPrice) : 0,
+        stockQuantity: data.type === 'Stocked Product' ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0) : 0,
         notes: data.notes || '',
         isActive: data.isActive,
       }
@@ -226,8 +226,10 @@ const CreateProductPage: React.FC = () => {
     return parts.join('.')
   }
 
-  const parseFormattedNumber = (value: string): number => {
-    return parseFloat(value.replace(/,/g, '')) || 0
+  const parseFormattedNumber = (value: string): number | undefined => {
+    if (value === '' || value === null || value === undefined) return undefined
+    const parsed = parseFloat(value.replace(/,/g, ''))
+    return isNaN(parsed) ? undefined : parsed
   }
 
   const formatQuantity = (value: number | string): string => {
@@ -454,7 +456,6 @@ const CreateProductPage: React.FC = () => {
                                 label="Base Cost"
                                 error={!!errors.baseCost}
                                 helperText={errors.baseCost?.message}
-                                required
                                 fullWidth
                                 size="small"
                                 InputProps={{
@@ -508,7 +509,6 @@ const CreateProductPage: React.FC = () => {
                                 label="Retail Price"
                                 error={!!errors.retailPrice}
                                 helperText={errors.retailPrice?.message}
-                                required
                                 fullWidth
                                 size="small"
                                 InputProps={{
@@ -562,7 +562,6 @@ const CreateProductPage: React.FC = () => {
                                 label="Wholesale Price"
                                 error={!!errors.wholesalePrice}
                                 helperText={errors.wholesalePrice?.message}
-                                required
                                 fullWidth
                                 size="small"
                                 InputProps={{
@@ -616,7 +615,6 @@ const CreateProductPage: React.FC = () => {
                                 label="Special Price"
                                 error={!!errors.specialPrice}
                                 helperText={errors.specialPrice?.message}
-                                required
                                 fullWidth
                                 size="small"
                                 InputProps={{
@@ -651,12 +649,12 @@ const CreateProductPage: React.FC = () => {
                             name="stockQuantity"
                             control={control}
                             render={({ field }) => {
-                              const [displayValue, setDisplayValue] = useState(formatQuantity(field.value || 0))
+                              const [displayValue, setDisplayValue] = useState(formatQuantity(field.value))
                               const [isFocused, setIsFocused] = useState(false)
 
                               React.useEffect(() => {
                                 if (!isFocused) {
-                                  setDisplayValue(formatQuantity(field.value || 0))
+                                  setDisplayValue(formatQuantity(field.value))
                                 }
                               }, [field.value, isFocused])
 
@@ -666,15 +664,15 @@ const CreateProductPage: React.FC = () => {
                                   onChange={(e) => {
                                     const value = e.target.value.replace(/[^0-9]/g, '')
                                     setDisplayValue(value)
-                                    field.onChange(parseInt(value) || 0)
+                                    field.onChange(value === '' ? undefined : parseInt(value))
                                   }}
                                   onFocus={() => {
                                     setIsFocused(true)
-                                    setDisplayValue((field.value || 0).toString())
+                                    setDisplayValue(field.value !== undefined && field.value !== null ? field.value.toString() : '')
                                   }}
                                   onBlur={() => {
                                     setIsFocused(false)
-                                    setDisplayValue(formatQuantity(field.value || 0))
+                                    setDisplayValue(formatQuantity(field.value))
                                   }}
                                   label="Current Stock"
                                   error={!!errors.stockQuantity}
