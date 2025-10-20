@@ -28,6 +28,7 @@ interface CategorySelectorProps {
   onCreateCategory?: () => void
   allowRoot?: boolean // Allow selecting no category (root level)
   excludeCategories?: string[] // Category IDs to exclude from selection
+  size?: 'small' | 'medium' // Add size prop to match TextField
 }
 
 interface CategoryOption extends Category {
@@ -47,7 +48,8 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   showCreateButton = false,
   onCreateCategory,
   allowRoot = false,
-  excludeCategories = []
+  excludeCategories = [],
+  size = 'medium'
 }) => {
   const [options, setOptions] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(false)
@@ -141,12 +143,23 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   }
 
   return (
-    <FormControl fullWidth error={error} disabled={disabled}>
-      <InputLabel required={required}>{label}</InputLabel>
+    <FormControl fullWidth error={error} disabled={disabled} size={size}>
+      <InputLabel
+        required={required}
+        sx={{
+          fontSize: '0.875rem',
+          '&.MuiInputLabel-shrunk': {
+            fontSize: '0.75rem'
+          }
+        }}
+      >
+        {label}
+      </InputLabel>
       <Select
         value={value?.id || ''}
         onChange={handleSelectChange}
         label={label}
+        size={size}
         onOpen={() => {
           setOpen(true)
           if (options.length === 0) {
@@ -154,6 +167,14 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           }
         }}
         onClose={() => setOpen(false)}
+        sx={{
+          '& .MuiInputBase-input': {
+            fontSize: '0.875rem',
+          },
+          '& .MuiSelect-select': {
+            fontSize: '0.875rem',
+          }
+        }}
         MenuProps={{
           PaperProps: {
             style: {

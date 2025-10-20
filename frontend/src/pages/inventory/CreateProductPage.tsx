@@ -407,6 +407,7 @@ const CreateProductPage: React.FC = () => {
                               }}
                               error={!!errors.categoryId}
                               helperText={errors.categoryId?.message}
+                              size="small"
                             />
                           )}
                         />
