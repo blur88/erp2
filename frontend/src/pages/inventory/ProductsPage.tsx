@@ -962,21 +962,19 @@ const ProductsPage: React.FC = () => {
                       </TableBody>
                     </Table>
                   </TableContainer>
-                  <Box sx={{ borderTop: '1px solid rgba(224, 224, 224, 0.4)' }}>
-                    <TablePagination
-                      rowsPerPageOptions={[5, 10, 25, 50]}
-                      component="div"
-                      count={pagination?.total || 0}
-                      rowsPerPage={rowsPerPage}
-                      page={page}
-                      onPageChange={(_, newPage) => setPage(newPage)}
-                      onRowsPerPageChange={(e) => {
-                        setRowsPerPage(parseInt(e.target.value, 10))
-                        setPage(0)
-                      }}
-                      size="small"
-                    />
-                  </Box>
+                  <TablePagination
+                    rowsPerPageOptions={[10, 20, 50]}
+                    component="div"
+                    count={pagination?.total || 0}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                      setRowsPerPage(parseInt(e.target.value, 10))
+                      setPage(0)
+                    }}
+                    size="small"
+                  />
                 </>
               )}
             </Box>
