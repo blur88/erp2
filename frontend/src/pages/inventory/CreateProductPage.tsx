@@ -26,6 +26,7 @@ import { useAppDispatch } from '@/hooks/useRedux'
 import { fetchProducts } from '@/store/slices/inventorySlice'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category } from '@/types'
+import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 
 interface ProductFormData {
   name: string
@@ -72,6 +73,17 @@ const CreateProductPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
 
+  // Duplicate detection hook
+  const {
+    checkDuplicate,
+    nameError,
+    barcodeError,
+    hasNameDuplicate,
+    hasBarcodeDuplicate,
+    hasCheckedName,
+    hasCheckedBarcode
+  } = useDuplicateCheck()
+
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
@@ -91,6 +103,25 @@ const CreateProductPage: React.FC = () => {
   })
 
   const watchedType = watch('type')
+  const watchedName = watch('name')
+  const watchedBarcode = watch('barcode')
+
+  // Real-time duplicate checking
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      if ((watchedName && watchedName.trim().length >= 2) ||
+          (watchedBarcode && watchedBarcode.trim().length >= 1)) {
+
+        await checkDuplicate({
+          name: watchedName && watchedName.trim().length >= 2 ? watchedName.trim() : undefined,
+          barcode: watchedBarcode && watchedBarcode.trim().length >= 1 ? watchedBarcode.trim() : undefined,
+          excludeId: isEditMode ? id : undefined,
+        })
+      }
+    }, 500) // Debounce API calls
+
+    return () => clearTimeout(timeoutId)
+  }, [watchedName, watchedBarcode, checkDuplicate, isEditMode, id])
 
   useEffect(() => {
     if (isEditMode && id) {
@@ -132,6 +163,17 @@ const CreateProductPage: React.FC = () => {
   }
 
   const onSubmit = async (data: ProductFormData) => {
+    // Check for duplicates before submitting
+    if (hasNameDuplicate) {
+      showError(nameError)
+      return
+    }
+
+    if (hasBarcodeDuplicate) {
+      showError(barcodeError)
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -235,8 +277,13 @@ const CreateProductPage: React.FC = () => {
                             <TextField
                               {...field}
                               label="Product Name"
-                              error={!!errors.name}
-                              helperText={errors.name?.message}
+                              error={!!errors.name || hasNameDuplicate}
+                              helperText={
+                                errors.name?.message ||
+                                (hasNameDuplicate ? nameError :
+                                  (watchedName && watchedName.trim().length >= 2 && hasCheckedName && !hasNameDuplicate ?
+                                    '✓ Name is available' : ''))
+                              }
                               required
                               fullWidth
                               size="small"
@@ -246,6 +293,11 @@ const CreateProductPage: React.FC = () => {
                                 },
                                 '& .MuiInputLabel-root': {
                                   fontSize: '0.875rem',
+                                },
+                                '& .MuiFormHelperText-root': {
+                                  color: hasNameDuplicate ? 'error.main' :
+                                    (watchedName && watchedName.trim().length >= 2 && hasCheckedName && !hasNameDuplicate ?
+                                      'success.main' : undefined)
                                 }
                               }}
                             />
@@ -286,6 +338,12 @@ const CreateProductPage: React.FC = () => {
                             <TextField
                               {...field}
                               label="Barcode"
+                              error={hasBarcodeDuplicate}
+                              helperText={
+                                hasBarcodeDuplicate ? barcodeError :
+                                  (watchedBarcode && watchedBarcode.trim().length >= 1 && hasCheckedBarcode && !hasBarcodeDuplicate ?
+                                    '✓ Barcode is available' : '')
+                              }
                               fullWidth
                               size="small"
                               sx={{
@@ -294,6 +352,11 @@ const CreateProductPage: React.FC = () => {
                                 },
                                 '& .MuiInputLabel-root': {
                                   fontSize: '0.875rem',
+                                },
+                                '& .MuiFormHelperText-root': {
+                                  color: hasBarcodeDuplicate ? 'error.main' :
+                                    (watchedBarcode && watchedBarcode.trim().length >= 1 && hasCheckedBarcode && !hasBarcodeDuplicate ?
+                                      'success.main' : undefined)
                                 }
                               }}
                             />
@@ -690,7 +753,7 @@ const CreateProductPage: React.FC = () => {
                           type="submit"
                           variant="contained"
                           fullWidth
-                          disabled={loading}
+                          disabled={loading || hasNameDuplicate || hasBarcodeDuplicate}
                         >
                           {loading
                             ? (isEditMode ? 'Updating...' : 'Creating...')
