@@ -237,6 +237,23 @@ export class SalesOrderService {
 
       await this.invoiceRepository.save(invoice);
 
+      // Copy sales order items to invoice items
+      if (orderWithCustomer.items && orderWithCustomer.items.length > 0) {
+        const invoiceItemsData = orderWithCustomer.items.map(soItem => ({
+          invoiceId: invoice.id,
+          lineNumber: soItem.lineNumber,
+          productId: soItem.productId,
+          productDescription: soItem.productDescription,
+          quantity: Number(soItem.quantity),
+          unitPrice: Number(soItem.unitPrice),
+          discount: Number(soItem.discountAmount || 0),
+          totalAmount: Number(soItem.totalAmount),
+        }));
+
+        await this.invoiceItemRepository.insert(invoiceItemsData);
+        console.log(`✅ Copied ${invoiceItemsData.length} items to invoice ${invoice.invoiceNumber}`);
+      }
+
       console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for new order ${savedOrder.orderNumber}`);
     } catch (error) {
       console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
