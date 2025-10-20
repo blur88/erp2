@@ -12,6 +12,7 @@ import NetworkStatus from './components/common/NetworkStatus'
 const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
 const InventoryPage = React.lazy(() => import('./pages/inventory/InventoryPage'))
 const ProductsPage = React.lazy(() => import('./pages/inventory/ProductsPage'))
+const CreateProductPage = React.lazy(() => import('./pages/inventory/CreateProductPage'))
 const CategoriesPage = React.lazy(() => import('./pages/inventory/CategoriesPage'))
 const SalesPage = React.lazy(() => import('./pages/sales/SalesPage'))
 const CustomersPage = React.lazy(() => import('./pages/sales/CustomersPage'))
@@ -63,6 +64,8 @@ function App() {
                     {/* Inventory Management */}
                     <Route path="/inventory" element={<InventoryPage />} />
                     <Route path="/inventory/products" element={<ProductsPage />} />
+                    <Route path="/inventory/products/create" element={<CreateProductPage />} />
+                    <Route path="/inventory/products/:id/edit" element={<CreateProductPage />} />
                     <Route path="/inventory/categories" element={<CategoriesPage />} />
 
                     {/* Sales Management */}
