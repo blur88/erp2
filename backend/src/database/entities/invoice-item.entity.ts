@@ -35,16 +35,7 @@ export class InvoiceItem extends BaseEntity {
   @Min(1)
   lineNumber: number;
 
-  // Product Information (captured at time of invoice)
-  @Column({
-    type: 'varchar',
-    length: 200,
-    comment: 'Product name at time of invoice',
-  })
-  @IsString()
-  @MaxLength(200)
-  productName: string;
-
+  // Product Information (retrieved from product relationship)
   @Column({
     type: 'text',
     nullable: true,
@@ -129,7 +120,7 @@ export class InvoiceItem extends BaseEntity {
 
   @ManyToOne(() => Product, {
     onDelete: 'RESTRICT',
-    eager: false,
+    eager: true, // Eager load product relationship to get product name
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
@@ -162,7 +153,6 @@ export class InvoiceItem extends BaseEntity {
 
     return {
       productId: product.id,
-      productName: product.name,
       productDescription: product.description,
       quantity,
       unitPrice,
