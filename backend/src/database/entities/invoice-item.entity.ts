@@ -38,15 +38,6 @@ export class InvoiceItem extends BaseEntity {
   // Product Information (captured at time of invoice)
   @Column({
     type: 'varchar',
-    length: 50,
-    comment: 'Product SKU at time of invoice',
-  })
-  @IsString()
-  @MaxLength(50)
-  productSku: string;
-
-  @Column({
-    type: 'varchar',
     length: 200,
     comment: 'Product name at time of invoice',
   })
@@ -171,7 +162,6 @@ export class InvoiceItem extends BaseEntity {
 
     return {
       productId: product.id,
-      productSku: product.barcode,
       productName: product.name,
       productDescription: product.description,
       quantity,

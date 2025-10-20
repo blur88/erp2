@@ -254,7 +254,6 @@ export class InvoiceResponseDto {
     lineNumber: number;
     productId: string;
     productName: string;
-    productSku: string;
     quantity: number;
     unitPrice: number;
     discount: number;

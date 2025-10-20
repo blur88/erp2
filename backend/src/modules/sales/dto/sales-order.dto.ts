@@ -312,9 +312,6 @@ export class SalesOrderItemResponseDto {
   @ApiProperty({ example: 'uuid-string' })
   productId: string;
 
-  @ApiProperty({ example: 'PROD001' })
-  productSku: string;
-
   @ApiProperty({ example: 'Wireless Mouse' })
   productName: string;
 

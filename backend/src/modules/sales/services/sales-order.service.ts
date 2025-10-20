@@ -698,7 +698,6 @@ export class SalesOrderService {
         await this.salesOrderItemRepository.insert({
           lineNumber: itemData.lineNumber || 1,
           productId: itemData.productId,
-          productSku: itemData.productSku || 'N/A',
           productName: itemData.productName || 'Unknown Product',
           productDescription: itemData.productDescription || '',
           unit: itemData.unit || 'pcs',
@@ -1108,7 +1107,6 @@ export class SalesOrderService {
       processedItems.push({
         lineNumber: lineNumber++,
         productId: item.productId,
-        productSku: product.barcode || 'N/A',
         productName: product.name || 'Unknown Product',
         productDescription: product.description || '',
         unit: 'pcs', // Default unit since Product entity doesn't have unit field
@@ -1481,7 +1479,6 @@ export class SalesOrderService {
             invoiceId: invoice.id,
             lineNumber: soItem.lineNumber,
             productId: soItem.productId,
-            productSku: soItem.productSku,
             productName: soItem.productName,
             productDescription: soItem.productDescription,
             quantity: Number(soItem.quantity),
@@ -1806,7 +1803,6 @@ export class SalesOrderService {
       items: order.items?.map(item => ({
         id: item.id,
         productId: item.productId,
-        productSku: item.product?.barcode || 'N/A',
         productName: item.product?.name || 'Unknown Product',
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
