@@ -316,7 +316,7 @@ const PurchasingPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/purchasing/purchase-orders')}
+            onClick={() => navigate('/purchasing/orders')}
           >
             Create Purchase Order
           </Button>
@@ -511,7 +511,7 @@ const PurchasingPage: React.FC = () => {
                         },
                         height: TABLE_STYLES.row.height
                       }}
-                      onClick={() => navigate('/purchasing/purchase-orders', { state: { highlightOrderId: order.id } })}
+                      onClick={() => navigate('/purchasing/orders', { state: { highlightOrderId: order.id } })}
                     >
                       <TableCell>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, fontFamily: 'monospace' }}>
