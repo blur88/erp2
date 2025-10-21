@@ -316,7 +316,7 @@ const PurchasingPage: React.FC = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/purchasing/orders')}
+            onClick={() => navigate('/purchasing/orders/create')}
           >
             Create Purchase Order
           </Button>
