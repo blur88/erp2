@@ -1483,7 +1483,6 @@ export class SalesOrderService {
         // Update customer information if changed
         if (updatedOrder.customer) {
           invoice.customerId = updatedOrder.customerId;
-          invoice.customerName = updatedOrder.customer.name;
         }
 
         // Sync invoice items from sales order items
