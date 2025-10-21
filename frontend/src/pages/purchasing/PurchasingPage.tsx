@@ -17,7 +17,7 @@ import {
   useTheme
 } from '@mui/material'
 import {
-  ShoppingCart as PurchasingIcon,
+  Assignment as PurchasingIcon,
   LocalShipping as SuppliersIcon,
   Inventory2 as GRNIcon,
   Payment as PaymentsIcon,
