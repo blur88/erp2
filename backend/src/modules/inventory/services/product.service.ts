@@ -1060,7 +1060,6 @@ export class ProductService {
     categoryBreakdown: Array<{ category: string; count: number; value: number }>;
     stockHealthMetrics: {
       inStockPercentage: number;
-      lowStockPercentage: number;
       outOfStockPercentage: number;
       averageValue: number;
     };
@@ -1117,11 +1116,10 @@ export class ProductService {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5); // Top 5 categories
 
-    // Calculate stock health metrics
+    // Calculate stock health metrics (only in-stock vs out-of-stock)
     const inStockCount = totalProducts - outOfStockCount;
     const stockHealthMetrics = {
       inStockPercentage: totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0,
-      lowStockPercentage: totalProducts > 0 ? Math.round((lowStockCount / totalProducts) * 100) : 0,
       outOfStockPercentage: totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0,
       averageValue: totalProducts > 0 ? inventoryValue / totalProducts : 0,
     };

@@ -108,7 +108,6 @@ const InventoryPage: React.FC = () => {
           categoryBreakdown: [],
           stockHealthMetrics: {
             inStockPercentage: 0,
-            lowStockPercentage: 0,
             outOfStockPercentage: 0,
             averageValue: 0
           }
@@ -146,17 +145,15 @@ const InventoryPage: React.FC = () => {
   }
 
   const stockHealthData = {
-    labels: ['In Stock', 'Low Stock', 'Out of Stock'],
+    labels: ['In Stock', 'Out of Stock'],
     datasets: [
       {
         data: [
           inventoryData?.stats?.stockHealthMetrics?.inStockPercentage || 0,
-          inventoryData?.stats?.stockHealthMetrics?.lowStockPercentage || 0,
           inventoryData?.stats?.stockHealthMetrics?.outOfStockPercentage || 0
         ],
         backgroundColor: [
           theme.palette.success.main,
-          theme.palette.warning.main,
           theme.palette.error.main
         ],
         borderWidth: 2,
@@ -171,6 +168,15 @@ const InventoryPage: React.FC = () => {
     plugins: {
       legend: {
         position: 'bottom' as const,
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const label = context.label || '';
+            const value = context.parsed || 0;
+            return `${label}: ${value}%`;
+          }
+        }
       }
     }
   }
