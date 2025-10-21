@@ -121,7 +121,8 @@ const PurchasingPage: React.FC = () => {
       const totalSpent = allOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
       const totalOrders = allOrders.length
       const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0
-      const activeSuppliers = suppliersData.filter((s: any) => s.status === 'active').length
+      // Count active suppliers (not soft-deleted)
+      const activeSuppliers = suppliersData.filter((s: any) => !s.deletedAt).length
 
       // Generate period data for chart (last 30 days)
       const periodData: any[] = []
