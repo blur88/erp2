@@ -5,22 +5,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Comprehensive ERP system with modern full-stack architecture:
-- **Backend**: NestJS + TypeORM (PostgreSQL) + MongoDB + Redis + Bull Queue
+- **Backend**: NestJS 11 + TypeORM (PostgreSQL) + MongoDB + Redis 8 + Bull Queue
 - **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit + Vite
-- **Infrastructure**: Docker + NGINX
+- **Infrastructure**: Docker + NGINX + Node.js 22
 - **Testing**: Jest (backend) + Vitest (frontend)
+
+**Last Updated**: October 2025
 
 ## Current System Status
 
 **⚠️ CRITICAL: Authentication system completely removed**
 
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `DashboardModule`  
-**Disabled Modules**: `PurchasingModule`, `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
+**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`
+**Disabled Modules**: `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
 
 - All API endpoints publicly accessible
 - Frontend fully integrated with backend
 - WebSocket support for real-time updates
 - Categories simplified (name + hierarchy only)
+- Purchasing module re-enabled (October 2025)
 
 ## Key Commands
 
@@ -116,8 +119,8 @@ docker compose logs backend # Check specific service logs
 ## Architecture Overview
 
 ### Backend Module Structure
-- **Core**: `users/` - User management  
-- **Business**: `inventory/` (✅), `sales/` (✅), `purchasing/` (❌)
+- **Core**: `users/` - User management
+- **Business**: `inventory/` (✅), `sales/` (✅), `purchasing/` (✅)
 - **Analytics**: `dashboard/` (✅ with WebSocket), `reports/` (❌)
 - **System**: `plugins/` (❌ disabled)
 
@@ -238,9 +241,17 @@ When enabling disabled modules:
 - ✅ **Container Health**: Added curl to frontend nginx container for health checks
 - ✅ **Security Enhancements**: Payment numbers now clickable in invoice details
 
-## Recent Changes (December 2025)
+## Recent Changes (October 2025)
 
-### Product Fields Modernization (December 2025)
+### Purchasing Module Re-enabled (October 2025)
+- ✅ **COMPLETE**: PurchasingModule fully re-enabled and functional
+- **Auth Cleanup**: Removed all authentication dependencies from purchasing endpoints
+- **Frontend Integration**: Purchase orders page with comprehensive overview analytics
+- **Navigation**: Proper routing and navigation between purchase order pages
+- **Status Display**: Using `isFullyReceived` flag for accurate PO status
+- **Analytics**: Comprehensive purchasing dashboard with real-time data
+
+### Product Fields Modernization (October 2025)
 - ✅ **LATEST**: Simplified product model to match frontend form
 - **Final Product Fields**: name, description, barcode, type, categoryId, baseCost, retailPrice, wholesalePrice, specialPrice, stockQuantity, notes, isActive
 - **Removed Fields**: status, unit, reservedQuantity, reorderLevel, optimalStockLevel, stockStatus, weight, dimensions, brand, model, imageUrl, additionalImages, attributes
@@ -249,7 +260,7 @@ When enabling disabled modules:
 - **Search**: Simplified to search only by name and barcode
 - **Permanent Delete**: Added hard delete functionality for soft-deleted products
 
-### Soft-Deleted Products Feature (December 2025)
+### Soft-Deleted Products Feature (October 2025)
 - ✅ **COMPLETE**: Full soft-deleted products management system
 - **Backend**: `GET /api/inventory/products/deleted` and `POST /api/inventory/products/:id/restore` endpoints
 - **Frontend**: Enhanced `DeletedProductsDialog` with modern table design matching categories
@@ -264,18 +275,18 @@ When enabling disabled modules:
 - ✅ Category restore/undo functionality implemented
 - ✅ WebSocket integration for dashboard real-time updates
 
-### Categories Simplified (December 2025)
+### Categories Simplified (October 2025)
 - Removed `code` and `description` fields entirely
 - Now only contains: name, hierarchy, status, sort order, audit fields
 - Tree view removed from categories page - now displays simple table view only
 
-### Customer Management Bulk Operations (December 2025)
+### Customer Management Bulk Operations (October 2025)
 - ✅ **COMPLETE**: Bulk restore and bulk delete functionality for customers
 - **Frontend**: Enhanced customer page with bulk operations matching products/categories pattern
 - **UI Integration**: Bulk action buttons and "View Deleted" functionality
 - **State Management**: Redux support for bulk operations on customer records
 
-### Product API Endpoints Fixed (December 2025)
+### Product API Endpoints Fixed (October 2025)
 - ✅ **CRITICAL FIX**: Product listing endpoints were returning reversed data
 - **Root Cause**: `remove()` method only set status flags but didn't use TypeORM's `softDelete()` for `deletedAt` timestamp
 - **Fix**: Updated `remove()` to use `await this.productRepository.softDelete(id)` and `findAll()` to filter `WHERE product.deletedAt IS NULL`
@@ -284,20 +295,20 @@ When enabling disabled modules:
   - `/api/inventory/products/deleted` now correctly returns only **soft-deleted products**
 - **Frontend Impact**: Products page and "View Deleted" dialog now show correct data sets
 
-### CategorySelector Data Fix (December 2025)
+### CategorySelector Data Fix (October 2025)
 - ✅ **FIXED**: CategorySelector now properly displays all categories instead of just "Main Category"
 - **Root Cause**: Component was incorrectly accessing `response.data?.data` instead of `response.data`
 - **Fix**: Updated to `const categoryTree = (response.data as any) || []`
 - **Result**: Parent category dropdown now shows hierarchical category tree with proper indentation
 - Categories display as: "Main Category", "Electronics", "  Mobile Phones" (indented), etc.
 
-### Category Form Validation Fixed (December 2025)
+### Category Form Validation Fixed (October 2025)
 - Fixed yup schema validation for `parentId` to allow `null` values: `.nullable()`
 - Updated TypeScript interfaces to support `parentId?: string | null`
 - Root level categories properly created with `parentId: null`
 - CategorySelector properly handles "Main Category" option (updated from "No Category (Root Level)")
 
-### Sales Order Enhancements (December 2025)
+### Sales Order Enhancements (October 2025)
 - ✅ **COMPLETE**: Enhanced sales order management with advanced filtering and payment handling
 - **Payment Features**: Overpayment handling with negative balance display and refund functionality
 - **Filtering**: Added payment status and fulfillment status filters with standardized dropdown widths (120px)
@@ -457,10 +468,13 @@ curl http://localhost:3001/socket.io/ | head -1
 ```
 
 ### Module Re-enabling
-For disabled modules (Purchasing, Reports, Plugins):
+For disabled modules (Reports, Plugins):
 1. Fix auth-related TypeScript errors using `'system'` default
-2. Install missing dependencies: `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
+2. Install missing dependencies if needed: `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
 3. Check compilation: `npx tsc --noEmit`
+4. Update `app.module.ts` to uncomment the module import
+
+**Note**: Purchasing module successfully re-enabled in October 2025 following this pattern.
 
 ## Key Files
 
@@ -474,7 +488,7 @@ For disabled modules (Purchasing, Reports, Plugins):
 - `backend/src/modules/inventory/` - ✅ Fully functional
 - `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes
 - `backend/src/modules/dashboard/` - ✅ WebSocket support
-- `backend/src/modules/purchasing/` - ❌ Needs auth cleanup
+- `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025)
 
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products
