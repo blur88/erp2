@@ -90,11 +90,11 @@ const InventoryPage: React.FC = () => {
         movementsData = movementsResult.data || []
       }
 
-      // Fetch low stock alerts
-      const lowStockResponse = await fetch('/api/inventory/products/low-stock')
-      let lowStockData = []
-      if (lowStockResponse.ok) {
-        lowStockData = await lowStockResponse.json()
+      // Fetch out of stock products
+      const outOfStockResponse = await fetch('/api/inventory/products/out-of-stock')
+      let outOfStockData = []
+      if (outOfStockResponse.ok) {
+        outOfStockData = await outOfStockResponse.json()
       }
 
       setInventoryData({
@@ -114,7 +114,7 @@ const InventoryPage: React.FC = () => {
           }
         },
         recentMovements: movementsData,
-        lowStockAlerts: lowStockData
+        outOfStockAlerts: outOfStockData
       })
     } catch (error) {
       console.error('Error fetching inventory data:', error)
@@ -221,17 +221,17 @@ const InventoryPage: React.FC = () => {
       color: 'success'
     },
     {
-      title: 'Low Stock Items',
-      value: inventoryData?.stats?.lowStockCount || '0',
-      change: inventoryData?.stats?.lowStockCount > 0 ? `${inventoryData.stats.lowStockCount} alerts` : 'No alerts',
-      trend: inventoryData?.stats?.lowStockCount > 0 ? 'down' : 'up',
-      icon: WarningIcon,
-      color: 'warning'
+      title: 'Out of Stock',
+      value: inventoryData?.stats?.outOfStockCount || '0',
+      change: inventoryData?.stats?.outOfStockCount > 0 ? `${inventoryData.stats.outOfStockCount} items` : 'All stocked',
+      trend: inventoryData?.stats?.outOfStockCount > 0 ? 'down' : 'up',
+      icon: OutOfStockIcon,
+      color: 'error'
     }
   ]
 
   const recentMovements = inventoryData?.recentMovements || []
-  const lowStockAlerts = inventoryData?.lowStockAlerts || []
+  const outOfStockAlerts = inventoryData?.outOfStockAlerts || []
 
   if (loading) {
     return (
@@ -517,11 +517,11 @@ const InventoryPage: React.FC = () => {
         <Grid item xs={12} lg={4}>
           <Paper sx={{ p: 3 }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Low Stock Alerts
+              Out of Stock Items
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {lowStockAlerts.length > 0 ? lowStockAlerts.slice(0, 5).map((alert: any, index: number) => (
-                <Box key={alert.product?.id || index}>
+              {outOfStockAlerts.length > 0 ? outOfStockAlerts.slice(0, 5).map((alert: any, index: number) => (
+                <Box key={alert.id || index}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box
@@ -529,31 +529,27 @@ const InventoryPage: React.FC = () => {
                           width: 24,
                           height: 24,
                           borderRadius: '50%',
-                          bgcolor: alert.currentStock === 0 ? 'error.main' : 'warning.main',
+                          bgcolor: 'error.main',
                           color: 'white',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
                       >
-                        {alert.currentStock === 0 ? (
-                          <OutOfStockIcon sx={{ fontSize: 14 }} />
-                        ) : (
-                          <WarningIcon sx={{ fontSize: 14 }} />
-                        )}
+                        <OutOfStockIcon sx={{ fontSize: 14 }} />
                       </Box>
                       <Box>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {alert.product?.name || 'Unknown Product'}
+                          {alert.name || 'Unknown Product'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Stock: {alert.currentStock || 0} / Min: {alert.minStock || 0}
+                          {alert.categoryName || 'Uncategorized'}
                         </Typography>
                       </Box>
                     </Box>
                     <Chip
-                      label={alert.currentStock === 0 ? 'Out' : 'Low'}
-                      color={alert.currentStock === 0 ? 'error' : 'warning'}
+                      label="Out"
+                      color="error"
                       size="small"
                       sx={{
                         fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
@@ -565,7 +561,7 @@ const InventoryPage: React.FC = () => {
                 </Box>
               )) : (
                 <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
-                  No low stock alerts
+                  All products in stock
                 </Typography>
               )}
             </Box>
