@@ -60,9 +60,8 @@ interface Payment {
   customerName: string
   amount: number
   paymentDate: string
-  paymentMethod: 'cash' | 'card' | 'bank_transfer' | 'check' | 'other'
-  status: 'pending' | 'completed' | 'failed' | 'refunded'
-  reference?: string
+  paymentMethod: 'cash'
+  status: 'completed'
   notes?: string
   relatedOrderId?: string
   relatedInvoiceId?: string
@@ -97,7 +96,6 @@ interface PaymentFilters {
   customFromDate: string
   customToDate: string
   customerId: string
-  paymentMethod: string
 }
 
 
@@ -117,9 +115,6 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'success'
-      case 'pending': return 'warning'
-      case 'failed': return 'error'
-      case 'refunded': return 'info'
       default: return 'default'
     }
   }
@@ -188,8 +183,7 @@ const PaymentsPage: React.FC = () => {
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
-    customerId: 'all',
-    paymentMethod: 'all'
+    customerId: 'all'
   })
 
   const [editDialog, setEditDialog] = useState(false)
@@ -469,9 +463,6 @@ const PaymentsPage: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'success'
-      case 'pending': return 'warning'
-      case 'failed': return 'error'
-      case 'refunded': return 'info'
       default: return 'default'
     }
   }
@@ -479,10 +470,6 @@ const PaymentsPage: React.FC = () => {
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
       case 'cash': return 'Cash'
-      case 'card': return 'Card'
-      case 'bank_transfer': return 'Bank Transfer'
-      case 'check': return 'Check'
-      case 'other': return 'Other'
       default: return method
     }
   }
@@ -680,51 +667,8 @@ const PaymentsPage: React.FC = () => {
           </>
         )}
 
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem'
-            }
-          }}
-        >
-          <InputLabel>Payment Method</InputLabel>
-          <Select
-            value={filters.paymentMethod}
-            label="Payment Method"
-            onChange={(e) => {
-              setFilters((prev: PaymentFilters) => ({ ...prev, paymentMethod: e.target.value }))
-              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
-            }}
-            sx={{
-              fontSize: '0.875rem',
-              '& .MuiSelect-select': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
-              }
-            }}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  '& .MuiMenuItem-root': {
-                    fontSize: '0.875rem'
-                  }
-                }
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="cash">Cash</MenuItem>
-            <MenuItem value="card">Card</MenuItem>
-            <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-            <MenuItem value="check">Check</MenuItem>
-            <MenuItem value="other">Other</MenuItem>
-          </Select>
-        </FormControl>
-
-        {(filters.dateFilter !== 'all' || filters.paymentMethod !== 'all' || filters.search) && (
+        
+        {(filters.dateFilter !== 'all' || filters.search) && (
           <Button
             variant="outlined"
             size="medium"
@@ -736,8 +680,7 @@ const PaymentsPage: React.FC = () => {
                 dateFilter: 'all',
                 customFromDate: '',
                 customToDate: '',
-                customerId: 'all',
-                paymentMethod: 'all'
+                customerId: 'all'
               })
               setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
             }}
