@@ -112,19 +112,7 @@ export class Invoice extends BaseEntity {
   @Min(0)
   balanceDue: number;
 
-  
-  // Billing Information (captured at time of invoice)
-  @Column({
-    type: 'varchar',
-    length: 200,
-    comment: 'Customer name at time of invoice',
-  })
-  @IsString()
-  @MaxLength(200)
-  customerName: string;
-
-  
-  // Foreign Keys
+    // Foreign Keys
   @Column({
     type: 'uuid',
     comment: 'Customer ID',
@@ -238,7 +226,6 @@ export class Invoice extends BaseEntity {
     return {
       customerId: salesOrder.customerId,
       salesOrderId: salesOrder.id,
-      customerName: salesOrder.customer?.name,
       totalAmount: totalAmount, // Calculate from sales order total
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due

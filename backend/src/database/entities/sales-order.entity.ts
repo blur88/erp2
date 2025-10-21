@@ -110,6 +110,17 @@ export class SalesOrder extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
+    comment: 'Shipping/freight charges',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  shippingAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    default: 0,
     comment: 'Total order amount',
   })
   @IsDecimal({ decimal_digits: '0,4' })

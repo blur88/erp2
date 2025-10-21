@@ -62,15 +62,6 @@ export class SalesOrderItem extends BaseEntity {
   // Product Information (captured at time of order)
   @Column({
     type: 'varchar',
-    length: 50,
-    comment: 'Product SKU at time of order',
-  })
-  @IsString()
-  @MaxLength(50)
-  productSku: string;
-
-  @Column({
-    type: 'varchar',
     length: 200,
     comment: 'Product name at time of order',
   })
@@ -78,14 +69,8 @@ export class SalesOrderItem extends BaseEntity {
   @MaxLength(200)
   productName: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Product description at time of order',
-  })
-  @IsOptional()
-  @IsString()
-  productDescription?: string;
+  // Product description is retrieved from product relationship
+  // No need to store product description separately as it's available via product.description
 
   @Column({
     type: 'varchar',
@@ -314,17 +299,15 @@ export class SalesOrderItem extends BaseEntity {
 
   // Static method to create from product
   static fromProduct(
-    product: Product, 
-    quantity: number, 
+    product: Product,
+    quantity: number,
     priceType: 'retail' | 'wholesale' | 'special' = 'retail'
   ): Partial<SalesOrderItem> {
     const unitPrice = product.getPriceByType(priceType);
-    
+
     return {
       productId: product.id,
-      productSku: product.barcode,
       productName: product.name,
-      productDescription: product.description,
       unit: 'pcs',
       quantity,
       unitPrice,

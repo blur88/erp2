@@ -34,7 +34,7 @@ import { ApiService } from '@/services/api'
 import { formatCurrency } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updateOrderInPlace } from '@/store/slices/salesSlice'
+import { updateOrderInPlace, createOrder as createOrderAction } from '@/store/slices/salesSlice'
 
 interface OrderItem {
   productId: string
@@ -53,6 +53,7 @@ interface CreateOrderFormData {
   customerId: string
   orderDate: string
   notes?: string
+  shipping: number
   items: OrderItem[]
 }
 
@@ -60,6 +61,7 @@ const schema = yup.object({
   customerId: yup.string().required('Customer is required'),
   orderDate: yup.string().required('Order date is required'),
   notes: yup.string().optional(),
+  shipping: yup.number().min(0).optional(),
   items: yup.array().of(
     yup.object({
       productId: yup.string().required('Product is required'),
@@ -94,6 +96,7 @@ const CreateSalesOrderPage: React.FC = () => {
       customerId: '',
       orderDate: new Date().toISOString().split('T')[0],
       notes: '',
+      shipping: 0,
       items: [
         {
           productId: '',
@@ -116,6 +119,7 @@ const CreateSalesOrderPage: React.FC = () => {
   })
 
   const watchedItems = watch('items')
+  const watchedShipping = watch('shipping')
 
   useEffect(() => {
     loadCustomers()
@@ -183,6 +187,7 @@ const CreateSalesOrderPage: React.FC = () => {
         customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
         orderDate: orderToLoad.orderDate ? new Date(orderToLoad.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         notes: orderToLoad.notes || '',
+        shipping: orderToLoad.shippingAmount || 0,
         items: itemsToReset || [
           {
             productId: '',
@@ -209,35 +214,18 @@ const CreateSalesOrderPage: React.FC = () => {
       if (item.quantity && item.unitPrice !== undefined) {
         const quantity = Number(item.quantity)
         const unitPrice = Number(item.unitPrice)
-        const subtotal = quantity * unitPrice
-        let discountAmount = 0
-        let discountPercent = Number(item.discountPercent) || 0
+        let unitDiscount = 0
 
         if (item.discountType === 'percentage') {
-          // Percentage discount
-          discountPercent = Number(item.discountValue || 0)
-          discountAmount = subtotal * (discountPercent / 100)
-
-          if (Math.abs(item.discountPercent - discountPercent) > 0.01) {
-            setValue(`items.${index}.discountPercent`, Number(discountPercent.toFixed(2)))
-          }
-          if (Math.abs(item.discountAmount - discountAmount) > 0.01) {
-            setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
-          }
+          // Percentage discount: apply to unit price
+          unitDiscount = unitPrice * (Number(item.discountValue || 0) / 100)
         } else {
-          // Fixed amount discount
-          discountAmount = Math.min(Number(item.discountValue || 0), subtotal)
-          discountPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0
-
-          if (Math.abs(item.discountAmount - discountAmount) > 0.01) {
-            setValue(`items.${index}.discountAmount`, Number(discountAmount.toFixed(2)))
-          }
-          if (Math.abs(item.discountPercent - discountPercent) > 0.01) {
-            setValue(`items.${index}.discountPercent`, Number(discountPercent.toFixed(2)))
-          }
+          // Fixed amount discount: per unit
+          unitDiscount = Number(item.discountValue || 0)
         }
 
-        const total = subtotal - discountAmount
+        const discountedUnitPrice = unitPrice - unitDiscount
+        const total = discountedUnitPrice * quantity
 
         if (Math.abs(item.totalPrice - total) > 0.01) {
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
@@ -284,6 +272,7 @@ const CreateSalesOrderPage: React.FC = () => {
         customerId: data.customerId,
         orderDate: data.orderDate,
         notes: data.notes || undefined,
+        shippingAmount: Number(data.shipping) || 0,
         items: data.items.map((item) => ({
           productId: item.productId,
           quantity: Number(item.quantity),
@@ -305,13 +294,15 @@ const CreateSalesOrderPage: React.FC = () => {
         dispatch(updateOrderInPlace(updatedOrder))
 
         showSuccess('Sales order updated successfully')
+        // Navigate to orders page with the updated order selected
+        navigate('/sales/orders', { state: { highlightOrderId: id } })
       } else {
-        await salesApi.createOrder(orderData as any)
+        // Use Redux action to create order - this will auto-add it to the list
+        const result = await dispatch(createOrderAction(orderData as any)).unwrap()
         showSuccess('Sales order created successfully')
+        // Navigate to orders page with the new order selected
+        navigate('/sales/orders', { state: { highlightOrderId: result.id } })
       }
-
-      // Navigate back
-      navigate('/sales/orders')
     } catch (err: any) {
       console.error('Error creating sales order:', err)
       setError(err.response?.data?.message || 'Failed to create sales order')
@@ -345,8 +336,10 @@ const CreateSalesOrderPage: React.FC = () => {
   }
 
   const calculateOrderTotals = () => {
-    const totalAmount = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
-    return { totalAmount }
+    const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+    const shipping = Number(watchedShipping) || 0
+    const totalAmount = subtotal + shipping
+    return { subtotal, shipping, totalAmount }
   }
 
   const addItem = () => {
@@ -365,7 +358,7 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const totals = React.useMemo(() => {
     return calculateOrderTotals()
-  }, [JSON.stringify(watchedItems)])
+  }, [JSON.stringify(watchedItems), watchedShipping])
 
   return (
     <Container maxWidth="xl">
@@ -854,6 +847,66 @@ const CreateSalesOrderPage: React.FC = () => {
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" gutterBottom>SO Summary</Typography>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
+                    <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.875rem' }}>Shipping:</Typography>
+                    <Controller
+                      name="shipping"
+                      control={control}
+                      render={({ field }) => {
+                        const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(field.value))
+                        const [isFocused, setIsFocused] = React.useState(false)
+
+                        React.useEffect(() => {
+                          if (!isFocused) {
+                            setDisplayValue(formatNumberWithCommas(field.value))
+                          }
+                        }, [field.value, isFocused])
+
+                        return (
+                          <TextField
+                            value={displayValue}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/[^0-9.]/g, '')
+                              setDisplayValue(value)
+                              const numValue = value === '' ? 0 : parseFloat(value.replace(/,/g, ''))
+                              field.onChange(isNaN(numValue) ? 0 : numValue)
+                            }}
+                            onFocus={() => {
+                              setIsFocused(true)
+                              setDisplayValue(field.value === 0 ? '0' : (field.value?.toString() || '0'))
+                            }}
+                            onBlur={() => {
+                              setIsFocused(false)
+                              if (displayValue === '' || displayValue === '.') {
+                                field.onChange(0)
+                              }
+                              setDisplayValue(formatNumberWithCommas(field.value || 0))
+                            }}
+                            variant="outlined"
+                            size="small"
+                            inputProps={{
+                              style: { textAlign: 'right', fontSize: '0.875rem' }
+                            }}
+                            sx={{
+                              width: '120px',
+                              '& .MuiInputBase-input': {
+                                padding: '4px 8px',
+                              },
+                            }}
+                            InputProps={{
+                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                            }}
+                          />
+                        )
+                      }}
+                    />
+                  </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: '1px solid #e0e0e0' }}>
                     <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Total:</Typography>

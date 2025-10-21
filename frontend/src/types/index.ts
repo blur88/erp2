@@ -275,7 +275,6 @@ export interface Payment {
   reference?: string;
   referenceNumber?: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
-  type?: 'payment' | 'refund' | 'partial_refund';
   paymentDate: Date | string;
   notes?: string;
   createdAt: Date | string;

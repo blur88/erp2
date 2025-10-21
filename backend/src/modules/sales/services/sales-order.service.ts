@@ -142,7 +142,9 @@ export class SalesOrderService {
 
     // Validate and calculate order totals
     const orderItems = await this.validateAndProcessItems(items);
-    const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+    const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+    const shippingAmount = Number(createSalesOrderDto.shippingAmount || 0);
+    const totalAmount = subtotal + shippingAmount;
 
     // Note: Credit limit check removed - customerService not available
 
@@ -165,6 +167,7 @@ export class SalesOrderService {
       customerId,
       createdByUserId: userId,
       orderDate: new Date(),
+      shippingAmount,
       totalAmount,
       status: SalesOrderStatus.DRAFT,
     });
@@ -233,6 +236,22 @@ export class SalesOrderService {
       invoice.updateStatus();
 
       await this.invoiceRepository.save(invoice);
+
+      // Copy sales order items to invoice items
+      if (orderWithCustomer.items && orderWithCustomer.items.length > 0) {
+        const invoiceItemsData = orderWithCustomer.items.map(soItem => ({
+          invoiceId: invoice.id,
+          lineNumber: soItem.lineNumber,
+          productId: soItem.productId,
+          quantity: Number(soItem.quantity),
+          unitPrice: Number(soItem.unitPrice),
+          discount: Number(soItem.discountAmount || 0),
+          totalAmount: Number(soItem.totalAmount),
+        }));
+
+        await this.invoiceItemRepository.insert(invoiceItemsData);
+        console.log(`✅ Copied ${invoiceItemsData.length} items to invoice ${invoice.invoiceNumber}`);
+      }
 
       console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for new order ${savedOrder.orderNumber}`);
     } catch (error) {
@@ -678,7 +697,11 @@ export class SalesOrderService {
       // Validate and process new items
       const orderItems = await this.validateAndProcessItems(items);
 
-      const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+      const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+      const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
+        ? Number(updateSalesOrderDto.shippingAmount)
+        : Number(order.shippingAmount || 0);
+      const totalAmount = subtotal + shippingAmount;
 
       // Create new order items using direct object creation to avoid entity relations issues
       for (const itemData of orderItems) {
@@ -691,9 +714,7 @@ export class SalesOrderService {
         await this.salesOrderItemRepository.insert({
           lineNumber: itemData.lineNumber || 1,
           productId: itemData.productId,
-          productSku: itemData.productSku || 'N/A',
           productName: itemData.productName || 'Unknown Product',
-          productDescription: itemData.productDescription || '',
           unit: itemData.unit || 'pcs',
           quantity: itemData.quantity || 1,
           unitPrice: itemData.unitPrice || 0,
@@ -707,8 +728,15 @@ export class SalesOrderService {
         });
       }
 
-      // Add total amount to update data
+      // Add shipping and total amount to update data
+      updateData.shippingAmount = shippingAmount;
       updateData.totalAmount = totalAmount;
+    } else if (updateSalesOrderDto.shippingAmount !== undefined) {
+      // If only shipping is being updated (no items), recalculate total
+      const currentSubtotal = order.items?.reduce((sum, item) => sum + Number(item.totalAmount), 0) || 0;
+      const newShipping = Number(updateSalesOrderDto.shippingAmount);
+      updateData.shippingAmount = newShipping;
+      updateData.totalAmount = currentSubtotal + newShipping;
     }
 
     // Perform all updates in a single database call
@@ -1078,23 +1106,23 @@ export class SalesOrderService {
 
       const unitPrice = Number(item.unitPrice) || Number(product.retailPrice) || 0;
       const discountPercent = Number(item.discountPercent) || 0;
+      const discountAmount = Number(item.discountAmount) || 0;
 
-      // Calculate discount amount based on discount type
-      let discountAmount = 0;
+      // Discount is applied to unit price first, then multiplied by quantity
+      let unitDiscount = 0;
       if (item.discountType === DiscountType.PERCENTAGE && discountPercent > 0) {
-        discountAmount = (unitPrice * item.quantity * discountPercent) / 100;
-      } else if (item.discountType === DiscountType.AMOUNT && item.discountAmount > 0) {
-        discountAmount = Math.min(Number(item.discountAmount), unitPrice * item.quantity);
+        unitDiscount = (unitPrice * discountPercent) / 100;
+      } else if (item.discountType === DiscountType.AMOUNT && discountAmount > 0) {
+        unitDiscount = discountAmount;
       }
 
-      const totalAmount = (unitPrice * item.quantity) - discountAmount;
+      const discountedUnitPrice = unitPrice - unitDiscount;
+      const totalAmount = discountedUnitPrice * item.quantity;
 
       processedItems.push({
         lineNumber: lineNumber++,
         productId: item.productId,
-        productSku: product.barcode || 'N/A',
         productName: product.name || 'Unknown Product',
-        productDescription: product.description || '',
         unit: 'pcs', // Default unit since Product entity doesn't have unit field
         quantity: Number(item.quantity) || 1,
         unitPrice: Number(unitPrice) || 0,
@@ -1452,7 +1480,6 @@ export class SalesOrderService {
         // Update customer information if changed
         if (updatedOrder.customer) {
           invoice.customerId = updatedOrder.customerId;
-          invoice.customerName = updatedOrder.customer.name;
         }
 
         // Sync invoice items from sales order items
@@ -1465,9 +1492,7 @@ export class SalesOrderService {
             invoiceId: invoice.id,
             lineNumber: soItem.lineNumber,
             productId: soItem.productId,
-            productSku: soItem.productSku,
             productName: soItem.productName,
-            productDescription: soItem.productDescription,
             quantity: Number(soItem.quantity),
             unitPrice: Number(soItem.unitPrice),
             discount: Number(soItem.discountAmount),
@@ -1529,7 +1554,6 @@ export class SalesOrderService {
       const Payment = (await import('../../../database/entities/payment.entity')).Payment;
       const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
       const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
-      const PaymentType = (await import('../../../database/entities/payment.entity')).PaymentType;
       const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
 
       // Get or create a user repository import
@@ -1582,7 +1606,6 @@ export class SalesOrderService {
         // Create new payment record with sales order details
         const payment = paymentRepository.create({
           paymentNumber,
-          type: PaymentType.PAYMENT,
           status: PaymentStatus.COMPLETED,
           paymentMethod: PaymentMethod.CASH, // Default method, can be changed later
           paymentDate: new Date(),
@@ -1590,11 +1613,7 @@ export class SalesOrderService {
           customerId: order.customerId,
           invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
           recordedByUserId: order.createdByUserId || null,
-          currency: 'USD',
-          exchangeRate: 1.0,
-          processingFee: 0,
           notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
-          clearedDate: new Date(),
         });
 
         await paymentRepository.save(payment);
@@ -1756,6 +1775,7 @@ export class SalesOrderService {
       shippedDate: order.shippedDate,
       deliveredDate: order.deliveredDate,
       fulfilledDate: order.fulfilledDate,
+      shippingAmount: Number(order.shippingAmount || 0),
       totalAmount: Number(order.totalAmount),
       paidAmount: Number(order.paidAmount),
       isFulfilled: order.isFulfilled,
@@ -1789,7 +1809,6 @@ export class SalesOrderService {
       items: order.items?.map(item => ({
         id: item.id,
         productId: item.productId,
-        productSku: item.product?.barcode || 'N/A',
         productName: item.product?.name || 'Unknown Product',
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),

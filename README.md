@@ -6,7 +6,7 @@ A streamlined ERP (Enterprise Resource Planning) system built with modern techno
 
 ### Prerequisites
 - Docker and Docker Compose
-- Node.js 18+ (for development)
+- Node.js 22+ (for development)
 - PostgreSQL 15+ (if running locally)
 
 ### Start the Complete System
@@ -41,9 +41,11 @@ docker-compose up -d
 - **Sales**: http://localhost:3000/sales (customers, orders, invoices)
 - **Users**: http://localhost:3000/users (basic CRUD)
 
+### ✅ Recently Enabled Pages
+- **Purchasing**: http://localhost:3000/purchasing (re-enabled October 2025)
+
 ### ⚠️ Non-Functional Pages (Modules Disabled)
-- Purchasing pages (module disabled)
-- Reports pages (module disabled) 
+- Reports pages (module disabled)
 - Plugin pages (module disabled)
 
 ## 📋 System Overview
@@ -51,16 +53,17 @@ docker-compose up -d
 ### Core Features
 - ✅ **Dashboard** - Real-time KPIs with WebSocket updates
 - ✅ **Inventory Management** - Products with barcodes, hierarchical categories, soft-delete management
-- ✅ **Sales Management** - Customers, orders, invoices, payments
+- ✅ **Sales Management** - Customers, orders, invoices, payments with FIFO costing
+- ✅ **Purchasing Management** - Suppliers, purchase orders, goods received notes (re-enabled October 2025)
 - ✅ **User Management** - Basic user CRUD operations
-- ⚠️ **Purchasing** - Module disabled (available but needs enabling)
 - ⚠️ **Reporting** - Module disabled (available but needs enabling)
 - ⚠️ **Plugin System** - Module disabled (available but needs enabling)
 
 ### Technology Stack
-- **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit
-- **Backend**: NestJS + TypeORM + PostgreSQL + Redis
-- **Infrastructure**: Docker + NGINX + Bull Queue
+- **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit + Vite
+- **Backend**: NestJS 11 + TypeORM + PostgreSQL + MongoDB + Redis 8 + Bull Queue
+- **Infrastructure**: Docker + NGINX
+- **Testing**: Jest (backend) + Vitest (frontend)
 - **Security**: Input validation, security headers (CORS, CSP, HSTS)
 
 ## 🏗️ Architecture
@@ -83,7 +86,7 @@ backend/
 │   └── config/            # Configuration files
 ```
 
-**Note**: Authentication module completely removed. Disabled modules are commented out in `app.module.ts` but can be re-enabled.
+**Note**: Authentication module completely removed. Purchasing module re-enabled October 2025. Reports and Plugins modules are commented out in `app.module.ts` but can be re-enabled.
 
 ### Frontend Structure
 ```
@@ -111,18 +114,20 @@ frontend/
 ## 📊 Active Business Modules
 
 ### 📦 Inventory Management (✅ Active)
-- **Products**: Complete CRUD with barcode management (replaced SKU)
+- **Products**: Complete CRUD with simplified fields (name, barcode, prices, stock)
 - **Categories**: Simplified hierarchical categorization (name + hierarchy only)
-- **Current Stock**: Real-time inventory tracking
+- **Stock Tracking**: Real-time inventory with stockQuantity field
 - **Soft-Delete Management**: View and restore deleted products via modern dialog interface
 - **Bulk Operations**: Mass operations on product records
-- **Search & Filtering**: Barcode-based product search
+- **Permanent Delete**: Hard delete functionality for soft-deleted products
+- **Search & Filtering**: Search by name and barcode
 
 ### 💰 Sales Management (✅ Active)
 - **Customers**: Customer database with bulk operations support
-- **Sales Orders**: Order lifecycle management
-- **Invoices**: Invoice generation and tracking
-- **Payments**: Payment processing and allocation
+- **Sales Orders**: Order lifecycle management with auto-display after create/edit
+- **Invoices**: Invoice generation and tracking with auto-generated line items
+- **Payments**: Cash-only payment processing (simplified model)
+- **FIFO Costing**: Automatic cost tracking integrated with inventory
 - **Bulk Customer Operations**: Mass restore and delete functionality
 
 ### 📈 Dashboard & Analytics (✅ Active)
@@ -134,11 +139,14 @@ frontend/
 - **User CRUD**: Basic user management operations
 - **No Authentication**: All endpoints publicly accessible
 
-## ⚠️ Disabled Modules
+### 🛒 Purchasing Management (✅ Re-enabled October 2025)
+- **Suppliers**: Supplier database management
+- **Purchase Orders**: PO creation and tracking with unique number generation
+- **Goods Received**: Receiving and inventory updates
+- **Overview Analytics**: Comprehensive purchasing dashboard
+- **FIFO Integration**: Automatic cost tracking for purchases
 
-### 🛒 Purchasing Management (Available but Disabled)
-- Module exists but requires enabling in `app.module.ts`
-- Includes suppliers, purchase orders, goods received notes
+## ⚠️ Disabled Modules
 
 ### 📈 Reports & Analytics (Available but Disabled)
 - Module exists but requires enabling and auth cleanup
@@ -148,39 +156,64 @@ frontend/
 - Extensible architecture exists but disabled
 - Could support custom modules and integrations
 
-## 🆕 Recent Changes & Modernization (September 2025)
+## 🆕 Recent Changes & Modernization
 
-### 🎆 Authentication Removal
+### 🚀 Latest Updates (October 2025)
+
+#### Purchasing Module Re-enabled
+- **Module Active**: Purchasing module re-enabled with auth cleanup complete
+- **Navigation**: Purchase order pages fully functional with proper routing
+- **Overview Analytics**: Comprehensive purchasing dashboard with real-time data
+- **FIFO Costing**: Automatic cost tracking for purchase orders and sales
+
+#### Product & Sales Enhancements
+- **Auto-display Details**: Products and sales orders show details after create/edit
+- **Real-time Validation**: Duplicate detection for product names and barcodes
+- **Weighted Average Costing**: Stock-based costing with shipping allocation
+- **Payment Simplification**: Cash-only payment model (removed redundant type field)
+
+#### Data Model Refinements
+- **Removed Redundancies**: Eliminated productSku, productName, productDescription from invoice/order items
+- **Simplified Payment**: Removed notes field from invoice items
+- **Clean Data**: Removed customerName redundancy from invoices
+
+### 🔄 Core Improvements (September-October 2025)
+
+#### Redis 8 Upgrade (October 2025)
+- **Upgraded to Redis 8**: From Redis 7-alpine to 8-alpine3.22
+- **Built-in Modules**: Search, JSON, TimeSeries, Bloom, and VectorSet now available
+- **Enhanced Performance**: Better performance and security with Redis 8.2.2
+
+#### Soft Delete & Bulk Operations (September 2025)
+- **Product Management**: Soft-deleted products viewing and restoration
+- **Category Management**: Hybrid deletion with smart product handling
+- **Customer Bulk Ops**: Mass restore and delete functionality
+- **Cascading Deletes**: Auto soft-delete invoices and payments with sales orders
+
+#### Category & Product Simplification (September 2025)
+- **Category Streamlined**: Removed code and description fields (name + hierarchy only)
+- **Product Fields Reduced**: Removed weight, dimensions, brand, model, images, attributes
+- **Essential Fields Only**: Focus on core business data (name, barcode, prices, stock)
+- **Permanent Delete**: Hard delete functionality for soft-deleted products
+
+#### UI/UX Improvements
+- **Consistent Styling**: Standardized icons and typography across pages
+- **Pagination Alignment**: Matched Sales Orders pagination style
+- **Filter Improvements**: Better date range and status filtering
+- **Color Coding**: Enhanced visual feedback for actions and statuses
+
+### 🎆 Earlier Changes (Pre-September 2025)
+
+#### Authentication Removal
 - **Complete auth system removal**: All JWT, RBAC, guards, and decorators removed
 - **Public API access**: All endpoints now publicly accessible for rapid development
 - **Simplified development**: No authentication barriers for frontend integration
 
-### 📦 Product Management Modernization
-- **Barcode Integration**: Replaced SKU field with barcode for better retail integration
-- **Simplified Product Model**: Removed redundant fields (type, unit, reorder levels)
-- **Current Stock Tracking**: Added real-time current stock field
-- **Soft-Delete Management**: Complete soft-deleted products management with restore functionality
-
-### 🌳 Category System Simplification
-- **Streamlined Model**: Now only contains name, hierarchy, and essential fields
-- **Removed Complexity**: Eliminated code and description fields
-- **Table-First Design**: Simple table view instead of complex tree navigation
-
-### 🔄 Bulk Operations & User Experience
-- **Bulk Customer Operations**: Mass restore and delete functionality
-- **Modern Dialog Interfaces**: Enhanced delete/restore dialogs matching modern design patterns
-- **Improved Data Flow**: Fixed API response handling and data extraction
-
-### ⚡ Real-time Features
-- **WebSocket Integration**: Dashboard updates in real-time without page refresh
-- **Live KPI Updates**: Instant business metrics updates
-- **Frontend Integration**: Complete React-backend integration with Redux state management
-
-### 🔧 Technical Improvements
-- **Route Order Fixes**: Fixed NestJS route conflicts (specific routes before parameterized)
-- **Proper Soft Deletes**: Implemented TypeORM's `softDelete()` method for consistent behavior
-- **Form Validation**: Enhanced yup schemas with proper nullable foreign key support
-- **CategorySelector Fix**: Resolved data access issues for proper hierarchical display
+#### Platform Upgrades
+- **NestJS 11**: Complete upgrade with all dependencies updated
+- **Node.js 22**: Updated Docker base images for better performance
+- **Frontend Dependencies**: Comprehensive Alpine package and OpenSSL updates
+- **Container Health**: Added curl to frontend nginx for health checks
 
 ## 🚀 Deployment
 
@@ -231,12 +264,9 @@ REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
-# Frontend (Runtime injection)
+# Frontend (Runtime injection via window.__ENV__)
 VITE_API_BASE_URL=http://localhost:3001
 VITE_SOCKET_URL=http://localhost:3001
-
-# MongoDB (Analytics - if using disabled modules)
-MONGO_URI=mongodb://mongo:27017/erp_analytics
 ```
 
 **Note**: Authentication-related variables (JWT_SECRET, etc.) removed since auth system was removed.
@@ -270,20 +300,29 @@ GET    /api/inventory/categories/:id        # Get category
 PUT    /api/inventory/categories/:id        # Update category
 DELETE /api/inventory/categories/:id        # Delete category
 
-# Sales (Mixed URL patterns)
-GET    /api/v1/sales-orders                 # List sales orders
-POST   /api/v1/sales-orders                 # Create sales order
-GET    /api/v1/invoices                     # List invoices
-POST   /api/v1/invoices                     # Create invoice
-GET    /api/v1/payments                     # List payments
-POST   /api/v1/payments                     # Create payment
+# Sales
+GET    /api/sales-orders                    # List sales orders
+POST   /api/sales-orders                    # Create sales order
+GET    /api/invoices                        # List invoices
+POST   /api/invoices                        # Create invoice
+GET    /api/payments                        # List payments
+POST   /api/payments                        # Create payment
+GET    /api/quotations                      # List quotations
+GET    /api/credit                          # Customer credit management
+GET    /api/sales/analytics                 # Sales analytics
+
+# Purchasing (Re-enabled October 2025)
+GET    /api/purchasing/suppliers            # List suppliers
+POST   /api/purchasing/suppliers            # Create supplier
+GET    /api/purchasing/purchase-orders      # List purchase orders
+POST   /api/purchasing/purchase-orders      # Create purchase order
+GET    /api/purchasing/overview             # Purchasing analytics dashboard
 
 # System
 GET    /api/info                            # Module information
 ```
 
 ### Disabled Endpoints
-- **Purchasing APIs**: Module disabled, endpoints not accessible
 - **Reports APIs**: Module disabled, endpoints not accessible
 - **Plugin APIs**: Module disabled, endpoints not accessible
 
@@ -326,14 +365,22 @@ docker-compose -f docker-compose.test.yml up
 
 ### Database Migrations
 ```bash
-# Generate migration
-npm run migration:generate -- --name AddNewFeature
+cd backend
+
+# Generate migration (replace MyMigration with descriptive name)
+npm run migration:generate --name=MyMigration
 
 # Run migrations
 npm run migration:run
 
-# Revert migration
+# Revert last migration
 npm run migration:revert
+
+# Drop entire schema (DANGEROUS - dev only)
+npm run schema:drop
+
+# Run database seeds
+npm run seed:run
 ```
 
 ### Monitoring & Logging
@@ -370,12 +417,16 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🎉 System Status
 
 - **Rapid Development Mode**: Authentication removed for faster iteration
-- **Modern Tech Stack**: React 18 + NestJS + TypeORM + Redis + WebSocket
-- **Clean Architecture**: Modular design with disabled modules easily re-enabled
+- **Modern Tech Stack**: React 18 + NestJS 11 + TypeORM + Redis 8 + Node.js 22 + WebSocket
+- **Active Modules**: Dashboard, Inventory, Sales, Purchasing (4 of 7 modules enabled)
+- **Clean Architecture**: Modular design with 2 modules available for re-enabling
 - **Real-time Features**: WebSocket dashboard updates and live data
+- **Latest Updates**: October 2025 - Purchasing re-enabled, FIFO costing, payment simplification
 
 ---
 
-**🚀 Actively Developed** | **🔄 Real-time Updates** | **⚡ Simplified Architecture**
+**🚀 Actively Developed** | **🔄 Real-time Updates** | **⚡ Simplified Architecture** | **📦 4 Active Modules**
 
 > 📄 **For developers**: Always refer to `CLAUDE.md` for the most current system state, commands, and development patterns.
+>
+> ⚠️ **Note**: This README reflects the system as of October 2025. Check git history and CLAUDE.md for latest changes.

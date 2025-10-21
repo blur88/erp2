@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 // Entities
@@ -11,6 +11,7 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { User } from '../../database/entities/user.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
+import { InventoryModule } from '../inventory/inventory.module';
 
 // Controllers
 import { CustomerController } from './controllers/customer.controller';
@@ -41,6 +42,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
       User,
       StockMovement,
     ]),
+    forwardRef(() => InventoryModule),
   ],
   controllers: [
     CustomerController,

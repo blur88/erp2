@@ -31,6 +31,7 @@ import {
 } from '../dto/product.dto';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
+import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 
 @Injectable()
@@ -50,6 +51,7 @@ export class ProductService {
     private readonly categoryService: CategoryService,
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {}
 
   /**
@@ -132,6 +134,28 @@ export class ProductService {
         );
       } catch (error) {
         this.logger.warn(`Failed to create initial stock movement: ${error.message}`);
+      }
+    }
+
+    // Create initial cost history for products with stock
+    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0 && createProductDto.baseCost) {
+      try {
+        this.logger.log(
+          `Creating initial cost history for product ${savedProduct.id}: ${createProductDto.stockQuantity} units @ RM ${createProductDto.baseCost}`
+        );
+
+        await this.baseCostCalculator.addStock(
+          savedProduct.id,
+          null, // No GRN for initial stock
+          createProductDto.stockQuantity,
+          createProductDto.baseCost,
+          0, // No shipping for initial stock
+          new Date(), // Current date as received date
+        );
+
+        this.logger.log(`Initial cost history created for product ${savedProduct.id}`);
+      } catch (error) {
+        this.logger.warn(`Failed to create initial cost history: ${error.message}`);
       }
     }
 

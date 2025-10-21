@@ -35,33 +35,8 @@ export class InvoiceItem extends BaseEntity {
   @Min(1)
   lineNumber: number;
 
-  // Product Information (captured at time of invoice)
-  @Column({
-    type: 'varchar',
-    length: 50,
-    comment: 'Product SKU at time of invoice',
-  })
-  @IsString()
-  @MaxLength(50)
-  productSku: string;
-
-  @Column({
-    type: 'varchar',
-    length: 200,
-    comment: 'Product name at time of invoice',
-  })
-  @IsString()
-  @MaxLength(200)
-  productName: string;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Product description at time of invoice',
-  })
-  @IsOptional()
-  @IsString()
-  productDescription?: string;
+  // Product Information is retrieved from product relationship
+  // No need to store product description separately as it's available via product.description
 
   // Quantity and Pricing
   @Column({
@@ -106,16 +81,7 @@ export class InvoiceItem extends BaseEntity {
   @Min(0)
   totalAmount: number;
 
-  // Additional Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Special notes for this item',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
+  
   // Foreign Keys
   @Column({
     type: 'uuid',
@@ -138,7 +104,7 @@ export class InvoiceItem extends BaseEntity {
 
   @ManyToOne(() => Product, {
     onDelete: 'RESTRICT',
-    eager: false,
+    eager: true, // Eager load product relationship to get product name
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
@@ -171,9 +137,6 @@ export class InvoiceItem extends BaseEntity {
 
     return {
       productId: product.id,
-      productSku: product.barcode,
-      productName: product.name,
-      productDescription: product.description,
       quantity,
       unitPrice,
       discount: 0,

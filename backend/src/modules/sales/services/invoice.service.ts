@@ -102,8 +102,7 @@ export class InvoiceService {
       invoiceNumber,
       customerId,
       salesOrderId,
-      customerName: customer.name,
-      invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
+            invoiceDate: invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date(),
       totalAmount,
       balanceDue: totalAmount,
       paidAmount: 0,
@@ -118,9 +117,6 @@ export class InvoiceService {
         invoiceId: savedInvoice.id,
         lineNumber: soItem.lineNumber,
         productId: soItem.productId,
-        productSku: soItem.productSku,
-        productName: soItem.productName,
-        productDescription: soItem.productDescription,
         quantity: Number(soItem.quantity),
         unitPrice: Number(soItem.unitPrice),
         discount: Number(soItem.discountAmount),
@@ -174,7 +170,7 @@ export class InvoiceService {
     if (search) {
       searchConditions.push(
         { invoiceNumber: ILike(`%${search}%`) },
-        { customerName: ILike(`%${search}%`) },
+        { customer: { name: ILike(`%${search}%`) } },
       );
     }
 
@@ -220,7 +216,7 @@ export class InvoiceService {
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
-      customerName: invoice.customer?.name || invoice.customerName,
+      customerName: invoice.customer?.name,
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
     }));
@@ -373,9 +369,6 @@ export class InvoiceService {
       invoiceId: invoice.id,
       lineNumber: soItem.lineNumber,
       productId: soItem.productId,
-      productSku: soItem.productSku,
-      productName: soItem.productName,
-      productDescription: soItem.productDescription,
       quantity: Number(soItem.quantity),
       unitPrice: Number(soItem.unitPrice),
       discount: Number(soItem.discountAmount),
@@ -555,7 +548,7 @@ export class InvoiceService {
     
     // This is a placeholder - implement actual PDF generation using a library like PDFKit or Puppeteer
     // For now, return a simple buffer
-    const pdfContent = `Invoice: ${invoice.invoiceNumber}\nCustomer: ${invoice.customerName}\nAmount: ${invoice.totalAmount}`;
+    const pdfContent = `Invoice: ${invoice.invoiceNumber}\nCustomer: ${invoice.customer?.name || 'Unknown'}\nAmount: ${invoice.totalAmount}`;
     return Buffer.from(pdfContent, 'utf-8');
   }
 
@@ -762,7 +755,7 @@ export class InvoiceService {
 
     if (search) {
       queryBuilder = queryBuilder.andWhere(
-        '(invoice.invoiceNumber ILIKE :search OR invoice.customerName ILIKE :search)',
+        '(invoice.invoiceNumber ILIKE :search OR customer.name ILIKE :search)',
         { search: `%${search}%` }
       );
     }
@@ -859,7 +852,7 @@ export class InvoiceService {
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
       balanceDue: Number(invoice.balanceDue),
-      customerName: invoice.customerName,
+      customerName: invoice.customer?.name,
       customerId: invoice.customerId,
       salesOrderId: invoice.salesOrderId,
       customer: invoice.customer ? {
@@ -886,8 +879,6 @@ export class InvoiceService {
         id: item.id,
         lineNumber: item.lineNumber,
         productId: item.productId,
-        productName: item.productName,
-        productSku: item.productSku,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
         discount: Number(item.discount),
