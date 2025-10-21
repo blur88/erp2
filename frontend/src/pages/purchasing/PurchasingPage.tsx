@@ -75,7 +75,8 @@ const PurchasingPage: React.FC = () => {
       let allOrders = []
       if (ordersResponse.ok) {
         const ordersResult = await ordersResponse.json()
-        allOrders = ordersResult.data || []
+        // API returns { orders: [...], total, page, limit }
+        allOrders = ordersResult.orders || ordersResult.data || []
         ordersData = allOrders.slice(0, 5)
       }
 
@@ -84,23 +85,8 @@ const PurchasingPage: React.FC = () => {
       let suppliersData = []
       if (suppliersResponse.ok) {
         const suppliersResult = await suppliersResponse.json()
-        suppliersData = suppliersResult.data || []
-      }
-
-      // Fetch GRNs
-      const grnsResponse = await fetch('/api/purchasing/goods-received-notes?limit=100')
-      let grnsData = []
-      if (grnsResponse.ok) {
-        const grnsResult = await grnsResponse.json()
-        grnsData = grnsResult.data || []
-      }
-
-      // Fetch vendor payments
-      const paymentsResponse = await fetch('/api/purchasing/vendor-payments?limit=100')
-      let paymentsData = []
-      if (paymentsResponse.ok) {
-        const paymentsResult = await paymentsResponse.json()
-        paymentsData = paymentsResult.data || []
+        // API returns { suppliers: [...], total, page, limit }
+        suppliersData = suppliersResult.suppliers || suppliersResult.data || []
       }
 
       // Calculate top suppliers from orders
