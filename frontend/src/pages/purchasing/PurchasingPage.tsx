@@ -540,15 +540,14 @@ const PurchasingPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={order.status || 'pending'}
-                          color={order.status === 'completed' ? 'success' : order.status === 'cancelled' ? 'error' : 'warning'}
+                          label={order.isFullyReceived ? 'Received' : 'Pending'}
+                          color={order.isFullyReceived ? 'success' : 'warning'}
                           size="small"
                           variant="outlined"
                           sx={{
                             fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                             fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: TYPOGRAPHY_STYLES.chip.small.height,
-                            textTransform: 'capitalize'
+                            height: TYPOGRAPHY_STYLES.chip.small.height
                           }}
                         />
                       </TableCell>
