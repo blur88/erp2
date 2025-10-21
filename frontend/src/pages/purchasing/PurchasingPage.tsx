@@ -456,7 +456,7 @@ const PurchasingPage: React.FC = () => {
                         color: TYPOGRAPHY_STYLES.tableHeader.color,
                         fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                       }}>
-                        Order Number
+                        PO Number
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -474,7 +474,7 @@ const PurchasingPage: React.FC = () => {
                         color: TYPOGRAPHY_STYLES.tableHeader.color,
                         fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                       }}>
-                        Order Date
+                        PO Date
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
