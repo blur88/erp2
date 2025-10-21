@@ -81,16 +81,7 @@ export class InvoiceItem extends BaseEntity {
   @Min(0)
   totalAmount: number;
 
-  // Additional Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Special notes for this item',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
+  
   // Foreign Keys
   @Column({
     type: 'uuid',
