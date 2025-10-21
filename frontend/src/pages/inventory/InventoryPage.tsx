@@ -461,14 +461,9 @@ const InventoryPage: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Box>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {movement.product?.name || 'Unknown'}
-                          </Typography>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                            {movement.product?.barcode || 'N/A'}
-                          </Typography>
-                        </Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {movement.product?.name || 'Unknown'}
+                        </Typography>
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -547,9 +542,6 @@ const InventoryPage: React.FC = () => {
                       <Box>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {alert.name || 'Unknown Product'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {alert.categoryName || 'Uncategorized'}
                         </Typography>
                       </Box>
                     </Box>
