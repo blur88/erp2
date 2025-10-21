@@ -28,9 +28,6 @@ export enum PaymentStatus {
   COMPLETED = 'completed',
 }
 
-export enum PaymentType {
-  PAYMENT = 'payment',
-}
 
 /**
  * Payment entity for recording customer payments against invoices
@@ -54,15 +51,7 @@ export class Payment extends BaseEntity {
   @MaxLength(30)
   paymentNumber: string;
 
-  @Column({
-    type: 'enum',
-    enum: PaymentType,
-    default: PaymentType.PAYMENT,
-    comment: 'Payment type',
-  })
-  @IsEnum(PaymentType)
-  type: PaymentType;
-
+  
   @Column({
     type: 'enum',
     enum: PaymentStatus,

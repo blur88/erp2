@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, FindOptionsWhere, Between } from 'typeorm';
-import { Payment, PaymentStatus, PaymentType } from '../../../database/entities/payment.entity';
+import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import {
@@ -57,7 +57,6 @@ export class PaymentService {
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
       recordedByUserId: recordedByUserId === 'system' ? null : recordedByUserId,
-      type: PaymentType.PAYMENT,
       status: PaymentStatus.COMPLETED,
       paymentMethod: 'cash',
     });
@@ -397,7 +396,6 @@ export class PaymentService {
     return {
       id: payment.id,
       paymentNumber: payment.paymentNumber,
-      type: payment.type,
       status: payment.status,
       paymentMethod: payment.paymentMethod,
       paymentDate: payment.paymentDate,

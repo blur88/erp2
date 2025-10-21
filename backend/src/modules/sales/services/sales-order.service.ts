@@ -1554,7 +1554,6 @@ export class SalesOrderService {
       const Payment = (await import('../../../database/entities/payment.entity')).Payment;
       const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
       const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
-      const PaymentType = (await import('../../../database/entities/payment.entity')).PaymentType;
       const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
 
       // Get or create a user repository import
@@ -1607,7 +1606,6 @@ export class SalesOrderService {
         // Create new payment record with sales order details
         const payment = paymentRepository.create({
           paymentNumber,
-          type: PaymentType.PAYMENT,
           status: PaymentStatus.COMPLETED,
           paymentMethod: PaymentMethod.CASH, // Default method, can be changed later
           paymentDate: new Date(),
@@ -1615,11 +1613,7 @@ export class SalesOrderService {
           customerId: order.customerId,
           invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
           recordedByUserId: order.createdByUserId || null,
-          currency: 'USD',
-          exchangeRate: 1.0,
-          processingFee: 0,
           notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
-          clearedDate: new Date(),
         });
 
         await paymentRepository.save(payment);

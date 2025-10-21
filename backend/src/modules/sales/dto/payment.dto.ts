@@ -13,8 +13,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   PaymentMethod,
-  PaymentStatus,
-  PaymentType
+  PaymentStatus
 } from '../../../database/entities/payment.entity';
 
 export class CreatePaymentDto {
@@ -156,9 +155,6 @@ export class PaymentResponseDto {
 
   @ApiProperty({ example: 'PAY-ABC123' })
   paymentNumber: string;
-
-  @ApiProperty({ enum: PaymentType, example: PaymentType.PAYMENT })
-  type: PaymentType;
 
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
   status: PaymentStatus;
