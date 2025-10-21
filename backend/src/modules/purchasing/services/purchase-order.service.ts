@@ -144,7 +144,6 @@ export class PurchaseOrderService {
           productId: itemDto.productId,
           productSku: product.barcode || product.id.substring(0, 8).toUpperCase(),
           productName: product.name,
-          productDescription: product.description || '',
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
           unit: 'pcs',
@@ -451,7 +450,6 @@ export class PurchaseOrderService {
           item.productId = itemDto.productId;
           item.productSku = product.barcode || product.id.substring(0, 8).toUpperCase();
           item.productName = product.name;
-          item.productDescription = product.description || '';
           item.quantity = itemDto.quantity;
           item.unitCost = itemDto.unitPrice;
           item.unit = 'pcs';

@@ -75,14 +75,8 @@ export class PurchaseOrderItem extends BaseEntity {
   @MaxLength(200)
   productName: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Product description at time of order',
-  })
-  @IsOptional()
-  @IsString()
-  productDescription?: string;
+  // Product description is retrieved from product relationship
+  // No need to store product description separately as it's available via product.description
 
   @Column({
     type: 'varchar',
@@ -444,7 +438,6 @@ export class PurchaseOrderItem extends BaseEntity {
       productId: product.id,
       productSku: product.barcode,
       productName: product.name,
-      productDescription: product.description,
       unit: 'pcs',
       quantity,
       unitCost: unitCost || Number(product.baseCost),

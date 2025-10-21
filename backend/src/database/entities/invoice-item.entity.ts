@@ -35,15 +35,8 @@ export class InvoiceItem extends BaseEntity {
   @Min(1)
   lineNumber: number;
 
-  // Product Information (retrieved from product relationship)
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Product description at time of invoice',
-  })
-  @IsOptional()
-  @IsString()
-  productDescription?: string;
+  // Product Information is retrieved from product relationship
+  // No need to store product description separately as it's available via product.description
 
   // Quantity and Pricing
   @Column({
@@ -153,7 +146,6 @@ export class InvoiceItem extends BaseEntity {
 
     return {
       productId: product.id,
-      productDescription: product.description,
       quantity,
       unitPrice,
       discount: 0,
