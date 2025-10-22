@@ -1531,10 +1531,11 @@ export class SalesOrderService {
           // Insert all items
           await this.invoiceItemRepository.insert(invoiceItemsData);
 
-          // Update total amount from order
+          // Update total amount from order (items + shipping)
           const newSubtotal = updatedOrder.items.reduce((sum, item) =>
             sum + Number(item.totalAmount), 0);
-          invoice.totalAmount = newSubtotal;
+          const shippingAmount = Number(updatedOrder.shippingAmount || 0);
+          invoice.totalAmount = newSubtotal + shippingAmount;
         }
 
         // Preserve existing paidAmount and recalculate balance due
