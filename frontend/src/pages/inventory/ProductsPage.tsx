@@ -148,54 +148,63 @@ const ProductsPage: React.FC = () => {
     dispatch(fetchCategories({ includeProductCount: true }))
   }
 
+  // Store the selected product ID from navigation to prevent it from being lost
+  const [pendingProductId, setPendingProductId] = useState<string | null>(null)
+
   // Auto-select product when navigating from create/edit page
   useEffect(() => {
     const state = location.state as { selectedProductId?: string }
-    if (state?.selectedProductId) {
+    if (state?.selectedProductId && state.selectedProductId !== pendingProductId) {
       setHasNavigatedWithSelection(true)
+      setPendingProductId(state.selectedProductId)
 
-      // Clear the state immediately to prevent re-triggering
+      // Clear the navigation state to prevent re-triggering
       navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state, location.pathname, navigate, pendingProductId])
 
-      // Try to find the product in the current products list
-      if (products.length > 0) {
-        const product = products.find((p: Product) => p.id === state.selectedProductId)
-        if (product) {
-          setSelectedProductForDetails(product)
-          const index = products.findIndex((p: Product) => p.id === state.selectedProductId)
-          if (index >= 0) {
-            setFocusedProductIndex(index)
-          }
-          // Reset the flag after a short delay
-          setTimeout(() => setHasNavigatedWithSelection(false), 1000)
-        } else {
-          // Product not in current list - fetch it directly by ID and display it
-          ApiService.get(`/inventory/products/${state.selectedProductId}`)
-            .then((response: any) => {
-              const product = response as Product
-              setSelectedProductForDetails(product)
-              setFocusedProductIndex(-1) // No index since it's not in the list
-
-              // Also refresh the products list to get the latest data
-              setPage(0)
-              dispatch(fetchProducts({
-                page: 1,
-                limit: rowsPerPage,
-                search: undefined,
-                categoryId: undefined
-              }))
-            })
-            .catch((error) => {
-              console.error('Failed to fetch product:', error)
-              showError('Failed to load the newly created product')
-            })
-            .finally(() => {
-              setTimeout(() => setHasNavigatedWithSelection(false), 1000)
-            })
+  // Separate effect to handle product selection when products list changes
+  useEffect(() => {
+    if (pendingProductId && products.length > 0) {
+      const product = products.find((p: Product) => p.id === pendingProductId)
+      if (product) {
+        // Product found in current list
+        setSelectedProductForDetails(product)
+        const index = products.findIndex((p: Product) => p.id === pendingProductId)
+        if (index >= 0) {
+          setFocusedProductIndex(index)
         }
+        // Clear the pending ID and reset the flag
+        setPendingProductId(null)
+        setTimeout(() => setHasNavigatedWithSelection(false), 1000)
+      } else {
+        // Product not in current list - fetch it directly by ID
+        ApiService.get(`/inventory/products/${pendingProductId}`)
+          .then((response: any) => {
+            const product = response as Product
+            setSelectedProductForDetails(product)
+            setFocusedProductIndex(-1) // No index since it's not in the list
+
+            // Also refresh the products list to get the latest data
+            setPage(0)
+            dispatch(fetchProducts({
+              page: 1,
+              limit: rowsPerPage,
+              search: undefined,
+              categoryId: undefined
+            }))
+          })
+          .catch((error) => {
+            console.error('Failed to fetch product:', error)
+            showError('Failed to load the product')
+          })
+          .finally(() => {
+            setPendingProductId(null)
+            setTimeout(() => setHasNavigatedWithSelection(false), 1000)
+          })
       }
     }
-  }, [products, location.state, location.pathname, navigate, dispatch, rowsPerPage, showError])
+  }, [pendingProductId, products, dispatch, rowsPerPage, showError])
 
   // Reset focused index when products change or page changes
   useEffect(() => {
