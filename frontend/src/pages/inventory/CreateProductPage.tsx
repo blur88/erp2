@@ -196,7 +196,7 @@ const CreateProductPage: React.FC = () => {
       let productId = id
 
       if (isEditMode && id) {
-        await ApiService.put(`/inventory/products/${id}`, productData)
+        await ApiService.patch(`/inventory/products/${id}`, productData)
         showSuccess('Product updated successfully')
       } else {
         const response = await ApiService.post('/inventory/products', productData)
