@@ -49,7 +49,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       socket.on('connect', () => {
         console.log('WebSocket connected')
         setIsConnected(true)
-        showNotification('Real-time connection established', 'success')
+        // Don't show notification on initial connect to avoid spam on page refresh
       })
 
       socket.on('disconnect', (reason) => {
