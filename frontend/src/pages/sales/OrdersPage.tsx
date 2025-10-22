@@ -1854,6 +1854,28 @@ const OrdersPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
+                              Sub-total
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatCurrency(
+                                selectedOrder.items?.reduce((sum: number, item: any) => sum + (Number(item.totalAmount) || 0), 0) || 0
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Shipping
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatCurrency(selectedOrder.shippingAmount || 0)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
                               Total
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>

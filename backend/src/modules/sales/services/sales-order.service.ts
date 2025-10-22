@@ -51,50 +51,50 @@ export class SalesOrderService {
   ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
-    // Get all existing order numbers that match the sequential format
-    const orders = await this.salesOrderRepository.find({
-      select: ['orderNumber']
-    });
+    // Use a query builder to get the latest order number (including soft-deleted orders)
+    const lastOrder = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .withDeleted() // IMPORTANT: Include soft-deleted records to avoid number reuse
+      .select('order.orderNumber')
+      .where('order.orderNumber LIKE :prefix', { prefix: 'SO-%' })
+      .orderBy('order.orderNumber', 'DESC')
+      .limit(1)
+      .getOne();
 
-    let maxNumber = 0;
-    for (const order of orders) {
-      // Extract number from format SO-000001 (only sequential format)
-      const match = order.orderNumber.match(/^SO-(\d+)$/);
+    let nextNumber = 1;
+    if (lastOrder) {
+      console.log('[generateSequentialOrderNumber] Last order found:', lastOrder.orderNumber);
+      const match = lastOrder.orderNumber.match(/^SO-(\d+)$/);
       if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) {
-          maxNumber = num;
-        }
+        nextNumber = parseInt(match[1]) + 1;
       }
+    } else {
+      console.log('[generateSequentialOrderNumber] No existing orders found, starting from 1');
     }
 
-    // Next sequential number
-    const nextNumber = maxNumber + 1;
-
-    // Format with leading zeros (6 digits)
-    return `SO-${nextNumber.toString().padStart(6, '0')}`;
+    const newOrderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
+    console.log('[generateSequentialOrderNumber] Generated new order number:', newOrderNumber);
+    return newOrderNumber;
   }
 
   private async generateInvoiceNumber(): Promise<string> {
-    // Get all existing invoice numbers that match the sequential format
-    const invoices = await this.invoiceRepository.find({
-      select: ['invoiceNumber']
-    });
+    // Use a query builder to get the latest invoice number (including soft-deleted invoices)
+    const lastInvoice = await this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .withDeleted() // IMPORTANT: Include soft-deleted records to avoid number reuse
+      .select('invoice.invoiceNumber')
+      .where('invoice.invoiceNumber LIKE :prefix', { prefix: 'INV-%' })
+      .orderBy('invoice.invoiceNumber', 'DESC')
+      .limit(1)
+      .getOne();
 
-    let maxNumber = 0;
-    for (const invoice of invoices) {
-      // Extract number from format INV-000001 (only sequential format)
-      const match = invoice.invoiceNumber.match(/^INV-(\d+)$/);
+    let nextNumber = 1;
+    if (lastInvoice) {
+      const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
       if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) {
-          maxNumber = num;
-        }
+        nextNumber = parseInt(match[1]) + 1;
       }
     }
-
-    // Next sequential number
-    const nextNumber = maxNumber + 1;
 
     // Format with leading zeros (6 digits)
     return `INV-${nextNumber.toString().padStart(6, '0')}`;
@@ -152,27 +152,56 @@ export class SalesOrderService {
     const inventoryCheck = await this.inventoryIntegrationService.checkAvailability(
       items.map(item => ({ productId: item.productId, quantity: item.quantity }))
     );
-    
+
     if (!inventoryCheck.available) {
       throw new ConflictException(`Insufficient inventory: ${inventoryCheck.message}`);
     }
 
-    // Generate sequential order number
-    const orderNumber = await this.generateSequentialOrderNumber();
+    // Retry logic for handling duplicate order numbers (race condition)
+    let savedOrder: SalesOrder;
+    let retries = 5; // Increased retries
+    let lastError: any;
 
-    // Create sales order
-    const salesOrder = this.salesOrderRepository.create({
-      ...orderData,
-      orderNumber,
-      customerId,
-      createdByUserId: userId,
-      orderDate: new Date(),
-      shippingAmount,
-      totalAmount,
-      status: SalesOrderStatus.DRAFT,
-    });
+    while (retries > 0) {
+      try {
+        // Generate sequential order number with each attempt
+        const orderNumber = await this.generateSequentialOrderNumber();
 
-    const savedOrder = await this.salesOrderRepository.save(salesOrder);
+        // Create sales order
+        const salesOrder = this.salesOrderRepository.create({
+          ...orderData,
+          orderNumber,
+          customerId,
+          createdByUserId: userId,
+          orderDate: new Date(),
+          shippingAmount,
+          totalAmount,
+          status: SalesOrderStatus.DRAFT,
+        });
+
+        savedOrder = await this.salesOrderRepository.save(salesOrder);
+        break; // Success - exit retry loop
+      } catch (error) {
+        lastError = error;
+        // Check if it's a duplicate key error
+        if (error.code === '23505' && error.constraint === 'UQ_ea901f7691ec7f314f072d9dee8') {
+          retries--;
+          if (retries === 0) {
+            throw new ConflictException('Failed to generate unique order number after multiple attempts. Please try again.');
+          }
+          // Wait a longer random time before retrying (50-200ms) to reduce collision probability
+          await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
+          continue;
+        }
+        // If it's not a duplicate error, rethrow immediately
+        throw error;
+      }
+    }
+
+    // If we exhausted retries but savedOrder is not set, throw the last error
+    if (!savedOrder) {
+      throw lastError || new ConflictException('Failed to create sales order');
+    }
 
     // Create order items
     const createdItems = [];

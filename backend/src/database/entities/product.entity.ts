@@ -14,6 +14,7 @@ import {
   MaxLength,
   Min,
   IsDecimal,
+  IsBoolean,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Category } from './category.entity';
