@@ -1612,8 +1612,7 @@ export class SalesOrderService {
           amount: Number(amount),
           customerId: order.customerId,
           invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
-          recordedByUserId: order.createdByUserId || null,
-          notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
+                    notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
         });
 
         await paymentRepository.save(payment);

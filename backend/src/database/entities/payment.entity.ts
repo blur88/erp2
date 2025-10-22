@@ -18,7 +18,6 @@ import {
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { Invoice } from './invoice.entity';
-import { User } from './user.entity';
 
 export enum PaymentMethod {
   CASH = 'cash',
@@ -37,7 +36,6 @@ export enum PaymentStatus {
 @Index(['paymentNumber'], { unique: true })
 @Index(['customerId'])
 @Index(['invoiceId'])
-@Index(['recordedByUserId'])
 @Index(['status'])
 @Index(['paymentDate'])
 export class Payment extends BaseEntity {
@@ -112,14 +110,7 @@ export class Payment extends BaseEntity {
   @IsOptional()
   invoiceId?: string;
 
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who recorded the payment',
-  })
-  @IsOptional()
-  recordedByUserId?: string;
-
+  
   // Relationships
   @ManyToOne(() => Customer, (customer) => customer.payments, {
     onDelete: 'RESTRICT',
@@ -136,13 +127,7 @@ export class Payment extends BaseEntity {
   @JoinColumn({ name: 'invoiceId' })
   invoice?: Invoice;
 
-  @ManyToOne(() => User, (user) => user.payments, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'recordedByUserId' })
-  recordedByUser?: User;
-
+  
   // Computed properties
   get isCompleted(): boolean {
     return this.status === PaymentStatus.COMPLETED;

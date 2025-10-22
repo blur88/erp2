@@ -17,7 +17,6 @@ import {
 import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
 import { PurchaseOrder } from './purchase-order.entity';
-import { Payment } from './payment.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -180,11 +179,7 @@ export class User extends BaseEntity {
   })
   purchaseOrders: PurchaseOrder[];
 
-  @OneToMany(() => Payment, (payment) => payment.recordedByUser, {
-    cascade: false,
-  })
-  payments: Payment[];
-
+  
   // Virtual fields
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;

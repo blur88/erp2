@@ -30,7 +30,7 @@ export class PaymentService {
     private readonly invoiceRepository: Repository<Invoice>,
   ) {}
 
-  async create(createPaymentDto: CreatePaymentDto, recordedByUserId: string): Promise<PaymentResponseDto> {
+  async create(createPaymentDto: CreatePaymentDto): Promise<PaymentResponseDto> {
     // Verify customer exists
     const customer = await this.customerRepository.findOne({
       where: { id: createPaymentDto.customerId },
@@ -56,7 +56,6 @@ export class PaymentService {
     // Create payment
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
-      recordedByUserId: recordedByUserId === 'system' ? null : recordedByUserId,
       status: PaymentStatus.COMPLETED,
       paymentMethod: 'cash',
     });
@@ -136,14 +135,14 @@ export class PaymentService {
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
 
-  async processPayment(processPaymentDto: ProcessPaymentDto, recordedByUserId: string): Promise<PaymentResponseDto> {
+  async processPayment(processPaymentDto: ProcessPaymentDto): Promise<PaymentResponseDto> {
     return this.create({
       customerId: processPaymentDto.customerId,
       invoiceId: processPaymentDto.invoiceId,
       paymentDate: new Date(),
       amount: processPaymentDto.amount,
       notes: processPaymentDto.notes,
-    }, recordedByUserId);
+    });
   }
 
   async allocatePayment(allocationDto: AllocatePaymentDto): Promise<PaymentResponseDto> {
@@ -255,7 +254,7 @@ export class PaymentService {
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['customer', 'invoice', 'invoice.salesOrder', 'recordedByUser'],
+      relations: ['customer', 'invoice', 'invoice.salesOrder'],
     });
 
     if (!payment) {
@@ -403,7 +402,6 @@ export class PaymentService {
       notes: payment.notes,
       customerId: payment.customerId,
       invoiceId: payment.invoiceId,
-      recordedByUserId: payment.recordedByUserId,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
       deletedAt: payment.deletedAt,
