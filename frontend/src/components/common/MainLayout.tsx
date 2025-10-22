@@ -31,6 +31,7 @@ import { selectUnreadCount } from '@/store/slices/notificationSlice'
 
 import Sidebar from './Sidebar'
 import NotificationPanel from './NotificationPanel'
+import SystemStatus from './SystemStatus'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -111,6 +112,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
           {/* Actions */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* System Status */}
+            <SystemStatus />
+
             {/* Theme toggle */}
             <Tooltip title={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}>
               <IconButton onClick={handleThemeToggle} color="inherit">
