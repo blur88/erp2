@@ -368,8 +368,8 @@ const darkTheme = createTheme({
 // Export themes
 export { lightTheme, darkTheme }
 
-// Default theme (light)
-export const theme = lightTheme
+// Default theme (dark)
+export const theme = darkTheme
 
 // Theme creator function
 export const createAppTheme = (mode: 'light' | 'dark', primaryColor?: string) => {

@@ -29,7 +29,20 @@ const persistConfig = {
   key: 'erp-app',
   storage,
   whitelist: ['theme'], // Only persist theme
-  version: 1,
+  version: 2, // Incremented to force dark mode default migration
+  migrate: (state: any) => {
+    // Force dark mode for all users on version 2
+    if (state && state.theme) {
+      return Promise.resolve({
+        ...state,
+        theme: {
+          ...state.theme,
+          mode: 'dark'
+        }
+      })
+    }
+    return Promise.resolve(state)
+  }
 }
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

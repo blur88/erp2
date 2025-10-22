@@ -3,16 +3,15 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
 import App from './App'
 import { store } from './store'
-import { theme } from './styles/theme'
 import { NotificationProvider } from './hooks/useNotification'
 import { WebSocketProvider } from './hooks/useWebSocket'
+import ThemeWrapper from './components/common/ThemeWrapper'
 
 import './styles/global.css'
 
@@ -42,7 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider theme={theme}>
+          <ThemeWrapper>
             <CssBaseline />
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               <NotificationProvider>
@@ -51,7 +50,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 </WebSocketProvider>
               </NotificationProvider>
             </LocalizationProvider>
-          </ThemeProvider>
+          </ThemeWrapper>
         </QueryClientProvider>
       </Provider>
     </BrowserRouter>
