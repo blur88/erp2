@@ -367,6 +367,57 @@ const darkTheme = createTheme({
       disabledBackground: colors.grey[800],
     },
   },
+  components: {
+    ...baseThemeOptions.components,
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.23) + ' !important',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.4) + ' !important',
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.primary[400] + ' !important',
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 8,
+            '& fieldset': {
+              borderColor: alpha('#ffffff', 0.23) + ' !important',
+            },
+            '&:hover fieldset': {
+              borderColor: alpha('#ffffff', 0.4) + ' !important',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: colors.primary[400] + ' !important',
+            },
+          },
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.23) + ' !important',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.4) + ' !important',
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.primary[400] + ' !important',
+          },
+        },
+      },
+    },
+  },
 })
 
 // Export themes
