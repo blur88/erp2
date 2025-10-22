@@ -51,9 +51,7 @@ export class BaseCostCalculatorService {
 
     for (const batch of batches) {
       const qtyRemaining = Number(batch.remainingQuantity);
-      const costPerUnit = product.includeShippingInCost
-        ? Number(batch.landedCost)
-        : Number(batch.unitCost);
+      const costPerUnit = Number(batch.landedCost);
 
       totalCost += qtyRemaining * costPerUnit;
       totalQuantity += qtyRemaining;
