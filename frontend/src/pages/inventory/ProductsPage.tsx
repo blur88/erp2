@@ -44,6 +44,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { ApiService } from '@/services/api'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -88,6 +89,7 @@ const ProductsPage: React.FC = () => {
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [hasNavigatedWithSelection, setHasNavigatedWithSelection] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
 
   // Search and filter functionality
@@ -149,19 +151,51 @@ const ProductsPage: React.FC = () => {
   // Auto-select product when navigating from create/edit page
   useEffect(() => {
     const state = location.state as { selectedProductId?: string }
-    if (state?.selectedProductId && products.length > 0) {
-      const product = products.find((p: Product) => p.id === state.selectedProductId)
-      if (product) {
-        setSelectedProductForDetails(product)
-        const index = products.findIndex((p: Product) => p.id === state.selectedProductId)
-        if (index >= 0) {
-          setFocusedProductIndex(index)
+    if (state?.selectedProductId) {
+      setHasNavigatedWithSelection(true)
+
+      // Clear the state immediately to prevent re-triggering
+      navigate(location.pathname, { replace: true, state: {} })
+
+      // Try to find the product in the current products list
+      if (products.length > 0) {
+        const product = products.find((p: Product) => p.id === state.selectedProductId)
+        if (product) {
+          setSelectedProductForDetails(product)
+          const index = products.findIndex((p: Product) => p.id === state.selectedProductId)
+          if (index >= 0) {
+            setFocusedProductIndex(index)
+          }
+          // Reset the flag after a short delay
+          setTimeout(() => setHasNavigatedWithSelection(false), 1000)
+        } else {
+          // Product not in current list - fetch it directly by ID and display it
+          ApiService.get(`/inventory/products/${state.selectedProductId}`)
+            .then((response: any) => {
+              const product = response as Product
+              setSelectedProductForDetails(product)
+              setFocusedProductIndex(-1) // No index since it's not in the list
+
+              // Also refresh the products list to get the latest data
+              setPage(0)
+              dispatch(fetchProducts({
+                page: 1,
+                limit: rowsPerPage,
+                search: undefined,
+                categoryId: undefined
+              }))
+            })
+            .catch((error) => {
+              console.error('Failed to fetch product:', error)
+              showError('Failed to load the newly created product')
+            })
+            .finally(() => {
+              setTimeout(() => setHasNavigatedWithSelection(false), 1000)
+            })
         }
-        // Clear the state to prevent re-triggering on refresh
-        navigate(location.pathname, { replace: true })
       }
     }
-  }, [products, location.state, location.pathname, navigate])
+  }, [products, location.state, location.pathname, navigate, dispatch, rowsPerPage, showError])
 
   // Reset focused index when products change or page changes
   useEffect(() => {
@@ -171,14 +205,14 @@ const ProductsPage: React.FC = () => {
   // Auto-focus the first product when the list becomes available
   useEffect(() => {
     if (products.length > 0 && focusedProductIndex === -1) {
-      // Only auto-focus if we don't have a selected product
-      if (!selectedProductForDetails) {
+      // Only auto-focus if we don't have a selected product AND we haven't just navigated with a selection
+      if (!selectedProductForDetails && !hasNavigatedWithSelection) {
         setFocusedProductIndex(0)
         // Automatically show product details for the first product
         setSelectedProductForDetails(products[0])
       }
     }
-  }, [products, focusedProductIndex, selectedProductForDetails])
+  }, [products, focusedProductIndex, selectedProductForDetails, hasNavigatedWithSelection])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
