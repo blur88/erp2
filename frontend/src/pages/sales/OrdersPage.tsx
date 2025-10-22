@@ -44,7 +44,6 @@ import {
   Refresh as RefreshIcon,
   Receipt as OrderIcon,
   RestoreFromTrash as RestoreIcon,
-  Keyboard as KeyboardIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
@@ -58,7 +57,6 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -168,7 +166,6 @@ const OrdersPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
-  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
@@ -1065,7 +1062,6 @@ const OrdersPage: React.FC = () => {
     setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
-    setKeyboardHelpOpen(false)
   }, [dispatch])
 
   const clearDialogs = () => {
@@ -1073,17 +1069,11 @@ const OrdersPage: React.FC = () => {
     setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
-    setKeyboardHelpOpen(false)
   }
 
-  // Setup keyboard shortcuts
+  // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: handleAddOrder,
-    onRefresh: handleRefreshAction,
-    onEdit: handleEditAction,
-    onDelete: handleDeleteAction,
-    onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
     onEnter: handleEnterAction,
@@ -1466,25 +1456,6 @@ const OrdersPage: React.FC = () => {
           }}
         >
           Sort
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<KeyboardIcon />}
-          size="medium"
-          onClick={() => setKeyboardHelpOpen(true)}
-          sx={{
-            flex: 'none',
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: '0.875rem',
-            color: 'info.main',
-            borderColor: 'info.main',
-            '&:hover': {
-              borderColor: 'info.dark',
-              backgroundColor: 'info.light'
-            }
-          }}
-        >
-          Shortcuts
         </Button>
       </Box>
 
@@ -2478,12 +2449,6 @@ const OrdersPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         severity="warning"
-      />
-
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={keyboardHelpOpen}
-        onClose={() => setKeyboardHelpOpen(false)}
       />
     </Box>
   )

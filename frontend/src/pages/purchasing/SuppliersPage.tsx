@@ -145,10 +145,9 @@ const SuppliersPage: React.FC = () => {
     },
   })
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - only search and refresh
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: () => handleOpenForm(),
     onRefresh: () => dispatch(fetchSuppliers({ ...filters })),
   })
 

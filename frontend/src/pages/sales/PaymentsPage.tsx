@@ -40,14 +40,12 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
-  Keyboard as KeyboardIcon,
   Receipt as InvoiceIcon,
   ShoppingCart as OrderIcon,
   RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
@@ -63,6 +61,7 @@ interface Payment {
   paymentMethod: 'cash'
   status: 'completed'
   notes?: string
+  reference?: string
   relatedOrderId?: string
   relatedInvoiceId?: string
   relatedOrderNumber?: string
@@ -188,7 +187,6 @@ const PaymentsPage: React.FC = () => {
 
   const [editDialog, setEditDialog] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
-  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -440,16 +438,11 @@ const PaymentsPage: React.FC = () => {
     setFocusedPaymentIndex(-1)
     setSelectedPayment(null)
     setEditDialog(false)
-    setKeyboardHelpOpen(false)
   }, [])
 
-  // Setup keyboard shortcuts
+  // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onRefresh: handleRefreshAction,
-    onEdit: handleEditAction,
-    onDelete: handleDeleteAction,
-    onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
     onEnter: handleEnterAction,
@@ -708,25 +701,6 @@ const PaymentsPage: React.FC = () => {
           }}
         >
           Sort
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<KeyboardIcon />}
-          size="medium"
-          onClick={() => setKeyboardHelpOpen(true)}
-          sx={{
-            flex: 'none',
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: '0.875rem',
-            color: 'info.main',
-            borderColor: 'info.main',
-            '&:hover': {
-              borderColor: 'info.dark',
-              backgroundColor: 'info.light'
-            }
-          }}
-        >
-          Shortcuts
         </Button>
       </Box>
 
@@ -1064,12 +1038,6 @@ const PaymentsPage: React.FC = () => {
           <Button variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>
-
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={keyboardHelpOpen}
-        onClose={() => setKeyboardHelpOpen(false)}
-      />
 
       {/* Deleted Payments Dialog */}
       <DeletedPaymentsDialog

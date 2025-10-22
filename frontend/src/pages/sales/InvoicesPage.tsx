@@ -42,7 +42,6 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
-  Keyboard as KeyboardIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -50,7 +49,6 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchInvoices, selectInvoicesState } from '@/store/slices/salesSlice'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
-import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
 import type { InvoiceItem } from '@/types'
 
@@ -181,7 +179,6 @@ const InvoicesPage: React.FC = () => {
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
-  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -496,17 +493,11 @@ const InvoicesPage: React.FC = () => {
     setSelectedInvoice(null)
     setCreateDialog(false)
     setEditDialog(false)
-    setKeyboardHelpOpen(false)
   }, [])
 
-  // Setup keyboard shortcuts
+  // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: handleAddInvoice,
-    onRefresh: handleRefreshAction,
-    onEdit: handleEditAction,
-    onDelete: handleDeleteAction,
-    onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
     onEnter: handleEnterAction,
@@ -751,25 +742,6 @@ const InvoicesPage: React.FC = () => {
           }}
         >
           Sort
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<KeyboardIcon />}
-          size="medium"
-          onClick={() => setKeyboardHelpOpen(true)}
-          sx={{
-            flex: 'none',
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: '0.875rem',
-            color: 'info.main',
-            borderColor: 'info.main',
-            '&:hover': {
-              borderColor: 'info.dark',
-              backgroundColor: 'info.light'
-            }
-          }}
-        >
-          Shortcuts
         </Button>
       </Box>
 
@@ -1208,12 +1180,6 @@ const InvoicesPage: React.FC = () => {
           <Button variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>
-
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={keyboardHelpOpen}
-        onClose={() => setKeyboardHelpOpen(false)}
-      />
 
       {/* Deleted Invoices Dialog */}
       <DeletedInvoicesDialog

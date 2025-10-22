@@ -40,7 +40,6 @@ import {
   PictureAsPdf as PictureAsPdfIcon,
   CloudUpload as CloudUploadIcon,
   Inventory2 as InventoryIcon,
-  Keyboard as KeyboardIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
@@ -48,7 +47,6 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
@@ -84,7 +82,6 @@ const ProductsPage: React.FC = () => {
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
-  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
@@ -256,51 +253,17 @@ const ProductsPage: React.FC = () => {
     }
   }, [focusedProductIndex, products, navigate])
 
-  const handleEditAction = useCallback(() => {
-    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
-      const product = products[focusedProductIndex]
-      navigate(`/inventory/products/${product.id}/edit`)
-    }
-  }, [focusedProductIndex, products, navigate])
-
-  const handleDeleteAction = useCallback(() => {
-    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
-      handleDeleteProduct(products[focusedProductIndex])
-    }
-  }, [focusedProductIndex, products])
-
-  const handleExportAction = useCallback(() => {
-    if (products.length > 0) {
-      handleExport('csv')
-    }
-  }, [products])
-
-  const handleImportAction = useCallback(() => {
-    setImportDialogOpen(true)
-  }, [])
-
-  const handleViewDeletedAction = useCallback(() => {
-    setDeletedProductsDialogOpen(true)
-  }, [])
-
   const handleEscapeAction = useCallback(() => {
     setFocusedProductIndex(-1)
     setSelectedProductForDetails(null)
     setDeletedProductsDialogOpen(false)
     setImportDialogOpen(false)
     setDeleteConfirmOpen(false)
-    setKeyboardHelpOpen(false)
   }, [])
 
+  // Only keep keyboard navigation and search shortcuts
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: handleAddProduct,
-    onRefresh: handleRefresh,
-    onEdit: handleEditAction,
-    onDelete: handleDeleteAction,
-    onExport: handleExportAction,
-    onImport: handleImportAction,
-    onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
     onEnter: handleEnterAction,
@@ -647,26 +610,6 @@ const ProductsPage: React.FC = () => {
           }}
         >
           Import
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<KeyboardIcon />}
-          size="medium"
-          onClick={() => setKeyboardHelpOpen(true)}
-          sx={{
-            flex: 'none',
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-            color: 'info.main',
-            borderColor: 'info.main',
-            '&:hover': {
-              borderColor: 'info.dark',
-              backgroundColor: 'info.light'
-            }
-          }}
-        >
-          Shortcuts
         </Button>
         <Button
           variant="outlined"
@@ -1315,11 +1258,6 @@ const ProductsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         severity="warning"
-      />
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={keyboardHelpOpen}
-        onClose={() => setKeyboardHelpOpen(false)}
       />
     </Box>
   )
