@@ -2110,7 +2110,6 @@ const OrdersPage: React.FC = () => {
                           >
                             <TableCell sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                             }}>
                               {item.product?.name || item.productName || 'Unknown Product'}
@@ -2156,7 +2155,6 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                             <TableCell align="right" sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                             }}>
                               {formatCurrency(item.totalAmount || (item.quantity * item.unitPrice) || 0)}
@@ -2347,7 +2345,6 @@ const OrdersPage: React.FC = () => {
                               >
                                 <TableCell sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                                 }}>
                                   {item.product?.name || item.productName || 'Unknown Product'}
@@ -2409,7 +2406,6 @@ const OrdersPage: React.FC = () => {
                                 </TableCell>
                                 <TableCell align="right" sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                                 }}>
                                   {formatCurrency(item.totalAmount || (item.quantity * item.unitPrice) || 0)}

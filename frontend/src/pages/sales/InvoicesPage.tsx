@@ -1150,7 +1150,7 @@ const InvoicesPage: React.FC = () => {
                                 height: TABLE_STYLES.row.height
                               }}
                             >
-                              <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
                                 {item.product?.name || (item as any).productName || 'Unknown Product'}
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
@@ -1162,7 +1162,7 @@ const InvoicesPage: React.FC = () => {
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                 {item.discount ? `-${formatCurrency(item.discount)}` : '-'}
                               </TableCell>
-                              <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                 {formatCurrency((item as any).totalAmount || item.total)}
                               </TableCell>
                             </TableRow>
