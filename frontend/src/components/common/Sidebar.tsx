@@ -34,7 +34,6 @@ import {
   Description as PurchaseOrderIcon,
   AccountBalance as VendorPaymentsIcon,
 } from '@mui/icons-material'
-import { moduleApi } from '@/services/moduleApi'
 
 interface SidebarProps {
   onItemClick?: () => void
@@ -216,33 +215,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const [expandedItems, setExpandedItems] = React.useState<string[]>(['inventory', 'sales', 'purchasing'])
-  const [availableModules, setAvailableModules] = React.useState<string[]>([])
-  const [backendAvailable, setBackendAvailable] = React.useState<boolean>(true)
-
-  useEffect(() => {
-    const checkModuleAvailability = async () => {
-      try {
-        // Only check modules info, skip health check for faster loading
-        const modules = await moduleApi.getAvailableModules()
-        setAvailableModules(modules)
-        setBackendAvailable(modules.length > 0) // Assume healthy if modules are returned
-      } catch (error) {
-        console.error('Failed to check module availability:', error)
-        setAvailableModules([])
-        setBackendAvailable(false)
-      }
-    }
-
-    // Small delay to ensure env-config.js is loaded
-    const timer = setTimeout(checkModuleAvailability, 100)
-    
-    // Reduce frequency to 60 seconds to minimize API calls
-    const interval = setInterval(checkModuleAvailability, 60000)
-    return () => {
-      clearTimeout(timer)
-      clearInterval(interval)
-    }
-  }, [])
 
   // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
@@ -383,16 +355,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
         >
           ERP
         </Box>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            ERP System
-          </Typography>
-          {!backendAvailable && (
-            <Typography variant="caption" sx={{ color: 'warning.main', display: 'block' }}>
-              Backend Offline
-            </Typography>
-          )}
-        </Box>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          ERP System
+        </Typography>
       </Box>
 
       {/* Navigation */}
