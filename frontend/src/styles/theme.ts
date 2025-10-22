@@ -344,7 +344,11 @@ const darkTheme = createTheme({
       dark: colors.error[600],
       contrastText: '#000',
     },
-    grey: colors.grey,
+    grey: {
+      ...colors.grey,
+      // Override grey.50 for dark mode to use a darker shade
+      50: colors.grey[800], // Map grey.50 to grey.800 for dark mode
+    },
     background: {
       default: '#121212',
       paper: '#1e1e1e',
