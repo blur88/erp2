@@ -162,10 +162,9 @@ const CategoriesPage: React.FC = () => {
     setDialogOpen(true)
   }
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - only search and refresh
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: () => handleAddCategory(),
     onRefresh: handleRefresh,
   })
 

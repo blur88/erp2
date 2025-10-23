@@ -9,12 +9,12 @@ import {
 import {
   IsString,
   IsNumber,
-  IsBoolean,
   IsOptional,
   IsEnum,
   MaxLength,
   Min,
   IsDecimal,
+  IsBoolean,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Category } from './category.entity';
@@ -84,14 +84,7 @@ export class Product extends BaseEntity {
   @IsBoolean()
   isActive: boolean;
 
-  @Column({
-    type: 'boolean',
-    default: true,
-    comment: 'Whether to include shipping in base cost calculation',
-  })
-  @IsBoolean()
-  includeShippingInCost: boolean;
-
+  
   // Pricing - Multi-level pricing support
   @Column({
     type: 'decimal',

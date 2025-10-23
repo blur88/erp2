@@ -471,7 +471,7 @@ const SalesPage: React.FC = () => {
                         {index + 1}
                       </Typography>
                       <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {product.productName}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -479,7 +479,7 @@ const SalesPage: React.FC = () => {
                         </Typography>
                       </Box>
                     </Box>
-                    <Typography variant="subtitle2" color="primary">
+                    <Typography variant="body2" color="primary">
                       {formatCurrency(product.totalRevenue || 0)}
                     </Typography>
                   </Box>
@@ -571,7 +571,7 @@ const SalesPage: React.FC = () => {
                       onClick={() => navigate('/sales/orders', { state: { highlightOrderId: order.id } })}
                     >
                       <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, fontFamily: 'monospace' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {order.orderNumber}
                         </Typography>
                       </TableCell>
@@ -581,7 +581,7 @@ const SalesPage: React.FC = () => {
                             {order.customer?.name?.charAt(0) || 'U'}
                           </Avatar>
                           <Box>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{order.customer?.name || 'Unknown'}</Typography>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{order.customer?.name || 'Unknown'}</Typography>
                             <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                               {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
                             </Typography>
@@ -594,7 +594,7 @@ const SalesPage: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="primary" sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="primary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {formatCurrency(order.totalAmount)}
                         </Typography>
                       </TableCell>
@@ -655,7 +655,7 @@ const SalesPage: React.FC = () => {
                         {index + 1}
                       </Typography>
                       <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {customer.customerName || customer.name}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -663,7 +663,7 @@ const SalesPage: React.FC = () => {
                         </Typography>
                       </Box>
                     </Box>
-                    <Typography variant="subtitle2" color="primary">
+                    <Typography variant="body2" color="primary">
                       {formatCurrency(customer.totalRevenue || customer.amount || 0)}
                     </Typography>
                   </Box>

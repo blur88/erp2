@@ -44,7 +44,6 @@ import {
   Refresh as RefreshIcon,
   Receipt as OrderIcon,
   RestoreFromTrash as RestoreIcon,
-  Keyboard as KeyboardIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
@@ -58,7 +57,6 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -168,7 +166,6 @@ const OrdersPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
-  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
@@ -1065,7 +1062,6 @@ const OrdersPage: React.FC = () => {
     setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
-    setKeyboardHelpOpen(false)
   }, [dispatch])
 
   const clearDialogs = () => {
@@ -1073,17 +1069,11 @@ const OrdersPage: React.FC = () => {
     setBlockedDialogOpen(false)
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
-    setKeyboardHelpOpen(false)
   }
 
-  // Setup keyboard shortcuts
+  // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: handleAddOrder,
-    onRefresh: handleRefreshAction,
-    onEdit: handleEditAction,
-    onDelete: handleDeleteAction,
-    onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
     onEnter: handleEnterAction,
@@ -1467,25 +1457,6 @@ const OrdersPage: React.FC = () => {
         >
           Sort
         </Button>
-        <Button
-          variant="outlined"
-          startIcon={<KeyboardIcon />}
-          size="medium"
-          onClick={() => setKeyboardHelpOpen(true)}
-          sx={{
-            flex: 'none',
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: '0.875rem',
-            color: 'info.main',
-            borderColor: 'info.main',
-            '&:hover': {
-              borderColor: 'info.dark',
-              backgroundColor: 'info.light'
-            }
-          }}
-        >
-          Shortcuts
-        </Button>
       </Box>
 
       {/* Error Display */}
@@ -1854,6 +1825,28 @@ const OrdersPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
+                              Sub-total
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatCurrency(
+                                selectedOrder.items?.reduce((sum: number, item: any) => sum + (Number(item.totalAmount) || 0), 0) || 0
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Shipping
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatCurrency(selectedOrder.shippingAmount || 0)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
                               Total
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
@@ -2088,7 +2081,6 @@ const OrdersPage: React.FC = () => {
                           >
                             <TableCell sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                             }}>
                               {item.product?.name || item.productName || 'Unknown Product'}
@@ -2134,7 +2126,6 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                             <TableCell align="right" sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                             }}>
                               {formatCurrency(item.totalAmount || (item.quantity * item.unitPrice) || 0)}
@@ -2325,7 +2316,6 @@ const OrdersPage: React.FC = () => {
                               >
                                 <TableCell sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                                 }}>
                                   {item.product?.name || item.productName || 'Unknown Product'}
@@ -2387,7 +2377,6 @@ const OrdersPage: React.FC = () => {
                                 </TableCell>
                                 <TableCell align="right" sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                                 }}>
                                   {formatCurrency(item.totalAmount || (item.quantity * item.unitPrice) || 0)}
@@ -2460,12 +2449,6 @@ const OrdersPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         severity="warning"
-      />
-
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={keyboardHelpOpen}
-        onClose={() => setKeyboardHelpOpen(false)}
       />
     </Box>
   )

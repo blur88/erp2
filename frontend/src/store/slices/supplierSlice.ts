@@ -36,6 +36,7 @@ const initialState: SupplierState = {
     search: '',
     sortBy: 'companyName',
     sortOrder: 'ASC',
+    isActive: true, // Default to showing only active suppliers
   },
 }
 
@@ -116,24 +117,32 @@ const supplierSlice = createSlice({
     // Fetch suppliers
     builder
       .addCase(fetchSuppliers.pending, (state) => {
+        console.log('🔄 fetchSuppliers.pending - loading=true')
         state.loading = true
         state.error = null
       })
       .addCase(fetchSuppliers.fulfilled, (state, action) => {
+        console.log('✅ fetchSuppliers.fulfilled - payload:', action.payload)
         state.loading = false
         if (action.payload) {
           // Handle response structure: { suppliers, total, page, limit, totalPages, hasNext, hasPrev }
           const response = action.payload as any
-          state.suppliers = response.suppliers || response.data || []
+          const newSuppliers = response.suppliers || response.data || []
+          console.log('📦 Setting suppliers array, length:', newSuppliers.length)
+          state.suppliers = newSuppliers
           state.pagination = {
             page: response.page || response.meta?.page || initialState.pagination.page,
             limit: response.limit || response.meta?.limit || initialState.pagination.limit,
             total: response.total || response.meta?.total || initialState.pagination.total,
             totalPages: response.totalPages || response.meta?.totalPages || initialState.pagination.totalPages,
           }
+          console.log('📦 New state - suppliers:', state.suppliers.length, 'pagination:', state.pagination)
+        } else {
+          console.warn('⚠️ fetchSuppliers.fulfilled but no payload!')
         }
       })
       .addCase(fetchSuppliers.rejected, (state, action) => {
+        console.error('❌ fetchSuppliers.rejected - error:', action.payload)
         state.loading = false
         state.error = action.payload as string
       })
@@ -178,14 +187,18 @@ const supplierSlice = createSlice({
     // Delete supplier
     builder
       .addCase(deleteSupplier.pending, (state) => {
+        console.log('🔄 deleteSupplier.pending - loading=true, suppliers count:', state.suppliers.length)
         state.loading = true
         state.error = null
       })
-      .addCase(deleteSupplier.fulfilled, (state, action) => {
+      .addCase(deleteSupplier.fulfilled, (state) => {
+        console.log('✅ deleteSupplier.fulfilled - loading=false, suppliers count:', state.suppliers.length)
         state.loading = false
-        state.suppliers = state.suppliers.filter((s) => s.id !== action.payload)
+        // Don't remove from state here - let the refetch handle it
+        // This prevents blank page if refetch fails
       })
       .addCase(deleteSupplier.rejected, (state, action) => {
+        console.error('❌ deleteSupplier.rejected - error:', action.payload)
         state.loading = false
         state.error = action.payload as string
       })

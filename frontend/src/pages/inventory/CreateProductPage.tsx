@@ -22,8 +22,6 @@ import * as yup from 'yup'
 import { ApiService } from '@/services/api'
 import { formatCurrency } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
-import { useAppDispatch } from '@/hooks/useRedux'
-import { fetchProducts } from '@/store/slices/inventorySlice'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
@@ -64,7 +62,6 @@ const productSchema = yup.object({
 
 const CreateProductPage: React.FC = () => {
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
@@ -84,7 +81,7 @@ const CreateProductPage: React.FC = () => {
     hasCheckedBarcode
   } = useDuplicateCheck()
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<ProductFormData>({
+  const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
       name: '',
@@ -196,21 +193,20 @@ const CreateProductPage: React.FC = () => {
       let productId = id
 
       if (isEditMode && id) {
-        await ApiService.put(`/inventory/products/${id}`, productData)
+        await ApiService.patch(`/inventory/products/${id}`, productData)
         showSuccess('Product updated successfully')
       } else {
-        const response = await ApiService.post('/inventory/products', productData)
-        // Extract the created product ID from the response
-        productId = (response as any)?.data?.id || (response as any)?.id
+        const response = await ApiService.post('/inventory/products', productData) as any
+        // ApiService.post already unwraps response.data, so the response IS the product data
+        productId = response?.id
         showSuccess('Product created successfully')
       }
 
-      // Refresh products list in Redux
-      dispatch(fetchProducts({ page: 1, limit: 10 }))
-
       // Navigate back to products page with the product ID in state
+      // The ProductsPage will handle refreshing the products list
       navigate('/inventory/products', {
-        state: { selectedProductId: productId }
+        state: { selectedProductId: productId },
+        replace: false // Use push navigation so back button works
       })
     } catch (err: any) {
       console.error('Error saving product:', err)

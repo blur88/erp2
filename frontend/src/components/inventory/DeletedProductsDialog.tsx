@@ -550,7 +550,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
               <Typography variant="body1" gutterBottom>
                 Are you sure you want to permanently delete this product?
               </Typography>
-              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {confirmDelete.name}
                 </Typography>
@@ -608,7 +608,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </Typography>
           
           {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                 Products to be restored:
               </Typography>
@@ -672,7 +672,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </Typography>
           
           {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                 Products to be deleted:
               </Typography>

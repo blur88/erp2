@@ -1,169 +1,243 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
+  Paper,
+  Button,
   Grid,
   Card,
   CardContent,
-  Button,
-  Chip,
-  CircularProgress,
-  Alert,
-  LinearProgress,
-  IconButton,
-  Tooltip,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Avatar,
-  Divider,
+  Chip,
+  useTheme,
+  CircularProgress,
+  Alert
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Inventory2 as InventoryIcon,
   Category as CategoryIcon,
   TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
   Warning as WarningIcon,
-  ArrowUpward as ArrowUpwardIcon,
-  ArrowDownward as ArrowDownwardIcon,
-  Refresh as RefreshIcon,
+  ErrorOutline as OutOfStockIcon,
+  Add as AddIcon,
   Timeline as TimelineIcon,
-  Assessment as AssessmentIcon,
-  Inventory as StockIcon,
-  LocalShipping as ShippingIcon,
-  ShoppingCart as SalesIcon,
-  ErrorOutline as AlertIcon,
+  Assessment as AssessmentIcon
 } from '@mui/icons-material'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js'
+import { Bar, Doughnut } from 'react-chartjs-2'
+import { format } from 'date-fns'
+import { formatCurrency } from '@/utils/formatters'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
-import { inventoryApi } from '@/services/inventoryApi'
-import { formatCurrencyWhole } from '@/utils/currency'
 
-interface LowStockAlert {
-  productId: string
-  sku: string
-  name: string
-  currentStock: number
-  reorderLevel: number
-  alertSeverity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-  categoryName: string
-  estimatedDaysUntilOutOfStock: number
-}
-
-interface StockMovement {
-  id: string
-  movementType: string
-  quantity: number
-  movementDate: string
-  product: {
-    name: string
-    sku: string
-  }
-  description: string
-}
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+)
 
 const InventoryPage: React.FC = () => {
+  const theme = useTheme()
   const navigate = useNavigate()
+  const [inventoryData, setInventoryData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalCategories: 0,
-    inventoryValue: 0,
-    lowStockCount: 0,
-    outOfStockCount: 0,
-    recentMovements: 0,
-  })
-  const [lowStockAlerts, setLowStockAlerts] = useState<LowStockAlert[]>([])
-  const [recentMovements, setRecentMovements] = useState<StockMovement[]>([])
-  const [categoryBreakdown, setCategoryBreakdown] = useState<Array<{ category: string; count: number; value: number }>>([])
 
+  useEffect(() => {
+    fetchInventoryData()
+  }, [])
 
-  const fetchInventoryStats = async (isRefresh = false) => {
+  const fetchInventoryData = async () => {
     try {
-      if (isRefresh) {
-        setRefreshing(true)
-      } else {
-        setLoading(true)
-      }
+      setLoading(true)
       setError(null)
 
-      // Fetch dashboard stats (critical) and recent movements (optional) separately
-      const dashboardResponse = await inventoryApi.getDashboardStats()
-      
-      // Try to fetch stock movements, but don't fail if it doesn't work
-      let movements: any[] = []
-      try {
-        const stockMovementsResponse = await inventoryApi.getStockMovements({ limit: 10, sortBy: 'movementDate', sortOrder: 'desc' })
-        movements = Array.isArray(stockMovementsResponse?.data?.data) ? stockMovementsResponse.data.data : []
-      } catch (movementsError) {
-        console.warn('Failed to fetch stock movements:', movementsError)
-        movements = []
-      }
-      
-      // Safely extract data with null checks
-      const dashboardData = (dashboardResponse as any)
-      
-      if (dashboardData) {
-        setStats({
-          totalProducts: dashboardData.totalProducts || 0,
-          totalCategories: dashboardData.totalCategories || 0,
-          inventoryValue: dashboardData.inventoryValue || 0,
-          lowStockCount: dashboardData.lowStockCount || 0,
-          outOfStockCount: dashboardData.outOfStockCount || 0,
-          recentMovements: dashboardData.recentMovements || 0,
-        })
-
-        setCategoryBreakdown(dashboardData.categoryBreakdown || [])
+      // Fetch dashboard stats
+      const statsResponse = await fetch('/api/inventory/products/dashboard-stats')
+      let dashboardStats = null
+      if (statsResponse.ok) {
+        dashboardStats = await statsResponse.json()
       }
 
-      setRecentMovements(movements as any)
-
-      // Fetch low stock alerts if available (mock data for now since API might not be implemented)
-      try {
-        const alertsResponse = await inventoryApi.getStockLevels({ lowStock: true })
-        if (alertsResponse?.data && Array.isArray(alertsResponse.data)) {
-          const alerts: LowStockAlert[] = alertsResponse.data.map((item: any) => ({
-            productId: item.product?.id || '',
-            sku: item.product?.sku || '',
-            name: item.product?.name || '',
-            currentStock: item.currentStock || 0,
-            reorderLevel: item.minStock || 0,
-            alertSeverity: item.status === 'out_of_stock' ? 'CRITICAL' : 'HIGH' as any,
-            categoryName: item.product?.category?.name || 'Uncategorized',
-            estimatedDaysUntilOutOfStock: 0
-          }))
-          setLowStockAlerts(alerts)
-        }
-      } catch (alertErr) {
-        // Fallback: create empty alerts since we don't have product data here anymore
-        setLowStockAlerts([])
+      // Fetch recent stock movements
+      const movementsResponse = await fetch('/api/inventory/stock/movements?limit=5&sortBy=movementDate&sortOrder=DESC')
+      let movementsData = []
+      if (movementsResponse.ok) {
+        const movementsResult = await movementsResponse.json()
+        movementsData = movementsResult.data || []
       }
 
-    } catch (err: any) {
-      console.error('Error fetching inventory stats:', err)
-      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to load inventory statistics'
-      setError(errorMessage)
+      // Fetch out of stock products
+      const outOfStockResponse = await fetch('/api/inventory/products/out-of-stock')
+      let outOfStockData = []
+      if (outOfStockResponse.ok) {
+        outOfStockData = await outOfStockResponse.json()
+      }
+
+      setInventoryData({
+        stats: dashboardStats || {
+          totalProducts: 0,
+          totalCategories: 0,
+          inventoryValue: 0,
+          lowStockCount: 0,
+          outOfStockCount: 0,
+          recentMovements: 0,
+          categoryBreakdown: [],
+          stockHealthMetrics: {
+            inStockPercentage: 0,
+            outOfStockPercentage: 0,
+            averageValue: 0
+          }
+        },
+        recentMovements: movementsData,
+        outOfStockAlerts: outOfStockData
+      })
+    } catch (error) {
+      console.error('Error fetching inventory data:', error)
+      setError('Failed to load inventory data')
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
-  const handleRefresh = () => {
-    fetchInventoryStats(true)
+  // Chart data for category breakdown
+  const categoryBreakdownData = {
+    labels: inventoryData?.stats?.categoryBreakdown?.map((item: any) => item.category) || [],
+    datasets: [
+      {
+        label: 'Inventory Value',
+        data: inventoryData?.stats?.categoryBreakdown?.map((item: any) => item.value) || [],
+        backgroundColor: [
+          theme.palette.primary.main,
+          theme.palette.secondary.main,
+          theme.palette.success.main,
+          theme.palette.warning.main,
+          theme.palette.info.main,
+          theme.palette.error.main,
+        ],
+        borderWidth: 2,
+        borderColor: theme.palette.background.paper
+      }
+    ]
   }
 
-  useEffect(() => {
-    fetchInventoryStats()
-  }, [])
-
-  const handleAddProduct = () => {
-    navigate('/inventory/products')
+  const stockHealthData = {
+    labels: ['In Stock', 'Out of Stock'],
+    datasets: [
+      {
+        data: [
+          inventoryData?.stats?.stockHealthMetrics?.inStockPercentage || 0,
+          inventoryData?.stats?.stockHealthMetrics?.outOfStockPercentage || 0
+        ],
+        backgroundColor: [
+          theme.palette.success.main,
+          theme.palette.error.main
+        ],
+        borderWidth: 2,
+        borderColor: theme.palette.background.paper
+      }
+    ]
   }
+
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom' as const,
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const label = context.label || '';
+            const value = context.parsed || 0;
+            return `${label}: ${value}%`;
+          }
+        }
+      }
+    }
+  }
+
+  const barChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value: any) {
+            return formatCurrency(value)
+          }
+        }
+      }
+    }
+  }
+
+  const stats = [
+    {
+      title: 'Total Products',
+      value: inventoryData?.stats?.totalProducts || '0',
+      change: '+0.0%',
+      trend: 'up',
+      icon: InventoryIcon,
+      color: 'primary'
+    },
+    {
+      title: 'Categories',
+      value: inventoryData?.stats?.totalCategories || '0',
+      change: '+0.0%',
+      trend: 'up',
+      icon: CategoryIcon,
+      color: 'secondary'
+    },
+    {
+      title: 'Inventory Value',
+      value: formatCurrency(inventoryData?.stats?.inventoryValue || 0),
+      change: '+0.0%',
+      trend: 'up',
+      icon: TrendingUpIcon,
+      color: 'success'
+    },
+    {
+      title: 'Out of Stock',
+      value: inventoryData?.stats?.outOfStockCount || '0',
+      change: inventoryData?.stats?.outOfStockCount > 0 ? `${inventoryData.stats.outOfStockCount} items` : 'All stocked',
+      trend: inventoryData?.stats?.outOfStockCount > 0 ? 'down' : 'up',
+      icon: OutOfStockIcon,
+      color: 'error'
+    }
+  ]
+
+  const recentMovements = inventoryData?.recentMovements || []
+  const outOfStockAlerts = inventoryData?.outOfStockAlerts || []
 
   if (loading) {
     return (
@@ -178,29 +252,34 @@ const InventoryPage: React.FC = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <InventoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <InventoryIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Inventory Overview
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Monitor your stock levels, track movements, and manage inventory health
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Monitor stock levels, track movements, and manage inventory health
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Tooltip title="Refresh data">
-            <IconButton 
-              onClick={handleRefresh} 
-              disabled={refreshing}
-              sx={{ bgcolor: 'action.hover' }}
-            >
-              <RefreshIcon className={refreshing ? 'rotate' : ''} />
-            </IconButton>
-          </Tooltip>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/inventory/categories')}
+          >
+            Manage Categories
+          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            size="large"
-            onClick={handleAddProduct}
+            onClick={() => navigate('/inventory/products')}
           >
             Add Product
           </Button>
@@ -216,459 +295,275 @@ const InventoryPage: React.FC = () => {
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} lg={2}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
-                  <InventoryIcon />
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    {stats.totalProducts.toLocaleString()}
-                  </Typography>
-                  <Typography color="text.secondary" variant="body2">
-                    Total Products
-                  </Typography>
+        {stats.map((stat, index) => (
+          <Grid item xs={12} sm={6} lg={3} key={index}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: `${stat.color}.light`,
+                      color: `${stat.color}.contrastText`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <stat.icon />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {stat.trend === 'up' ? (
+                      <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                    ) : (
+                      <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                    )}
+                    <Typography
+                      variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                      sx={{
+                        color: stat.trend === 'up' ? 'success.main' : 'error.main',
+                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                      }}
+                    >
+                      {stat.change}
+                    </Typography>
+                  </Box>
                 </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={2}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ bgcolor: 'secondary.main', width: 48, height: 48 }}>
-                  <CategoryIcon />
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    {stats.totalCategories}
-                  </Typography>
-                  <Typography color="text.secondary" variant="body2">
-                    Categories
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={2}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ bgcolor: 'success.main', width: 48, height: 48 }}>
-                  <TrendingUpIcon />
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    {formatCurrencyWhole(stats.inventoryValue)}
-                  </Typography>
-                  <Typography color="text.secondary" variant="body2">
-                    Inventory Value
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={2}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ bgcolor: 'warning.main', width: 48, height: 48 }}>
-                  <WarningIcon />
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    {stats.lowStockCount}
-                  </Typography>
-                  <Typography color="text.secondary" variant="body2">
-                    Low Stock Items
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={2}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ bgcolor: 'error.main', width: 48, height: 48 }}>
-                  <AlertIcon />
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    {stats.outOfStockCount}
-                  </Typography>
-                  <Typography color="text.secondary" variant="body2">
-                    Out of Stock
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={2}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ bgcolor: 'info.main', width: 48, height: 48 }}>
-                  <TimelineIcon />
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    {stats.recentMovements.toLocaleString()}
-                  </Typography>
-                  <Typography color="text.secondary" variant="body2">
-                    Stock Movements
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+                <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
+                  {stat.value}
+                </Typography>
+                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                  {stat.title}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
-      {/* Main Dashboard Content */}
-      <Grid container spacing={3}>
-        {/* Low Stock Alerts */}
-        <Grid item xs={12} lg={8}>
-          <Card sx={{ height: 400 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <WarningIcon color="warning" />
-                  Stock Alerts
-                </Typography>
-                <Chip 
-                  label={`${lowStockAlerts.length} alerts`} 
-                  color={lowStockAlerts.length > 0 ? 'warning' : 'success'}
-                  size="small"
-                />
-              </Box>
-              
-              {lowStockAlerts.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography color="text.secondary">
-                    No stock alerts at the moment. All products are well-stocked.
-                  </Typography>
-                </Box>
+      {/* Charts and Analytics */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, height: 400 }}>
+            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+              Category Value Distribution
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              {inventoryData?.stats?.categoryBreakdown && inventoryData.stats.categoryBreakdown.length > 0 ? (
+                <Bar data={categoryBreakdownData} options={barChartOptions} />
               ) : (
-                <TableContainer sx={{ maxHeight: 300 }}>
-                  <Table stickyHeader size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Product</TableCell>
-                        <TableCell>Category</TableCell>
-                        <TableCell align="right">Current Stock</TableCell>
-                        <TableCell align="right">Reorder Level</TableCell>
-                        <TableCell align="center">Status</TableCell>
-                        <TableCell align="right">Days Left</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {lowStockAlerts.map((alert) => (
-                        <TableRow key={alert.productId} hover>
-                          <TableCell>
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                {alert.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                SKU: {alert.sku}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">{alert.categoryName}</Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {alert.currentStock}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2">{alert.reorderLevel}</Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={alert.alertSeverity}
-                              size="small"
-                              color={
-                                alert.alertSeverity === 'CRITICAL' ? 'error' :
-                                alert.alertSeverity === 'HIGH' ? 'warning' :
-                                alert.alertSeverity === 'MEDIUM' ? 'info' : 'default'
-                              }
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="body2">
-                              {alert.estimatedDaysUntilOutOfStock > 0 ? `${alert.estimatedDaysUntilOutOfStock}d` : '-'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Category Breakdown */}
-        <Grid item xs={12} lg={4}>
-          <Card sx={{ height: 400 }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AssessmentIcon color="primary" />
-                Top Categories
-              </Typography>
-              
-              {categoryBreakdown.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography color="text.secondary">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
                     No category data available
                   </Typography>
                 </Box>
-              ) : (
-                <Box sx={{ space: 2 }}>
-                  {categoryBreakdown.map((item) => {
-                    const maxValue = Math.max(...categoryBreakdown.map(c => c.value))
-                    const percentage = maxValue > 0 ? (item.value / maxValue) * 100 : 0
-                    
-                    return (
-                      <Box key={item.category} sx={{ mb: 3 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {item.category}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {item.count} items
-                          </Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={percentage} 
-                          sx={{ height: 8, borderRadius: 4, mb: 1 }}
+              )}
+            </Box>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, height: 400 }}>
+            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+              Stock Health Status
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              <Doughnut data={stockHealthData} options={doughnutOptions} />
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Recent Stock Movements and Low Stock Alerts */}
+      <Grid container spacing={3}>
+        <Grid item xs={12} lg={8}>
+          <Paper sx={{ overflow: 'hidden' }}>
+            <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                Recent Stock Movements
+              </Typography>
+              <Chip
+                label={`${inventoryData?.stats?.recentMovements || 0} total`}
+                color="info"
+                size="small"
+              />
+            </Box>
+            <TableContainer>
+              <Table size={TABLE_STYLES.size}>
+                <TableHead>
+                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, backgroundColor: TABLE_STYLES.header.backgroundColor, py: TABLE_STYLES.header.padding.py } }}>
+                    <TableCell>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}>
+                        Date
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}>
+                        Product
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}>
+                        Type
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}>
+                        Quantity
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}>
+                        Reference
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {recentMovements.length > 0 ? recentMovements.map((movement: any) => (
+                    <TableRow
+                      key={movement.id}
+                      hover
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          borderBottom: TABLE_STYLES.cell.border,
+                          py: TABLE_STYLES.cell.padding.py,
+                          px: TABLE_STYLES.cell.padding.px
+                        },
+                        height: TABLE_STYLES.row.height
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
+                          {movement.movementDate ? format(new Date(movement.movementDate), 'MMM dd, yyyy') : 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {movement.product?.name || 'Unknown'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={movement.movementType?.replace('_', ' ') || 'N/A'}
+                          color={
+                            movement.movementType === 'IN' ? 'success' :
+                            movement.movementType === 'OUT' ? 'error' :
+                            'default'
+                          }
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                            height: TYPOGRAPHY_STYLES.chip.small.height
+                          }}
                         />
-                        <Typography variant="caption" color="text.secondary">
-                          {formatCurrencyWhole(item.value)}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                          sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                            color: movement.quantity > 0 ? 'success.main' : 'error.main'
+                          }}
+                        >
+                          {movement.quantity > 0 ? '+' : ''}{movement.quantity}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
+                          {movement.referenceNumber || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                          No recent stock movements
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} lg={4}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+              Out of Stock Items
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {outOfStockAlerts.length > 0 ? outOfStockAlerts.slice(0, 5).map((alert: any, index: number) => (
+                <Box key={alert.id || index}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          bgcolor: 'error.main',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <OutOfStockIcon sx={{ fontSize: 14 }} />
+                      </Box>
+                      <Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {alert.name || 'Unknown Product'}
                         </Typography>
                       </Box>
-                    )
-                  })}
+                    </Box>
+                    <Chip
+                      label="Out"
+                      color="error"
+                      size="small"
+                      sx={{
+                        fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                        fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                        height: TYPOGRAPHY_STYLES.chip.small.height
+                      }}
+                    />
+                  </Box>
                 </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Recent Stock Movements */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TimelineIcon color="info" />
-                  Recent Stock Movements
+              )) : (
+                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
+                  All products in stock
                 </Typography>
-                <Button size="small" onClick={() => navigate('/inventory/stock-movements')}>
-                  View All
-                </Button>
-              </Box>
-              
-              {recentMovements.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography color="text.secondary">
-                    No recent stock movements
-                  </Typography>
-                </Box>
-              ) : (
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Product</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell align="right">Quantity</TableCell>
-                        <TableCell>Description</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {recentMovements.slice(0, 5).map((movement) => (
-                        <TableRow key={movement.id} hover>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {new Date(movement.movementDate).toLocaleDateString()}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {new Date(movement.movementDate).toLocaleTimeString()}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                {movement.product.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                SKU: {movement.product.sku}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={movement.movementType.replace('_', ' ')}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                              {movement.quantity > 0 ? (
-                                <ArrowUpwardIcon fontSize="small" color="success" />
-                              ) : (
-                                <ArrowDownwardIcon fontSize="small" color="error" />
-                              )}
-                              <Typography 
-                                variant="body2" 
-                                sx={{ fontWeight: 500 }}
-                                color={movement.quantity > 0 ? 'success.main' : 'error.main'}
-                              >
-                                {Math.abs(movement.quantity)}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {movement.description || 'Stock movement'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
               )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Quick Actions */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-                Quick Actions
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => navigate('/inventory/products')}
-                  startIcon={<InventoryIcon />}
-                  sx={{ justifyContent: 'flex-start' }}
-                >
-                  Manage Products
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => navigate('/inventory/categories')}
-                  startIcon={<CategoryIcon />}
-                  sx={{ justifyContent: 'flex-start' }}
-                >
-                  Manage Categories
-                </Button>
-                <Divider sx={{ my: 1 }} />
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => navigate('/inventory/stock-adjustments')}
-                  startIcon={<StockIcon />}
-                  sx={{ justifyContent: 'flex-start' }}
-                >
-                  Stock Adjustments
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<ShippingIcon />}
-                  sx={{ justifyContent: 'flex-start' }}
-                >
-                  Receiving
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<SalesIcon />}
-                  sx={{ justifyContent: 'flex-start' }}
-                >
-                  Sales Orders
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Performance Insights */}
-        <Grid item xs={12} md={8}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TrendingUpIcon color="success" />
-                Inventory Health
-              </Typography>
-              
-              <Grid container spacing={3}>
-                <Grid item xs={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.light', borderRadius: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.dark' }}>
-                      {stats.totalProducts > 0 ? Math.round(((stats.totalProducts - stats.outOfStockCount) / stats.totalProducts) * 100) : 0}%
-                    </Typography>
-                    <Typography variant="body2" color="success.dark">
-                      In Stock
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.light', borderRadius: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.dark' }}>
-                      {stats.totalProducts > 0 ? Math.round((stats.lowStockCount / stats.totalProducts) * 100) : 0}%
-                    </Typography>
-                    <Typography variant="body2" color="warning.dark">
-                      Low Stock
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'error.light', borderRadius: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: 'error.dark' }}>
-                      {stats.totalProducts > 0 ? Math.round((stats.outOfStockCount / stats.totalProducts) * 100) : 0}%
-                    </Typography>
-                    <Typography variant="body2" color="error.dark">
-                      Out of Stock
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6} md={3}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.light', borderRadius: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: 'info.dark' }}>
-                      {formatCurrencyWhole(stats.inventoryValue / Math.max(stats.totalProducts, 1))}
-                    </Typography>
-                    <Typography variant="body2" color="info.dark">
-                      Avg. Value
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
+            </Box>
+          </Paper>
         </Grid>
       </Grid>
     </Box>

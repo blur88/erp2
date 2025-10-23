@@ -20,6 +20,7 @@ import {
   Card,
   CardContent,
   MenuItem,
+  useTheme,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -75,6 +76,7 @@ const schema = yup.object({
 })
 
 const CreatePurchaseOrderPage: React.FC = () => {
+  const theme = useTheme()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { id } = useParams<{ id: string }>()
@@ -498,23 +500,23 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     </Button>
                   </Box>
 
-                  <TableContainer component={Paper} sx={{ border: '1px solid #e0e0e0' }}>
+                  <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
                     <Table
                       size="small"
                       sx={{
                         '& .MuiTableCell-root': {
-                          border: '1px solid #e0e0e0',
+                          border: `1px solid ${theme.palette.divider}`,
                           padding: '4px 8px',
                           fontSize: '0.875rem',
                         },
                         '& .MuiTableHead-root .MuiTableCell-root': {
-                          backgroundColor: '#f5f5f5',
+                          backgroundColor: theme.palette.grey[50],
                           fontWeight: 600,
-                          color: '#424242',
-                          border: '1px solid #d0d0d0',
+                          color: theme.palette.text.primary,
+                          border: `1px solid ${theme.palette.divider}`,
                         },
                         '& .MuiTableBody-root .MuiTableRow-root:hover': {
-                          backgroundColor: '#f9f9f9',
+                          backgroundColor: theme.palette.action.hover,
                         },
                         '& .MuiTextField-root': {
                           '& .MuiOutlinedInput-root': {
@@ -778,20 +780,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
                               </Box>
                             </TableCell>
                             <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
-                              <Box sx={{
-                                backgroundColor: '#f8f9fa',
-                                padding: '6px 8px',
-                                borderRadius: '4px',
-                                border: '1px solid #e9ecef',
-                                minHeight: '32px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end'
-                              }}>
-                                <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
-                                  {formatCurrency(watchedItems[index]?.totalPrice || 0)}
-                                </Typography>
-                              </Box>
+                              <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
+                                {formatCurrency(watchedItems[index]?.totalPrice || 0)}
+                              </Typography>
                             </TableCell>
                             <TableCell align="center" sx={{ padding: '2px !important' }}>
                               <IconButton
@@ -799,16 +790,16 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 disabled={fields.length === 1}
                                 size="small"
                                 sx={{
-                                  color: '#dc3545',
-                                  '&:hover': { backgroundColor: '#f8d7da' },
-                                  '&.Mui-disabled': { color: '#ccc' }
+                                  color: theme.palette.error.main,
+                                  '&:hover': { backgroundColor: theme.palette.error.light },
+                                  '&.Mui-disabled': { color: theme.palette.action.disabled }
                                 }}
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
                             </TableCell>
-                            <TableCell sx={{ width: 40, padding: '2px !important', backgroundColor: '#f8f9fa' }}>
-                              <Typography variant="caption" sx={{ color: '#6c757d', fontSize: '0.75rem' }}>
+                            <TableCell sx={{ width: 40, padding: '2px !important' }}>
+                              <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
                                 {index + 1}
                               </Typography>
                             </TableCell>
@@ -922,7 +913,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     />
                   </Box>
 
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: '1px solid #e0e0e0' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
                     <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Total:</Typography>
                     <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
                   </Box>

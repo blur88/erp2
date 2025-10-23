@@ -1393,13 +1393,13 @@ const PurchaseOrdersPage: React.FC = () => {
                             borderTop: TABLE_STYLES.cell.border
                           }}>
                             <TableCell sx={{
-                              fontWeight: 600,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
                               Total Amount
                             </TableCell>
                             <TableCell sx={{
-                              fontWeight: 600,
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
                               {formatCurrency(

@@ -28,13 +28,25 @@ export class SimplifyPaymentsTable1771000000000 implements MigrationInterface {
     // Drop metadata
     await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN IF EXISTS "metadata"`);
 
-    // Update default values - set all existing payments to have single values
-    await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "type" SET DEFAULT 'payment'`);
+    // Check if type column exists before modifying it
+    const typeColumnExists = await queryRunner.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'payments' AND column_name = 'type'
+    `);
+
+    if (typeColumnExists.length > 0) {
+      // Update default values - set all existing payments to have single values
+      await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "type" SET DEFAULT 'payment'`);
+      // Update all existing records to use the simplified values
+      await queryRunner.query(`UPDATE "payments" SET "type" = 'payment' WHERE "type" != 'payment'`);
+    }
+
+    // Update default values for other columns
     await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "status" SET DEFAULT 'completed'`);
     await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "paymentMethod" SET DEFAULT 'cash'`);
 
     // Update all existing records to use the simplified values
-    await queryRunner.query(`UPDATE "payments" SET "type" = 'payment' WHERE "type" != 'payment'`);
     await queryRunner.query(`UPDATE "payments" SET "status" = 'completed' WHERE "status" != 'completed'`);
     await queryRunner.query(`UPDATE "payments" SET "paymentMethod" = 'cash' WHERE "paymentMethod" != 'cash'`);
   }
@@ -64,8 +76,19 @@ export class SimplifyPaymentsTable1771000000000 implements MigrationInterface {
     // Re-add metadata
     await queryRunner.query(`ALTER TABLE "payments" ADD "metadata" json`);
 
-    // Restore original default values
-    await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "type" SET DEFAULT 'payment'`);
+    // Check if type column exists before modifying it
+    const typeColumnExists = await queryRunner.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'payments' AND column_name = 'type'
+    `);
+
+    if (typeColumnExists.length > 0) {
+      // Restore original default values
+      await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "type" SET DEFAULT 'payment'`);
+    }
+
+    // Restore original default values for other columns
     await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "status" SET DEFAULT 'pending'`);
     await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "paymentMethod" DROP DEFAULT`);
   }

@@ -177,9 +177,7 @@ export class PaymentResponseDto {
   @ApiProperty({ example: 'uuid-string', nullable: true })
   invoiceId?: string;
 
-  @ApiProperty({ example: 'uuid-string', nullable: true })
-  recordedByUserId: string;
-
+  
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   createdAt: Date;
 

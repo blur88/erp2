@@ -8,7 +8,7 @@ interface ThemeState {
 }
 
 const initialState: ThemeState = {
-  mode: 'light',
+  mode: 'dark',
   primaryColor: '#1976d2',
   secondaryColor: '#dc004e',
 }

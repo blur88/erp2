@@ -40,15 +40,14 @@ import {
   PictureAsPdf as PictureAsPdfIcon,
   CloudUpload as CloudUploadIcon,
   Inventory2 as InventoryIcon,
-  Keyboard as KeyboardIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { ApiService } from '@/services/api'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import KeyboardShortcutsHelp from '@/components/common/KeyboardShortcutsHelp'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
@@ -84,13 +83,13 @@ const ProductsPage: React.FC = () => {
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
-  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [hasNavigatedWithSelection, setHasNavigatedWithSelection] = useState(false)
   const productListRef = useRef<HTMLDivElement>(null)
 
   // Search and filter functionality
@@ -149,22 +148,63 @@ const ProductsPage: React.FC = () => {
     dispatch(fetchCategories({ includeProductCount: true }))
   }
 
+  // Store the selected product ID from navigation to prevent it from being lost
+  const [pendingProductId, setPendingProductId] = useState<string | null>(null)
+
   // Auto-select product when navigating from create/edit page
   useEffect(() => {
     const state = location.state as { selectedProductId?: string }
-    if (state?.selectedProductId && products.length > 0) {
-      const product = products.find((p: Product) => p.id === state.selectedProductId)
+    if (state?.selectedProductId && state.selectedProductId !== pendingProductId) {
+      setHasNavigatedWithSelection(true)
+      setPendingProductId(state.selectedProductId)
+
+      // Clear the navigation state to prevent re-triggering
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state, location.pathname, navigate, pendingProductId])
+
+  // Separate effect to handle product selection when products list changes
+  useEffect(() => {
+    if (pendingProductId && products.length > 0) {
+      const product = products.find((p: Product) => p.id === pendingProductId)
       if (product) {
+        // Product found in current list
         setSelectedProductForDetails(product)
-        const index = products.findIndex((p: Product) => p.id === state.selectedProductId)
+        const index = products.findIndex((p: Product) => p.id === pendingProductId)
         if (index >= 0) {
           setFocusedProductIndex(index)
         }
-        // Clear the state to prevent re-triggering on refresh
-        navigate(location.pathname, { replace: true })
+        // Clear the pending ID and reset the flag
+        setPendingProductId(null)
+        setTimeout(() => setHasNavigatedWithSelection(false), 1000)
+      } else {
+        // Product not in current list - fetch it directly by ID
+        ApiService.get(`/inventory/products/${pendingProductId}`)
+          .then((response: any) => {
+            const product = response as Product
+            setSelectedProductForDetails(product)
+            setFocusedProductIndex(-1) // No index since it's not in the list
+
+            // Also refresh the products list to get the latest data
+            setPage(0)
+            dispatch(fetchProducts({
+              page: 1,
+              limit: rowsPerPage,
+              search: undefined,
+              categoryId: undefined
+            }))
+          })
+          .catch((error) => {
+            console.error('Failed to fetch product:', error)
+            showError('Failed to load the product')
+          })
+          .finally(() => {
+            setPendingProductId(null)
+            setTimeout(() => setHasNavigatedWithSelection(false), 1000)
+          })
       }
     }
-  }, [products, location.state, location.pathname, navigate])
+  }, [pendingProductId, products, dispatch, rowsPerPage, showError])
 
   // Reset focused index when products change or page changes
   useEffect(() => {
@@ -174,14 +214,14 @@ const ProductsPage: React.FC = () => {
   // Auto-focus the first product when the list becomes available
   useEffect(() => {
     if (products.length > 0 && focusedProductIndex === -1) {
-      // Only auto-focus if we don't have a selected product
-      if (!selectedProductForDetails) {
+      // Only auto-focus if we don't have a selected product AND we haven't just navigated with a selection
+      if (!selectedProductForDetails && !hasNavigatedWithSelection) {
         setFocusedProductIndex(0)
         // Automatically show product details for the first product
         setSelectedProductForDetails(products[0])
       }
     }
-  }, [products, focusedProductIndex, selectedProductForDetails])
+  }, [products, focusedProductIndex, selectedProductForDetails, hasNavigatedWithSelection])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -256,51 +296,17 @@ const ProductsPage: React.FC = () => {
     }
   }, [focusedProductIndex, products, navigate])
 
-  const handleEditAction = useCallback(() => {
-    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
-      const product = products[focusedProductIndex]
-      navigate(`/inventory/products/${product.id}/edit`)
-    }
-  }, [focusedProductIndex, products, navigate])
-
-  const handleDeleteAction = useCallback(() => {
-    if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
-      handleDeleteProduct(products[focusedProductIndex])
-    }
-  }, [focusedProductIndex, products])
-
-  const handleExportAction = useCallback(() => {
-    if (products.length > 0) {
-      handleExport('csv')
-    }
-  }, [products])
-
-  const handleImportAction = useCallback(() => {
-    setImportDialogOpen(true)
-  }, [])
-
-  const handleViewDeletedAction = useCallback(() => {
-    setDeletedProductsDialogOpen(true)
-  }, [])
-
   const handleEscapeAction = useCallback(() => {
     setFocusedProductIndex(-1)
     setSelectedProductForDetails(null)
     setDeletedProductsDialogOpen(false)
     setImportDialogOpen(false)
     setDeleteConfirmOpen(false)
-    setKeyboardHelpOpen(false)
   }, [])
 
+  // Only keep keyboard navigation and search shortcuts
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: handleAddProduct,
-    onRefresh: handleRefresh,
-    onEdit: handleEditAction,
-    onDelete: handleDeleteAction,
-    onExport: handleExportAction,
-    onImport: handleImportAction,
-    onViewDeleted: handleViewDeletedAction,
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
     onEnter: handleEnterAction,
@@ -647,26 +653,6 @@ const ProductsPage: React.FC = () => {
           }}
         >
           Import
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<KeyboardIcon />}
-          size="medium"
-          onClick={() => setKeyboardHelpOpen(true)}
-          sx={{
-            flex: 'none',
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-            color: 'info.main',
-            borderColor: 'info.main',
-            '&:hover': {
-              borderColor: 'info.dark',
-              backgroundColor: 'info.light'
-            }
-          }}
-        >
-          Shortcuts
         </Button>
         <Button
           variant="outlined"
@@ -1315,11 +1301,6 @@ const ProductsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         severity="warning"
-      />
-      {/* Keyboard Shortcuts Help Dialog */}
-      <KeyboardShortcutsHelp
-        open={keyboardHelpOpen}
-        onClose={() => setKeyboardHelpOpen(false)}
       />
     </Box>
   )

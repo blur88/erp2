@@ -344,7 +344,11 @@ const darkTheme = createTheme({
       dark: colors.error[600],
       contrastText: '#000',
     },
-    grey: colors.grey,
+    grey: {
+      ...colors.grey,
+      // Override grey.50 for dark mode to use a darker shade
+      50: colors.grey[800], // Map grey.50 to grey.800 for dark mode
+    },
     background: {
       default: '#121212',
       paper: '#1e1e1e',
@@ -363,13 +367,64 @@ const darkTheme = createTheme({
       disabledBackground: colors.grey[800],
     },
   },
+  components: {
+    ...baseThemeOptions.components,
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.23) + ' !important',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.4) + ' !important',
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.primary[400] + ' !important',
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 8,
+            '& fieldset': {
+              borderColor: alpha('#ffffff', 0.23) + ' !important',
+            },
+            '&:hover fieldset': {
+              borderColor: alpha('#ffffff', 0.4) + ' !important',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: colors.primary[400] + ' !important',
+            },
+          },
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.23) + ' !important',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: alpha('#ffffff', 0.4) + ' !important',
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.primary[400] + ' !important',
+          },
+        },
+      },
+    },
+  },
 })
 
 // Export themes
 export { lightTheme, darkTheme }
 
-// Default theme (light)
-export const theme = lightTheme
+// Default theme (dark)
+export const theme = darkTheme
 
 // Theme creator function
 export const createAppTheme = (mode: 'light' | 'dark', primaryColor?: string) => {

@@ -513,7 +513,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
           </Typography>
 
           {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                 Orders to be restored:
               </Typography>
@@ -577,7 +577,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
           </Typography>
 
           {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                 Orders to be deleted:
               </Typography>
@@ -642,7 +642,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                 Are you sure you want to permanently delete order <strong>{showDeleteConfirm.orderNumber}</strong>?
               </Typography>
 
-              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                   Order Details:
                 </Typography>

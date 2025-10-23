@@ -145,10 +145,9 @@ const SuppliersPage: React.FC = () => {
     },
   })
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - only search and refresh
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onAdd: () => handleOpenForm(),
     onRefresh: () => dispatch(fetchSuppliers({ ...filters })),
   })
 
@@ -270,21 +269,20 @@ const SuppliersPage: React.FC = () => {
   // Handle delete
   const handleDelete = async () => {
     if (!selectedSupplier) return
+    console.log('🗑️ Starting delete for supplier:', selectedSupplier.id)
+    console.log('📊 Current suppliers count:', suppliers.length)
+    console.log('📊 Current filters:', filters)
+    console.log('📊 Current pagination:', pagination)
+
     try {
+      console.log('🔄 Calling deleteSupplier...')
       await dispatch(deleteSupplier(selectedSupplier.id)).unwrap()
+      console.log('✅ Delete successful')
       showSuccess(`Supplier "${selectedSupplier.companyName}" deleted successfully`)
       setIsDeleteConfirmOpen(false)
       setSelectedSupplier(null)
-      dispatch(fetchSuppliers({
-        page: pagination.page,
-        limit: pagination.limit,
-        search: filters.search || undefined,
-        type: filters.type || undefined,
-        isActive: filters.isActive,
-        sortBy: filters.sortBy || undefined,
-        sortOrder: filters.sortOrder || undefined
-      }))
     } catch (error: any) {
+      console.error('❌ Delete failed:', error)
       let errorMessage = 'An unexpected error occurred. Please try again.'
       const actualError = error?.payload || error
       if (actualError?.response?.data) {
@@ -299,6 +297,21 @@ const SuppliersPage: React.FC = () => {
         errorMessage = actualError.message
       }
       showError(errorMessage)
+    } finally {
+      console.log('🔄 Starting refetch...')
+      console.log('🔄 Refetch params:', {
+        ...filters,
+        page: pagination.page,
+        limit: pagination.limit,
+      })
+      // Always refetch to ensure UI is in sync with backend
+      await dispatch(fetchSuppliers({
+        ...filters,
+        page: pagination.page,
+        limit: pagination.limit,
+      }))
+      console.log('✅ Refetch complete')
+      console.log('📊 New suppliers count:', suppliers.length)
     }
   }
 

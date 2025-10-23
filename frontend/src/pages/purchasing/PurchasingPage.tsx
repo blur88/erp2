@@ -414,7 +414,7 @@ const PurchasingPage: React.FC = () => {
                         {index + 1}
                       </Typography>
                       <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {supplier.supplierName}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -422,7 +422,7 @@ const PurchasingPage: React.FC = () => {
                         </Typography>
                       </Box>
                     </Box>
-                    <Typography variant="subtitle2" color="warning">
+                    <Typography variant="body2" color="warning">
                       {formatCurrency(supplier.totalSpent || 0)}
                     </Typography>
                   </Box>
@@ -514,13 +514,13 @@ const PurchasingPage: React.FC = () => {
                       onClick={() => navigate(`/purchasing/orders?poId=${order.id}`)}
                     >
                       <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, fontFamily: 'monospace' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {order.orderNumber}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Box>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                             {order.supplier?.companyName || 'Unknown'}
                           </Typography>
                           <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
@@ -534,7 +534,7 @@ const PurchasingPage: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="warning" sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="warning" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                           {formatCurrency(order.totalAmount)}
                         </Typography>
                       </TableCell>
