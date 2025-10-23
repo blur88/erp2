@@ -88,12 +88,10 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
   }, [productId, page, rowsPerPage, showError])
 
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
+    return new Date(date).toLocaleDateString('en-GB', {
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: 'short',
+      year: 'numeric',
     })
   }
 
