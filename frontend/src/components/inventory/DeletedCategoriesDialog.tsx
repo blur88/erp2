@@ -577,7 +577,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           </Typography>
           
           {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                 Categories to be restored:
               </Typography>
@@ -641,7 +641,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           </Typography>
           
           {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                 Categories to be deleted:
               </Typography>
