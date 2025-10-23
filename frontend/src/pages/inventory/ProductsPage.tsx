@@ -884,9 +884,11 @@ const ProductsPage: React.FC = () => {
                   </Box>
                 </Box>
 
-                <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   {currentTab === 0 && (
-                    <ProductDetailsTab product={selectedProductForDetails} />
+                    <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+                      <ProductDetailsTab product={selectedProductForDetails} />
+                    </Box>
                   )}
                   {currentTab === 1 && (
                     <MovementHistoryTab productId={selectedProductForDetails.id} />

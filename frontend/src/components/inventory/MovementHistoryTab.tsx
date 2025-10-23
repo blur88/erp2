@@ -46,7 +46,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(20)
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
@@ -73,7 +73,8 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
         )
 
         setMovements(filteredData)
-        setTotal(filteredData.length)
+        // Use total from API meta, not filtered data length
+        setTotal(meta.total || 0)
       } catch (error: any) {
         console.error('Failed to fetch stock movements:', error)
         showError(error?.message || 'Failed to load movement history')
@@ -152,10 +153,11 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
   }
 
   return (
-    <Box>
-      <TableContainer>
+    <>
+      <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
         <Table
           size={TABLE_STYLES.size}
+          stickyHeader
           sx={{
             '& .MuiTableCell-root': {
               py: TABLE_STYLES.cell.padding.py,
@@ -251,7 +253,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
         </Table>
       </TableContainer>
       <TablePagination
-        rowsPerPageOptions={[5, 10, 25, 50]}
+        rowsPerPageOptions={[10, 20, 50]}
         component="div"
         count={total}
         rowsPerPage={rowsPerPage}
@@ -263,7 +265,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
         }}
         size="small"
       />
-    </Box>
+    </>
   )
 }
 
