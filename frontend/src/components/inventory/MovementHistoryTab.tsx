@@ -27,23 +27,20 @@ interface MovementHistoryTabProps {
   productId: string
 }
 
+// Filter to only show these transaction types
+const ALLOWED_MOVEMENT_TYPES = [
+  StockMovementType.PURCHASE_RECEIPT,
+  StockMovementType.SALE,
+  StockMovementType.ADJUSTMENT_INCREASE,
+  StockMovementType.ADJUSTMENT_DECREASE,
+]
+
 const getMovementTypeLabel = (movementType: StockMovementType): string => {
-  const labels: Record<StockMovementType, string> = {
-    [StockMovementType.PURCHASE_RECEIPT]: 'Purchase Receipt',
-    [StockMovementType.SALES_RETURN]: 'Sales Return',
-    [StockMovementType.PRODUCTION_RECEIPT]: 'Production Receipt',
-    [StockMovementType.TRANSFER_IN]: 'Transfer In',
-    [StockMovementType.ADJUSTMENT_INCREASE]: 'Stock Increase',
-    [StockMovementType.INITIAL_STOCK]: 'Initial Stock',
-    [StockMovementType.SALE]: 'Sale',
-    [StockMovementType.PURCHASE_RETURN]: 'Purchase Return',
-    [StockMovementType.PRODUCTION_CONSUMPTION]: 'Production Use',
-    [StockMovementType.TRANSFER_OUT]: 'Transfer Out',
-    [StockMovementType.ADJUSTMENT_DECREASE]: 'Stock Decrease',
-    [StockMovementType.DAMAGE]: 'Damage',
-    [StockMovementType.EXPIRY]: 'Expiry',
-    [StockMovementType.THEFT]: 'Theft',
-    [StockMovementType.LOSS]: 'Loss',
+  const labels: Partial<Record<StockMovementType, string>> = {
+    [StockMovementType.PURCHASE_RECEIPT]: 'Purchase Order Receive',
+    [StockMovementType.SALE]: 'Sales Order Fulfillment',
+    [StockMovementType.ADJUSTMENT_INCREASE]: 'Stock Adjustment',
+    [StockMovementType.ADJUSTMENT_DECREASE]: 'Stock Adjustment',
   }
   return labels[movementType] || 'Unknown'
 }
@@ -74,8 +71,13 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
         const data = response.data?.data || response.data || []
         const meta = response.data?.meta || response.meta || {}
 
-        setMovements(data)
-        setTotal(meta.total || 0)
+        // Filter to only show allowed movement types
+        const filteredData = data.filter((movement: StockMovement) =>
+          ALLOWED_MOVEMENT_TYPES.includes(movement.movementType)
+        )
+
+        setMovements(filteredData)
+        setTotal(filteredData.length)
       } catch (error: any) {
         console.error('Failed to fetch stock movements:', error)
         showError(error?.message || 'Failed to load movement history')
