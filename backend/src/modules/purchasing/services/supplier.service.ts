@@ -235,14 +235,13 @@ export class SupplierService {
       throw new NotFoundException(`Supplier with ID ${id} not found`);
     }
 
-    // Check if supplier has active purchase orders
+    // Check if supplier has any active purchase orders (not soft-deleted)
     const activePurchaseOrdersCount = await this.supplierRepository
       .createQueryBuilder('supplier')
-      .leftJoinAndSelect('supplier.purchaseOrders', 'po')
+      .leftJoin('supplier.purchaseOrders', 'po')
       .where('supplier.id = :id', { id })
-      .andWhere('po.status NOT IN (:...statuses)', { 
-        statuses: ['completed', 'cancelled'] 
-      })
+      .andWhere('po.deletedAt IS NULL')
+      .andWhere('po.isActive = :isActive', { isActive: true })
       .getCount();
 
     if (activePurchaseOrdersCount > 0) {
