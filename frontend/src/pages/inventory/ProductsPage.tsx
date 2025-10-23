@@ -800,70 +800,6 @@ const ProductsPage: React.FC = () => {
         {/* Right Side - Product Details View with Tabs */}
         <Grid item xs={12} md={9}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {selectedProductForDetails ? selectedProductForDetails.name : 'Select Product'}
-              </Typography>
-              {selectedProductForDetails && (
-                <Box
-                  className="product-actions"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: '100%',
-                    gap: 0.25,
-                    opacity: 0.7,
-                    transition: 'opacity 0.2s ease'
-                  }}
-                >
-                  <IconButton
-                    size="small"
-                    title={`Edit ${selectedProductForDetails.name}`}
-                    aria-label={`Edit product ${selectedProductForDetails.name}`}
-                    onClick={() => handleEditProduct(selectedProductForDetails)}
-                    sx={{
-                      height: `${TABLE_STYLES.row.height * 0.75}px`,
-                      width: `${TABLE_STYLES.row.height * 0.75}px`,
-                      minHeight: 20,
-                      minWidth: 20,
-                      p: 0.125,
-                      color: 'primary.main',
-                      '&:hover': {
-                        backgroundColor: 'primary.light',
-                        color: 'primary.dark'
-                      }
-                    }}
-                  >
-                    <EditIcon sx={{
-                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
-                    }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    title={`Delete ${selectedProductForDetails.name}`}
-                    aria-label={`Delete product ${selectedProductForDetails.name}`}
-                    onClick={() => handleDeleteProduct(selectedProductForDetails)}
-                    sx={{
-                      height: `${TABLE_STYLES.row.height * 0.75}px`,
-                      width: `${TABLE_STYLES.row.height * 0.75}px`,
-                      minHeight: 20,
-                      minWidth: 20,
-                      p: 0.125,
-                      color: 'error.main',
-                      '&:hover': {
-                        backgroundColor: 'error.light',
-                        color: 'error.dark'
-                      }
-                    }}
-                  >
-                    <DeleteIcon sx={{
-                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
-                    }} />
-                  </IconButton>
-                </Box>
-              )}
-            </Box>
-
             {!selectedProductForDetails ? (
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <Typography variant="body1" color="text.secondary" textAlign="center">
@@ -872,25 +808,81 @@ const ProductsPage: React.FC = () => {
               </Box>
             ) : (
               <>
-                <Tabs
-                  value={currentTab}
-                  onChange={(_, newValue) => setCurrentTab(newValue)}
-                  sx={{
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    px: TABLE_STYLES.cell.padding.px,
-                    minHeight: 40,
-                    '& .MuiTab-root': {
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+                  <Tabs
+                    value={currentTab}
+                    onChange={(_, newValue) => setCurrentTab(newValue)}
+                    sx={{
                       minHeight: 40,
-                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                      textTransform: 'none',
-                      fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                    }
-                  }}
-                >
-                  <Tab label="Details" />
-                  <Tab label="Movement History" />
-                </Tabs>
+                      flex: 1,
+                      '& .MuiTab-root': {
+                        minHeight: 40,
+                        fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                        textTransform: 'none',
+                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                      }
+                    }}
+                  >
+                    <Tab label="Details" />
+                    <Tab label="Movement History" />
+                  </Tabs>
+                  <Box
+                    className="product-actions"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.25,
+                      pr: TABLE_STYLES.cell.padding.px,
+                      opacity: 0.7,
+                      transition: 'opacity 0.2s ease'
+                    }}
+                  >
+                    <IconButton
+                      size="small"
+                      title={`Edit ${selectedProductForDetails.name}`}
+                      aria-label={`Edit product ${selectedProductForDetails.name}`}
+                      onClick={() => handleEditProduct(selectedProductForDetails)}
+                      sx={{
+                        height: `${TABLE_STYLES.row.height * 0.75}px`,
+                        width: `${TABLE_STYLES.row.height * 0.75}px`,
+                        minHeight: 20,
+                        minWidth: 20,
+                        p: 0.125,
+                        color: 'primary.main',
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          color: 'primary.dark'
+                        }
+                      }}
+                    >
+                      <EditIcon sx={{
+                        fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                      }} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      title={`Delete ${selectedProductForDetails.name}`}
+                      aria-label={`Delete product ${selectedProductForDetails.name}`}
+                      onClick={() => handleDeleteProduct(selectedProductForDetails)}
+                      sx={{
+                        height: `${TABLE_STYLES.row.height * 0.75}px`,
+                        width: `${TABLE_STYLES.row.height * 0.75}px`,
+                        minHeight: 20,
+                        minWidth: 20,
+                        p: 0.125,
+                        color: 'error.main',
+                        '&:hover': {
+                          backgroundColor: 'error.light',
+                          color: 'error.dark'
+                        }
+                      }}
+                    >
+                      <DeleteIcon sx={{
+                        fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                      }} />
+                    </IconButton>
+                  </Box>
+                </Box>
 
                 <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                   {currentTab === 0 && (
