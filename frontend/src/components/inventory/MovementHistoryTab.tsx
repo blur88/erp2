@@ -224,17 +224,12 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
-                  <Chip
-                    label={`${movement.quantity > 0 ? '+' : ''}${Number(movement.quantity).toFixed(2)}`}
-                    size="small"
-                    color={movement.isInward ? 'success' : 'error'}
-                    variant="outlined"
-                    sx={{
-                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                      fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                      minWidth: 60,
-                    }}
-                  />
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                  >
+                    {Number(movement.quantity).toFixed(2)}
+                  </Typography>
                 </TableCell>
                 <TableCell align="right">
                   <Typography
