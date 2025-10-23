@@ -261,7 +261,19 @@ const CreateProductPage: React.FC = () => {
       <Box sx={{ py: 3 }}>
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => navigate('/inventory/products')} sx={{ mr: 2 }}>
+          <IconButton
+            onClick={() => {
+              // When going back in edit mode, navigate back with the product ID to keep it selected
+              if (isEditMode && id) {
+                navigate('/inventory/products', {
+                  state: { selectedProductId: id }
+                })
+              } else {
+                navigate('/inventory/products')
+              }
+            }}
+            sx={{ mr: 2 }}
+          >
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">
@@ -823,7 +835,16 @@ const CreateProductPage: React.FC = () => {
                         <Button
                           variant="outlined"
                           fullWidth
-                          onClick={() => navigate('/inventory/products')}
+                          onClick={() => {
+                            // When canceling in edit mode, navigate back with the product ID to keep it selected
+                            if (isEditMode && id) {
+                              navigate('/inventory/products', {
+                                state: { selectedProductId: id }
+                              })
+                            } else {
+                              navigate('/inventory/products')
+                            }
+                          }}
                           disabled={loading}
                         >
                           Cancel
