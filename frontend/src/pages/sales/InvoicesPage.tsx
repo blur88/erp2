@@ -36,7 +36,6 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   ReceiptLong as InvoiceIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -470,16 +469,6 @@ const InvoicesPage: React.FC = () => {
     }
   }
 
-  const handleRefreshAction = () => {
-    dispatch(fetchInvoices({
-      page: 1,
-      limit: state.rowsPerPage,
-      search: filters.search,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as any
-    }))
-  }
-
   const handleViewDeletedAction = () => {
     showError('View deleted functionality will be implemented later')
   }
@@ -543,16 +532,6 @@ const InvoicesPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Invoices" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}

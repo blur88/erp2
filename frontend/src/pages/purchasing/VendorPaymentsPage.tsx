@@ -28,7 +28,6 @@ import {
 } from '@mui/material'
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   AccountBalance as PaymentIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -261,21 +260,6 @@ const VendorPaymentsPage: React.FC = () => {
     setState(prev => ({ ...prev, page: 0 }))
   }, [])
 
-  const handleRefreshAction = () => {
-    const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchVendorPayments({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
-      search: filters.search,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder,
-      status: filters.status !== 'all' ? filters.status : undefined,
-      paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
-    } as any))
-  }
-
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'completed':
@@ -361,16 +345,6 @@ const VendorPaymentsPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Payments" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}

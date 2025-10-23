@@ -28,7 +28,6 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   DragIndicator as DragIndicatorIcon,
   RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
@@ -143,13 +142,6 @@ const CategoriesPage: React.FC = () => {
     }))
   }, [dispatch, categoryFilters.search])
 
-  const handleRefresh = () => {
-    dispatch(fetchCategories({
-      includeProductCount: true,
-      search: categoryFilters.search || undefined
-    }))
-  }
-
   const handleAddCategory = (parentId?: string) => {
     const parent = parentId ? findCategoryById(categories, parentId) : null
     reset({
@@ -162,10 +154,9 @@ const CategoriesPage: React.FC = () => {
     setDialogOpen(true)
   }
 
-  // Keyboard shortcuts - only search and refresh
+  // Keyboard shortcuts - only search
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onRefresh: handleRefresh,
   })
 
   const handleEditCategory = (category: Category) => {
@@ -404,16 +395,6 @@ const CategoriesPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefresh}
-            disabled={loading?.categories}
-            size="medium"
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Categories" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}

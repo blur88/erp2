@@ -35,7 +35,6 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   Payment as PaymentIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
@@ -426,10 +425,6 @@ const PaymentsPage: React.FC = () => {
     }
   }
 
-  const handleRefreshAction = () => {
-    showSuccess('Payments refreshed')
-  }
-
   const handleViewDeletedAction = () => {
     setDeletedPaymentsDialogOpen(true)
   }
@@ -502,16 +497,6 @@ const PaymentsPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Payments" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}

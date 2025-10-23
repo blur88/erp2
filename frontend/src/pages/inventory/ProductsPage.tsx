@@ -32,7 +32,6 @@ import {
   Delete as DeleteIcon,
   GetApp as ExportIcon,
   RestoreFromTrash as RestoreIcon,
-  Refresh as RefreshIcon,
   DragIndicator as DragIndicatorIcon,
   Calculate as CalculateIcon,
   ArrowDropDown as ArrowDropDownIcon,
@@ -138,15 +137,6 @@ const ProductsPage: React.FC = () => {
     }
   }, [products, selectedProductForDetails])
 
-  const handleRefresh = () => {
-    dispatch(fetchProducts({
-      page: page + 1, // API expects 1-based page numbers
-      limit: rowsPerPage,
-      search: productFilters.search || undefined,
-      categoryId: productFilters.categoryId || undefined
-    }))
-    dispatch(fetchCategories({ includeProductCount: true }))
-  }
 
   // Store the selected product ID from navigation to prevent it from being lost
   const [pendingProductId, setPendingProductId] = useState<string | null>(null)
@@ -449,16 +439,6 @@ const ProductsPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefresh}
-            disabled={loading?.products}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Products" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
@@ -1288,7 +1268,15 @@ const ProductsPage: React.FC = () => {
       <ProductImportDialog
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
-        onImportSuccess={handleRefresh}
+        onImportSuccess={() => {
+          dispatch(fetchProducts({
+            page: page + 1,
+            limit: rowsPerPage,
+            search: productFilters.search || undefined,
+            categoryId: productFilters.categoryId || undefined
+          }))
+          dispatch(fetchCategories({ includeProductCount: true }))
+        }}
       />
 
       {/* Delete Confirmation Dialog */}

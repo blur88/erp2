@@ -42,7 +42,6 @@ import {
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
   TrendingUp as SalesIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -137,10 +136,9 @@ const CustomersPage: React.FC = () => {
     },
   })
 
-  // Keyboard shortcuts - only search and refresh
+  // Keyboard shortcuts - only search
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onRefresh: () => dispatch(fetchCustomers({ ...filters })),
   })
 
   // Phone duplicate validation
@@ -394,16 +392,6 @@ const CustomersPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={() => dispatch(fetchCustomers({ ...filters, search: searchTerm }))}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Customers" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}

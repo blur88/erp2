@@ -32,7 +32,6 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   Description as OrderIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -866,16 +865,6 @@ const PurchaseOrdersPage: React.FC = () => {
         }}>
           <Button
             variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={loadOrders}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Orders" : "Refresh"}
-          </Button>
-          <Button
-            variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
             onClick={() => setDeletedOrdersDialogOpen(true)}
             size={isMobile ? "medium" : "medium"}
@@ -1611,7 +1600,6 @@ const PurchaseOrdersPage: React.FC = () => {
       <DeletedPurchaseOrdersDialog
         open={deletedOrdersDialogOpen}
         onClose={() => setDeletedOrdersDialogOpen(false)}
-        onRefresh={loadOrders}
       />
 
       {/* Blocked Purchase Order Dialog */}

@@ -28,7 +28,6 @@ import {
 } from '@mui/material'
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   LocalShipping as GRNIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -271,19 +270,6 @@ const GoodsReceivedPage: React.FC = () => {
     setState(prev => ({ ...prev, page: 0 }))
   }, [])
 
-  const handleRefreshAction = () => {
-    const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchGoodsReceivedNotes({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
-      search: filters.search,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder,
-      receiptDateFrom: dateRange.fromDate,
-      receiptDateTo: dateRange.toDate,
-    } as any))
-  }
-
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'received':
@@ -357,16 +343,6 @@ const GoodsReceivedPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh GRNs" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
