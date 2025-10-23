@@ -13,10 +13,6 @@ import {
   Chip,
   Paper,
 } from '@mui/material'
-import {
-  TrendingUp as InwardIcon,
-  TrendingDown as OutwardIcon,
-} from '@mui/icons-material'
 import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { StockMovement, StockMovementType } from '@/types'
@@ -158,29 +154,22 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
             {movements.map((movement) => (
               <TableRow key={movement.id} hover>
                 <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {movement.isInward ? (
-                      <InwardIcon sx={{ fontSize: '1.2rem', color: 'success.main' }} />
-                    ) : (
-                      <OutwardIcon sx={{ fontSize: '1.2rem', color: 'error.main' }} />
-                    )}
-                    <Box>
+                  <Box>
+                    <Typography
+                      variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                      sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    >
+                      {getMovementTypeLabel(movement.movementType)}
+                    </Typography>
+                    {movement.reason && (
                       <Typography
-                        variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                        sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                        variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                        color="text.secondary"
+                        sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
                       >
-                        {getMovementTypeLabel(movement.movementType)}
+                        {movement.reason}
                       </Typography>
-                      {movement.reason && (
-                        <Typography
-                          variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
-                          color="text.secondary"
-                          sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
-                        >
-                          {movement.reason}
-                        </Typography>
-                      )}
-                    </Box>
+                    )}
                   </Box>
                 </TableCell>
                 <TableCell>
