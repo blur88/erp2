@@ -100,13 +100,45 @@ export interface ProductAttribute {
   value: string;
 }
 
+export enum StockMovementType {
+  // Inward movements (increase stock)
+  PURCHASE_RECEIPT = 'purchase_receipt',
+  SALES_RETURN = 'sales_return',
+  PRODUCTION_RECEIPT = 'production_receipt',
+  TRANSFER_IN = 'transfer_in',
+  ADJUSTMENT_INCREASE = 'adjustment_increase',
+  INITIAL_STOCK = 'initial_stock',
+  // Outward movements (decrease stock)
+  SALE = 'sale',
+  PURCHASE_RETURN = 'purchase_return',
+  PRODUCTION_CONSUMPTION = 'production_consumption',
+  TRANSFER_OUT = 'transfer_out',
+  ADJUSTMENT_DECREASE = 'adjustment_decrease',
+  DAMAGE = 'damage',
+  EXPIRY = 'expiry',
+  THEFT = 'theft',
+  LOSS = 'loss',
+}
+
+export enum StockMovementStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  REVERSED = 'reversed',
+}
+
 export interface StockMovement {
   id: string;
   productId: string;
   product?: Product;
-  movementType: 'stock_in' | 'stock_out' | 'transfer' | 'sale' | 'purchase' | 'initial' | 'return';
+  movementType: StockMovementType;
+  status: StockMovementStatus;
+  movementDate: Date;
   quantity: number;
+  previousBalance: number;
+  newBalance: number;
   unitValue?: number;
+  totalValue?: number;
   referenceType?: string;
   referenceId?: string;
   referenceNumber?: string;
@@ -116,10 +148,17 @@ export interface StockMovement {
   expiryDate?: Date;
   reason?: string;
   notes?: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  movementDate: Date;
-  description?: string;
   metadata?: Record<string, any>;
+  movedByUserId?: string;
+  movedByUser?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  isInward: boolean;
+  isOutward: boolean;
+  description: string;
   createdAt: Date;
   updatedAt: Date;
 }

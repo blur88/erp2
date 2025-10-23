@@ -24,6 +24,8 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -46,6 +48,8 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import { ApiService } from '@/services/api'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
+import ProductDetailsTab from '@/components/inventory/ProductDetailsTab'
+import MovementHistoryTab from '@/components/inventory/MovementHistoryTab'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import type { Product } from '@/types'
@@ -89,6 +93,7 @@ const ProductsPage: React.FC = () => {
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [hasNavigatedWithSelection, setHasNavigatedWithSelection] = useState(false)
+  const [currentTab, setCurrentTab] = useState(0)
   const productListRef = useRef<HTMLDivElement>(null)
 
   // Search and filter functionality
@@ -792,12 +797,12 @@ const ProductsPage: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Right Side - Product Details View */}
+        {/* Right Side - Product Details View with Tabs */}
         <Grid item xs={12} md={9}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {selectedProductForDetails ? 'Product Details' : 'Select Product'}
+                {selectedProductForDetails ? selectedProductForDetails.name : 'Select Product'}
               </Typography>
               {selectedProductForDetails && (
                 <Box
@@ -805,373 +810,98 @@ const ProductsPage: React.FC = () => {
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    height: '100%', // Fill the full container height
+                    height: '100%',
                     gap: 0.25,
                     opacity: 0.7,
                     transition: 'opacity 0.2s ease'
                   }}
                 >
                   <IconButton
-                        size="small"
-                        title={`Edit ${selectedProductForDetails.name}`}
-                        aria-label={`Edit product ${selectedProductForDetails.name}`}
-                        onClick={() => handleEditProduct(selectedProductForDetails)}
-                        sx={{
-                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                          minHeight: 20, // Reduced minimum size for better scaling
-                          minWidth: 20,
-                          p: 0.125, // Reduced padding for better proportion
-                          color: 'primary.main',
-                          '&:hover': {
-                            backgroundColor: 'primary.light',
-                            color: 'primary.dark'
-                          }
-                        }}
-                      >
-                        <EditIcon sx={{
-                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
-                        }} />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        title={`Delete ${selectedProductForDetails.name}`}
-                        aria-label={`Delete product ${selectedProductForDetails.name}`}
-                        onClick={() => handleDeleteProduct(selectedProductForDetails)}
-                        sx={{
-                          height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                          width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                          minHeight: 20, // Reduced minimum size for better scaling
-                          minWidth: 20,
-                          p: 0.125, // Reduced padding for better proportion
-                          color: 'error.main',
-                          '&:hover': {
-                            backgroundColor: 'error.light',
-                            color: 'error.dark'
-                          }
-                        }}
-                      >
-                        <DeleteIcon sx={{
-                          fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
-                        }} />
-                      </IconButton>
-                </Box>
-              )}
-            </Box>
-            <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-              {!selectedProductForDetails ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                  <Typography variant="body1" color="text.secondary" textAlign="center">
-                    Select a product from the list to view its details
-                  </Typography>
-                </Box>
-              ) : (
-                <TableContainer>
-                  <Table
-                    size={TABLE_STYLES.size}
+                    size="small"
+                    title={`Edit ${selectedProductForDetails.name}`}
+                    aria-label={`Edit product ${selectedProductForDetails.name}`}
+                    onClick={() => handleEditProduct(selectedProductForDetails)}
                     sx={{
-                      tableLayout: 'fixed',
-                      '& .MuiTableCell-root': {
-                        border: 'none',
-                        py: TABLE_STYLES.cell.padding.py,
-                        px: TABLE_STYLES.cell.padding.px,
-                        ...(isMobile && {
-                          px: TABLE_STYLES.cell.padding.px * 0.67,
-                          py: TABLE_STYLES.cell.padding.py * 0.67,
-                          fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize
-                        }),
-                        '&:nth-of-type(1)': { width: '35%' }, // Field name column
-                        '&:nth-of-type(2)': { width: '45%' }, // Value column
-                        '&:nth-of-type(3)': { width: '20%' }, // Extra info column (margins, status)
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        color: 'primary.dark'
                       }
                     }}
                   >
-                    <TableBody>
-                      {/* Basic Information Section */}
-                      <TableRow>
-                        <TableCell colSpan={3} sx={{
-                          pb: TABLE_STYLES.cell.padding.py * 0.67,
-                          py: TABLE_STYLES.cell.padding.py * 0.67,
-                          borderTop: TABLE_STYLES.cell.border
-                        }}>
-                          <Typography variant="h6" sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'primary.main',
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          }}>
-                            Basic Information
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                          color: 'text.secondary',
-                          width: isMobile ? '40%' : '35%',
-                          minWidth: isMobile ? 'auto' : '120px',
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                        }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Product Name
-                          </Box>
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {selectedProductForDetails.name}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Barcode
-                          </Box>
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {selectedProductForDetails.barcode || 'No barcode'}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Type
-                          </Box>
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {selectedProductForDetails.type === 'Stocked Product' ? 'Stocked Product' : 'Service'}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Category
-                          </Box>
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {selectedProductForDetails.category?.name || 'No Category'}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Description
-                          </Box>
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {selectedProductForDetails.description || 'No description'}
-                        </TableCell>
-                      </TableRow>
-                      
-                      {/* Pricing Information Section */}
-                      <TableRow>
-                        <TableCell colSpan={3} sx={{
-                          pt: TABLE_STYLES.cell.padding.py * 2,
-                          pb: TABLE_STYLES.cell.padding.py * 0.67,
-                          borderTop: TABLE_STYLES.cell.border
-                        }}>
-                          <Typography variant="h6" sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'primary.main',
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          }}>
-                            Pricing Information & Margins
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Base Cost
-                          </Box>
-                        </TableCell>
-                        <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {formatCurrency(selectedProductForDetails.baseCost)}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Retail Price
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {formatCurrency(selectedProductForDetails.retailPrice)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {(selectedProductForDetails.retailPrice !== undefined && selectedProductForDetails.retailPrice !== null && selectedProductForDetails.retailPrice > 0) && (
-                            <Chip
-                              label={`${selectedProductForDetails.grossMarginRetail?.toFixed(1) || '0.0'}%`}
-                              size="small"
-                              variant="outlined"
-                              color={(selectedProductForDetails.grossMarginRetail || 0) > 20 ? 'success' : (selectedProductForDetails.grossMarginRetail || 0) > 10 ? 'warning' : 'error'}
-                              sx={{
-                                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
-                                minWidth: 42
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Wholesale Price
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {formatCurrency(selectedProductForDetails.wholesalePrice)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {(selectedProductForDetails.wholesalePrice !== undefined && selectedProductForDetails.wholesalePrice !== null && selectedProductForDetails.wholesalePrice > 0) && (
-                            <Chip
-                              label={`${selectedProductForDetails.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
-                              size="small"
-                              variant="outlined"
-                              color={(selectedProductForDetails.grossMarginWholesale || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginWholesale || 0) > 5 ? 'warning' : 'error'}
-                              sx={{
-                                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
-                                minWidth: 42
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Special Price
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {formatCurrency(selectedProductForDetails.specialPrice)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {(selectedProductForDetails.specialPrice !== undefined && selectedProductForDetails.specialPrice !== null && selectedProductForDetails.specialPrice > 0) && (
-                            <Chip
-                              label={`${selectedProductForDetails.grossMarginSpecial?.toFixed(1) || '0.0'}%`}
-                              size="small"
-                              variant="outlined"
-                              color={(selectedProductForDetails.grossMarginSpecial || 0) > 15 ? 'success' : (selectedProductForDetails.grossMarginSpecial || 0) > 5 ? 'warning' : 'error'}
-                              sx={{
-                                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
-                                minWidth: 42
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                      
-                      {/* Stock Information Section */}
-                      <TableRow>
-                        <TableCell colSpan={3} sx={{
-                          pt: TABLE_STYLES.cell.padding.py * 2,
-                          pb: TABLE_STYLES.cell.padding.py * 0.67,
-                          borderTop: TABLE_STYLES.cell.border
-                        }}>
-                          <Typography variant="h6" sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'primary.main',
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          }}>
-                            Stock Information
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
-                            Current Stock
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {selectedProductForDetails.stockQuantity || 0}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          <Chip
-                            label={getStockStatus(selectedProductForDetails).label}
-                            color={getStockStatus(selectedProductForDetails).color}
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                              fontWeight: 500,
-                              height: 20
-                            }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                      
-                      {/* Notes Section */}
-                      <TableRow>
-                        <TableCell colSpan={3} sx={{
-                          pt: TABLE_STYLES.cell.padding.py * 2,
-                          pb: TABLE_STYLES.cell.padding.py * 0.67,
-                          borderTop: TABLE_STYLES.cell.border
-                        }}>
-                          <Typography variant="h6" sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            color: 'primary.main',
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                          }}>
-                            Notes & Additional Information
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                      <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                        <TableCell colSpan={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
-                          <Box sx={{
-                            minHeight: 80,
-                            border: selectedProductForDetails.notes ? 'none' : '1px dashed rgba(0, 0, 0, 0.12)',
-                            borderRadius: 1,
-                            display: 'flex',
-                            alignItems: selectedProductForDetails.notes ? 'flex-start' : 'center',
-                            justifyContent: selectedProductForDetails.notes ? 'flex-start' : 'center',
-                            backgroundColor: 'grey.50',
-                            p: selectedProductForDetails.notes ? 1 : 0
-                          }}>
-                            {selectedProductForDetails.notes ? (
-                              <Typography variant="body2" sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: 1.4,
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {selectedProductForDetails.notes}
-                              </Typography>
-                            ) : (
-                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, fontStyle: 'italic' }}>
-                                No notes available
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                    <EditIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    title={`Delete ${selectedProductForDetails.name}`}
+                    aria-label={`Delete product ${selectedProductForDetails.name}`}
+                    onClick={() => handleDeleteProduct(selectedProductForDetails)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'error.main',
+                      '&:hover': {
+                        backgroundColor: 'error.light',
+                        color: 'error.dark'
+                      }
+                    }}
+                  >
+                    <DeleteIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               )}
             </Box>
+
+            {!selectedProductForDetails ? (
+              <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <Typography variant="body1" color="text.secondary" textAlign="center">
+                  Select a product from the list to view its details
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                <Tabs
+                  value={currentTab}
+                  onChange={(_, newValue) => setCurrentTab(newValue)}
+                  sx={{
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    px: TABLE_STYLES.cell.padding.px,
+                    minHeight: 40,
+                    '& .MuiTab-root': {
+                      minHeight: 40,
+                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                      textTransform: 'none',
+                      fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                    }
+                  }}
+                >
+                  <Tab label="Details" />
+                  <Tab label="Movement History" />
+                </Tabs>
+
+                <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+                  {currentTab === 0 && (
+                    <ProductDetailsTab product={selectedProductForDetails} />
+                  )}
+                  {currentTab === 1 && (
+                    <MovementHistoryTab productId={selectedProductForDetails.id} />
+                  )}
+                </Box>
+              </>
+            )}
           </Paper>
         </Grid>
       </Grid>
