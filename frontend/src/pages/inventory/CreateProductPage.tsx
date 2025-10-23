@@ -12,6 +12,7 @@ import {
   CardContent,
   IconButton,
   MenuItem,
+  Chip,
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
@@ -102,6 +103,20 @@ const CreateProductPage: React.FC = () => {
   const watchedType = watch('type')
   const watchedName = watch('name')
   const watchedBarcode = watch('barcode')
+  const watchedBaseCost = watch('baseCost')
+  const watchedRetailPrice = watch('retailPrice')
+  const watchedWholesalePrice = watch('wholesalePrice')
+  const watchedSpecialPrice = watch('specialPrice')
+
+  // Calculate margins
+  const calculateMargin = (price: number | undefined, cost: number | undefined): number => {
+    if (!price || !cost || price <= 0 || cost <= 0) return 0
+    return ((price - cost) / price) * 100
+  }
+
+  const retailMargin = calculateMargin(watchedRetailPrice, watchedBaseCost)
+  const wholesaleMargin = calculateMargin(watchedWholesalePrice, watchedBaseCost)
+  const specialMargin = calculateMargin(watchedSpecialPrice, watchedBaseCost)
 
   // Real-time duplicate checking
   useEffect(() => {
@@ -493,39 +508,60 @@ const CreateProductPage: React.FC = () => {
                             }, [field.value, isFocused])
 
                             return (
-                              <TextField
-                                value={displayValue}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^0-9.]/g, '')
-                                  setDisplayValue(value)
-                                  field.onChange(parseFormattedNumber(value))
-                                }}
-                                onFocus={() => {
-                                  setIsFocused(true)
-                                  setDisplayValue(field.value?.toString() || '')
-                                }}
-                                onBlur={() => {
-                                  setIsFocused(false)
-                                  setDisplayValue(formatNumberWithCommas(field.value))
-                                }}
-                                label="Retail Price"
-                                error={!!errors.retailPrice}
-                                helperText={errors.retailPrice?.message}
-                                fullWidth
-                                size="small"
-                                InputProps={{
-                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                                }}
-                                sx={{
-                                  '& .MuiInputBase-input': {
-                                    fontSize: '0.875rem',
-                                    textAlign: 'right',
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    fontSize: '0.875rem',
-                                  }
-                                }}
-                              />
+                              <Box>
+                                <TextField
+                                  value={displayValue}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9.]/g, '')
+                                    setDisplayValue(value)
+                                    field.onChange(parseFormattedNumber(value))
+                                  }}
+                                  onFocus={() => {
+                                    setIsFocused(true)
+                                    setDisplayValue(field.value?.toString() || '')
+                                  }}
+                                  onBlur={() => {
+                                    setIsFocused(false)
+                                    setDisplayValue(formatNumberWithCommas(field.value))
+                                  }}
+                                  label="Retail Price"
+                                  error={!!errors.retailPrice}
+                                  helperText={errors.retailPrice?.message}
+                                  fullWidth
+                                  size="small"
+                                  InputProps={{
+                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                  }}
+                                  sx={{
+                                    '& .MuiInputBase-input': {
+                                      fontSize: '0.875rem',
+                                      textAlign: 'right',
+                                    },
+                                    '& .MuiInputLabel-root': {
+                                      fontSize: '0.875rem',
+                                    }
+                                  }}
+                                />
+                                {watchedRetailPrice > 0 && watchedBaseCost > 0 && (
+                                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Margin:
+                                    </Typography>
+                                    <Chip
+                                      label={`${retailMargin.toFixed(1)}%`}
+                                      size="small"
+                                      variant="outlined"
+                                      color={retailMargin > 20 ? 'success' : retailMargin > 10 ? 'warning' : 'error'}
+                                      sx={{
+                                        fontSize: '0.7rem',
+                                        fontWeight: 500,
+                                        height: 20,
+                                        minWidth: 42
+                                      }}
+                                    />
+                                  </Box>
+                                )}
+                              </Box>
                             )
                           }}
                         />
@@ -546,39 +582,60 @@ const CreateProductPage: React.FC = () => {
                             }, [field.value, isFocused])
 
                             return (
-                              <TextField
-                                value={displayValue}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^0-9.]/g, '')
-                                  setDisplayValue(value)
-                                  field.onChange(parseFormattedNumber(value))
-                                }}
-                                onFocus={() => {
-                                  setIsFocused(true)
-                                  setDisplayValue(field.value?.toString() || '')
-                                }}
-                                onBlur={() => {
-                                  setIsFocused(false)
-                                  setDisplayValue(formatNumberWithCommas(field.value))
-                                }}
-                                label="Wholesale Price"
-                                error={!!errors.wholesalePrice}
-                                helperText={errors.wholesalePrice?.message}
-                                fullWidth
-                                size="small"
-                                InputProps={{
-                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                                }}
-                                sx={{
-                                  '& .MuiInputBase-input': {
-                                    fontSize: '0.875rem',
-                                    textAlign: 'right',
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    fontSize: '0.875rem',
-                                  }
-                                }}
-                              />
+                              <Box>
+                                <TextField
+                                  value={displayValue}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9.]/g, '')
+                                    setDisplayValue(value)
+                                    field.onChange(parseFormattedNumber(value))
+                                  }}
+                                  onFocus={() => {
+                                    setIsFocused(true)
+                                    setDisplayValue(field.value?.toString() || '')
+                                  }}
+                                  onBlur={() => {
+                                    setIsFocused(false)
+                                    setDisplayValue(formatNumberWithCommas(field.value))
+                                  }}
+                                  label="Wholesale Price"
+                                  error={!!errors.wholesalePrice}
+                                  helperText={errors.wholesalePrice?.message}
+                                  fullWidth
+                                  size="small"
+                                  InputProps={{
+                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                  }}
+                                  sx={{
+                                    '& .MuiInputBase-input': {
+                                      fontSize: '0.875rem',
+                                      textAlign: 'right',
+                                    },
+                                    '& .MuiInputLabel-root': {
+                                      fontSize: '0.875rem',
+                                    }
+                                  }}
+                                />
+                                {watchedWholesalePrice > 0 && watchedBaseCost > 0 && (
+                                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Margin:
+                                    </Typography>
+                                    <Chip
+                                      label={`${wholesaleMargin.toFixed(1)}%`}
+                                      size="small"
+                                      variant="outlined"
+                                      color={wholesaleMargin > 15 ? 'success' : wholesaleMargin > 5 ? 'warning' : 'error'}
+                                      sx={{
+                                        fontSize: '0.7rem',
+                                        fontWeight: 500,
+                                        height: 20,
+                                        minWidth: 42
+                                      }}
+                                    />
+                                  </Box>
+                                )}
+                              </Box>
                             )
                           }}
                         />
@@ -599,39 +656,60 @@ const CreateProductPage: React.FC = () => {
                             }, [field.value, isFocused])
 
                             return (
-                              <TextField
-                                value={displayValue}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^0-9.]/g, '')
-                                  setDisplayValue(value)
-                                  field.onChange(parseFormattedNumber(value))
-                                }}
-                                onFocus={() => {
-                                  setIsFocused(true)
-                                  setDisplayValue(field.value?.toString() || '')
-                                }}
-                                onBlur={() => {
-                                  setIsFocused(false)
-                                  setDisplayValue(formatNumberWithCommas(field.value))
-                                }}
-                                label="Special Price"
-                                error={!!errors.specialPrice}
-                                helperText={errors.specialPrice?.message}
-                                fullWidth
-                                size="small"
-                                InputProps={{
-                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                                }}
-                                sx={{
-                                  '& .MuiInputBase-input': {
-                                    fontSize: '0.875rem',
-                                    textAlign: 'right',
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    fontSize: '0.875rem',
-                                  }
-                                }}
-                              />
+                              <Box>
+                                <TextField
+                                  value={displayValue}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/[^0-9.]/g, '')
+                                    setDisplayValue(value)
+                                    field.onChange(parseFormattedNumber(value))
+                                  }}
+                                  onFocus={() => {
+                                    setIsFocused(true)
+                                    setDisplayValue(field.value?.toString() || '')
+                                  }}
+                                  onBlur={() => {
+                                    setIsFocused(false)
+                                    setDisplayValue(formatNumberWithCommas(field.value))
+                                  }}
+                                  label="Special Price"
+                                  error={!!errors.specialPrice}
+                                  helperText={errors.specialPrice?.message}
+                                  fullWidth
+                                  size="small"
+                                  InputProps={{
+                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                  }}
+                                  sx={{
+                                    '& .MuiInputBase-input': {
+                                      fontSize: '0.875rem',
+                                      textAlign: 'right',
+                                    },
+                                    '& .MuiInputLabel-root': {
+                                      fontSize: '0.875rem',
+                                    }
+                                  }}
+                                />
+                                {watchedSpecialPrice > 0 && watchedBaseCost > 0 && (
+                                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Margin:
+                                    </Typography>
+                                    <Chip
+                                      label={`${specialMargin.toFixed(1)}%`}
+                                      size="small"
+                                      variant="outlined"
+                                      color={specialMargin > 15 ? 'success' : specialMargin > 5 ? 'warning' : 'error'}
+                                      sx={{
+                                        fontSize: '0.7rem',
+                                        fontWeight: 500,
+                                        height: 20,
+                                        minWidth: 42
+                                      }}
+                                    />
+                                  </Box>
+                                )}
+                              </Box>
                             )
                           }}
                         />
