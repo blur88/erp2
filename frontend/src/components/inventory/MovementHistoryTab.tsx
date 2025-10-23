@@ -154,23 +154,12 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
             {movements.map((movement) => (
               <TableRow key={movement.id} hover>
                 <TableCell>
-                  <Box>
-                    <Typography
-                      variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                      sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
-                    >
-                      {getMovementTypeLabel(movement.movementType)}
-                    </Typography>
-                    {movement.reason && (
-                      <Typography
-                        variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
-                        color="text.secondary"
-                        sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
-                      >
-                        {movement.reason}
-                      </Typography>
-                    )}
-                  </Box>
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                  >
+                    {getMovementTypeLabel(movement.movementType)}
+                  </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
