@@ -95,6 +95,44 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
     })
   }
 
+  const getOrderNumber = (movement: StockMovement): string => {
+    // For Stock Adjustments, show blank
+    if (
+      movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
+      movement.movementType === StockMovementType.ADJUSTMENT_DECREASE
+    ) {
+      return ''
+    }
+
+    // Try to get from referenceNumber first
+    if (movement.referenceNumber) {
+      if (movement.movementType === StockMovementType.PURCHASE_RECEIPT) {
+        return movement.referenceNumber.startsWith('PO-') ? movement.referenceNumber : `PO-${movement.referenceNumber}`
+      }
+      if (movement.movementType === StockMovementType.SALE) {
+        return movement.referenceNumber.startsWith('SO-') ? movement.referenceNumber : `SO-${movement.referenceNumber}`
+      }
+      return movement.referenceNumber
+    }
+
+    // If referenceNumber is null, try to extract from reason field
+    if (movement.reason) {
+      // Extract SO number from reason like "Sales order fulfillment: SO-000008"
+      const soMatch = movement.reason.match(/SO-\d+/)
+      if (soMatch && movement.movementType === StockMovementType.SALE) {
+        return soMatch[0]
+      }
+
+      // Extract PO number from reason like "Purchase order received: PO-000001"
+      const poMatch = movement.reason.match(/PO-\d+/)
+      if (poMatch && movement.movementType === StockMovementType.PURCHASE_RECEIPT) {
+        return poMatch[0]
+      }
+    }
+
+    return ''
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
@@ -172,7 +210,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
                     variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
                     sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
                   >
-                    {movement.referenceNumber || '-'}
+                    {getOrderNumber(movement) || '-'}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
