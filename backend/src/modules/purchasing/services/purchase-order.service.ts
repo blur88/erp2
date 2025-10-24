@@ -142,7 +142,6 @@ export class PurchaseOrderService {
 
         const item = this.purchaseOrderItemRepository.create({
           productId: itemDto.productId,
-          productName: product.name,
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
           discountType: itemDto.discountType || 'percentage',
@@ -446,7 +445,6 @@ export class PurchaseOrderService {
           const item = new PurchaseOrderItem();
           item.purchaseOrderId = id;
           item.productId = itemDto.productId;
-          item.productName = product.name;
           item.quantity = itemDto.quantity;
           item.unitCost = itemDto.unitPrice;
           item.discountType = itemDto.discountType || 'percentage';
