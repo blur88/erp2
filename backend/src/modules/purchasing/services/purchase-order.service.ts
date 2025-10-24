@@ -149,7 +149,6 @@ export class PurchaseOrderService {
           discountAmount: itemDto.discountAmount || 0,
           status: 'pending' as any,
           receivedQuantity: 0,
-          acceptedQuantity: 0,
           lineNumber: lineNum,
         });
 
@@ -437,7 +436,6 @@ export class PurchaseOrderService {
           item.discountAmount = itemDto.discountAmount || 0;
           item.status = 'pending' as any;
           item.receivedQuantity = 0;
-          item.acceptedQuantity = 0;
           item.lineNumber = lineNum;
 
           this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productId: ${item.productId}, quantity: ${item.quantity}`);
@@ -1071,7 +1069,6 @@ export class PurchaseOrderService {
 
         // Update PO item received quantity
         item.receivedQuantity = item.quantity;
-        item.acceptedQuantity = item.quantity;
         await this.purchaseOrderItemRepository.save(item);
       }
 
@@ -1157,7 +1154,6 @@ export class PurchaseOrderService {
 
         // Reset PO item received quantity
         item.receivedQuantity = 0;
-        item.acceptedQuantity = 0;
         await this.purchaseOrderItemRepository.save(item);
       }
 

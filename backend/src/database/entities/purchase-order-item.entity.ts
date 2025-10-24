@@ -139,17 +139,7 @@ export class PurchaseOrderItem extends BaseEntity {
   // Delivery Information
   // Note: deliveredDate removed - delivery tracking now handled at purchase order level
 
-  // Quality Information
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Quantity accepted (passed quality check)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  acceptedQuantity: number;
+  // Quality Information removed - quality acceptance now tracked via receivedQuantity only
 
   
   // Foreign Keys
@@ -264,15 +254,9 @@ export class PurchaseOrderItem extends BaseEntity {
   }
 
   // Helper methods
-  receiveQuantity(quantity: number, acceptedQty?: number): void {
+  receiveQuantity(quantity: number): void {
     const receiveQty = Math.min(Number(quantity), this.remainingQuantity);
     this.receivedQuantity = Number(this.receivedQuantity) + receiveQty;
-
-    // Update quality metrics if provided
-    if (acceptedQty !== undefined) {
-      this.acceptedQuantity = Number(this.acceptedQuantity) + Number(acceptedQty);
-    }
-
     this.updateStatus();
   }
 
