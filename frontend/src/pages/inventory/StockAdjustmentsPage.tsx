@@ -97,24 +97,58 @@ const StockAdjustmentsPage: React.FC = () => {
   const fetchAdjustmentHistory = async () => {
     try {
       setHistoryLoading(true)
-      const response = await ApiService.get('/inventory/stock/movements', {
-        params: {
-          page: page + 1,
-          limit: rowsPerPage,
-          sortBy: 'movementDate',
-          sortOrder: 'DESC',
-          movementType: [
-            StockMovementType.ADJUSTMENT_INCREASE,
-            StockMovementType.ADJUSTMENT_DECREASE,
-          ].join(','),
-        },
-      }) as any
 
-      const data = response.data?.data || response.data || []
-      const meta = response.data?.meta || response.meta || {}
+      // Fetch both increase and decrease adjustments separately with proper pagination
+      // Use max allowed limit (100) and fetch multiple pages if needed
+      const maxLimit = 100
+      const pagesToFetch = Math.ceil((page + 1) * rowsPerPage / maxLimit) || 1
 
-      setAdjustments(data)
-      setTotal(meta.total || 0)
+      // Fetch multiple pages to ensure we have enough data
+      const fetchPromises = []
+      for (let p = 1; p <= pagesToFetch; p++) {
+        fetchPromises.push(
+          ApiService.get('/inventory/stock/movements', {
+            params: {
+              page: p,
+              limit: maxLimit,
+              sortBy: 'movementDate',
+              sortOrder: 'DESC',
+              movementType: StockMovementType.ADJUSTMENT_INCREASE,
+            },
+          }),
+          ApiService.get('/inventory/stock/movements', {
+            params: {
+              page: p,
+              limit: maxLimit,
+              sortBy: 'movementDate',
+              sortOrder: 'DESC',
+              movementType: StockMovementType.ADJUSTMENT_DECREASE,
+            },
+          })
+        )
+      }
+
+      const responses = await Promise.all(fetchPromises) as any[]
+
+      // Merge all data from all responses
+      const allData: any[] = []
+      responses.forEach((response) => {
+        const data = response.data?.data || response.data || []
+        allData.push(...data)
+      })
+
+      // Sort by date descending
+      const sortedAdjustments = allData.sort((a, b) =>
+        new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime()
+      )
+
+      // Apply pagination manually
+      const start = page * rowsPerPage
+      const end = start + rowsPerPage
+      const paginatedData = sortedAdjustments.slice(start, end)
+
+      setAdjustments(paginatedData)
+      setTotal(sortedAdjustments.length)
     } catch (error: any) {
       console.error('Failed to fetch adjustment history:', error)
       showError(error?.message || 'Failed to load adjustment history')
