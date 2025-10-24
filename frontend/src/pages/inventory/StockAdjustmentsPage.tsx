@@ -86,7 +86,7 @@ const StockAdjustmentsPage: React.FC = () => {
 
   // Fetch products on mount
   useEffect(() => {
-    dispatch(fetchProducts({ page: 1, limit: 1000 }))
+    dispatch(fetchProducts({ page: 1, limit: 100 }))
   }, [dispatch])
 
   // Fetch adjustment history
@@ -218,7 +218,7 @@ const StockAdjustmentsPage: React.FC = () => {
 
       // Refresh history and products
       fetchAdjustmentHistory()
-      dispatch(fetchProducts({ page: 1, limit: 1000 }))
+      dispatch(fetchProducts({ page: 1, limit: 100 }))
     } catch (error: any) {
       console.error('Failed to create stock adjustment:', error)
       showError(error?.message || 'Failed to record stock adjustment')
