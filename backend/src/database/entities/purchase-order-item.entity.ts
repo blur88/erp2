@@ -151,26 +151,6 @@ export class PurchaseOrderItem extends BaseEntity {
   @Min(0)
   acceptedQuantity: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Quantity rejected (failed quality check)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  rejectedQuantity: number;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Quality inspection notes',
-  })
-  @IsOptional()
-  @IsString()
-  qualityNotes?: string;
-
   // Additional Information
   @Column({
     type: 'text',
@@ -234,11 +214,7 @@ export class PurchaseOrderItem extends BaseEntity {
     return Number(this.quantity) * Number(this.unitCost);
   }
 
-  get qualityAcceptanceRate(): number {
-    const totalInspected = Number(this.acceptedQuantity) + Number(this.rejectedQuantity);
-    return totalInspected > 0 ? (Number(this.acceptedQuantity) / totalInspected) * 100 : 0;
-  }
-
+  
   
   // Delivery performance tracking moved to purchase order level
   // Individual item delivery performance is no longer tracked
@@ -306,18 +282,15 @@ export class PurchaseOrderItem extends BaseEntity {
   }
 
   // Helper methods
-  receiveQuantity(quantity: number, acceptedQty?: number, rejectedQty?: number): void {
+  receiveQuantity(quantity: number, acceptedQty?: number): void {
     const receiveQty = Math.min(Number(quantity), this.remainingQuantity);
     this.receivedQuantity = Number(this.receivedQuantity) + receiveQty;
-    
+
     // Update quality metrics if provided
     if (acceptedQty !== undefined) {
       this.acceptedQuantity = Number(this.acceptedQuantity) + Number(acceptedQty);
     }
-    if (rejectedQty !== undefined) {
-      this.rejectedQuantity = Number(this.rejectedQuantity) + Number(rejectedQty);
-    }
-    
+
     this.updateStatus();
   }
 
@@ -340,21 +313,7 @@ export class PurchaseOrderItem extends BaseEntity {
   }
 
   
-  // Quality control methods
-  inspectReceived(acceptedQty: number, rejectedQty: number, notes?: string): void {
-    const totalInspected = Number(acceptedQty) + Number(rejectedQty);
-    if (totalInspected > Number(this.receivedQuantity)) {
-      throw new Error('Cannot inspect more than received quantity');
-    }
-    
-    this.acceptedQuantity = Number(acceptedQty);
-    this.rejectedQuantity = Number(rejectedQty);
-    
-    if (notes) {
-      this.qualityNotes = notes;
-    }
-  }
-
+  
   // Static method to create from product
   static fromProduct(
     product: Product,

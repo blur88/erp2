@@ -149,7 +149,6 @@ export class PurchaseOrderService {
           discountAmount: itemDto.discountAmount || 0,
           status: 'pending' as any,
           receivedQuantity: 0,
-          rejectedQuantity: 0,
           acceptedQuantity: 0,
           lineNumber: lineNum,
         });
@@ -438,7 +437,6 @@ export class PurchaseOrderService {
           item.discountAmount = itemDto.discountAmount || 0;
           item.status = 'pending' as any;
           item.receivedQuantity = 0;
-          item.rejectedQuantity = 0;
           item.acceptedQuantity = 0;
           item.lineNumber = lineNum;
 
@@ -1327,7 +1325,7 @@ export class PurchaseOrderService {
         taxAmount: 0,
         totalAmount: Number(item.totalAmount),
         receivedQuantity: Number(item.receivedQuantity),
-        rejectedQuantity: Number(item.rejectedQuantity),
+        rejectedQuantity: 0,
         isFullyReceived: item.isFullyReceived,
         status: item.status,
                 notes: item.notes,

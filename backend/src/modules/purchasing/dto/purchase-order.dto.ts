@@ -264,7 +264,7 @@ export class PurchaseOrderItemResponseDto {
   @ApiProperty({ description: 'Quantity received so far' })
   receivedQuantity: number;
 
-  @ApiProperty({ description: 'Quantity rejected' })
+  @ApiProperty({ description: 'Quantity rejected (deprecated - always 0)' })
   rejectedQuantity: number;
 
   @ApiProperty({ description: 'Is item fully received' })
