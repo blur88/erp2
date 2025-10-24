@@ -17,6 +17,7 @@ import {
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import {
   CreateProductDto,
@@ -45,6 +46,8 @@ export class ProductService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(SalesOrderItem)
     private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+    @InjectRepository(PurchaseOrderItem)
+    private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
     @InjectRepository(StockMovement)
     private readonly stockMovementRepository: Repository<StockMovement>,
     @Inject(forwardRef(() => CategoryService))
@@ -1585,7 +1588,7 @@ export class ProductService {
    */
   private async findDuplicateProduct(name: string, barcode?: string): Promise<Product | null> {
     const whereConditions: any[] = [{ name }];
-    
+
     if (barcode && barcode.trim()) {
       whereConditions.push({ barcode: barcode.trim() });
     }
@@ -1594,5 +1597,100 @@ export class ProductService {
       where: whereConditions,
       withDeleted: true, // Include soft-deleted products in duplicate check
     });
+  }
+
+  /**
+   * Get order history for a product (both sales and purchase orders)
+   */
+  async getOrderHistory(
+    productId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<any> {
+    this.logger.log(`Getting order history for product ${productId}`);
+
+    // Verify product exists
+    const product = await this.findOne(productId);
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Fetch sales order items
+    const [salesOrderItems, salesTotal] = await this.salesOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoinAndSelect('item.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .where('item.productId = :productId', { productId })
+      .orderBy('salesOrder.orderDate', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit)
+      .getManyAndCount();
+
+    // Fetch purchase order items
+    const [purchaseOrderItems, purchaseTotal] = await this.purchaseOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoinAndSelect('item.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('purchaseOrder.supplier', 'supplier')
+      .where('item.productId = :productId', { productId })
+      .orderBy('purchaseOrder.orderDate', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit)
+      .getManyAndCount();
+
+    // Transform sales order items (filter out items without order data)
+    const salesOrders = salesOrderItems
+      .filter(item => item.salesOrder) // Only process items with loaded order
+      .map(item => {
+        const paidAmount = Number(item.salesOrder.paidAmount || 0);
+        const totalAmount = Number(item.salesOrder.totalAmount || 0);
+        const isPaid = paidAmount >= totalAmount;
+
+        return {
+          id: item.id,
+          type: 'sales_order',
+          orderNumber: item.salesOrder.orderNumber,
+          customerOrVendor: item.salesOrder.customer?.name || 'Unknown',
+          date: item.salesOrder.orderDate,
+          paymentStatus: isPaid ? 'paid' : (paidAmount > 0 ? 'partial' : 'pending'),
+          fulfillmentStatus: item.salesOrder.isFulfilled ? 'fulfilled' : 'pending',
+          quantity: Number(item.quantity),
+          subTotal: Number(item.totalAmount),
+        };
+      });
+
+    // Transform purchase order items (filter out items without order data)
+    const purchaseOrders = purchaseOrderItems
+      .filter(item => item.purchaseOrder) // Only process items with loaded order
+      .map(item => ({
+        id: item.id,
+        type: 'purchase_order',
+        orderNumber: item.purchaseOrder.orderNumber,
+        customerOrVendor: item.purchaseOrder.supplier?.companyName || 'Unknown',
+        date: item.purchaseOrder.orderDate,
+        paymentStatus: 'n/a', // Purchase orders don't have payment tracking in the same way
+        receivedStatus: item.purchaseOrder.isFullyReceived ? 'received' : 'pending',
+        quantity: Number(item.quantity),
+        subTotal: Number(item.totalAmount),
+      }));
+
+    // Combine and sort by date
+    const combinedOrders = [...salesOrders, ...purchaseOrders].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    // Paginate the combined results
+    const startIndex = 0;
+    const endIndex = Math.min(limit, combinedOrders.length);
+    const paginatedOrders = combinedOrders.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedOrders,
+      meta: {
+        total: salesTotal + purchaseTotal,
+        page,
+        limit,
+        totalPages: Math.ceil((salesTotal + purchaseTotal) / limit),
+      },
+    };
   }
 }

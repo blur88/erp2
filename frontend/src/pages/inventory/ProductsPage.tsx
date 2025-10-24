@@ -50,6 +50,7 @@ import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import ProductDetailsTab from '@/components/inventory/ProductDetailsTab'
 import MovementHistoryTab from '@/components/inventory/MovementHistoryTab'
+import OrderHistoryTab from '@/components/inventory/OrderHistoryTab'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import type { Product } from '@/types'
@@ -825,6 +826,7 @@ const ProductsPage: React.FC = () => {
                   >
                     <Tab label="Details" />
                     <Tab label="Movement History" />
+                    <Tab label="Order History" />
                   </Tabs>
                   <Box
                     className="product-actions"
@@ -892,6 +894,9 @@ const ProductsPage: React.FC = () => {
                   )}
                   {currentTab === 1 && (
                     <MovementHistoryTab productId={selectedProductForDetails.id} />
+                  )}
+                  {currentTab === 2 && (
+                    <OrderHistoryTab productId={selectedProductForDetails.id} />
                   )}
                 </Box>
               </>

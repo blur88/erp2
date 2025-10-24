@@ -224,6 +224,28 @@ export class ProductController {
     return this.pricingService.applyDynamicPricing(id);
   }
 
+  @Get(':id/order-history')
+  @ApiOperation({ summary: 'Get order history for a product (sales and purchase orders)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order history retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number', type: Number })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', type: Number })
+  async getOrderHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.productService.getOrderHistory(
+      id,
+      page ? parseInt(String(page), 10) : 1,
+      limit ? parseInt(String(limit), 10) : 20,
+    );
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update a product' })
   @ApiResponse({
