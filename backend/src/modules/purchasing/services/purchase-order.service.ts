@@ -238,8 +238,6 @@ export class PurchaseOrderService {
       createdByUserId,
       orderDateFrom,
       orderDateTo,
-      requiredDateFrom,
-      requiredDateTo,
       isOverdue,
       sortBy = 'orderDate',
       sortOrder = 'DESC',
@@ -285,20 +283,8 @@ export class PurchaseOrderService {
       });
     }
 
-    if (requiredDateFrom) {
-      queryBuilder.andWhere('po.requiredDate >= :requiredDateFrom', { 
-        requiredDateFrom: new Date(requiredDateFrom) 
-      });
-    }
-
-    if (requiredDateTo) {
-      queryBuilder.andWhere('po.requiredDate <= :requiredDateTo', { 
-        requiredDateTo: new Date(requiredDateTo) 
-      });
-    }
-
     if (isOverdue) {
-      queryBuilder.andWhere('po.requiredDate < :now', { now: new Date() });
+      queryBuilder.andWhere('po.expectedDeliveryDate < :now', { now: new Date() });
       queryBuilder.andWhere('po.status NOT IN (:...completedStatuses)', {
         completedStatuses: ['received', 'completed', 'cancelled']
       });
@@ -306,7 +292,7 @@ export class PurchaseOrderService {
 
     // Apply sorting
     const validSortFields = [
-      'orderNumber', 'orderDate', 'requiredDate', 'status', 'priority',
+      'orderNumber', 'orderDate', 'status', 'priority',
       'totalAmount', 'createdAt'
     ];
 
@@ -539,7 +525,7 @@ export class PurchaseOrderService {
         // Overdue orders
         this.purchaseOrderRepository
           .createQueryBuilder('po')
-          .where('po.requiredDate < :now', { now: new Date() })
+          .where('po.expectedDeliveryDate < :now', { now: new Date() })
           .getCount(),
 
         // Top suppliers by volume
@@ -1303,8 +1289,7 @@ export class PurchaseOrderService {
         lastName: purchaseOrder.approvedByUser.lastName,
       } : undefined,
       orderDate: purchaseOrder.orderDate,
-      requiredDate: purchaseOrder.requiredDate,
-      sentDate: purchaseOrder.sentDate,
+            sentDate: purchaseOrder.sentDate,
       acknowledgedDate: purchaseOrder.acknowledgedDate,
       expectedDeliveryDate: purchaseOrder.expectedDeliveryDate,
       deliveredDate: purchaseOrder.deliveredDate,
@@ -1345,8 +1330,7 @@ export class PurchaseOrderService {
         rejectedQuantity: Number(item.rejectedQuantity),
         isFullyReceived: item.isFullyReceived,
         status: item.status,
-        requiredDate: item.requiredDate,
-        notes: item.notes,
+                notes: item.notes,
       })) || [],
       goodsReceivedNotes: purchaseOrder.goodsReceivedNotes?.map(grn => ({
         id: grn.id,

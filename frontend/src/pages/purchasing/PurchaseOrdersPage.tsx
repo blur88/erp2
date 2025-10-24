@@ -1224,21 +1224,7 @@ const PurchaseOrdersPage: React.FC = () => {
                               {formatDate(selectedOrder.orderDate)}
                             </TableCell>
                           </TableRow>
-                          {selectedOrder.requiredDate && (
-                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                              <TableCell sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                color: 'text.secondary',
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                              }}>
-                                Required Date
-                              </TableCell>
-                              <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                {formatDate(selectedOrder.requiredDate)}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          <TableRow sx={{ backgroundColor: selectedOrder.requiredDate ? 'inherit' : 'grey.50' }}>
+                                                    <TableRow sx={{ backgroundColor: 'inherit' }}>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               color: 'text.secondary',
@@ -1273,7 +1259,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                 : '-'}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: selectedOrder.requiredDate ? 'grey.50' : 'inherit' }}>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               color: 'text.secondary',

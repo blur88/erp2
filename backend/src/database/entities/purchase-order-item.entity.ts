@@ -137,14 +137,6 @@ export class PurchaseOrderItem extends BaseEntity {
   totalAmount: number;
 
   // Delivery Information
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Required delivery date for this item',
-  })
-  @IsOptional()
-  @IsDate()
-  requiredDate?: Date;
 
   @Column({
     type: 'date',
@@ -264,11 +256,7 @@ export class PurchaseOrderItem extends BaseEntity {
     return totalInspected > 0 ? (Number(this.acceptedQuantity) / totalInspected) * 100 : 0;
   }
 
-  get isOverdue(): boolean {
-    if (!this.requiredDate) return false;
-    return new Date() > this.requiredDate && !this.isFullyReceived;
-  }
-
+  
   get deliveryPerformance(): 'on_time' | 'late' | 'early' | 'pending' {
     if (!this.deliveredDate) return 'pending';
     if (!this.expectedDeliveryDate) return 'on_time'; // No expectation set

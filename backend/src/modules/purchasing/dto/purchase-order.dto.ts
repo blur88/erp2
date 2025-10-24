@@ -214,16 +214,7 @@ export class PurchaseOrderQueryDto {
   @IsDateString()
   orderDateTo?: string;
 
-  @ApiPropertyOptional({ description: 'Filter from required date' })
-  @IsOptional()
-  @IsDateString()
-  requiredDateFrom?: string;
-
-  @ApiPropertyOptional({ description: 'Filter to required date' })
-  @IsOptional()
-  @IsDateString()
-  requiredDateTo?: string;
-
+  
   @ApiPropertyOptional({ description: 'Show overdue orders only' })
   @IsOptional()
   @Transform(({ value }) => value === 'true')
@@ -282,9 +273,7 @@ export class PurchaseOrderItemResponseDto {
   @ApiProperty({ description: 'Item status' })
   status: string;
 
-  @ApiProperty({ description: 'Required date' })
-  requiredDate?: Date;
-
+  
   @ApiProperty({ description: 'Notes' })
   notes?: string;
 }
@@ -325,9 +314,7 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Order date' })
   orderDate: Date;
 
-  @ApiProperty({ description: 'Required delivery date' })
-  requiredDate?: Date;
-
+  
   @ApiProperty({ description: 'Sent date' })
   sentDate?: Date;
 
