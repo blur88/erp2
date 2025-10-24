@@ -33,6 +33,7 @@ import {
   Tune as SystemSettingsIcon,
   Description as PurchaseOrderIcon,
   AccountBalance as VendorPaymentsIcon,
+  SwapVert as StockAdjustmentIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -93,6 +94,12 @@ const menuSections: MenuSection[] = [
             title: 'Categories',
             icon: <CategoryIcon />,
             path: '/inventory/categories',
+          },
+          {
+            id: 'stock-adjustments',
+            title: 'Stock Adjustments',
+            icon: <StockAdjustmentIcon />,
+            path: '/inventory/stock-adjustments',
           },
         ],
       },
