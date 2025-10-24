@@ -151,25 +151,7 @@ export class PurchaseOrderItem extends BaseEntity {
   @Min(0)
   acceptedQuantity: number;
 
-  // Additional Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Special instructions for this item',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
   
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Item-specific attributes or specifications',
-  })
-  @IsOptional()
-  attributes?: Record<string, any>;
-
   // Foreign Keys
   @Column({
     type: 'uuid',

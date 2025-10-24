@@ -272,10 +272,6 @@ export class PurchaseOrderItemResponseDto {
 
   @ApiProperty({ description: 'Item status' })
   status: string;
-
-  
-  @ApiProperty({ description: 'Notes' })
-  notes?: string;
 }
 
 export class PurchaseOrderResponseDto {

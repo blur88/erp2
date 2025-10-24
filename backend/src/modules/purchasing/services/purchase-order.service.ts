@@ -1328,7 +1328,6 @@ export class PurchaseOrderService {
         rejectedQuantity: 0,
         isFullyReceived: item.isFullyReceived,
         status: item.status,
-                notes: item.notes,
       })) || [],
       goodsReceivedNotes: purchaseOrder.goodsReceivedNotes?.map(grn => ({
         id: grn.id,
