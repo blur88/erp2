@@ -250,7 +250,6 @@ export class PurchaseOrderItemResponseDto {
     id: string;
     sku: string;
     name: string;
-    unit?: string;
   };
 
   @ApiProperty({ description: 'Item description' })
@@ -261,9 +260,6 @@ export class PurchaseOrderItemResponseDto {
 
   @ApiProperty({ description: 'Unit price' })
   unitPrice: number;
-
-  @ApiProperty({ description: 'Unit of measurement' })
-  unit?: string;
 
   @ApiProperty({ description: 'Discount percentage' })
   discountPercent: number;

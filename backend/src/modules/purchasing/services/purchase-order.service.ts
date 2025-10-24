@@ -146,7 +146,6 @@ export class PurchaseOrderService {
           productName: product.name,
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
-          unit: 'pcs',
           discountType: itemDto.discountType || 'percentage',
           discountPercent: itemDto.discountPercent || 0,
           discountAmount: itemDto.discountAmount || 0,
@@ -452,7 +451,6 @@ export class PurchaseOrderService {
           item.productName = product.name;
           item.quantity = itemDto.quantity;
           item.unitCost = itemDto.unitPrice;
-          item.unit = 'pcs';
           item.discountType = itemDto.discountType || 'percentage';
           item.discountPercent = itemDto.discountPercent || 0;
           item.discountAmount = itemDto.discountAmount || 0;
@@ -1338,12 +1336,10 @@ export class PurchaseOrderService {
           id: item.product.id,
           sku: item.product.barcode || item.product.id.substring(0, 8).toUpperCase(),
           name: item.product.name,
-          unit: 'pcs',
         } : undefined,
         description: item.product?.name || 'Unknown Product',
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitCost),
-        unit: 'pcs',
         discountPercent: Number(item.discountPercent),
         discountAmount: Number(item.discountAmount),
         taxPercent: 0,

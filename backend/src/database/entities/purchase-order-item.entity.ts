@@ -78,15 +78,6 @@ export class PurchaseOrderItem extends BaseEntity {
   // Product description is retrieved from product relationship
   // No need to store product description separately as it's available via product.description
 
-  @Column({
-    type: 'varchar',
-    length: 20,
-    comment: 'Unit of measurement',
-  })
-  @IsString()
-  @MaxLength(20)
-  unit: string;
-
   // Quantity and Pricing
   @Column({
     type: 'decimal',
@@ -231,17 +222,7 @@ export class PurchaseOrderItem extends BaseEntity {
   @IsString()
   notes?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Supplier part number or reference',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  supplierPartNumber?: string;
-
+  
   @Column({
     type: 'json',
     nullable: true,
@@ -430,15 +411,14 @@ export class PurchaseOrderItem extends BaseEntity {
 
   // Static method to create from product
   static fromProduct(
-    product: Product, 
-    quantity: number, 
+    product: Product,
+    quantity: number,
     unitCost?: number
   ): Partial<PurchaseOrderItem> {
     return {
       productId: product.id,
       productSku: product.barcode,
       productName: product.name,
-      unit: 'pcs',
       quantity,
       unitCost: unitCost || Number(product.baseCost),
     };
