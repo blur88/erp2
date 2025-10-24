@@ -10,6 +10,7 @@ interface InventoryState {
   stockMovements: StockMovement[]
   selectedProduct: Product | null
   selectedCategory: Category | null
+  selectedStockMovement: StockMovement | null
   loading: {
     products: boolean
     deletedProducts: boolean
@@ -53,6 +54,7 @@ const initialState: InventoryState = {
   stockMovements: [],
   selectedProduct: null,
   selectedCategory: null,
+  selectedStockMovement: null,
   loading: {
     products: false,
     deletedProducts: false,
@@ -386,6 +388,9 @@ const inventorySlice = createSlice({
     setSelectedCategory: (state, action: PayloadAction<Category | null>) => {
       state.selectedCategory = action.payload
     },
+    setSelectedStockMovement: (state, action: PayloadAction<StockMovement | null>) => {
+      state.selectedStockMovement = action.payload
+    },
     setProductFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.products>>) => {
       state.filters.products = { ...state.filters.products, ...action.payload }
     },
@@ -630,6 +635,7 @@ const inventorySlice = createSlice({
 export const {
   setSelectedProduct,
   setSelectedCategory,
+  setSelectedStockMovement,
   setProductFilters,
   setCategoryFilters,
   resetFilters,
@@ -645,6 +651,7 @@ export const selectDeletedCategories = (state: any) => state.inventory?.deletedC
 export const selectStockMovements = (state: any) => state.inventory?.stockMovements
 export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
 export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
+export const selectSelectedStockMovement = (state: any) => state.inventory?.selectedStockMovement
 export const selectInventoryLoading = (state: any) => state.inventory?.loading
 export const selectInventoryError = (state: any) => state.inventory?.error
 export const selectInventoryPagination = (state: any) => state.inventory?.pagination
