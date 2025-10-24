@@ -220,7 +220,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
                     variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
                     sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
                   >
-                    {Number(movement.previousBalance).toFixed(2)}
+                    {Number(movement.previousBalance)}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
@@ -228,7 +228,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
                     variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
                     sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
                   >
-                    {Number(movement.quantity).toFixed(2)}
+                    {Number(movement.quantity)}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
@@ -239,7 +239,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
                       fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                     }}
                   >
-                    {Number(movement.newBalance).toFixed(2)}
+                    {Number(movement.newBalance)}
                   </Typography>
                 </TableCell>
               </TableRow>
