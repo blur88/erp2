@@ -1,11 +1,11 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RemoveExpectedDeliveryDateFromPurchaseOrderItems1698224400000 implements MigrationInterface {
-  name = 'RemoveExpectedDeliveryDateFromPurchaseOrderItems1698224400000';
+export class RemoveExpectedDeliveryDateFromPurchaseOrderItems1772400000000 implements MigrationInterface {
+  name = 'RemoveExpectedDeliveryDateFromPurchaseOrderItems1772400000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Column already removed manually - marking migration as complete
-    // The expectedDeliveryDate column has been removed from purchase_order_items table
+    // Drop the expectedDeliveryDate column from purchase_order_items table
+    await queryRunner.query(`ALTER TABLE "purchase_order_items" DROP COLUMN "expectedDeliveryDate"`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
