@@ -410,8 +410,12 @@ const StockAdjustmentsPage: React.FC = () => {
               <Grid item xs={12}>
                 <Card
                   sx={{
-                    bgcolor:
-                      formData.adjustmentType === 'increase'
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark'
+                        ? formData.adjustmentType === 'increase'
+                          ? 'rgba(46, 125, 50, 0.15)'
+                          : 'rgba(211, 47, 47, 0.15)'
+                        : formData.adjustmentType === 'increase'
                         ? 'success.light'
                         : 'error.light',
                     border: 1,
@@ -427,7 +431,7 @@ const StockAdjustmentsPage: React.FC = () => {
                         <Typography variant="caption" color="text.secondary">
                           Current Stock
                         </Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
                           {currentStock}
                         </Typography>
                       </Grid>
@@ -441,8 +445,8 @@ const StockAdjustmentsPage: React.FC = () => {
                             fontWeight: 600,
                             color:
                               formData.adjustmentType === 'increase'
-                                ? 'success.dark'
-                                : 'error.dark',
+                                ? 'success.main'
+                                : 'error.main',
                           }}
                         >
                           {formData.adjustmentType === 'increase' ? '+' : '-'}
@@ -457,7 +461,7 @@ const StockAdjustmentsPage: React.FC = () => {
                           variant="h5"
                           sx={{
                             fontWeight: 600,
-                            color: newStock < 0 ? 'error.dark' : 'text.primary',
+                            color: newStock < 0 ? 'error.main' : 'text.primary',
                           }}
                         >
                           {newStock}
