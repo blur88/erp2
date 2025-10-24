@@ -142,7 +142,6 @@ export class PurchaseOrderService {
 
         const item = this.purchaseOrderItemRepository.create({
           productId: itemDto.productId,
-          productSku: product.barcode || product.id.substring(0, 8).toUpperCase(),
           productName: product.name,
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
@@ -447,7 +446,6 @@ export class PurchaseOrderService {
           const item = new PurchaseOrderItem();
           item.purchaseOrderId = id;
           item.productId = itemDto.productId;
-          item.productSku = product.barcode || product.id.substring(0, 8).toUpperCase();
           item.productName = product.name;
           item.quantity = itemDto.quantity;
           item.unitCost = itemDto.unitPrice;
@@ -460,7 +458,7 @@ export class PurchaseOrderService {
           item.acceptedQuantity = 0;
           item.lineNumber = lineNum;
 
-          this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productSku: ${item.productSku}, quantity: ${item.quantity}`);
+          this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productId: ${item.productId}, quantity: ${item.quantity}`);
 
           // Calculate totals manually to get the amount before saving
           // Discount is applied to unit price first, then multiplied by quantity
@@ -487,7 +485,7 @@ export class PurchaseOrderService {
           this.logger.debug(`Saved ${savedItems.length} items successfully`);
         } catch (saveError) {
           this.logger.error(`Failed to save items: ${saveError.message}`);
-          this.logger.debug(`Item details before save attempt: ${JSON.stringify(orderItems.map(i => ({ lineNumber: i.lineNumber, productSku: i.productSku, quantity: i.quantity })))}`);
+          this.logger.debug(`Item details before save attempt: ${JSON.stringify(orderItems.map(i => ({ lineNumber: i.lineNumber, productId: i.productId, quantity: i.quantity })))}`);
           throw saveError;
         }
 

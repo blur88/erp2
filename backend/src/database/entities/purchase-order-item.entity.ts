@@ -57,14 +57,7 @@ export class PurchaseOrderItem extends BaseEntity {
   status: PurchaseOrderItemStatus;
 
   // Product Information (captured at time of order)
-  @Column({
-    type: 'varchar',
-    length: 50,
-    comment: 'Product SKU at time of order',
-  })
-  @IsString()
-  @MaxLength(50)
-  productSku: string;
+  // Note: productSku field removed - available via product.barcode relationship
 
   @Column({
     type: 'varchar',
@@ -417,7 +410,6 @@ export class PurchaseOrderItem extends BaseEntity {
   ): Partial<PurchaseOrderItem> {
     return {
       productId: product.id,
-      productSku: product.barcode,
       productName: product.name,
       quantity,
       unitCost: unitCost || Number(product.baseCost),
