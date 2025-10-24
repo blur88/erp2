@@ -141,15 +141,6 @@ export class PurchaseOrderItem extends BaseEntity {
   @Column({
     type: 'date',
     nullable: true,
-    comment: 'Expected delivery date from supplier',
-  })
-  @IsOptional()
-  @IsDate()
-  expectedDeliveryDate?: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
     comment: 'Actual delivery date',
   })
   @IsOptional()
@@ -259,11 +250,13 @@ export class PurchaseOrderItem extends BaseEntity {
   
   get deliveryPerformance(): 'on_time' | 'late' | 'early' | 'pending' {
     if (!this.deliveredDate) return 'pending';
-    if (!this.expectedDeliveryDate) return 'on_time'; // No expectation set
-    
+
+    // Use purchase order's expected delivery date
+    if (!this.purchaseOrder?.expectedDeliveryDate) return 'on_time'; // No expectation set
+
     const delivered = this.deliveredDate.getTime();
-    const expected = this.expectedDeliveryDate.getTime();
-    
+    const expected = this.purchaseOrder.expectedDeliveryDate.getTime();
+
     if (delivered === expected) return 'on_time';
     return delivered > expected ? 'late' : 'early';
   }
@@ -362,10 +355,7 @@ export class PurchaseOrderItem extends BaseEntity {
     }
   }
 
-  setExpectedDeliveryDate(date: Date): void {
-    this.expectedDeliveryDate = date;
-  }
-
+  
   // Quality control methods
   inspectReceived(acceptedQty: number, rejectedQty: number, notes?: string): void {
     const totalInspected = Number(acceptedQty) + Number(rejectedQty);
@@ -401,7 +391,7 @@ export class PurchaseOrderItem extends BaseEntity {
     isLate: boolean;
     isEarly: boolean;
   } {
-    if (!this.deliveredDate || !this.expectedDeliveryDate) {
+    if (!this.deliveredDate || !this.purchaseOrder?.expectedDeliveryDate) {
       return {
         daysLate: 0,
         isOnTime: false,
@@ -411,7 +401,7 @@ export class PurchaseOrderItem extends BaseEntity {
     }
 
     const deliveredTime = this.deliveredDate.getTime();
-    const expectedTime = this.expectedDeliveryDate.getTime();
+    const expectedTime = this.purchaseOrder.expectedDeliveryDate.getTime();
     const diffDays = Math.ceil((deliveredTime - expectedTime) / (1000 * 60 * 60 * 24));
 
     return {
