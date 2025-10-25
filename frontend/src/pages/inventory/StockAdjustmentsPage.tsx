@@ -113,11 +113,23 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
     >
       <TableCell>
         <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+          sx={{
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+            color: 'primary.main'
+          }}
+        >
+          {adjustment.referenceNumber || adjustment.id.substring(0, 8)}
+        </Typography>
+        <Typography
           variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
           sx={{
             fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
             fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+            mt: 0.5
           }}
         >
           {adjustment.product?.name || 'Unknown'}
@@ -153,7 +165,15 @@ const StockAdjustmentsPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
-  const adjustments = useAppSelector(selectStockMovements) || []
+  const allStockMovements = useAppSelector(selectStockMovements) || []
+
+  // Filter to show only adjustment movements
+  const adjustments = React.useMemo(() => {
+    return allStockMovements.filter((movement: StockMovement) =>
+      movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
+      movement.movementType === StockMovementType.ADJUSTMENT_DECREASE
+    )
+  }, [allStockMovements])
   const loading = useAppSelector(selectInventoryLoading)?.stockMovements || false
   const error = useAppSelector(selectInventoryError)
   const pagination = useAppSelector(selectInventoryPagination)?.stockMovements
@@ -210,10 +230,26 @@ const StockAdjustmentsPage: React.FC = () => {
   // Load adjustments
   const loadAdjustments = useCallback(() => {
     const dateRange = getDateRange(state.dateFilter)
+
+    // Determine movement type based on typeFilter
+    let movementType: StockMovementType | undefined
+    if (state.typeFilter === 'increase') {
+      movementType = StockMovementType.ADJUSTMENT_INCREASE
+    } else if (state.typeFilter === 'decrease') {
+      movementType = StockMovementType.ADJUSTMENT_DECREASE
+    }
+    // If typeFilter is 'all', we need to fetch both types separately or handle in backend
+    // For now, we'll pass undefined and rely on frontend filtering
+
     dispatch(fetchStockMovements({
       page: state.page + 1,
       limit: state.rowsPerPage,
-      // Add more filter params here as needed
+      movementType: movementType,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
+      search: state.search || undefined,
+      sortBy: state.sortBy,
+      sortOrder: state.sortOrder.toUpperCase() as any,
     } as any))
   }, [dispatch, state, getDateRange])
 
@@ -620,6 +656,22 @@ const StockAdjustmentsPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              SA Number
+                            </TableCell>
+                            <TableCell sx={{
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                              fontWeight: 600,
+                              color: 'primary.main'
+                            }}>
+                              {selectedAdjustment.referenceNumber || 'N/A'}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               color: 'text.secondary',

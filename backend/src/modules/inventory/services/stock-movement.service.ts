@@ -47,6 +47,19 @@ export class StockMovementService {
   ) {}
 
   /**
+   * Generate SA reference number for stock adjustments
+   */
+  private async generateSANumber(): Promise<string> {
+    const count = await this.stockMovementRepository.count({
+      where: [
+        { movementType: StockMovementType.ADJUSTMENT_INCREASE },
+        { movementType: StockMovementType.ADJUSTMENT_DECREASE },
+      ],
+    });
+    return `SA-${String(count + 1).padStart(6, '0')}`;
+  }
+
+  /**
    * Create a stock movement and update product stock
    */
   async create(
@@ -89,6 +102,16 @@ export class StockMovementService {
       );
     }
 
+    // Generate SA number for adjustments
+    let referenceNumber = createMovementDto.referenceNumber;
+    const isAdjustment =
+      createMovementDto.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
+      createMovementDto.movementType === StockMovementType.ADJUSTMENT_DECREASE;
+
+    if (isAdjustment && !referenceNumber) {
+      referenceNumber = await this.generateSANumber();
+    }
+
     // Create stock movement
     const stockMovement = this.stockMovementRepository.create({
       ...createMovementDto,
@@ -97,6 +120,7 @@ export class StockMovementService {
       status: StockMovementStatus.COMPLETED,
       movedByUserId: userId,
       locationCode: createMovementDto.locationCode || 'MAIN',
+      referenceNumber,
     });
 
     const savedMovement = await this.stockMovementRepository.save(stockMovement);

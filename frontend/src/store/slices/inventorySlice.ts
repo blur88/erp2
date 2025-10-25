@@ -368,11 +368,22 @@ export const checkCategoryDuplicate = createAsyncThunk(
 
 export const fetchStockMovements = createAsyncThunk(
   'inventory/fetchStockMovements',
-  async (params: { page?: number; limit?: number; productId?: string }, { rejectWithValue }) => {
+  async (params: {
+    page?: number
+    limit?: number
+    productId?: string
+    movementType?: string
+    fromDate?: string
+    toDate?: string
+    search?: string
+    sortBy?: string
+    sortOrder?: string
+  }, { rejectWithValue }) => {
     try {
-      const response = await inventoryApi.getStockMovements(params)
-      return response.data
+      const response = await inventoryApi.getStockMovements(params as any)
+      return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
     } catch (error: any) {
+      console.error('Failed to fetch stock movements:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock movements')
     }
   }
