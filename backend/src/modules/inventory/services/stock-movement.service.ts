@@ -259,6 +259,8 @@ export class StockMovementService {
     // Normalize sort order to uppercase for TypeORM
     const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(`movement.${sortField}`, normalizedSortOrder);
+    // Add secondary sort by createdAt to ensure consistent ordering when primary field has duplicates
+    queryBuilder.addOrderBy('movement.createdAt', normalizedSortOrder);
 
     // Apply pagination
     const offset = (page - 1) * limit;

@@ -166,7 +166,7 @@ const StockAdjustmentsPage: React.FC = () => {
     rowsPerPage: 20,
     search: '',
     sortBy: 'movementDate',
-    sortOrder: 'desc',
+    sortOrder: 'asc', // Changed to 'asc' to show lowest SA numbers first
     typeFilter: 'all',
     dateFilter: 'all',
     customFromDate: '',
