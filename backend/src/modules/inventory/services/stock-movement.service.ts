@@ -52,13 +52,28 @@ export class StockMovementService {
    * Generate SA reference number for stock adjustments
    */
   private async generateSANumber(): Promise<string> {
-    const count = await this.stockMovementRepository.count({
-      where: [
-        { movementType: StockMovementType.ADJUSTMENT_INCREASE },
-        { movementType: StockMovementType.ADJUSTMENT_DECREASE },
-      ],
-    });
-    return `SA-${String(count + 1).padStart(6, '0')}`;
+    // Find the maximum SA number and increment it
+    // This ensures sequential numbering even if some numbers were deleted
+    const result = await this.stockMovementRepository
+      .createQueryBuilder('movement')
+      .select('movement.referenceNumber', 'referenceNumber')
+      .where('movement.movementType IN (:...types)', {
+        types: [StockMovementType.ADJUSTMENT_INCREASE, StockMovementType.ADJUSTMENT_DECREASE],
+      })
+      .andWhere('movement.referenceNumber IS NOT NULL')
+      .andWhere('movement.referenceNumber LIKE :pattern', { pattern: 'SA-%' })
+      .orderBy('movement.referenceNumber', 'DESC')
+      .limit(1)
+      .getRawOne();
+
+    let nextNumber = 1;
+    if (result?.referenceNumber) {
+      // Extract number from SA-XXXXXX format
+      const currentNumber = parseInt(result.referenceNumber.replace('SA-', ''), 10);
+      nextNumber = currentNumber + 1;
+    }
+
+    return `SA-${String(nextNumber).padStart(6, '0')}`;
   }
 
   /**
