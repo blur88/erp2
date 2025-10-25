@@ -111,7 +111,14 @@ export class StockMovementService {
     // Audit logging removed with authentication system
 
     this.logger.log(`Stock movement created successfully: ${savedMovement.id}`);
-    return this.toResponseDto(savedMovement);
+
+    // Reload with relations for response DTO
+    const movementWithRelations = await this.stockMovementRepository.findOne({
+      where: { id: savedMovement.id },
+      relations: ['product', 'movedByUser'],
+    });
+
+    return this.toResponseDto(movementWithRelations);
   }
 
   /**
