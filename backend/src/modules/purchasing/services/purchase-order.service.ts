@@ -23,6 +23,9 @@ import { GoodsReceivedNoteService } from './goods-received-note.service';
 import { VendorPaymentService } from './vendor-payment.service';
 import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
+import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -47,6 +50,7 @@ export class PurchaseOrderService {
     private readonly grnService: GoodsReceivedNoteService,
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly stockMovementService: StockMovementService,
   ) {}
 
   /**
@@ -1056,15 +1060,29 @@ export class PurchaseOrderService {
       updatedGrn.calculateTotals();
       await this.grnRepository.save(updatedGrn);
 
-      // Update product quantities
+      // Update product quantities and create stock movements
       for (const item of purchaseOrder.items) {
         const product = await this.productRepository.findOne({
           where: { id: item.productId },
         });
 
         if (product) {
-          product.adjustStock(Number(item.quantity), 'increase');
-          await this.productRepository.save(product);
+          // Create stock movement for purchase receipt
+          const createMovementDto: CreateStockMovementDto = {
+            productId: item.productId,
+            movementType: StockMovementType.PURCHASE_RECEIPT,
+            quantity: Number(item.quantity),
+            reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
+            referenceType: 'purchase_order',
+            referenceId: purchaseOrder.id,
+            referenceNumber: purchaseOrder.orderNumber,
+            unitValue: Number(item.unitCost),
+          };
+
+          await this.stockMovementService.create(createMovementDto);
+          this.logger.log(
+            `Stock movement created for product ${item.productId}: +${item.quantity} units from PO ${purchaseOrder.orderNumber}`
+          );
         }
 
         // Update PO item received quantity
