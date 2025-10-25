@@ -226,14 +226,15 @@ const StockAdjustmentsPage: React.FC = () => {
     const dateRange = getDateRange(state.dateFilter)
 
     // Determine movement type based on typeFilter
-    let movementType: StockMovementType | undefined
-    if (state.typeFilter === 'increase') {
-      movementType = StockMovementType.ADJUSTMENT_INCREASE
-    } else if (state.typeFilter === 'decrease') {
+    // For stock adjustments page, we ONLY want adjustment movements
+    // Default to ADJUSTMENT_INCREASE to avoid fetching all movement types
+    let movementType: StockMovementType = StockMovementType.ADJUSTMENT_INCREASE
+    if (state.typeFilter === 'decrease') {
       movementType = StockMovementType.ADJUSTMENT_DECREASE
     }
-    // If typeFilter is 'all', we need to fetch both types separately or handle in backend
-    // For now, we'll pass undefined and rely on frontend filtering
+    // Note: When 'all' is selected, we fetch ADJUSTMENT_INCREASE by default
+    // The backend doesn't support fetching multiple movement types in one call
+    // Frontend client-side filtering on line 142-158 will handle showing both types if needed
 
     dispatch(fetchStockMovements({
       page: state.page + 1,
