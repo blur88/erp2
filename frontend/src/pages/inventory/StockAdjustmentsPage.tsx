@@ -138,12 +138,23 @@ const StockAdjustmentsPage: React.FC = () => {
 
   const allStockMovements = useAppSelector(selectStockMovements) || []
 
-  // Filter to show only adjustment movements
+  // Filter to show only adjustment movements and group by SA number
   const adjustments = React.useMemo(() => {
-    return allStockMovements.filter((movement: StockMovement) =>
+    const filtered = allStockMovements.filter((movement: StockMovement) =>
       movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
       movement.movementType === StockMovementType.ADJUSTMENT_DECREASE
     )
+
+    // Group by SA number (referenceNumber) - keep only the first movement of each SA
+    const groupedMap = new Map<string, StockMovement>()
+    filtered.forEach((movement: StockMovement) => {
+      const saNumber = movement.referenceNumber || movement.id
+      if (!groupedMap.has(saNumber)) {
+        groupedMap.set(saNumber, movement)
+      }
+    })
+
+    return Array.from(groupedMap.values())
   }, [allStockMovements])
   const loading = useAppSelector(selectInventoryLoading)?.stockMovements || false
   const error = useAppSelector(selectInventoryError)
@@ -165,6 +176,18 @@ const StockAdjustmentsPage: React.FC = () => {
   const [focusedAdjustmentIndex, setFocusedAdjustmentIndex] = useState(-1)
   const adjustmentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Get all movements for the selected SA number
+  const selectedSAMovements = React.useMemo(() => {
+    if (!selectedAdjustment || !selectedAdjustment.referenceNumber) {
+      return []
+    }
+    return allStockMovements.filter((movement: StockMovement) =>
+      movement.referenceNumber === selectedAdjustment.referenceNumber &&
+      (movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
+       movement.movementType === StockMovementType.ADJUSTMENT_DECREASE)
+    )
+  }, [selectedAdjustment, allStockMovements])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -669,36 +692,38 @@ const StockAdjustmentsPage: React.FC = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          <TableRow>
-                            <TableCell>{selectedAdjustment.product?.name || 'Unknown Product'}</TableCell>
-                            <TableCell align="center">
-                              <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                {Number(selectedAdjustment.newBalance).toLocaleString()}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-                                {Number(selectedAdjustment.previousBalance).toLocaleString()}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              <Typography
-                                variant="body2"
-                                fontWeight="600"
-                                sx={{
-                                  fontSize: '0.875rem',
-                                  color: Number(selectedAdjustment.quantity) > 0
-                                    ? 'success.main'
-                                    : Number(selectedAdjustment.quantity) < 0
-                                    ? 'error.main'
-                                    : 'text.primary'
-                                }}
-                              >
-                                {Number(selectedAdjustment.quantity) > 0 ? '+' : ''}
-                                {Number(selectedAdjustment.quantity).toLocaleString()}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
+                          {selectedSAMovements.map((movement) => (
+                            <TableRow key={movement.id}>
+                              <TableCell>{movement.product?.name || 'Unknown Product'}</TableCell>
+                              <TableCell align="center">
+                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                  {Number(movement.newBalance).toLocaleString()}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center">
+                                <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                                  {Number(movement.previousBalance).toLocaleString()}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center">
+                                <Typography
+                                  variant="body2"
+                                  fontWeight="600"
+                                  sx={{
+                                    fontSize: '0.875rem',
+                                    color: Number(movement.quantity) > 0
+                                      ? 'success.main'
+                                      : Number(movement.quantity) < 0
+                                      ? 'error.main'
+                                      : 'text.primary'
+                                  }}
+                                >
+                                  {Number(movement.quantity) > 0 ? '+' : ''}
+                                  {Number(movement.quantity).toLocaleString()}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ))}
                         </TableBody>
                       </Table>
                     </TableContainer>

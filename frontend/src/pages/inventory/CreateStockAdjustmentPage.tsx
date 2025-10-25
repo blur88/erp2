@@ -31,7 +31,6 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
-import { StockMovementType } from '@/types'
 
 interface AdjustmentItem {
   productId: string
@@ -133,39 +132,55 @@ const CreateStockAdjustmentPage: React.FC = () => {
     setError(null)
 
     try {
-      // Create individual stock movements for each item
-      const movements = data.items
-        .filter(item => item.difference !== 0)
-        .map(item => ({
-          productId: item.productId,
-          movementType: item.difference > 0
-            ? StockMovementType.ADJUSTMENT_INCREASE
-            : StockMovementType.ADJUSTMENT_DECREASE,
-          quantity: Math.abs(item.difference),
-          movementDate: data.adjustmentDate,
-          reason: 'Stock Adjustment',
-          notes: data.notes || undefined,
-        }))
+      // Filter items with differences
+      const itemsWithDifference = data.items.filter(item => item.difference !== 0)
 
-      if (movements.length === 0) {
+      if (itemsWithDifference.length === 0) {
         showError('No changes to record. At least one item must have a difference.')
         setLoading(false)
         return
       }
 
-      // Create all movements
-      await Promise.all(
-        movements.map(movement =>
-          ApiService.post('/inventory/stock/movements', movement)
-        )
-      )
+      // Create bulk stock adjustment with all items in one request
+      const bulkAdjustmentData = {
+        adjustmentDate: data.adjustmentDate,
+        notes: data.notes || undefined,
+        items: itemsWithDifference.map(item => ({
+          productId: item.productId,
+          newQuantity: item.newQuantity,
+          oldQuantity: item.oldQuantity,
+          difference: item.difference,
+        })),
+      }
 
-      showSuccess(`Stock adjustment recorded successfully (${movements.length} items adjusted)`)
+      console.log('Sending bulk adjustment data:', bulkAdjustmentData)
+      const response = await ApiService.post('/inventory/stock/adjustments/bulk', bulkAdjustmentData)
+      console.log('Response:', response)
+
+      // ApiService already unwraps the response, so response is the data directly
+      const result = response as any
+
+      console.log('Result saNumber:', result?.saNumber)
+      console.log('Result itemsAdjusted:', result?.itemsAdjusted)
+
+      if (!result || !result.saNumber) {
+        throw new Error('Invalid response from server: missing saNumber')
+      }
+
+      const saNumber = result.saNumber
+      const itemsAdjusted = result.itemsAdjusted || 0
+
+      showSuccess(`Stock adjustment ${saNumber} recorded successfully (${itemsAdjusted} items adjusted)`)
       navigate('/inventory/stock-adjustments')
     } catch (err: any) {
       console.error('Error creating stock adjustments:', err)
-      setError(err.response?.data?.message || 'Failed to record stock adjustments')
-      showError(err.response?.data?.message || 'Failed to record stock adjustments')
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      })
+      setError(err.response?.data?.message || err.message || 'Failed to record stock adjustments')
+      showError(err.response?.data?.message || err.message || 'Failed to record stock adjustments')
     } finally {
       setLoading(false)
     }

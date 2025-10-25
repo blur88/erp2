@@ -28,6 +28,8 @@ import {
   StockReservationDto,
   StockSummaryDto,
   LowStockAlertDto,
+  CreateBulkStockAdjustmentDto,
+  BulkStockAdjustmentResponseDto,
 } from '../dto/stock.dto';
 import { ProductService } from './product.service';
 
@@ -661,6 +663,96 @@ export class StockMovementService {
       description: movement.getDescription(),
       createdAt: movement.createdAt,
       updatedAt: movement.updatedAt,
+    };
+  }
+
+  /**
+   * Create bulk stock adjustment with multiple products in one transaction
+   */
+  async createBulkStockAdjustment(
+    createBulkDto: CreateBulkStockAdjustmentDto,
+    userId?: string,
+  ): Promise<BulkStockAdjustmentResponseDto> {
+    this.logger.log(`Creating bulk stock adjustment with ${createBulkDto.items.length} items`);
+
+    // Generate single SA number for the entire batch
+    const saNumber = await this.generateSANumber();
+    const movementIds: string[] = [];
+
+    // Process each item
+    for (const item of createBulkDto.items) {
+      // Skip items with no difference
+      if (item.difference === 0) {
+        continue;
+      }
+
+      // Fetch product to get current stock
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+        relations: ['category'],
+      });
+
+      if (!product) {
+        throw new NotFoundException(
+          `Product with ID '${item.productId}' not found`,
+        );
+      }
+
+      // Determine movement type based on difference
+      const movementType = item.difference > 0
+        ? StockMovementType.ADJUSTMENT_INCREASE
+        : StockMovementType.ADJUSTMENT_DECREASE;
+
+      // Calculate balances
+      const previousBalance = Number(product.stockQuantity);
+      const newBalance = Number(item.newQuantity);
+
+      // Validate new balance
+      if (newBalance < 0) {
+        throw new BadRequestException(
+          `Stock adjustment for ${product.name} would result in negative stock quantity`,
+        );
+      }
+
+      // Create stock movement with shared SA number
+      const stockMovement = this.stockMovementRepository.create({
+        productId: item.productId,
+        movementType,
+        quantity: Math.abs(item.difference),
+        previousBalance,
+        newBalance,
+        status: StockMovementStatus.COMPLETED,
+        movedByUserId: userId,
+        locationCode: 'MAIN',
+        referenceNumber: saNumber,
+        movementDate: createBulkDto.adjustmentDate,
+        reason: 'Stock Adjustment',
+        notes: createBulkDto.notes || undefined,
+      });
+
+      const savedMovement = await this.stockMovementRepository.save(stockMovement);
+      movementIds.push(savedMovement.id);
+
+      // Update product stock quantity
+      await this.productService.updateStockQuantity(
+        product.id,
+        newBalance,
+        userId,
+      );
+
+      this.logger.log(
+        `Stock adjustment for ${product.name}: ${previousBalance} → ${newBalance} (${item.difference > 0 ? '+' : ''}${item.difference})`,
+      );
+    }
+
+    this.logger.log(`Bulk stock adjustment ${saNumber} created successfully with ${movementIds.length} movements`);
+
+    return {
+      saNumber,
+      itemsAdjusted: movementIds.length,
+      adjustmentDate: createBulkDto.adjustmentDate,
+      notes: createBulkDto.notes,
+      movementIds,
     };
   }
 }

@@ -23,6 +23,8 @@ import {
   StockTransferDto,
   StockSummaryDto,
   LowStockAlertDto,
+  CreateBulkStockAdjustmentDto,
+  BulkStockAdjustmentResponseDto,
 } from '../dto/stock.dto';
 
 @ApiTags('Stock Management')
@@ -47,6 +49,22 @@ export class StockController {
     @Body() createMovementDto: CreateStockMovementDto,
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.create(createMovementDto);
+  }
+
+  @Post('adjustments/bulk')
+  @ApiOperation({ summary: 'Create bulk stock adjustment with multiple products' })
+  @ApiResponse({
+    status: 201,
+    description: 'Bulk stock adjustment created successfully',
+    type: BulkStockAdjustmentResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input data or insufficient stock' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  @ApiBody({ type: CreateBulkStockAdjustmentDto })
+  async createBulkAdjustment(
+    @Body() createBulkDto: CreateBulkStockAdjustmentDto,
+  ): Promise<BulkStockAdjustmentResponseDto> {
+    return this.stockMovementService.createBulkStockAdjustment(createBulkDto);
   }
 
   @Get('movements')
