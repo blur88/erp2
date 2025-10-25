@@ -226,19 +226,23 @@ const StockAdjustmentsPage: React.FC = () => {
     const dateRange = getDateRange(state.dateFilter)
 
     // Determine movement type based on typeFilter
-    // For stock adjustments page, we ONLY want adjustment movements
-    // Default to ADJUSTMENT_INCREASE to avoid fetching all movement types
-    let movementType: StockMovementType = StockMovementType.ADJUSTMENT_INCREASE
-    if (state.typeFilter === 'decrease') {
+    let movementType: StockMovementType | undefined
+    if (state.typeFilter === 'increase') {
+      movementType = StockMovementType.ADJUSTMENT_INCREASE
+    } else if (state.typeFilter === 'decrease') {
       movementType = StockMovementType.ADJUSTMENT_DECREASE
     }
-    // Note: When 'all' is selected, we fetch ADJUSTMENT_INCREASE by default
-    // The backend doesn't support fetching multiple movement types in one call
-    // Frontend client-side filtering on line 142-158 will handle showing both types if needed
+    // When typeFilter is 'all', movementType is undefined
+    // This will fetch ALL movements, but client-side filter (line 142-158) shows only adjustments
+
+    // Use high limit for client-side filtering and pagination
+    // Backend max limit is 100, so we use that for 'all' filter
+    const limit = movementType ? state.rowsPerPage : 100
+    const page = movementType ? state.page + 1 : 1
 
     dispatch(fetchStockMovements({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
+      page: page,
+      limit: limit,
       movementType: movementType,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
