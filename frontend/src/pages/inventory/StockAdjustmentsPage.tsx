@@ -113,44 +113,15 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-          sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
-            color: 'primary.main'
-          }}
-        >
-          {adjustment.referenceNumber || adjustment.id.substring(0, 8)}
-        </Typography>
-        <Typography
           variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
           sx={{
             fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
             fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
-            mt: 0.5
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
           }}
         >
-          {adjustment.product?.name || 'Unknown'}
+          {adjustment.referenceNumber || adjustment.id.substring(0, 8)}
         </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: 'block', mt: 0.5 }}
-        >
-          {formatDate(adjustment.movementDate)}
-        </Typography>
-        <Chip
-          label={getAdjustmentTypeLabel(adjustment.movementType)}
-          size="small"
-          color={getAdjustmentTypeColor(adjustment.movementType)}
-          sx={{
-            mt: 0.5,
-            height: 20,
-            fontSize: '0.7rem',
-          }}
-        />
       </TableCell>
     </TableRow>
   )
