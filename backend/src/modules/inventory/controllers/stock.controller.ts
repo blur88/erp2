@@ -52,7 +52,10 @@ export class StockController {
   }
 
   @Post('adjustments/bulk')
-  @ApiOperation({ summary: 'Create bulk stock adjustment with multiple products' })
+  @ApiOperation({
+    summary: 'Create bulk stock adjustment with multiple products (DEPRECATED - Use /inventory/stock-adjustments instead)',
+    deprecated: true,
+  })
   @ApiResponse({
     status: 201,
     description: 'Bulk stock adjustment created successfully',

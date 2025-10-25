@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from '../../database/entities/product.entity';
 import { Category } from '../../database/entities/category.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
+import { StockAdjustment, StockAdjustmentItem } from '../../database/entities/stock-adjustment.entity';
 import { PurchaseCostHistory } from '../../database/entities/purchase-cost-history.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
@@ -17,11 +18,13 @@ import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.e
 import { ProductController } from './controllers/product.controller';
 import { CategoryController } from './controllers/category.controller';
 import { StockController } from './controllers/stock.controller';
+import { StockAdjustmentController } from './controllers/stock-adjustment.controller';
 
 // Services
 import { ProductService } from './services/product.service';
 import { CategoryService } from './services/category.service';
 import { StockMovementService } from './services/stock-movement.service';
+import { StockAdjustmentService } from './services/stock-adjustment.service';
 import { PricingService } from './services/pricing.service';
 import { IntegrationService } from './services/integration.service';
 import { BaseCostCalculatorService } from './services/base-cost-calculator.service';
@@ -36,6 +39,8 @@ import { UsersModule } from '../users/users.module';
       Product,
       Category,
       StockMovement,
+      StockAdjustment,
+      StockAdjustmentItem,
       PurchaseCostHistory,
       // Related entities for integration
       Customer,
@@ -52,12 +57,14 @@ import { UsersModule } from '../users/users.module';
     ProductController,
     CategoryController,
     StockController,
+    StockAdjustmentController,
   ],
   providers: [
     // Core services
     ProductService,
     CategoryService,
     StockMovementService,
+    StockAdjustmentService,
     PricingService,
     IntegrationService,
     BaseCostCalculatorService,
@@ -67,6 +74,7 @@ import { UsersModule } from '../users/users.module';
     ProductService,
     CategoryService,
     StockMovementService,
+    StockAdjustmentService,
     PricingService,
     IntegrationService,
     BaseCostCalculatorService,
