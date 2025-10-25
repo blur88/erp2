@@ -2,389 +2,523 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
-  Typography,
-  Paper,
   Button,
-  TextField,
   Grid,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  TextField,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Paper,
   Autocomplete,
+  Alert,
+  Container,
   Card,
   CardContent,
-  IconButton,
   useTheme,
-  useMediaQuery,
 } from '@mui/material'
 import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
   ArrowBack as ArrowBackIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  Save as SaveIcon,
-  Cancel as CancelIcon,
-  Assessment as AssessmentIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import { useNotification } from '@/hooks/useNotification'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import * as yup from 'yup'
 import { ApiService } from '@/services/api'
-import type { Product } from '@/types'
+import { useNotification } from '@/hooks/useNotification'
 import { StockMovementType } from '@/types'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
-import {
-  fetchProducts,
-  selectProducts,
-  selectInventoryLoading,
-} from '@/store/slices/inventorySlice'
 
-interface AdjustmentFormData {
+interface AdjustmentItem {
   productId: string
-  adjustmentType: 'increase' | 'decrease'
-  quantity: number
-  reason: string
-  notes: string
+  product?: any
+  newQuantity: number
+  oldQuantity: number
+  difference: number
 }
 
+interface CreateAdjustmentFormData {
+  adjustmentDate: string
+  notes?: string
+  items: AdjustmentItem[]
+}
+
+const schema = yup.object({
+  adjustmentDate: yup.string().required('Adjustment date is required'),
+  notes: yup.string().optional(),
+  items: yup.array().of(
+    yup.object({
+      productId: yup.string().required('Product is required'),
+      newQuantity: yup.number().min(0, 'New quantity cannot be negative').required(),
+      oldQuantity: yup.number().min(0).required(),
+      difference: yup.number().required(),
+    })
+  ).min(1, 'At least one item is required'),
+})
+
 const CreateStockAdjustmentPage: React.FC = () => {
-  const dispatch = useDispatch() as any
+  const theme = useTheme()
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const products = useSelector(selectProducts) || []
-  const loading = useSelector(selectInventoryLoading)
-
-  // Form state
-  const [formData, setFormData] = useState<AdjustmentFormData>({
-    productId: '',
-    adjustmentType: 'increase',
-    quantity: 0,
-    reason: '',
-    notes: '',
+  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateAdjustmentFormData>({
+    resolver: yupResolver(schema) as any,
+    defaultValues: {
+      adjustmentDate: new Date().toISOString().split('T')[0],
+      notes: '',
+      items: [
+        {
+          productId: '',
+          newQuantity: 0,
+          oldQuantity: 0,
+          difference: 0,
+        }
+      ],
+    },
   })
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
-  // Fetch products on mount
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'items',
+  })
+
+  const watchedItems = watch('items')
+
   useEffect(() => {
-    dispatch(fetchProducts({ page: 1, limit: 100 }))
-  }, [dispatch])
+    loadProducts()
+  }, [])
 
-  const handleProductChange = (_: any, value: Product | null) => {
-    setSelectedProduct(value)
-    setFormData((prev) => ({
-      ...prev,
-      productId: value?.id || '',
-    }))
+  // Recalculate difference when quantities change
+  useEffect(() => {
+    watchedItems.forEach((item, index) => {
+      const newQty = Number(item.newQuantity) || 0
+      const oldQty = Number(item.oldQuantity) || 0
+      const diff = newQty - oldQty
+
+      if (item.difference !== diff) {
+        setValue(`items.${index}.difference`, diff)
+      }
+    })
+  }, [JSON.stringify(watchedItems), setValue])
+
+  const loadProducts = async (searchTerm: string = '') => {
+    try {
+      const params: any = { limit: 100, isActive: true }
+      if (searchTerm && searchTerm.trim().length >= 1) {
+        params.search = searchTerm.trim()
+      }
+      const response = await ApiService.get('/inventory/products', { params })
+      const newProducts = (response as any).data || []
+
+      // Merge with existing products
+      setProducts((prevProducts) => {
+        const existingIds = new Set(prevProducts.map(p => p.id))
+        const productsToAdd = newProducts.filter((p: any) => !existingIds.has(p.id))
+        return [...prevProducts, ...productsToAdd]
+      })
+    } catch (err) {
+      console.error('Error loading products:', err)
+    }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!formData.productId) {
-      showError('Please select a product')
-      return
-    }
-
-    if (formData.quantity <= 0) {
-      showError('Quantity must be greater than 0')
-      return
-    }
-
-    if (!formData.reason.trim()) {
-      showError('Please provide a reason for the adjustment')
-      return
-    }
+  const onSubmit = async (data: CreateAdjustmentFormData) => {
+    setLoading(true)
+    setError(null)
 
     try {
-      setSubmitting(true)
+      // Create individual stock movements for each item
+      const movements = data.items
+        .filter(item => item.difference !== 0)
+        .map(item => ({
+          productId: item.productId,
+          movementType: item.difference > 0
+            ? StockMovementType.ADJUSTMENT_INCREASE
+            : StockMovementType.ADJUSTMENT_DECREASE,
+          quantity: Math.abs(item.difference),
+          movementDate: data.adjustmentDate,
+          reason: 'Stock Adjustment',
+          notes: data.notes || undefined,
+        }))
 
-      const movementType =
-        formData.adjustmentType === 'increase'
-          ? StockMovementType.ADJUSTMENT_INCREASE
-          : StockMovementType.ADJUSTMENT_DECREASE
+      if (movements.length === 0) {
+        showError('No changes to record. At least one item must have a difference.')
+        setLoading(false)
+        return
+      }
 
-      const quantity =
-        formData.adjustmentType === 'increase'
-          ? formData.quantity
-          : -Math.abs(formData.quantity)
+      // Create all movements
+      await Promise.all(
+        movements.map(movement =>
+          ApiService.post('/inventory/stock/movements', movement)
+        )
+      )
 
-      await ApiService.post('/inventory/stock/movements', {
-        productId: formData.productId,
-        movementType,
-        quantity,
-        reason: formData.reason,
-        notes: formData.notes || undefined,
-      })
-
-      showSuccess('Stock adjustment recorded successfully')
+      showSuccess(`Stock adjustment recorded successfully (${movements.length} items adjusted)`)
       navigate('/inventory/stock-adjustments')
-    } catch (error: any) {
-      console.error('Failed to create stock adjustment:', error)
-      showError(error?.message || 'Failed to record stock adjustment')
+    } catch (err: any) {
+      console.error('Error creating stock adjustments:', err)
+      setError(err.response?.data?.message || 'Failed to record stock adjustments')
+      showError(err.response?.data?.message || 'Failed to record stock adjustments')
     } finally {
-      setSubmitting(false)
+      setLoading(false)
     }
   }
 
-  const handleCancel = () => {
-    navigate('/inventory/stock-adjustments')
+  const handleProductSelect = async (index: number, product: any) => {
+    if (product) {
+      // Fetch fresh product data to get current stock
+      try {
+        const response = await ApiService.get(`/inventory/products/${product.id}`)
+        const freshProduct = (response as any).data || product
+
+        setValue(`items.${index}.productId`, freshProduct.id)
+        setValue(`items.${index}.product`, freshProduct)
+        setValue(`items.${index}.oldQuantity`, Number(freshProduct.stockQuantity || 0))
+        setValue(`items.${index}.newQuantity`, Number(freshProduct.stockQuantity || 0))
+      } catch (err) {
+        console.error('Error fetching product:', err)
+        setValue(`items.${index}.productId`, product.id)
+        setValue(`items.${index}.product`, product)
+        setValue(`items.${index}.oldQuantity`, Number(product.stockQuantity || 0))
+        setValue(`items.${index}.newQuantity`, Number(product.stockQuantity || 0))
+      }
+    }
   }
 
-  const currentStock = selectedProduct?.stockQuantity || 0
-  const newStock =
-    formData.adjustmentType === 'increase'
-      ? currentStock + formData.quantity
-      : currentStock - formData.quantity
+  const formatNumberWithCommas = (value: number | string): string => {
+    if (value === '' || value === null || value === undefined) return ''
+    const num = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(num)) return ''
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  }
+
+  const parseFormattedNumber = (value: string): number => {
+    return parseFloat(value.replace(/,/g, '')) || 0
+  }
+
+  const addItem = () => {
+    append({
+      productId: '',
+      newQuantity: 0,
+      oldQuantity: 0,
+      difference: 0,
+    })
+  }
 
   return (
-    <Box>
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'stretch' : 'center',
-          mb: 4,
-          gap: isMobile ? 2 : 0,
-        }}
-      >
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-            <IconButton
-              onClick={handleCancel}
-              sx={{
-                bgcolor: 'background.paper',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-            <Typography
-              variant={
-                isMobile
-                  ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant
-                  : TYPOGRAPHY_STYLES.pageHeader.variant
-              }
-              sx={{
-                fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <AssessmentIcon
-                sx={{
-                  fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                  color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-                }}
-              />
-              New Stock Adjustment
-            </Typography>
-          </Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageSubtitle.variant}
-            color={TYPOGRAPHY_STYLES.pageSubtitle.color}
-          >
-            Record a new stock adjustment
+    <Container maxWidth="xl">
+      <Box sx={{ py: 3 }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <IconButton onClick={() => navigate('/inventory/stock-adjustments')} sx={{ mr: 2 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h4" component="h1">
+            Record Stock Adjustment
           </Typography>
         </Box>
-      </Box>
 
-      {/* Adjustment Form */}
-      <Paper sx={{ p: 3 }}>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+
           <Grid container spacing={3}>
-            {/* Product Selection */}
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                value={selectedProduct}
-                onChange={handleProductChange}
-                options={products}
-                getOptionLabel={(option) =>
-                  `${option.name} (Stock: ${option.stockQuantity || 0})`
-                }
-                loading={loading.products}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Product"
-                    required
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {loading.products ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Adjustment Type */}
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth required>
-                <InputLabel>Adjustment Type</InputLabel>
-                <Select
-                  value={formData.adjustmentType}
-                  label="Adjustment Type"
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      adjustmentType: e.target.value as 'increase' | 'decrease',
-                    }))
-                  }
-                >
-                  <MenuItem value="increase">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TrendingUpIcon color="success" fontSize="small" />
-                      Increase Stock
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="decrease">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TrendingDownIcon color="error" fontSize="small" />
-                      Decrease Stock
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Quantity */}
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                required
-                type="number"
-                label="Quantity"
-                value={formData.quantity || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    quantity: parseFloat(e.target.value) || 0,
-                  }))
-                }
-                inputProps={{ min: 0, step: 1 }}
-              />
-            </Grid>
-
-            {/* Stock Summary Card */}
-            {selectedProduct && formData.quantity > 0 && (
-              <Grid item xs={12}>
-                <Card
-                  sx={{
-                    bgcolor: (theme) =>
-                      theme.palette.mode === 'dark'
-                        ? formData.adjustmentType === 'increase'
-                          ? 'rgba(46, 125, 50, 0.15)'
-                          : 'rgba(211, 47, 47, 0.15)'
-                        : formData.adjustmentType === 'increase'
-                        ? 'success.light'
-                        : 'error.light',
-                    border: 1,
-                    borderColor:
-                      formData.adjustmentType === 'increase'
-                        ? 'success.main'
-                        : 'error.main',
-                  }}
-                >
-                  <CardContent sx={{ py: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} md={4}>
-                        <Typography variant="caption" color="text.secondary">
-                          Current Stock
-                        </Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                          {currentStock}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <Typography variant="caption" color="text.secondary">
-                          Adjustment
-                        </Typography>
-                        <Typography
-                          variant="h5"
-                          sx={{
-                            fontWeight: 600,
-                            color:
-                              formData.adjustmentType === 'increase'
-                                ? 'success.main'
-                                : 'error.main',
-                          }}
-                        >
-                          {formData.adjustmentType === 'increase' ? '+' : '-'}
-                          {formData.quantity}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <Typography variant="caption" color="text.secondary">
-                          New Stock Level
-                        </Typography>
-                        <Typography
-                          variant="h5"
-                          sx={{
-                            fontWeight: 600,
-                            color: newStock < 0 ? 'error.main' : 'text.primary',
-                          }}
-                        >
-                          {newStock}
-                          {newStock < 0 && (
-                            <Typography
-                              component="span"
-                              variant="caption"
-                              color="error"
-                              sx={{ ml: 1 }}
-                            >
-                              (Negative stock!)
-                            </Typography>
-                          )}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )}
-
-            {/* Reason */}
+            {/* Date Field */}
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                multiline
-                rows={2}
-                label="Reason for Adjustment"
-                value={formData.reason}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, reason: e.target.value }))
-                }
-                placeholder="e.g., Physical count variance, Damaged goods, Theft/loss, etc."
-              />
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Adjustment Information</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Controller
+                        name="adjustmentDate"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            label="Adjustment Date"
+                            type="date"
+                            InputLabelProps={{ shrink: true }}
+                            error={!!errors.adjustmentDate}
+                            helperText={errors.adjustmentDate?.message}
+                            required
+                            fullWidth
+                            size="small"
+                            sx={{
+                              '& .MuiInputBase-input': {
+                                fontSize: '0.875rem',
+                              },
+                              '& .MuiInputLabel-root': {
+                                fontSize: '0.875rem',
+                              }
+                            }}
+                          />
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Items Table */}
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">Adjustment Items</Typography>
+                    <Button
+                      startIcon={<AddIcon />}
+                      onClick={addItem}
+                      variant="outlined"
+                    >
+                      Add Item
+                    </Button>
+                  </Box>
+
+                  <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+                    <Table
+                      size="small"
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          border: `1px solid ${theme.palette.divider}`,
+                          padding: '4px 8px',
+                          fontSize: '0.875rem',
+                        },
+                        '& .MuiTableHead-root .MuiTableCell-root': {
+                          backgroundColor: theme.palette.grey[50],
+                          fontWeight: 600,
+                          color: theme.palette.text.primary,
+                          border: `1px solid ${theme.palette.divider}`,
+                        },
+                        '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                          backgroundColor: theme.palette.action.hover,
+                        },
+                        '& .MuiTextField-root': {
+                          '& .MuiOutlinedInput-root': {
+                            border: 'none',
+                            '& fieldset': {
+                              border: 'none',
+                            },
+                            '&:hover fieldset': {
+                              border: '1px solid #1976d2',
+                            },
+                            '&.Mui-focused fieldset': {
+                              border: '1px solid #1976d2',
+                            },
+                            backgroundColor: 'transparent',
+                            fontSize: '0.875rem',
+                          },
+                          '& .MuiInputBase-input': {
+                            padding: '6px 8px',
+                            textAlign: 'center',
+                          },
+                          '& .MuiFormHelperText-root': {
+                            position: 'absolute',
+                            bottom: '-20px',
+                            fontSize: '0.75rem',
+                          },
+                        },
+                        '& .MuiAutocomplete-root .MuiTextField-root .MuiInputBase-input': {
+                          textAlign: 'left',
+                        }
+                      }}
+                    >
+                      <TableHead>
+                        <TableRow>
+                          <TableCell align="center" sx={{ width: '35%', minWidth: 200 }}>Product</TableCell>
+                          <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>New Quantity</TableCell>
+                          <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Old Quantity</TableCell>
+                          <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Difference</TableCell>
+                          <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
+                          <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {fields.map((field, index) => (
+                          <TableRow key={field.id}>
+                            <TableCell sx={{ padding: '2px !important' }}>
+                              <Controller
+                                name={`items.${index}.productId`}
+                                control={control}
+                                render={({ field: productField }) => (
+                                  <Autocomplete
+                                    options={products}
+                                    getOptionLabel={(option) => option.name}
+                                    value={products.find(p => p.id === productField.value) || null}
+                                    onChange={(_, value) => handleProductSelect(index, value)}
+                                    onInputChange={(_, value, reason) => {
+                                      if (reason === 'input' && value.trim().length >= 1) {
+                                        loadProducts(value)
+                                      } else if (reason === 'input') {
+                                        loadProducts('')
+                                      }
+                                    }}
+                                    filterOptions={(options) => options}
+                                    size="small"
+                                    renderInput={(params) => (
+                                      <TextField
+                                        {...params}
+                                        placeholder="Search by name or barcode..."
+                                        variant="outlined"
+                                        error={!!errors.items?.[index]?.productId}
+                                        sx={{
+                                          '& .MuiInputBase-input': {
+                                            textAlign: 'left !important',
+                                            padding: '6px 8px !important',
+                                            fontSize: '0.875rem',
+                                          }
+                                        }}
+                                      />
+                                    )}
+                                    sx={{
+                                      '& .MuiAutocomplete-inputRoot': {
+                                        padding: '0 !important',
+                                      }
+                                    }}
+                                    slotProps={{
+                                      paper: {
+                                        sx: {
+                                          '& .MuiAutocomplete-option': {
+                                            fontSize: '0.875rem',
+                                          }
+                                        }
+                                      }
+                                    }}
+                                  />
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ padding: '2px !important' }}>
+                              <Controller
+                                name={`items.${index}.newQuantity`}
+                                control={control}
+                                render={({ field: qtyField }) => {
+                                  const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(qtyField.value))
+                                  const [isFocused, setIsFocused] = React.useState(false)
+
+                                  React.useEffect(() => {
+                                    if (!isFocused) {
+                                      setDisplayValue(formatNumberWithCommas(qtyField.value))
+                                    }
+                                  }, [qtyField.value, isFocused])
+
+                                  return (
+                                    <TextField
+                                      value={displayValue}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/[^0-9]/g, '')
+                                        setDisplayValue(value)
+                                        qtyField.onChange(parseInt(value) || 0)
+                                      }}
+                                      onFocus={() => {
+                                        setIsFocused(true)
+                                        setDisplayValue(qtyField.value?.toString() || '')
+                                      }}
+                                      onBlur={() => {
+                                        setIsFocused(false)
+                                        setDisplayValue(formatNumberWithCommas(qtyField.value))
+                                      }}
+                                      variant="outlined"
+                                      inputProps={{
+                                        style: { textAlign: 'center', fontSize: '0.875rem' },
+                                        inputMode: 'numeric',
+                                        pattern: '[0-9]*'
+                                      }}
+                                      error={!!errors.items?.[index]?.newQuantity}
+                                      helperText={errors.items?.[index]?.newQuantity?.message}
+                                    />
+                                  )
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
+                              <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                                {formatNumberWithCommas(watchedItems[index]?.oldQuantity || 0)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
+                              <Typography
+                                variant="body2"
+                                fontWeight="600"
+                                sx={{
+                                  fontSize: '0.875rem',
+                                  color: watchedItems[index]?.difference > 0
+                                    ? 'success.main'
+                                    : watchedItems[index]?.difference < 0
+                                    ? 'error.main'
+                                    : 'text.primary'
+                                }}
+                              >
+                                {watchedItems[index]?.difference > 0 ? '+' : ''}
+                                {formatNumberWithCommas(watchedItems[index]?.difference || 0)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center" sx={{ padding: '2px !important' }}>
+                              <IconButton
+                                onClick={() => remove(index)}
+                                disabled={fields.length === 1}
+                                size="small"
+                                sx={{
+                                  color: theme.palette.error.main,
+                                  '&:hover': { backgroundColor: theme.palette.error.light },
+                                  '&.Mui-disabled': { color: theme.palette.action.disabled }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                            <TableCell sx={{ width: 40, padding: '2px !important' }}>
+                              <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
+                                {index + 1}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Notes */}
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                label="Additional Notes (Optional)"
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
-                }
-                placeholder="Any additional information about this adjustment"
-              />
+              <Card>
+                <CardContent>
+                  <Controller
+                    name="notes"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Additional Notes (Optional)"
+                        multiline
+                        rows={3}
+                        fullWidth
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.875rem',
+                          },
+                          '& .MuiInputLabel-root': {
+                            fontSize: '0.875rem',
+                          }
+                        }}
+                      />
+                    )}
+                  />
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* Action Buttons */}
@@ -392,26 +526,24 @@ const CreateStockAdjustmentPage: React.FC = () => {
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                 <Button
                   variant="outlined"
-                  startIcon={<CancelIcon />}
-                  onClick={handleCancel}
-                  disabled={submitting}
+                  onClick={() => navigate('/inventory/stock-adjustments')}
+                  disabled={loading}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   variant="contained"
-                  startIcon={<SaveIcon />}
-                  disabled={submitting || !formData.productId || formData.quantity <= 0}
+                  disabled={loading}
                 >
-                  {submitting ? 'Recording...' : 'Record Adjustment'}
+                  {loading ? 'Recording...' : 'Record Adjustment'}
                 </Button>
               </Box>
             </Grid>
           </Grid>
         </form>
-      </Paper>
-    </Box>
+      </Box>
+    </Container>
   )
 }
 
