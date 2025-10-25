@@ -97,14 +97,6 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
   }
 
   const getOrderNumber = (movement: StockMovement): string => {
-    // For Stock Adjustments, show blank
-    if (
-      movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
-      movement.movementType === StockMovementType.ADJUSTMENT_DECREASE
-    ) {
-      return ''
-    }
-
     // Try to get from referenceNumber first
     if (movement.referenceNumber) {
       if (movement.movementType === StockMovementType.PURCHASE_RECEIPT) {
@@ -112,6 +104,12 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
       }
       if (movement.movementType === StockMovementType.SALE) {
         return movement.referenceNumber.startsWith('SO-') ? movement.referenceNumber : `SO-${movement.referenceNumber}`
+      }
+      if (
+        movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
+        movement.movementType === StockMovementType.ADJUSTMENT_DECREASE
+      ) {
+        return movement.referenceNumber.startsWith('SA-') ? movement.referenceNumber : `SA-${movement.referenceNumber}`
       }
       return movement.referenceNumber
     }
@@ -128,6 +126,16 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
       const poMatch = movement.reason.match(/PO-\d+/)
       if (poMatch && movement.movementType === StockMovementType.PURCHASE_RECEIPT) {
         return poMatch[0]
+      }
+
+      // Extract SA number from reason like "Stock adjustment: SA-000001"
+      const saMatch = movement.reason.match(/SA-\d+/)
+      if (
+        saMatch &&
+        (movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
+         movement.movementType === StockMovementType.ADJUSTMENT_DECREASE)
+      ) {
+        return saMatch[0]
       }
     }
 
