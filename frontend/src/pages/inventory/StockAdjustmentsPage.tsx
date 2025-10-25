@@ -593,8 +593,8 @@ const StockAdjustmentsPage: React.FC = () => {
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 <Grid container spacing={3}>
-                  {/* Left Column - Adjustment Information */}
-                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
+                  {/* Adjustment Information - Date Only */}
+                  <Grid item xs={12}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -604,13 +604,12 @@ const StockAdjustmentsPage: React.FC = () => {
                             border: 'none',
                             py: TABLE_STYLES.cell.padding.py,
                             px: TABLE_STYLES.cell.padding.px,
-                            '&:nth-of-type(1)': { width: '40%' },
-                            '&:nth-of-type(2)': { width: '60%' },
+                            '&:nth-of-type(1)': { width: '20%' },
+                            '&:nth-of-type(2)': { width: '80%' },
                           }
                         }}
                       >
                         <TableBody>
-                          {/* Adjustment Information Section */}
                           <TableRow>
                             <TableCell colSpan={2} sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
@@ -632,62 +631,10 @@ const StockAdjustmentsPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              SA Number
-                            </TableCell>
-                            <TableCell sx={{
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              fontWeight: 600,
-                              color: 'primary.main'
-                            }}>
-                              {selectedAdjustment.referenceNumber || 'N/A'}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
                               Date
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {formatDate(selectedAdjustment.movementDate)}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
-                              Product
-                            </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {selectedAdjustment.product?.name || 'Unknown Product'}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
-                              Type
-                            </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              <Chip
-                                label={getAdjustmentTypeLabel(selectedAdjustment.movementType)}
-                                size="small"
-                                color={getAdjustmentTypeColor(selectedAdjustment.movementType)}
-                                icon={
-                                  selectedAdjustment.movementType ===
-                                  StockMovementType.ADJUSTMENT_INCREASE ? (
-                                    <TrendingUpIcon />
-                                  ) : (
-                                    <TrendingDownIcon />
-                                  )
-                                }
-                              />
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -695,88 +642,61 @@ const StockAdjustmentsPage: React.FC = () => {
                     </TableContainer>
                   </Grid>
 
-                  {/* Right Column - Stock Summary */}
-                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
-                    <TableContainer>
+                  {/* Items Table */}
+                  <Grid item xs={12}>
+                    <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
                       <Table
-                        size={TABLE_STYLES.size}
+                        size="small"
                         sx={{
-                          tableLayout: 'fixed',
                           '& .MuiTableCell-root': {
-                            border: 'none',
-                            py: TABLE_STYLES.cell.padding.py,
-                            px: TABLE_STYLES.cell.padding.px,
-                            '&:nth-of-type(1)': { width: '40%' },
-                            '&:nth-of-type(2)': { width: '60%' },
-                          }
+                            border: `1px solid ${theme.palette.divider}`,
+                            padding: '8px',
+                            fontSize: '0.875rem',
+                          },
+                          '& .MuiTableHead-root .MuiTableCell-root': {
+                            backgroundColor: theme.palette.grey[50],
+                            fontWeight: 600,
+                            color: theme.palette.text.primary,
+                          },
                         }}
                       >
-                        <TableBody>
-                          {/* Stock Summary Section */}
+                        <TableHead>
                           <TableRow>
-                            <TableCell colSpan={2} sx={{
-                              pb: TABLE_STYLES.cell.padding.py * 0.67,
-                              py: TABLE_STYLES.cell.padding.py * 0.67,
-                              borderTop: TABLE_STYLES.cell.border
-                            }}>
-                              <Typography variant="h6" sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                color: 'primary.main',
-                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                              }}>
-                                Stock Summary
+                            <TableCell align="left">Product</TableCell>
+                            <TableCell align="center">New Quantity</TableCell>
+                            <TableCell align="center">Old Quantity</TableCell>
+                            <TableCell align="center">Difference</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell>{selectedAdjustment.product?.name || 'Unknown Product'}</TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                {Number(selectedAdjustment.newBalance).toLocaleString()}
                               </Typography>
                             </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
-                              Stock Before
+                            <TableCell align="center">
+                              <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                                {Number(selectedAdjustment.previousBalance).toLocaleString()}
+                              </Typography>
                             </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {Number(selectedAdjustment.previousBalance)}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
-                              Adjustment
-                            </TableCell>
-                            <TableCell sx={{
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              fontWeight: 600,
-                              color:
-                                selectedAdjustment.movementType ===
-                                StockMovementType.ADJUSTMENT_INCREASE
-                                  ? 'success.dark'
-                                  : 'error.dark',
-                            }}>
-                              {Number(selectedAdjustment.quantity) > 0 ? '+' : ''}
-                              {Number(selectedAdjustment.quantity)}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{
-                            backgroundColor: 'grey.50',
-                            borderTop: TABLE_STYLES.cell.border
-                          }}>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
-                              Stock After
-                            </TableCell>
-                            <TableCell sx={{
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              fontWeight: 600
-                            }}>
-                              {Number(selectedAdjustment.newBalance)}
+                            <TableCell align="center">
+                              <Typography
+                                variant="body2"
+                                fontWeight="600"
+                                sx={{
+                                  fontSize: '0.875rem',
+                                  color: Number(selectedAdjustment.quantity) > 0
+                                    ? 'success.main'
+                                    : Number(selectedAdjustment.quantity) < 0
+                                    ? 'error.main'
+                                    : 'text.primary'
+                                }}
+                              >
+                                {Number(selectedAdjustment.quantity) > 0 ? '+' : ''}
+                                {Number(selectedAdjustment.quantity).toLocaleString()}
+                              </Typography>
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -785,62 +705,25 @@ const StockAdjustmentsPage: React.FC = () => {
                   </Grid>
 
                   {/* Notes Section */}
-                  {(selectedAdjustment.reason || selectedAdjustment.notes) && (
-                    <Grid item xs={12} sx={{ pt: '0 !important' }}>
-                      {/* Page Break */}
-                      <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
-
-                      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        {selectedAdjustment.reason && (
-                          <>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px',
-                              mb: 1
-                            }}>
-                              Reason
-                            </Typography>
-
-                            <Box sx={{
-                              p: 2,
-                              backgroundColor: 'grey.50',
-                              borderRadius: 1,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              mb: 2
-                            }}>
-                              {selectedAdjustment.reason}
-                            </Box>
-                          </>
-                        )}
-
-                        {selectedAdjustment.notes && (
-                          <>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px',
-                              mb: 1
-                            }}>
-                              Notes
-                            </Typography>
-
-                            <Box sx={{
-                              p: 2,
-                              backgroundColor: 'grey.50',
-                              borderRadius: 1,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word'
-                            }}>
-                              {selectedAdjustment.notes}
-                            </Box>
-                          </>
-                        )}
+                  {selectedAdjustment.notes && (
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          mb: 1
+                        }}>
+                          Notes
+                        </Typography>
+                        <Typography sx={{
+                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}>
+                          {selectedAdjustment.notes}
+                        </Typography>
                       </Box>
                     </Grid>
                   )}
