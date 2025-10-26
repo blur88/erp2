@@ -38,6 +38,7 @@ import {
   RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchStockAdjustments,
@@ -151,6 +152,9 @@ const StockAdjustmentsPage: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [showDeletedDialog, setShowDeletedDialog] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [adjustmentToDelete, setAdjustmentToDelete] = useState<string | null>(null)
+  const [adjustmentToDeleteName, setAdjustmentToDeleteName] = useState<string>('')
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -266,27 +270,43 @@ const StockAdjustmentsPage: React.FC = () => {
     searchInputRef.current?.focus()
   }, [])
 
-  const handleDelete = async (id: string, adjustmentNumber: string) => {
-    if (!window.confirm(`Are you sure you want to delete stock adjustment ${adjustmentNumber}?`)) {
-      return
-    }
+  const handleDelete = (id: string, adjustmentNumber: string) => {
+    setAdjustmentToDelete(id)
+    setAdjustmentToDeleteName(adjustmentNumber)
+    setDeleteConfirmOpen(true)
+  }
 
-    setDeletingId(id)
-    try {
-      await inventoryApi.deleteStockAdjustment(id)
-      showSuccess(`Stock adjustment ${adjustmentNumber} deleted successfully`)
-      loadAdjustments()
-      // Clear selection if deleted adjustment was selected
-      if (selectedAdjustment?.id === id) {
-        dispatch(setSelectedStockAdjustment(null))
-        setFocusedAdjustmentIndex(-1)
+  const handleConfirmDelete = async () => {
+    if (adjustmentToDelete) {
+      setDeletingId(adjustmentToDelete)
+      try {
+        await inventoryApi.deleteStockAdjustment(adjustmentToDelete)
+        showSuccess(`Stock adjustment "${adjustmentToDeleteName}" deleted successfully`)
+        loadAdjustments()
+        // Clear selection if deleted adjustment was selected
+        if (selectedAdjustment?.id === adjustmentToDelete) {
+          dispatch(setSelectedStockAdjustment(null))
+          setFocusedAdjustmentIndex(-1)
+        }
+        setDeleteConfirmOpen(false)
+        setAdjustmentToDelete(null)
+        setAdjustmentToDeleteName('')
+      } catch (error: any) {
+        console.error('Failed to delete stock adjustment:', error)
+        showError(error?.response?.data?.message || 'Failed to delete stock adjustment')
+        setDeleteConfirmOpen(false)
+        setAdjustmentToDelete(null)
+        setAdjustmentToDeleteName('')
+      } finally {
+        setDeletingId(null)
       }
-    } catch (error: any) {
-      console.error('Failed to delete stock adjustment:', error)
-      showError(error?.response?.data?.message || 'Failed to delete stock adjustment')
-    } finally {
-      setDeletingId(null)
     }
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setAdjustmentToDelete(null)
+    setAdjustmentToDeleteName('')
   }
 
   useKeyboardShortcuts({
@@ -918,6 +938,18 @@ const StockAdjustmentsPage: React.FC = () => {
       <DeletedStockAdjustmentsDialog
         open={showDeletedDialog}
         onClose={() => setShowDeletedDialog(false)}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete stock adjustment #${adjustmentToDeleteName}? This will move it to deleted stock adjustments.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        severity="warning"
       />
     </Box>
   )
