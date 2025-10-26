@@ -141,8 +141,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
         return
       }
 
-      // Create bulk stock adjustment with all items in one request
-      const bulkAdjustmentData = {
+      // Create stock adjustment using the proper stock adjustments API
+      const adjustmentData = {
         adjustmentDate: data.adjustmentDate,
         notes: data.notes || undefined,
         items: itemsWithDifference.map(item => ({
@@ -153,24 +153,27 @@ const CreateStockAdjustmentPage: React.FC = () => {
         })),
       }
 
-      console.log('Sending bulk adjustment data:', bulkAdjustmentData)
-      const response = await ApiService.post('/inventory/stock/adjustments/bulk', bulkAdjustmentData)
-      console.log('Response:', response)
+      console.log('Creating stock adjustment:', adjustmentData)
 
-      // ApiService already unwraps the response, so response is the data directly
-      const result = response as any
+      // Step 1: Create the adjustment (as draft)
+      const createResponse = await ApiService.post('/inventory/stock-adjustments', adjustmentData)
+      console.log('Create response:', createResponse)
 
-      console.log('Result saNumber:', result?.saNumber)
-      console.log('Result itemsAdjusted:', result?.itemsAdjusted)
+      const adjustment = createResponse as any
 
-      if (!result || !result.saNumber) {
-        throw new Error('Invalid response from server: missing saNumber')
+      if (!adjustment || !adjustment.id) {
+        throw new Error('Invalid response from server: missing adjustment ID')
       }
 
-      const saNumber = result.saNumber
-      const itemsAdjusted = result.itemsAdjusted || 0
+      // Step 2: Complete the adjustment (posts to stock movements)
+      const completeResponse = await ApiService.post(`/inventory/stock-adjustments/${adjustment.id}/complete`)
+      console.log('Complete response:', completeResponse)
 
-      showSuccess(`Stock adjustment ${saNumber} recorded successfully (${itemsAdjusted} items adjusted)`)
+      const completedAdjustment = completeResponse as any
+      const saNumber = completedAdjustment?.adjustmentNumber || adjustment.adjustmentNumber
+      const itemsAdjusted = completedAdjustment?.itemCount || adjustment.itemCount || 0
+
+      showSuccess(`Stock adjustment ${saNumber} completed successfully (${itemsAdjusted} items adjusted)`)
       navigate('/inventory/stock-adjustments')
     } catch (err: any) {
       console.error('Error creating stock adjustments:', err)

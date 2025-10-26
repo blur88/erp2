@@ -76,23 +76,6 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
   const isSelected = selectedAdjustmentId === adjustment.id
   const isFocused = index === focusedAdjustmentIndex
 
-  const getStatusColor = (status: StockAdjustmentStatus) => {
-    switch (status) {
-      case StockAdjustmentStatus.COMPLETED:
-        return 'success'
-      case StockAdjustmentStatus.DRAFT:
-        return 'warning'
-      case StockAdjustmentStatus.CANCELLED:
-        return 'error'
-      default:
-        return 'default'
-    }
-  }
-
-  const getStatusLabel = (status: StockAdjustmentStatus) => {
-    return status.charAt(0).toUpperCase() + status.slice(1)
-  }
-
   return (
     <TableRow
       key={adjustment.id}
@@ -124,33 +107,6 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
           }}
         >
           {adjustment.adjustmentNumber}
-        </Typography>
-      </TableCell>
-      <TableCell>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize
-          }}
-        >
-          {formatDate(adjustment.adjustmentDate)}
-        </Typography>
-      </TableCell>
-      <TableCell align="center">
-        <Chip
-          label={getStatusLabel(adjustment.status)}
-          color={getStatusColor(adjustment.status) as any}
-          size="small"
-        />
-      </TableCell>
-      <TableCell align="right">
-        <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-          sx={{
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize
-          }}
-        >
-          {adjustment.itemCount}
         </Typography>
       </TableCell>
     </TableRow>
