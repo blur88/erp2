@@ -577,6 +577,7 @@ const StockAdjustmentsPage: React.FC = () => {
                 </Box>
               </Box>
 
+            <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
               {/* SA Details Section */}
               <Box>
                 <Grid container spacing={3}>
@@ -597,6 +598,7 @@ const StockAdjustmentsPage: React.FC = () => {
                         }}
                       >
                         <TableBody>
+                          {/* SA Information Section */}
                           <TableRow>
                             <TableCell colSpan={2} sx={{
                               pb: TABLE_STYLES.cell.padding.py * 0.67,
@@ -625,11 +627,7 @@ const StockAdjustmentsPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               Item Count
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
@@ -640,59 +638,20 @@ const StockAdjustmentsPage: React.FC = () => {
                       </Table>
                     </TableContainer>
                   </Grid>
-
-                  {/* Summary Information */}
-                  <Grid item xs={12} md={6}>
-                    <TableContainer>
-                      <Table
-                        size={TABLE_STYLES.size}
-                        sx={{
-                          tableLayout: 'fixed',
-                          '& .MuiTableCell-root': {
-                            border: 'none',
-                            py: TABLE_STYLES.cell.padding.py,
-                            px: TABLE_STYLES.cell.padding.px,
-                            '&:nth-of-type(1)': { width: '40%' },
-                            '&:nth-of-type(2)': { width: '60%' },
-                          }
-                        }}
-                      >
-                        <TableBody>
-                          <TableRow>
-                            <TableCell colSpan={2} sx={{
-                              pb: TABLE_STYLES.cell.padding.py * 0.67,
-                              py: TABLE_STYLES.cell.padding.py * 0.67,
-                              borderTop: TABLE_STYLES.cell.border
-                            }}>
-                              <Typography variant="h6" sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                                color: 'primary.main',
-                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                              }}>
-                                Summary
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                            }}>
-                              Total Value
-                            </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              ${Number(selectedAdjustment.totalValue).toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Grid>
                 </Grid>
 
+                {/* Page Break before SA Items */}
+                <Box sx={{
+                  borderTop: '2px solid',
+                  borderColor: 'divider',
+                  pageBreakBefore: 'always', // CSS page break for printing
+                  '@media print': {
+                    pageBreakBefore: 'always'
+                  }
+                }} />
+
                 {/* SA Items Section Header */}
-                <TableContainer sx={{ mt: 3 }}>
+                <TableContainer>
                   <Table
                     size={TABLE_STYLES.size}
                     sx={{
@@ -748,17 +707,14 @@ const StockAdjustmentsPage: React.FC = () => {
                             <TableCell sx={{ width: '40%' }}>
                               Product
                             </TableCell>
-                            <TableCell align="center" sx={{ width: '15%' }}>
+                            <TableCell align="center" sx={{ width: '20%' }}>
                               Old Quantity
                             </TableCell>
-                            <TableCell align="center" sx={{ width: '15%' }}>
+                            <TableCell align="center" sx={{ width: '20%' }}>
                               New Quantity
                             </TableCell>
-                            <TableCell align="center" sx={{ width: '15%' }}>
+                            <TableCell align="center" sx={{ width: '20%' }}>
                               Difference
-                            </TableCell>
-                            <TableCell align="left" sx={{ width: '15%' }}>
-                              Notes
                             </TableCell>
                           </TableRow>
                         </TableHead>
@@ -809,12 +765,6 @@ const StockAdjustmentsPage: React.FC = () => {
                                 {Number(item.difference) > 0 ? '+' : ''}
                                 {Number(item.difference).toLocaleString()}
                               </TableCell>
-                              <TableCell sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
-                              }}>
-                                {item.notes || '-'}
-                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -826,51 +776,40 @@ const StockAdjustmentsPage: React.FC = () => {
                 </Box>
               </Box>
 
+              {/* Page Break after SA Items */}
+              <Box sx={{
+                borderTop: '2px solid',
+                borderColor: 'divider',
+                pageBreakBefore: 'always', // CSS page break for printing
+                '@media print': {
+                  pageBreakBefore: 'always'
+                }
+              }} />
+
               {/* NOTES Section - below items */}
-              {selectedAdjustment.notes && (
-                <Box sx={{ mt: 1 }}>
-                  <TableContainer>
-                    <Table
-                      size={TABLE_STYLES.size}
-                      sx={{
-                        '& .MuiTableCell-root': {
-                          border: 'none',
-                          py: TABLE_STYLES.cell.padding.py,
-                          px: TABLE_STYLES.cell.padding.px,
-                        }
-                      }}
-                    >
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{
-                            pb: TABLE_STYLES.cell.padding.py * 0.67,
-                            py: TABLE_STYLES.cell.padding.py * 0.67,
-                            borderTop: TABLE_STYLES.cell.border
-                          }}>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px'
-                            }}>
-                              Notes
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                          <TableCell sx={{
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word'
-                          }}>
-                            {selectedAdjustment.notes}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+              <Box sx={{ mt: 1 }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  mb: 1
+                }}>
+                  NOTES
+                </Typography>
+
+                <Box sx={{
+                  p: 2,
+                  backgroundColor: 'grey.50',
+                  borderRadius: 1,
+                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}>
+                  {selectedAdjustment.notes || '-'}
                 </Box>
-              )}
+              </Box>
+            </Box>
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
