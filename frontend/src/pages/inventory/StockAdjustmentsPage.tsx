@@ -11,6 +11,7 @@ import {
   TableHead,
   TableRow,
   Button,
+  Chip,
   TablePagination,
   TextField,
   InputAdornment,
@@ -631,14 +632,30 @@ const StockAdjustmentsPage: React.FC = () => {
           {selectedAdjustment ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  SA Details - {selectedAdjustment.adjustmentNumber}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    SA Details - {selectedAdjustment.adjustmentNumber}
+                  </Typography>
+                  <Chip
+                    label={selectedAdjustment.status}
+                    size="small"
+                    color={
+                      selectedAdjustment.status === 'completed' ? 'success' :
+                      selectedAdjustment.status === 'cancelled' ? 'error' :
+                      'default'
+                    }
+                    sx={{
+                      textTransform: 'capitalize',
+                      fontSize: '0.75rem',
+                      fontWeight: 600
+                    }}
+                  />
+                </Box>
                 <Box sx={{
                   display: 'flex',
                   alignItems: 'center',
@@ -745,6 +762,64 @@ const StockAdjustmentsPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {selectedAdjustment.itemCount}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+
+                  {/* SA Confirmation */}
+                  <Grid item xs={12} md={6}>
+                    <TableContainer>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          tableLayout: 'fixed',
+                          '& .MuiTableCell-root': {
+                            border: 'none',
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px,
+                            '&:nth-of-type(1)': { width: '40%' },
+                            '&:nth-of-type(2)': { width: '60%' },
+                          }
+                        }}
+                      >
+                        <TableBody>
+                          {/* SA Confirmation Section */}
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{
+                              pb: TABLE_STYLES.cell.padding.py * 0.67,
+                              py: TABLE_STYLES.cell.padding.py * 0.67,
+                              borderTop: TABLE_STYLES.cell.border
+                            }}>
+                              <Typography variant="h6" sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                color: 'primary.main',
+                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                              }}>
+                                SA Confirmation
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Created At
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatDate(selectedAdjustment.createdAt)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Updated At
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {formatDate(selectedAdjustment.updatedAt)}
                             </TableCell>
                           </TableRow>
                         </TableBody>
