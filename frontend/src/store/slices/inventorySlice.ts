@@ -9,6 +9,7 @@ interface InventoryState {
   deletedCategories: Category[]
   stockMovements: StockMovement[]
   stockAdjustments: StockAdjustment[]
+  deletedStockAdjustments: StockAdjustment[]
   selectedProduct: Product | null
   selectedCategory: Category | null
   selectedStockMovement: StockMovement | null
@@ -20,6 +21,7 @@ interface InventoryState {
     deletedCategories: boolean
     stockMovements: boolean
     stockAdjustments: boolean
+    deletedStockAdjustments: boolean
   }
   error: string | null
   pagination: {
@@ -62,6 +64,7 @@ const initialState: InventoryState = {
   deletedCategories: [],
   stockMovements: [],
   stockAdjustments: [],
+  deletedStockAdjustments: [],
   selectedProduct: null,
   selectedCategory: null,
   selectedStockMovement: null,
@@ -73,6 +76,7 @@ const initialState: InventoryState = {
     deletedCategories: false,
     stockMovements: false,
     stockAdjustments: false,
+    deletedStockAdjustments: false,
   },
   error: null,
   pagination: {
@@ -443,6 +447,34 @@ export const fetchStockAdjustment = createAsyncThunk(
   }
 )
 
+export const fetchDeletedStockAdjustments = createAsyncThunk(
+  'inventory/fetchDeletedStockAdjustments',
+  async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getDeletedStockAdjustments(params)
+      return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+    } catch (error: any) {
+      console.error('Failed to fetch deleted stock adjustments:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted stock adjustments')
+    }
+  }
+)
+
+export const restoreStockAdjustment = createAsyncThunk(
+  'inventory/restoreStockAdjustment',
+  async (id: string, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await inventoryApi.restoreStockAdjustment(id)
+      // Automatically refresh both active and deleted stock adjustments
+      dispatch(fetchStockAdjustments({}))
+      dispatch(fetchDeletedStockAdjustments({}))
+      return response.data
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore stock adjustment')
+    }
+  }
+)
+
 const inventorySlice = createSlice({
   name: 'inventory',
   initialState,
@@ -734,6 +766,31 @@ const inventorySlice = createSlice({
         state.loading.stockAdjustments = false
         state.error = action.payload as string
       })
+      .addCase(fetchDeletedStockAdjustments.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+        state.error = null
+      })
+      .addCase(fetchDeletedStockAdjustments.fulfilled, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        if (action.payload) {
+          state.deletedStockAdjustments = action.payload.data || []
+        }
+      })
+      .addCase(fetchDeletedStockAdjustments.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
+      .addCase(restoreStockAdjustment.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+      })
+      .addCase(restoreStockAdjustment.fulfilled, (state) => {
+        state.loading.deletedStockAdjustments = false
+        // Lists will be refreshed by the action's dispatch
+      })
+      .addCase(restoreStockAdjustment.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
   },
 })
 
@@ -756,6 +813,7 @@ export const selectCategories = (state: any) => state.inventory?.categories
 export const selectDeletedCategories = (state: any) => state.inventory?.deletedCategories
 export const selectStockMovements = (state: any) => state.inventory?.stockMovements
 export const selectStockAdjustments = (state: any) => state.inventory?.stockAdjustments
+export const selectDeletedStockAdjustments = (state: any) => state.inventory?.deletedStockAdjustments
 export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
 export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
 export const selectSelectedStockMovement = (state: any) => state.inventory?.selectedStockMovement

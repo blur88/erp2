@@ -286,6 +286,14 @@ export const inventoryApi = {
     return ApiService.delete(`/inventory/stock-adjustments/${id}`)
   },
 
+  async getDeletedStockAdjustments(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<StockAdjustment>>('/inventory/stock-adjustments/deleted', { params })
+  },
+
+  async restoreStockAdjustment(id: string) {
+    return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/restore`)
+  },
+
   async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {
     return ApiService.get<Array<{
       product: Product

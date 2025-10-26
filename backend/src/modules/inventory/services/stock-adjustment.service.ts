@@ -419,6 +419,84 @@ export class StockAdjustmentService {
   }
 
   /**
+   * Find all deleted stock adjustments
+   */
+  async findDeleted(query: QueryStockAdjustmentsDto = {}): Promise<any> {
+    const {
+      search,
+      sortBy = 'deletedAt',
+      sortOrder = 'DESC',
+      page = 1,
+      limit = 20,
+    } = query;
+
+    let queryBuilder = this.stockAdjustmentRepository
+      .createQueryBuilder('adjustment')
+      .withDeleted() // Include soft-deleted records
+      .leftJoinAndSelect('adjustment.adjustedByUser', 'user')
+      .where('adjustment.deletedAt IS NOT NULL'); // Only get soft-deleted adjustments
+
+    if (search) {
+      queryBuilder = queryBuilder.andWhere(
+        '(adjustment.adjustmentNumber ILIKE :search OR adjustment.notes ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Apply sorting
+    const validSortFields = ['deletedAt', 'adjustmentDate', 'adjustmentNumber', 'totalValue'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'deletedAt';
+    const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
+
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
+
+    const [adjustments, total] = await queryBuilder.getManyAndCount();
+
+    const data = adjustments.map(adjustment => this.toListResponseDto(adjustment));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Restore a soft-deleted stock adjustment
+   */
+  async restore(id: string): Promise<StockAdjustmentResponseDto> {
+    const adjustment = await this.stockAdjustmentRepository.findOne({
+      where: { id },
+      withDeleted: true, // Include soft-deleted records
+      relations: ['adjustedByUser', 'items', 'items.product'],
+    });
+
+    if (!adjustment) {
+      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
+    }
+
+    if (!adjustment.deletedAt) {
+      throw new BadRequestException('Stock adjustment is not deleted');
+    }
+
+    // Restore the adjustment
+    await this.stockAdjustmentRepository.restore(id);
+
+    this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} restored successfully`);
+
+    return this.findOne(id);
+  }
+
+  /**
    * Convert adjustment to list response DTO
    */
   private toListResponseDto(adjustment: StockAdjustment): StockAdjustmentListResponseDto {

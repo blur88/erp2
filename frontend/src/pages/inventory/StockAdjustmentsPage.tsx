@@ -22,7 +22,7 @@ import {
   Skeleton,
   Alert,
   Grid,
-  Chip,
+  IconButton,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -33,7 +33,11 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
+import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchStockAdjustments,
@@ -45,6 +49,7 @@ import {
   selectInventoryError,
   selectInventoryPagination,
 } from '@/store/slices/inventorySlice'
+import { inventoryApi } from '@/services/inventoryApi'
 import { formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -100,11 +105,11 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-            color: 'primary.main'
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
           }}
         >
           {adjustment.adjustmentNumber}
@@ -144,6 +149,8 @@ const StockAdjustmentsPage: React.FC = () => {
   const [focusedAdjustmentIndex, setFocusedAdjustmentIndex] = useState(-1)
   const adjustmentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [showDeletedDialog, setShowDeletedDialog] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -259,6 +266,29 @@ const StockAdjustmentsPage: React.FC = () => {
     searchInputRef.current?.focus()
   }, [])
 
+  const handleDelete = async (id: string, adjustmentNumber: string) => {
+    if (!window.confirm(`Are you sure you want to delete stock adjustment ${adjustmentNumber}?`)) {
+      return
+    }
+
+    setDeletingId(id)
+    try {
+      await inventoryApi.deleteStockAdjustment(id)
+      showSuccess(`Stock adjustment ${adjustmentNumber} deleted successfully`)
+      loadAdjustments()
+      // Clear selection if deleted adjustment was selected
+      if (selectedAdjustment?.id === id) {
+        dispatch(setSelectedStockAdjustment(null))
+        setFocusedAdjustmentIndex(-1)
+      }
+    } catch (error: any) {
+      console.error('Failed to delete stock adjustment:', error)
+      showError(error?.response?.data?.message || 'Failed to delete stock adjustment')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
     onArrowUp: handleNavigateUp,
@@ -300,6 +330,23 @@ const StockAdjustmentsPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => setShowDeletedDialog(true)}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
+            sx={{
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.light'
+              }
+            }}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
+          </Button>
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
@@ -498,7 +545,16 @@ const StockAdjustmentsPage: React.FC = () => {
 
             <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={adjustmentListRef}>
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table size={TABLE_STYLES.size}>
+                <Table
+                  size={TABLE_STYLES.size}
+                  sx={{
+                    '& .MuiTableCell-root': {
+                      borderBottom: TABLE_STYLES.cell.border,
+                      py: TABLE_STYLES.cell.padding.py * 0.75,
+                      px: TABLE_STYLES.cell.padding.px * 0.75
+                    }
+                  }}
+                >
                   <TableBody>
                     {loading && adjustments.length === 0 ? (
                       [...Array(10)].map((_, i) => (
@@ -555,25 +611,62 @@ const StockAdjustmentsPage: React.FC = () => {
           {selectedAdjustment ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>
-                    SA Details - {selectedAdjustment.adjustmentNumber}
-                  </Typography>
-                  <Chip
-                    label={selectedAdjustment.status.charAt(0).toUpperCase() + selectedAdjustment.status.slice(1)}
-                    color={selectedAdjustment.status === 'completed' ? 'success' : selectedAdjustment.status === 'draft' ? 'warning' : 'error'}
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  SA Details - {selectedAdjustment.adjustmentNumber}
+                </Typography>
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.25
+                }}>
+                  <IconButton
                     size="small"
+                    title="Edit Adjustment"
+                    onClick={() => navigate(`/inventory/stock-adjustments/edit/${selectedAdjustment.id}`)}
                     sx={{
-                      textTransform: 'capitalize',
-                      fontSize: '0.75rem',
-                      fontWeight: 600
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: 'primary.light',
+                        color: 'primary.dark'
+                      }
                     }}
-                  />
+                  >
+                    <EditIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    title="Delete Adjustment"
+                    onClick={() => handleDelete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+                    disabled={deletingId === selectedAdjustment.id}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'error.main',
+                      '&:hover': {
+                        backgroundColor: 'error.light',
+                        color: 'error.dark'
+                      }
+                    }}
+                  >
+                    <DeleteIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
                 </Box>
               </Box>
 
@@ -820,6 +913,12 @@ const StockAdjustmentsPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* Deleted Stock Adjustments Dialog */}
+      <DeletedStockAdjustmentsDialog
+        open={showDeletedDialog}
+        onClose={() => setShowDeletedDialog(false)}
+      />
     </Box>
   )
 }
