@@ -33,15 +33,13 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  fetchStockMovements,
-  setSelectedStockMovement,
-  selectStockMovements,
-  selectSelectedStockMovement,
+  fetchStockAdjustments,
+  setSelectedStockAdjustment,
+  selectStockAdjustments,
+  selectSelectedStockAdjustment,
   selectInventoryLoading,
   selectInventoryError,
   selectInventoryPagination,
@@ -50,8 +48,8 @@ import { formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import { StockMovementType } from '@/types'
-import type { StockMovement } from '@/types'
+import { StockAdjustmentStatus } from '@/types'
+import type { StockAdjustment } from '@/types'
 
 interface StockAdjustmentsPageState {
   page: number
@@ -59,7 +57,7 @@ interface StockAdjustmentsPageState {
   search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
-  typeFilter: string
+  statusFilter: string
   dateFilter: string
   customFromDate: string
   customToDate: string
@@ -67,27 +65,32 @@ interface StockAdjustmentsPageState {
 
 // Memoized Adjustment Row Component
 interface AdjustmentRowProps {
-  adjustment: StockMovement
+  adjustment: StockAdjustment
   index: number
   selectedAdjustmentId?: string
   focusedAdjustmentIndex: number
-  onAdjustmentSelect: (adjustment: StockMovement) => void
+  onAdjustmentSelect: (adjustment: StockAdjustment) => void
 }
 
 const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAdjustmentIndex, onAdjustmentSelect }: AdjustmentRowProps) => {
   const isSelected = selectedAdjustmentId === adjustment.id
   const isFocused = index === focusedAdjustmentIndex
 
-  const getAdjustmentTypeLabel = (movementType: StockMovementType) => {
-    return movementType === StockMovementType.ADJUSTMENT_INCREASE
-      ? 'Increase'
-      : 'Decrease'
+  const getStatusColor = (status: StockAdjustmentStatus) => {
+    switch (status) {
+      case StockAdjustmentStatus.COMPLETED:
+        return 'success'
+      case StockAdjustmentStatus.DRAFT:
+        return 'warning'
+      case StockAdjustmentStatus.CANCELLED:
+        return 'error'
+      default:
+        return 'default'
+    }
   }
 
-  const getAdjustmentTypeColor = (movementType: StockMovementType) => {
-    return movementType === StockMovementType.ADJUSTMENT_INCREASE
-      ? 'success'
-      : 'error'
+  const getStatusLabel = (status: StockAdjustmentStatus) => {
+    return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
   return (
@@ -113,14 +116,41 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+            color: 'primary.main'
           }}
         >
-          {adjustment.referenceNumber || adjustment.id.substring(0, 8)}
+          {adjustment.adjustmentNumber}
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          sx={{
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize
+          }}
+        >
+          {formatDate(adjustment.adjustmentDate)}
+        </Typography>
+      </TableCell>
+      <TableCell align="center">
+        <Chip
+          label={getStatusLabel(adjustment.status)}
+          color={getStatusColor(adjustment.status) as any}
+          size="small"
+        />
+      </TableCell>
+      <TableCell align="right">
+        <Typography
+          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          sx={{
+            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize
+          }}
+        >
+          {adjustment.itemCount}
         </Typography>
       </TableCell>
     </TableRow>
@@ -136,38 +166,19 @@ const StockAdjustmentsPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
-  const allStockMovements = useAppSelector(selectStockMovements) || []
-
-  // Filter to show only adjustment movements and group by SA number
-  const adjustments = React.useMemo(() => {
-    const filtered = allStockMovements.filter((movement: StockMovement) =>
-      movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
-      movement.movementType === StockMovementType.ADJUSTMENT_DECREASE
-    )
-
-    // Group by SA number (referenceNumber) - keep only the first movement of each SA
-    const groupedMap = new Map<string, StockMovement>()
-    filtered.forEach((movement: StockMovement) => {
-      const saNumber = movement.referenceNumber || movement.id
-      if (!groupedMap.has(saNumber)) {
-        groupedMap.set(saNumber, movement)
-      }
-    })
-
-    return Array.from(groupedMap.values())
-  }, [allStockMovements])
-  const loading = useAppSelector(selectInventoryLoading)?.stockMovements || false
+  const adjustments = useAppSelector(selectStockAdjustments) || []
+  const loading = useAppSelector(selectInventoryLoading)?.stockAdjustments || false
   const error = useAppSelector(selectInventoryError)
-  const pagination = useAppSelector(selectInventoryPagination)?.stockMovements
-  const selectedAdjustment = useAppSelector(selectSelectedStockMovement)
+  const pagination = useAppSelector(selectInventoryPagination)?.stockAdjustments
+  const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
 
   const [state, setState] = useState<StockAdjustmentsPageState>({
     page: 0,
     rowsPerPage: 20,
     search: '',
-    sortBy: 'movementDate',
-    sortOrder: 'asc', // Changed to 'asc' to show lowest SA numbers first
-    typeFilter: 'all',
+    sortBy: 'adjustmentDate',
+    sortOrder: 'desc',
+    statusFilter: 'all',
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
@@ -176,18 +187,6 @@ const StockAdjustmentsPage: React.FC = () => {
   const [focusedAdjustmentIndex, setFocusedAdjustmentIndex] = useState(-1)
   const adjustmentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-
-  // Get all movements for the selected SA number
-  const selectedSAMovements = React.useMemo(() => {
-    if (!selectedAdjustment || !selectedAdjustment.referenceNumber) {
-      return []
-    }
-    return allStockMovements.filter((movement: StockMovement) =>
-      movement.referenceNumber === selectedAdjustment.referenceNumber &&
-      (movement.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
-       movement.movementType === StockMovementType.ADJUSTMENT_DECREASE)
-    )
-  }, [selectedAdjustment, allStockMovements])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -225,31 +224,16 @@ const StockAdjustmentsPage: React.FC = () => {
   const loadAdjustments = useCallback(() => {
     const dateRange = getDateRange(state.dateFilter)
 
-    // Determine movement type based on typeFilter
-    let movementType: StockMovementType | undefined
-    if (state.typeFilter === 'increase') {
-      movementType = StockMovementType.ADJUSTMENT_INCREASE
-    } else if (state.typeFilter === 'decrease') {
-      movementType = StockMovementType.ADJUSTMENT_DECREASE
-    }
-    // When typeFilter is 'all', movementType is undefined
-    // This will fetch ALL movements, but client-side filter (line 142-158) shows only adjustments
-
-    // Use high limit for client-side filtering and pagination
-    // Backend max limit is 100, so we use that for 'all' filter
-    const limit = movementType ? state.rowsPerPage : 100
-    const page = movementType ? state.page + 1 : 1
-
-    dispatch(fetchStockMovements({
-      page: page,
-      limit: limit,
-      movementType: movementType,
+    dispatch(fetchStockAdjustments({
+      page: state.page + 1,
+      limit: state.rowsPerPage,
+      status: state.statusFilter !== 'all' ? state.statusFilter : undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
       search: state.search || undefined,
       sortBy: state.sortBy,
       sortOrder: state.sortOrder.toUpperCase() as any,
-    } as any))
+    }))
   }, [dispatch, state, getDateRange])
 
   useEffect(() => {
@@ -265,8 +249,8 @@ const StockAdjustmentsPage: React.FC = () => {
     }))
   }, [])
 
-  const handleAdjustmentSelect = useCallback((adjustment: StockMovement) => {
-    dispatch(setSelectedStockMovement(adjustment))
+  const handleAdjustmentSelect = useCallback((adjustment: StockAdjustment) => {
+    dispatch(setSelectedStockAdjustment(adjustment))
     const adjustmentIndex = adjustments.findIndex(a => a.id === adjustment.id)
     setFocusedAdjustmentIndex(adjustmentIndex)
   }, [dispatch, adjustments])
@@ -276,7 +260,7 @@ const StockAdjustmentsPage: React.FC = () => {
     if (adjustments.length > 0 && focusedAdjustmentIndex === -1) {
       if (!selectedAdjustment && searchInputRef.current !== document.activeElement) {
         setFocusedAdjustmentIndex(0)
-        dispatch(setSelectedStockMovement(adjustments[0]))
+        dispatch(setSelectedStockAdjustment(adjustments[0]))
       }
     }
   }, [adjustments, focusedAdjustmentIndex, selectedAdjustment, dispatch])
@@ -284,7 +268,7 @@ const StockAdjustmentsPage: React.FC = () => {
   // Clear selection when no adjustments exist
   useEffect(() => {
     if (adjustments.length === 0 && selectedAdjustment) {
-      dispatch(setSelectedStockMovement(null))
+      dispatch(setSelectedStockAdjustment(null))
       setFocusedAdjustmentIndex(-1)
     }
   }, [adjustments.length, selectedAdjustment, dispatch])
@@ -294,7 +278,7 @@ const StockAdjustmentsPage: React.FC = () => {
     if (focusedAdjustmentIndex > 0) {
       const newIndex = focusedAdjustmentIndex - 1
       setFocusedAdjustmentIndex(newIndex)
-      dispatch(setSelectedStockMovement(adjustments[newIndex]))
+      dispatch(setSelectedStockAdjustment(adjustments[newIndex]))
     }
   }, [focusedAdjustmentIndex, adjustments, dispatch])
 
@@ -302,7 +286,7 @@ const StockAdjustmentsPage: React.FC = () => {
     if (focusedAdjustmentIndex < adjustments.length - 1) {
       const newIndex = focusedAdjustmentIndex + 1
       setFocusedAdjustmentIndex(newIndex)
-      dispatch(setSelectedStockMovement(adjustments[newIndex]))
+      dispatch(setSelectedStockAdjustment(adjustments[newIndex]))
     }
   }, [focusedAdjustmentIndex, adjustments, dispatch])
 
@@ -315,18 +299,6 @@ const StockAdjustmentsPage: React.FC = () => {
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
   })
-
-  const getAdjustmentTypeLabel = (movementType: StockMovementType) => {
-    return movementType === StockMovementType.ADJUSTMENT_INCREASE
-      ? 'Increase'
-      : 'Decrease'
-  }
-
-  const getAdjustmentTypeColor = (movementType: StockMovementType) => {
-    return movementType === StockMovementType.ADJUSTMENT_INCREASE
-      ? 'success'
-      : 'error'
-  }
 
   return (
     <Box>
@@ -354,7 +326,7 @@ const StockAdjustmentsPage: React.FC = () => {
             Stock Adjustments
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            View and manage stock adjustment history ({adjustments.length} total)
+            View and manage stock adjustment history ({pagination?.total || 0} total)
           </Typography>
         </Box>
         <Box sx={{
@@ -483,20 +455,21 @@ const StockAdjustmentsPage: React.FC = () => {
             }
           }}
         >
-          <InputLabel>Type</InputLabel>
+          <InputLabel>Status</InputLabel>
           <Select
-            value={state.typeFilter}
-            label="Type"
-            onChange={(e) => setState(prev => ({ ...prev, typeFilter: e.target.value, page: 0 }))}
+            value={state.statusFilter}
+            label="Status"
+            onChange={(e) => setState(prev => ({ ...prev, statusFilter: e.target.value, page: 0 }))}
             sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
-            <MenuItem value="increase">Increase</MenuItem>
-            <MenuItem value="decrease">Decrease</MenuItem>
+            <MenuItem value="draft">Draft</MenuItem>
+            <MenuItem value="completed">Completed</MenuItem>
+            <MenuItem value="cancelled">Cancelled</MenuItem>
           </Select>
         </FormControl>
 
-        {(state.dateFilter !== 'all' || state.typeFilter !== 'all') && (
+        {(state.dateFilter !== 'all' || state.statusFilter !== 'all') && (
           <Button
             variant="outlined"
             size="medium"
@@ -505,7 +478,7 @@ const StockAdjustmentsPage: React.FC = () => {
               dateFilter: 'all',
               customFromDate: '',
               customToDate: '',
-              typeFilter: 'all',
+              statusFilter: 'all',
               page: 0
             }))}
             sx={{
@@ -520,10 +493,10 @@ const StockAdjustmentsPage: React.FC = () => {
         )}
 
         <Button
-          variant={state.sortBy === 'movementDate' ? 'contained' : 'outlined'}
+          variant={state.sortBy === 'adjustmentDate' ? 'contained' : 'outlined'}
           size="medium"
-          startIcon={state.sortBy === 'movementDate' ? (state.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
-          onClick={() => handleSort('movementDate')}
+          startIcon={state.sortBy === 'adjustmentDate' ? (state.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          onClick={() => handleSort('adjustmentDate')}
           sx={{
             height: TYPOGRAPHY_STYLES.searchField.input.height,
             fontSize: '0.875rem',
@@ -570,8 +543,16 @@ const StockAdjustmentsPage: React.FC = () => {
                           </TableCell>
                         </TableRow>
                       ))
+                    ) : adjustments.length === 0 ? (
+                      <TableRow>
+                        <TableCell align="center">
+                          <Typography variant="body2" color="text.secondary">
+                            No stock adjustments found
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
                     ) : (
-                      adjustments.map((adjustment: StockMovement, index: number) => (
+                      adjustments.map((adjustment: StockAdjustment, index: number) => (
                         <AdjustmentRow
                           key={adjustment.id}
                           adjustment={adjustment}
@@ -615,13 +596,18 @@ const StockAdjustmentsPage: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  SA Details
+                  {selectedAdjustment.adjustmentNumber}
                 </Typography>
+                <Chip
+                  label={selectedAdjustment.status.charAt(0).toUpperCase() + selectedAdjustment.status.slice(1)}
+                  color={selectedAdjustment.status === 'completed' ? 'success' : selectedAdjustment.status === 'draft' ? 'warning' : 'error'}
+                  size="small"
+                />
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 <Grid container spacing={3}>
-                  {/* Adjustment Information - Date Only */}
+                  {/* Adjustment Information */}
                   <Grid item xs={12}>
                     <TableContainer>
                       <Table
@@ -662,7 +648,31 @@ const StockAdjustmentsPage: React.FC = () => {
                               Date
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {formatDate(selectedAdjustment.movementDate)}
+                              {formatDate(selectedAdjustment.adjustmentDate)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Item Count
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {selectedAdjustment.itemCount}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Total Value
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              ${Number(selectedAdjustment.totalValue).toFixed(2)}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -671,68 +681,76 @@ const StockAdjustmentsPage: React.FC = () => {
                   </Grid>
 
                   {/* Items Table */}
-                  <Grid item xs={12}>
-                    <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                      <Table
-                        size="small"
-                        sx={{
-                          '& .MuiTableCell-root': {
-                            border: `1px solid ${theme.palette.divider}`,
-                            padding: '8px',
-                            fontSize: '0.875rem',
-                          },
-                          '& .MuiTableHead-root .MuiTableCell-root': {
-                            backgroundColor: theme.palette.grey[50],
-                            fontWeight: 600,
-                            color: theme.palette.text.primary,
-                          },
-                        }}
-                      >
-                        <TableHead>
-                          <TableRow>
-                            <TableCell align="left">Product</TableCell>
-                            <TableCell align="center">New Quantity</TableCell>
-                            <TableCell align="center">Old Quantity</TableCell>
-                            <TableCell align="center">Difference</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {selectedSAMovements.map((movement) => (
-                            <TableRow key={movement.id}>
-                              <TableCell>{movement.product?.name || 'Unknown Product'}</TableCell>
-                              <TableCell align="center">
-                                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                  {Number(movement.newBalance).toLocaleString()}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="center">
-                                <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-                                  {Number(movement.previousBalance).toLocaleString()}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="center">
-                                <Typography
-                                  variant="body2"
-                                  fontWeight="600"
-                                  sx={{
-                                    fontSize: '0.875rem',
-                                    color: Number(movement.quantity) > 0
-                                      ? 'success.main'
-                                      : Number(movement.quantity) < 0
-                                      ? 'error.main'
-                                      : 'text.primary'
-                                  }}
-                                >
-                                  {Number(movement.quantity) > 0 ? '+' : ''}
-                                  {Number(movement.quantity).toLocaleString()}
-                                </Typography>
-                              </TableCell>
+                  {selectedAdjustment.items && selectedAdjustment.items.length > 0 && (
+                    <Grid item xs={12}>
+                      <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+                        <Table
+                          size="small"
+                          sx={{
+                            '& .MuiTableCell-root': {
+                              border: `1px solid ${theme.palette.divider}`,
+                              padding: '8px',
+                              fontSize: '0.875rem',
+                            },
+                            '& .MuiTableHead-root .MuiTableCell-root': {
+                              backgroundColor: theme.palette.grey[50],
+                              fontWeight: 600,
+                              color: theme.palette.text.primary,
+                            },
+                          }}
+                        >
+                          <TableHead>
+                            <TableRow>
+                              <TableCell align="left">Product</TableCell>
+                              <TableCell align="center">New Quantity</TableCell>
+                              <TableCell align="center">Old Quantity</TableCell>
+                              <TableCell align="center">Difference</TableCell>
+                              {selectedAdjustment.items.some(item => item.notes) && (
+                                <TableCell align="left">Notes</TableCell>
+                              )}
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Grid>
+                          </TableHead>
+                          <TableBody>
+                            {selectedAdjustment.items.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell>{item.product?.name || 'Unknown Product'}</TableCell>
+                                <TableCell align="center">
+                                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                    {Number(item.newQuantity).toLocaleString()}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                                    {Number(item.oldQuantity).toLocaleString()}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Typography
+                                    variant="body2"
+                                    fontWeight="600"
+                                    sx={{
+                                      fontSize: '0.875rem',
+                                      color: Number(item.difference) > 0
+                                        ? 'success.main'
+                                        : Number(item.difference) < 0
+                                        ? 'error.main'
+                                        : 'text.primary'
+                                    }}
+                                  >
+                                    {Number(item.difference) > 0 ? '+' : ''}
+                                    {Number(item.difference).toLocaleString()}
+                                  </Typography>
+                                </TableCell>
+                                {selectedAdjustment.items.some(i => i.notes) && (
+                                  <TableCell>{item.notes || '-'}</TableCell>
+                                )}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Grid>
+                  )}
 
                   {/* Notes Section */}
                   {selectedAdjustment.notes && (

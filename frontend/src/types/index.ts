@@ -163,6 +163,52 @@ export interface StockMovement {
   updatedAt: Date;
 }
 
+export enum StockAdjustmentStatus {
+  DRAFT = 'draft',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+export interface StockAdjustmentItem {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    barcode?: string;
+  };
+  oldQuantity: number;
+  newQuantity: number;
+  difference: number;
+  unitCost?: number;
+  totalValue?: number;
+  notes?: string;
+  isIncrease: boolean;
+  isDecrease: boolean;
+  absoluteDifference: number;
+}
+
+export interface StockAdjustment {
+  id: string;
+  adjustmentNumber: string;
+  adjustmentDate: Date;
+  status: StockAdjustmentStatus;
+  notes?: string;
+  itemCount: number;
+  totalValue: number;
+  adjustedByUser?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  items?: StockAdjustmentItem[];
+  isEditable?: boolean;
+  canComplete?: boolean;
+  canCancel?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 
 // Sales types
 export enum CustomerType {

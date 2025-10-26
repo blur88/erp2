@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
-import type { Product, Category, StockMovement, PaginatedResponse } from '@/types'
+import type { Product, Category, StockMovement, StockAdjustment, PaginatedResponse } from '@/types'
 import { inventoryApi } from '@/services/inventoryApi'
 
 interface InventoryState {
@@ -8,15 +8,18 @@ interface InventoryState {
   categories: Category[]
   deletedCategories: Category[]
   stockMovements: StockMovement[]
+  stockAdjustments: StockAdjustment[]
   selectedProduct: Product | null
   selectedCategory: Category | null
   selectedStockMovement: StockMovement | null
+  selectedStockAdjustment: StockAdjustment | null
   loading: {
     products: boolean
     deletedProducts: boolean
     categories: boolean
     deletedCategories: boolean
     stockMovements: boolean
+    stockAdjustments: boolean
   }
   error: string | null
   pagination: {
@@ -27,6 +30,12 @@ interface InventoryState {
       totalPages: number
     }
     stockMovements: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+    }
+    stockAdjustments: {
       page: number
       limit: number
       total: number
@@ -52,15 +61,18 @@ const initialState: InventoryState = {
   categories: [],
   deletedCategories: [],
   stockMovements: [],
+  stockAdjustments: [],
   selectedProduct: null,
   selectedCategory: null,
   selectedStockMovement: null,
+  selectedStockAdjustment: null,
   loading: {
     products: false,
     deletedProducts: false,
     categories: false,
     deletedCategories: false,
     stockMovements: false,
+    stockAdjustments: false,
   },
   error: null,
   pagination: {
@@ -71,6 +83,12 @@ const initialState: InventoryState = {
       totalPages: 0,
     },
     stockMovements: {
+      page: 1,
+      limit: 20,
+      total: 0,
+      totalPages: 0,
+    },
+    stockAdjustments: {
       page: 1,
       limit: 20,
       total: 0,
@@ -389,6 +407,29 @@ export const fetchStockMovements = createAsyncThunk(
   }
 )
 
+export const fetchStockAdjustments = createAsyncThunk(
+  'inventory/fetchStockAdjustments',
+  async (params: {
+    page?: number
+    limit?: number
+    status?: string
+    fromDate?: string
+    toDate?: string
+    adjustedByUserId?: string
+    search?: string
+    sortBy?: string
+    sortOrder?: string
+  }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getStockAdjustments(params)
+      return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+    } catch (error: any) {
+      console.error('Failed to fetch stock adjustments:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock adjustments')
+    }
+  }
+)
+
 const inventorySlice = createSlice({
   name: 'inventory',
   initialState,
@@ -401,6 +442,9 @@ const inventorySlice = createSlice({
     },
     setSelectedStockMovement: (state, action: PayloadAction<StockMovement | null>) => {
       state.selectedStockMovement = action.payload
+    },
+    setSelectedStockAdjustment: (state, action: PayloadAction<StockAdjustment | null>) => {
+      state.selectedStockAdjustment = action.payload
     },
     setProductFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.products>>) => {
       state.filters.products = { ...state.filters.products, ...action.payload }
@@ -640,6 +684,24 @@ const inventorySlice = createSlice({
       .addCase(bulkPermanentDeleteCategories.fulfilled, (state, action) => {
         // Deleted categories will be refreshed by the component
       })
+
+    // Fetch Stock Adjustments
+    builder
+      .addCase(fetchStockAdjustments.pending, (state) => {
+        state.loading.stockAdjustments = true
+        state.error = null
+      })
+      .addCase(fetchStockAdjustments.fulfilled, (state, action) => {
+        state.loading.stockAdjustments = false
+        if (action.payload) {
+          state.stockAdjustments = action.payload.data
+          state.pagination.stockAdjustments = action.payload.meta
+        }
+      })
+      .addCase(fetchStockAdjustments.rejected, (state, action) => {
+        state.loading.stockAdjustments = false
+        state.error = action.payload as string
+      })
   },
 })
 
@@ -647,6 +709,7 @@ export const {
   setSelectedProduct,
   setSelectedCategory,
   setSelectedStockMovement,
+  setSelectedStockAdjustment,
   setProductFilters,
   setCategoryFilters,
   resetFilters,
@@ -660,9 +723,11 @@ export const selectDeletedProducts = (state: any) => state.inventory?.deletedPro
 export const selectCategories = (state: any) => state.inventory?.categories
 export const selectDeletedCategories = (state: any) => state.inventory?.deletedCategories
 export const selectStockMovements = (state: any) => state.inventory?.stockMovements
+export const selectStockAdjustments = (state: any) => state.inventory?.stockAdjustments
 export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
 export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
 export const selectSelectedStockMovement = (state: any) => state.inventory?.selectedStockMovement
+export const selectSelectedStockAdjustment = (state: any) => state.inventory?.selectedStockAdjustment
 export const selectInventoryLoading = (state: any) => state.inventory?.loading
 export const selectInventoryError = (state: any) => state.inventory?.error
 export const selectInventoryPagination = (state: any) => state.inventory?.pagination
