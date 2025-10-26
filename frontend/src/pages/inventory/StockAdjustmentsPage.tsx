@@ -37,6 +37,7 @@ import {
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchStockAdjustments,
+  fetchStockAdjustment,
   setSelectedStockAdjustment,
   selectStockAdjustments,
   selectSelectedStockAdjustment,
@@ -206,9 +207,13 @@ const StockAdjustmentsPage: React.FC = () => {
   }, [])
 
   const handleAdjustmentSelect = useCallback((adjustment: StockAdjustment) => {
+    // Set the selected adjustment first (for immediate UI feedback)
     dispatch(setSelectedStockAdjustment(adjustment))
     const adjustmentIndex = adjustments.findIndex(a => a.id === adjustment.id)
     setFocusedAdjustmentIndex(adjustmentIndex)
+
+    // Fetch full details including items
+    dispatch(fetchStockAdjustment(adjustment.id))
   }, [dispatch, adjustments])
 
   // Auto-focus first adjustment when adjustments load
@@ -217,6 +222,8 @@ const StockAdjustmentsPage: React.FC = () => {
       if (!selectedAdjustment && searchInputRef.current !== document.activeElement) {
         setFocusedAdjustmentIndex(0)
         dispatch(setSelectedStockAdjustment(adjustments[0]))
+        // Fetch full details for the first adjustment
+        dispatch(fetchStockAdjustment(adjustments[0].id))
       }
     }
   }, [adjustments, focusedAdjustmentIndex, selectedAdjustment, dispatch])
@@ -235,6 +242,7 @@ const StockAdjustmentsPage: React.FC = () => {
       const newIndex = focusedAdjustmentIndex - 1
       setFocusedAdjustmentIndex(newIndex)
       dispatch(setSelectedStockAdjustment(adjustments[newIndex]))
+      dispatch(fetchStockAdjustment(adjustments[newIndex].id))
     }
   }, [focusedAdjustmentIndex, adjustments, dispatch])
 
@@ -243,6 +251,7 @@ const StockAdjustmentsPage: React.FC = () => {
       const newIndex = focusedAdjustmentIndex + 1
       setFocusedAdjustmentIndex(newIndex)
       dispatch(setSelectedStockAdjustment(adjustments[newIndex]))
+      dispatch(fetchStockAdjustment(adjustments[newIndex].id))
     }
   }, [focusedAdjustmentIndex, adjustments, dispatch])
 

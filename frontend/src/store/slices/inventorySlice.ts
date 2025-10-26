@@ -430,6 +430,19 @@ export const fetchStockAdjustments = createAsyncThunk(
   }
 )
 
+export const fetchStockAdjustment = createAsyncThunk(
+  'inventory/fetchStockAdjustment',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getStockAdjustment(id)
+      return response
+    } catch (error: any) {
+      console.error('Failed to fetch stock adjustment:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock adjustment')
+    }
+  }
+)
+
 const inventorySlice = createSlice({
   name: 'inventory',
   initialState,
@@ -699,6 +712,25 @@ const inventorySlice = createSlice({
         }
       })
       .addCase(fetchStockAdjustments.rejected, (state, action) => {
+        state.loading.stockAdjustments = false
+        state.error = action.payload as string
+      })
+      .addCase(fetchStockAdjustment.pending, (state) => {
+        state.loading.stockAdjustments = true
+      })
+      .addCase(fetchStockAdjustment.fulfilled, (state, action) => {
+        state.loading.stockAdjustments = false
+        if (action.payload) {
+          // Update the selected adjustment with full details including items
+          state.selectedStockAdjustment = action.payload as any
+          // Also update the adjustment in the list if it exists
+          const index = state.stockAdjustments.findIndex(sa => sa.id === action.payload.id)
+          if (index !== -1) {
+            state.stockAdjustments[index] = action.payload as any
+          }
+        }
+      })
+      .addCase(fetchStockAdjustment.rejected, (state, action) => {
         state.loading.stockAdjustments = false
         state.error = action.payload as string
       })
