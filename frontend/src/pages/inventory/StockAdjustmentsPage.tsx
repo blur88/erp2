@@ -546,19 +546,26 @@ const StockAdjustmentsPage: React.FC = () => {
           {selectedAdjustment ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  {selectedAdjustment.adjustmentNumber}
-                </Typography>
-                <Chip
-                  label={selectedAdjustment.status.charAt(0).toUpperCase() + selectedAdjustment.status.slice(1)}
-                  color={selectedAdjustment.status === 'completed' ? 'success' : selectedAdjustment.status === 'draft' ? 'warning' : 'error'}
-                  size="small"
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    SA Details - {selectedAdjustment.adjustmentNumber}
+                  </Typography>
+                  <Chip
+                    label={selectedAdjustment.status.charAt(0).toUpperCase() + selectedAdjustment.status.slice(1)}
+                    color={selectedAdjustment.status === 'completed' ? 'success' : selectedAdjustment.status === 'draft' ? 'warning' : 'error'}
+                    size="small"
+                    sx={{
+                      textTransform: 'capitalize',
+                      fontSize: '0.75rem',
+                      fontWeight: 600
+                    }}
+                  />
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
