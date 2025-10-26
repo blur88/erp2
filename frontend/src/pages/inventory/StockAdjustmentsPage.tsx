@@ -568,10 +568,11 @@ const StockAdjustmentsPage: React.FC = () => {
                 </Box>
               </Box>
 
-              <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+              {/* SA Details Section */}
+              <Box>
                 <Grid container spacing={3}>
                   {/* Adjustment Information */}
-                  <Grid item xs={12}>
+                  <Grid item xs={12} md={6}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -581,8 +582,8 @@ const StockAdjustmentsPage: React.FC = () => {
                             border: 'none',
                             py: TABLE_STYLES.cell.padding.py,
                             px: TABLE_STYLES.cell.padding.px,
-                            '&:nth-of-type(1)': { width: '20%' },
-                            '&:nth-of-type(2)': { width: '80%' },
+                            '&:nth-of-type(1)': { width: '40%' },
+                            '&:nth-of-type(2)': { width: '60%' },
                           }
                         }}
                       >
@@ -598,7 +599,7 @@ const StockAdjustmentsPage: React.FC = () => {
                                 color: 'primary.main',
                                 fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                               }}>
-                                Adjustment Information
+                                SA Information
                               </Typography>
                             </TableCell>
                           </TableRow>
@@ -626,6 +627,43 @@ const StockAdjustmentsPage: React.FC = () => {
                               {selectedAdjustment.itemCount}
                             </TableCell>
                           </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+
+                  {/* Summary Information */}
+                  <Grid item xs={12} md={6}>
+                    <TableContainer>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          tableLayout: 'fixed',
+                          '& .MuiTableCell-root': {
+                            border: 'none',
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px,
+                            '&:nth-of-type(1)': { width: '40%' },
+                            '&:nth-of-type(2)': { width: '60%' },
+                          }
+                        }}
+                      >
+                        <TableBody>
+                          <TableRow>
+                            <TableCell colSpan={2} sx={{
+                              pb: TABLE_STYLES.cell.padding.py * 0.67,
+                              py: TABLE_STYLES.cell.padding.py * 0.67,
+                              borderTop: TABLE_STYLES.cell.border
+                            }}>
+                              <Typography variant="h6" sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                color: 'primary.main',
+                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                              }}>
+                                Summary
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
@@ -642,104 +680,188 @@ const StockAdjustmentsPage: React.FC = () => {
                       </Table>
                     </TableContainer>
                   </Grid>
-
-                  {/* Items Table */}
-                  {selectedAdjustment.items && selectedAdjustment.items.length > 0 && (
-                    <Grid item xs={12}>
-                      <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                        <Table
-                          size="small"
-                          sx={{
-                            '& .MuiTableCell-root': {
-                              border: `1px solid ${theme.palette.divider}`,
-                              padding: '8px',
-                              fontSize: '0.875rem',
-                            },
-                            '& .MuiTableHead-root .MuiTableCell-root': {
-                              backgroundColor: theme.palette.grey[50],
-                              fontWeight: 600,
-                              color: theme.palette.text.primary,
-                            },
-                          }}
-                        >
-                          <TableHead>
-                            <TableRow>
-                              <TableCell align="left">Product</TableCell>
-                              <TableCell align="center">New Quantity</TableCell>
-                              <TableCell align="center">Old Quantity</TableCell>
-                              <TableCell align="center">Difference</TableCell>
-                              {selectedAdjustment.items.some(item => item.notes) && (
-                                <TableCell align="left">Notes</TableCell>
-                              )}
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {selectedAdjustment.items.map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell>{item.product?.name || 'Unknown Product'}</TableCell>
-                                <TableCell align="center">
-                                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                    {Number(item.newQuantity).toLocaleString()}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="center">
-                                  <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-                                    {Number(item.oldQuantity).toLocaleString()}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="center">
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight="600"
-                                    sx={{
-                                      fontSize: '0.875rem',
-                                      color: Number(item.difference) > 0
-                                        ? 'success.main'
-                                        : Number(item.difference) < 0
-                                        ? 'error.main'
-                                        : 'text.primary'
-                                    }}
-                                  >
-                                    {Number(item.difference) > 0 ? '+' : ''}
-                                    {Number(item.difference).toLocaleString()}
-                                  </Typography>
-                                </TableCell>
-                                {selectedAdjustment.items.some(i => i.notes) && (
-                                  <TableCell>{item.notes || '-'}</TableCell>
-                                )}
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Grid>
-                  )}
-
-                  {/* Notes Section */}
-                  {selectedAdjustment.notes && (
-                    <Grid item xs={12}>
-                      <Box sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          mb: 1
-                        }}>
-                          Notes
-                        </Typography>
-                        <Typography sx={{
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word'
-                        }}>
-                          {selectedAdjustment.notes}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  )}
                 </Grid>
+
+                {/* SA Items Section Header */}
+                <TableContainer sx={{ mt: 3 }}>
+                  <Table
+                    size={TABLE_STYLES.size}
+                    sx={{
+                      '& .MuiTableCell-root': {
+                        border: 'none',
+                        py: TABLE_STYLES.cell.padding.py,
+                        px: TABLE_STYLES.cell.padding.px,
+                      }
+                    }}
+                  >
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{
+                          pb: TABLE_STYLES.cell.padding.py * 0.67,
+                          py: TABLE_STYLES.cell.padding.py * 0.67,
+                          borderTop: TABLE_STYLES.cell.border
+                        }}>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            SA Items
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                {/* SA Items Table */}
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  {selectedAdjustment.items && selectedAdjustment.items.length > 0 ? (
+                    <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          '& .MuiTableCell-root': {
+                            borderBottom: TABLE_STYLES.cell.border,
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px
+                          }
+                        }}
+                      >
+                        <TableHead>
+                          <TableRow sx={{ '& .MuiTableCell-head': {
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            backgroundColor: 'grey.50',
+                            color: TYPOGRAPHY_STYLES.tableHeader.color,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                          } }}>
+                            <TableCell sx={{ width: '40%' }}>
+                              Product
+                            </TableCell>
+                            <TableCell align="center" sx={{ width: '15%' }}>
+                              Old Quantity
+                            </TableCell>
+                            <TableCell align="center" sx={{ width: '15%' }}>
+                              New Quantity
+                            </TableCell>
+                            <TableCell align="center" sx={{ width: '15%' }}>
+                              Difference
+                            </TableCell>
+                            <TableCell align="left" sx={{ width: '15%' }}>
+                              Notes
+                            </TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {selectedAdjustment.items.map((item: any, index: number) => (
+                            <TableRow
+                              key={index}
+                              hover
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'action.hover'
+                                },
+                                transition: 'background-color 0.2s ease',
+                                height: TABLE_STYLES.row.height
+                              }}
+                            >
+                              <TableCell sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                              }}>
+                                {item.product?.name || 'Unknown Product'}
+                              </TableCell>
+                              <TableCell align="center" sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                                color: 'text.secondary'
+                              }}>
+                                {Number(item.oldQuantity).toLocaleString()}
+                              </TableCell>
+                              <TableCell align="center" sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                              }}>
+                                {Number(item.newQuantity).toLocaleString()}
+                              </TableCell>
+                              <TableCell align="center" sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+                                fontWeight: 600,
+                                color: Number(item.difference) > 0
+                                  ? 'success.main'
+                                  : Number(item.difference) < 0
+                                  ? 'error.main'
+                                  : 'text.primary'
+                              }}>
+                                {Number(item.difference) > 0 ? '+' : ''}
+                                {Number(item.difference).toLocaleString()}
+                              </TableCell>
+                              <TableCell sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
+                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                              }}>
+                                {item.notes || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Alert severity="info">No items in this adjustment</Alert>
+                  )}
+                </Box>
               </Box>
+
+              {/* NOTES Section - below items */}
+              {selectedAdjustment.notes && (
+                <Box sx={{ mt: 1 }}>
+                  <TableContainer>
+                    <Table
+                      size={TABLE_STYLES.size}
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          border: 'none',
+                          py: TABLE_STYLES.cell.padding.py,
+                          px: TABLE_STYLES.cell.padding.px,
+                        }
+                      }}
+                    >
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{
+                            pb: TABLE_STYLES.cell.padding.py * 0.67,
+                            py: TABLE_STYLES.cell.padding.py * 0.67,
+                            borderTop: TABLE_STYLES.cell.border
+                          }}>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              Notes
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableCell sx={{
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word'
+                          }}>
+                            {selectedAdjustment.notes}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
