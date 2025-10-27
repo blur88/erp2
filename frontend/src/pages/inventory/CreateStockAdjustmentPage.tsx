@@ -240,10 +240,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
         showSuccess(`Stock adjustment ${saNumber} updated successfully`)
         navigate('/inventory/stock-adjustments')
       } else {
-        // Create mode: Create new adjustment and complete it
-        // Step 1: Create the adjustment (as draft)
+        // Create mode: Create new adjustment (kept as draft)
         const createResponse = await ApiService.post('/inventory/stock-adjustments', adjustmentData)
-        console.log('Create response:', createResponse)
 
         const adjustment = createResponse as any
 
@@ -251,15 +249,11 @@ const CreateStockAdjustmentPage: React.FC = () => {
           throw new Error('Invalid response from server: missing adjustment ID')
         }
 
-        // Step 2: Complete the adjustment (posts to stock movements)
-        const completeResponse = await ApiService.post(`/inventory/stock-adjustments/${adjustment.id}/complete`)
-        console.log('Complete response:', completeResponse)
+        const saNumber = adjustment?.adjustmentNumber || 'N/A'
+        const itemsAdjusted = adjustment?.itemCount || 0
+        const status = adjustment?.status || 'draft'
 
-        const completedAdjustment = completeResponse as any
-        const saNumber = completedAdjustment?.adjustmentNumber || adjustment.adjustmentNumber
-        const itemsAdjusted = completedAdjustment?.itemCount || adjustment.itemCount || 0
-
-        showSuccess(`Stock adjustment ${saNumber} completed successfully (${itemsAdjusted} items adjusted)`)
+        showSuccess(`Stock adjustment ${saNumber} created successfully (${itemsAdjusted} items) - Status: ${status}`)
         navigate('/inventory/stock-adjustments')
       }
     } catch (err: any) {
@@ -326,7 +320,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">
-            {isEditMode ? 'Edit Stock Adjustment' : 'Record Stock Adjustment'}
+            {isEditMode ? 'Edit Stock Adjustment' : 'Create Stock Adjustment'}
           </Typography>
         </Box>
 
@@ -641,7 +635,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                   variant="contained"
                   disabled={loading}
                 >
-                  {loading ? (isEditMode ? 'Updating...' : 'Recording...') : (isEditMode ? 'Update Adjustment' : 'Record Adjustment')}
+                  {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Adjustment' : 'Create Adjustment')}
                 </Button>
               </Box>
             </Grid>
