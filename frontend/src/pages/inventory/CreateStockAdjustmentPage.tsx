@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -62,12 +62,16 @@ const schema = yup.object({
 const CreateStockAdjustmentPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
+  const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingAdjustment, setLoadingAdjustment] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [adjustmentToLoad, setAdjustmentToLoad] = useState<any>(null)
 
-  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateAdjustmentFormData>({
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateAdjustmentFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       adjustmentDate: new Date().toISOString().split('T')[0],
@@ -93,6 +97,78 @@ const CreateStockAdjustmentPage: React.FC = () => {
   useEffect(() => {
     loadProducts()
   }, [])
+
+  // Load stock adjustment data in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadStockAdjustment(id)
+    }
+  }, [isEditMode, id])
+
+  const loadStockAdjustment = async (adjustmentId: string) => {
+    setLoadingAdjustment(true)
+    try {
+      const response = await ApiService.get(`/inventory/stock-adjustments/${adjustmentId}`)
+      const adjustment = (response as any).data || response
+
+      // Extract products from adjustment items and add to products state
+      if (adjustment.items && adjustment.items.length > 0) {
+        const adjustmentProducts = adjustment.items
+          .filter((item: any) => item.product)
+          .map((item: any) => item.product)
+
+        // Merge with existing products, avoiding duplicates
+        setProducts((prevProducts) => {
+          const existingIds = new Set(prevProducts.map(p => p.id))
+          const newProducts = adjustmentProducts.filter((p: any) => !existingIds.has(p.id))
+          return [...prevProducts, ...newProducts]
+        })
+      }
+
+      // Store adjustment data to be loaded after products are set
+      setAdjustmentToLoad(adjustment)
+    } catch (err: any) {
+      showError(err?.response?.data?.message || 'Failed to load stock adjustment')
+      setError('Failed to load stock adjustment')
+      setLoadingAdjustment(false)
+    }
+  }
+
+  // Reset form after products are loaded
+  useEffect(() => {
+    if (adjustmentToLoad && products.length > 0) {
+      const itemsToReset = adjustmentToLoad.items?.map((item: any) => {
+        const productId = item.productId || item.product?.id || ''
+
+        return {
+          productId,
+          product: item.product,
+          newQuantity: Number(item.newQuantity) || 0,
+          oldQuantity: Number(item.oldQuantity) || 0,
+          difference: Number(item.difference) || 0,
+        }
+      })
+
+      // Map adjustment data to form
+      reset({
+        adjustmentDate: adjustmentToLoad.adjustmentDate
+          ? new Date(adjustmentToLoad.adjustmentDate).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0],
+        notes: adjustmentToLoad.notes || '',
+        items: itemsToReset || [
+          {
+            productId: '',
+            newQuantity: 0,
+            oldQuantity: 0,
+            difference: 0,
+          }
+        ],
+      })
+
+      setAdjustmentToLoad(null)
+      setLoadingAdjustment(false)
+    }
+  }, [adjustmentToLoad, products, reset])
 
   // Recalculate difference when quantities change
   useEffect(() => {
@@ -153,28 +229,39 @@ const CreateStockAdjustmentPage: React.FC = () => {
         })),
       }
 
-      console.log('Creating stock adjustment:', adjustmentData)
+      console.log(isEditMode ? 'Updating stock adjustment:' : 'Creating stock adjustment:', adjustmentData)
 
-      // Step 1: Create the adjustment (as draft)
-      const createResponse = await ApiService.post('/inventory/stock-adjustments', adjustmentData)
-      console.log('Create response:', createResponse)
+      if (isEditMode && id) {
+        // Edit mode: Update existing adjustment
+        const updateResponse = await ApiService.put(`/inventory/stock-adjustments/${id}`, adjustmentData)
+        const updatedAdjustment = updateResponse as any
+        const saNumber = updatedAdjustment?.adjustmentNumber || 'N/A'
 
-      const adjustment = createResponse as any
+        showSuccess(`Stock adjustment ${saNumber} updated successfully`)
+        navigate('/inventory/stock-adjustments')
+      } else {
+        // Create mode: Create new adjustment and complete it
+        // Step 1: Create the adjustment (as draft)
+        const createResponse = await ApiService.post('/inventory/stock-adjustments', adjustmentData)
+        console.log('Create response:', createResponse)
 
-      if (!adjustment || !adjustment.id) {
-        throw new Error('Invalid response from server: missing adjustment ID')
+        const adjustment = createResponse as any
+
+        if (!adjustment || !adjustment.id) {
+          throw new Error('Invalid response from server: missing adjustment ID')
+        }
+
+        // Step 2: Complete the adjustment (posts to stock movements)
+        const completeResponse = await ApiService.post(`/inventory/stock-adjustments/${adjustment.id}/complete`)
+        console.log('Complete response:', completeResponse)
+
+        const completedAdjustment = completeResponse as any
+        const saNumber = completedAdjustment?.adjustmentNumber || adjustment.adjustmentNumber
+        const itemsAdjusted = completedAdjustment?.itemCount || adjustment.itemCount || 0
+
+        showSuccess(`Stock adjustment ${saNumber} completed successfully (${itemsAdjusted} items adjusted)`)
+        navigate('/inventory/stock-adjustments')
       }
-
-      // Step 2: Complete the adjustment (posts to stock movements)
-      const completeResponse = await ApiService.post(`/inventory/stock-adjustments/${adjustment.id}/complete`)
-      console.log('Complete response:', completeResponse)
-
-      const completedAdjustment = completeResponse as any
-      const saNumber = completedAdjustment?.adjustmentNumber || adjustment.adjustmentNumber
-      const itemsAdjusted = completedAdjustment?.itemCount || adjustment.itemCount || 0
-
-      showSuccess(`Stock adjustment ${saNumber} completed successfully (${itemsAdjusted} items adjusted)`)
-      navigate('/inventory/stock-adjustments')
     } catch (err: any) {
       console.error('Error creating stock adjustments:', err)
       console.error('Error details:', {
@@ -239,7 +326,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">
-            Record Stock Adjustment
+            {isEditMode ? 'Edit Stock Adjustment' : 'Record Stock Adjustment'}
           </Typography>
         </Box>
 
@@ -554,7 +641,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                   variant="contained"
                   disabled={loading}
                 >
-                  {loading ? 'Recording...' : 'Record Adjustment'}
+                  {loading ? (isEditMode ? 'Updating...' : 'Recording...') : (isEditMode ? 'Update Adjustment' : 'Record Adjustment')}
                 </Button>
               </Box>
             </Grid>
