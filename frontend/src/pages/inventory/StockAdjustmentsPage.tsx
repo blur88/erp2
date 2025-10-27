@@ -161,6 +161,10 @@ const StockAdjustmentsPage: React.FC = () => {
   const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false)
   const [adjustmentToComplete, setAdjustmentToComplete] = useState<string | null>(null)
   const [adjustmentToCompleteName, setAdjustmentToCompleteName] = useState<string>('')
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
+  const [adjustmentToCancel, setAdjustmentToCancel] = useState<string | null>(null)
+  const [adjustmentToCancelName, setAdjustmentToCancelName] = useState<string>('')
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -351,6 +355,44 @@ const StockAdjustmentsPage: React.FC = () => {
     setCompleteConfirmOpen(false)
     setAdjustmentToComplete(null)
     setAdjustmentToCompleteName('')
+  }
+
+  const handleCancel = (id: string, adjustmentNumber: string) => {
+    setAdjustmentToCancel(id)
+    setAdjustmentToCancelName(adjustmentNumber)
+    setCancelConfirmOpen(true)
+  }
+
+  const handleConfirmCancel = async () => {
+    if (adjustmentToCancel) {
+      setCancellingId(adjustmentToCancel)
+      try {
+        await inventoryApi.cancelStockAdjustment(adjustmentToCancel)
+        showSuccess(`Stock adjustment "${adjustmentToCancelName}" cancelled successfully`)
+        loadAdjustments()
+        // Refresh the selected adjustment details
+        if (selectedAdjustment?.id === adjustmentToCancel) {
+          dispatch(fetchStockAdjustment(adjustmentToCancel))
+        }
+        setCancelConfirmOpen(false)
+        setAdjustmentToCancel(null)
+        setAdjustmentToCancelName('')
+      } catch (error: any) {
+        console.error('Failed to cancel stock adjustment:', error)
+        showError(error?.response?.data?.message || 'Failed to cancel stock adjustment')
+        setCancelConfirmOpen(false)
+        setAdjustmentToCancel(null)
+        setAdjustmentToCancelName('')
+      } finally {
+        setCancellingId(null)
+      }
+    }
+  }
+
+  const handleCancelCancelDialog = () => {
+    setCancelConfirmOpen(false)
+    setAdjustmentToCancel(null)
+    setAdjustmentToCancelName('')
   }
 
   useKeyboardShortcuts({
@@ -869,20 +911,29 @@ const StockAdjustmentsPage: React.FC = () => {
                             <TableRow>
                               <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
                                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
-                                  <Button
-                                    variant="contained"
-                                    size="small"
-                                    color={selectedAdjustment.status === 'completed' ? 'success' : 'primary'}
-                                    onClick={() => handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-                                    disabled={selectedAdjustment.status === 'completed' || completingId === selectedAdjustment.id}
-                                    sx={{ minWidth: 110 }}
-                                  >
-                                    {selectedAdjustment.status === 'completed'
-                                      ? 'Completed'
-                                      : completingId === selectedAdjustment.id
-                                      ? 'Completing...'
-                                      : 'Complete'}
-                                  </Button>
+                                  {selectedAdjustment.status === 'draft' ? (
+                                    <Button
+                                      variant="contained"
+                                      size="small"
+                                      color="primary"
+                                      onClick={() => handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+                                      disabled={completingId === selectedAdjustment.id}
+                                      sx={{ minWidth: 110 }}
+                                    >
+                                      {completingId === selectedAdjustment.id ? 'Completing...' : 'Complete'}
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="contained"
+                                      size="small"
+                                      color="warning"
+                                      onClick={() => handleCancel(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+                                      disabled={cancellingId === selectedAdjustment.id}
+                                      sx={{ minWidth: 110 }}
+                                    >
+                                      {cancellingId === selectedAdjustment.id ? 'Cancelling...' : 'Cancel'}
+                                    </Button>
+                                  )}
                                 </Stack>
                               </TableCell>
                             </TableRow>
@@ -1102,6 +1153,18 @@ const StockAdjustmentsPage: React.FC = () => {
         onConfirm={handleConfirmComplete}
         onCancel={handleCancelComplete}
         severity="info"
+      />
+
+      {/* Cancel Confirmation Dialog */}
+      <ConfirmationDialog
+        open={cancelConfirmOpen}
+        title="Confirm Cancel"
+        message={`Are you sure you want to cancel stock adjustment #${adjustmentToCancelName}? This will change the status to cancelled.`}
+        confirmText="Cancel Adjustment"
+        cancelText="Go Back"
+        onConfirm={handleConfirmCancel}
+        onCancel={handleCancelCancelDialog}
+        severity="warning"
       />
     </Box>
   )
