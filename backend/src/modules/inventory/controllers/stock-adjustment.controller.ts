@@ -197,4 +197,51 @@ export class StockAdjustmentController {
   ): Promise<StockAdjustmentResponseDto> {
     return this.stockAdjustmentService.restore(id);
   }
+
+  @Delete(':id/permanent')
+  @ApiOperation({ summary: 'Permanently delete a stock adjustment from database' })
+  @ApiResponse({
+    status: 204,
+    description: 'Stock adjustment permanently deleted successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
+  @ApiResponse({
+    status: 400,
+    description: 'Stock adjustment must be soft-deleted first'
+  })
+  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.stockAdjustmentService.permanentDelete(id);
+  }
+
+  @Post('bulk-permanent-delete')
+  @ApiOperation({ summary: 'Bulk permanently delete stock adjustments from database' })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock adjustments permanently deleted successfully',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        stockAdjustmentIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of stock adjustment IDs to permanently delete'
+        }
+      }
+    }
+  })
+  async bulkPermanentDelete(
+    @Body() body: { stockAdjustmentIds: string[] },
+  ): Promise<any> {
+    const result = await this.stockAdjustmentService.bulkPermanentDelete(body.stockAdjustmentIds);
+    return {
+      message: `Successfully permanently deleted ${result.successCount} of ${body.stockAdjustmentIds.length} stock adjustments`,
+      ...result
+    };
+  }
 }

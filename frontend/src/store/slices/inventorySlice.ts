@@ -425,7 +425,7 @@ export const fetchStockAdjustments = createAsyncThunk(
     sortOrder?: string
   }, { rejectWithValue }) => {
     try {
-      const response = await inventoryApi.getStockAdjustments(params)
+      const response = await inventoryApi.getStockAdjustments(params as any)
       return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
     } catch (error: any) {
       console.error('Failed to fetch stock adjustments:', error)
@@ -471,6 +471,30 @@ export const restoreStockAdjustment = createAsyncThunk(
       return response.data
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore stock adjustment')
+    }
+  }
+)
+
+export const permanentDeleteStockAdjustment = createAsyncThunk(
+  'inventory/permanentDeleteStockAdjustment',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await inventoryApi.permanentDeleteStockAdjustment(id)
+      return { id }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete stock adjustment')
+    }
+  }
+)
+
+export const bulkPermanentDeleteStockAdjustments = createAsyncThunk(
+  'inventory/bulkPermanentDeleteStockAdjustments',
+  async (adjustmentIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkPermanentDeleteStockAdjustments(adjustmentIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk permanently delete stock adjustments')
     }
   }
 )
@@ -661,8 +685,8 @@ const inventorySlice = createSlice({
       .addCase(fetchStockMovements.fulfilled, (state, action) => {
         state.loading.stockMovements = false
         if (action.payload) {
-          state.stockMovements = action.payload.data
-          state.pagination.stockMovements = action.payload.meta
+          state.stockMovements = (action.payload as any).data || []
+          state.pagination.stockMovements = (action.payload as any).meta
         }
       })
       .addCase(fetchStockMovements.rejected, (state, action) => {
@@ -739,8 +763,8 @@ const inventorySlice = createSlice({
       .addCase(fetchStockAdjustments.fulfilled, (state, action) => {
         state.loading.stockAdjustments = false
         if (action.payload) {
-          state.stockAdjustments = action.payload.data
-          state.pagination.stockAdjustments = action.payload.meta
+          state.stockAdjustments = (action.payload as any).data || []
+          state.pagination.stockAdjustments = (action.payload as any).meta
         }
       })
       .addCase(fetchStockAdjustments.rejected, (state, action) => {
@@ -756,7 +780,7 @@ const inventorySlice = createSlice({
           // Update the selected adjustment with full details including items
           state.selectedStockAdjustment = action.payload as any
           // Also update the adjustment in the list if it exists
-          const index = state.stockAdjustments.findIndex(sa => sa.id === action.payload.id)
+          const index = state.stockAdjustments.findIndex(sa => sa.id === (action.payload as any).id)
           if (index !== -1) {
             state.stockAdjustments[index] = action.payload as any
           }
@@ -773,7 +797,7 @@ const inventorySlice = createSlice({
       .addCase(fetchDeletedStockAdjustments.fulfilled, (state, action) => {
         state.loading.deletedStockAdjustments = false
         if (action.payload) {
-          state.deletedStockAdjustments = action.payload.data || []
+          state.deletedStockAdjustments = (action.payload as any).data || []
         }
       })
       .addCase(fetchDeletedStockAdjustments.rejected, (state, action) => {
@@ -788,6 +812,33 @@ const inventorySlice = createSlice({
         // Lists will be refreshed by the action's dispatch
       })
       .addCase(restoreStockAdjustment.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
+      // Permanent delete stock adjustment
+      .addCase(permanentDeleteStockAdjustment.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+      })
+      .addCase(permanentDeleteStockAdjustment.fulfilled, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        if (action.payload) {
+          state.deletedStockAdjustments = state.deletedStockAdjustments.filter(
+            adj => adj.id !== action.payload.id
+          )
+        }
+      })
+      .addCase(permanentDeleteStockAdjustment.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
+      // Bulk permanent delete stock adjustments
+      .addCase(bulkPermanentDeleteStockAdjustments.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+      })
+      .addCase(bulkPermanentDeleteStockAdjustments.fulfilled, (state) => {
+        state.loading.deletedStockAdjustments = false
+      })
+      .addCase(bulkPermanentDeleteStockAdjustments.rejected, (state, action) => {
         state.loading.deletedStockAdjustments = false
         state.error = action.payload as string
       })

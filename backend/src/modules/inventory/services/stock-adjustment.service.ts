@@ -570,6 +570,58 @@ export class StockAdjustmentService {
   }
 
   /**
+   * Permanently delete a stock adjustment (hard delete from database)
+   */
+  async permanentDelete(id: string): Promise<void> {
+    // Find the adjustment (including soft-deleted ones)
+    const adjustment = await this.stockAdjustmentRepository.findOne({
+      where: { id },
+      relations: ['items'],
+      withDeleted: true,
+    });
+
+    if (!adjustment) {
+      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
+    }
+
+    if (!adjustment.deletedAt) {
+      throw new BadRequestException('Stock adjustment must be soft-deleted first');
+    }
+
+    // Hard delete all adjustment items first
+    if (adjustment.items && adjustment.items.length > 0) {
+      await this.stockAdjustmentItemRepository.delete(
+        adjustment.items.map(item => item.id)
+      );
+    }
+
+    // Hard delete the adjustment
+    await this.stockAdjustmentRepository.delete(id);
+
+    this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} permanently deleted`);
+  }
+
+  /**
+   * Bulk permanently delete stock adjustments
+   */
+  async bulkPermanentDelete(adjustmentIds: string[]): Promise<{ successCount: number; failedIds: string[] }> {
+    const failedIds: string[] = [];
+    let successCount = 0;
+
+    for (const id of adjustmentIds) {
+      try {
+        await this.permanentDelete(id);
+        successCount++;
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete stock adjustment ${id}: ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    return { successCount, failedIds };
+  }
+
+  /**
    * Convert adjustment to list response DTO
    */
   private toListResponseDto(adjustment: StockAdjustment): StockAdjustmentListResponseDto {

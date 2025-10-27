@@ -298,6 +298,17 @@ export const inventoryApi = {
     return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/restore`)
   },
 
+  async permanentDeleteStockAdjustment(id: string) {
+    return ApiService.delete(`/inventory/stock-adjustments/${id}/permanent`)
+  },
+
+  async bulkPermanentDeleteStockAdjustments(stockAdjustmentIds: string[]) {
+    return ApiService.post<{ successCount: number; failedIds: string[] }>(
+      '/inventory/stock-adjustments/bulk-permanent-delete',
+      { stockAdjustmentIds }
+    )
+  },
+
   async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {
     return ApiService.get<Array<{
       product: Product

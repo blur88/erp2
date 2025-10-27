@@ -29,6 +29,7 @@ import {
 import {
   Search as SearchIcon,
   Restore as RestoreIcon,
+  Delete as DeleteIcon,
   Close as CloseIcon,
   Assessment as AssessmentIcon,
 } from '@mui/icons-material'
@@ -36,6 +37,8 @@ import { useDispatch, useSelector } from 'react-redux'
 import {
   fetchDeletedStockAdjustments,
   restoreStockAdjustment,
+  permanentDeleteStockAdjustment,
+  bulkPermanentDeleteStockAdjustments,
   selectDeletedStockAdjustments,
   selectInventoryLoading,
   fetchStockAdjustments,
@@ -59,9 +62,13 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
 
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedAdjustments, setSelectedAdjustments] = useState<Set<string>>(new Set())
   const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<StockAdjustment | null>(null)
   const [bulkRestoring, setBulkRestoring] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -164,6 +171,63 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
     }
   }
 
+  const handlePermanentDelete = async (adjustment: StockAdjustment) => {
+    setDeletingId(adjustment.id)
+    try {
+      const result = await dispatch(permanentDeleteStockAdjustment(adjustment.id))
+
+      if (permanentDeleteStockAdjustment.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+
+      showSuccess(`Stock adjustment "${adjustment.adjustmentNumber}" permanently deleted`)
+      // No need to refresh as the Redux reducer removes it from the list
+    } catch (error: any) {
+      console.error('Stock adjustment permanent delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete stock adjustment'
+      showError(errorMessage)
+    } finally {
+      setDeletingId(null)
+      setShowDeleteConfirm(null)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true)
+    try {
+      const adjustmentIds = Array.from(selectedAdjustments)
+      const result = await dispatch(bulkPermanentDeleteStockAdjustments(adjustmentIds))
+
+      if (bulkPermanentDeleteStockAdjustments.rejected.match(result)) {
+        throw new Error(result.payload as string)
+      }
+
+      const payload = result.payload as any
+      console.log('Bulk delete payload:', payload) // Debug log
+      const deletedCount = payload?.successCount || 0
+      const failedIds = payload?.failedIds || []
+
+      if (deletedCount > 0) {
+        showSuccess(`Successfully permanently deleted ${deletedCount} stock adjustments`)
+      }
+
+      if (failedIds.length > 0) {
+        showError(`Failed to delete ${failedIds.length} stock adjustments`)
+      }
+
+      // Refresh deleted adjustments list and clear selections
+      dispatch(fetchDeletedStockAdjustments({}))
+      setSelectedAdjustments(new Set())
+    } catch (error: any) {
+      console.error('Bulk delete error:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete stock adjustments'
+      showError(errorMessage)
+    } finally {
+      setBulkDeleting(false)
+      setShowBulkDeleteConfirm(false)
+    }
+  }
+
   const getStatusColor = (status: string): 'warning' | 'success' | 'error' => {
     switch (status.toLowerCase()) {
       case 'draft':
@@ -226,16 +290,28 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
               />
 
               {selectedCount > 0 && (
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<RestoreIcon />}
-                  onClick={() => setShowBulkRestoreConfirm(true)}
-                  disabled={bulkRestoring}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Restore Selected ({selectedCount})
-                </Button>
+                <>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<RestoreIcon />}
+                    onClick={() => setShowBulkRestoreConfirm(true)}
+                    disabled={bulkRestoring}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    Restore Selected ({selectedCount})
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                    disabled={bulkDeleting}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    Delete Selected ({selectedCount})
+                  </Button>
+                </>
               )}
             </Box>
           </Box>
@@ -330,28 +406,52 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                         </Typography>
                       </TableCell>
                       <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                        <Tooltip title="Restore stock adjustment">
-                          <span>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleRestore(adjustment)}
-                              disabled={restoringId === adjustment.id}
-                              color="success"
-                              sx={{
-                                '&:hover': {
-                                  backgroundColor: 'success.lighter',
-                                  color: 'success.dark'
-                                }
-                              }}
-                            >
-                              {restoringId === adjustment.id ? (
-                                <CircularProgress size={20} />
-                              ) : (
-                                <RestoreIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </span>
-                        </Tooltip>
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                          <Tooltip title="Restore stock adjustment">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleRestore(adjustment)}
+                                disabled={restoringId === adjustment.id}
+                                color="success"
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: 'success.lighter',
+                                    color: 'success.dark'
+                                  }
+                                }}
+                              >
+                                {restoringId === adjustment.id ? (
+                                  <CircularProgress size={20} />
+                                ) : (
+                                  <RestoreIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Permanently delete stock adjustment">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => setShowDeleteConfirm(adjustment)}
+                                disabled={deletingId === adjustment.id}
+                                color="error"
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: 'error.lighter',
+                                    color: 'error.dark'
+                                  }
+                                }}
+                              >
+                                {deletingId === adjustment.id ? (
+                                  <CircularProgress size={20} />
+                                ) : (
+                                  <DeleteIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))
@@ -392,6 +492,58 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
             disabled={bulkRestoring}
           >
             {bulkRestoring ? 'Restoring...' : 'Restore'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onClose={() => setShowBulkDeleteConfirm(false)}>
+        <DialogTitle>Confirm Bulk Permanent Delete</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This action cannot be undone!
+          </Alert>
+          <Typography>
+            Are you sure you want to permanently delete {selectedCount} stock adjustment{selectedCount > 1 ? 's' : ''}? They will be removed from the database permanently.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleBulkDelete}
+            variant="contained"
+            color="error"
+            disabled={bulkDeleting}
+          >
+            {bulkDeleting ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Single Delete Confirmation Dialog */}
+      <Dialog open={!!showDeleteConfirm} onClose={() => setShowDeleteConfirm(null)}>
+        <DialogTitle>Confirm Permanent Delete</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This action cannot be undone!
+          </Alert>
+          <Typography>
+            Are you sure you want to permanently delete stock adjustment "{showDeleteConfirm?.adjustmentNumber}"? It will be removed from the database permanently.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteConfirm(null)} disabled={!!deletingId}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => showDeleteConfirm && handlePermanentDelete(showDeleteConfirm)}
+            variant="contained"
+            color="error"
+            disabled={!!deletingId}
+          >
+            {deletingId ? 'Deleting...' : 'Permanently Delete'}
           </Button>
         </DialogActions>
       </Dialog>
