@@ -26,6 +26,7 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
+  Stack,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -156,6 +157,10 @@ const StockAdjustmentsPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [adjustmentToDelete, setAdjustmentToDelete] = useState<string | null>(null)
   const [adjustmentToDeleteName, setAdjustmentToDeleteName] = useState<string>('')
+  const [completingId, setCompletingId] = useState<string | null>(null)
+  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false)
+  const [adjustmentToComplete, setAdjustmentToComplete] = useState<string | null>(null)
+  const [adjustmentToCompleteName, setAdjustmentToCompleteName] = useState<string>('')
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -308,6 +313,44 @@ const StockAdjustmentsPage: React.FC = () => {
     setDeleteConfirmOpen(false)
     setAdjustmentToDelete(null)
     setAdjustmentToDeleteName('')
+  }
+
+  const handleComplete = (id: string, adjustmentNumber: string) => {
+    setAdjustmentToComplete(id)
+    setAdjustmentToCompleteName(adjustmentNumber)
+    setCompleteConfirmOpen(true)
+  }
+
+  const handleConfirmComplete = async () => {
+    if (adjustmentToComplete) {
+      setCompletingId(adjustmentToComplete)
+      try {
+        await inventoryApi.completeStockAdjustment(adjustmentToComplete)
+        showSuccess(`Stock adjustment "${adjustmentToCompleteName}" completed successfully`)
+        loadAdjustments()
+        // Refresh the selected adjustment details
+        if (selectedAdjustment?.id === adjustmentToComplete) {
+          dispatch(fetchStockAdjustment(adjustmentToComplete))
+        }
+        setCompleteConfirmOpen(false)
+        setAdjustmentToComplete(null)
+        setAdjustmentToCompleteName('')
+      } catch (error: any) {
+        console.error('Failed to complete stock adjustment:', error)
+        showError(error?.response?.data?.message || 'Failed to complete stock adjustment')
+        setCompleteConfirmOpen(false)
+        setAdjustmentToComplete(null)
+        setAdjustmentToCompleteName('')
+      } finally {
+        setCompletingId(null)
+      }
+    }
+  }
+
+  const handleCancelComplete = () => {
+    setCompleteConfirmOpen(false)
+    setAdjustmentToComplete(null)
+    setAdjustmentToCompleteName('')
   }
 
   useKeyboardShortcuts({
@@ -822,6 +865,28 @@ const StockAdjustmentsPage: React.FC = () => {
                               {formatDate(selectedAdjustment.updatedAt)}
                             </TableCell>
                           </TableRow>
+                          {(selectedAdjustment.status === 'draft' || selectedAdjustment.status === 'completed') && (
+                            <TableRow>
+                              <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
+                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    color={selectedAdjustment.status === 'completed' ? 'success' : 'primary'}
+                                    onClick={() => handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+                                    disabled={selectedAdjustment.status === 'completed' || completingId === selectedAdjustment.id}
+                                    sx={{ minWidth: 110 }}
+                                  >
+                                    {selectedAdjustment.status === 'completed'
+                                      ? 'Completed'
+                                      : completingId === selectedAdjustment.id
+                                      ? 'Completing...'
+                                      : 'Complete'}
+                                  </Button>
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -1025,6 +1090,18 @@ const StockAdjustmentsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         severity="warning"
+      />
+
+      {/* Complete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={completeConfirmOpen}
+        title="Confirm Complete"
+        message={`Are you sure you want to complete stock adjustment #${adjustmentToCompleteName}? This will post the stock movements and update inventory levels. This action cannot be undone.`}
+        confirmText="Complete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmComplete}
+        onCancel={handleCancelComplete}
+        severity="info"
       />
     </Box>
   )
