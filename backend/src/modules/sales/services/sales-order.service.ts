@@ -28,6 +28,7 @@ import {
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 
 @Injectable()
 export class SalesOrderService {
@@ -48,6 +49,7 @@ export class SalesOrderService {
     private readonly userRepository: Repository<User>,
     // private readonly customerService: CustomerService,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
+    private readonly stockMovementService: StockMovementService,
   ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
@@ -1362,6 +1364,18 @@ export class SalesOrderService {
       await this.customerRepository.save(customer);
     }
 
+    // Delete associated stock movements
+    try {
+      const stockMovementResult = await this.stockMovementService.deleteByReference(
+        'sales_order',
+        id
+      );
+      console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order deletion should still succeed
+    }
+
     // Hard delete order items first (foreign key constraint)
     await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
@@ -1453,6 +1467,18 @@ export class SalesOrderService {
           customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
           customer.totalOrders = Math.max(0, customer.totalOrders - 1);
           await this.customerRepository.save(customer);
+        }
+
+        // Delete associated stock movements
+        try {
+          const stockMovementResult = await this.stockMovementService.deleteByReference(
+            'sales_order',
+            id
+          );
+          console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber}`);
+        } catch (error) {
+          console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
+          // Don't throw error - bulk deletion should still succeed
         }
 
         // Hard delete order items first
@@ -1616,7 +1642,6 @@ export class SalesOrderService {
         // Update existing payment
         existingPayment.amount = Number(amount);
         existingPayment.paymentDate = new Date();
-        existingPayment.clearedDate = new Date();
         existingPayment.notes = `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`;
         await paymentRepository.save(existingPayment);
         console.log(`✅ Updated payment ${existingPayment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);

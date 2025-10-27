@@ -711,6 +711,18 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
+    // Delete associated stock movements
+    try {
+      const stockMovementResult = await this.stockMovementService.deleteByReference(
+        'purchase_order',
+        id
+      );
+      this.logger.log(`Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber}`);
+    } catch (error) {
+      this.logger.error(`Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`);
+      // Don't throw error - purchase order deletion should still succeed
+    }
+
     // Find and permanently delete associated GRN (including soft-deleted)
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },

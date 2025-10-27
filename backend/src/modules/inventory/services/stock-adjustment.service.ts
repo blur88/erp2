@@ -588,6 +588,18 @@ export class StockAdjustmentService {
       throw new BadRequestException('Stock adjustment must be soft-deleted first');
     }
 
+    // Delete associated stock movements
+    try {
+      const stockMovementResult = await this.stockMovementService.deleteByReference(
+        'stock_adjustment',
+        id
+      );
+      this.logger.log(`Deleted ${stockMovementResult.deletedCount} stock movements for stock adjustment ${adjustment.adjustmentNumber}`);
+    } catch (error) {
+      this.logger.error(`Failed to delete stock movements for stock adjustment ${adjustment.adjustmentNumber}: ${error.message}`);
+      // Don't throw error - stock adjustment deletion should still succeed
+    }
+
     // Hard delete all adjustment items first
     if (adjustment.items && adjustment.items.length > 0) {
       await this.stockAdjustmentItemRepository.delete(

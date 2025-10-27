@@ -772,4 +772,59 @@ export class StockMovementService {
       movementIds,
     };
   }
+
+  /**
+   * Delete stock movements by reference type and ID
+   * Used for hard delete cascades when removing source documents
+   */
+  async deleteByReference(
+    referenceType: string,
+    referenceId: string,
+  ): Promise<{ deletedCount: number }> {
+    this.logger.log(`Deleting stock movements for ${referenceType}: ${referenceId}`);
+
+    const result = await this.stockMovementRepository
+      .createQueryBuilder('movement')
+      .delete()
+      .where('movement.referenceType = :referenceType', { referenceType })
+      .andWhere('movement.referenceId = :referenceId', { referenceId })
+      .execute();
+
+    const deletedCount = Number(result.affected) || 0;
+    this.logger.log(`Deleted ${deletedCount} stock movements for ${referenceType}: ${referenceId}`);
+
+    return { deletedCount };
+  }
+
+  /**
+   * Delete stock movements by multiple reference types and IDs
+   * Used for bulk operations
+   */
+  async deleteByMultipleReferences(
+    references: Array<{ referenceType: string; referenceId: string }>,
+  ): Promise<{ deletedCount: number }> {
+    if (!references || references.length === 0) {
+      return { deletedCount: 0 };
+    }
+
+    this.logger.log(`Deleting stock movements for ${references.length} references`);
+
+    let totalDeletedCount = 0;
+
+    for (const { referenceType, referenceId } of references) {
+      const result = await this.stockMovementRepository
+        .createQueryBuilder('movement')
+        .delete()
+        .where('movement.referenceType = :referenceType', { referenceType })
+        .andWhere('movement.referenceId = :referenceId', { referenceId })
+        .execute();
+
+      const deletedCount = Number(result.affected) || 0;
+      totalDeletedCount += deletedCount;
+    }
+
+    this.logger.log(`Deleted ${totalDeletedCount} stock movements across ${references.length} references`);
+
+    return { deletedCount: totalDeletedCount };
+  }
 }
