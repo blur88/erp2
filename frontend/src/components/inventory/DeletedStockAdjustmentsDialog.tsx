@@ -319,27 +319,65 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
           <TableContainer component={Paper} sx={{ maxHeight: 'calc(80vh - 300px)' }}>
             <Table stickyHeader>
               <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox">
+                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                  <TableCell sx={{ width: '48px', padding: '8px' }}>
                     <Checkbox
                       checked={allSelected}
                       indeterminate={partiallySelected}
                       onChange={(e) => handleSelectAll(e.target.checked)}
+                      size="small"
                       disabled={filteredAdjustments.length === 0}
                     />
                   </TableCell>
-                  <TableCell>Adjustment Number</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="center">Items</TableCell>
-                  <TableCell>Notes</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+                  <TableCell sx={{ width: isMobile ? '25%' : '20%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Adjustment Number
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ width: isMobile ? '30%' : '25%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Adjusted By
+                    </Typography>
+                  </TableCell>
+                  {!isMobile && (
+                    <TableCell sx={{ width: '15%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Adjustment Date
+                      </Typography>
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell sx={{ width: '10%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Status
+                      </Typography>
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell align="center" sx={{ width: '10%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Items
+                      </Typography>
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell sx={{ width: '15%' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                        Deleted Date
+                      </Typography>
+                    </TableCell>
+                  )}
+                  <TableCell align="right" sx={{ width: isMobile ? '45%' : '10%' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
+                      Actions
+                    </Typography>
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading?.deletedStockAdjustments ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 5 : 8} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={32} />
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                         Loading deleted stock adjustments...
@@ -348,7 +386,7 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                   </TableRow>
                 ) : filteredAdjustments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={isMobile ? 5 : 8} align="center" sx={{ py: 4 }}>
                       <AssessmentIcon sx={{ fontSize: 48, color: 'action.disabled', mb: 1 }} />
                       <Typography variant="body1" color="text.secondary">
                         {searchTerm ? 'No matching deleted stock adjustments found' : 'No deleted stock adjustments'}
@@ -361,52 +399,90 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAdjustments.map((adjustment) => (
+                  filteredAdjustments.map((adjustment: StockAdjustment) => (
                     <TableRow
                       key={adjustment.id}
                       hover
                       sx={{
-                        '&:hover': { backgroundColor: 'action.hover' },
-                        cursor: 'pointer'
+                        '&:hover, &:focus-within': {
+                          backgroundColor: 'action.hover',
+                          '& .adjustment-actions': {
+                            opacity: 1
+                          }
+                        },
+                        transition: 'background-color 0.2s ease',
+                        cursor: 'default',
+                        height: 48
                       }}
                       onClick={() => handleSelectAdjustment(adjustment.id, !selectedAdjustments.has(adjustment.id))}
                     >
-                      <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                      <TableCell sx={{ padding: '8px' }} onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedAdjustments.has(adjustment.id)}
                           onChange={(e) => handleSelectAdjustment(adjustment.id, e.target.checked)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                          {adjustment.adjustmentNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {formatDate(adjustment.adjustmentDate)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={adjustment.status.charAt(0).toUpperCase() + adjustment.status.slice(1)}
-                          color={getStatusColor(adjustment.status)}
                           size="small"
-                          sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize' }}
                         />
                       </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {adjustment.itemCount || 0}
-                        </Typography>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                            {adjustment.adjustmentNumber}
+                          </Typography>
+                          {isMobile && (
+                            <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                {formatDate(adjustment.adjustmentDate)}
+                              </Typography>
+                              <Chip
+                                label={adjustment.status.charAt(0).toUpperCase() + adjustment.status.slice(1)}
+                                color={getStatusColor(adjustment.status)}
+                                size="small"
+                                sx={{ fontSize: '0.6rem', height: 16, textTransform: 'capitalize' }}
+                              />
+                            </Box>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {adjustment.notes || '-'}
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                          {adjustment.adjustedByUser?.firstName && adjustment.adjustedByUser?.lastName
+                            ? `${adjustment.adjustedByUser.firstName} ${adjustment.adjustedByUser.lastName}`
+                            : adjustment.adjustedByUser?.email || 'Unknown User'}
                         </Typography>
                       </TableCell>
-                      <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                      {!isMobile && (
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                            {formatDate(adjustment.adjustmentDate)}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      {!isMobile && (
+                        <TableCell>
+                          <Chip
+                            label={adjustment.status.charAt(0).toUpperCase() + adjustment.status.slice(1)}
+                            color={getStatusColor(adjustment.status)}
+                            size="small"
+                            sx={{ fontSize: '0.65rem', fontWeight: 600, textTransform: 'capitalize' }}
+                          />
+                        </TableCell>
+                      )}
+                      {!isMobile && (
+                        <TableCell align="center">
+                          <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                            {adjustment.itemCount || 0}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      {!isMobile && (
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            {(adjustment as any).deletedAt ? formatDate((adjustment as any).deletedAt) : 'Unknown'}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <Box className="adjustment-actions" sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', opacity: 0.8, transition: 'opacity 0.2s ease' }}>
                           <Tooltip title="Restore stock adjustment">
                             <span>
                               <IconButton
@@ -416,13 +492,13 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                                 color="success"
                                 sx={{
                                   '&:hover': {
-                                    backgroundColor: 'success.lighter',
+                                    backgroundColor: 'success.light',
                                     color: 'success.dark'
                                   }
                                 }}
                               >
                                 {restoringId === adjustment.id ? (
-                                  <CircularProgress size={20} />
+                                  <CircularProgress size={16} />
                                 ) : (
                                   <RestoreIcon fontSize="small" />
                                 )}
@@ -438,13 +514,13 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                                 color="error"
                                 sx={{
                                   '&:hover': {
-                                    backgroundColor: 'error.lighter',
+                                    backgroundColor: 'error.light',
                                     color: 'error.dark'
                                   }
                                 }}
                               >
                                 {deletingId === adjustment.id ? (
-                                  <CircularProgress size={20} />
+                                  <CircularProgress size={16} />
                                 ) : (
                                   <DeleteIcon fontSize="small" />
                                 )}
