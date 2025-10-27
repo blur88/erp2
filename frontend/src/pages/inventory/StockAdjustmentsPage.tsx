@@ -367,8 +367,8 @@ const StockAdjustmentsPage: React.FC = () => {
     if (adjustmentToCancel) {
       setCancellingId(adjustmentToCancel)
       try {
-        await inventoryApi.cancelStockAdjustment(adjustmentToCancel)
-        showSuccess(`Stock adjustment "${adjustmentToCancelName}" cancelled successfully`)
+        await inventoryApi.uncompleteStockAdjustment(adjustmentToCancel)
+        showSuccess(`Stock adjustment "${adjustmentToCancelName}" reverted to draft successfully`)
         loadAdjustments()
         // Refresh the selected adjustment details
         if (selectedAdjustment?.id === adjustmentToCancel) {
@@ -378,8 +378,8 @@ const StockAdjustmentsPage: React.FC = () => {
         setAdjustmentToCancel(null)
         setAdjustmentToCancelName('')
       } catch (error: any) {
-        console.error('Failed to cancel stock adjustment:', error)
-        showError(error?.response?.data?.message || 'Failed to cancel stock adjustment')
+        console.error('Failed to revert stock adjustment:', error)
+        showError(error?.response?.data?.message || 'Failed to revert stock adjustment')
         setCancelConfirmOpen(false)
         setAdjustmentToCancel(null)
         setAdjustmentToCancelName('')
@@ -1158,9 +1158,9 @@ const StockAdjustmentsPage: React.FC = () => {
       {/* Cancel Confirmation Dialog */}
       <ConfirmationDialog
         open={cancelConfirmOpen}
-        title="Confirm Cancel"
-        message={`Are you sure you want to cancel stock adjustment #${adjustmentToCancelName}? This will change the status to cancelled.`}
-        confirmText="Cancel Adjustment"
+        title="Revert to Draft"
+        message={`Are you sure you want to revert stock adjustment #${adjustmentToCancelName} back to draft? This will reverse the stock movements and return inventory levels to their previous state.`}
+        confirmText="Revert to Draft"
         cancelText="Go Back"
         onConfirm={handleConfirmCancel}
         onCancel={handleCancelCancelDialog}

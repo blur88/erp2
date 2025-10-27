@@ -278,6 +278,10 @@ export const inventoryApi = {
     return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/complete`)
   },
 
+  async uncompleteStockAdjustment(id: string) {
+    return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/uncomplete`)
+  },
+
   async cancelStockAdjustment(id: string) {
     return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/cancel`)
   },

@@ -152,6 +152,22 @@ export class StockAdjustmentController {
     return this.stockAdjustmentService.cancel(id);
   }
 
+  @Post(':id/uncomplete')
+  @ApiOperation({ summary: 'Revert a completed stock adjustment back to draft (reverses stock movements)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock adjustment reverted to draft successfully',
+    type: StockAdjustmentResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Only completed adjustments can be reverted' })
+  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
+  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
+  async uncomplete(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<StockAdjustmentResponseDto> {
+    return this.stockAdjustmentService.uncomplete(id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a stock adjustment (soft delete, draft only)' })
