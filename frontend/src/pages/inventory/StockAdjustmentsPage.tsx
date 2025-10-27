@@ -280,6 +280,17 @@ const StockAdjustmentsPage: React.FC = () => {
     searchInputRef.current?.focus()
   }, [])
 
+  const handleEdit = () => {
+    if (selectedAdjustment) {
+      // Only allow editing draft adjustments
+      if (selectedAdjustment.status !== 'draft') {
+        showError('Only draft adjustments can be edited')
+        return
+      }
+      navigate(`/inventory/stock-adjustments/${selectedAdjustment.id}/edit`)
+    }
+  }
+
   const handleDelete = (id: string, adjustmentNumber: string) => {
     setAdjustmentToDelete(id)
     setAdjustmentToDeleteName(adjustmentNumber)
@@ -749,7 +760,7 @@ const StockAdjustmentsPage: React.FC = () => {
                   <IconButton
                     size="small"
                     title="Edit Adjustment"
-                    onClick={() => navigate(`/inventory/stock-adjustments/edit/${selectedAdjustment.id}`)}
+                    onClick={handleEdit}
                     sx={{
                       height: `${TABLE_STYLES.row.height * 0.75}px`,
                       width: `${TABLE_STYLES.row.height * 0.75}px`,

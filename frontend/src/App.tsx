@@ -69,6 +69,7 @@ function App() {
                     <Route path="/inventory/categories" element={<CategoriesPage />} />
                     <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
                     <Route path="/inventory/stock-adjustments/create" element={<CreateStockAdjustmentPage />} />
+                    <Route path="/inventory/stock-adjustments/:id/edit" element={<CreateStockAdjustmentPage />} />
 
                     {/* Sales Management */}
                     <Route path="/sales" element={<SalesPage />} />
