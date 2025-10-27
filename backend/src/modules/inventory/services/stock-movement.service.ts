@@ -188,7 +188,8 @@ export class StockMovementService {
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('movement.movedByUser', 'user');
+      .leftJoinAndSelect('movement.movedByUser', 'user')
+      .where('movement.deletedAt IS NULL');
 
     // Apply filters
     if (productId) {
@@ -248,7 +249,7 @@ export class StockMovementService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search),',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search)',
         { search: `%${search}%` },
       );
     }
