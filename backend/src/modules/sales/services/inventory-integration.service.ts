@@ -413,6 +413,7 @@ export class InventoryIntegrationService {
     reason: string,
     referenceId?: string,
     userId?: string,
+    movementTypeOverride?: StockMovementType,
   ): Promise<void> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
@@ -429,9 +430,9 @@ export class InventoryIntegrationService {
 
     // Create stock movement record BEFORE updating product
     // This ensures previousBalance and newBalance are calculated correctly
-    const movementType = quantityChange > 0
+    const movementType = movementTypeOverride || (quantityChange > 0
       ? StockMovementType.ADJUSTMENT_INCREASE
-      : StockMovementType.SALE; // Use SALE for negative adjustments (fulfillment)
+      : StockMovementType.SALE); // Use SALE for negative adjustments (fulfillment)
 
     await this.createStockMovementWithBalances(
       productId,

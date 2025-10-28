@@ -27,6 +27,7 @@ interface MovementHistoryTabProps {
 const ALLOWED_MOVEMENT_TYPES = [
   StockMovementType.PURCHASE_RECEIPT,
   StockMovementType.SALE,
+  StockMovementType.SALE_REVERSAL,
   StockMovementType.ADJUSTMENT_INCREASE,
   StockMovementType.ADJUSTMENT_DECREASE,
 ]
@@ -35,6 +36,7 @@ const getMovementTypeLabel = (movementType: StockMovementType): string => {
   const labels: Partial<Record<StockMovementType, string>> = {
     [StockMovementType.PURCHASE_RECEIPT]: 'Purchase Order Receive',
     [StockMovementType.SALE]: 'Sales Order Fulfillment',
+    [StockMovementType.SALE_REVERSAL]: 'Sales Order Unfulfill',
     [StockMovementType.ADJUSTMENT_INCREASE]: 'Stock Adjustment',
     [StockMovementType.ADJUSTMENT_DECREASE]: 'Stock Adjustment',
   }
@@ -102,7 +104,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
       if (movement.movementType === StockMovementType.PURCHASE_RECEIPT) {
         return movement.referenceNumber.startsWith('PO-') ? movement.referenceNumber : `PO-${movement.referenceNumber}`
       }
-      if (movement.movementType === StockMovementType.SALE) {
+      if (movement.movementType === StockMovementType.SALE || movement.movementType === StockMovementType.SALE_REVERSAL) {
         return movement.referenceNumber.startsWith('SO-') ? movement.referenceNumber : `SO-${movement.referenceNumber}`
       }
       if (
@@ -116,9 +118,9 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
 
     // If referenceNumber is null, try to extract from reason field
     if (movement.reason) {
-      // Extract SO number from reason like "Sales order fulfillment: SO-000008"
+      // Extract SO number from reason like "Sales order fulfillment: SO-000008" or "Sales order unfulfillment: SO-000008"
       const soMatch = movement.reason.match(/SO-\d+/)
-      if (soMatch && movement.movementType === StockMovementType.SALE) {
+      if (soMatch && (movement.movementType === StockMovementType.SALE || movement.movementType === StockMovementType.SALE_REVERSAL)) {
         return soMatch[0]
       }
 

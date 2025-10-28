@@ -1803,10 +1803,14 @@ export class SalesOrderService {
     // Add inventory back for each item
     for (const item of order.items) {
       if (item.product) {
+        const { StockMovementType } = await import('../../../database/entities/stock-movement.entity');
         await this.inventoryIntegrationService.adjustStock(
           item.productId,
           item.quantity,
-          `Sales order unfulfillment: ${order.orderNumber}`
+          `Sales order unfulfillment: ${order.orderNumber}`,
+          order.id,
+          undefined, // userId is optional, pass undefined instead of 'system'
+          StockMovementType.SALE_REVERSAL
         );
       }
     }

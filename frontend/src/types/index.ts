@@ -104,6 +104,7 @@ export enum StockMovementType {
   // Inward movements (increase stock)
   PURCHASE_RECEIPT = 'purchase_receipt',
   SALES_RETURN = 'sales_return',
+  SALE_REVERSAL = 'sale_reversal', // Sales order unfulfillment
   PRODUCTION_RECEIPT = 'production_receipt',
   TRANSFER_IN = 'transfer_in',
   ADJUSTMENT_INCREASE = 'adjustment_increase',
