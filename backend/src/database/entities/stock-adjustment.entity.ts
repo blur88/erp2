@@ -22,7 +22,6 @@ import { Product } from './product.entity';
 export enum StockAdjustmentStatus {
   DRAFT = 'draft',
   COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
 }
 
 /**
@@ -118,10 +117,6 @@ export class StockAdjustment extends BaseEntity {
 
   canComplete(): boolean {
     return this.status === StockAdjustmentStatus.DRAFT;
-  }
-
-  canCancel(): boolean {
-    return this.status !== StockAdjustmentStatus.CANCELLED;
   }
 }
 

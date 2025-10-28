@@ -219,9 +219,6 @@ export class StockAdjustmentResponseDto {
   @ApiProperty({ description: 'Can complete' })
   canComplete: boolean;
 
-  @ApiProperty({ description: 'Can cancel' })
-  canCancel: boolean;
-
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
 

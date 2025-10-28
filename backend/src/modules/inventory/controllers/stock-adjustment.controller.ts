@@ -136,21 +136,6 @@ export class StockAdjustmentController {
     return this.stockAdjustmentService.complete(id);
   }
 
-  @Post(':id/cancel')
-  @ApiOperation({ summary: 'Cancel a stock adjustment' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock adjustment cancelled successfully',
-    type: StockAdjustmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Adjustment cannot be cancelled' })
-  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
-  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
-  async cancel(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.cancel(id);
-  }
 
   @Post(':id/uncomplete')
   @ApiOperation({ summary: 'Revert a completed stock adjustment back to draft (reverses stock movements)' })
