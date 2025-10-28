@@ -135,14 +135,9 @@ export class InventoryIntegrationService {
       const currentReservation = orderReservations.get(item.productId) || 0;
       orderReservations.set(item.productId, currentReservation + item.quantity);
 
-      // Create stock movement record
-      await this.createStockMovement(
-        item.productId,
-        item.quantity,
-        StockMovementType.ADJUSTMENT_DECREASE, // Using ADJUSTMENT_DECREASE instead of missing RESERVATION
-        `Reserved for sales order ${item.salesOrderId}`,
-        item.salesOrderId,
-      );
+      // Note: We don't create stock movement records for reservations
+      // Stock movements are only created when the order is actually fulfilled
+      // Reservations are tracked in-memory only via the reservations Map
     }
   }
 
@@ -153,15 +148,8 @@ export class InventoryIntegrationService {
     }
 
     // Release all reservations for this order
-    for (const [productId, quantity] of orderReservations.entries()) {
-      await this.createStockMovement(
-        productId,
-        quantity,
-        StockMovementType.ADJUSTMENT_INCREASE, // Using ADJUSTMENT_INCREASE instead of missing RESERVATION_RELEASE
-        `Released reservation for sales order ${salesOrderId}`,
-        salesOrderId,
-      );
-    }
+    // Note: We don't create stock movement records for releasing reservations
+    // Stock movements are only created for actual stock changes (fulfillment)
 
     // Remove from reservations map
     this.reservations.delete(salesOrderId);
@@ -200,20 +188,25 @@ export class InventoryIntegrationService {
         );
       }
 
-      // Update product stock (allow negative for GOODS products)
-      const newStockQuantity = Number(product.stockQuantity) - item.quantity;
-      product.stockQuantity = newStockQuantity; // Allow negative stock for GOODS
-      await this.productRepository.save(product);
+      // Create stock movement for fulfillment BEFORE updating stock
+      // This ensures previousBalance and newBalance are calculated correctly
+      const previousStock = Number(product.stockQuantity);
+      const newStockQuantity = previousStock - item.quantity;
 
-      // Create stock movement for fulfillment
-      await this.createStockMovement(
+      await this.createStockMovementWithBalances(
         item.productId,
-        item.quantity,
+        -item.quantity, // Negative for sales (outward movement)
+        previousStock,
+        newStockQuantity,
         StockMovementType.SALE,
         `Fulfilled for sales order ${order.orderNumber}`,
         salesOrderId,
         userId,
       );
+
+      // Update product stock (allow negative for GOODS products)
+      product.stockQuantity = newStockQuantity; // Allow negative stock for GOODS
+      await this.productRepository.save(product);
 
       // Remove from reservations
       orderReservations.set(item.productId, reservedQuantity - item.quantity);
@@ -369,18 +362,9 @@ export class InventoryIntegrationService {
       orderReservations.set(productId, newQuantity);
     }
 
-    // Create stock movement record
-    const movementType = difference > 0 
-      ? StockMovementType.ADJUSTMENT_DECREASE // Using ADJUSTMENT_DECREASE instead of missing RESERVATION
-      : StockMovementType.ADJUSTMENT_INCREASE; // Using ADJUSTMENT_INCREASE instead of missing RESERVATION_RELEASE
-
-    await this.createStockMovement(
-      productId,
-      Math.abs(difference),
-      movementType,
-      `Reservation ${difference > 0 ? 'increase' : 'decrease'} for sales order ${salesOrderId}`,
-      salesOrderId,
-    );
+    // Note: We don't create stock movement records for reservation adjustments
+    // Stock movements are only created when the order is actually fulfilled
+    // Reservations are tracked in-memory only via the reservations Map
   }
 
   async getInventorySummary(): Promise<{
@@ -438,15 +422,27 @@ export class InventoryIntegrationService {
       throw new NotFoundException(`Product ${productId} not found`);
     }
 
-    // Update product stock quantity (allow negative for GOODS products)
-    // Ensure both values are properly converted to numbers to avoid string concatenation
+    // Calculate stock changes BEFORE updating
     const currentStock = Number(product.stockQuantity);
     const changeAmount = Number(quantityChange);
     const newStockQuantity = currentStock + changeAmount;
 
-    // Explicitly set as number to ensure TypeORM handles it correctly
-    product.stockQuantity = Number(newStockQuantity);
-    await this.productRepository.save(product);
+    // Create stock movement record BEFORE updating product
+    // This ensures previousBalance and newBalance are calculated correctly
+    const movementType = quantityChange > 0
+      ? StockMovementType.ADJUSTMENT_INCREASE
+      : StockMovementType.SALE; // Use SALE for negative adjustments (fulfillment)
+
+    await this.createStockMovementWithBalances(
+      productId,
+      quantityChange,
+      currentStock,
+      newStockQuantity,
+      movementType,
+      reason,
+      referenceId,
+      userId,
+    );
 
     // Update FIFO cost history for sales (negative quantity changes)
     if (quantityChange < 0) {
@@ -460,19 +456,10 @@ export class InventoryIntegrationService {
       }
     }
 
-    // Create stock movement record
-    const movementType = quantityChange > 0
-      ? StockMovementType.ADJUSTMENT_INCREASE
-      : StockMovementType.SALE; // Use SALE for negative adjustments (fulfillment)
-
-    await this.createStockMovement(
-      productId,
-      quantityChange,
-      movementType,
-      reason,
-      referenceId,
-      userId,
-    );
+    // Update product stock quantity (allow negative for GOODS products)
+    // Explicitly set as number to ensure TypeORM handles it correctly
+    product.stockQuantity = Number(newStockQuantity);
+    await this.productRepository.save(product);
   }
 
   // Private helper methods
@@ -520,6 +507,28 @@ export class InventoryIntegrationService {
     const previousBalance = Number(product.stockQuantity);
     const newBalance = previousBalance + quantity; // quantity is negative for sales
 
+    return this.createStockMovementWithBalances(
+      productId,
+      quantity,
+      previousBalance,
+      newBalance,
+      movementType,
+      reason,
+      referenceId,
+      userId,
+    );
+  }
+
+  private async createStockMovementWithBalances(
+    productId: string,
+    quantity: number,
+    previousBalance: number,
+    newBalance: number,
+    movementType: StockMovementType,
+    reason: string,
+    referenceId?: string,
+    userId?: string,
+  ): Promise<StockMovement> {
     const movement = this.stockMovementRepository.create({
       productId,
       quantity,
