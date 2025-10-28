@@ -376,10 +376,13 @@ export class StockAdjustmentService {
 
   /**
    * Cancel a stock adjustment
+   * For DRAFT: Just marks as cancelled
+   * For COMPLETED: Creates reversal movements and marks as cancelled
    */
-  async cancel(id: string): Promise<StockAdjustmentResponseDto> {
+  async cancel(id: string, userId?: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
+      relations: ['items', 'items.product'],
     });
 
     if (!adjustment) {
@@ -390,10 +393,65 @@ export class StockAdjustmentService {
       throw new BadRequestException('This adjustment cannot be cancelled');
     }
 
-    adjustment.status = StockAdjustmentStatus.CANCELLED;
-    await this.stockAdjustmentRepository.save(adjustment);
+    // If it's COMPLETED, we need to create reversal movements
+    if (adjustment.status === StockAdjustmentStatus.COMPLETED) {
+      if (!adjustment.items || adjustment.items.length === 0) {
+        throw new BadRequestException('Cannot cancel adjustment with no items');
+      }
 
-    this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} cancelled successfully`);
+      // Use transaction to ensure atomicity
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        // Create reverse stock movements for each item
+        for (const item of adjustment.items) {
+          if (item.difference === 0) continue;
+
+          // Reverse the movement type
+          const movementType = item.difference > 0
+            ? StockMovementType.ADJUSTMENT_DECREASE
+            : StockMovementType.ADJUSTMENT_INCREASE;
+
+          // Reverse the quantity (negative becomes positive, positive becomes negative)
+          const reverseQuantity = -item.difference;
+
+          await this.stockMovementService.create(
+            {
+              productId: item.productId,
+              movementType,
+              quantity: reverseQuantity,
+              unitValue: item.unitCost,
+              referenceType: 'stock_adjustment',
+              referenceId: adjustment.id,
+              referenceNumber: adjustment.adjustmentNumber,
+              reason: `Cancel Stock Adjustment ${adjustment.adjustmentNumber}`,
+              notes: `Cancelling adjustment: ${item.notes || adjustment.notes || ''}`,
+            },
+            userId,
+          );
+        }
+
+        // Mark as cancelled
+        adjustment.status = StockAdjustmentStatus.CANCELLED;
+        await queryRunner.manager.save(adjustment);
+
+        await queryRunner.commitTransaction();
+        this.logger.log(`Completed stock adjustment ${adjustment.adjustmentNumber} cancelled with reversal movements`);
+      } catch (error) {
+        await queryRunner.rollbackTransaction();
+        this.logger.error(`Failed to cancel stock adjustment: ${error.message}`, error.stack);
+        throw error;
+      } finally {
+        await queryRunner.release();
+      }
+    } else {
+      // For DRAFT, just mark as cancelled
+      adjustment.status = StockAdjustmentStatus.CANCELLED;
+      await this.stockAdjustmentRepository.save(adjustment);
+      this.logger.log(`Draft stock adjustment ${adjustment.adjustmentNumber} cancelled successfully`);
+    }
 
     return this.findOne(id);
   }
