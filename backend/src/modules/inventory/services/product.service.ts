@@ -835,8 +835,13 @@ export class ProductService {
 
   /**
    * Delete a product (soft delete using TypeORM)
+   *
+   * Note: Soft delete is allowed even with active references (stock movements, orders)
+   * since the product record is preserved and historical data remains intact.
+   * Only check for active sales order items to prevent deletion of products
+   * currently in pending orders.
    */
-  async remove(id: string, userId?: string): Promise<void> {
+  async remove(id: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
 
     const product = await this.productRepository.findOne({
@@ -847,14 +852,19 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    // Check for dependencies that prevent deletion
-    const dependencyCheck = await this.checkProductDependencies(id);
-    if (dependencyCheck.hasDependencies) {
-      const dependencyList = dependencyCheck.dependencies
-        .map(dep => `${dep.count} ${dep.type}`)
-        .join(', ');
+    // Only check for active sales order items (pending orders)
+    // Allow soft delete even if product has stock movements or completed orders
+    const activeSalesOrderItemCount = await this.salesOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoin('item.salesOrder', 'order')
+      .where('item.productId = :productId', { productId: id })
+      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: false })
+      .getCount();
+
+    if (activeSalesOrderItemCount > 0) {
       throw new ConflictException(
-        `Cannot delete '${product.name}' - used in: ${dependencyList}`
+        `Cannot delete '${product.name}' - product is in ${activeSalesOrderItemCount} pending sales order(s). ` +
+        `Please fulfill or cancel those orders first.`
       );
     }
 
@@ -869,7 +879,7 @@ export class ProductService {
   /**
    * Bulk update product prices
    */
-  async bulkUpdatePrices(bulkUpdateDto: BulkUpdatePricesDto, userId?: string): Promise<void> {
+  async bulkUpdatePrices(bulkUpdateDto: BulkUpdatePricesDto): Promise<void> {
     this.logger.log(`Bulk updating prices for ${bulkUpdateDto.products.length} products`);
 
     const productIds = bulkUpdateDto.products.map(p => p.productId);
@@ -1000,7 +1010,7 @@ export class ProductService {
   /**
    * Reserve stock for a product
    */
-  async reserveStock(productId: string, quantity: number, reason: string, userId?: string): Promise<boolean> {
+  async reserveStock(productId: string, quantity: number): Promise<boolean> {
     const product = await this.productRepository.findOne({ where: { id: productId } });
     
     if (!product) {
@@ -1019,7 +1029,7 @@ export class ProductService {
   /**
    * Release reserved stock for a product
    */
-  async releaseReservedStock(productId: string, quantity: number, reason: string, userId?: string): Promise<void> {
+  async releaseReservedStock(productId: string, quantity: number): Promise<void> {
     const product = await this.productRepository.findOne({ where: { id: productId } });
     
     if (!product) {
@@ -1204,9 +1214,9 @@ export class ProductService {
   /**
    * Check if the update contains pricing changes
    */
-  private hasPricingChanges(updateDto: UpdateProductDto): boolean {
+  private hasPricingChanges(_updateDto: UpdateProductDto): boolean {
     return ['baseCost', 'retailPrice', 'wholesalePrice', 'specialPrice'].some(
-      field => updateDto.hasOwnProperty(field)
+      field => _updateDto.hasOwnProperty(field)
     );
   }
 

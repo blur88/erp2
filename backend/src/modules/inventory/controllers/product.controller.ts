@@ -278,7 +278,7 @@ export class ProductController {
   async bulkUpdatePrices(
     @Body() bulkUpdateDto: BulkUpdatePricesDto,
   ): Promise<{ message: string }> {
-    await this.productService.bulkUpdatePrices(bulkUpdateDto, null);
+    await this.productService.bulkUpdatePrices(bulkUpdateDto);
     return { message: `Successfully updated prices for ${bulkUpdateDto.products.length} products` };
   }
 
@@ -294,19 +294,17 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async reserveStock(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { quantity: number; reason: string },
+    @Body() body: { quantity: number },
   ): Promise<{ success: boolean; message: string }> {
     const success = await this.productService.reserveStock(
       id,
       body.quantity,
-      body.reason,
-      null,
     );
-    
+
     return {
       success,
-      message: success 
-        ? `Successfully reserved ${body.quantity} units` 
+      message: success
+        ? `Successfully reserved ${body.quantity} units`
         : 'Insufficient stock available for reservation',
     };
   }
@@ -322,15 +320,13 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async releaseReservedStock(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { quantity: number; reason: string },
+    @Body() body: { quantity: number },
   ): Promise<{ message: string }> {
     await this.productService.releaseReservedStock(
       id,
       body.quantity,
-      body.reason,
-      null,
     );
-    
+
     return { message: `Successfully released ${body.quantity} reserved units` };
   }
 
@@ -522,6 +518,6 @@ export class ProductController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
-    await this.productService.remove(id, null);
+    await this.productService.remove(id);
   }
 }
