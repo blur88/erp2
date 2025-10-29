@@ -1105,6 +1105,9 @@ export class PurchaseOrderService {
       // Update base costs for all received products
       await this.updateBaseCostsForGrn(updatedGrn, purchaseOrder);
 
+      // Touch the purchase order to update its updatedAt timestamp
+      await this.purchaseOrderRepository.save(purchaseOrder);
+
       this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
     } catch (error) {
@@ -1203,6 +1206,9 @@ export class PurchaseOrderService {
 
       // Reverse base cost calculations for all returned products
       await this.reverseBaseCostsForGrn(updatedGrn);
+
+      // Touch the purchase order to update its updatedAt timestamp
+      await this.purchaseOrderRepository.save(purchaseOrder);
 
       this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);

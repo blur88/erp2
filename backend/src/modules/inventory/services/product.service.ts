@@ -1615,29 +1615,23 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    // Fetch sales order items
-    const [salesOrderItems, salesTotal] = await this.salesOrderItemRepository
+    // Fetch ALL sales order items (no pagination yet - will paginate after combining)
+    const salesOrderItems = await this.salesOrderItemRepository
       .createQueryBuilder('item')
       .leftJoinAndSelect('item.salesOrder', 'salesOrder')
       .leftJoinAndSelect('salesOrder.customer', 'customer')
       .where('item.productId = :productId', { productId })
-      .orderBy('salesOrder.orderDate', 'DESC')
-      .take(limit)
-      .skip((page - 1) * limit)
-      .getManyAndCount();
+      .getMany();
 
-    // Fetch purchase order items with payment information
-    const [purchaseOrderItems, purchaseTotal] = await this.purchaseOrderItemRepository
+    // Fetch ALL purchase order items with payment information (no pagination yet)
+    const purchaseOrderItems = await this.purchaseOrderItemRepository
       .createQueryBuilder('item')
       .leftJoinAndSelect('item.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('purchaseOrder.supplier', 'supplier')
       .leftJoinAndSelect('purchaseOrder.vendorPayments', 'vendorPayments')
       .leftJoinAndSelect('purchaseOrder.items', 'poItems')
       .where('item.productId = :productId', { productId })
-      .orderBy('purchaseOrder.orderDate', 'DESC')
-      .take(limit)
-      .skip((page - 1) * limit)
-      .getManyAndCount();
+      .getMany();
 
     // Transform sales order items (filter out items without order data)
     const salesOrders = salesOrderItems
@@ -1653,6 +1647,7 @@ export class ProductService {
           orderNumber: item.salesOrder.orderNumber,
           customerOrVendor: item.salesOrder.customer?.name || 'Unknown',
           date: item.salesOrder.orderDate,
+          updatedAt: item.salesOrder.updatedAt, // Add updatedAt for sorting
           paymentStatus: isPaid ? 'paid' : (paidAmount > 0 ? 'partial' : 'pending'),
           fulfillmentStatus: item.salesOrder.isFulfilled ? 'fulfilled' : 'pending',
           quantity: Number(item.quantity),
@@ -1687,6 +1682,7 @@ export class ProductService {
           orderNumber: item.purchaseOrder.orderNumber,
           customerOrVendor: item.purchaseOrder.supplier?.companyName || 'Unknown',
           date: item.purchaseOrder.orderDate,
+          updatedAt: item.purchaseOrder.updatedAt, // Add updatedAt for sorting
           paymentStatus,
           receivedStatus: isFullyReceived ? 'received' : 'pending',
           quantity: Number(item.quantity),
@@ -1694,23 +1690,26 @@ export class ProductService {
         };
       });
 
-    // Combine and sort by date
+    // Combine and sort by updatedAt (most recently updated first)
     const combinedOrders = [...salesOrders, ...purchaseOrders].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
 
-    // Paginate the combined results
-    const startIndex = 0;
-    const endIndex = Math.min(limit, combinedOrders.length);
+    // Get total count
+    const total = combinedOrders.length;
+
+    // Apply pagination AFTER combining and sorting
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
     const paginatedOrders = combinedOrders.slice(startIndex, endIndex);
 
     return {
       data: paginatedOrders,
       meta: {
-        total: salesTotal + purchaseTotal,
+        total,
         page,
         limit,
-        totalPages: Math.ceil((salesTotal + purchaseTotal) / limit),
+        totalPages: Math.ceil(total / limit),
       },
     };
   }
