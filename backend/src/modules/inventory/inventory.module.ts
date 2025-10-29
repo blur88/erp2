@@ -10,9 +10,11 @@ import { PurchaseCostHistory } from '../../database/entities/purchase-cost-histo
 import { Customer } from '../../database/entities/customer.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
+import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Supplier } from '../../database/entities/supplier.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
+import { GoodsReceivedNoteItem } from '../../database/entities/goods-received-note-item.entity';
 
 // Controllers
 import { ProductController } from './controllers/product.controller';
@@ -46,9 +48,11 @@ import { UsersModule } from '../users/users.module';
       Customer,
       SalesOrder,
       SalesOrderItem,
+      InvoiceItem,
       Supplier,
       PurchaseOrder,
       PurchaseOrderItem,
+      GoodsReceivedNoteItem,
     ]),
     // Import users module for user-related operations
     forwardRef(() => UsersModule),

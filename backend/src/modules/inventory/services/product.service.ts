@@ -19,6 +19,10 @@ import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
+import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
+import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -50,6 +54,14 @@ export class ProductService {
     private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
     @InjectRepository(StockMovement)
     private readonly stockMovementRepository: Repository<StockMovement>,
+    @InjectRepository(StockAdjustmentItem)
+    private readonly stockAdjustmentItemRepository: Repository<StockAdjustmentItem>,
+    @InjectRepository(GoodsReceivedNoteItem)
+    private readonly goodsReceivedNoteItemRepository: Repository<GoodsReceivedNoteItem>,
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepository: Repository<InvoiceItem>,
+    @InjectRepository(PurchaseCostHistory)
+    private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
     @Inject(forwardRef(() => CategoryService))
     private readonly categoryService: CategoryService,
     @Inject(forwardRef(() => StockMovementService))
@@ -593,15 +605,25 @@ export class ProductService {
     // Find the product (including soft-deleted ones)
     const product = await this.productRepository.findOne({
       where: { id },
-      // Note: Removed problematic relations as sales/purchasing modules are disabled
       withDeleted: true,
     });
 
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(product, 'Product', id);
 
-    // Note: Dependency checks for sales/purchase orders are disabled since those modules are not active
-    // Note: Stock movement check is disabled since we removed the relation
+    // Check for dependencies before permanent deletion
+    const dependencies = await this.checkProductDependencies(id);
+
+    if (dependencies.hasDependencies) {
+      const dependencyList = dependencies.dependencies
+        .map(dep => `${dep.count} ${dep.type}`)
+        .join(', ');
+
+      throw new ConflictException(
+        `Cannot permanently delete '${product.name}' - product has dependent records: ${dependencyList}. ` +
+        `These records must be removed first before permanent deletion.`
+      );
+    }
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -633,7 +655,6 @@ export class ProductService {
         // Find the product (including soft-deleted ones)
         const product = await this.productRepository.findOne({
           where: { id },
-          // Note: Removed problematic relations as sales/purchasing modules are disabled
           withDeleted: true,
         });
 
@@ -650,8 +671,22 @@ export class ProductService {
           continue;
         }
 
-        // Note: Dependency checks for sales/purchase orders and stock movements are disabled
-        // since those modules are not active
+        // Check for dependencies before permanent deletion
+        const dependencies = await this.checkProductDependencies(id);
+
+        if (dependencies.hasDependencies) {
+          const dependencyList = dependencies.dependencies
+            .map(dep => `${dep.count} ${dep.type}`)
+            .join(', ');
+
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            `Product '${product.name}' has dependent records: ${dependencyList}`,
+            'DEPENDENCY_ERROR'
+          );
+          continue;
+        }
 
         // Hard delete the product from database
         await this.productRepository.delete(id);
@@ -816,7 +851,15 @@ export class ProductService {
       where: { productId }
     });
     if (salesOrderItemCount > 0) {
-      dependencies.push({ type: 'sales orders', count: salesOrderItemCount });
+      dependencies.push({ type: 'sales order items', count: salesOrderItemCount });
+    }
+
+    // Check purchase order items
+    const purchaseOrderItemCount = await this.purchaseOrderItemRepository.count({
+      where: { productId }
+    });
+    if (purchaseOrderItemCount > 0) {
+      dependencies.push({ type: 'purchase order items', count: purchaseOrderItemCount });
     }
 
     // Check stock movements
@@ -825,6 +868,38 @@ export class ProductService {
     });
     if (stockMovementCount > 0) {
       dependencies.push({ type: 'stock movements', count: stockMovementCount });
+    }
+
+    // Check stock adjustment items
+    const stockAdjustmentItemCount = await this.stockAdjustmentItemRepository.count({
+      where: { productId }
+    });
+    if (stockAdjustmentItemCount > 0) {
+      dependencies.push({ type: 'stock adjustment items', count: stockAdjustmentItemCount });
+    }
+
+    // Check goods received note items
+    const goodsReceivedNoteItemCount = await this.goodsReceivedNoteItemRepository.count({
+      where: { productId }
+    });
+    if (goodsReceivedNoteItemCount > 0) {
+      dependencies.push({ type: 'goods received note items', count: goodsReceivedNoteItemCount });
+    }
+
+    // Check invoice items
+    const invoiceItemCount = await this.invoiceItemRepository.count({
+      where: { productId }
+    });
+    if (invoiceItemCount > 0) {
+      dependencies.push({ type: 'invoice items', count: invoiceItemCount });
+    }
+
+    // Check purchase cost history
+    const purchaseCostHistoryCount = await this.purchaseCostHistoryRepository.count({
+      where: { productId }
+    });
+    if (purchaseCostHistoryCount > 0) {
+      dependencies.push({ type: 'purchase cost history records', count: purchaseCostHistoryCount });
     }
 
     return {
