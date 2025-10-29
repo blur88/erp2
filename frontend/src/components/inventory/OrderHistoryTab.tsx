@@ -113,13 +113,26 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
         </Box>
       )
     } else {
-      // For purchase orders, show received status only
+      // For purchase orders, show payment and received status
+      const paymentColor =
+        order.paymentStatus === 'paid'
+          ? 'success'
+          : order.paymentStatus === 'partial'
+          ? 'warning'
+          : 'default'
+
       const receivedColor = order.receivedStatus === 'received' ? 'success' : 'default'
 
       return (
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
           <Chip
-            label={order.receivedStatus === 'received' ? 'Received' : 'Pending'}
+            label={order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'partial' ? 'Partial' : 'Pending'}
+            color={paymentColor as any}
+            size="small"
+            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+          />
+          <Chip
+            label={order.receivedStatus === 'received' ? 'Received' : 'Pending Delivery'}
             color={receivedColor as any}
             size="small"
             sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}

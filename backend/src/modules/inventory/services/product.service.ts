@@ -1626,11 +1626,13 @@ export class ProductService {
       .skip((page - 1) * limit)
       .getManyAndCount();
 
-    // Fetch purchase order items
+    // Fetch purchase order items with payment information
     const [purchaseOrderItems, purchaseTotal] = await this.purchaseOrderItemRepository
       .createQueryBuilder('item')
       .leftJoinAndSelect('item.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('purchaseOrder.supplier', 'supplier')
+      .leftJoinAndSelect('purchaseOrder.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('purchaseOrder.items', 'poItems')
       .where('item.productId = :productId', { productId })
       .orderBy('purchaseOrder.orderDate', 'DESC')
       .take(limit)
@@ -1661,17 +1663,36 @@ export class ProductService {
     // Transform purchase order items (filter out items without order data)
     const purchaseOrders = purchaseOrderItems
       .filter(item => item.purchaseOrder) // Only process items with loaded order
-      .map(item => ({
-        id: item.id,
-        type: 'purchase_order',
-        orderNumber: item.purchaseOrder.orderNumber,
-        customerOrVendor: item.purchaseOrder.supplier?.companyName || 'Unknown',
-        date: item.purchaseOrder.orderDate,
-        paymentStatus: 'n/a', // Purchase orders don't have payment tracking in the same way
-        receivedStatus: item.purchaseOrder.isFullyReceived ? 'received' : 'pending',
-        quantity: Number(item.quantity),
-        subTotal: Number(item.totalAmount),
-      }));
+      .map(item => {
+        // Calculate payment status from vendor payments
+        const vendorPayments = item.purchaseOrder.vendorPayments || [];
+        const totalPaid = vendorPayments
+          .filter(payment => payment.status === 'completed')
+          .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const totalAmount = Number(item.purchaseOrder.totalAmount || 0);
+
+        let paymentStatus = 'pending';
+        if (totalPaid >= totalAmount && totalAmount > 0) {
+          paymentStatus = 'paid';
+        } else if (totalPaid > 0) {
+          paymentStatus = 'partial';
+        }
+
+        // Check if fully received using the entity method
+        const isFullyReceived = item.purchaseOrder.isFullyReceived ? item.purchaseOrder.isFullyReceived() : false;
+
+        return {
+          id: item.id,
+          type: 'purchase_order',
+          orderNumber: item.purchaseOrder.orderNumber,
+          customerOrVendor: item.purchaseOrder.supplier?.companyName || 'Unknown',
+          date: item.purchaseOrder.orderDate,
+          paymentStatus,
+          receivedStatus: isFullyReceived ? 'received' : 'pending',
+          quantity: Number(item.quantity),
+          subTotal: Number(item.totalAmount),
+        };
+      });
 
     // Combine and sort by date
     const combinedOrders = [...salesOrders, ...purchaseOrders].sort(
