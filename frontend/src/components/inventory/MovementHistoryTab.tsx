@@ -26,6 +26,7 @@ interface MovementHistoryTabProps {
 // Filter to only show these transaction types
 const ALLOWED_MOVEMENT_TYPES = [
   StockMovementType.PURCHASE_RECEIPT,
+  StockMovementType.PURCHASE_RETURN,
   StockMovementType.SALE,
   StockMovementType.SALE_REVERSAL,
   StockMovementType.ADJUSTMENT_INCREASE,
@@ -35,6 +36,7 @@ const ALLOWED_MOVEMENT_TYPES = [
 const getMovementTypeLabel = (movementType: StockMovementType): string => {
   const labels: Partial<Record<StockMovementType, string>> = {
     [StockMovementType.PURCHASE_RECEIPT]: 'Purchase Order Receive',
+    [StockMovementType.PURCHASE_RETURN]: 'Purchase Order Return',
     [StockMovementType.SALE]: 'Sales Order Fulfillment',
     [StockMovementType.SALE_REVERSAL]: 'Sales Order Unfulfill',
     [StockMovementType.ADJUSTMENT_INCREASE]: 'Stock Adjustment',
@@ -101,7 +103,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
   const getOrderNumber = (movement: StockMovement): string => {
     // Try to get from referenceNumber first
     if (movement.referenceNumber) {
-      if (movement.movementType === StockMovementType.PURCHASE_RECEIPT) {
+      if (movement.movementType === StockMovementType.PURCHASE_RECEIPT || movement.movementType === StockMovementType.PURCHASE_RETURN) {
         return movement.referenceNumber.startsWith('PO-') ? movement.referenceNumber : `PO-${movement.referenceNumber}`
       }
       if (movement.movementType === StockMovementType.SALE || movement.movementType === StockMovementType.SALE_REVERSAL) {
@@ -124,9 +126,9 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
         return soMatch[0]
       }
 
-      // Extract PO number from reason like "Purchase order received: PO-000001"
+      // Extract PO number from reason like "Purchase order received: PO-000001" or "Purchase order returned: PO-000001"
       const poMatch = movement.reason.match(/PO-\d+/)
-      if (poMatch && movement.movementType === StockMovementType.PURCHASE_RECEIPT) {
+      if (poMatch && (movement.movementType === StockMovementType.PURCHASE_RECEIPT || movement.movementType === StockMovementType.PURCHASE_RETURN)) {
         return poMatch[0]
       }
 

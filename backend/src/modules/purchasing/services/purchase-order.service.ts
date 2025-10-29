@@ -1171,21 +1171,38 @@ export class PurchaseOrderService {
       updatedGrn.calculateTotals();
       await this.grnRepository.save(updatedGrn);
 
-      // Revert product quantities
+      // Revert product quantities and create stock movements for return
       for (const item of purchaseOrder.items) {
         const product = await this.productRepository.findOne({
           where: { id: item.productId },
         });
 
         if (product) {
-          product.adjustStock(Number(item.quantity), 'decrease');
-          await this.productRepository.save(product);
+          // Create stock movement for purchase return (negative quantity for outward movement)
+          const createMovementDto: CreateStockMovementDto = {
+            productId: item.productId,
+            movementType: StockMovementType.PURCHASE_RETURN,
+            quantity: -Number(item.quantity), // Negative for outward movement
+            reason: `Purchase order returned: ${purchaseOrder.orderNumber}`,
+            referenceType: 'purchase_order',
+            referenceId: purchaseOrder.id,
+            referenceNumber: purchaseOrder.orderNumber,
+            unitValue: Number(item.unitCost),
+          };
+
+          await this.stockMovementService.create(createMovementDto);
+          this.logger.log(
+            `Stock movement created for product ${item.productId}: -${item.quantity} units from PO ${purchaseOrder.orderNumber} return`
+          );
         }
 
         // Reset PO item received quantity
         item.receivedQuantity = 0;
         await this.purchaseOrderItemRepository.save(item);
       }
+
+      // Reverse base cost calculations for all returned products
+      await this.reverseBaseCostsForGrn(updatedGrn);
 
       this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
@@ -1430,5 +1447,32 @@ export class PurchaseOrderService {
     }
 
     this.logger.log(`Base costs updated successfully for GRN ${grn.grnNumber}`);
+  }
+
+  /**
+   * Reverse base costs when returning goods
+   * Removes the stock batches added during GRN receipt
+   */
+  private async reverseBaseCostsForGrn(grn: GoodsReceivedNote): Promise<void> {
+    this.logger.log(`Reversing base costs for GRN ${grn.grnNumber}`);
+
+    // Process each GRN item
+    for (const grnItem of grn.items) {
+      const receivedQty = Number(grnItem.receivedQuantity);
+
+      if (receivedQty === 0) {
+        this.logger.debug(`GRN item ${grnItem.id} has no received quantity, skipping`);
+        continue;
+      }
+
+      this.logger.log(
+        `Removing ${receivedQty} units from cost history for product ${grnItem.productId}`
+      );
+
+      // Remove stock from cost history and recalculate base cost
+      await this.baseCostCalculator.removeStock(grnItem.productId, grn.id);
+    }
+
+    this.logger.log(`Base costs reversed successfully for GRN ${grn.grnNumber}`);
   }
 }

@@ -179,6 +179,40 @@ export class BaseCostCalculatorService {
   }
 
   /**
+   * Remove stock when returning goods to supplier
+   * Deletes the batch created for this GRN and recalculates base cost
+   */
+  async removeStock(productId: string, grnId: string): Promise<void> {
+    this.logger.log(`Removing stock for product ${productId} from GRN ${grnId}`);
+
+    // Find the batch(es) created for this GRN
+    const batches = await this.costHistoryRepository.find({
+      where: {
+        productId,
+        grnId,
+      },
+    });
+
+    if (batches.length === 0) {
+      this.logger.warn(`No cost history batches found for product ${productId} and GRN ${grnId}`);
+      return;
+    }
+
+    // Delete all batches for this GRN
+    for (const batch of batches) {
+      this.logger.debug(
+        `Deleting batch ${batch.id}: ${batch.receivedQuantity} units (${batch.remainingQuantity} remaining) @ RM ${Number(batch.landedCost).toFixed(4)}`
+      );
+      await this.costHistoryRepository.delete(batch.id);
+    }
+
+    this.logger.log(`Deleted ${batches.length} cost history batch(es) for GRN ${grnId}`);
+
+    // Recalculate base cost after removal
+    await this.updateProductBaseCost(productId);
+  }
+
+  /**
    * Calculate shipping allocation BY VALUE
    * Formula: (itemTotal / poSubtotal) × totalShipping / itemQuantity
    *
