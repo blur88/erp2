@@ -29,6 +29,7 @@ import {
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 
 @Injectable()
 export class SalesOrderService {
@@ -50,6 +51,7 @@ export class SalesOrderService {
     // private readonly customerService: CustomerService,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
     private readonly stockMovementService: StockMovementService,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
@@ -1800,10 +1802,20 @@ export class SalesOrderService {
       throw new ConflictException('Order is not fulfilled');
     }
 
-    // Add inventory back for each item
+    // Add inventory back for each item and restore cost history
     for (const item of order.items) {
       if (item.product) {
         const { StockMovementType } = await import('../../../database/entities/stock-movement.entity');
+
+        // Restore stock to cost history batches (reverses the FIFO reduction during fulfillment)
+        try {
+          await this.baseCostCalculator.restoreStock(item.productId, item.quantity);
+        } catch (error) {
+          console.warn(`Failed to restore cost history for product ${item.productId}: ${error.message}`);
+          // Fall back to regular stock adjustment if cost history restoration fails
+        }
+
+        // Create stock movement record for the reversal
         await this.inventoryIntegrationService.adjustStock(
           item.productId,
           item.quantity,

@@ -281,4 +281,61 @@ export class BaseCostCalculatorService {
       order: { receivedDate: 'ASC' },
     });
   }
+
+  /**
+   * Restore stock when unfulfilling a sales order
+   * Adds quantities back to the cost history batches in FIFO order
+   * This reverses the reduceStock operation during fulfillment
+   */
+  async restoreStock(productId: string, quantityToRestore: number): Promise<void> {
+    this.logger.log(`Restoring stock for product ${productId}: ${quantityToRestore} units`);
+
+    // Get all batches for this product, including sold-out ones
+    const batches = await this.costHistoryRepository.find({
+      where: {
+        productId,
+      },
+      order: { receivedDate: 'ASC' }, // FIFO order - oldest first
+    });
+
+    if (batches.length === 0) {
+      this.logger.warn(`No cost history batches found for product ${productId}, cannot restore stock`);
+      return;
+    }
+
+    let remainingToRestore = quantityToRestore;
+
+    // Restore to oldest batches first (reverse of FIFO reduction)
+    for (const batch of batches) {
+      if (remainingToRestore <= 0) break;
+
+      const receivedQty = Number(batch.receivedQuantity);
+      const currentRemaining = Number(batch.remainingQuantity);
+      const maxCanRestore = receivedQty - currentRemaining; // Can only restore up to what was originally received
+
+      if (maxCanRestore <= 0) continue; // This batch is already full
+
+      const toRestore = Math.min(maxCanRestore, remainingToRestore);
+
+      await this.costHistoryRepository.update(batch.id, {
+        remainingQuantity: currentRemaining + toRestore,
+        updatedAt: new Date(),
+      });
+
+      this.logger.debug(
+        `Restored batch ${batch.id}: ${currentRemaining} + ${toRestore} = ${currentRemaining + toRestore} remaining (max: ${receivedQty})`
+      );
+
+      remainingToRestore -= toRestore;
+    }
+
+    if (remainingToRestore > 0) {
+      this.logger.warn(
+        `Could not fully restore stock for product ${productId}. Attempted to restore ${quantityToRestore}, but only ${quantityToRestore - remainingToRestore} could be restored to existing batches.`
+      );
+    }
+
+    // Recalculate base cost after restoration
+    await this.updateProductBaseCost(productId);
+  }
 }
