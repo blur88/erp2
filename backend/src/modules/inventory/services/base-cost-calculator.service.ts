@@ -180,7 +180,7 @@ export class BaseCostCalculatorService {
 
   /**
    * Remove stock when returning goods to supplier
-   * Deletes the batch created for this GRN and recalculates base cost
+   * Validates that no stock has been sold from this batch, then deletes it
    */
   async removeStock(productId: string, grnId: string): Promise<void> {
     this.logger.log(`Removing stock for product ${productId} from GRN ${grnId}`);
@@ -198,7 +198,21 @@ export class BaseCostCalculatorService {
       return;
     }
 
-    // Delete all batches for this GRN
+    // Check if any stock has been sold from these batches
+    for (const batch of batches) {
+      const receivedQty = Number(batch.receivedQuantity);
+      const remainingQty = Number(batch.remainingQuantity);
+
+      if (remainingQty < receivedQty) {
+        const soldQty = receivedQty - remainingQty;
+        throw new Error(
+          `Cannot return goods: ${soldQty} units from this batch have already been sold. ` +
+          `Please ensure all goods are in stock before returning to supplier.`
+        );
+      }
+    }
+
+    // Delete all batches for this GRN (only if validation passed)
     for (const batch of batches) {
       this.logger.debug(
         `Deleting batch ${batch.id}: ${batch.receivedQuantity} units (${batch.remainingQuantity} remaining) @ RM ${Number(batch.landedCost).toFixed(4)}`

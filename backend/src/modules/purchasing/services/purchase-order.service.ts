@@ -1147,6 +1147,10 @@ export class PurchaseOrderService {
     }
 
     try {
+      // Reverse base cost calculations BEFORE resetting quantities
+      // This must happen first while GRN still has receivedQuantity data
+      await this.reverseBaseCostsForGrn(grn);
+
       // Reset GRN items received quantities to 0
       if (grn.items && grn.items.length > 0) {
         await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
@@ -1204,9 +1208,6 @@ export class PurchaseOrderService {
         item.receivedQuantity = 0;
         await this.purchaseOrderItemRepository.save(item);
       }
-
-      // Reverse base cost calculations for all returned products
-      await this.reverseBaseCostsForGrn(updatedGrn);
 
       // Touch the purchase order to update its updatedAt timestamp
       // Force TypeORM to update by using the update query
