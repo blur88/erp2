@@ -1106,7 +1106,8 @@ export class PurchaseOrderService {
       await this.updateBaseCostsForGrn(updatedGrn, purchaseOrder);
 
       // Touch the purchase order to update its updatedAt timestamp
-      await this.purchaseOrderRepository.save(purchaseOrder);
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(id, {});
 
       this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
@@ -1208,7 +1209,8 @@ export class PurchaseOrderService {
       await this.reverseBaseCostsForGrn(updatedGrn);
 
       // Touch the purchase order to update its updatedAt timestamp
-      await this.purchaseOrderRepository.save(purchaseOrder);
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(id, {});
 
       this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
@@ -1271,6 +1273,10 @@ export class PurchaseOrderService {
 
     // Hard delete the vendor payment
     await this.vendorPaymentService.permanentDelete(existingPayment.id);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    // Force TypeORM to update by using the update query
+    await this.purchaseOrderRepository.update(id, {});
 
     // Get updated order
     const updatedOrder = await this.findOne(id);

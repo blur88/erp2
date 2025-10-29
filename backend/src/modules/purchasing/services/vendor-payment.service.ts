@@ -46,7 +46,15 @@ export class VendorPaymentService {
       grnId,
     });
 
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    if (createDto.purchaseOrderId) {
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(createDto.purchaseOrderId, {});
+    }
+
+    return savedPayment;
   }
 
   /**
@@ -155,7 +163,15 @@ export class VendorPaymentService {
       updatedBy: user,
     });
 
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    if (vendorPayment.purchaseOrderId) {
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
+    }
+
+    return savedPayment;
   }
 
   /**
@@ -284,6 +300,12 @@ export class VendorPaymentService {
 
     await this.vendorPaymentRepository.save(vendorPayment);
     await this.vendorPaymentRepository.softDelete(id);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    if (vendorPayment.purchaseOrderId) {
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
+    }
   }
 
   /**
