@@ -464,6 +464,14 @@ const OrdersPage: React.FC = () => {
         dispatch(updateOrderInPlace(updatedOrder.data))
         // Refresh invoices to show updated payment amounts
         dispatch(fetchInvoices({ page: 1, limit: 20 }))
+        // Refresh the orders list to show updated state
+        dispatch(fetchOrders({
+          page: state.page + 1,
+          limit: state.rowsPerPage,
+          search: orderFilters.search || '',
+          paymentStatus: orderFilters.paymentStatus || 'all',
+          fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
+        }))
         showSuccess('Payment cleared successfully')
       } else {
         const errorData = await response.json()

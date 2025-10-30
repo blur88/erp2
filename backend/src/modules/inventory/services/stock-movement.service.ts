@@ -112,6 +112,12 @@ export class StockMovementService {
     const previousBalance = Number(product.stockQuantity);
     const newBalance = previousBalance + Number(createMovementDto.quantity);
 
+    // DEBUG: Log stock values to trace the bug
+    console.log(`🔍 [stockMovementService.create] Product ${createMovementDto.productId}:`);
+    console.log(`  Current stock in DB: ${previousBalance}`);
+    console.log(`  Quantity change: ${createMovementDto.quantity}`);
+    console.log(`  New balance will be: ${newBalance}`);
+
     // Validate new balance is not negative
     if (newBalance < 0) {
       throw new BadRequestException(
@@ -785,10 +791,11 @@ export class StockMovementService {
     this.logger.log(`Deleting stock movements for ${referenceType}: ${referenceId}`);
 
     const result = await this.stockMovementRepository
-      .createQueryBuilder('movement')
+      .createQueryBuilder()
       .delete()
-      .where('movement.referenceType = :referenceType', { referenceType })
-      .andWhere('movement.referenceId = :referenceId', { referenceId })
+      .from('stock_movements')
+      .where('referenceType = :referenceType', { referenceType })
+      .andWhere('referenceId = :referenceId', { referenceId })
       .execute();
 
     const deletedCount = Number(result.affected) || 0;

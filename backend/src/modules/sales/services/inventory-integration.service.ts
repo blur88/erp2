@@ -428,6 +428,12 @@ export class InventoryIntegrationService {
     const changeAmount = Number(quantityChange);
     const newStockQuantity = currentStock + changeAmount;
 
+    // DEBUG: Log stock values to trace the bug
+    console.log(`🔍 [adjustStock] Product ${productId}:`);
+    console.log(`  Current stock in DB: ${currentStock}`);
+    console.log(`  Change amount: ${changeAmount}`);
+    console.log(`  New stock will be: ${newStockQuantity}`);
+
     // Create stock movement record BEFORE updating product
     // This ensures previousBalance and newBalance are calculated correctly
     const movementType = movementTypeOverride || (quantityChange > 0
@@ -538,6 +544,7 @@ export class InventoryIntegrationService {
       movementType,
       reason,
       referenceId,
+      referenceType: referenceId ? 'sales_order' : null, // Set referenceType if referenceId is provided
       movedByUserId: userId,
       movementDate: new Date(),
       status: StockMovementStatus.COMPLETED,

@@ -1179,32 +1179,22 @@ export class PurchaseOrderService {
       updatedGrn.calculateTotals();
       await this.grnRepository.save(updatedGrn);
 
-      // Revert product quantities and create stock movements for return
+      // Delete stock movement records created during goods receipt
+      try {
+        const stockMovementResult = await this.stockMovementService.deleteByReference(
+          'purchase_order',
+          purchaseOrder.id
+        );
+        this.logger.log(
+          `Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber} return`
+        );
+      } catch (error) {
+        this.logger.error(`Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`);
+        // Don't throw error - return should still succeed
+      }
+
+      // Reset PO item received quantities
       for (const item of purchaseOrder.items) {
-        const product = await this.productRepository.findOne({
-          where: { id: item.productId },
-        });
-
-        if (product) {
-          // Create stock movement for purchase return (negative quantity for outward movement)
-          const createMovementDto: CreateStockMovementDto = {
-            productId: item.productId,
-            movementType: StockMovementType.PURCHASE_RETURN,
-            quantity: -Number(item.quantity), // Negative for outward movement
-            reason: `Purchase order returned: ${purchaseOrder.orderNumber}`,
-            referenceType: 'purchase_order',
-            referenceId: purchaseOrder.id,
-            referenceNumber: purchaseOrder.orderNumber,
-            unitValue: Number(item.unitCost),
-          };
-
-          await this.stockMovementService.create(createMovementDto);
-          this.logger.log(
-            `Stock movement created for product ${item.productId}: -${item.quantity} units from PO ${purchaseOrder.orderNumber} return`
-          );
-        }
-
-        // Reset PO item received quantity
         item.receivedQuantity = 0;
         await this.purchaseOrderItemRepository.save(item);
       }

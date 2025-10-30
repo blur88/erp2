@@ -1773,7 +1773,8 @@ export class SalesOrderService {
         await this.inventoryIntegrationService.adjustStock(
           item.productId,
           -item.quantity,
-          `Sales order fulfillment: ${order.orderNumber}`
+          `Sales order fulfillment: ${order.orderNumber}`,
+          order.id // Add referenceId so we can delete these movements later
         );
       }
     }
@@ -1805,8 +1806,6 @@ export class SalesOrderService {
     // Add inventory back for each item and restore cost history
     for (const item of order.items) {
       if (item.product) {
-        const { StockMovementType } = await import('../../../database/entities/stock-movement.entity');
-
         // Restore stock to cost history batches (reverses the FIFO reduction during fulfillment)
         try {
           await this.baseCostCalculator.restoreStock(item.productId, item.quantity);
@@ -1814,17 +1813,19 @@ export class SalesOrderService {
           console.warn(`Failed to restore cost history for product ${item.productId}: ${error.message}`);
           // Fall back to regular stock adjustment if cost history restoration fails
         }
-
-        // Create stock movement record for the reversal
-        await this.inventoryIntegrationService.adjustStock(
-          item.productId,
-          item.quantity,
-          `Sales order unfulfillment: ${order.orderNumber}`,
-          order.id,
-          undefined, // userId is optional, pass undefined instead of 'system'
-          StockMovementType.SALE_REVERSAL
-        );
       }
+    }
+
+    // Delete stock movement records created during fulfillment
+    try {
+      const stockMovementResult = await this.stockMovementService.deleteByReference(
+        'sales_order',
+        order.id
+      );
+      console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber} unfulfillment`);
+    } catch (error) {
+      console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - unfulfillment should still succeed
     }
 
     // Mark as unfulfilled and revert to confirmed status
