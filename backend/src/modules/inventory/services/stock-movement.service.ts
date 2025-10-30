@@ -783,6 +783,7 @@ export class StockMovementService {
   /**
    * Delete stock movements by reference type and ID
    * Used for hard delete cascades when removing source documents
+   * IMPORTANT: This method reverses the stock quantities before deleting movements
    */
   async deleteByReference(
     referenceType: string,
@@ -790,6 +791,64 @@ export class StockMovementService {
   ): Promise<{ deletedCount: number }> {
     this.logger.log(`Deleting stock movements for ${referenceType}: ${referenceId}`);
 
+    // First, fetch all movements to revert their quantities
+    const movements = await this.stockMovementRepository.find({
+      where: {
+        referenceType,
+        referenceId,
+      },
+      relations: ['product'],
+    });
+
+    if (movements.length === 0) {
+      this.logger.log(`No stock movements found for ${referenceType}: ${referenceId}`);
+      return { deletedCount: 0 };
+    }
+
+    // Revert stock quantities for each product affected
+    const productUpdates = new Map<string, number>();
+
+    for (const movement of movements) {
+      const productId = movement.productId;
+      const currentAdjustment = productUpdates.get(productId) || 0;
+      // Reverse the movement by negating the quantity
+      productUpdates.set(productId, currentAdjustment - Number(movement.quantity));
+
+      this.logger.log(
+        `Will revert ${movement.quantity} units for product ${productId} (movement ${movement.id})`
+      );
+    }
+
+    // Update product stock quantities
+    for (const [productId, adjustment] of productUpdates.entries()) {
+      const product = await this.productRepository.findOne({
+        where: { id: productId },
+      });
+
+      if (product) {
+        const oldStock = Number(product.stockQuantity);
+        const newStock = oldStock + adjustment;
+
+        this.logger.log(
+          `Reverting stock for product ${productId}: ${oldStock} + (${adjustment}) = ${newStock}`
+        );
+
+        if (newStock < 0) {
+          this.logger.warn(
+            `Warning: Reverting stock for product ${productId} would result in negative stock (${newStock}). Setting to 0.`
+          );
+          product.stockQuantity = 0;
+        } else {
+          product.stockQuantity = newStock;
+        }
+
+        await this.productRepository.save(product);
+      } else {
+        this.logger.warn(`Product ${productId} not found, skipping stock reversion`);
+      }
+    }
+
+    // Now delete the stock movements
     const result = await this.stockMovementRepository
       .createQueryBuilder()
       .delete()
@@ -799,7 +858,9 @@ export class StockMovementService {
       .execute();
 
     const deletedCount = Number(result.affected) || 0;
-    this.logger.log(`Deleted ${deletedCount} stock movements for ${referenceType}: ${referenceId}`);
+    this.logger.log(
+      `Deleted ${deletedCount} stock movements and reverted quantities for ${productUpdates.size} products (${referenceType}: ${referenceId})`
+    );
 
     return { deletedCount };
   }

@@ -1256,6 +1256,17 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
+    // Check if PO has received goods - must return before unpaying
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+    });
+
+    if (grn && grn.status === GrnStatus.RECEIVED) {
+      throw new BadRequestException(
+        'Cannot unpay purchase order with received goods. Please return goods first.'
+      );
+    }
+
     // Find existing payment
     const existingPayment = await this.vendorPaymentService.findByPurchaseOrder(id);
     if (!existingPayment) {
