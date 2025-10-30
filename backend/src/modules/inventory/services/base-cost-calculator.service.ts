@@ -16,10 +16,15 @@ export class BaseCostCalculatorService {
   ) {}
 
   /**
-   * Calculate base cost from CURRENT STOCK ONLY
-   * Formula: SUM(remainingQty × landedCost) / SUM(remainingQty)
+   * Calculate base cost using RECEIVED QUANTITIES (Moving Average)
+   * Formula: SUM(receivedQty × landedCost) / SUM(receivedQty)
    *
-   * Example: 30 units @ RM 10 + 50 units @ RM 12 = (300 + 600) / 80 = RM 11.25
+   * This method calculates base cost from original purchase quantities,
+   * not current stock levels. Base cost only changes when receiving or
+   * returning goods, NOT when selling goods.
+   *
+   * Example: 30 units received @ RM 10 + 50 units received @ RM 12 = (300 + 600) / 80 = RM 11.25
+   * Even if you sell 20 units, base cost remains RM 11.25 until next purchase.
    */
   async calculateBaseCostFromCurrentStock(productId: string): Promise<number> {
     const product = await this.productRepository.findOne({
@@ -45,19 +50,20 @@ export class BaseCostCalculatorService {
       return Number(product.baseCost || 0);
     }
 
-    // Calculate weighted average from remaining stock
+    // Calculate weighted average from RECEIVED quantities (not remaining)
     let totalCost = 0;
     let totalQuantity = 0;
 
     for (const batch of batches) {
+      const qtyReceived = Number(batch.receivedQuantity);
       const qtyRemaining = Number(batch.remainingQuantity);
       const costPerUnit = Number(batch.landedCost);
 
-      totalCost += qtyRemaining * costPerUnit;
-      totalQuantity += qtyRemaining;
+      totalCost += qtyReceived * costPerUnit;
+      totalQuantity += qtyReceived;
 
       this.logger.debug(
-        `Batch ${batch.id}: ${qtyRemaining} units @ RM ${costPerUnit.toFixed(4)} = RM ${(qtyRemaining * costPerUnit).toFixed(2)}`
+        `Batch ${batch.id}: ${qtyReceived} units received (${qtyRemaining} remaining) @ RM ${costPerUnit.toFixed(4)} = RM ${(qtyReceived * costPerUnit).toFixed(2)}`
       );
     }
 
@@ -67,7 +73,7 @@ export class BaseCostCalculatorService {
       : Number(product.baseCost || 0);
 
     this.logger.log(
-      `Product ${product.name}: Weighted Average = RM ${totalCost.toFixed(2)} / ${totalQuantity} units = RM ${weightedAvg.toFixed(4)}`
+      `Product ${product.name}: Moving Average = RM ${totalCost.toFixed(2)} / ${totalQuantity} units = RM ${weightedAvg.toFixed(4)}`
     );
 
     return weightedAvg;
