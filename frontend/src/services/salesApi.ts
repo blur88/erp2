@@ -9,7 +9,6 @@ interface CustomerQueryParams extends QueryParams {
 interface CustomerSummary {
   id: string;
   name: string;
-  email?: string;
   phone?: string;
 }
 
@@ -23,7 +22,7 @@ export const salesApi = {
     return ApiService.get<Customer>(`customers/${id}`)
   },
 
-  
+
   async getCustomerSummaries() {
     return ApiService.get<CustomerSummary[]>('customers/summary')
   },
@@ -74,9 +73,9 @@ export const salesApi = {
   },
 
   // Sales Orders - Updated to match backend controller routes
-  async getOrders(params?: QueryParams & { 
-    customerId?: string; 
-    status?: string; 
+  async getOrders(params?: QueryParams & {
+    customerId?: string;
+    status?: string;
     priority?: string;
     fromDate?: string;
     toDate?: string;

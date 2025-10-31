@@ -228,22 +228,7 @@ export interface Customer {
   id: string;
   type: CustomerType;
   name: string;
-  contactPerson?: string;
-  email?: string;
   phone?: string;
-  alternativePhone?: string;
-  taxId?: string;
-  // Address Information
-  billingAddress?: string;
-  billingCity?: string;
-  billingState?: string;
-  billingPostalCode?: string;
-  billingCountry?: string;
-  shippingAddress?: string;
-  shippingCity?: string;
-  shippingState?: string;
-  shippingPostalCode?: string;
-  shippingCountry?: string;
   // Business Information
   isActive: boolean;
   priceLevel: PriceLevel;
@@ -258,8 +243,6 @@ export interface Customer {
   updatedAt: Date;
   deletedAt?: Date; // Soft delete timestamp from BaseEntity
   // Computed properties
-  fullAddress: string;
-  fullShippingAddress: string;
   averageOrderValue: number;
 }
 
