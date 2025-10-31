@@ -413,7 +413,7 @@ export interface PurchaseOrder {
     id: string;
     grnNumber: string;
     status: string;
-    receiptDate?: Date;
+    receivedDate?: Date;
   }>;
   createdAt: Date;
   updatedAt: Date;
@@ -433,9 +433,9 @@ export interface GoodsReceivedNote {
   purchaseOrder: PurchaseOrder;
   supplier: Supplier;
   items: GRNItem[];
-  status: 'draft' | 'completed';
+  status: 'draft' | 'received';
   receivedDate: Date;
-  notes?: string;
+  totalQuantityReceived?: number;
   createdAt: Date;
   updatedAt: Date;
 }

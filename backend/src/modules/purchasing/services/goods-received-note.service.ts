@@ -104,7 +104,7 @@ export class GoodsReceivedNoteService {
         grnNumber,
         purchaseOrderId: purchaseOrder.id,
         supplierId: purchaseOrder.supplier.id,
-        receivedDate: new Date(createDto.receiptDate),
+        receivedDate: new Date(createDto.receivedDate),
       });
 
       const savedGrn = await this.grnRepository.save(grn);
@@ -225,7 +225,7 @@ export class GoodsReceivedNoteService {
     }
 
     // Apply sorting
-    const validSortFields = ['grnNumber', 'receivedDate', 'status', 'totalValue'];
+    const validSortFields = ['grnNumber', 'receivedDate', 'status', 'totalQuantityReceived'];
     if (validSortFields.includes(sortBy)) {
       queryBuilder.orderBy(`grn.${sortBy}`, sortOrder);
     } else {
@@ -285,7 +285,7 @@ export class GoodsReceivedNoteService {
 
     try {
       Object.assign(grn, {
-        ...(updateDto.receiptDate && { receivedDate: new Date(updateDto.receiptDate) }),
+        ...(updateDto.receivedDate && { receivedDate: new Date(updateDto.receivedDate) }),
         ...(updateDto.status && { status: updateDto.status }),
       });
 
@@ -590,8 +590,8 @@ export class GoodsReceivedNoteService {
         companyName: grn.supplier.companyName,
         contactPerson: grn.supplier.contactPerson,
       },
-      receiptDate: grn.receivedDate,
-      totalReceivedQuantity: Number(grn.totalQuantityReceived),
+      receivedDate: grn.receivedDate,
+      totalQuantityReceived: Number(grn.totalQuantityReceived),
       receivedPercentage: grn.receivedPercentage,
       isFullyReceived: grn.isFullyReceived,
       isPartiallyReceived: grn.isPartiallyReceived,

@@ -182,8 +182,8 @@ const GoodsReceivedPage: React.FC = () => {
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-      receiptDateFrom: dateRange.fromDate,
-      receiptDateTo: dateRange.toDate,
+      receivedDateFrom: dateRange.fromDate,
+      receivedDateTo: dateRange.toDate,
     } as any))
   }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder, filters.dateFilter, getDateRange])
 
@@ -678,7 +678,7 @@ const GoodsReceivedPage: React.FC = () => {
                               GRN Date
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatDate(selectedGRN.receiptDate || selectedGRN.receivedDate)}
+                              {formatDate(selectedGRN.receivedDate)}
                             </TableCell>
                           </TableRow>
                           {selectedGRN.purchaseOrder && (
@@ -769,7 +769,7 @@ const GoodsReceivedPage: React.FC = () => {
                               Received Qty
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem', color: 'success.main' }}>
-                              {selectedGRN.totalReceivedQuantity || selectedGRN.totalQuantityReceived || 0}
+                              {selectedGRN.totalQuantityReceived || 0}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -777,30 +777,6 @@ const GoodsReceivedPage: React.FC = () => {
                     </TableContainer>
                   </Grid>
                 </Grid>
-
-                {/* Notes Section */}
-                {selectedGRN.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <TableContainer>
-                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
-                                Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                              {selectedGRN.notes}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
 
                 {/* Page Break */}
                 <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
