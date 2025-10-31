@@ -16,7 +16,7 @@ Comprehensive ERP system with modern full-stack architecture:
 
 **⚠️ CRITICAL: Authentication system completely removed**
 
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`
+**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule` (5 active)
 **Disabled Modules**: `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
 
 - All API endpoints publicly accessible
@@ -29,7 +29,7 @@ Comprehensive ERP system with modern full-stack architecture:
 
 ### Development Setup
 ```bash
-# Complete system with Docker
+# Complete system with Docker (recommended)
 docker compose up -d
 
 # Backend development
@@ -39,7 +39,7 @@ npm run start:dev        # Hot reload development server
 npm run start:debug     # Debug mode with inspector
 npm run start:prod       # Production mode
 
-# Frontend development  
+# Frontend development
 cd frontend
 npm install
 npm run dev             # Vite dev server with hot reload
@@ -58,7 +58,7 @@ npm run test:e2e               # End-to-end tests
 npm run test:debug             # Debug tests
 
 # Frontend tests (Vitest)
-cd frontend  
+cd frontend
 npm run test                   # Vitest unit tests
 npm run test:ui                # Vitest UI
 npm run test:coverage          # Coverage report
@@ -104,7 +104,7 @@ npm run type-check             # TypeScript check without build
 
 # Other deployment commands
 ./deploy.sh stop            # Stop services
-./deploy.sh restart         # Restart services  
+./deploy.sh restart         # Restart services
 ./deploy.sh logs           # View logs
 ./deploy.sh clean          # Clean up everything
 ./deploy.sh status         # Show service status
@@ -126,7 +126,7 @@ docker compose logs backend # Check specific service logs
 
 ### Architecture Patterns
 - **Controllers**: Handle HTTP with Swagger decorators
-- **Services**: Business logic and repository interaction  
+- **Services**: Business logic and repository interaction
 - **DTOs**: Data validation with class-validator
 - **Entities**: TypeORM models extending BaseEntity
 - **Infrastructure**: Exception filters, logging, validation pipes
@@ -139,7 +139,7 @@ docker compose logs backend # Check specific service logs
 **Key Entities:**
 - **BaseEntity**: UUID, timestamps, soft deletes, audit fields
 - **Inventory**: Product, Category (name + hierarchy), StockMovement
-- **Sales**: Customer, SalesOrder, Invoice, Payment  
+- **Sales**: Customer, SalesOrder, Invoice, Payment
 - **Purchasing**: Supplier, PurchaseOrder, GoodsReceivedNote
 
 ### Frontend Architecture
@@ -175,20 +175,21 @@ docker compose logs backend # Check specific service logs
 - **SSL disabled**: For Docker PostgreSQL compatibility
 - **Docker hosts**: Use `postgres`/`redis` service names
 
-### Docker Architecture  
+### Docker Architecture
 - **Frontend**: Multi-stage build with NGINX serving
 - **Backend**: Development build with `ts-node`
 - **Environment**: Runtime injection via `docker-entrypoint.sh`
+- **NGINX Proxy**: Routes `/api` to backend, `/` to frontend
 - **Important**: Backend source changes require rebuild (no volume mount)
 
 ## Path Aliases
 
 ### Backend
 - `@/*` → `src/*`, `@modules/*` → `src/modules/*`
-- `@common/*` → `src/common/*`, `@config/*` → `src/config/*`  
+- `@common/*` → `src/common/*`, `@config/*` → `src/config/*`
 - `@database/*` → `src/database/*`
 
-### Frontend  
+### Frontend
 - `@/*` → `src/*`, `@/components/*` → `src/components/*`
 - `@/pages/*` → `src/pages/*`, `@/hooks/*` → `src/hooks/*`
 - `@/services/*` → `src/services/*`, `@/store/*` → `src/store/*`
@@ -197,7 +198,7 @@ docker compose logs backend # Check specific service logs
 
 ### Adding New Modules
 1. Create module in `backend/src/modules/` with standard structure
-2. Add TypeORM entities to `backend/src/database/entities/`  
+2. Add TypeORM entities to `backend/src/database/entities/`
 3. Register in `app.module.ts`
 4. Add frontend pages and Redux slices as needed
 
@@ -212,7 +213,7 @@ When enabling disabled modules:
 
 ### Redux Pattern
 - **State**: `loading`, `error`, data with pagination
-- **Async thunks**: `createAsyncThunk` with error handling  
+- **Async thunks**: `createAsyncThunk` with error handling
 - **Null safety**: Always check `if (action.payload)` before using
 - **API Response**: Access `response.data.data` and `response.data.meta`
 - **Soft Delete**: Include `isActive: true` filter when fetching
@@ -224,9 +225,9 @@ When enabling disabled modules:
 - **TypeScript relaxed**: Project uses `"strict": false`, liberal use of `as any` when needed
 - **Path aliases**: Use `@/` for src imports, configured in both Vite and TypeScript
 
-## Recent Changes (October 2025)
+## Recent Changes Timeline (October 2025)
 
-### Redis 8 Upgrade (October 2025)
+### 🚀 Redis 8 Upgrade (October 2025)
 - ✅ **COMPLETE**: Upgraded Redis from 7-alpine to 8-alpine3.22
 - **New Features**: Built-in Redis modules now available - Search, JSON, TimeSeries, Bloom, and VectorSet
 - **Compatibility**: All existing Redis client operations remain functional
@@ -234,16 +235,7 @@ When enabling disabled modules:
 - **License**: Redis 8 uses RSALv2/SSPLv1/AGPLv3 tri-license model
 - **Benefits**: Access to advanced data structures and query capabilities without external modules
 
-### Latest System Updates (Current)
-- ✅ **NestJS v11 Upgrade**: Complete upgrade to NestJS 11 with all dependencies
-- ✅ **Node.js 22**: Updated Docker base images to Node.js 22 for better performance
-- ✅ **Frontend Dependencies**: Comprehensive updates to all Alpine packages and OpenSSL
-- ✅ **Container Health**: Added curl to frontend nginx container for health checks
-- ✅ **Security Enhancements**: Payment numbers now clickable in invoice details
-
-## Recent Changes (October 2025)
-
-### Purchasing Module Re-enabled (October 2025)
+### 🔄 Purchasing Module Re-enabled (October 2025)
 - ✅ **COMPLETE**: PurchasingModule fully re-enabled and functional
 - **Auth Cleanup**: Removed all authentication dependencies from purchasing endpoints
 - **Frontend Integration**: Purchase orders page with comprehensive overview analytics
@@ -251,7 +243,7 @@ When enabling disabled modules:
 - **Status Display**: Using `isFullyReceived` flag for accurate PO status
 - **Analytics**: Comprehensive purchasing dashboard with real-time data
 
-### Product Fields Modernization (October 2025)
+### 📦 Product Fields Modernization (October 2025)
 - ✅ **LATEST**: Simplified product model to match frontend form
 - **Final Product Fields**: name, description, barcode, type, categoryId, baseCost, retailPrice, wholesalePrice, specialPrice, stockQuantity, notes, isActive
 - **Removed Fields**: status, unit, reservedQuantity, reorderLevel, optimalStockLevel, stockStatus, weight, dimensions, brand, model, imageUrl, additionalImages, attributes
@@ -260,7 +252,7 @@ When enabling disabled modules:
 - **Search**: Simplified to search only by name and barcode
 - **Permanent Delete**: Added hard delete functionality for soft-deleted products
 
-### Soft-Deleted Products Feature (October 2025)
+### 🗑️ Soft-Deleted Products Feature (October 2025)
 - ✅ **COMPLETE**: Full soft-deleted products management system
 - **Backend**: `GET /api/inventory/products/deleted` and `POST /api/inventory/products/:id/restore` endpoints
 - **Frontend**: Enhanced `DeletedProductsDialog` with modern table design matching categories
@@ -268,47 +260,7 @@ When enabling disabled modules:
 - **Route Fix**: Moved deleted products endpoint before `:id` route to prevent UUID validation conflicts
 - **State Management**: Added Redux support for fetching and restoring deleted products
 
-### Frontend Integration Fixed
-- ✅ Inventory pages fully functional with real backend data
-- ✅ Fixed API response extraction from `ApiResponse<PaginatedResponse<T>>`
-- ✅ Added `isActive: true` filter to exclude soft-deleted records
-- ✅ Category restore/undo functionality implemented
-- ✅ WebSocket integration for dashboard real-time updates
-
-### Categories Simplified (October 2025)
-- Removed `code` and `description` fields entirely
-- Now only contains: name, hierarchy, status, sort order, audit fields
-- Tree view removed from categories page - now displays simple table view only
-
-### Customer Management Bulk Operations (October 2025)
-- ✅ **COMPLETE**: Bulk restore and bulk delete functionality for customers
-- **Frontend**: Enhanced customer page with bulk operations matching products/categories pattern
-- **UI Integration**: Bulk action buttons and "View Deleted" functionality
-- **State Management**: Redux support for bulk operations on customer records
-
-### Product API Endpoints Fixed (October 2025)
-- ✅ **CRITICAL FIX**: Product listing endpoints were returning reversed data
-- **Root Cause**: `remove()` method only set status flags but didn't use TypeORM's `softDelete()` for `deletedAt` timestamp
-- **Fix**: Updated `remove()` to use `await this.productRepository.softDelete(id)` and `findAll()` to filter `WHERE product.deletedAt IS NULL`
-- **Result**: 
-  - `/api/inventory/products` now correctly returns only **active products**
-  - `/api/inventory/products/deleted` now correctly returns only **soft-deleted products**
-- **Frontend Impact**: Products page and "View Deleted" dialog now show correct data sets
-
-### CategorySelector Data Fix (October 2025)
-- ✅ **FIXED**: CategorySelector now properly displays all categories instead of just "Main Category"
-- **Root Cause**: Component was incorrectly accessing `response.data?.data` instead of `response.data`
-- **Fix**: Updated to `const categoryTree = (response.data as any) || []`
-- **Result**: Parent category dropdown now shows hierarchical category tree with proper indentation
-- Categories display as: "Main Category", "Electronics", "  Mobile Phones" (indented), etc.
-
-### Category Form Validation Fixed (October 2025)
-- Fixed yup schema validation for `parentId` to allow `null` values: `.nullable()`
-- Updated TypeScript interfaces to support `parentId?: string | null`
-- Root level categories properly created with `parentId: null`
-- CategorySelector properly handles "Main Category" option (updated from "No Category (Root Level)")
-
-### Sales Order Enhancements (October 2025)
+### 💰 Sales Order Enhancements (October 2025)
 - ✅ **COMPLETE**: Enhanced sales order management with advanced filtering and payment handling
 - **Payment Features**: Overpayment handling with negative balance display and refund functionality
 - **Filtering**: Added payment status and fulfillment status filters with standardized dropdown widths (120px)
@@ -316,6 +268,35 @@ When enabling disabled modules:
 - **API Optimization**: Removed unused filter parameters and added debugging for summary methods
 - **Filter Layout**: Moved date range filters beside main date filter for improved user experience
 - **Standardization**: Consistent filter dropdown values and labels across all sales pages
+
+### 🏷️ Categories Simplified (October 2025)
+- Removed `code` and `description` fields entirely
+- Now only contains: name, hierarchy, status, sort order, audit fields
+- Tree view removed from categories page - now displays simple table view only
+
+### 👥 Customer Management Bulk Operations (October 2025)
+- ✅ **COMPLETE**: Bulk restore and bulk delete functionality for customers
+- **Frontend**: Enhanced customer page with bulk operations matching products/categories pattern
+- **UI Integration**: Bulk action buttons and "View Deleted" functionality
+- **State Management**: Redux support for bulk operations on customer records
+
+### 🔧 Critical API Fixes (October 2025)
+- **Product API Fixed**: Product listing endpoints were returning reversed data due to inconsistent soft delete implementation
+  - **Root Cause**: `remove()` method only set status flags but didn't use TypeORM's `softDelete()` for `deletedAt` timestamp
+  - **Fix**: Updated `remove()` to use `await this.productRepository.softDelete(id)` and `findAll()` to filter `WHERE product.deletedAt IS NULL`
+  - **Result**: `/api/inventory/products` now correctly returns only **active products**, `/api/inventory/products/deleted` now correctly returns only **soft-deleted products**
+- **CategorySelector Fixed**: Now properly displays all categories instead of just "Main Category"
+  - **Root Cause**: Component was incorrectly accessing `response.data?.data` instead of `response.data`
+  - **Fix**: Updated to `const categoryTree = (response.data as any) || []`
+  - **Result**: Parent category dropdown now shows hierarchical category tree with proper indentation
+- **Category Form Validation**: Fixed yup schema validation for `parentId` to allow `null` values: `.nullable()`
+
+### 🏗️ Platform Upgrades (September-October 2025)
+- ✅ **NestJS v11 Upgrade**: Complete upgrade to NestJS 11 with all dependencies
+- ✅ **Node.js 22**: Updated Docker base images to Node.js 22 for better performance
+- ✅ **Frontend Dependencies**: Comprehensive updates to all Alpine packages and OpenSSL
+- ✅ **Container Health**: Added curl to frontend nginx container for health checks
+- ✅ **Security Enhancements**: Payment numbers now clickable in invoice details
 
 ## Code Patterns
 
@@ -351,10 +332,10 @@ export class EntityName extends BaseEntity {
 export class Product extends BaseEntity {
   @Column({ default: 'active' })
   status: string; // 'active' | 'discontinued'
-  
+
   @Column({ default: true })
   isActive: boolean; // false when soft-deleted
-  
+
   @DeleteDateColumn() // TypeORM built-in soft delete
   deletedAt?: Date;
 }
@@ -408,31 +389,42 @@ const { control, handleSubmit } = useForm<FormData>({
 
 ## Environment
 
-### Backend 
+### Backend
 - Database: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`
 - Redis: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
 
 ### Frontend
-- API: `VITE_API_BASE_URL`, `VITE_SOCKET_URL`
+- API: `VITE_API_BASE_URL` (uses `/api` for NGINX proxy compatibility)
+- Socket: `VITE_SOCKET_URL` (uses `/` for NGINX proxy compatibility)
 - Runtime injection via `window.__ENV__` for Docker compatibility
 
 ## Access URLs
 
-**Development:**
+### Development (via NGINX proxy)
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3000/api
+- API Docs: http://localhost:3000/api/docs
+
+### Direct Access (bypassing NGINX)
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001/api
 - API Docs: http://localhost:3001/api/docs
 
-**✅ Functional Pages:**
+### ✅ Functional Pages
+- Dashboard: http://localhost:3000/ (real-time updates)
 - Inventory: http://localhost:3000/inventory
 - Products: http://localhost:3000/inventory/products (full CRUD + soft-deleted products management)
 - Categories: http://localhost:3000/inventory/categories (table view with restore/undo)
+- Sales: http://localhost:3000/sales
+- Purchasing: http://localhost:3000/purchasing (re-enabled October 2025)
+- Users: http://localhost:3000/users
 
-**Key API Endpoints:**
+### Key API Endpoints
 - Users: `/api/users`
-- Inventory: `/api/inventory/products`, `/api/inventory/categories`  
+- Inventory: `/api/inventory/products`, `/api/inventory/categories`
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
 - Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
+- Purchasing: `/api/purchasing/suppliers`, `/api/purchasing/purchase-orders`, `/api/purchasing/overview`
 - Module Info: `/api/info`
 
 ## Troubleshooting
@@ -455,7 +447,7 @@ const { control, handleSubmit } = useForm<FormData>({
 cd frontend && npm run type-check
 cd backend && npm run build
 
-# Check service status  
+# Check service status
 docker compose ps
 docker compose logs backend --tail=20
 curl http://localhost:3001/api/health
@@ -479,8 +471,8 @@ For disabled modules (Reports, Plugins):
 ## Key Files
 
 ### Core Configuration
-- `backend/src/app.module.ts` - Main module (4 active modules)
-- `docker-compose.yml` - Service orchestration  
+- `backend/src/app.module.ts` - Main module (5 active modules)
+- `docker-compose.yml` - Service orchestration with NGINX proxy
 - `deploy.sh` - Production deployment
 - `frontend/src/App.tsx` - Main React component
 
@@ -497,6 +489,6 @@ For disabled modules (Reports, Plugins):
 - `frontend/src/components/inventory/CategoryBreadcrumb.tsx` - **UNUSED** Navigation breadcrumbs component (exists but not imported anywhere)
 
 ### Environment Config
-- `frontend/docker-entrypoint.sh` - Runtime `window.__ENV__` injection  
+- `frontend/docker-entrypoint.sh` - Runtime `window.__ENV__` injection
 - `frontend/vite.config.ts` - Socket.IO proxy configuration
 - `backend/src/config/database.config.ts` - DB with IPv4 enforcement
