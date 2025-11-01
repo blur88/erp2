@@ -57,35 +57,10 @@ export class PurchaseOrderItem extends BaseEntity {
   status: PurchaseOrderItemStatus;
 
   // Product Information (captured at time of order)
-  @Column({
-    type: 'varchar',
-    length: 50,
-    comment: 'Product SKU at time of order',
-  })
-  @IsString()
-  @MaxLength(50)
-  productSku: string;
-
-  @Column({
-    type: 'varchar',
-    length: 200,
-    comment: 'Product name at time of order',
-  })
-  @IsString()
-  @MaxLength(200)
-  productName: string;
+  // Note: productName and productSku fields removed - available via product relationship
 
   // Product description is retrieved from product relationship
   // No need to store product description separately as it's available via product.description
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    comment: 'Unit of measurement',
-  })
-  @IsString()
-  @MaxLength(20)
-  unit: string;
 
   // Quantity and Pricing
   @Column({
@@ -162,94 +137,11 @@ export class PurchaseOrderItem extends BaseEntity {
   totalAmount: number;
 
   // Delivery Information
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Required delivery date for this item',
-  })
-  @IsOptional()
-  @IsDate()
-  requiredDate?: Date;
+  // Note: deliveredDate removed - delivery tracking now handled at purchase order level
 
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Expected delivery date from supplier',
-  })
-  @IsOptional()
-  @IsDate()
-  expectedDeliveryDate?: Date;
+  // Quality Information removed - quality acceptance now tracked via receivedQuantity only
 
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Actual delivery date',
-  })
-  @IsOptional()
-  @IsDate()
-  deliveredDate?: Date;
-
-  // Quality Information
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Quantity accepted (passed quality check)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  acceptedQuantity: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Quantity rejected (failed quality check)',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  rejectedQuantity: number;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Quality inspection notes',
-  })
-  @IsOptional()
-  @IsString()
-  qualityNotes?: string;
-
-  // Additional Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Special instructions for this item',
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Supplier part number or reference',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  supplierPartNumber?: string;
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Item-specific attributes or specifications',
-  })
-  @IsOptional()
-  attributes?: Record<string, any>;
-
+  
   // Foreign Keys
   @Column({
     type: 'uuid',
@@ -294,25 +186,13 @@ export class PurchaseOrderItem extends BaseEntity {
     return Number(this.quantity) * Number(this.unitCost);
   }
 
-  get qualityAcceptanceRate(): number {
-    const totalInspected = Number(this.acceptedQuantity) + Number(this.rejectedQuantity);
-    return totalInspected > 0 ? (Number(this.acceptedQuantity) / totalInspected) * 100 : 0;
-  }
-
-  get isOverdue(): boolean {
-    if (!this.requiredDate) return false;
-    return new Date() > this.requiredDate && !this.isFullyReceived;
-  }
-
+  
+  
+  // Delivery performance tracking moved to purchase order level
+  // Individual item delivery performance is no longer tracked
   get deliveryPerformance(): 'on_time' | 'late' | 'early' | 'pending' {
-    if (!this.deliveredDate) return 'pending';
-    if (!this.expectedDeliveryDate) return 'on_time'; // No expectation set
-    
-    const delivered = this.deliveredDate.getTime();
-    const expected = this.expectedDeliveryDate.getTime();
-    
-    if (delivered === expected) return 'on_time';
-    return delivered > expected ? 'late' : 'early';
+    // Always return pending since item-level delivery tracking is removed
+    return 'pending';
   }
 
   // Hooks
@@ -367,27 +247,16 @@ export class PurchaseOrderItem extends BaseEntity {
   updateStatus() {
     if (this.isFullyReceived) {
       this.status = PurchaseOrderItemStatus.RECEIVED;
-      if (!this.deliveredDate) {
-        this.deliveredDate = new Date();
-      }
+      // deliveredDate tracking removed - delivery date now tracked at purchase order level
     } else if (this.isPartiallyReceived) {
       this.status = PurchaseOrderItemStatus.PARTIALLY_RECEIVED;
     }
   }
 
   // Helper methods
-  receiveQuantity(quantity: number, acceptedQty?: number, rejectedQty?: number): void {
+  receiveQuantity(quantity: number): void {
     const receiveQty = Math.min(Number(quantity), this.remainingQuantity);
     this.receivedQuantity = Number(this.receivedQuantity) + receiveQty;
-    
-    // Update quality metrics if provided
-    if (acceptedQty !== undefined) {
-      this.acceptedQuantity = Number(this.acceptedQuantity) + Number(acceptedQty);
-    }
-    if (rejectedQty !== undefined) {
-      this.rejectedQuantity = Number(this.rejectedQuantity) + Number(rejectedQty);
-    }
-    
     this.updateStatus();
   }
 
@@ -409,66 +278,35 @@ export class PurchaseOrderItem extends BaseEntity {
     }
   }
 
-  setExpectedDeliveryDate(date: Date): void {
-    this.expectedDeliveryDate = date;
-  }
-
-  // Quality control methods
-  inspectReceived(acceptedQty: number, rejectedQty: number, notes?: string): void {
-    const totalInspected = Number(acceptedQty) + Number(rejectedQty);
-    if (totalInspected > Number(this.receivedQuantity)) {
-      throw new Error('Cannot inspect more than received quantity');
-    }
-    
-    this.acceptedQuantity = Number(acceptedQty);
-    this.rejectedQuantity = Number(rejectedQty);
-    
-    if (notes) {
-      this.qualityNotes = notes;
-    }
-  }
-
+  
+  
   // Static method to create from product
   static fromProduct(
-    product: Product, 
-    quantity: number, 
+    product: Product,
+    quantity: number,
     unitCost?: number
   ): Partial<PurchaseOrderItem> {
     return {
       productId: product.id,
-      productSku: product.barcode,
-      productName: product.name,
-      unit: 'pcs',
       quantity,
       unitCost: unitCost || Number(product.baseCost),
     };
   }
 
-  // Calculate delivery performance metrics for reporting
+  // Item-level delivery performance metrics removed
+  // Delivery performance is now tracked at purchase order level only
   getDeliveryPerformanceMetrics(): {
     daysLate: number;
     isOnTime: boolean;
     isLate: boolean;
     isEarly: boolean;
   } {
-    if (!this.deliveredDate || !this.expectedDeliveryDate) {
-      return {
-        daysLate: 0,
-        isOnTime: false,
-        isLate: false,
-        isEarly: false,
-      };
-    }
-
-    const deliveredTime = this.deliveredDate.getTime();
-    const expectedTime = this.expectedDeliveryDate.getTime();
-    const diffDays = Math.ceil((deliveredTime - expectedTime) / (1000 * 60 * 60 * 24));
-
+    // Return neutral values since item-level delivery tracking is removed
     return {
-      daysLate: Math.max(0, diffDays),
-      isOnTime: diffDays === 0,
-      isLate: diffDays > 0,
-      isEarly: diffDays < 0,
+      daysLate: 0,
+      isOnTime: false,
+      isLate: false,
+      isEarly: false,
     };
   }
 }

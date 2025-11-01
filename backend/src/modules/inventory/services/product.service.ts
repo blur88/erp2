@@ -17,7 +17,12 @@ import {
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
+import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
+import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -45,8 +50,18 @@ export class ProductService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(SalesOrderItem)
     private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+    @InjectRepository(PurchaseOrderItem)
+    private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
     @InjectRepository(StockMovement)
     private readonly stockMovementRepository: Repository<StockMovement>,
+    @InjectRepository(StockAdjustmentItem)
+    private readonly stockAdjustmentItemRepository: Repository<StockAdjustmentItem>,
+    @InjectRepository(GoodsReceivedNoteItem)
+    private readonly goodsReceivedNoteItemRepository: Repository<GoodsReceivedNoteItem>,
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepository: Repository<InvoiceItem>,
+    @InjectRepository(PurchaseCostHistory)
+    private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
     @Inject(forwardRef(() => CategoryService))
     private readonly categoryService: CategoryService,
     @Inject(forwardRef(() => StockMovementService))
@@ -590,15 +605,25 @@ export class ProductService {
     // Find the product (including soft-deleted ones)
     const product = await this.productRepository.findOne({
       where: { id },
-      // Note: Removed problematic relations as sales/purchasing modules are disabled
       withDeleted: true,
     });
 
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(product, 'Product', id);
 
-    // Note: Dependency checks for sales/purchase orders are disabled since those modules are not active
-    // Note: Stock movement check is disabled since we removed the relation
+    // Check for dependencies before permanent deletion
+    const dependencies = await this.checkProductDependencies(id);
+
+    if (dependencies.hasDependencies) {
+      const dependencyList = dependencies.dependencies
+        .map(dep => `${dep.count} ${dep.type}`)
+        .join(', ');
+
+      throw new ConflictException(
+        `Cannot permanently delete '${product.name}' - product has dependent records: ${dependencyList}. ` +
+        `These records must be removed first before permanent deletion.`
+      );
+    }
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -630,7 +655,6 @@ export class ProductService {
         // Find the product (including soft-deleted ones)
         const product = await this.productRepository.findOne({
           where: { id },
-          // Note: Removed problematic relations as sales/purchasing modules are disabled
           withDeleted: true,
         });
 
@@ -647,8 +671,22 @@ export class ProductService {
           continue;
         }
 
-        // Note: Dependency checks for sales/purchase orders and stock movements are disabled
-        // since those modules are not active
+        // Check for dependencies before permanent deletion
+        const dependencies = await this.checkProductDependencies(id);
+
+        if (dependencies.hasDependencies) {
+          const dependencyList = dependencies.dependencies
+            .map(dep => `${dep.count} ${dep.type}`)
+            .join(', ');
+
+          BulkOperationUtil.addFailure(
+            failedItems,
+            id,
+            `Product '${product.name}' has dependent records: ${dependencyList}`,
+            'DEPENDENCY_ERROR'
+          );
+          continue;
+        }
 
         // Hard delete the product from database
         await this.productRepository.delete(id);
@@ -813,7 +851,15 @@ export class ProductService {
       where: { productId }
     });
     if (salesOrderItemCount > 0) {
-      dependencies.push({ type: 'sales orders', count: salesOrderItemCount });
+      dependencies.push({ type: 'sales order items', count: salesOrderItemCount });
+    }
+
+    // Check purchase order items
+    const purchaseOrderItemCount = await this.purchaseOrderItemRepository.count({
+      where: { productId }
+    });
+    if (purchaseOrderItemCount > 0) {
+      dependencies.push({ type: 'purchase order items', count: purchaseOrderItemCount });
     }
 
     // Check stock movements
@@ -824,6 +870,38 @@ export class ProductService {
       dependencies.push({ type: 'stock movements', count: stockMovementCount });
     }
 
+    // Check stock adjustment items
+    const stockAdjustmentItemCount = await this.stockAdjustmentItemRepository.count({
+      where: { productId }
+    });
+    if (stockAdjustmentItemCount > 0) {
+      dependencies.push({ type: 'stock adjustment items', count: stockAdjustmentItemCount });
+    }
+
+    // Check goods received note items
+    const goodsReceivedNoteItemCount = await this.goodsReceivedNoteItemRepository.count({
+      where: { productId }
+    });
+    if (goodsReceivedNoteItemCount > 0) {
+      dependencies.push({ type: 'goods received note items', count: goodsReceivedNoteItemCount });
+    }
+
+    // Check invoice items
+    const invoiceItemCount = await this.invoiceItemRepository.count({
+      where: { productId }
+    });
+    if (invoiceItemCount > 0) {
+      dependencies.push({ type: 'invoice items', count: invoiceItemCount });
+    }
+
+    // Check purchase cost history
+    const purchaseCostHistoryCount = await this.purchaseCostHistoryRepository.count({
+      where: { productId }
+    });
+    if (purchaseCostHistoryCount > 0) {
+      dependencies.push({ type: 'purchase cost history records', count: purchaseCostHistoryCount });
+    }
+
     return {
       hasDependencies: dependencies.length > 0,
       dependencies
@@ -832,8 +910,13 @@ export class ProductService {
 
   /**
    * Delete a product (soft delete using TypeORM)
+   *
+   * Note: Soft delete is allowed even with active references (stock movements, orders)
+   * since the product record is preserved and historical data remains intact.
+   * Only check for active sales order items to prevent deletion of products
+   * currently in pending orders.
    */
-  async remove(id: string, userId?: string): Promise<void> {
+  async remove(id: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
 
     const product = await this.productRepository.findOne({
@@ -844,14 +927,19 @@ export class ProductService {
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    // Check for dependencies that prevent deletion
-    const dependencyCheck = await this.checkProductDependencies(id);
-    if (dependencyCheck.hasDependencies) {
-      const dependencyList = dependencyCheck.dependencies
-        .map(dep => `${dep.count} ${dep.type}`)
-        .join(', ');
+    // Only check for active sales order items (pending orders)
+    // Allow soft delete even if product has stock movements or completed orders
+    const activeSalesOrderItemCount = await this.salesOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoin('item.salesOrder', 'order')
+      .where('item.productId = :productId', { productId: id })
+      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: false })
+      .getCount();
+
+    if (activeSalesOrderItemCount > 0) {
       throw new ConflictException(
-        `Cannot delete '${product.name}' - used in: ${dependencyList}`
+        `Cannot delete '${product.name}' - product is in ${activeSalesOrderItemCount} pending sales order(s). ` +
+        `Please fulfill or cancel those orders first.`
       );
     }
 
@@ -866,7 +954,7 @@ export class ProductService {
   /**
    * Bulk update product prices
    */
-  async bulkUpdatePrices(bulkUpdateDto: BulkUpdatePricesDto, userId?: string): Promise<void> {
+  async bulkUpdatePrices(bulkUpdateDto: BulkUpdatePricesDto): Promise<void> {
     this.logger.log(`Bulk updating prices for ${bulkUpdateDto.products.length} products`);
 
     const productIds = bulkUpdateDto.products.map(p => p.productId);
@@ -997,7 +1085,7 @@ export class ProductService {
   /**
    * Reserve stock for a product
    */
-  async reserveStock(productId: string, quantity: number, reason: string, userId?: string): Promise<boolean> {
+  async reserveStock(productId: string, quantity: number): Promise<boolean> {
     const product = await this.productRepository.findOne({ where: { id: productId } });
     
     if (!product) {
@@ -1016,7 +1104,7 @@ export class ProductService {
   /**
    * Release reserved stock for a product
    */
-  async releaseReservedStock(productId: string, quantity: number, reason: string, userId?: string): Promise<void> {
+  async releaseReservedStock(productId: string, quantity: number): Promise<void> {
     const product = await this.productRepository.findOne({ where: { id: productId } });
     
     if (!product) {
@@ -1201,9 +1289,9 @@ export class ProductService {
   /**
    * Check if the update contains pricing changes
    */
-  private hasPricingChanges(updateDto: UpdateProductDto): boolean {
+  private hasPricingChanges(_updateDto: UpdateProductDto): boolean {
     return ['baseCost', 'retailPrice', 'wholesalePrice', 'specialPrice'].some(
-      field => updateDto.hasOwnProperty(field)
+      field => _updateDto.hasOwnProperty(field)
     );
   }
 
@@ -1585,7 +1673,7 @@ export class ProductService {
    */
   private async findDuplicateProduct(name: string, barcode?: string): Promise<Product | null> {
     const whereConditions: any[] = [{ name }];
-    
+
     if (barcode && barcode.trim()) {
       whereConditions.push({ barcode: barcode.trim() });
     }
@@ -1594,5 +1682,120 @@ export class ProductService {
       where: whereConditions,
       withDeleted: true, // Include soft-deleted products in duplicate check
     });
+  }
+
+  /**
+   * Get order history for a product (both sales and purchase orders)
+   */
+  async getOrderHistory(
+    productId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<any> {
+    this.logger.log(`Getting order history for product ${productId}`);
+
+    // Verify product exists
+    const product = await this.findOne(productId);
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Fetch ALL sales order items (no pagination yet - will paginate after combining)
+    const salesOrderItems = await this.salesOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoinAndSelect('item.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .where('item.productId = :productId', { productId })
+      .getMany();
+
+    // Fetch ALL purchase order items with payment information (no pagination yet)
+    const purchaseOrderItems = await this.purchaseOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoinAndSelect('item.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('purchaseOrder.supplier', 'supplier')
+      .leftJoinAndSelect('purchaseOrder.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('purchaseOrder.items', 'poItems')
+      .where('item.productId = :productId', { productId })
+      .getMany();
+
+    // Transform sales order items (filter out items without order data)
+    const salesOrders = salesOrderItems
+      .filter(item => item.salesOrder) // Only process items with loaded order
+      .map(item => {
+        const paidAmount = Number(item.salesOrder.paidAmount || 0);
+        const totalAmount = Number(item.salesOrder.totalAmount || 0);
+        const isPaid = paidAmount >= totalAmount;
+
+        return {
+          id: item.id,
+          type: 'sales_order',
+          orderNumber: item.salesOrder.orderNumber,
+          customerOrVendor: item.salesOrder.customer?.name || 'Unknown',
+          date: item.salesOrder.orderDate,
+          updatedAt: item.salesOrder.updatedAt, // Add updatedAt for sorting
+          paymentStatus: isPaid ? 'paid' : (paidAmount > 0 ? 'partial' : 'pending'),
+          fulfillmentStatus: item.salesOrder.isFulfilled ? 'fulfilled' : 'pending',
+          quantity: Number(item.quantity),
+          subTotal: Number(item.totalAmount),
+        };
+      });
+
+    // Transform purchase order items (filter out items without order data)
+    const purchaseOrders = purchaseOrderItems
+      .filter(item => item.purchaseOrder) // Only process items with loaded order
+      .map(item => {
+        // Calculate payment status from vendor payments
+        const vendorPayments = item.purchaseOrder.vendorPayments || [];
+        const totalPaid = vendorPayments
+          .filter(payment => payment.status === 'completed')
+          .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const totalAmount = Number(item.purchaseOrder.totalAmount || 0);
+
+        let paymentStatus = 'pending';
+        if (totalPaid >= totalAmount && totalAmount > 0) {
+          paymentStatus = 'paid';
+        } else if (totalPaid > 0) {
+          paymentStatus = 'partial';
+        }
+
+        // Check if fully received using the entity method
+        const isFullyReceived = item.purchaseOrder.isFullyReceived ? item.purchaseOrder.isFullyReceived() : false;
+
+        return {
+          id: item.id,
+          type: 'purchase_order',
+          orderNumber: item.purchaseOrder.orderNumber,
+          customerOrVendor: item.purchaseOrder.supplier?.companyName || 'Unknown',
+          date: item.purchaseOrder.orderDate,
+          updatedAt: item.purchaseOrder.updatedAt, // Add updatedAt for sorting
+          paymentStatus,
+          receivedStatus: isFullyReceived ? 'received' : 'pending',
+          quantity: Number(item.quantity),
+          subTotal: Number(item.totalAmount),
+        };
+      });
+
+    // Combine and sort by updatedAt (most recently updated first)
+    const combinedOrders = [...salesOrders, ...purchaseOrders].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+
+    // Get total count
+    const total = combinedOrders.length;
+
+    // Apply pagination AFTER combining and sorting
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedOrders = combinedOrders.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedOrders,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

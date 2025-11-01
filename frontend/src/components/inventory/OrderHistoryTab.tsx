@@ -1,0 +1,279 @@
+import React, { useEffect, useState } from 'react'
+import {
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  CircularProgress,
+  Chip,
+} from '@mui/material'
+import { ApiService } from '@/services/api'
+import { useNotification } from '@/hooks/useNotification'
+import { formatCurrency } from '@/utils/currency'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+
+interface OrderHistoryTabProps {
+  productId: string
+}
+
+interface OrderHistoryItem {
+  id: string
+  type: 'sales_order' | 'purchase_order'
+  orderNumber: string
+  customerOrVendor: string
+  date: Date | string
+  paymentStatus?: string
+  fulfillmentStatus?: string
+  receivedStatus?: string
+  quantity: number
+  subTotal: number
+}
+
+const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
+  const { showError } = useNotification()
+  const [orders, setOrders] = useState<OrderHistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [total, setTotal] = useState(0)
+
+  useEffect(() => {
+    const fetchOrderHistory = async () => {
+      try {
+        setLoading(true)
+        const response = await ApiService.get(`/inventory/products/${productId}/order-history`, {
+          params: {
+            page: page + 1,
+            limit: rowsPerPage,
+          },
+        }) as any
+
+        // Extract data from ApiResponse
+        const data = response.data?.data || response.data || []
+        const meta = response.data?.meta || response.meta || {}
+
+        setOrders(data)
+        setTotal(meta.total || 0)
+      } catch (error: any) {
+        console.error('Failed to fetch order history:', error)
+        showError(error?.message || 'Failed to load order history')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (productId) {
+      fetchOrderHistory()
+    }
+  }, [productId, page, rowsPerPage, showError])
+
+  const formatDate = (date: Date | string) => {
+    return new Date(date).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  const getOrderTypeLabel = (type: string): string => {
+    return type === 'sales_order' ? 'Sales Order' : 'Purchase Order'
+  }
+
+  const getStatusChip = (order: OrderHistoryItem) => {
+    if (order.type === 'sales_order') {
+      // For sales orders, show payment and fulfillment status
+      const paymentColor =
+        order.paymentStatus === 'paid'
+          ? 'success'
+          : order.paymentStatus === 'partial'
+          ? 'warning'
+          : 'default'
+
+      const fulfillmentColor = order.fulfillmentStatus === 'fulfilled' ? 'success' : 'default'
+
+      return (
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          <Chip
+            label={order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'partial' ? 'Partial' : 'Pending'}
+            color={paymentColor as any}
+            size="small"
+            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+          />
+          <Chip
+            label={order.fulfillmentStatus === 'fulfilled' ? 'Fulfilled' : 'Pending'}
+            color={fulfillmentColor as any}
+            size="small"
+            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+          />
+        </Box>
+      )
+    } else {
+      // For purchase orders, show payment and received status
+      const paymentColor =
+        order.paymentStatus === 'paid'
+          ? 'success'
+          : order.paymentStatus === 'partial'
+          ? 'warning'
+          : 'default'
+
+      const receivedColor = order.receivedStatus === 'received' ? 'success' : 'default'
+
+      return (
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          <Chip
+            label={order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'partial' ? 'Partial' : 'Pending'}
+            color={paymentColor as any}
+            size="small"
+            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+          />
+          <Chip
+            label={order.receivedStatus === 'received' ? 'Received' : 'Pending Delivery'}
+            color={receivedColor as any}
+            size="small"
+            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+          />
+        </Box>
+      )
+    }
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (orders.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+        <Typography variant="body1" color="text.secondary">
+          No order history found for this product
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <>
+      <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+        <Table
+          size={TABLE_STYLES.size}
+          stickyHeader
+          sx={{
+            '& .MuiTableCell-root': {
+              py: TABLE_STYLES.cell.padding.py,
+              px: TABLE_STYLES.cell.padding.px,
+              borderBottom: TABLE_STYLES.cell.border,
+            },
+          }}
+        >
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                Type
+              </TableCell>
+              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                Order #
+              </TableCell>
+              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                Customer/Vendor
+              </TableCell>
+              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                Date
+              </TableCell>
+              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                Order Status
+              </TableCell>
+              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }} align="right">
+                Quantity
+              </TableCell>
+              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }} align="right">
+                Sub-Total
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {orders.map((order) => (
+              <TableRow key={order.id} hover>
+                <TableCell>
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                  >
+                    {getOrderTypeLabel(order.type)}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                  >
+                    {order.orderNumber}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                  >
+                    {order.customerOrVendor}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                  >
+                    {formatDate(order.date)}
+                  </Typography>
+                </TableCell>
+                <TableCell>{getStatusChip(order)}</TableCell>
+                <TableCell align="right">
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                  >
+                    {Math.floor(order.quantity)}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    sx={{
+                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                      fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                    }}
+                  >
+                    {formatCurrency(order.subTotal)}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <TablePagination
+        rowsPerPageOptions={[10, 20, 50]}
+        component="div"
+        count={total}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(_, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10))
+          setPage(0)
+        }}
+        size="small"
+      />
+    </>
+  )
+}
+
+export default OrderHistoryTab

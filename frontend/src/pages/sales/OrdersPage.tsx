@@ -41,7 +41,6 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   Receipt as OrderIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -465,6 +464,14 @@ const OrdersPage: React.FC = () => {
         dispatch(updateOrderInPlace(updatedOrder.data))
         // Refresh invoices to show updated payment amounts
         dispatch(fetchInvoices({ page: 1, limit: 20 }))
+        // Refresh the orders list to show updated state
+        dispatch(fetchOrders({
+          page: state.page + 1,
+          limit: state.rowsPerPage,
+          search: orderFilters.search || '',
+          paymentStatus: orderFilters.paymentStatus || 'all',
+          fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
+        }))
         showSuccess('Payment cleared successfully')
       } else {
         const errorData = await response.json()
@@ -1029,10 +1036,6 @@ const OrdersPage: React.FC = () => {
     }
   }
 
-  const handleRefreshAction = () => {
-    loadOrders()
-  }
-
   const handleViewDeletedAction = () => {
     setDeletedOrdersDialogOpen(true)
   }
@@ -1123,16 +1126,6 @@ const OrdersPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={loadOrders}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Orders" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}

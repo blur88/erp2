@@ -1,5 +1,5 @@
 import { ApiService } from './api'
-import type { Product, Category, StockMovement, PaginatedResponse, QueryParams } from '@/types'
+import type { Product, Category, StockMovement, StockAdjustment, PaginatedResponse, QueryParams } from '@/types'
 
 export const inventoryApi = {
   // Products
@@ -228,6 +228,85 @@ export const inventoryApi = {
   // Stock management
   async getStockMovements(params?: QueryParams & { productId?: string }) {
     return ApiService.get<PaginatedResponse<StockMovement>>('/inventory/stock/movements', { params })
+  },
+
+  // Stock Adjustments
+  async getStockAdjustments(params?: QueryParams & {
+    status?: string
+    fromDate?: string
+    toDate?: string
+    adjustedByUserId?: string
+  }) {
+    return ApiService.get<PaginatedResponse<StockAdjustment>>('/inventory/stock-adjustments', { params })
+  },
+
+  async getStockAdjustment(id: string) {
+    return ApiService.get<StockAdjustment>(`/inventory/stock-adjustments/${id}`)
+  },
+
+  async createStockAdjustment(data: {
+    adjustmentDate?: Date
+    notes?: string
+    items: Array<{
+      productId: string
+      oldQuantity: number
+      newQuantity: number
+      difference: number
+      unitCost?: number
+      notes?: string
+    }>
+  }) {
+    return ApiService.post<StockAdjustment>('/inventory/stock-adjustments', data)
+  },
+
+  async updateStockAdjustment(id: string, data: {
+    adjustmentDate?: Date
+    notes?: string
+    items?: Array<{
+      productId: string
+      oldQuantity: number
+      newQuantity: number
+      difference: number
+      unitCost?: number
+      notes?: string
+    }>
+  }) {
+    return ApiService.put<StockAdjustment>(`/inventory/stock-adjustments/${id}`, data)
+  },
+
+  async completeStockAdjustment(id: string) {
+    return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/complete`)
+  },
+
+  async uncompleteStockAdjustment(id: string) {
+    return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/uncomplete`)
+  },
+
+  async cancelStockAdjustment(id: string) {
+    return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/cancel`)
+  },
+
+  async deleteStockAdjustment(id: string) {
+    return ApiService.delete(`/inventory/stock-adjustments/${id}`)
+  },
+
+  async getDeletedStockAdjustments(params?: QueryParams) {
+    return ApiService.get<PaginatedResponse<StockAdjustment>>('/inventory/stock-adjustments/deleted', { params })
+  },
+
+  async restoreStockAdjustment(id: string) {
+    return ApiService.post<StockAdjustment>(`/inventory/stock-adjustments/${id}/restore`)
+  },
+
+  async permanentDeleteStockAdjustment(id: string) {
+    return ApiService.delete(`/inventory/stock-adjustments/${id}/permanent`)
+  },
+
+  async bulkPermanentDeleteStockAdjustments(stockAdjustmentIds: string[]) {
+    return ApiService.post<{ successCount: number; failedIds: string[] }>(
+      '/inventory/stock-adjustments/bulk-permanent-delete',
+      { stockAdjustmentIds }
+    )
   },
 
   async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {

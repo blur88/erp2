@@ -13,6 +13,8 @@ const InventoryPage = React.lazy(() => import('./pages/inventory/InventoryPage')
 const ProductsPage = React.lazy(() => import('./pages/inventory/ProductsPage'))
 const CreateProductPage = React.lazy(() => import('./pages/inventory/CreateProductPage'))
 const CategoriesPage = React.lazy(() => import('./pages/inventory/CategoriesPage'))
+const StockAdjustmentsPage = React.lazy(() => import('./pages/inventory/StockAdjustmentsPage'))
+const CreateStockAdjustmentPage = React.lazy(() => import('./pages/inventory/CreateStockAdjustmentPage'))
 const SalesPage = React.lazy(() => import('./pages/sales/SalesPage'))
 const CustomersPage = React.lazy(() => import('./pages/sales/CustomersPage'))
 const OrdersPage = React.lazy(() => import('./pages/sales/OrdersPage'))
@@ -65,6 +67,9 @@ function App() {
                     <Route path="/inventory/products/create" element={<CreateProductPage />} />
                     <Route path="/inventory/products/:id/edit" element={<CreateProductPage />} />
                     <Route path="/inventory/categories" element={<CategoriesPage />} />
+                    <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
+                    <Route path="/inventory/stock-adjustments/create" element={<CreateStockAdjustmentPage />} />
+                    <Route path="/inventory/stock-adjustments/:id/edit" element={<CreateStockAdjustmentPage />} />
 
                     {/* Sales Management */}
                     <Route path="/sales" element={<SalesPage />} />

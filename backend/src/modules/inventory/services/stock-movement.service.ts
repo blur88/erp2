@@ -28,6 +28,8 @@ import {
   StockReservationDto,
   StockSummaryDto,
   LowStockAlertDto,
+  CreateBulkStockAdjustmentDto,
+  BulkStockAdjustmentResponseDto,
 } from '../dto/stock.dto';
 import { ProductService } from './product.service';
 
@@ -45,6 +47,34 @@ export class StockMovementService {
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
   ) {}
+
+  /**
+   * Generate SA reference number for stock adjustments
+   */
+  private async generateSANumber(): Promise<string> {
+    // Find the maximum SA number and increment it
+    // This ensures sequential numbering even if some numbers were deleted
+    const result = await this.stockMovementRepository
+      .createQueryBuilder('movement')
+      .select('movement.referenceNumber', 'referenceNumber')
+      .where('movement.movementType IN (:...types)', {
+        types: [StockMovementType.ADJUSTMENT_INCREASE, StockMovementType.ADJUSTMENT_DECREASE],
+      })
+      .andWhere('movement.referenceNumber IS NOT NULL')
+      .andWhere('movement.referenceNumber LIKE :pattern', { pattern: 'SA-%' })
+      .orderBy('movement.referenceNumber', 'DESC')
+      .limit(1)
+      .getRawOne();
+
+    let nextNumber = 1;
+    if (result?.referenceNumber) {
+      // Extract number from SA-XXXXXX format
+      const currentNumber = parseInt(result.referenceNumber.replace('SA-', ''), 10);
+      nextNumber = currentNumber + 1;
+    }
+
+    return `SA-${String(nextNumber).padStart(6, '0')}`;
+  }
 
   /**
    * Create a stock movement and update product stock
@@ -82,11 +112,27 @@ export class StockMovementService {
     const previousBalance = Number(product.stockQuantity);
     const newBalance = previousBalance + Number(createMovementDto.quantity);
 
+    // DEBUG: Log stock values to trace the bug
+    console.log(`🔍 [stockMovementService.create] Product ${createMovementDto.productId}:`);
+    console.log(`  Current stock in DB: ${previousBalance}`);
+    console.log(`  Quantity change: ${createMovementDto.quantity}`);
+    console.log(`  New balance will be: ${newBalance}`);
+
     // Validate new balance is not negative
     if (newBalance < 0) {
       throw new BadRequestException(
         'Stock movement would result in negative stock quantity',
       );
+    }
+
+    // Generate SA number for adjustments
+    let referenceNumber = createMovementDto.referenceNumber;
+    const isAdjustment =
+      createMovementDto.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
+      createMovementDto.movementType === StockMovementType.ADJUSTMENT_DECREASE;
+
+    if (isAdjustment && !referenceNumber) {
+      referenceNumber = await this.generateSANumber();
     }
 
     // Create stock movement
@@ -97,6 +143,7 @@ export class StockMovementService {
       status: StockMovementStatus.COMPLETED,
       movedByUserId: userId,
       locationCode: createMovementDto.locationCode || 'MAIN',
+      referenceNumber,
     });
 
     const savedMovement = await this.stockMovementRepository.save(stockMovement);
@@ -111,7 +158,14 @@ export class StockMovementService {
     // Audit logging removed with authentication system
 
     this.logger.log(`Stock movement created successfully: ${savedMovement.id}`);
-    return this.toResponseDto(savedMovement);
+
+    // Reload with relations for response DTO
+    const movementWithRelations = await this.stockMovementRepository.findOne({
+      where: { id: savedMovement.id },
+      relations: ['product', 'movedByUser'],
+    });
+
+    return this.toResponseDto(movementWithRelations);
   }
 
   /**
@@ -140,7 +194,8 @@ export class StockMovementService {
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('movement.movedByUser', 'user');
+      .leftJoinAndSelect('movement.movedByUser', 'user')
+      .where('movement.deletedAt IS NULL');
 
     // Apply filters
     if (productId) {
@@ -200,7 +255,7 @@ export class StockMovementService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search),',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -211,6 +266,8 @@ export class StockMovementService {
     // Normalize sort order to uppercase for TypeORM
     const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(`movement.${sortField}`, normalizedSortOrder);
+    // Add secondary sort by createdAt to ensure consistent ordering when primary field has duplicates
+    queryBuilder.addOrderBy('movement.createdAt', normalizedSortOrder);
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -631,5 +688,310 @@ export class StockMovementService {
       createdAt: movement.createdAt,
       updatedAt: movement.updatedAt,
     };
+  }
+
+  /**
+   * Create bulk stock adjustment with multiple products in one transaction
+   */
+  async createBulkStockAdjustment(
+    createBulkDto: CreateBulkStockAdjustmentDto,
+    userId?: string,
+  ): Promise<BulkStockAdjustmentResponseDto> {
+    this.logger.log(`Creating bulk stock adjustment with ${createBulkDto.items.length} items`);
+
+    // Generate single SA number for the entire batch
+    const saNumber = await this.generateSANumber();
+    const movementIds: string[] = [];
+
+    // Process each item
+    for (const item of createBulkDto.items) {
+      // Skip items with no difference
+      if (item.difference === 0) {
+        continue;
+      }
+
+      // Fetch product to get current stock
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+        relations: ['category'],
+      });
+
+      if (!product) {
+        throw new NotFoundException(
+          `Product with ID '${item.productId}' not found`,
+        );
+      }
+
+      // Determine movement type based on difference
+      const movementType = item.difference > 0
+        ? StockMovementType.ADJUSTMENT_INCREASE
+        : StockMovementType.ADJUSTMENT_DECREASE;
+
+      // Calculate balances
+      const previousBalance = Number(product.stockQuantity);
+      const newBalance = Number(item.newQuantity);
+
+      // Validate new balance
+      if (newBalance < 0) {
+        throw new BadRequestException(
+          `Stock adjustment for ${product.name} would result in negative stock quantity`,
+        );
+      }
+
+      // Create stock movement with shared SA number
+      const stockMovement = this.stockMovementRepository.create({
+        productId: item.productId,
+        movementType,
+        quantity: Math.abs(item.difference),
+        previousBalance,
+        newBalance,
+        status: StockMovementStatus.COMPLETED,
+        movedByUserId: userId,
+        locationCode: 'MAIN',
+        referenceNumber: saNumber,
+        movementDate: createBulkDto.adjustmentDate,
+        reason: 'Stock Adjustment',
+        notes: createBulkDto.notes || undefined,
+      });
+
+      const savedMovement = await this.stockMovementRepository.save(stockMovement);
+      movementIds.push(savedMovement.id);
+
+      // Update product stock quantity
+      await this.productService.updateStockQuantity(
+        product.id,
+        newBalance,
+        userId,
+      );
+
+      this.logger.log(
+        `Stock adjustment for ${product.name}: ${previousBalance} → ${newBalance} (${item.difference > 0 ? '+' : ''}${item.difference})`,
+      );
+    }
+
+    this.logger.log(`Bulk stock adjustment ${saNumber} created successfully with ${movementIds.length} movements`);
+
+    return {
+      saNumber,
+      itemsAdjusted: movementIds.length,
+      adjustmentDate: createBulkDto.adjustmentDate,
+      notes: createBulkDto.notes,
+      movementIds,
+    };
+  }
+
+  /**
+   * Recalculate previousBalance and newBalance for all movements of a product
+   * This ensures data integrity after movements are deleted
+   */
+  async recalculateBalances(productId: string): Promise<void> {
+    this.logger.log(`Recalculating balances for product ${productId}`);
+
+    // Fetch all movements for this product in chronological order
+    const movements = await this.stockMovementRepository.find({
+      where: { productId },
+      order: {
+        movementDate: 'ASC',
+        createdAt: 'ASC',
+      },
+    });
+
+    if (movements.length === 0) {
+      this.logger.log(`No movements found for product ${productId}, nothing to recalculate`);
+      return;
+    }
+
+    // Get current product stock
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      this.logger.warn(`Product ${productId} not found, cannot recalculate balances`);
+      return;
+    }
+
+    // Calculate total movement to determine starting balance
+    const totalMovement = movements.reduce((sum, movement) => {
+      return sum + Number(movement.quantity);
+    }, 0);
+
+    // Starting balance = current stock - total movement
+    let runningBalance = Number(product.stockQuantity) - totalMovement;
+
+    this.logger.log(
+      `Product ${productId}: Current stock = ${product.stockQuantity}, Total movement = ${totalMovement}, Starting balance = ${runningBalance}`
+    );
+
+    // Update each movement with recalculated balances
+    for (const movement of movements) {
+      const previousBalance = runningBalance;
+      const quantity = Number(movement.quantity);
+      const newBalance = runningBalance + quantity;
+
+      // Only update if values have changed
+      if (
+        Number(movement.previousBalance) !== previousBalance ||
+        Number(movement.newBalance) !== newBalance
+      ) {
+        movement.previousBalance = previousBalance;
+        movement.newBalance = newBalance;
+        await this.stockMovementRepository.save(movement);
+
+        this.logger.log(
+          `Updated movement ${movement.id}: ${previousBalance} + (${quantity}) = ${newBalance}`
+        );
+      }
+
+      runningBalance = newBalance;
+    }
+
+    this.logger.log(`Balance recalculation completed for product ${productId}`);
+  }
+
+  /**
+   * Delete stock movements by reference type and ID
+   * Used for hard delete cascades when removing source documents
+   * IMPORTANT: This method reverses the stock quantities before deleting movements
+   */
+  async deleteByReference(
+    referenceType: string,
+    referenceId: string,
+  ): Promise<{ deletedCount: number }> {
+    this.logger.log(`Deleting stock movements for ${referenceType}: ${referenceId}`);
+
+    // First, fetch all movements to revert their quantities
+    const movements = await this.stockMovementRepository.find({
+      where: {
+        referenceType,
+        referenceId,
+      },
+      relations: ['product'],
+    });
+
+    if (movements.length === 0) {
+      this.logger.log(`No stock movements found for ${referenceType}: ${referenceId}`);
+      return { deletedCount: 0 };
+    }
+
+    // Collect affected product IDs for balance recalculation
+    const affectedProductIds = new Set<string>();
+
+    // Revert stock quantities for each product affected
+    const productUpdates = new Map<string, number>();
+
+    for (const movement of movements) {
+      const productId = movement.productId;
+      affectedProductIds.add(productId);
+      const currentAdjustment = productUpdates.get(productId) || 0;
+      // Reverse the movement by negating the quantity
+      productUpdates.set(productId, currentAdjustment - Number(movement.quantity));
+
+      this.logger.log(
+        `Will revert ${movement.quantity} units for product ${productId} (movement ${movement.id})`
+      );
+    }
+
+    // Update product stock quantities
+    for (const [productId, adjustment] of productUpdates.entries()) {
+      const product = await this.productRepository.findOne({
+        where: { id: productId },
+      });
+
+      if (product) {
+        const oldStock = Number(product.stockQuantity);
+        const newStock = oldStock + adjustment;
+
+        this.logger.log(
+          `Reverting stock for product ${productId}: ${oldStock} + (${adjustment}) = ${newStock}`
+        );
+
+        if (newStock < 0) {
+          this.logger.warn(
+            `Warning: Reverting stock for product ${productId} would result in negative stock (${newStock}). Setting to 0.`
+          );
+          product.stockQuantity = 0;
+        } else {
+          product.stockQuantity = newStock;
+        }
+
+        await this.productRepository.save(product);
+      } else {
+        this.logger.warn(`Product ${productId} not found, skipping stock reversion`);
+      }
+    }
+
+    // Now delete the stock movements
+    const result = await this.stockMovementRepository
+      .createQueryBuilder()
+      .delete()
+      .from('stock_movements')
+      .where('referenceType = :referenceType', { referenceType })
+      .andWhere('referenceId = :referenceId', { referenceId })
+      .execute();
+
+    const deletedCount = Number(result.affected) || 0;
+    this.logger.log(
+      `Deleted ${deletedCount} stock movements and reverted quantities for ${productUpdates.size} products (${referenceType}: ${referenceId})`
+    );
+
+    // Recalculate balances for all affected products
+    for (const productId of affectedProductIds) {
+      await this.recalculateBalances(productId);
+    }
+
+    return { deletedCount };
+  }
+
+  /**
+   * Delete stock movements by multiple reference types and IDs
+   * Used for bulk operations
+   */
+  async deleteByMultipleReferences(
+    references: Array<{ referenceType: string; referenceId: string }>,
+  ): Promise<{ deletedCount: number }> {
+    if (!references || references.length === 0) {
+      return { deletedCount: 0 };
+    }
+
+    this.logger.log(`Deleting stock movements for ${references.length} references`);
+
+    let totalDeletedCount = 0;
+    const affectedProductIds = new Set<string>();
+
+    for (const { referenceType, referenceId } of references) {
+      // First, fetch movements to track affected products
+      const movements = await this.stockMovementRepository.find({
+        where: {
+          referenceType,
+          referenceId,
+        },
+      });
+
+      // Track affected products
+      movements.forEach((movement) => {
+        affectedProductIds.add(movement.productId);
+      });
+
+      // Delete the movements
+      const result = await this.stockMovementRepository
+        .createQueryBuilder('movement')
+        .delete()
+        .where('movement.referenceType = :referenceType', { referenceType })
+        .andWhere('movement.referenceId = :referenceId', { referenceId })
+        .execute();
+
+      const deletedCount = Number(result.affected) || 0;
+      totalDeletedCount += deletedCount;
+    }
+
+    this.logger.log(`Deleted ${totalDeletedCount} stock movements across ${references.length} references`);
+
+    // Recalculate balances for all affected products
+    for (const productId of affectedProductIds) {
+      await this.recalculateBalances(productId);
+    }
+
+    return { deletedCount: totalDeletedCount };
   }
 }

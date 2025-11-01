@@ -167,4 +167,21 @@ export class QueryVendorPaymentsDto {
   @IsNumber()
   @Min(1)
   limit?: number;
+
+  @ApiPropertyOptional({ description: 'Sort by field', example: 'paymentNumber', default: 'paymentDate' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['paymentNumber', 'paymentDate', 'amount'])
+  sortBy?: string;
+
+  @ApiPropertyOptional({ description: 'Sort order', example: 'asc', default: 'desc' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: string;
+
+  @ApiPropertyOptional({ description: 'Search query', example: 'VP-000001' })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

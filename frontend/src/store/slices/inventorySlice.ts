@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
-import type { Product, Category, StockMovement, PaginatedResponse } from '@/types'
+import type { Product, Category, StockMovement, StockAdjustment, PaginatedResponse } from '@/types'
 import { inventoryApi } from '@/services/inventoryApi'
 
 interface InventoryState {
@@ -8,14 +8,20 @@ interface InventoryState {
   categories: Category[]
   deletedCategories: Category[]
   stockMovements: StockMovement[]
+  stockAdjustments: StockAdjustment[]
+  deletedStockAdjustments: StockAdjustment[]
   selectedProduct: Product | null
   selectedCategory: Category | null
+  selectedStockMovement: StockMovement | null
+  selectedStockAdjustment: StockAdjustment | null
   loading: {
     products: boolean
     deletedProducts: boolean
     categories: boolean
     deletedCategories: boolean
     stockMovements: boolean
+    stockAdjustments: boolean
+    deletedStockAdjustments: boolean
   }
   error: string | null
   pagination: {
@@ -26,6 +32,12 @@ interface InventoryState {
       totalPages: number
     }
     stockMovements: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+    }
+    stockAdjustments: {
       page: number
       limit: number
       total: number
@@ -51,14 +63,20 @@ const initialState: InventoryState = {
   categories: [],
   deletedCategories: [],
   stockMovements: [],
+  stockAdjustments: [],
+  deletedStockAdjustments: [],
   selectedProduct: null,
   selectedCategory: null,
+  selectedStockMovement: null,
+  selectedStockAdjustment: null,
   loading: {
     products: false,
     deletedProducts: false,
     categories: false,
     deletedCategories: false,
     stockMovements: false,
+    stockAdjustments: false,
+    deletedStockAdjustments: false,
   },
   error: null,
   pagination: {
@@ -69,6 +87,12 @@ const initialState: InventoryState = {
       totalPages: 0,
     },
     stockMovements: {
+      page: 1,
+      limit: 20,
+      total: 0,
+      totalPages: 0,
+    },
+    stockAdjustments: {
       page: 1,
       limit: 20,
       total: 0,
@@ -366,12 +390,111 @@ export const checkCategoryDuplicate = createAsyncThunk(
 
 export const fetchStockMovements = createAsyncThunk(
   'inventory/fetchStockMovements',
-  async (params: { page?: number; limit?: number; productId?: string }, { rejectWithValue }) => {
+  async (params: {
+    page?: number
+    limit?: number
+    productId?: string
+    movementType?: string
+    fromDate?: string
+    toDate?: string
+    search?: string
+    sortBy?: string
+    sortOrder?: string
+  }, { rejectWithValue }) => {
     try {
-      const response = await inventoryApi.getStockMovements(params)
+      const response = await inventoryApi.getStockMovements(params as any)
+      return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+    } catch (error: any) {
+      console.error('Failed to fetch stock movements:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock movements')
+    }
+  }
+)
+
+export const fetchStockAdjustments = createAsyncThunk(
+  'inventory/fetchStockAdjustments',
+  async (params: {
+    page?: number
+    limit?: number
+    status?: string
+    fromDate?: string
+    toDate?: string
+    adjustedByUserId?: string
+    search?: string
+    sortBy?: string
+    sortOrder?: string
+  }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getStockAdjustments(params as any)
+      return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+    } catch (error: any) {
+      console.error('Failed to fetch stock adjustments:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock adjustments')
+    }
+  }
+)
+
+export const fetchStockAdjustment = createAsyncThunk(
+  'inventory/fetchStockAdjustment',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getStockAdjustment(id)
+      return response
+    } catch (error: any) {
+      console.error('Failed to fetch stock adjustment:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock adjustment')
+    }
+  }
+)
+
+export const fetchDeletedStockAdjustments = createAsyncThunk(
+  'inventory/fetchDeletedStockAdjustments',
+  async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.getDeletedStockAdjustments(params)
+      return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+    } catch (error: any) {
+      console.error('Failed to fetch deleted stock adjustments:', error)
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted stock adjustments')
+    }
+  }
+)
+
+export const restoreStockAdjustment = createAsyncThunk(
+  'inventory/restoreStockAdjustment',
+  async (id: string, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await inventoryApi.restoreStockAdjustment(id)
+      // Automatically refresh both active and deleted stock adjustments
+      dispatch(fetchStockAdjustments({}))
+      dispatch(fetchDeletedStockAdjustments({}))
       return response.data
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock movements')
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore stock adjustment')
+    }
+  }
+)
+
+export const permanentDeleteStockAdjustment = createAsyncThunk(
+  'inventory/permanentDeleteStockAdjustment',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await inventoryApi.permanentDeleteStockAdjustment(id)
+      return { id }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete stock adjustment')
+    }
+  }
+)
+
+export const bulkPermanentDeleteStockAdjustments = createAsyncThunk(
+  'inventory/bulkPermanentDeleteStockAdjustments',
+  async (adjustmentIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await inventoryApi.bulkPermanentDeleteStockAdjustments(adjustmentIds)
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk permanently delete stock adjustments')
     }
   }
 )
@@ -385,6 +508,12 @@ const inventorySlice = createSlice({
     },
     setSelectedCategory: (state, action: PayloadAction<Category | null>) => {
       state.selectedCategory = action.payload
+    },
+    setSelectedStockMovement: (state, action: PayloadAction<StockMovement | null>) => {
+      state.selectedStockMovement = action.payload
+    },
+    setSelectedStockAdjustment: (state, action: PayloadAction<StockAdjustment | null>) => {
+      state.selectedStockAdjustment = action.payload
     },
     setProductFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.products>>) => {
       state.filters.products = { ...state.filters.products, ...action.payload }
@@ -556,8 +685,8 @@ const inventorySlice = createSlice({
       .addCase(fetchStockMovements.fulfilled, (state, action) => {
         state.loading.stockMovements = false
         if (action.payload) {
-          state.stockMovements = action.payload.data
-          state.pagination.stockMovements = action.payload.meta
+          state.stockMovements = (action.payload as any).data || []
+          state.pagination.stockMovements = (action.payload as any).meta
         }
       })
       .addCase(fetchStockMovements.rejected, (state, action) => {
@@ -624,12 +753,103 @@ const inventorySlice = createSlice({
       .addCase(bulkPermanentDeleteCategories.fulfilled, (state, action) => {
         // Deleted categories will be refreshed by the component
       })
+
+    // Fetch Stock Adjustments
+    builder
+      .addCase(fetchStockAdjustments.pending, (state) => {
+        state.loading.stockAdjustments = true
+        state.error = null
+      })
+      .addCase(fetchStockAdjustments.fulfilled, (state, action) => {
+        state.loading.stockAdjustments = false
+        if (action.payload) {
+          state.stockAdjustments = (action.payload as any).data || []
+          state.pagination.stockAdjustments = (action.payload as any).meta
+        }
+      })
+      .addCase(fetchStockAdjustments.rejected, (state, action) => {
+        state.loading.stockAdjustments = false
+        state.error = action.payload as string
+      })
+      .addCase(fetchStockAdjustment.pending, (state) => {
+        state.loading.stockAdjustments = true
+      })
+      .addCase(fetchStockAdjustment.fulfilled, (state, action) => {
+        state.loading.stockAdjustments = false
+        if (action.payload) {
+          // Update the selected adjustment with full details including items
+          state.selectedStockAdjustment = action.payload as any
+          // Also update the adjustment in the list if it exists
+          const index = state.stockAdjustments.findIndex(sa => sa.id === (action.payload as any).id)
+          if (index !== -1) {
+            state.stockAdjustments[index] = action.payload as any
+          }
+        }
+      })
+      .addCase(fetchStockAdjustment.rejected, (state, action) => {
+        state.loading.stockAdjustments = false
+        state.error = action.payload as string
+      })
+      .addCase(fetchDeletedStockAdjustments.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+        state.error = null
+      })
+      .addCase(fetchDeletedStockAdjustments.fulfilled, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        if (action.payload) {
+          state.deletedStockAdjustments = (action.payload as any).data || []
+        }
+      })
+      .addCase(fetchDeletedStockAdjustments.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
+      .addCase(restoreStockAdjustment.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+      })
+      .addCase(restoreStockAdjustment.fulfilled, (state) => {
+        state.loading.deletedStockAdjustments = false
+        // Lists will be refreshed by the action's dispatch
+      })
+      .addCase(restoreStockAdjustment.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
+      // Permanent delete stock adjustment
+      .addCase(permanentDeleteStockAdjustment.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+      })
+      .addCase(permanentDeleteStockAdjustment.fulfilled, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        if (action.payload) {
+          state.deletedStockAdjustments = state.deletedStockAdjustments.filter(
+            adj => adj.id !== action.payload.id
+          )
+        }
+      })
+      .addCase(permanentDeleteStockAdjustment.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
+      // Bulk permanent delete stock adjustments
+      .addCase(bulkPermanentDeleteStockAdjustments.pending, (state) => {
+        state.loading.deletedStockAdjustments = true
+      })
+      .addCase(bulkPermanentDeleteStockAdjustments.fulfilled, (state) => {
+        state.loading.deletedStockAdjustments = false
+      })
+      .addCase(bulkPermanentDeleteStockAdjustments.rejected, (state, action) => {
+        state.loading.deletedStockAdjustments = false
+        state.error = action.payload as string
+      })
   },
 })
 
 export const {
   setSelectedProduct,
   setSelectedCategory,
+  setSelectedStockMovement,
+  setSelectedStockAdjustment,
   setProductFilters,
   setCategoryFilters,
   resetFilters,
@@ -643,8 +863,12 @@ export const selectDeletedProducts = (state: any) => state.inventory?.deletedPro
 export const selectCategories = (state: any) => state.inventory?.categories
 export const selectDeletedCategories = (state: any) => state.inventory?.deletedCategories
 export const selectStockMovements = (state: any) => state.inventory?.stockMovements
+export const selectStockAdjustments = (state: any) => state.inventory?.stockAdjustments
+export const selectDeletedStockAdjustments = (state: any) => state.inventory?.deletedStockAdjustments
 export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
 export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
+export const selectSelectedStockMovement = (state: any) => state.inventory?.selectedStockMovement
+export const selectSelectedStockAdjustment = (state: any) => state.inventory?.selectedStockAdjustment
 export const selectInventoryLoading = (state: any) => state.inventory?.loading
 export const selectInventoryError = (state: any) => state.inventory?.error
 export const selectInventoryPagination = (state: any) => state.inventory?.pagination

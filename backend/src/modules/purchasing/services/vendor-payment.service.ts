@@ -46,7 +46,15 @@ export class VendorPaymentService {
       grnId,
     });
 
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    if (createDto.purchaseOrderId) {
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(createDto.purchaseOrderId, {});
+    }
+
+    return savedPayment;
   }
 
   /**
@@ -63,6 +71,9 @@ export class VendorPaymentService {
       endDate,
       page = 1,
       limit = 20,
+      sortBy = 'paymentDate',
+      sortOrder = 'DESC',
+      search,
     } = query;
 
     const queryBuilder = this.vendorPaymentRepository
@@ -71,6 +82,14 @@ export class VendorPaymentService {
       .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('vendorPayment.grn', 'grn')
       .where('vendorPayment.isActive = :isActive', { isActive: true });
+
+    // Apply search
+    if (search) {
+      queryBuilder.andWhere(
+        '(vendorPayment.paymentNumber ILIKE :search OR vendorPayment.referenceNumber ILIKE :search OR supplier.companyName ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
 
     // Apply filters
     if (supplierId) {
@@ -108,8 +127,9 @@ export class VendorPaymentService {
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
-    // Order by payment date descending
-    queryBuilder.orderBy('vendorPayment.paymentDate', 'DESC');
+    // Dynamic sorting
+    const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    queryBuilder.orderBy(`vendorPayment.${sortBy}`, order);
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
@@ -155,7 +175,15 @@ export class VendorPaymentService {
       updatedBy: user,
     });
 
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    if (vendorPayment.purchaseOrderId) {
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
+    }
+
+    return savedPayment;
   }
 
   /**
@@ -284,6 +312,12 @@ export class VendorPaymentService {
 
     await this.vendorPaymentRepository.save(vendorPayment);
     await this.vendorPaymentRepository.softDelete(id);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    if (vendorPayment.purchaseOrderId) {
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
+    }
   }
 
   /**

@@ -23,6 +23,9 @@ import { GoodsReceivedNoteService } from './goods-received-note.service';
 import { VendorPaymentService } from './vendor-payment.service';
 import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
+import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -47,6 +50,7 @@ export class PurchaseOrderService {
     private readonly grnService: GoodsReceivedNoteService,
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly stockMovementService: StockMovementService,
   ) {}
 
   /**
@@ -142,18 +146,13 @@ export class PurchaseOrderService {
 
         const item = this.purchaseOrderItemRepository.create({
           productId: itemDto.productId,
-          productSku: product.barcode || product.id.substring(0, 8).toUpperCase(),
-          productName: product.name,
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
-          unit: 'pcs',
           discountType: itemDto.discountType || 'percentage',
           discountPercent: itemDto.discountPercent || 0,
           discountAmount: itemDto.discountAmount || 0,
           status: 'pending' as any,
           receivedQuantity: 0,
-          rejectedQuantity: 0,
-          acceptedQuantity: 0,
           lineNumber: lineNum,
         });
 
@@ -241,8 +240,6 @@ export class PurchaseOrderService {
       createdByUserId,
       orderDateFrom,
       orderDateTo,
-      requiredDateFrom,
-      requiredDateTo,
       isOverdue,
       sortBy = 'orderDate',
       sortOrder = 'DESC',
@@ -288,20 +285,8 @@ export class PurchaseOrderService {
       });
     }
 
-    if (requiredDateFrom) {
-      queryBuilder.andWhere('po.requiredDate >= :requiredDateFrom', { 
-        requiredDateFrom: new Date(requiredDateFrom) 
-      });
-    }
-
-    if (requiredDateTo) {
-      queryBuilder.andWhere('po.requiredDate <= :requiredDateTo', { 
-        requiredDateTo: new Date(requiredDateTo) 
-      });
-    }
-
     if (isOverdue) {
-      queryBuilder.andWhere('po.requiredDate < :now', { now: new Date() });
+      queryBuilder.andWhere('po.expectedDeliveryDate < :now', { now: new Date() });
       queryBuilder.andWhere('po.status NOT IN (:...completedStatuses)', {
         completedStatuses: ['received', 'completed', 'cancelled']
       });
@@ -309,7 +294,7 @@ export class PurchaseOrderService {
 
     // Apply sorting
     const validSortFields = [
-      'orderNumber', 'orderDate', 'requiredDate', 'status', 'priority',
+      'orderNumber', 'orderDate', 'status', 'priority',
       'totalAmount', 'createdAt'
     ];
 
@@ -448,21 +433,16 @@ export class PurchaseOrderService {
           const item = new PurchaseOrderItem();
           item.purchaseOrderId = id;
           item.productId = itemDto.productId;
-          item.productSku = product.barcode || product.id.substring(0, 8).toUpperCase();
-          item.productName = product.name;
           item.quantity = itemDto.quantity;
           item.unitCost = itemDto.unitPrice;
-          item.unit = 'pcs';
           item.discountType = itemDto.discountType || 'percentage';
           item.discountPercent = itemDto.discountPercent || 0;
           item.discountAmount = itemDto.discountAmount || 0;
           item.status = 'pending' as any;
           item.receivedQuantity = 0;
-          item.rejectedQuantity = 0;
-          item.acceptedQuantity = 0;
           item.lineNumber = lineNum;
 
-          this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productSku: ${item.productSku}, quantity: ${item.quantity}`);
+          this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productId: ${item.productId}, quantity: ${item.quantity}`);
 
           // Calculate totals manually to get the amount before saving
           // Discount is applied to unit price first, then multiplied by quantity
@@ -489,7 +469,7 @@ export class PurchaseOrderService {
           this.logger.debug(`Saved ${savedItems.length} items successfully`);
         } catch (saveError) {
           this.logger.error(`Failed to save items: ${saveError.message}`);
-          this.logger.debug(`Item details before save attempt: ${JSON.stringify(orderItems.map(i => ({ lineNumber: i.lineNumber, productSku: i.productSku, quantity: i.quantity })))}`);
+          this.logger.debug(`Item details before save attempt: ${JSON.stringify(orderItems.map(i => ({ lineNumber: i.lineNumber, productId: i.productId, quantity: i.quantity })))}`);
           throw saveError;
         }
 
@@ -545,7 +525,7 @@ export class PurchaseOrderService {
         // Overdue orders
         this.purchaseOrderRepository
           .createQueryBuilder('po')
-          .where('po.requiredDate < :now', { now: new Date() })
+          .where('po.expectedDeliveryDate < :now', { now: new Date() })
           .getCount(),
 
         // Top suppliers by volume
@@ -729,6 +709,18 @@ export class PurchaseOrderService {
 
     if (!purchaseOrder) {
       throw new NotFoundException('Purchase order not found');
+    }
+
+    // Delete associated stock movements
+    try {
+      const stockMovementResult = await this.stockMovementService.deleteByReference(
+        'purchase_order',
+        id
+      );
+      this.logger.log(`Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber}`);
+    } catch (error) {
+      this.logger.error(`Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`);
+      // Don't throw error - purchase order deletion should still succeed
     }
 
     // Find and permanently delete associated GRN (including soft-deleted)
@@ -1080,25 +1072,42 @@ export class PurchaseOrderService {
       updatedGrn.calculateTotals();
       await this.grnRepository.save(updatedGrn);
 
-      // Update product quantities
+      // Update product quantities and create stock movements
       for (const item of purchaseOrder.items) {
         const product = await this.productRepository.findOne({
           where: { id: item.productId },
         });
 
         if (product) {
-          product.adjustStock(Number(item.quantity), 'increase');
-          await this.productRepository.save(product);
+          // Create stock movement for purchase receipt
+          const createMovementDto: CreateStockMovementDto = {
+            productId: item.productId,
+            movementType: StockMovementType.PURCHASE_RECEIPT,
+            quantity: Number(item.quantity),
+            reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
+            referenceType: 'purchase_order',
+            referenceId: purchaseOrder.id,
+            referenceNumber: purchaseOrder.orderNumber,
+            unitValue: Number(item.unitCost),
+          };
+
+          await this.stockMovementService.create(createMovementDto);
+          this.logger.log(
+            `Stock movement created for product ${item.productId}: +${item.quantity} units from PO ${purchaseOrder.orderNumber}`
+          );
         }
 
         // Update PO item received quantity
         item.receivedQuantity = item.quantity;
-        item.acceptedQuantity = item.quantity;
         await this.purchaseOrderItemRepository.save(item);
       }
 
       // Update base costs for all received products
       await this.updateBaseCostsForGrn(updatedGrn, purchaseOrder);
+
+      // Touch the purchase order to update its updatedAt timestamp
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(id, {});
 
       this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
@@ -1138,6 +1147,10 @@ export class PurchaseOrderService {
     }
 
     try {
+      // Reverse base cost calculations BEFORE resetting quantities
+      // This must happen first while GRN still has receivedQuantity data
+      await this.reverseBaseCostsForGrn(grn);
+
       // Reset GRN items received quantities to 0
       if (grn.items && grn.items.length > 0) {
         await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
@@ -1166,22 +1179,29 @@ export class PurchaseOrderService {
       updatedGrn.calculateTotals();
       await this.grnRepository.save(updatedGrn);
 
-      // Revert product quantities
+      // Delete stock movement records created during goods receipt
+      try {
+        const stockMovementResult = await this.stockMovementService.deleteByReference(
+          'purchase_order',
+          purchaseOrder.id
+        );
+        this.logger.log(
+          `Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber} return`
+        );
+      } catch (error) {
+        this.logger.error(`Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`);
+        // Don't throw error - return should still succeed
+      }
+
+      // Reset PO item received quantities
       for (const item of purchaseOrder.items) {
-        const product = await this.productRepository.findOne({
-          where: { id: item.productId },
-        });
-
-        if (product) {
-          product.adjustStock(Number(item.quantity), 'decrease');
-          await this.productRepository.save(product);
-        }
-
-        // Reset PO item received quantity
         item.receivedQuantity = 0;
-        item.acceptedQuantity = 0;
         await this.purchaseOrderItemRepository.save(item);
       }
+
+      // Touch the purchase order to update its updatedAt timestamp
+      // Force TypeORM to update by using the update query
+      await this.purchaseOrderRepository.update(id, {});
 
       this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
@@ -1236,6 +1256,17 @@ export class PurchaseOrderService {
       throw new NotFoundException('Purchase order not found');
     }
 
+    // Check if PO has received goods - must return before unpaying
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+    });
+
+    if (grn && grn.status === GrnStatus.RECEIVED) {
+      throw new BadRequestException(
+        'Cannot unpay purchase order with received goods. Please return goods first.'
+      );
+    }
+
     // Find existing payment
     const existingPayment = await this.vendorPaymentService.findByPurchaseOrder(id);
     if (!existingPayment) {
@@ -1244,6 +1275,10 @@ export class PurchaseOrderService {
 
     // Hard delete the vendor payment
     await this.vendorPaymentService.permanentDelete(existingPayment.id);
+
+    // Touch the purchase order to update its updatedAt timestamp
+    // Force TypeORM to update by using the update query
+    await this.purchaseOrderRepository.update(id, {});
 
     // Get updated order
     const updatedOrder = await this.findOne(id);
@@ -1309,8 +1344,7 @@ export class PurchaseOrderService {
         lastName: purchaseOrder.approvedByUser.lastName,
       } : undefined,
       orderDate: purchaseOrder.orderDate,
-      requiredDate: purchaseOrder.requiredDate,
-      sentDate: purchaseOrder.sentDate,
+            sentDate: purchaseOrder.sentDate,
       acknowledgedDate: purchaseOrder.acknowledgedDate,
       expectedDeliveryDate: purchaseOrder.expectedDeliveryDate,
       deliveredDate: purchaseOrder.deliveredDate,
@@ -1338,23 +1372,19 @@ export class PurchaseOrderService {
           id: item.product.id,
           sku: item.product.barcode || item.product.id.substring(0, 8).toUpperCase(),
           name: item.product.name,
-          unit: 'pcs',
         } : undefined,
         description: item.product?.name || 'Unknown Product',
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitCost),
-        unit: 'pcs',
         discountPercent: Number(item.discountPercent),
         discountAmount: Number(item.discountAmount),
         taxPercent: 0,
         taxAmount: 0,
         totalAmount: Number(item.totalAmount),
         receivedQuantity: Number(item.receivedQuantity),
-        rejectedQuantity: Number(item.rejectedQuantity),
+        rejectedQuantity: 0,
         isFullyReceived: item.isFullyReceived,
         status: item.status,
-        requiredDate: item.requiredDate,
-        notes: item.notes,
       })) || [],
       goodsReceivedNotes: purchaseOrder.goodsReceivedNotes?.map(grn => ({
         id: grn.id,
@@ -1431,5 +1461,32 @@ export class PurchaseOrderService {
     }
 
     this.logger.log(`Base costs updated successfully for GRN ${grn.grnNumber}`);
+  }
+
+  /**
+   * Reverse base costs when returning goods
+   * Removes the stock batches added during GRN receipt
+   */
+  private async reverseBaseCostsForGrn(grn: GoodsReceivedNote): Promise<void> {
+    this.logger.log(`Reversing base costs for GRN ${grn.grnNumber}`);
+
+    // Process each GRN item
+    for (const grnItem of grn.items) {
+      const receivedQty = Number(grnItem.receivedQuantity);
+
+      if (receivedQty === 0) {
+        this.logger.debug(`GRN item ${grnItem.id} has no received quantity, skipping`);
+        continue;
+      }
+
+      this.logger.log(
+        `Removing ${receivedQty} units from cost history for product ${grnItem.productId}`
+      );
+
+      // Remove stock from cost history and recalculate base cost
+      await this.baseCostCalculator.removeStock(grnItem.productId, grn.id);
+    }
+
+    this.logger.log(`Base costs reversed successfully for GRN ${grn.grnNumber}`);
   }
 }

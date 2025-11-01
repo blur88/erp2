@@ -100,13 +100,46 @@ export interface ProductAttribute {
   value: string;
 }
 
+export enum StockMovementType {
+  // Inward movements (increase stock)
+  PURCHASE_RECEIPT = 'purchase_receipt',
+  SALES_RETURN = 'sales_return',
+  SALE_REVERSAL = 'sale_reversal', // Sales order unfulfillment
+  PRODUCTION_RECEIPT = 'production_receipt',
+  TRANSFER_IN = 'transfer_in',
+  ADJUSTMENT_INCREASE = 'adjustment_increase',
+  INITIAL_STOCK = 'initial_stock',
+  // Outward movements (decrease stock)
+  SALE = 'sale',
+  PURCHASE_RETURN = 'purchase_return',
+  PRODUCTION_CONSUMPTION = 'production_consumption',
+  TRANSFER_OUT = 'transfer_out',
+  ADJUSTMENT_DECREASE = 'adjustment_decrease',
+  DAMAGE = 'damage',
+  EXPIRY = 'expiry',
+  THEFT = 'theft',
+  LOSS = 'loss',
+}
+
+export enum StockMovementStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  REVERSED = 'reversed',
+}
+
 export interface StockMovement {
   id: string;
   productId: string;
   product?: Product;
-  movementType: 'stock_in' | 'stock_out' | 'transfer' | 'sale' | 'purchase' | 'initial' | 'return';
+  movementType: StockMovementType;
+  status: StockMovementStatus;
+  movementDate: Date;
   quantity: number;
+  previousBalance: number;
+  newBalance: number;
   unitValue?: number;
+  totalValue?: number;
   referenceType?: string;
   referenceId?: string;
   referenceNumber?: string;
@@ -116,10 +149,63 @@ export interface StockMovement {
   expiryDate?: Date;
   reason?: string;
   notes?: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  movementDate: Date;
-  description?: string;
   metadata?: Record<string, any>;
+  movedByUserId?: string;
+  movedByUser?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  isInward: boolean;
+  isOutward: boolean;
+  description: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export enum StockAdjustmentStatus {
+  DRAFT = 'draft',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+export interface StockAdjustmentItem {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    barcode?: string;
+  };
+  oldQuantity: number;
+  newQuantity: number;
+  difference: number;
+  unitCost?: number;
+  totalValue?: number;
+  notes?: string;
+  isIncrease: boolean;
+  isDecrease: boolean;
+  absoluteDifference: number;
+}
+
+export interface StockAdjustment {
+  id: string;
+  adjustmentNumber: string;
+  adjustmentDate: Date;
+  status: StockAdjustmentStatus;
+  notes?: string;
+  itemCount: number;
+  totalValue: number;
+  adjustedByUser?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  items?: StockAdjustmentItem[];
+  isEditable?: boolean;
+  canComplete?: boolean;
+  canCancel?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -142,22 +228,7 @@ export interface Customer {
   id: string;
   type: CustomerType;
   name: string;
-  contactPerson?: string;
-  email?: string;
   phone?: string;
-  alternativePhone?: string;
-  taxId?: string;
-  // Address Information
-  billingAddress?: string;
-  billingCity?: string;
-  billingState?: string;
-  billingPostalCode?: string;
-  billingCountry?: string;
-  shippingAddress?: string;
-  shippingCity?: string;
-  shippingState?: string;
-  shippingPostalCode?: string;
-  shippingCountry?: string;
   // Business Information
   isActive: boolean;
   priceLevel: PriceLevel;
@@ -172,8 +243,6 @@ export interface Customer {
   updatedAt: Date;
   deletedAt?: Date; // Soft delete timestamp from BaseEntity
   // Computed properties
-  fullAddress: string;
-  fullShippingAddress: string;
   averageOrderValue: number;
 }
 
@@ -344,7 +413,7 @@ export interface PurchaseOrder {
     id: string;
     grnNumber: string;
     status: string;
-    receiptDate?: Date;
+    receivedDate?: Date;
   }>;
   createdAt: Date;
   updatedAt: Date;
@@ -364,9 +433,9 @@ export interface GoodsReceivedNote {
   purchaseOrder: PurchaseOrder;
   supplier: Supplier;
   items: GRNItem[];
-  status: 'draft' | 'completed';
+  status: 'draft' | 'received';
   receivedDate: Date;
-  notes?: string;
+  totalQuantityReceived?: number;
   createdAt: Date;
   updatedAt: Date;
 }

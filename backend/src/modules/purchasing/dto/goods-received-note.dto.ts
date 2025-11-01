@@ -32,9 +32,9 @@ export class CreateGoodsReceivedNoteDto {
   @IsUUID()
   purchaseOrderId: string;
 
-  @ApiProperty({ description: 'Receipt date' })
+  @ApiProperty({ description: 'Received date' })
   @IsDateString()
-  receiptDate: string;
+  receivedDate: string;
 
   @ApiPropertyOptional({ description: 'GRN items (optional - will be auto-generated from PO if not provided)', type: [CreateGrnItemDto] })
   @IsOptional()
@@ -84,20 +84,20 @@ export class GoodsReceivedNoteQueryDto {
   @IsEnum(GrnStatus)
   status?: GrnStatus;
 
-  @ApiPropertyOptional({ description: 'Filter from receipt date' })
+  @ApiPropertyOptional({ description: 'Filter from received date' })
   @IsOptional()
   @IsDateString()
-  receiptDateFrom?: string;
+  receivedDateFrom?: string;
 
-  @ApiPropertyOptional({ description: 'Filter to receipt date' })
+  @ApiPropertyOptional({ description: 'Filter to received date' })
   @IsOptional()
   @IsDateString()
-  receiptDateTo?: string;
+  receivedDateTo?: string;
 
-  @ApiPropertyOptional({ description: 'Sort by field', default: 'receiptDate' })
+  @ApiPropertyOptional({ description: 'Sort by field', default: 'receivedDate' })
   @IsOptional()
   @IsString()
-  sortBy?: string = 'receiptDate';
+  sortBy?: string = 'receivedDate';
 
   @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'], default: 'DESC' })
   @IsOptional()
@@ -164,11 +164,11 @@ export class GoodsReceivedNoteResponseDto {
     contactPerson?: string;
   };
 
-  @ApiProperty({ description: 'Receipt date' })
-  receiptDate: Date;
+  @ApiProperty({ description: 'Received date' })
+  receivedDate: Date;
 
   @ApiProperty({ description: 'Total quantity received' })
-  totalReceivedQuantity: number;
+  totalQuantityReceived: number;
 
   @ApiProperty({ description: 'Received percentage' })
   receivedPercentage: number;
@@ -215,4 +215,3 @@ export class GoodsReceivedNoteListResponseDto {
   @ApiProperty({ description: 'Has previous page' })
   hasPrev: boolean;
 }
-

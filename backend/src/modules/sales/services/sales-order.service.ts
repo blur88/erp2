@@ -28,6 +28,8 @@ import {
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 
 @Injectable()
 export class SalesOrderService {
@@ -48,6 +50,8 @@ export class SalesOrderService {
     private readonly userRepository: Repository<User>,
     // private readonly customerService: CustomerService,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
+    private readonly stockMovementService: StockMovementService,
+    private readonly baseCostCalculator: BaseCostCalculatorService,
   ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
@@ -1362,6 +1366,18 @@ export class SalesOrderService {
       await this.customerRepository.save(customer);
     }
 
+    // Delete associated stock movements
+    try {
+      const stockMovementResult = await this.stockMovementService.deleteByReference(
+        'sales_order',
+        id
+      );
+      console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber}`);
+    } catch (error) {
+      console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order deletion should still succeed
+    }
+
     // Hard delete order items first (foreign key constraint)
     await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
@@ -1453,6 +1469,18 @@ export class SalesOrderService {
           customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
           customer.totalOrders = Math.max(0, customer.totalOrders - 1);
           await this.customerRepository.save(customer);
+        }
+
+        // Delete associated stock movements
+        try {
+          const stockMovementResult = await this.stockMovementService.deleteByReference(
+            'sales_order',
+            id
+          );
+          console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber}`);
+        } catch (error) {
+          console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
+          // Don't throw error - bulk deletion should still succeed
         }
 
         // Hard delete order items first
@@ -1616,7 +1644,6 @@ export class SalesOrderService {
         // Update existing payment
         existingPayment.amount = Number(amount);
         existingPayment.paymentDate = new Date();
-        existingPayment.clearedDate = new Date();
         existingPayment.notes = `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`;
         await paymentRepository.save(existingPayment);
         console.log(`✅ Updated payment ${existingPayment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
@@ -1746,7 +1773,8 @@ export class SalesOrderService {
         await this.inventoryIntegrationService.adjustStock(
           item.productId,
           -item.quantity,
-          `Sales order fulfillment: ${order.orderNumber}`
+          `Sales order fulfillment: ${order.orderNumber}`,
+          order.id // Add referenceId so we can delete these movements later
         );
       }
     }
@@ -1775,15 +1803,29 @@ export class SalesOrderService {
       throw new ConflictException('Order is not fulfilled');
     }
 
-    // Add inventory back for each item
+    // Add inventory back for each item and restore cost history
     for (const item of order.items) {
       if (item.product) {
-        await this.inventoryIntegrationService.adjustStock(
-          item.productId,
-          item.quantity,
-          `Sales order unfulfillment: ${order.orderNumber}`
-        );
+        // Restore stock to cost history batches (reverses the FIFO reduction during fulfillment)
+        try {
+          await this.baseCostCalculator.restoreStock(item.productId, item.quantity);
+        } catch (error) {
+          console.warn(`Failed to restore cost history for product ${item.productId}: ${error.message}`);
+          // Fall back to regular stock adjustment if cost history restoration fails
+        }
       }
+    }
+
+    // Delete stock movement records created during fulfillment
+    try {
+      const stockMovementResult = await this.stockMovementService.deleteByReference(
+        'sales_order',
+        order.id
+      );
+      console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber} unfulfillment`);
+    } catch (error) {
+      console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - unfulfillment should still succeed
     }
 
     // Mark as unfulfilled and revert to confirmed status

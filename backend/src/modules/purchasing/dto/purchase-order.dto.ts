@@ -214,16 +214,7 @@ export class PurchaseOrderQueryDto {
   @IsDateString()
   orderDateTo?: string;
 
-  @ApiPropertyOptional({ description: 'Filter from required date' })
-  @IsOptional()
-  @IsDateString()
-  requiredDateFrom?: string;
-
-  @ApiPropertyOptional({ description: 'Filter to required date' })
-  @IsOptional()
-  @IsDateString()
-  requiredDateTo?: string;
-
+  
   @ApiPropertyOptional({ description: 'Show overdue orders only' })
   @IsOptional()
   @Transform(({ value }) => value === 'true')
@@ -250,7 +241,6 @@ export class PurchaseOrderItemResponseDto {
     id: string;
     sku: string;
     name: string;
-    unit?: string;
   };
 
   @ApiProperty({ description: 'Item description' })
@@ -261,9 +251,6 @@ export class PurchaseOrderItemResponseDto {
 
   @ApiProperty({ description: 'Unit price' })
   unitPrice: number;
-
-  @ApiProperty({ description: 'Unit of measurement' })
-  unit?: string;
 
   @ApiProperty({ description: 'Discount percentage' })
   discountPercent: number;
@@ -277,7 +264,7 @@ export class PurchaseOrderItemResponseDto {
   @ApiProperty({ description: 'Quantity received so far' })
   receivedQuantity: number;
 
-  @ApiProperty({ description: 'Quantity rejected' })
+  @ApiProperty({ description: 'Quantity rejected (deprecated - always 0)' })
   rejectedQuantity: number;
 
   @ApiProperty({ description: 'Is item fully received' })
@@ -285,12 +272,6 @@ export class PurchaseOrderItemResponseDto {
 
   @ApiProperty({ description: 'Item status' })
   status: string;
-
-  @ApiProperty({ description: 'Required date' })
-  requiredDate?: Date;
-
-  @ApiProperty({ description: 'Notes' })
-  notes?: string;
 }
 
 export class PurchaseOrderResponseDto {
@@ -329,9 +310,7 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Order date' })
   orderDate: Date;
 
-  @ApiProperty({ description: 'Required delivery date' })
-  requiredDate?: Date;
-
+  
   @ApiProperty({ description: 'Sent date' })
   sentDate?: Date;
 

@@ -40,7 +40,6 @@ import {
   RestoreFromTrash as RestoreIcon,
   Business as BusinessIcon,
   Phone as PhoneIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -145,10 +144,9 @@ const SuppliersPage: React.FC = () => {
     },
   })
 
-  // Keyboard shortcuts - only search and refresh
+  // Keyboard shortcuts - only search
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
-    onRefresh: () => dispatch(fetchSuppliers({ ...filters })),
   })
 
   // Load suppliers on mount and when filters change
@@ -391,16 +389,6 @@ const SuppliersPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={() => dispatch(fetchSuppliers({ ...filters, search: searchTerm }))}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Suppliers" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
@@ -1013,14 +1001,6 @@ const SuppliersPage: React.FC = () => {
       <DeletedSuppliersDialog
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
-        onRefresh={() => {
-          // Refresh the active suppliers list after restore/delete operations
-          dispatch(fetchSuppliers({
-            ...filters,
-            page: pagination.page,
-            limit: pagination.limit,
-          }))
-        }}
       />
     </Box>
   )

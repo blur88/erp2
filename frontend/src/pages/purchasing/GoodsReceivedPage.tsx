@@ -28,7 +28,6 @@ import {
 } from '@mui/material'
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   LocalShipping as GRNIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -41,7 +40,8 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchGoodsReceivedNotes,
   selectGRNsState,
-  setSelectedGRN
+  setSelectedGRN,
+  selectSelectedGRN
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
@@ -120,6 +120,7 @@ const GoodsReceivedPage: React.FC = () => {
 
   const dispatch = useAppDispatch()
   const { goodsReceivedNotes, loading, error, pagination } = useAppSelector(selectGRNsState)
+  const selectedGRNFromRedux = useAppSelector(selectSelectedGRN)
   const [selectedGRN, setSelectedGRNLocal] = useState<any | null>(null)
 
   const [state, setState] = useState<GoodsReceivedPageState>({
@@ -183,8 +184,8 @@ const GoodsReceivedPage: React.FC = () => {
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-      receiptDateFrom: dateRange.fromDate,
-      receiptDateTo: dateRange.toDate,
+      receivedDateFrom: dateRange.fromDate,
+      receivedDateTo: dateRange.toDate,
     } as any))
   }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder, filters.dateFilter, getDateRange])
 
@@ -212,6 +213,16 @@ const GoodsReceivedPage: React.FC = () => {
     const grnIndex = paginatedGRNs.findIndex(g => g.id === grn.id)
     setFocusedGRNIndex(grnIndex)
   }, [dispatch, paginatedGRNs])
+
+  // Restore selected GRN from Redux on mount
+  useEffect(() => {
+    if (selectedGRNFromRedux && goodsReceivedNotes.length > 0 && !selectedGRN) {
+      const grn = goodsReceivedNotes.find((g: any) => g.id === selectedGRNFromRedux.id)
+      if (grn) {
+        handleGRNSelect(grn)
+      }
+    }
+  }, [selectedGRNFromRedux, goodsReceivedNotes, selectedGRN, handleGRNSelect])
 
   // Handle grnId query parameter to auto-select GRN from PO page
   useEffect(() => {
@@ -243,15 +254,15 @@ const GoodsReceivedPage: React.FC = () => {
   useEffect(() => {
     if (paginatedGRNs.length > 0 && focusedGRNIndex === -1) {
       if (!selectedGRN && searchInputRef.current !== document.activeElement) {
-        // Don't auto-select if we have a grnId query parameter
+        // Don't auto-select if we have a grnId query parameter or a persisted selection
         const grnId = searchParams.get('grnId')
-        if (!grnId) {
+        if (!grnId && !selectedGRNFromRedux) {
           setFocusedGRNIndex(0)
           handleGRNSelect(paginatedGRNs[0])
         }
       }
     }
-  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams])
+  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams, selectedGRNFromRedux])
 
   // Clear selection when no GRNs exist
   useEffect(() => {
@@ -270,19 +281,6 @@ const GoodsReceivedPage: React.FC = () => {
     }))
     setState(prev => ({ ...prev, page: 0 }))
   }, [])
-
-  const handleRefreshAction = () => {
-    const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchGoodsReceivedNotes({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
-      search: filters.search,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder,
-      receiptDateFrom: dateRange.fromDate,
-      receiptDateTo: dateRange.toDate,
-    } as any))
-  }
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -357,16 +355,6 @@ const GoodsReceivedPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh GRNs" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
@@ -702,7 +690,7 @@ const GoodsReceivedPage: React.FC = () => {
                               GRN Date
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {formatDate(selectedGRN.receiptDate || selectedGRN.receivedDate)}
+                              {formatDate(selectedGRN.receivedDate)}
                             </TableCell>
                           </TableRow>
                           {selectedGRN.purchaseOrder && (
@@ -793,7 +781,7 @@ const GoodsReceivedPage: React.FC = () => {
                               Received Qty
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem', color: 'success.main' }}>
-                              {selectedGRN.totalReceivedQuantity || selectedGRN.totalQuantityReceived || 0}
+                              {selectedGRN.totalQuantityReceived || 0}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -801,30 +789,6 @@ const GoodsReceivedPage: React.FC = () => {
                     </TableContainer>
                   </Grid>
                 </Grid>
-
-                {/* Notes Section */}
-                {selectedGRN.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <TableContainer>
-                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
-                                Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                              {selectedGRN.notes}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
 
                 {/* Page Break */}
                 <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />

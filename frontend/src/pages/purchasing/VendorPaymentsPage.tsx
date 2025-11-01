@@ -28,7 +28,6 @@ import {
 } from '@mui/material'
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   AccountBalance as PaymentIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -41,7 +40,8 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchVendorPayments,
   selectVendorPaymentsState,
-  setSelectedVendorPayment
+  setSelectedVendorPayment,
+  selectSelectedVendorPayment
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
@@ -122,6 +122,7 @@ const VendorPaymentsPage: React.FC = () => {
 
   const dispatch = useAppDispatch()
   const { vendorPayments, loading, error, pagination } = useAppSelector(selectVendorPaymentsState)
+  const selectedPaymentFromRedux = useAppSelector(selectSelectedVendorPayment)
   const [selectedPayment, setSelectedPaymentLocal] = useState<any | null>(null)
 
   const [state, setState] = useState<VendorPaymentsPageState>({
@@ -132,7 +133,7 @@ const VendorPaymentsPage: React.FC = () => {
   const [filters, setFilters] = useState<VendorPaymentFilters>({
     search: '',
     sortBy: 'paymentNumber',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     status: 'all',
     paymentMethod: 'all',
     dateFilter: 'all',
@@ -205,11 +206,21 @@ const VendorPaymentsPage: React.FC = () => {
     setFocusedPaymentIndex(paymentIndex)
   }, [dispatch, paginatedPayments])
 
-  // Handle paymentId query parameter to auto-select payment
+  // Restore selected payment from Redux on mount
   useEffect(() => {
-    const paymentId = searchParams.get('paymentId')
-    if (paymentId && vendorPayments.length > 0) {
-      const payment = vendorPayments.find((p: any) => p.id === paymentId)
+    if (selectedPaymentFromRedux && vendorPayments.length > 0 && !selectedPayment) {
+      const payment = vendorPayments.find((p: any) => p.id === selectedPaymentFromRedux.id)
+      if (payment) {
+        handlePaymentSelect(payment)
+      }
+    }
+  }, [selectedPaymentFromRedux, vendorPayments, selectedPayment, handlePaymentSelect])
+
+  // Handle vpId query parameter to auto-select payment
+  useEffect(() => {
+    const vpId = searchParams.get('vpId')
+    if (vpId && vendorPayments.length > 0) {
+      const payment = vendorPayments.find((p: any) => p.id === vpId)
       if (payment) {
         handlePaymentSelect(payment)
         // Remove the query parameter after selection
@@ -234,14 +245,15 @@ const VendorPaymentsPage: React.FC = () => {
   useEffect(() => {
     if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
       if (!selectedPayment && searchInputRef.current !== document.activeElement) {
-        const paymentId = searchParams.get('paymentId')
-        if (!paymentId) {
+        // Don't auto-select if we have a vpId query parameter or a persisted selection
+        const vpId = searchParams.get('vpId')
+        if (!vpId && !selectedPaymentFromRedux) {
           setFocusedPaymentIndex(0)
           handlePaymentSelect(paginatedPayments[0])
         }
       }
     }
-  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams])
+  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams, selectedPaymentFromRedux])
 
   // Clear selection when no payments exist
   useEffect(() => {
@@ -260,21 +272,6 @@ const VendorPaymentsPage: React.FC = () => {
     }))
     setState(prev => ({ ...prev, page: 0 }))
   }, [])
-
-  const handleRefreshAction = () => {
-    const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchVendorPayments({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
-      search: filters.search,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder,
-      status: filters.status !== 'all' ? filters.status : undefined,
-      paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
-    } as any))
-  }
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -361,16 +358,6 @@ const VendorPaymentsPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Payments" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}
@@ -564,7 +551,7 @@ const VendorPaymentsPage: React.FC = () => {
               setFilters({
                 search: '',
                 sortBy: 'paymentNumber',
-                sortOrder: 'desc',
+                sortOrder: 'asc',
                 status: 'all',
                 paymentMethod: 'all',
                 dateFilter: 'all',

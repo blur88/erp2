@@ -36,7 +36,6 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   ReceiptLong as InvoiceIcon,
   RestoreFromTrash as RestoreIcon,
   Sort as SortIcon,
@@ -46,7 +45,7 @@ import {
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchInvoices, selectInvoicesState } from '@/store/slices/salesSlice'
+import { fetchInvoices, selectInvoicesState, setSelectedInvoice, selectSelectedInvoice } from '@/store/slices/salesSlice'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
@@ -159,7 +158,7 @@ const InvoicesPage: React.FC = () => {
 
   const dispatch = useAppDispatch()
   const { invoices, loading, error, pagination } = useAppSelector(selectInvoicesState)
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceListItem | null>(null)
+  const selectedInvoice = useAppSelector(selectSelectedInvoice) as InvoiceListItem | null
 
   const [state, setState] = useState<InvoicesPageState>({
     page: 0,
@@ -183,7 +182,15 @@ const InvoicesPage: React.FC = () => {
   const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const invoiceListRef = useRef<HTMLDivElement>(null)
+  const hasRestoredSelection = useRef(false)
+  const previousPathnameRef = useRef(location.pathname)
+  const selectedInvoiceRef = useRef(selectedInvoice)
   const { showSuccess, showError } = useNotification()
+
+  // Keep ref in sync with selectedInvoice
+  useEffect(() => {
+    selectedInvoiceRef.current = selectedInvoice
+  }, [selectedInvoice])
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -248,9 +255,8 @@ const InvoicesPage: React.FC = () => {
     }
   }, [filters.customFromDate, filters.customToDate])
 
-  // Load invoices on component mount
-  useEffect(() => {
-    // Note: Date filtering will be applied client-side until backend supports it
+  // Consolidated invoice fetching - handles all refresh scenarios
+  const fetchInvoicesData = useCallback(() => {
     dispatch(fetchInvoices({
       page: state.page + 1,
       limit: state.rowsPerPage,
@@ -259,6 +265,37 @@ const InvoicesPage: React.FC = () => {
       sortOrder: filters.sortOrder.toUpperCase() as any
     }))
   }, [dispatch, state.page, state.rowsPerPage, filters])
+
+  // Main effect: Load invoices on mount and when filters/pagination change
+  useEffect(() => {
+    fetchInvoicesData()
+  }, [fetchInvoicesData])
+
+  // Refresh on route navigation (when coming back from sales page)
+  useEffect(() => {
+    // Only refresh if we navigated TO invoices page FROM somewhere else
+    if (previousPathnameRef.current !== '/sales/invoices' && location.pathname === '/sales/invoices') {
+      fetchInvoicesData()
+    }
+    previousPathnameRef.current = location.pathname
+  }, [location.pathname, fetchInvoicesData])
+
+  // Update selected invoice when fresh data arrives (to reflect status changes)
+  useEffect(() => {
+    if (invoices && invoices.length > 0) {
+      // CRITICAL: If we have a selected invoice, update it with fresh data from the list
+      if (selectedInvoiceRef.current) {
+        const freshInvoice = invoices.find((inv: any) => inv.id === selectedInvoiceRef.current?.id)
+        if (freshInvoice) {
+          // Only update if the data actually changed (to avoid infinite loops)
+          const hasChanged = JSON.stringify(freshInvoice) !== JSON.stringify(selectedInvoiceRef.current)
+          if (hasChanged) {
+            dispatch(setSelectedInvoice(freshInvoice as any))
+          }
+        }
+      }
+    }
+  }, [invoices, dispatch])
 
   // Transform and normalize invoice data
   const normalizedInvoices = useMemo(() => {
@@ -350,25 +387,44 @@ const InvoicesPage: React.FC = () => {
   }, [filters.sortBy, filters.sortOrder])
 
   const handleInvoiceSelect = useCallback((invoice: InvoiceListItem) => {
-    setSelectedInvoice(invoice)
+    dispatch(setSelectedInvoice(invoice as any))
     const invoiceIndex = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === invoice.id)
     setFocusedInvoiceIndex(invoiceIndex)
-  }, [paginatedInvoices])
+  }, [paginatedInvoices, dispatch])
 
   const handleSalesOrderClick = useCallback((salesOrderId: string, event: React.MouseEvent) => {
     event.stopPropagation() // Prevent triggering parent row click
     navigate('/sales/orders', { state: { highlightOrderId: salesOrderId } })
   }, [navigate])
 
-  // Auto-select first invoice when invoices load
+  // Initialize: Restore persisted selected invoice on mount
   useEffect(() => {
-    if (paginatedInvoices.length > 0 && focusedInvoiceIndex === -1) {
-      if (!selectedInvoice && searchInputRef.current !== document.activeElement) {
-        setFocusedInvoiceIndex(0)
-        setSelectedInvoice(paginatedInvoices[0])
+    if (!hasRestoredSelection.current && selectedInvoice && paginatedInvoices.length > 0) {
+      const index = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === selectedInvoice.id)
+      if (index >= 0) {
+        setFocusedInvoiceIndex(index)
+        hasRestoredSelection.current = true
       }
     }
-  }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice])
+  }, [selectedInvoice, paginatedInvoices])
+
+  // Auto-select first invoice when invoices load OR restore focus for persisted selection
+  useEffect(() => {
+    if (paginatedInvoices.length > 0 && focusedInvoiceIndex === -1) {
+      // If we have a persisted selected invoice from Redux, restore its focus
+      if (selectedInvoice) {
+        const index = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === selectedInvoice.id)
+        if (index >= 0) {
+          setFocusedInvoiceIndex(index)
+        }
+      }
+      // Only auto-focus first invoice if we don't have a selected invoice
+      else if (searchInputRef.current !== document.activeElement) {
+        setFocusedInvoiceIndex(0)
+        dispatch(setSelectedInvoice(paginatedInvoices[0] as any))
+      }
+    }
+  }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice, dispatch])
 
   // Handle navigation from orders page with highlightInvoiceId
   useEffect(() => {
@@ -376,13 +432,13 @@ const InvoicesPage: React.FC = () => {
     if (state?.highlightInvoiceId && paginatedInvoices.length > 0) {
       const invoiceIndex = paginatedInvoices.findIndex(i => i.id === state.highlightInvoiceId)
       if (invoiceIndex >= 0) {
-        setSelectedInvoice(paginatedInvoices[invoiceIndex])
+        dispatch(setSelectedInvoice(paginatedInvoices[invoiceIndex] as any))
         setFocusedInvoiceIndex(invoiceIndex)
         // Clear the state to prevent repeated highlighting
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
     }
-  }, [paginatedInvoices, location.state])
+  }, [paginatedInvoices, location.state, dispatch])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -402,32 +458,32 @@ const InvoicesPage: React.FC = () => {
     if (focusedInvoiceIndex > 0) {
       const newIndex = focusedInvoiceIndex - 1
       setFocusedInvoiceIndex(newIndex)
-      setSelectedInvoice(paginatedInvoices[newIndex])
+      dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, paginatedInvoices])
+  }, [focusedInvoiceIndex, paginatedInvoices, dispatch])
 
   const handleNavigateDown = useCallback(() => {
     if (focusedInvoiceIndex < paginatedInvoices.length - 1) {
       const newIndex = focusedInvoiceIndex + 1
       setFocusedInvoiceIndex(newIndex)
-      setSelectedInvoice(paginatedInvoices[newIndex])
+      dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, paginatedInvoices])
+  }, [focusedInvoiceIndex, paginatedInvoices, dispatch])
 
   const handleNavigateToFirst = useCallback(() => {
     if (paginatedInvoices.length > 0) {
       setFocusedInvoiceIndex(0)
-      setSelectedInvoice(paginatedInvoices[0])
+      dispatch(setSelectedInvoice(paginatedInvoices[0] as any))
     }
-  }, [paginatedInvoices])
+  }, [paginatedInvoices, dispatch])
 
   const handleNavigateToLast = useCallback(() => {
     if (paginatedInvoices.length > 0) {
       const lastIndex = paginatedInvoices.length - 1
       setFocusedInvoiceIndex(lastIndex)
-      setSelectedInvoice(paginatedInvoices[lastIndex])
+      dispatch(setSelectedInvoice(paginatedInvoices[lastIndex] as any))
     }
-  }, [paginatedInvoices])
+  }, [paginatedInvoices, dispatch])
 
   const handleNavigateToPayment = useCallback((paymentId: string, event?: React.MouseEvent) => {
     if (event) {
@@ -440,17 +496,17 @@ const InvoicesPage: React.FC = () => {
     const newIndex = Math.max(0, focusedInvoiceIndex - state.rowsPerPage)
     setFocusedInvoiceIndex(newIndex)
     if (paginatedInvoices[newIndex]) {
-      setSelectedInvoice(paginatedInvoices[newIndex])
+      dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices])
+  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
     const newIndex = Math.min(paginatedInvoices.length - 1, focusedInvoiceIndex + state.rowsPerPage)
     setFocusedInvoiceIndex(newIndex)
     if (paginatedInvoices[newIndex]) {
-      setSelectedInvoice(paginatedInvoices[newIndex])
+      dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices])
+  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedInvoiceIndex >= 0 && paginatedInvoices[focusedInvoiceIndex]) {
@@ -470,16 +526,6 @@ const InvoicesPage: React.FC = () => {
     }
   }
 
-  const handleRefreshAction = () => {
-    dispatch(fetchInvoices({
-      page: 1,
-      limit: state.rowsPerPage,
-      search: filters.search,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as any
-    }))
-  }
-
   const handleViewDeletedAction = () => {
     showError('View deleted functionality will be implemented later')
   }
@@ -490,10 +536,10 @@ const InvoicesPage: React.FC = () => {
 
   const handleEscapeAction = useCallback(() => {
     setFocusedInvoiceIndex(-1)
-    setSelectedInvoice(null)
+    dispatch(setSelectedInvoice(null))
     setCreateDialog(false)
     setEditDialog(false)
-  }, [])
+  }, [dispatch])
 
   // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
@@ -543,16 +589,6 @@ const InvoicesPage: React.FC = () => {
           gap: isMobile ? 1.5 : 1,
           alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleRefreshAction}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Refresh Invoices" : "Refresh"}
-          </Button>
           <Button
             variant="outlined"
             startIcon={!isMobile ? <RestoreIcon /> : undefined}

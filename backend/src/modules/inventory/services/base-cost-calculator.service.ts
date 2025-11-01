@@ -16,10 +16,15 @@ export class BaseCostCalculatorService {
   ) {}
 
   /**
-   * Calculate base cost from CURRENT STOCK ONLY
-   * Formula: SUM(remainingQty × landedCost) / SUM(remainingQty)
+   * Calculate base cost using RECEIVED QUANTITIES (Moving Average)
+   * Formula: SUM(receivedQty × landedCost) / SUM(receivedQty)
    *
-   * Example: 30 units @ RM 10 + 50 units @ RM 12 = (300 + 600) / 80 = RM 11.25
+   * This method calculates base cost from original purchase quantities,
+   * not current stock levels. Base cost only changes when receiving or
+   * returning goods, NOT when selling goods.
+   *
+   * Example: 30 units received @ RM 10 + 50 units received @ RM 12 = (300 + 600) / 80 = RM 11.25
+   * Even if you sell 20 units, base cost remains RM 11.25 until next purchase.
    */
   async calculateBaseCostFromCurrentStock(productId: string): Promise<number> {
     const product = await this.productRepository.findOne({
@@ -45,19 +50,20 @@ export class BaseCostCalculatorService {
       return Number(product.baseCost || 0);
     }
 
-    // Calculate weighted average from remaining stock
+    // Calculate weighted average from RECEIVED quantities (not remaining)
     let totalCost = 0;
     let totalQuantity = 0;
 
     for (const batch of batches) {
+      const qtyReceived = Number(batch.receivedQuantity);
       const qtyRemaining = Number(batch.remainingQuantity);
       const costPerUnit = Number(batch.landedCost);
 
-      totalCost += qtyRemaining * costPerUnit;
-      totalQuantity += qtyRemaining;
+      totalCost += qtyReceived * costPerUnit;
+      totalQuantity += qtyReceived;
 
       this.logger.debug(
-        `Batch ${batch.id}: ${qtyRemaining} units @ RM ${costPerUnit.toFixed(4)} = RM ${(qtyRemaining * costPerUnit).toFixed(2)}`
+        `Batch ${batch.id}: ${qtyReceived} units received (${qtyRemaining} remaining) @ RM ${costPerUnit.toFixed(4)} = RM ${(qtyReceived * costPerUnit).toFixed(2)}`
       );
     }
 
@@ -67,7 +73,7 @@ export class BaseCostCalculatorService {
       : Number(product.baseCost || 0);
 
     this.logger.log(
-      `Product ${product.name}: Weighted Average = RM ${totalCost.toFixed(2)} / ${totalQuantity} units = RM ${weightedAvg.toFixed(4)}`
+      `Product ${product.name}: Moving Average = RM ${totalCost.toFixed(2)} / ${totalQuantity} units = RM ${weightedAvg.toFixed(4)}`
     );
 
     return weightedAvg;
@@ -179,6 +185,54 @@ export class BaseCostCalculatorService {
   }
 
   /**
+   * Remove stock when returning goods to supplier
+   * Validates that no stock has been sold from this batch, then deletes it
+   */
+  async removeStock(productId: string, grnId: string): Promise<void> {
+    this.logger.log(`Removing stock for product ${productId} from GRN ${grnId}`);
+
+    // Find the batch(es) created for this GRN
+    const batches = await this.costHistoryRepository.find({
+      where: {
+        productId,
+        grnId,
+      },
+    });
+
+    if (batches.length === 0) {
+      this.logger.warn(`No cost history batches found for product ${productId} and GRN ${grnId}`);
+      return;
+    }
+
+    // Check if any stock has been sold from these batches
+    for (const batch of batches) {
+      const receivedQty = Number(batch.receivedQuantity);
+      const remainingQty = Number(batch.remainingQuantity);
+
+      if (remainingQty < receivedQty) {
+        const soldQty = receivedQty - remainingQty;
+        throw new Error(
+          `Cannot return goods: ${soldQty} units from this batch have already been sold. ` +
+          `Please ensure all goods are in stock before returning to supplier.`
+        );
+      }
+    }
+
+    // Delete all batches for this GRN (only if validation passed)
+    for (const batch of batches) {
+      this.logger.debug(
+        `Deleting batch ${batch.id}: ${batch.receivedQuantity} units (${batch.remainingQuantity} remaining) @ RM ${Number(batch.landedCost).toFixed(4)}`
+      );
+      await this.costHistoryRepository.delete(batch.id);
+    }
+
+    this.logger.log(`Deleted ${batches.length} cost history batch(es) for GRN ${grnId}`);
+
+    // Recalculate base cost after removal
+    await this.updateProductBaseCost(productId);
+  }
+
+  /**
    * Calculate shipping allocation BY VALUE
    * Formula: (itemTotal / poSubtotal) × totalShipping / itemQuantity
    *
@@ -232,5 +286,62 @@ export class BaseCostCalculatorService {
       },
       order: { receivedDate: 'ASC' },
     });
+  }
+
+  /**
+   * Restore stock when unfulfilling a sales order
+   * Adds quantities back to the cost history batches in FIFO order
+   * This reverses the reduceStock operation during fulfillment
+   */
+  async restoreStock(productId: string, quantityToRestore: number): Promise<void> {
+    this.logger.log(`Restoring stock for product ${productId}: ${quantityToRestore} units`);
+
+    // Get all batches for this product, including sold-out ones
+    const batches = await this.costHistoryRepository.find({
+      where: {
+        productId,
+      },
+      order: { receivedDate: 'ASC' }, // FIFO order - oldest first
+    });
+
+    if (batches.length === 0) {
+      this.logger.warn(`No cost history batches found for product ${productId}, cannot restore stock`);
+      return;
+    }
+
+    let remainingToRestore = quantityToRestore;
+
+    // Restore to oldest batches first (reverse of FIFO reduction)
+    for (const batch of batches) {
+      if (remainingToRestore <= 0) break;
+
+      const receivedQty = Number(batch.receivedQuantity);
+      const currentRemaining = Number(batch.remainingQuantity);
+      const maxCanRestore = receivedQty - currentRemaining; // Can only restore up to what was originally received
+
+      if (maxCanRestore <= 0) continue; // This batch is already full
+
+      const toRestore = Math.min(maxCanRestore, remainingToRestore);
+
+      await this.costHistoryRepository.update(batch.id, {
+        remainingQuantity: currentRemaining + toRestore,
+        updatedAt: new Date(),
+      });
+
+      this.logger.debug(
+        `Restored batch ${batch.id}: ${currentRemaining} + ${toRestore} = ${currentRemaining + toRestore} remaining (max: ${receivedQty})`
+      );
+
+      remainingToRestore -= toRestore;
+    }
+
+    if (remainingToRestore > 0) {
+      this.logger.warn(
+        `Could not fully restore stock for product ${productId}. Attempted to restore ${quantityToRestore}, but only ${quantityToRestore - remainingToRestore} could be restored to existing batches.`
+      );
+    }
+
+    // Recalculate base cost after restoration
+    await this.updateProductBaseCost(productId);
   }
 }

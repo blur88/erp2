@@ -224,6 +224,28 @@ export class ProductController {
     return this.pricingService.applyDynamicPricing(id);
   }
 
+  @Get(':id/order-history')
+  @ApiOperation({ summary: 'Get order history for a product (sales and purchase orders)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order history retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number', type: Number })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', type: Number })
+  async getOrderHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.productService.getOrderHistory(
+      id,
+      page ? parseInt(String(page), 10) : 1,
+      limit ? parseInt(String(limit), 10) : 20,
+    );
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update a product' })
   @ApiResponse({
@@ -256,7 +278,7 @@ export class ProductController {
   async bulkUpdatePrices(
     @Body() bulkUpdateDto: BulkUpdatePricesDto,
   ): Promise<{ message: string }> {
-    await this.productService.bulkUpdatePrices(bulkUpdateDto, null);
+    await this.productService.bulkUpdatePrices(bulkUpdateDto);
     return { message: `Successfully updated prices for ${bulkUpdateDto.products.length} products` };
   }
 
@@ -272,19 +294,17 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async reserveStock(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { quantity: number; reason: string },
+    @Body() body: { quantity: number },
   ): Promise<{ success: boolean; message: string }> {
     const success = await this.productService.reserveStock(
       id,
       body.quantity,
-      body.reason,
-      null,
     );
-    
+
     return {
       success,
-      message: success 
-        ? `Successfully reserved ${body.quantity} units` 
+      message: success
+        ? `Successfully reserved ${body.quantity} units`
         : 'Insufficient stock available for reservation',
     };
   }
@@ -300,15 +320,13 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async releaseReservedStock(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { quantity: number; reason: string },
+    @Body() body: { quantity: number },
   ): Promise<{ message: string }> {
     await this.productService.releaseReservedStock(
       id,
       body.quantity,
-      body.reason,
-      null,
     );
-    
+
     return { message: `Successfully released ${body.quantity} reserved units` };
   }
 
@@ -500,6 +518,6 @@ export class ProductController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
-    await this.productService.remove(id, null);
+    await this.productService.remove(id);
   }
 }

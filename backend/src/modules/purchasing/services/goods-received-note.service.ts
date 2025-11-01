@@ -6,6 +6,7 @@ import {
   GoodsReceivedNoteItem,
   PurchaseOrder,
   Supplier,
+  Product,
 } from '../../../database/entities';
 import {
   CreateGoodsReceivedNoteDto,
@@ -15,6 +16,9 @@ import {
   GoodsReceivedNoteListResponseDto,
 } from '../dto/goods-received-note.dto';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
+import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 
 @Injectable()
 export class GoodsReceivedNoteService {
@@ -29,7 +33,10 @@ export class GoodsReceivedNoteService {
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly stockMovementService: StockMovementService,
   ) {}
 
   /**
@@ -97,7 +104,7 @@ export class GoodsReceivedNoteService {
         grnNumber,
         purchaseOrderId: purchaseOrder.id,
         supplierId: purchaseOrder.supplier.id,
-        receivedDate: new Date(createDto.receiptDate),
+        receivedDate: new Date(createDto.receivedDate),
       });
 
       const savedGrn = await this.grnRepository.save(grn);
@@ -122,6 +129,32 @@ export class GoodsReceivedNoteService {
       // Save all GRN items
       if (grnItems.length > 0) {
         await this.grnItemRepository.save(grnItems);
+      }
+
+      // Create stock movements and update product quantities for each GRN item
+      for (const grnItem of grnItems) {
+        const poItem = purchaseOrder.items?.find(item => item.id === grnItem.purchaseOrderItemId);
+        if (!poItem) {
+          this.logger.warn(`PO item not found for GRN item ${grnItem.id}, skipping stock movement`);
+          continue;
+        }
+
+        // Create stock movement for purchase receipt
+        const createMovementDto: CreateStockMovementDto = {
+          productId: grnItem.productId,
+          movementType: StockMovementType.PURCHASE_RECEIPT,
+          quantity: Number(grnItem.receivedQuantity),
+          reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
+          referenceType: 'purchase_order',
+          referenceId: purchaseOrder.id,
+          referenceNumber: purchaseOrder.orderNumber,
+          unitValue: Number(poItem.unitCost),
+        };
+
+        await this.stockMovementService.create(createMovementDto);
+        this.logger.log(
+          `Stock movement created for product ${grnItem.productId}: +${grnItem.receivedQuantity} units from PO ${purchaseOrder.orderNumber}`
+        );
       }
 
       // Update GRN totals
@@ -192,7 +225,7 @@ export class GoodsReceivedNoteService {
     }
 
     // Apply sorting
-    const validSortFields = ['grnNumber', 'receivedDate', 'status', 'totalValue'];
+    const validSortFields = ['grnNumber', 'receivedDate', 'status', 'totalQuantityReceived'];
     if (validSortFields.includes(sortBy)) {
       queryBuilder.orderBy(`grn.${sortBy}`, sortOrder);
     } else {
@@ -252,7 +285,7 @@ export class GoodsReceivedNoteService {
 
     try {
       Object.assign(grn, {
-        ...(updateDto.receiptDate && { receivedDate: new Date(updateDto.receiptDate) }),
+        ...(updateDto.receivedDate && { receivedDate: new Date(updateDto.receivedDate) }),
         ...(updateDto.status && { status: updateDto.status }),
       });
 
@@ -557,8 +590,8 @@ export class GoodsReceivedNoteService {
         companyName: grn.supplier.companyName,
         contactPerson: grn.supplier.contactPerson,
       },
-      receiptDate: grn.receivedDate,
-      totalReceivedQuantity: Number(grn.totalQuantityReceived),
+      receivedDate: grn.receivedDate,
+      totalQuantityReceived: Number(grn.totalQuantityReceived),
       receivedPercentage: grn.receivedPercentage,
       isFullyReceived: grn.isFullyReceived,
       isPartiallyReceived: grn.isPartiallyReceived,

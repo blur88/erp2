@@ -23,6 +23,7 @@ export enum StockMovementType {
   // Inward movements (increase stock)
   PURCHASE_RECEIPT = 'purchase_receipt',
   SALES_RETURN = 'sales_return',
+  SALE_REVERSAL = 'sale_reversal', // Sales order unfulfillment
   PRODUCTION_RECEIPT = 'production_receipt',
   TRANSFER_IN = 'transfer_in',
   ADJUSTMENT_INCREASE = 'adjustment_increase',
@@ -272,6 +273,7 @@ export class StockMovement extends BaseEntity {
     return [
       StockMovementType.PURCHASE_RECEIPT,
       StockMovementType.SALES_RETURN,
+      StockMovementType.SALE_REVERSAL,
       StockMovementType.PRODUCTION_RECEIPT,
       StockMovementType.TRANSFER_IN,
       StockMovementType.ADJUSTMENT_INCREASE,
@@ -347,6 +349,7 @@ export class StockMovement extends BaseEntity {
     const reversalMap: Record<StockMovementType, StockMovementType> = {
       [StockMovementType.PURCHASE_RECEIPT]: StockMovementType.PURCHASE_RETURN,
       [StockMovementType.SALES_RETURN]: StockMovementType.SALE,
+      [StockMovementType.SALE_REVERSAL]: StockMovementType.SALE,
       [StockMovementType.PRODUCTION_RECEIPT]: StockMovementType.PRODUCTION_CONSUMPTION,
       [StockMovementType.TRANSFER_IN]: StockMovementType.TRANSFER_OUT,
       [StockMovementType.ADJUSTMENT_INCREASE]: StockMovementType.ADJUSTMENT_DECREASE,
@@ -442,6 +445,7 @@ export class StockMovement extends BaseEntity {
     const typeDescriptions: Record<StockMovementType, string> = {
       [StockMovementType.PURCHASE_RECEIPT]: 'Purchase Receipt',
       [StockMovementType.SALES_RETURN]: 'Sales Return',
+      [StockMovementType.SALE_REVERSAL]: 'Sales Order Unfulfill',
       [StockMovementType.PRODUCTION_RECEIPT]: 'Production Receipt',
       [StockMovementType.TRANSFER_IN]: 'Transfer In',
       [StockMovementType.ADJUSTMENT_INCREASE]: 'Stock Increase',
