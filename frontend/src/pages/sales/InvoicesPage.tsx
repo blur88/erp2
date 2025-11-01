@@ -257,7 +257,6 @@ const InvoicesPage: React.FC = () => {
 
   // Consolidated invoice fetching - handles all refresh scenarios
   const fetchInvoicesData = useCallback(() => {
-    console.log('🔄 [InvoicesPage] Fetching invoices...')
     dispatch(fetchInvoices({
       page: state.page + 1,
       limit: state.rowsPerPage,
@@ -276,7 +275,6 @@ const InvoicesPage: React.FC = () => {
   useEffect(() => {
     // Only refresh if we navigated TO invoices page FROM somewhere else
     if (previousPathnameRef.current !== '/sales/invoices' && location.pathname === '/sales/invoices') {
-      console.log('🔄 [InvoicesPage] Route changed to invoices, refreshing...')
       fetchInvoicesData()
     }
     previousPathnameRef.current = location.pathname
@@ -284,10 +282,7 @@ const InvoicesPage: React.FC = () => {
 
   // Update selected invoice when fresh data arrives (to reflect status changes)
   useEffect(() => {
-    console.log('📊 [InvoicesPage] Invoices data updated, count:', invoices?.length)
     if (invoices && invoices.length > 0) {
-      console.log('📋 [InvoicesPage] First invoice:', invoices[0])
-
       // CRITICAL: If we have a selected invoice, update it with fresh data from the list
       if (selectedInvoiceRef.current) {
         const freshInvoice = invoices.find((inv: any) => inv.id === selectedInvoiceRef.current?.id)
@@ -295,9 +290,6 @@ const InvoicesPage: React.FC = () => {
           // Only update if the data actually changed (to avoid infinite loops)
           const hasChanged = JSON.stringify(freshInvoice) !== JSON.stringify(selectedInvoiceRef.current)
           if (hasChanged) {
-            console.log('🔄 [InvoicesPage] Updating selected invoice with fresh data')
-            console.log('Old status:', (selectedInvoiceRef.current as any).status)
-            console.log('New status:', freshInvoice.status)
             dispatch(setSelectedInvoice(freshInvoice as any))
           }
         }
