@@ -133,7 +133,7 @@ const VendorPaymentsPage: React.FC = () => {
   const [filters, setFilters] = useState<VendorPaymentFilters>({
     search: '',
     sortBy: 'paymentNumber',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
     status: 'all',
     paymentMethod: 'all',
     dateFilter: 'all',
@@ -551,7 +551,7 @@ const VendorPaymentsPage: React.FC = () => {
               setFilters({
                 search: '',
                 sortBy: 'paymentNumber',
-                sortOrder: 'desc',
+                sortOrder: 'asc',
                 status: 'all',
                 paymentMethod: 'all',
                 dateFilter: 'all',
