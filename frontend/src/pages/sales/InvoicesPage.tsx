@@ -183,7 +183,14 @@ const InvoicesPage: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const invoiceListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
+  const previousPathnameRef = useRef(location.pathname)
+  const selectedInvoiceRef = useRef(selectedInvoice)
   const { showSuccess, showError } = useNotification()
+
+  // Keep ref in sync with selectedInvoice
+  useEffect(() => {
+    selectedInvoiceRef.current = selectedInvoice
+  }, [selectedInvoice])
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -248,9 +255,9 @@ const InvoicesPage: React.FC = () => {
     }
   }, [filters.customFromDate, filters.customToDate])
 
-  // Load invoices on component mount
-  useEffect(() => {
-    // Note: Date filtering will be applied client-side until backend supports it
+  // Consolidated invoice fetching - handles all refresh scenarios
+  const fetchInvoicesData = useCallback(() => {
+    console.log('🔄 [InvoicesPage] Fetching invoices...')
     dispatch(fetchInvoices({
       page: state.page + 1,
       limit: state.rowsPerPage,
@@ -259,6 +266,44 @@ const InvoicesPage: React.FC = () => {
       sortOrder: filters.sortOrder.toUpperCase() as any
     }))
   }, [dispatch, state.page, state.rowsPerPage, filters])
+
+  // Main effect: Load invoices on mount and when filters/pagination change
+  useEffect(() => {
+    fetchInvoicesData()
+  }, [fetchInvoicesData])
+
+  // Refresh on route navigation (when coming back from sales page)
+  useEffect(() => {
+    // Only refresh if we navigated TO invoices page FROM somewhere else
+    if (previousPathnameRef.current !== '/sales/invoices' && location.pathname === '/sales/invoices') {
+      console.log('🔄 [InvoicesPage] Route changed to invoices, refreshing...')
+      fetchInvoicesData()
+    }
+    previousPathnameRef.current = location.pathname
+  }, [location.pathname, fetchInvoicesData])
+
+  // Update selected invoice when fresh data arrives (to reflect status changes)
+  useEffect(() => {
+    console.log('📊 [InvoicesPage] Invoices data updated, count:', invoices?.length)
+    if (invoices && invoices.length > 0) {
+      console.log('📋 [InvoicesPage] First invoice:', invoices[0])
+
+      // CRITICAL: If we have a selected invoice, update it with fresh data from the list
+      if (selectedInvoiceRef.current) {
+        const freshInvoice = invoices.find((inv: any) => inv.id === selectedInvoiceRef.current?.id)
+        if (freshInvoice) {
+          // Only update if the data actually changed (to avoid infinite loops)
+          const hasChanged = JSON.stringify(freshInvoice) !== JSON.stringify(selectedInvoiceRef.current)
+          if (hasChanged) {
+            console.log('🔄 [InvoicesPage] Updating selected invoice with fresh data')
+            console.log('Old status:', (selectedInvoiceRef.current as any).status)
+            console.log('New status:', freshInvoice.status)
+            dispatch(setSelectedInvoice(freshInvoice as any))
+          }
+        }
+      }
+    }
+  }, [invoices, dispatch])
 
   // Transform and normalize invoice data
   const normalizedInvoices = useMemo(() => {

@@ -675,8 +675,15 @@ const salesSlice = createSlice({
         if (action.payload) {
           // Handle both flat structure and nested meta structure
           const payload = action.payload as any
-          state.invoices = payload.data || []
-          
+          const newInvoices = payload.data || []
+
+          console.log('✅ [Redux] fetchInvoices.fulfilled - Received invoices:', newInvoices.length)
+          if (newInvoices.length > 0) {
+            console.log('📋 [Redux] First invoice from API:', newInvoices[0])
+          }
+
+          state.invoices = newInvoices
+
           // Check if pagination is in meta or at root level
           const paginationData = payload.meta || payload
           state.pagination.invoices = {
