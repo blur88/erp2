@@ -40,7 +40,8 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchGoodsReceivedNotes,
   selectGRNsState,
-  setSelectedGRN
+  setSelectedGRN,
+  selectSelectedGRN
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
@@ -119,6 +120,7 @@ const GoodsReceivedPage: React.FC = () => {
 
   const dispatch = useAppDispatch()
   const { goodsReceivedNotes, loading, error, pagination } = useAppSelector(selectGRNsState)
+  const selectedGRNFromRedux = useAppSelector(selectSelectedGRN)
   const [selectedGRN, setSelectedGRNLocal] = useState<any | null>(null)
 
   const [state, setState] = useState<GoodsReceivedPageState>({
@@ -212,6 +214,16 @@ const GoodsReceivedPage: React.FC = () => {
     setFocusedGRNIndex(grnIndex)
   }, [dispatch, paginatedGRNs])
 
+  // Restore selected GRN from Redux on mount
+  useEffect(() => {
+    if (selectedGRNFromRedux && goodsReceivedNotes.length > 0 && !selectedGRN) {
+      const grn = goodsReceivedNotes.find((g: any) => g.id === selectedGRNFromRedux.id)
+      if (grn) {
+        handleGRNSelect(grn)
+      }
+    }
+  }, [selectedGRNFromRedux, goodsReceivedNotes, selectedGRN, handleGRNSelect])
+
   // Handle grnId query parameter to auto-select GRN from PO page
   useEffect(() => {
     const grnId = searchParams.get('grnId')
@@ -242,15 +254,15 @@ const GoodsReceivedPage: React.FC = () => {
   useEffect(() => {
     if (paginatedGRNs.length > 0 && focusedGRNIndex === -1) {
       if (!selectedGRN && searchInputRef.current !== document.activeElement) {
-        // Don't auto-select if we have a grnId query parameter
+        // Don't auto-select if we have a grnId query parameter or a persisted selection
         const grnId = searchParams.get('grnId')
-        if (!grnId) {
+        if (!grnId && !selectedGRNFromRedux) {
           setFocusedGRNIndex(0)
           handleGRNSelect(paginatedGRNs[0])
         }
       }
     }
-  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams])
+  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams, selectedGRNFromRedux])
 
   // Clear selection when no GRNs exist
   useEffect(() => {

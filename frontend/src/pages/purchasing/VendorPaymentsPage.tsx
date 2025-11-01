@@ -40,7 +40,8 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchVendorPayments,
   selectVendorPaymentsState,
-  setSelectedVendorPayment
+  setSelectedVendorPayment,
+  selectSelectedVendorPayment
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
@@ -121,6 +122,7 @@ const VendorPaymentsPage: React.FC = () => {
 
   const dispatch = useAppDispatch()
   const { vendorPayments, loading, error, pagination } = useAppSelector(selectVendorPaymentsState)
+  const selectedPaymentFromRedux = useAppSelector(selectSelectedVendorPayment)
   const [selectedPayment, setSelectedPaymentLocal] = useState<any | null>(null)
 
   const [state, setState] = useState<VendorPaymentsPageState>({
@@ -204,11 +206,21 @@ const VendorPaymentsPage: React.FC = () => {
     setFocusedPaymentIndex(paymentIndex)
   }, [dispatch, paginatedPayments])
 
-  // Handle paymentId query parameter to auto-select payment
+  // Restore selected payment from Redux on mount
   useEffect(() => {
-    const paymentId = searchParams.get('paymentId')
-    if (paymentId && vendorPayments.length > 0) {
-      const payment = vendorPayments.find((p: any) => p.id === paymentId)
+    if (selectedPaymentFromRedux && vendorPayments.length > 0 && !selectedPayment) {
+      const payment = vendorPayments.find((p: any) => p.id === selectedPaymentFromRedux.id)
+      if (payment) {
+        handlePaymentSelect(payment)
+      }
+    }
+  }, [selectedPaymentFromRedux, vendorPayments, selectedPayment, handlePaymentSelect])
+
+  // Handle vpId query parameter to auto-select payment
+  useEffect(() => {
+    const vpId = searchParams.get('vpId')
+    if (vpId && vendorPayments.length > 0) {
+      const payment = vendorPayments.find((p: any) => p.id === vpId)
       if (payment) {
         handlePaymentSelect(payment)
         // Remove the query parameter after selection
@@ -233,14 +245,15 @@ const VendorPaymentsPage: React.FC = () => {
   useEffect(() => {
     if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
       if (!selectedPayment && searchInputRef.current !== document.activeElement) {
-        const paymentId = searchParams.get('paymentId')
-        if (!paymentId) {
+        // Don't auto-select if we have a vpId query parameter or a persisted selection
+        const vpId = searchParams.get('vpId')
+        if (!vpId && !selectedPaymentFromRedux) {
           setFocusedPaymentIndex(0)
           handlePaymentSelect(paginatedPayments[0])
         }
       }
     }
-  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams])
+  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams, selectedPaymentFromRedux])
 
   // Clear selection when no payments exist
   useEffect(() => {
