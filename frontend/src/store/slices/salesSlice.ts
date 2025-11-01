@@ -14,6 +14,7 @@ interface SalesState {
   selectedCustomer: Customer | null
   selectedOrder: SalesOrder | null
   selectedInvoice: Invoice | null
+  selectedPayment: Payment | null
   orderFilters: {
     search: string
     sortBy: string
@@ -76,6 +77,7 @@ const initialState: SalesState = {
   selectedCustomer: null,
   selectedOrder: null,
   selectedInvoice: null,
+  selectedPayment: null,
   orderFilters: {
     search: '',
     sortBy: 'orderNumber',
@@ -466,6 +468,9 @@ const salesSlice = createSlice({
     },
     setSelectedInvoice: (state, action: PayloadAction<Invoice | null>) => {
       state.selectedInvoice = action.payload
+    },
+    setSelectedPayment: (state, action: PayloadAction<Payment | null>) => {
+      state.selectedPayment = action.payload
     },
     setOrderFilters: (state, action: PayloadAction<Partial<SalesState['orderFilters']>>) => {
       state.orderFilters = { ...state.orderFilters, ...action.payload }
@@ -907,6 +912,7 @@ export const {
   setSelectedCustomer,
   setSelectedOrder,
   setSelectedInvoice,
+  setSelectedPayment,
   setOrderFilters,
   setCustomers,
   updateOrderInPlace,
@@ -931,6 +937,7 @@ export const selectDeletedPayments = (state: any) => state.sales?.deletedPayment
 export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
 export const selectSelectedOrder = (state: any) => state.sales?.selectedOrder
 export const selectSelectedInvoice = (state: any) => state.sales?.selectedInvoice
+export const selectSelectedPayment = (state: any) => state.sales?.selectedPayment
 export const selectOrderFilters = (state: any) => state.sales?.orderFilters
 export const selectSalesLoading = (state: any) => state.sales?.loading
 export const selectSalesError = (state: any) => state.sales?.error

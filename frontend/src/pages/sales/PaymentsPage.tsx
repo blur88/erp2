@@ -49,6 +49,8 @@ import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { salesApi } from '@/services/salesApi'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
 
 // Payment types and interfaces
 interface Payment {
@@ -162,11 +164,12 @@ const PaymentsPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { showSuccess, showError } = useNotification()
+  const dispatch = useAppDispatch()
+  const selectedPayment = useAppSelector(selectSelectedPayment) as Payment | null
 
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
   const [totalPayments, setTotalPayments] = useState(0)
 
   const [state, setState] = useState<PaymentsPageState>({
@@ -190,6 +193,13 @@ const PaymentsPage: React.FC = () => {
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const paymentListRef = useRef<HTMLDivElement>(null)
+  const hasRestoredSelection = useRef(false)
+  const selectedPaymentRef = useRef(selectedPayment)
+
+  // Keep ref in sync with selectedPayment
+  useEffect(() => {
+    selectedPaymentRef.current = selectedPayment
+  }, [selectedPayment])
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -270,10 +280,10 @@ const PaymentsPage: React.FC = () => {
   }, [filters.sortBy, filters.sortOrder])
 
   const handlePaymentSelect = useCallback((payment: Payment) => {
-    setSelectedPayment(payment)
+    dispatch(setSelectedPayment(payment as any))
     const paymentIndex = paginatedPayments.findIndex((p: Payment) => p.id === payment.id)
     setFocusedPaymentIndex(paymentIndex)
-  }, [paginatedPayments])
+  }, [paginatedPayments, dispatch])
 
   // Load payments from API
   const loadPayments = useCallback(async () => {
@@ -327,10 +337,10 @@ const PaymentsPage: React.FC = () => {
     if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
       if (!selectedPayment && searchInputRef.current !== document.activeElement) {
         setFocusedPaymentIndex(0)
-        setSelectedPayment(paginatedPayments[0])
+        dispatch(setSelectedPayment(paginatedPayments[0] as any))
       }
     }
-  }, [paginatedPayments, focusedPaymentIndex, selectedPayment])
+  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, dispatch])
 
   // Handle navigation from order page with highlightPaymentId
   useEffect(() => {
@@ -338,13 +348,13 @@ const PaymentsPage: React.FC = () => {
     if (state?.highlightPaymentId && paginatedPayments.length > 0) {
       const paymentIndex = paginatedPayments.findIndex(p => p.id === state.highlightPaymentId)
       if (paymentIndex >= 0) {
-        setSelectedPayment(paginatedPayments[paymentIndex])
+        dispatch(setSelectedPayment(paginatedPayments[paymentIndex] as any))
         setFocusedPaymentIndex(paymentIndex)
         // Clear the state to prevent repeated highlighting
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
     }
-  }, [paginatedPayments, location.state])
+  }, [paginatedPayments, location.state, dispatch])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -364,54 +374,54 @@ const PaymentsPage: React.FC = () => {
     if (focusedPaymentIndex > 0) {
       const newIndex = focusedPaymentIndex - 1
       setFocusedPaymentIndex(newIndex)
-      setSelectedPayment(paginatedPayments[newIndex])
+      dispatch(setSelectedPayment(paginatedPayments[newIndex] as any))
     }
-  }, [focusedPaymentIndex, paginatedPayments])
+  }, [focusedPaymentIndex, paginatedPayments, dispatch])
 
   const handleNavigateDown = useCallback(() => {
     if (focusedPaymentIndex < paginatedPayments.length - 1) {
       const newIndex = focusedPaymentIndex + 1
       setFocusedPaymentIndex(newIndex)
-      setSelectedPayment(paginatedPayments[newIndex])
+      dispatch(setSelectedPayment(paginatedPayments[newIndex] as any))
     }
-  }, [focusedPaymentIndex, paginatedPayments])
+  }, [focusedPaymentIndex, paginatedPayments, dispatch])
 
   const handleNavigateToFirst = useCallback(() => {
     if (paginatedPayments.length > 0) {
       setFocusedPaymentIndex(0)
-      setSelectedPayment(paginatedPayments[0])
+      dispatch(setSelectedPayment(paginatedPayments[0] as any))
     }
-  }, [paginatedPayments])
+  }, [paginatedPayments, dispatch])
 
   const handleNavigateToLast = useCallback(() => {
     if (paginatedPayments.length > 0) {
       const lastIndex = paginatedPayments.length - 1
       setFocusedPaymentIndex(lastIndex)
-      setSelectedPayment(paginatedPayments[lastIndex])
+      dispatch(setSelectedPayment(paginatedPayments[lastIndex] as any))
     }
-  }, [paginatedPayments])
+  }, [paginatedPayments, dispatch])
 
   const handlePageUpNavigation = useCallback(() => {
     const newIndex = Math.max(0, focusedPaymentIndex - state.rowsPerPage)
     setFocusedPaymentIndex(newIndex)
     if (paginatedPayments[newIndex]) {
-      setSelectedPayment(paginatedPayments[newIndex])
+      dispatch(setSelectedPayment(paginatedPayments[newIndex] as any))
     }
-  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments])
+  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
     const newIndex = Math.min(paginatedPayments.length - 1, focusedPaymentIndex + state.rowsPerPage)
     setFocusedPaymentIndex(newIndex)
     if (paginatedPayments[newIndex]) {
-      setSelectedPayment(paginatedPayments[newIndex])
+      dispatch(setSelectedPayment(paginatedPayments[newIndex] as any))
     }
-  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments])
+  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedPaymentIndex >= 0 && paginatedPayments[focusedPaymentIndex]) {
       setEditDialog(true)
     }
-  }, [focusedPaymentIndex, paginatedPayments])
+  }, [focusedPaymentIndex, paginatedPayments, dispatch])
 
   const handleEditAction = () => {
     if (selectedPayment) {
@@ -431,9 +441,9 @@ const PaymentsPage: React.FC = () => {
 
   const handleEscapeAction = useCallback(() => {
     setFocusedPaymentIndex(-1)
-    setSelectedPayment(null)
+    dispatch(setSelectedPayment(null))
     setEditDialog(false)
-  }, [])
+  }, [dispatch])
 
   // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
