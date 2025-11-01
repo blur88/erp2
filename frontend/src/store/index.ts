@@ -28,7 +28,7 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: 'erp-app',
   storage,
-  whitelist: ['theme', 'inventory'], // Persist theme and inventory (including selected product)
+  whitelist: ['theme', 'inventory', 'sales'], // Persist theme, inventory, and sales (including selections)
   version: 2, // Incremented to force dark mode default migration
   migrate: (state: any) => {
     // Force dark mode for all users on version 2
