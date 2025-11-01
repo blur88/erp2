@@ -1,51 +1,30 @@
-import { Injectable } from '@nestjs/common';
-import { 
-  ReportConfig, 
-  ReportGenerationOptions, 
+import { Injectable, Logger } from '@nestjs/common';
+import {
+  ReportConfig,
+  ReportGenerationOptions,
   ReportDataAggregationResult,
-  ReportFormat 
+  ReportFormat
 } from '../interfaces/report-types.interface';
-import { UserRole } from '../../auth/interfaces/user-role.interface';
-import { AuthorizationService } from '../../auth/services/authorization.service';
-import { CacheService } from '../../shared/services/cache.service';
-import { Logger } from '../../shared/services/logger.service';
 
 @Injectable()
 export class BaseReportService {
-  constructor(
-    private readonly authService: AuthorizationService,
-    private readonly cacheService: CacheService,
-    private readonly logger: Logger
-  ) {}
+  private readonly logger = new Logger(BaseReportService.name);
+
+  constructor() {}
 
   /**
-   * Generate a report with caching and authorization checks
+   * Generate a report
    * @param reportConfig Report configuration
    * @param options Report generation options
-   * @param userRole User's role for authorization
    */
   async generateReport(
-    reportConfig: ReportConfig, 
-    options: ReportGenerationOptions,
-    userRole: UserRole
+    reportConfig: ReportConfig,
+    options: ReportGenerationOptions
   ): Promise<ReportDataAggregationResult> {
-    // Check user authorization
-    this.checkReportAuthorization(reportConfig, userRole);
-
-    // Generate cache key
-    const cacheKey = this.generateCacheKey(reportConfig, options);
-
-    // Try to fetch from cache first
-    const cachedReport = await this.cacheService.get(cacheKey);
-    if (cachedReport) {
-      return cachedReport;
-    }
+    this.logger.log(`Generating report: ${reportConfig.name}`);
 
     // Generate report
     const reportData = await this.aggregateReportData(reportConfig, options);
-
-    // Cache the report
-    await this.cacheService.set(cacheKey, reportData, 3600); // Cache for 1 hour
 
     return reportData;
   }
@@ -71,35 +50,6 @@ export class BaseReportService {
       default:
         throw new Error('Unsupported export format');
     }
-  }
-
-  /**
-   * Check if user is authorized to access the report
-   */
-  private checkReportAuthorization(
-    reportConfig: ReportConfig, 
-    userRole: UserRole
-  ): void {
-    if (!this.authService.hasRole(userRole, reportConfig.requiredRoles)) {
-      throw new Error('Unauthorized access to report');
-    }
-  }
-
-  /**
-   * Generate a unique cache key for the report
-   */
-  private generateCacheKey(
-    reportConfig: ReportConfig, 
-    options: ReportGenerationOptions
-  ): string {
-    const key = JSON.stringify({
-      reportId: reportConfig.id,
-      filters: options.filters,
-      sortBy: options.sortBy,
-      sortOrder: options.sortOrder,
-      groupBy: options.groupBy
-    });
-    return `report:${Buffer.from(key).toString('base64')}`;
   }
 
   /**

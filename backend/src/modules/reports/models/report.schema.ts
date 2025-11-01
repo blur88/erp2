@@ -1,10 +1,9 @@
 import * as mongoose from 'mongoose';
-import { 
-  ReportCategory, 
-  ReportFormat, 
-  ReportFrequency 
+import {
+  ReportCategory,
+  ReportFormat,
+  ReportFrequency
 } from '../interfaces/report-types.interface';
-import { UserRole } from '../../auth/interfaces/user-role.interface';
 
 export const ScheduledReportSchema = new mongoose.Schema({
   name: { 
@@ -61,14 +60,9 @@ export const ReportTemplateSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  fields: [{ 
-    type: String, 
-    required: true 
-  }],
-  requiredPermissions: [{ 
-    type: String, 
-    enum: Object.values(UserRole),
-    required: true 
+  fields: [{
+    type: String,
+    required: true
   }]
 }, { 
   timestamps: true 
