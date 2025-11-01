@@ -66,6 +66,8 @@ import {
   selectInventoryPagination,
   setProductFilters,
   selectProductFilters,
+  setSelectedProduct,
+  selectSelectedProduct,
 } from '@/store/slices/inventorySlice'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
@@ -82,9 +84,9 @@ const ProductsPage: React.FC = () => {
   const loading = useSelector(selectInventoryLoading)
   const pagination = useSelector(selectInventoryPagination)?.products
   const productFilters = useSelector(selectProductFilters) || { search: '', categoryId: '', lowStock: false, inStock: true }
+  const selectedProductForDetails = useSelector(selectSelectedProduct)
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(20)
-  const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
@@ -96,6 +98,7 @@ const ProductsPage: React.FC = () => {
   const [hasNavigatedWithSelection, setHasNavigatedWithSelection] = useState(false)
   const [currentTab, setCurrentTab] = useState(0)
   const productListRef = useRef<HTMLDivElement>(null)
+  const hasRestoredSelection = useRef(false)
 
   // Search and filter functionality
   const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
@@ -117,6 +120,17 @@ const ProductsPage: React.FC = () => {
     dispatch(fetchCategories({ includeProductCount: true }))
   }, [dispatch])
 
+  // Initialize: Restore persisted selected product on mount
+  useEffect(() => {
+    if (!hasRestoredSelection.current && selectedProductForDetails && products.length > 0) {
+      const index = products.findIndex((p: Product) => p.id === selectedProductForDetails.id)
+      if (index >= 0) {
+        setFocusedProductIndex(index)
+        hasRestoredSelection.current = true
+      }
+    }
+  }, [selectedProductForDetails, products])
+
   useEffect(() => {
     dispatch(fetchProducts({
       page: page + 1, // API expects 1-based page numbers
@@ -134,14 +148,14 @@ const ProductsPage: React.FC = () => {
         // Only update if the product data has actually changed to avoid unnecessary re-renders
         const hasChanged = JSON.stringify(updatedProduct) !== JSON.stringify(selectedProductForDetails)
         if (hasChanged) {
-          setSelectedProductForDetails(updatedProduct)
+          dispatch(setSelectedProduct(updatedProduct))
         }
       } else {
         // Product might have been deleted, clear selection
-        setSelectedProductForDetails(null)
+        dispatch(setSelectedProduct(null))
       }
     }
-  }, [products, selectedProductForDetails])
+  }, [products, selectedProductForDetails, dispatch])
 
 
   // Store the selected product ID from navigation to prevent it from being lost
@@ -165,7 +179,7 @@ const ProductsPage: React.FC = () => {
       const product = products.find((p: Product) => p.id === pendingProductId)
       if (product) {
         // Product found in current list
-        setSelectedProductForDetails(product)
+        dispatch(setSelectedProduct(product))
         const index = products.findIndex((p: Product) => p.id === pendingProductId)
         if (index >= 0) {
           setFocusedProductIndex(index)
@@ -178,7 +192,7 @@ const ProductsPage: React.FC = () => {
         ApiService.get(`/inventory/products/${pendingProductId}`)
           .then((response: any) => {
             const product = response as Product
-            setSelectedProductForDetails(product)
+            dispatch(setSelectedProduct(product))
             setFocusedProductIndex(-1) // No index since it's not in the list
 
             // Also refresh the products list to get the latest data
@@ -202,22 +216,32 @@ const ProductsPage: React.FC = () => {
     }
   }, [pendingProductId, products, dispatch, rowsPerPage, showError])
 
-  // Reset focused index when products change or page changes
+  // Reset focused index when products change or page changes (but not on initial mount if we have a persisted selection)
   useEffect(() => {
-    setFocusedProductIndex(-1)
-  }, [page, rowsPerPage, productFilters.search, productFilters.categoryId])
+    // Don't reset if we haven't restored the persisted selection yet
+    if (hasRestoredSelection.current || !selectedProductForDetails) {
+      setFocusedProductIndex(-1)
+    }
+  }, [page, rowsPerPage, productFilters.search, productFilters.categoryId, selectedProductForDetails])
 
-  // Auto-focus the first product when the list becomes available
+  // Auto-focus the first product when the list becomes available OR restore focus for persisted selection
   useEffect(() => {
     if (products.length > 0 && focusedProductIndex === -1) {
-      // Only auto-focus if we don't have a selected product AND we haven't just navigated with a selection
-      if (!selectedProductForDetails && !hasNavigatedWithSelection) {
+      // If we have a persisted selected product from Redux, restore its focus
+      if (selectedProductForDetails) {
+        const index = products.findIndex((p: Product) => p.id === selectedProductForDetails.id)
+        if (index >= 0) {
+          setFocusedProductIndex(index)
+        }
+      }
+      // Only auto-focus first product if we don't have a selected product AND we haven't just navigated with a selection
+      else if (!hasNavigatedWithSelection) {
         setFocusedProductIndex(0)
         // Automatically show product details for the first product
-        setSelectedProductForDetails(products[0])
+        dispatch(setSelectedProduct(products[0]))
       }
     }
-  }, [products, focusedProductIndex, selectedProductForDetails, hasNavigatedWithSelection])
+  }, [products, focusedProductIndex, selectedProductForDetails, hasNavigatedWithSelection, dispatch])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -242,48 +266,48 @@ const ProductsPage: React.FC = () => {
     if (focusedProductIndex > 0) {
       const newIndex = focusedProductIndex - 1
       setFocusedProductIndex(newIndex)
-      setSelectedProductForDetails(products[newIndex])
+      dispatch(setSelectedProduct(products[newIndex]))
     }
-  }, [focusedProductIndex, products])
+  }, [focusedProductIndex, products, dispatch])
 
   const handleNavigateDown = useCallback(() => {
     if (focusedProductIndex < products.length - 1) {
       const newIndex = focusedProductIndex + 1
       setFocusedProductIndex(newIndex)
-      setSelectedProductForDetails(products[newIndex])
+      dispatch(setSelectedProduct(products[newIndex]))
     }
-  }, [focusedProductIndex, products])
+  }, [focusedProductIndex, products, dispatch])
 
   const handleNavigateHome = useCallback(() => {
     if (products.length > 0) {
       setFocusedProductIndex(0)
-      setSelectedProductForDetails(products[0])
+      dispatch(setSelectedProduct(products[0]))
     }
-  }, [products])
+  }, [products, dispatch])
 
   const handleNavigateEnd = useCallback(() => {
     if (products.length > 0) {
       const lastIndex = products.length - 1
       setFocusedProductIndex(lastIndex)
-      setSelectedProductForDetails(products[lastIndex])
+      dispatch(setSelectedProduct(products[lastIndex]))
     }
-  }, [products])
+  }, [products, dispatch])
 
   const handlePageUpNavigation = useCallback(() => {
     const newIndex = Math.max(0, focusedProductIndex - rowsPerPage)
     setFocusedProductIndex(newIndex)
     if (products[newIndex]) {
-      setSelectedProductForDetails(products[newIndex])
+      dispatch(setSelectedProduct(products[newIndex]))
     }
-  }, [focusedProductIndex, rowsPerPage, products])
+  }, [focusedProductIndex, rowsPerPage, products, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
     const newIndex = Math.min(products.length - 1, focusedProductIndex + rowsPerPage)
     setFocusedProductIndex(newIndex)
     if (products[newIndex]) {
-      setSelectedProductForDetails(products[newIndex])
+      dispatch(setSelectedProduct(products[newIndex]))
     }
-  }, [focusedProductIndex, rowsPerPage, products])
+  }, [focusedProductIndex, rowsPerPage, products, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
@@ -294,11 +318,11 @@ const ProductsPage: React.FC = () => {
 
   const handleEscapeAction = useCallback(() => {
     setFocusedProductIndex(-1)
-    setSelectedProductForDetails(null)
+    dispatch(setSelectedProduct(null))
     setDeletedProductsDialogOpen(false)
     setImportDialogOpen(false)
     setDeleteConfirmOpen(false)
-  }, [])
+  }, [dispatch])
 
   // Only keep keyboard navigation and search shortcuts
   useKeyboardShortcuts({
@@ -333,7 +357,7 @@ const ProductsPage: React.FC = () => {
 
           // If the deleted product was selected for details, clear the selection
           if (selectedProductForDetails?.id === productToDelete.id) {
-            setSelectedProductForDetails(null)
+            dispatch(setSelectedProduct(null))
           }
 
           // Refresh the product list to ensure consistency
@@ -701,7 +725,7 @@ const ProductsPage: React.FC = () => {
                 if (products.length > 0 && focusedProductIndex === -1) {
                   setFocusedProductIndex(0)
                   // Automatically show product details for the first product
-                  setSelectedProductForDetails(products[0])
+                  dispatch(setSelectedProduct(products[0]))
                 }
               }}
             >
@@ -740,7 +764,7 @@ const ProductsPage: React.FC = () => {
                               hover
                               tabIndex={-1}
                               onClick={() => {
-                                setSelectedProductForDetails(product)
+                                dispatch(setSelectedProduct(product))
                                 setFocusedProductIndex(index)
                               }}
                               sx={{
