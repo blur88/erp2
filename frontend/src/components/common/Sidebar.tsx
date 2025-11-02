@@ -306,7 +306,7 @@ const menuSections: MenuSection[] = [
 const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const [expandedItems, setExpandedItems] = React.useState<string[]>(['inventory', 'sales', 'purchasing', 'sales-reports'])
+  const [expandedItems, setExpandedItems] = React.useState<string[]>([])
 
   // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
@@ -323,10 +323,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   }
 
   const toggleExpanded = (itemId: string) => {
-    setExpandedItems(prev => 
+    setExpandedItems(prev =>
       prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
-        : [...prev, itemId]
+        : [itemId] // Only keep the newly clicked item expanded
     )
   }
 
