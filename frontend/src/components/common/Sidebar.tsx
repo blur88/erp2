@@ -184,10 +184,22 @@ const menuSections: MenuSection[] = [
     title: 'Analytics',
     items: [
       {
-        id: 'reports',
-        title: 'Reports',
-        icon: <ReportsIcon />,
-        path: '/reports',
+        id: 'sales-reports',
+        title: 'Sales Reports',
+        icon: <SalesIcon />,
+        path: '/reports/sales',
+      },
+      {
+        id: 'purchasing-reports',
+        title: 'Purchasing Reports',
+        icon: <PurchasingIcon />,
+        path: '/reports/purchasing',
+      },
+      {
+        id: 'inventory-reports',
+        title: 'Inventory Reports',
+        icon: <InventoryIcon />,
+        path: '/reports/inventory',
       },
     ],
   },

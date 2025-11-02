@@ -78,27 +78,8 @@ export class ReportController {
   async getReportTemplates(
     @Query('category') category?: ReportCategory
   ) {
-    // Return predefined report templates
-    const templates = [
-      {
-        id: 'sales-summary',
-        name: 'Sales Summary',
-        category: ReportCategory.SALES,
-        description: 'Summary of sales performance with revenue and order metrics'
-      },
-      {
-        id: 'inventory-valuation',
-        name: 'Inventory Valuation',
-        category: ReportCategory.INVENTORY,
-        description: 'Current inventory stock levels and valuation'
-      },
-      {
-        id: 'purchase-analysis',
-        name: 'Purchase Analysis',
-        category: ReportCategory.PURCHASING,
-        description: 'Analysis of purchasing patterns and supplier performance'
-      }
-    ];
+    // Empty templates array - starting from scratch
+    const templates = [];
 
     const filteredTemplates = category
       ? templates.filter(t => t.category === category)
