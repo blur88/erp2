@@ -187,7 +187,80 @@ const menuSections: MenuSection[] = [
         id: 'sales-reports',
         title: 'Sales Reports',
         icon: <SalesIcon />,
-        path: '/reports/sales',
+        children: [
+          {
+            id: 'sales-by-product-summary',
+            title: 'Sales by Product Summary',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/product-summary',
+          },
+          {
+            id: 'sales-by-product-details',
+            title: 'Sales by Product Details',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/product-details',
+          },
+          {
+            id: 'sales-order-summary',
+            title: 'Sales Order Summary',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/order-summary',
+          },
+          {
+            id: 'sales-order-profit-report',
+            title: 'Sales Order Profit Report',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/order-profit',
+          },
+          {
+            id: 'sales-order-operational-report',
+            title: 'Sales Order Operational Report',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/order-operational',
+          },
+          {
+            id: 'sales-tax-report',
+            title: 'Sales Tax Report',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/tax',
+          },
+          {
+            id: 'customer-payment-summary',
+            title: 'Customer Payment Summary',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/payment-summary',
+          },
+          {
+            id: 'customer-payment-by-order',
+            title: 'Customer Payment by Order',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/payment-by-order',
+          },
+          {
+            id: 'customer-payment-details',
+            title: 'Customer Payment Details',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/payment-details',
+          },
+          {
+            id: 'customer-order-history',
+            title: 'Customer Order History',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/customer-order-history',
+          },
+          {
+            id: 'product-customer-report',
+            title: 'Product Customer Report',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/product-customer',
+          },
+          {
+            id: 'customer-list',
+            title: 'Customer List',
+            icon: <ReportsIcon />,
+            path: '/reports/sales/customer-list',
+          },
+        ],
       },
       {
         id: 'purchasing-reports',
@@ -233,7 +306,7 @@ const menuSections: MenuSection[] = [
 const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const [expandedItems, setExpandedItems] = React.useState<string[]>(['inventory', 'sales', 'purchasing'])
+  const [expandedItems, setExpandedItems] = React.useState<string[]>(['inventory', 'sales', 'purchasing', 'sales-reports'])
 
   // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
