@@ -18,6 +18,8 @@ import {
   TableRow,
   CircularProgress,
   Stack,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -28,6 +30,7 @@ import {
   Inventory2 as ProductIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface ProductSummary {
   productId: string
@@ -42,6 +45,8 @@ interface ProductSummary {
 }
 
 const SalesByProductSummary: React.FC = () => {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<ProductSummary[]>([])
   const [products, setProducts] = useState<any[]>([])
@@ -148,47 +153,62 @@ const SalesByProductSummary: React.FC = () => {
   const totals = calculateTotals()
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       {/* Header */}
       <Box sx={{
         display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: isMobile ? 'stretch' : 'center',
         mb: 4,
+        gap: isMobile ? 2 : 0
       }}>
-        <Box>
-          <Typography variant="h4" sx={{
-            fontWeight: 600,
+        <Box sx={{ mb: isMobile ? 2 : 0 }}>
+          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
             mb: 1,
             display: 'flex',
             alignItems: 'center',
             gap: 2
           }}>
-            <ProductIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+            <ProductIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
             Sales by Product Summary
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Analyze product performance and sales metrics
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            {reportData.length > 0
+              ? `Product performance report (${reportData.length} products)`
+              : 'Analyze product performance and sales metrics'}
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 1.5 : 1,
+          alignItems: isMobile ? 'stretch' : 'center'
+        }}>
           <Button
             variant="outlined"
-            startIcon={<RefreshIcon />}
+            startIcon={!isMobile ? <RefreshIcon /> : undefined}
             onClick={handleClearFilters}
             disabled={loading}
+            size={isMobile ? "medium" : "medium"}
+            fullWidth={isMobile}
           >
-            Clear Filters
+            {isMobile ? "Clear Filters" : "Clear Filters"}
           </Button>
-          {reportData.length > 0 && (
-            <Button
-              variant="contained"
-              startIcon={<DownloadIcon />}
-              onClick={() => console.log('Export')}
-            >
-              Export
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            startIcon={!isMobile ? <DownloadIcon /> : undefined}
+            onClick={() => console.log('Export')}
+            disabled={reportData.length === 0}
+            size="medium"
+            fullWidth={isMobile}
+          >
+            {isMobile ? "Export" : "Export"}
+          </Button>
         </Box>
       </Box>
 
@@ -196,13 +216,13 @@ const SalesByProductSummary: React.FC = () => {
       <Grid container spacing={3}>
         {/* Left Side - Filters */}
         <Grid item xs={12} md={3}>
-          <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle1" sx={{
-                fontWeight: 600,
+          <Paper sx={{ height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                fontSize: '0.875rem'
+                letterSpacing: '0.5px'
               }}>
                 Filters
               </Typography>
@@ -280,7 +300,7 @@ const SalesByProductSummary: React.FC = () => {
         {/* Right Side - Report Preview */}
         <Grid item xs={12} md={9}>
           {reportData.length === 0 ? (
-            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
                 <Box sx={{ textAlign: 'center', maxWidth: 500 }}>
                   {loading ? (
@@ -300,13 +320,13 @@ const SalesByProductSummary: React.FC = () => {
               </Box>
             </Paper>
           ) : (
-            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle1" sx={{
-                  fontWeight: 600,
+            <Paper sx={{ height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  fontSize: '0.875rem'
+                  letterSpacing: '0.5px'
                 }}>
                   Report Preview ({reportData.length} products)
                 </Typography>
@@ -330,37 +350,42 @@ const SalesByProductSummary: React.FC = () => {
 
               {/* Summary Stats */}
               {totals && (
-                <Box sx={{ p: 2, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{
+                  py: TABLE_STYLES.cell.padding.py,
+                  px: TABLE_STYLES.cell.padding.px,
+                  bgcolor: 'grey.50',
+                  borderBottom: TABLE_STYLES.cell.border
+                }}>
                   <Grid container spacing={2}>
                     <Grid item xs={6} sm={3}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                         Total Quantity
                       </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
                         {totals.totalQuantitySold.toLocaleString()}
                       </Typography>
                     </Grid>
                     <Grid item xs={6} sm={3}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                         Total Revenue
                       </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
                         {formatCurrency(totals.totalRevenue)}
                       </Typography>
                     </Grid>
                     <Grid item xs={6} sm={3}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                         Total Cost
                       </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
                         {formatCurrency(totals.totalCost)}
                       </Typography>
                     </Grid>
                     <Grid item xs={6} sm={3}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                         Gross Profit
                       </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3, color: 'success.main' }}>
                         {formatCurrency(totals.grossProfit)}
                       </Typography>
                     </Grid>
@@ -370,63 +395,71 @@ const SalesByProductSummary: React.FC = () => {
 
               {/* Data Table */}
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table size="small" stickyHeader>
+                <Table
+                  size={TABLE_STYLES.size}
+                  stickyHeader
+                  sx={{
+                    '& .MuiTableCell-root': {
+                      borderBottom: TABLE_STYLES.cell.border,
+                      py: TABLE_STYLES.cell.padding.py,
+                      px: TABLE_STYLES.cell.padding.px
+                    }
+                  }}
+                >
                   <TableHead>
-                    <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.100' } }}>
-                      <TableCell>Product Name</TableCell>
-                      <TableCell>Category</TableCell>
-                      <TableCell align="right">Qty Sold</TableCell>
-                      <TableCell align="right">Revenue</TableCell>
-                      <TableCell align="right">Cost</TableCell>
-                      <TableCell align="right">Profit</TableCell>
-                      <TableCell align="right">Margin %</TableCell>
-                      <TableCell align="right">Orders</TableCell>
+                    <TableRow sx={{ '& .MuiTableCell-head': {
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      backgroundColor: 'grey.50',
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    } }}>
+                      <TableCell sx={{ width: '25%' }}>Product Name</TableCell>
+                      <TableCell sx={{ width: '15%' }}>Category</TableCell>
+                      <TableCell align="right" sx={{ width: '10%' }}>Qty Sold</TableCell>
+                      <TableCell align="right" sx={{ width: '12.5%' }}>Revenue</TableCell>
+                      <TableCell align="right" sx={{ width: '12.5%' }}>Cost</TableCell>
+                      <TableCell align="right" sx={{ width: '12.5%' }}>Profit</TableCell>
+                      <TableCell align="right" sx={{ width: '7.5%' }}>Margin %</TableCell>
+                      <TableCell align="right" sx={{ width: '5%' }}>Orders</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {reportData.map((row) => (
-                      <TableRow key={row.productId} hover>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {row.productName}
-                          </Typography>
+                      <TableRow
+                        key={row.productId}
+                        hover
+                        sx={{
+                          '&:hover': { backgroundColor: 'action.hover' },
+                          transition: 'background-color 0.2s ease',
+                          height: TABLE_STYLES.row.height
+                        }}
+                      >
+                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                          {row.productName}
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {row.category}
-                          </Typography>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
+                          {row.category}
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">
-                            {row.totalQuantitySold.toLocaleString()}
-                          </Typography>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {row.totalQuantitySold.toLocaleString()}
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">
-                            {formatCurrency(row.totalRevenue)}
-                          </Typography>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {formatCurrency(row.totalRevenue)}
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">
-                            {formatCurrency(row.totalCost)}
-                          </Typography>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {formatCurrency(row.totalCost)}
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2" sx={{
-                            color: row.grossProfit > 0 ? 'success.main' : 'error.main'
-                          }}>
-                            {formatCurrency(row.grossProfit)}
-                          </Typography>
+                        <TableCell align="right" sx={{
+                          fontSize: '0.8rem',
+                          color: row.grossProfit > 0 ? 'success.main' : 'error.main'
+                        }}>
+                          {formatCurrency(row.grossProfit)}
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">
-                            {row.profitMargin.toFixed(2)}%
-                          </Typography>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {row.profitMargin.toFixed(2)}%
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">
-                            {row.orderCount}
-                          </Typography>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {row.orderCount}
                         </TableCell>
                       </TableRow>
                     ))}
