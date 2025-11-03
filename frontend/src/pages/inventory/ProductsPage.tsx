@@ -40,7 +40,7 @@ import {
   TableChart as TableChartIcon,
   PictureAsPdf as PictureAsPdfIcon,
   CloudUpload as CloudUploadIcon,
-  Inventory2 as InventoryIcon,
+  ShoppingCart as ProductIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
@@ -453,7 +453,7 @@ const ProductsPage: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <InventoryIcon sx={{
+            <ProductIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />

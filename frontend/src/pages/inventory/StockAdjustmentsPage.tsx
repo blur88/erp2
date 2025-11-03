@@ -31,7 +31,7 @@ import {
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  Assessment as AssessmentIcon,
+  SwapVert as StockAdjustmentIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
@@ -431,7 +431,7 @@ const StockAdjustmentsPage: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <AssessmentIcon sx={{
+            <StockAdjustmentIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
