@@ -532,9 +532,32 @@ const SalesByProductSummary: React.FC = () => {
                     multiple
                     value={selectedColumns}
                     label="Columns"
-                    onChange={(e) => setSelectedColumns(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                    onChange={(e) => {
+                      const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
+
+                      // Check if 'all' was clicked
+                      if (value.includes('all')) {
+                        const allColumns = ['productName', 'category', 'quantity', 'revenue', 'cost', 'profit', 'margin', 'orders']
+                        // If all were selected, deselect all; otherwise select all
+                        if (selectedColumns.length === allColumns.length) {
+                          setSelectedColumns([])
+                        } else {
+                          setSelectedColumns(allColumns)
+                        }
+                      } else {
+                        // Normal column selection
+                        setSelectedColumns(value as string[])
+                      }
+                    }}
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
+                    <MenuItem value="all">
+                      <Checkbox
+                        checked={selectedColumns.length === 8}
+                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 8}
+                      />
+                      <ListItemText primary="All" />
+                    </MenuItem>
                     <MenuItem value="productName">
                       <Checkbox checked={selectedColumns.includes('productName')} />
                       <ListItemText primary="Product Name" />
