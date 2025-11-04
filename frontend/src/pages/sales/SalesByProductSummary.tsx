@@ -728,67 +728,6 @@ const SalesByProductSummary: React.FC = () => {
                 </Box>
               </Box>
 
-              {/* Summary Stats */}
-              {totals && (
-                <Box sx={{
-                  py: TABLE_STYLES.cell.padding.py,
-                  px: TABLE_STYLES.cell.padding.px,
-                  bgcolor: 'grey.50',
-                  borderBottom: TABLE_STYLES.cell.border
-                }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6} sm={4} md={3}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Sold Qty
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                        {totals.soldQty.toLocaleString()}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4} md={3}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Total Sales
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                        {formatCurrency(totals.totalSales)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4} md={3}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Sales Profit
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3, color: 'success.main' }}>
-                        {formatCurrency(totals.salesProfit)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4} md={3}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Purchase Qty
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                        {totals.purchaseQty.toLocaleString()}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4} md={3}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Purchase Subtotal
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                        {formatCurrency(totals.purchaseSubtotal)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={4} md={3}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Total Profit
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3, color: 'success.main' }}>
-                        {formatCurrency(totals.totalProfit)}
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Box>
-              )}
-
               {/* Data Table */}
               <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                 <Table
