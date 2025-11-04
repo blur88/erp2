@@ -423,22 +423,24 @@ const SalesByProductSummary: React.FC = () => {
 
       {/* Split Layout */}
       <Grid container spacing={3}>
-        {/* Left Side - Filters */}
+        {/* Left Side - Filters and Display */}
         <Grid item xs={12} md={3}>
-          <Paper sx={{ height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Filters
-              </Typography>
-            </Box>
+          <Stack spacing={2}>
+            {/* Filters Section */}
+            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Filters
+                </Typography>
+              </Box>
 
-            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-              <Stack spacing={2}>
+              <Box sx={{ p: 2 }}>
+                <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   SO Date Range
                 </Typography>
@@ -505,14 +507,25 @@ const SalesByProductSummary: React.FC = () => {
                     ))}
                   </Select>
                 </FormControl>
+                </Stack>
+              </Box>
+            </Paper>
 
-                <Divider sx={{ my: 3 }} />
-
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ViewColumnIcon fontSize="small" />
-                  Display Options
+            {/* Display Section */}
+            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Display
                 </Typography>
+              </Box>
 
+              <Box sx={{ p: 2 }}>
+                <Stack spacing={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Columns</InputLabel>
                   <Select
@@ -632,28 +645,29 @@ const SalesByProductSummary: React.FC = () => {
                   onChange={(e) => setReportTitle(e.target.value)}
                   size="small"
                   fullWidth
-                  sx={{ mt: 2 }}
                 />
+                </Stack>
+              </Box>
+            </Paper>
 
-                <Button
-                  variant="contained"
-                  startIcon={<GenerateIcon />}
-                  onClick={handleGenerateReport}
-                  disabled={loading}
-                  fullWidth
-                  sx={{ mt: 3 }}
-                >
-                  {loading ? 'Generating...' : 'Generate Report'}
-                </Button>
-              </Stack>
-            </Box>
-          </Paper>
+            {/* Generate Report Button */}
+            <Button
+              variant="contained"
+              startIcon={<GenerateIcon />}
+              onClick={handleGenerateReport}
+              disabled={loading}
+              fullWidth
+              size="large"
+            >
+              {loading ? 'Generating...' : 'Generate Report'}
+            </Button>
+          </Stack>
         </Grid>
 
         {/* Right Side - Report Preview */}
         <Grid item xs={12} md={9}>
           {reportData.length === 0 ? (
-            <Paper sx={{ height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ minHeight: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
                 <Box sx={{ textAlign: 'center', maxWidth: 500 }}>
                   {loading ? (
@@ -673,7 +687,7 @@ const SalesByProductSummary: React.FC = () => {
               </Box>
             </Paper>
           ) : (
-            <Paper sx={{ height: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ minHeight: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
