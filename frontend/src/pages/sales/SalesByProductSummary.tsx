@@ -32,6 +32,8 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
+  Divider,
+  OutlinedInput,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -45,6 +47,7 @@ import {
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
+  ViewColumn as ViewColumnIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -80,6 +83,16 @@ const SalesByProductSummary: React.FC = () => {
   const [selectedRemovedIds, setSelectedRemovedIds] = useState<string[]>([])
   const [lastClickedProductId, setLastClickedProductId] = useState<string | null>(null)
   const [lastClickedRemovedId, setLastClickedRemovedId] = useState<string | null>(null)
+
+  // Display options
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([
+    'productName', 'category', 'quantity', 'revenue', 'cost', 'profit', 'margin', 'orders'
+  ])
+  const [groupBy, setGroupBy] = useState<string>('none')
+  const [sortBy1, setSortBy1] = useState<string>('productName')
+  const [sortBy2, setSortBy2] = useState<string>('none')
+  const [sortBy3, setSortBy3] = useState<string>('none')
+  const [reportTitle, setReportTitle] = useState<string>('Sales by Product Summary')
 
   useEffect(() => {
     // Load products
@@ -493,13 +506,142 @@ const SalesByProductSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
+                <Divider sx={{ my: 3 }} />
+
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ViewColumnIcon fontSize="small" />
+                  Display Options
+                </Typography>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel>Columns</InputLabel>
+                  <Select
+                    multiple
+                    value={selectedColumns}
+                    label="Columns"
+                    onChange={(e) => setSelectedColumns(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                    renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
+                  >
+                    <MenuItem value="productName">
+                      <Checkbox checked={selectedColumns.includes('productName')} />
+                      <ListItemText primary="Product Name" />
+                    </MenuItem>
+                    <MenuItem value="category">
+                      <Checkbox checked={selectedColumns.includes('category')} />
+                      <ListItemText primary="Category" />
+                    </MenuItem>
+                    <MenuItem value="quantity">
+                      <Checkbox checked={selectedColumns.includes('quantity')} />
+                      <ListItemText primary="Quantity Sold" />
+                    </MenuItem>
+                    <MenuItem value="revenue">
+                      <Checkbox checked={selectedColumns.includes('revenue')} />
+                      <ListItemText primary="Revenue" />
+                    </MenuItem>
+                    <MenuItem value="cost">
+                      <Checkbox checked={selectedColumns.includes('cost')} />
+                      <ListItemText primary="Cost" />
+                    </MenuItem>
+                    <MenuItem value="profit">
+                      <Checkbox checked={selectedColumns.includes('profit')} />
+                      <ListItemText primary="Profit" />
+                    </MenuItem>
+                    <MenuItem value="margin">
+                      <Checkbox checked={selectedColumns.includes('margin')} />
+                      <ListItemText primary="Margin %" />
+                    </MenuItem>
+                    <MenuItem value="orders">
+                      <Checkbox checked={selectedColumns.includes('orders')} />
+                      <ListItemText primary="Orders" />
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                  <InputLabel>Group By</InputLabel>
+                  <Select
+                    value={groupBy}
+                    label="Group By"
+                    onChange={(e) => setGroupBy(e.target.value)}
+                  >
+                    <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="category">Category</MenuItem>
+                    <MenuItem value="product">Product</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                  <InputLabel>First Sort By</InputLabel>
+                  <Select
+                    value={sortBy1}
+                    label="First Sort By"
+                    onChange={(e) => setSortBy1(e.target.value)}
+                  >
+                    <MenuItem value="productName">Product Name</MenuItem>
+                    <MenuItem value="category">Category</MenuItem>
+                    <MenuItem value="quantity">Quantity Sold</MenuItem>
+                    <MenuItem value="revenue">Revenue</MenuItem>
+                    <MenuItem value="cost">Cost</MenuItem>
+                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="margin">Margin %</MenuItem>
+                    <MenuItem value="orders">Orders</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                  <InputLabel>Then Sort By</InputLabel>
+                  <Select
+                    value={sortBy2}
+                    label="Then Sort By"
+                    onChange={(e) => setSortBy2(e.target.value)}
+                  >
+                    <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="productName">Product Name</MenuItem>
+                    <MenuItem value="category">Category</MenuItem>
+                    <MenuItem value="quantity">Quantity Sold</MenuItem>
+                    <MenuItem value="revenue">Revenue</MenuItem>
+                    <MenuItem value="cost">Cost</MenuItem>
+                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="margin">Margin %</MenuItem>
+                    <MenuItem value="orders">Orders</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                  <InputLabel>Then Sort By</InputLabel>
+                  <Select
+                    value={sortBy3}
+                    label="Then Sort By"
+                    onChange={(e) => setSortBy3(e.target.value)}
+                  >
+                    <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="productName">Product Name</MenuItem>
+                    <MenuItem value="category">Category</MenuItem>
+                    <MenuItem value="quantity">Quantity Sold</MenuItem>
+                    <MenuItem value="revenue">Revenue</MenuItem>
+                    <MenuItem value="cost">Cost</MenuItem>
+                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="margin">Margin %</MenuItem>
+                    <MenuItem value="orders">Orders</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  label="Report Title"
+                  value={reportTitle}
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  size="small"
+                  fullWidth
+                  sx={{ mt: 2 }}
+                />
+
                 <Button
                   variant="contained"
                   startIcon={<GenerateIcon />}
                   onClick={handleGenerateReport}
                   disabled={loading}
                   fullWidth
-                  sx={{ mt: 2 }}
+                  sx={{ mt: 3 }}
                 >
                   {loading ? 'Generating...' : 'Generate Report'}
                 </Button>
