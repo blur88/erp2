@@ -394,6 +394,16 @@ const SalesByProductSummary: React.FC = () => {
           </Button>
           <Button
             variant="contained"
+            startIcon={!isMobile ? <GenerateIcon /> : undefined}
+            onClick={handleGenerateReport}
+            disabled={loading}
+            size="medium"
+            fullWidth={isMobile}
+          >
+            {loading ? 'Generating...' : 'Generate Report'}
+          </Button>
+          <Button
+            variant="contained"
             startIcon={!isMobile ? <DownloadIcon /> : undefined}
             onClick={() => console.log('Export')}
             disabled={reportData.length === 0}
@@ -425,7 +435,7 @@ const SalesByProductSummary: React.FC = () => {
 
               <Box sx={{ p: 2 }}>
                 <Stack spacing={2}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
                   SO Date Range
                 </Typography>
                 <TextField
@@ -433,7 +443,8 @@ const SalesByProductSummary: React.FC = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                  inputProps={{ sx: { fontSize: '0.75rem' } }}
                   size="small"
                   fullWidth
                 />
@@ -443,17 +454,19 @@ const SalesByProductSummary: React.FC = () => {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                  inputProps={{ sx: { fontSize: '0.75rem' } }}
                   size="small"
                   fullWidth
                 />
 
-                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Products</InputLabel>
                   <Select
                     value={selectedProduct}
                     label="Products"
                     onChange={(e) => handleProductSelectChange(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="all">All Products</MenuItem>
                     <MenuItem value="select">Select Products</MenuItem>
@@ -470,18 +483,20 @@ const SalesByProductSummary: React.FC = () => {
                           label={product?.name || productId}
                           size="small"
                           onDelete={() => handleProductToggle(productId)}
+                          sx={{ fontSize: '0.7rem' }}
                         />
                       )
                     })}
                   </Box>
                 )}
 
-                <FormControl fullWidth size="small">
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Category</InputLabel>
                   <Select
                     value={selectedCategory}
                     label="Category"
                     onChange={(e) => setSelectedCategory(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="">All Categories</MenuItem>
                     {categories.map((category) => (
@@ -510,7 +525,7 @@ const SalesByProductSummary: React.FC = () => {
 
               <Box sx={{ p: 2 }}>
                 <Stack spacing={2}>
-                <FormControl fullWidth size="small">
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Columns</InputLabel>
                   <Select
                     multiple
@@ -534,6 +549,7 @@ const SalesByProductSummary: React.FC = () => {
                       }
                     }}
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="all">
                       <Checkbox
@@ -581,24 +597,26 @@ const SalesByProductSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Group By</InputLabel>
                   <Select
                     value={groupBy}
                     label="Group By"
                     onChange={(e) => setGroupBy(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
                   </Select>
                 </FormControl>
 
-                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>First Sort By</InputLabel>
                   <Select
                     value={sortBy1}
                     label="First Sort By"
                     onChange={(e) => setSortBy1(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
@@ -612,12 +630,13 @@ const SalesByProductSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Then Sort By</InputLabel>
                   <Select
                     value={sortBy2}
                     label="Then Sort By"
                     onChange={(e) => setSortBy2(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
@@ -632,12 +651,13 @@ const SalesByProductSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Then Sort By</InputLabel>
                   <Select
                     value={sortBy3}
                     label="Then Sort By"
                     onChange={(e) => setSortBy3(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
@@ -656,24 +676,14 @@ const SalesByProductSummary: React.FC = () => {
                   label="Report Title"
                   value={reportTitle}
                   onChange={(e) => setReportTitle(e.target.value)}
+                  InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
+                  inputProps={{ sx: { fontSize: '0.75rem' } }}
                   size="small"
                   fullWidth
                 />
                 </Stack>
               </Box>
             </Paper>
-
-            {/* Generate Report Button */}
-            <Button
-              variant="contained"
-              startIcon={<GenerateIcon />}
-              onClick={handleGenerateReport}
-              disabled={loading}
-              fullWidth
-              size="large"
-            >
-              {loading ? 'Generating...' : 'Generate Report'}
-            </Button>
           </Stack>
         </Grid>
 
