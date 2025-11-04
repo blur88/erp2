@@ -416,10 +416,10 @@ const SalesByProductSummary: React.FC = () => {
       </Box>
 
       {/* Split Layout */}
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
         {/* Left Side - Filters and Display */}
-        <Grid item xs={12} md={3}>
-          <Stack spacing={2}>
+        <Grid item xs={12} md={3} sx={{ display: 'flex' }}>
+          <Stack spacing={2} sx={{ flex: 1 }}>
             {/* Filters Section */}
             <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
@@ -688,9 +688,9 @@ const SalesByProductSummary: React.FC = () => {
         </Grid>
 
         {/* Right Side - Report Preview */}
-        <Grid item xs={12} md={9}>
+        <Grid item xs={12} md={9} sx={{ display: 'flex' }}>
           {reportData.length === 0 ? (
-            <Paper sx={{ minHeight: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
                 <Box sx={{ textAlign: 'center', maxWidth: 500 }}>
                   {loading ? (
@@ -710,7 +710,7 @@ const SalesByProductSummary: React.FC = () => {
               </Box>
             </Paper>
           ) : (
-            <Paper sx={{ minHeight: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
