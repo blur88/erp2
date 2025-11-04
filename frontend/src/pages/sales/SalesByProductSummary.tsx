@@ -72,18 +72,39 @@ const SalesByProductSummary: React.FC = () => {
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
 
-  // Note: API loading disabled - causing page to crash
-  // TODO: Fix API loading in useEffect without breaking the page
-  // useEffect(() => {
-  //   fetch('/api/inventory/products?limit=1000')
-  //     .then(res => res.ok ? res.json() : null)
-  //     .then(data => { if (data?.data) setProducts(data.data) })
-  //     .catch(() => {})
-  //   fetch('/api/inventory/categories/tree')
-  //     .then(res => res.ok ? res.json() : null)
-  //     .then(data => { if (data) setCategories(data) })
-  //     .catch(() => {})
-  // }, [])
+  useEffect(() => {
+    // Load products
+    fetch('/api/inventory/products?limit=100')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data) {
+          setProducts(data.data)
+        }
+      })
+      .catch(() => {})
+
+    // Load categories
+    fetch('/api/inventory/categories/tree')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        // Handle both response formats: { data: [...] } or direct array
+        const categoryData = data?.data || data
+        if (Array.isArray(categoryData)) {
+          // Flatten the tree structure for dropdown
+          const flattenCategories = (cats: any[], level = 0): any[] => {
+            return cats.reduce((acc: any[], cat: any) => {
+              acc.push({ ...cat, level })
+              if (cat.children && cat.children.length > 0) {
+                acc.push(...flattenCategories(cat.children, level + 1))
+              }
+              return acc
+            }, [])
+          }
+          setCategories(flattenCategories(categoryData))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -199,7 +220,8 @@ const SalesByProductSummary: React.FC = () => {
         product.name.toLowerCase().includes(productSearchFilter.toLowerCase())
       const matchesCategory = !productCategoryFilter ||
         product.category?.id === productCategoryFilter
-      return matchesName && matchesCategory && !selectedProducts.includes(product.id)
+      const notSelected = !selectedProducts.includes(product.id)
+      return matchesName && matchesCategory && notSelected
     })
   }
 
@@ -369,7 +391,7 @@ const SalesByProductSummary: React.FC = () => {
                     <MenuItem value="">All Categories</MenuItem>
                     {categories.map((category) => (
                       <MenuItem key={category.id} value={category.id}>
-                        {category.name}
+                        {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
                       </MenuItem>
                     ))}
                   </Select>
@@ -720,7 +742,7 @@ const SalesByProductSummary: React.FC = () => {
                     <MenuItem value="">All Categories</MenuItem>
                     {categories.map((category) => (
                       <MenuItem key={category.id} value={category.id}>
-                        {category.name}
+                        {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
                       </MenuItem>
                     ))}
                   </Select>
