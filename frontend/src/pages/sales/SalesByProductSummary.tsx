@@ -20,6 +20,17 @@ import {
   Stack,
   useTheme,
   useMediaQuery,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Chip,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -28,6 +39,7 @@ import {
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
   Inventory2 as ProductIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -51,10 +63,12 @@ const SalesByProductSummary: React.FC = () => {
   const [reportData, setReportData] = useState<ProductSummary[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [selectedProduct, setSelectedProduct] = useState<string>('')
+  const [selectedProduct, setSelectedProduct] = useState<string>('all')
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
+  const [productDialogOpen, setProductDialogOpen] = useState(false)
 
   // Note: API loading disabled - causing page to crash
   // TODO: Fix API loading in useEffect without breaking the page
@@ -122,11 +136,45 @@ const SalesByProductSummary: React.FC = () => {
   }
 
   const handleClearFilters = () => {
-    setSelectedProduct('')
+    setSelectedProduct('all')
+    setSelectedProducts([])
     setSelectedCategory('')
     setDateFrom('')
     setDateTo('')
     setReportData([])
+  }
+
+  const handleProductSelectChange = (value: string) => {
+    if (value === 'select') {
+      setProductDialogOpen(true)
+    } else {
+      setSelectedProduct(value)
+      setSelectedProducts([])
+    }
+  }
+
+  const handleProductToggle = (productId: string) => {
+    setSelectedProducts(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    )
+  }
+
+  const handleProductDialogClose = () => {
+    setProductDialogOpen(false)
+    if (selectedProducts.length === 0) {
+      setSelectedProduct('all')
+    }
+  }
+
+  const handleProductDialogConfirm = () => {
+    if (selectedProducts.length > 0) {
+      setSelectedProduct('select')
+    } else {
+      setSelectedProduct('all')
+    }
+    setProductDialogOpen(false)
   }
 
   const calculateTotals = () => {
@@ -258,16 +306,28 @@ const SalesByProductSummary: React.FC = () => {
                   <Select
                     value={selectedProduct}
                     label="Products"
-                    onChange={(e) => setSelectedProduct(e.target.value)}
+                    onChange={(e) => handleProductSelectChange(e.target.value)}
                   >
-                    <MenuItem value="">All Products</MenuItem>
-                    {products.map((product) => (
-                      <MenuItem key={product.id} value={product.id}>
-                        {product.name}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="all">All Products</MenuItem>
+                    <MenuItem value="select">Select Products</MenuItem>
                   </Select>
                 </FormControl>
+
+                {selectedProduct === 'select' && selectedProducts.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selectedProducts.map(productId => {
+                      const product = products.find(p => p.id === productId)
+                      return (
+                        <Chip
+                          key={productId}
+                          label={product?.name || productId}
+                          size="small"
+                          onDelete={() => handleProductToggle(productId)}
+                        />
+                      )
+                    })}
+                  </Box>
+                )}
 
                 <FormControl fullWidth size="small">
                   <InputLabel>Category</InputLabel>
@@ -473,6 +533,81 @@ const SalesByProductSummary: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* Product Selection Dialog */}
+      <Dialog
+        open={productDialogOpen}
+        onClose={handleProductDialogClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Select Products
+          </Typography>
+          <Button
+            size="small"
+            onClick={handleProductDialogClose}
+            sx={{ minWidth: 'auto', p: 0.5 }}
+          >
+            <CloseIcon />
+          </Button>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {products.length === 0 ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography color="text.secondary">
+                No products available
+              </Typography>
+            </Box>
+          ) : (
+            <List sx={{ py: 0 }}>
+              {products.map((product) => (
+                <ListItem key={product.id} disablePadding>
+                  <ListItemButton
+                    onClick={() => handleProductToggle(product.id)}
+                    dense
+                  >
+                    <ListItemIcon>
+                      <Checkbox
+                        edge="start"
+                        checked={selectedProducts.includes(product.id)}
+                        tabIndex={-1}
+                        disableRipple
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={product.name}
+                      secondary={product.barcode || 'No barcode'}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+            {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
+          </Typography>
+          <Button onClick={handleProductDialogClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleProductDialogConfirm}
+            disabled={selectedProducts.length === 0}
+          >
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
