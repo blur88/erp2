@@ -69,6 +69,8 @@ const SalesByProductSummary: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
   const [productDialogOpen, setProductDialogOpen] = useState(false)
+  const [productSearchFilter, setProductSearchFilter] = useState<string>('')
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
 
   // Note: API loading disabled - causing page to crash
   // TODO: Fix API loading in useEffect without breaking the page
@@ -163,6 +165,8 @@ const SalesByProductSummary: React.FC = () => {
 
   const handleProductDialogClose = () => {
     setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
     if (selectedProducts.length === 0) {
       setSelectedProduct('all')
     }
@@ -175,6 +179,32 @@ const SalesByProductSummary: React.FC = () => {
       setSelectedProduct('all')
     }
     setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
+  }
+
+  const handleAddProduct = (productId: string) => {
+    if (!selectedProducts.includes(productId)) {
+      setSelectedProducts(prev => [...prev, productId])
+    }
+  }
+
+  const handleRemoveProduct = (productId: string) => {
+    setSelectedProducts(prev => prev.filter(id => id !== productId))
+  }
+
+  const getFilteredProducts = () => {
+    return products.filter(product => {
+      const matchesName = !productSearchFilter ||
+        product.name.toLowerCase().includes(productSearchFilter.toLowerCase())
+      const matchesCategory = !productCategoryFilter ||
+        product.category?.id === productCategoryFilter
+      return matchesName && matchesCategory && !selectedProducts.includes(product.id)
+    })
+  }
+
+  const getSelectedProductsList = () => {
+    return products.filter(product => selectedProducts.includes(product.id))
   }
 
   const calculateTotals = () => {
@@ -538,8 +568,11 @@ const SalesByProductSummary: React.FC = () => {
       <Dialog
         open={productDialogOpen}
         onClose={handleProductDialogClose}
-        maxWidth="sm"
+        maxWidth="lg"
         fullWidth
+        PaperProps={{
+          sx: { height: '90vh', maxHeight: '90vh' }
+        }}
       >
         <DialogTitle sx={{
           display: 'flex',
@@ -559,38 +592,142 @@ const SalesByProductSummary: React.FC = () => {
             <CloseIcon />
           </Button>
         </DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          {products.length === 0 ? (
-            <Box sx={{ p: 3, textAlign: 'center' }}>
-              <Typography color="text.secondary">
-                No products available
-              </Typography>
-            </Box>
-          ) : (
-            <List sx={{ py: 0 }}>
-              {products.map((product) => (
-                <ListItem key={product.id} disablePadding>
-                  <ListItemButton
-                    onClick={() => handleProductToggle(product.id)}
-                    dense
+        <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Grid container spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+            {/* Left Side - Product List */}
+            <Grid item xs={6} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Product List
+                  </Typography>
+                </Box>
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                        <TableCell sx={{ fontWeight: 600, width: 80 }}>Action</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {getFilteredProducts().length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                            <Typography color="text.secondary">
+                              {products.length === 0 ? 'No products available' : 'No products found'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        getFilteredProducts().map((product) => (
+                          <TableRow key={product.id} hover>
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
+                            <TableCell>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => handleAddProduct(product.id)}
+                              >
+                                Add
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+
+            {/* Right Side - Selected Products */}
+            <Grid item xs={6} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Selected Products ({selectedProducts.length})
+                  </Typography>
+                </Box>
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                        <TableCell sx={{ fontWeight: 600, width: 80 }}>Action</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {getSelectedProductsList().length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                            <Typography color="text.secondary">
+                              No products selected
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        getSelectedProductsList().map((product) => (
+                          <TableRow key={product.id} hover>
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
+                            <TableCell>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                onClick={() => handleRemoveProduct(product.id)}
+                              >
+                                Remove
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* Filter Section at Bottom */}
+          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+              Filter Products
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  size="small"
+                  placeholder="Search by product name..."
+                  value={productSearchFilter}
+                  onChange={(e) => setProductSearchFilter(e.target.value)}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Filter by Category</InputLabel>
+                  <Select
+                    value={productCategoryFilter}
+                    label="Filter by Category"
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
                   >
-                    <ListItemIcon>
-                      <Checkbox
-                        edge="start"
-                        checked={selectedProducts.includes(product.id)}
-                        tabIndex={-1}
-                        disableRipple
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={product.name}
-                      secondary={product.barcode || 'No barcode'}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-          )}
+                    <MenuItem value="">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
