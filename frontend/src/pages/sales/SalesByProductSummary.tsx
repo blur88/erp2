@@ -230,11 +230,34 @@ const SalesByProductSummary: React.FC = () => {
 
             <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
               <Stack spacing={2}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Product</InputLabel>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  SO Date Range
+                </Typography>
+                <TextField
+                  label="Date From"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                  fullWidth
+                />
+
+                <TextField
+                  label="Date To"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                  fullWidth
+                />
+
+                <FormControl fullWidth size="small" sx={{ mt: 2 }}>
+                  <InputLabel>Products</InputLabel>
                   <Select
                     value={selectedProduct}
-                    label="Product"
+                    label="Products"
                     onChange={(e) => setSelectedProduct(e.target.value)}
                   >
                     <MenuItem value="">All Products</MenuItem>
@@ -261,26 +284,6 @@ const SalesByProductSummary: React.FC = () => {
                     ))}
                   </Select>
                 </FormControl>
-
-                <TextField
-                  label="Date From"
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  size="small"
-                  fullWidth
-                />
-
-                <TextField
-                  label="Date To"
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  size="small"
-                  fullWidth
-                />
 
                 <Button
                   variant="contained"
