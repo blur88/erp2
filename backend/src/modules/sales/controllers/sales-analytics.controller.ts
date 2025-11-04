@@ -335,4 +335,51 @@ export class SalesAnalyticsController {
       salesRepId,
     });
   }
+
+  @Get('product-summary')
+  @ApiOperation({ summary: 'Get product summary report with sales and purchase data' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
+  @ApiQuery({ name: 'productIds', required: false, type: [String], description: 'Filter by product IDs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Product summary report retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              productId: { type: 'string', format: 'uuid' },
+              productName: { type: 'string' },
+              category: { type: 'string' },
+              soldQty: { type: 'number' },
+              totalSales: { type: 'number' },
+              cost: { type: 'number' },
+              salesProfit: { type: 'number' },
+              purchaseQty: { type: 'number' },
+              purchaseSubtotal: { type: 'number' },
+              totalProfit: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getProductSummary(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('productIds') productIds?: string | string[],
+  ) {
+    return this.salesAnalyticsService.getProductSummary({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      categoryId,
+      productIds: Array.isArray(productIds) ? productIds : productIds ? [productIds] : undefined,
+    });
+  }
 }

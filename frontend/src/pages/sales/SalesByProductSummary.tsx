@@ -56,12 +56,13 @@ interface ProductSummary {
   productId: string
   productName: string
   category: string
-  totalQuantitySold: number
-  totalRevenue: number
-  totalCost: number
-  grossProfit: number
-  profitMargin: number
-  orderCount: number
+  soldQty: number
+  totalSales: number
+  cost: number
+  salesProfit: number
+  purchaseQty: number
+  purchaseSubtotal: number
+  totalProfit: number
 }
 
 const SalesByProductSummary: React.FC = () => {
@@ -86,7 +87,7 @@ const SalesByProductSummary: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'category', 'quantity', 'revenue', 'cost', 'profit', 'margin', 'orders'
+    'productName', 'category', 'soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('productName')
@@ -132,49 +133,28 @@ const SalesByProductSummary: React.FC = () => {
     setLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800))
+      // Build query parameters
+      const params = new URLSearchParams()
 
-      // Mock data
-      const mockData: ProductSummary[] = [
-        {
-          productId: '1',
-          productName: 'Product A',
-          category: 'Electronics',
-          totalQuantitySold: 150,
-          totalRevenue: 45000,
-          totalCost: 30000,
-          grossProfit: 15000,
-          profitMargin: 33.33,
-          orderCount: 45
-        },
-        {
-          productId: '2',
-          productName: 'Product B',
-          category: 'Furniture',
-          totalQuantitySold: 85,
-          totalRevenue: 34000,
-          totalCost: 22000,
-          grossProfit: 12000,
-          profitMargin: 35.29,
-          orderCount: 28
-        },
-        {
-          productId: '3',
-          productName: 'Product C',
-          category: 'Electronics',
-          totalQuantitySold: 200,
-          totalRevenue: 60000,
-          totalCost: 40000,
-          grossProfit: 20000,
-          profitMargin: 33.33,
-          orderCount: 60
-        }
-      ]
+      if (dateFrom) params.append('dateFrom', dateFrom)
+      if (dateTo) params.append('dateTo', dateTo)
+      if (selectedCategory) params.append('categoryId', selectedCategory)
+      if (selectedProducts.length > 0) {
+        selectedProducts.forEach(productId => params.append('productIds', productId))
+      }
 
-      setReportData(mockData)
+      // Call the backend API
+      const response = await fetch(`/api/sales/analytics/product-summary?${params.toString()}`)
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch report data')
+      }
+
+      const data = await response.json()
+      setReportData(data.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
+      setReportData([])
     } finally {
       setLoading(false)
     }
@@ -343,18 +323,22 @@ const SalesByProductSummary: React.FC = () => {
 
     return reportData.reduce(
       (acc, item) => ({
-        totalQuantitySold: acc.totalQuantitySold + item.totalQuantitySold,
-        totalRevenue: acc.totalRevenue + item.totalRevenue,
-        totalCost: acc.totalCost + item.totalCost,
-        grossProfit: acc.grossProfit + item.grossProfit,
-        orderCount: acc.orderCount + item.orderCount,
+        soldQty: acc.soldQty + item.soldQty,
+        totalSales: acc.totalSales + item.totalSales,
+        cost: acc.cost + item.cost,
+        salesProfit: acc.salesProfit + item.salesProfit,
+        purchaseQty: acc.purchaseQty + item.purchaseQty,
+        purchaseSubtotal: acc.purchaseSubtotal + item.purchaseSubtotal,
+        totalProfit: acc.totalProfit + item.totalProfit,
       }),
       {
-        totalQuantitySold: 0,
-        totalRevenue: 0,
-        totalCost: 0,
-        grossProfit: 0,
-        orderCount: 0,
+        soldQty: 0,
+        totalSales: 0,
+        cost: 0,
+        salesProfit: 0,
+        purchaseQty: 0,
+        purchaseSubtotal: 0,
+        totalProfit: 0,
       }
     )
   }
@@ -537,7 +521,7 @@ const SalesByProductSummary: React.FC = () => {
 
                       // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['productName', 'category', 'quantity', 'revenue', 'cost', 'profit', 'margin', 'orders']
+                        const allColumns = ['productName', 'category', 'soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit']
                         // If all were selected, deselect all; otherwise select all
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
@@ -553,42 +537,46 @@ const SalesByProductSummary: React.FC = () => {
                   >
                     <MenuItem value="all">
                       <Checkbox
-                        checked={selectedColumns.length === 8}
-                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 8}
+                        checked={selectedColumns.length === 9}
+                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 9}
                       />
                       <ListItemText primary="All" />
                     </MenuItem>
                     <MenuItem value="productName">
                       <Checkbox checked={selectedColumns.includes('productName')} />
-                      <ListItemText primary="Product Name" />
+                      <ListItemText primary="Product" />
                     </MenuItem>
                     <MenuItem value="category">
                       <Checkbox checked={selectedColumns.includes('category')} />
                       <ListItemText primary="Category" />
                     </MenuItem>
-                    <MenuItem value="quantity">
-                      <Checkbox checked={selectedColumns.includes('quantity')} />
-                      <ListItemText primary="Quantity Sold" />
+                    <MenuItem value="soldQty">
+                      <Checkbox checked={selectedColumns.includes('soldQty')} />
+                      <ListItemText primary="Sold Qty" />
                     </MenuItem>
-                    <MenuItem value="revenue">
-                      <Checkbox checked={selectedColumns.includes('revenue')} />
-                      <ListItemText primary="Revenue" />
+                    <MenuItem value="totalSales">
+                      <Checkbox checked={selectedColumns.includes('totalSales')} />
+                      <ListItemText primary="Total Sales" />
                     </MenuItem>
                     <MenuItem value="cost">
                       <Checkbox checked={selectedColumns.includes('cost')} />
                       <ListItemText primary="Cost" />
                     </MenuItem>
-                    <MenuItem value="profit">
-                      <Checkbox checked={selectedColumns.includes('profit')} />
-                      <ListItemText primary="Profit" />
+                    <MenuItem value="salesProfit">
+                      <Checkbox checked={selectedColumns.includes('salesProfit')} />
+                      <ListItemText primary="Sales Profit" />
                     </MenuItem>
-                    <MenuItem value="margin">
-                      <Checkbox checked={selectedColumns.includes('margin')} />
-                      <ListItemText primary="Margin %" />
+                    <MenuItem value="purchaseQty">
+                      <Checkbox checked={selectedColumns.includes('purchaseQty')} />
+                      <ListItemText primary="Purchase Qty" />
                     </MenuItem>
-                    <MenuItem value="orders">
-                      <Checkbox checked={selectedColumns.includes('orders')} />
-                      <ListItemText primary="Orders" />
+                    <MenuItem value="purchaseSubtotal">
+                      <Checkbox checked={selectedColumns.includes('purchaseSubtotal')} />
+                      <ListItemText primary="Purchase Subtotal" />
+                    </MenuItem>
+                    <MenuItem value="totalProfit">
+                      <Checkbox checked={selectedColumns.includes('totalProfit')} />
+                      <ListItemText primary="Total Profit" />
                     </MenuItem>
                   </Select>
                 </FormControl>
@@ -602,7 +590,6 @@ const SalesByProductSummary: React.FC = () => {
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="product">Product</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -613,14 +600,15 @@ const SalesByProductSummary: React.FC = () => {
                     label="First Sort By"
                     onChange={(e) => setSortBy1(e.target.value)}
                   >
-                    <MenuItem value="productName">Product Name</MenuItem>
+                    <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="quantity">Quantity Sold</MenuItem>
-                    <MenuItem value="revenue">Revenue</MenuItem>
+                    <MenuItem value="soldQty">Sold Qty</MenuItem>
+                    <MenuItem value="totalSales">Total Sales</MenuItem>
                     <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
-                    <MenuItem value="margin">Margin %</MenuItem>
-                    <MenuItem value="orders">Orders</MenuItem>
+                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
+                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
+                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
+                    <MenuItem value="totalProfit">Total Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -632,14 +620,15 @@ const SalesByProductSummary: React.FC = () => {
                     onChange={(e) => setSortBy2(e.target.value)}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="productName">Product Name</MenuItem>
+                    <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="quantity">Quantity Sold</MenuItem>
-                    <MenuItem value="revenue">Revenue</MenuItem>
+                    <MenuItem value="soldQty">Sold Qty</MenuItem>
+                    <MenuItem value="totalSales">Total Sales</MenuItem>
                     <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
-                    <MenuItem value="margin">Margin %</MenuItem>
-                    <MenuItem value="orders">Orders</MenuItem>
+                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
+                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
+                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
+                    <MenuItem value="totalProfit">Total Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -651,14 +640,15 @@ const SalesByProductSummary: React.FC = () => {
                     onChange={(e) => setSortBy3(e.target.value)}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="productName">Product Name</MenuItem>
+                    <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="quantity">Quantity Sold</MenuItem>
-                    <MenuItem value="revenue">Revenue</MenuItem>
+                    <MenuItem value="soldQty">Sold Qty</MenuItem>
+                    <MenuItem value="totalSales">Total Sales</MenuItem>
                     <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
-                    <MenuItem value="margin">Margin %</MenuItem>
-                    <MenuItem value="orders">Orders</MenuItem>
+                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
+                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
+                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
+                    <MenuItem value="totalProfit">Total Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -747,36 +737,52 @@ const SalesByProductSummary: React.FC = () => {
                   borderBottom: TABLE_STYLES.cell.border
                 }}>
                   <Grid container spacing={2}>
-                    <Grid item xs={6} sm={3}>
+                    <Grid item xs={6} sm={4} md={3}>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Total Quantity
+                        Sold Qty
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                        {totals.totalQuantitySold.toLocaleString()}
+                        {totals.soldQty.toLocaleString()}
                       </Typography>
                     </Grid>
-                    <Grid item xs={6} sm={3}>
+                    <Grid item xs={6} sm={4} md={3}>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Total Revenue
+                        Total Sales
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                        {formatCurrency(totals.totalRevenue)}
+                        {formatCurrency(totals.totalSales)}
                       </Typography>
                     </Grid>
-                    <Grid item xs={6} sm={3}>
+                    <Grid item xs={6} sm={4} md={3}>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Total Cost
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                        {formatCurrency(totals.totalCost)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        Gross Profit
+                        Sales Profit
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3, color: 'success.main' }}>
-                        {formatCurrency(totals.grossProfit)}
+                        {formatCurrency(totals.salesProfit)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={3}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        Purchase Qty
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
+                        {totals.purchaseQty.toLocaleString()}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={3}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        Purchase Subtotal
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
+                        {formatCurrency(totals.purchaseSubtotal)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={3}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        Total Profit
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3, color: 'success.main' }}>
+                        {formatCurrency(totals.totalProfit)}
                       </Typography>
                     </Grid>
                   </Grid>
@@ -803,14 +809,15 @@ const SalesByProductSummary: React.FC = () => {
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                     } }}>
-                      <TableCell sx={{ width: '25%' }}>Product Name</TableCell>
-                      <TableCell sx={{ width: '15%' }}>Category</TableCell>
-                      <TableCell align="right" sx={{ width: '10%' }}>Qty Sold</TableCell>
-                      <TableCell align="right" sx={{ width: '12.5%' }}>Revenue</TableCell>
-                      <TableCell align="right" sx={{ width: '12.5%' }}>Cost</TableCell>
-                      <TableCell align="right" sx={{ width: '12.5%' }}>Profit</TableCell>
-                      <TableCell align="right" sx={{ width: '7.5%' }}>Margin %</TableCell>
-                      <TableCell align="right" sx={{ width: '5%' }}>Orders</TableCell>
+                      {selectedColumns.includes('productName') && <TableCell>Product</TableCell>}
+                      {selectedColumns.includes('category') && <TableCell>Category</TableCell>}
+                      {selectedColumns.includes('soldQty') && <TableCell align="right">Sold Qty</TableCell>}
+                      {selectedColumns.includes('totalSales') && <TableCell align="right">Total Sales</TableCell>}
+                      {selectedColumns.includes('cost') && <TableCell align="right">Cost</TableCell>}
+                      {selectedColumns.includes('salesProfit') && <TableCell align="right">Sales Profit</TableCell>}
+                      {selectedColumns.includes('purchaseQty') && <TableCell align="right">Purchase Qty</TableCell>}
+                      {selectedColumns.includes('purchaseSubtotal') && <TableCell align="right">Purchase Subtotal</TableCell>}
+                      {selectedColumns.includes('totalProfit') && <TableCell align="right">Total Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -824,33 +831,57 @@ const SalesByProductSummary: React.FC = () => {
                           height: TABLE_STYLES.row.height
                         }}
                       >
-                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                          {row.productName}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem' }}>
-                          {row.category}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                          {row.totalQuantitySold.toLocaleString()}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                          {formatCurrency(row.totalRevenue)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                          {formatCurrency(row.totalCost)}
-                        </TableCell>
-                        <TableCell align="right" sx={{
-                          fontSize: '0.8rem',
-                          color: row.grossProfit > 0 ? 'success.main' : 'error.main'
-                        }}>
-                          {formatCurrency(row.grossProfit)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                          {row.profitMargin.toFixed(2)}%
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                          {row.orderCount}
-                        </TableCell>
+                        {selectedColumns.includes('productName') && (
+                          <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {row.productName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('category') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.category}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('soldQty') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {row.soldQty.toLocaleString()}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalSales') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {formatCurrency(row.totalSales)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('cost') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {formatCurrency(row.cost)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('salesProfit') && (
+                          <TableCell align="right" sx={{
+                            fontSize: '0.8rem',
+                            color: row.salesProfit > 0 ? 'success.main' : 'error.main'
+                          }}>
+                            {formatCurrency(row.salesProfit)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('purchaseQty') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {row.purchaseQty.toLocaleString()}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('purchaseSubtotal') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {formatCurrency(row.purchaseSubtotal)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalProfit') && (
+                          <TableCell align="right" sx={{
+                            fontSize: '0.8rem',
+                            color: row.totalProfit > 0 ? 'success.main' : 'error.main'
+                          }}>
+                            {formatCurrency(row.totalProfit)}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

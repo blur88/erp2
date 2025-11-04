@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import {
   SalesAnalyticsQueryDto,
   SalesAnalyticsResponseDto,
@@ -40,6 +41,8 @@ export class SalesAnalyticsService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(SalesOrderItem)
     private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
+    @InjectRepository(PurchaseOrderItem)
+    private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
   ) {}
 
   async getSalesAnalytics(query: SalesAnalyticsQueryDto): Promise<SalesAnalyticsResponseDto> {
@@ -632,5 +635,107 @@ export class SalesAnalyticsService {
       default:
         return status;
     }
+  }
+
+  async getProductSummary(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    categoryId?: string;
+    productIds?: string[];
+  }) {
+    // Build WHERE conditions for products
+    const productWhere: any = { isActive: true };
+
+    if (query.categoryId) {
+      productWhere.categoryId = query.categoryId;
+    }
+
+    if (query.productIds && query.productIds.length > 0) {
+      productWhere.id = In(query.productIds);
+    }
+
+    // Get all products matching the filter
+    const products = await this.productRepository.find({
+      where: productWhere,
+      relations: ['category'],
+    });
+
+    // Build date range for sales and purchase orders
+    const dateWhere: any = {};
+    if (query.dateFrom && query.dateTo) {
+      dateWhere.orderDate = Between(query.dateFrom, query.dateTo);
+    } else if (query.dateFrom) {
+      dateWhere.orderDate = Between(query.dateFrom, new Date());
+    } else if (query.dateTo) {
+      dateWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
+    }
+
+    // Get sales data for each product
+    const productSummaries = await Promise.all(
+      products.map(async (product) => {
+        // Get sales order items for this product
+        const salesItemsQuery = this.salesOrderItemRepository
+          .createQueryBuilder('item')
+          .leftJoinAndSelect('item.salesOrder', 'order')
+          .where('item.productId = :productId', { productId: product.id })
+          .andWhere('order.status NOT IN (:...excludedStatuses)', {
+            excludedStatuses: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT],
+          });
+
+        if (query.dateFrom) {
+          salesItemsQuery.andWhere('order.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+        }
+        if (query.dateTo) {
+          salesItemsQuery.andWhere('order.orderDate <= :dateTo', { dateTo: query.dateTo });
+        }
+
+        const salesItems = await salesItemsQuery.getMany();
+
+        // Calculate sales metrics
+        const soldQty = salesItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+        const totalSales = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitPrice)), 0);
+        const cost = soldQty * Number(product.baseCost || 0);
+        const salesProfit = totalSales - cost;
+
+        // Get purchase order items for this product
+        const purchaseItemsQuery = this.purchaseOrderItemRepository
+          .createQueryBuilder('item')
+          .leftJoinAndSelect('item.purchaseOrder', 'po')
+          .where('item.productId = :productId', { productId: product.id });
+
+        if (query.dateFrom) {
+          purchaseItemsQuery.andWhere('po.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+        }
+        if (query.dateTo) {
+          purchaseItemsQuery.andWhere('po.orderDate <= :dateTo', { dateTo: query.dateTo });
+        }
+
+        const purchaseItems = await purchaseItemsQuery.getMany();
+
+        // Calculate purchase metrics
+        const purchaseQty = purchaseItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+        const purchaseSubtotal = purchaseItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost)), 0);
+
+        // Calculate total profit (sales profit - purchase cost)
+        const totalProfit = salesProfit - purchaseSubtotal;
+
+        return {
+          productId: product.id,
+          productName: product.name,
+          category: product.category?.name || 'Uncategorized',
+          soldQty,
+          totalSales,
+          cost,
+          salesProfit,
+          purchaseQty,
+          purchaseSubtotal,
+          totalProfit,
+        };
+      })
+    );
+
+    return {
+      data: productSummaries,
+    };
   }
 }
