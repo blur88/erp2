@@ -1142,17 +1142,18 @@ const SalesByProductSummary: React.FC = () => {
                       fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                       backgroundColor: 'grey.50',
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      textAlign: 'center'
                     } }}>
-                      {selectedColumns.includes('productName') && <TableCell>Product</TableCell>}
-                      {selectedColumns.includes('category') && <TableCell>Category</TableCell>}
-                      {selectedColumns.includes('soldQty') && <TableCell align="right">Sold Qty</TableCell>}
-                      {selectedColumns.includes('totalSales') && <TableCell align="right">Total Sales</TableCell>}
-                      {selectedColumns.includes('cost') && <TableCell align="right">Cost</TableCell>}
-                      {selectedColumns.includes('salesProfit') && <TableCell align="right">Sales Profit</TableCell>}
-                      {selectedColumns.includes('purchaseQty') && <TableCell align="right">Purchase Qty</TableCell>}
-                      {selectedColumns.includes('purchaseSubtotal') && <TableCell align="right">Purchase Subtotal</TableCell>}
-                      {selectedColumns.includes('totalProfit') && <TableCell align="right">Total Profit</TableCell>}
+                      {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
+                      {selectedColumns.includes('category') && <TableCell align="center">Category</TableCell>}
+                      {selectedColumns.includes('soldQty') && <TableCell align="center">Sold Qty</TableCell>}
+                      {selectedColumns.includes('totalSales') && <TableCell align="center">Total Sales</TableCell>}
+                      {selectedColumns.includes('cost') && <TableCell align="center">Cost</TableCell>}
+                      {selectedColumns.includes('salesProfit') && <TableCell align="center">Sales Profit</TableCell>}
+                      {selectedColumns.includes('purchaseQty') && <TableCell align="center">Purchase Qty</TableCell>}
+                      {selectedColumns.includes('purchaseSubtotal') && <TableCell align="center">Purchase Subtotal</TableCell>}
+                      {selectedColumns.includes('totalProfit') && <TableCell align="center">Total Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
