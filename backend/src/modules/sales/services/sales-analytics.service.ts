@@ -694,8 +694,6 @@ export class SalesAnalyticsService {
         // Calculate sales metrics
         const soldQty = salesItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const totalSales = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitPrice)), 0);
-        const cost = soldQty * Number(product.baseCost || 0);
-        const salesProfit = totalSales - cost;
 
         // Get purchase order items for this product
         const purchaseItemsQuery = this.purchaseOrderItemRepository
@@ -716,8 +714,13 @@ export class SalesAnalyticsService {
         const purchaseQty = purchaseItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const purchaseSubtotal = purchaseItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost)), 0);
 
-        // Calculate total profit (sales profit - purchase cost)
-        const totalProfit = salesProfit - purchaseSubtotal;
+        // Calculate cost and profit
+        // Cost is the actual purchase cost from POs, or baseCost as fallback
+        const cost = purchaseSubtotal > 0 ? purchaseSubtotal : (soldQty * Number(product.baseCost || 0));
+        const salesProfit = totalSales - cost;
+
+        // Total profit is the same as sales profit (no double-counting)
+        const totalProfit = salesProfit;
 
         return {
           productId: product.id,
