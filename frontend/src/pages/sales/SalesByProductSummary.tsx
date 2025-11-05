@@ -345,6 +345,48 @@ const SalesByProductSummary: React.FC = () => {
 
   const totals = calculateTotals()
 
+  // Group data by category if groupBy is set to 'category'
+  const getGroupedData = () => {
+    if (groupBy === 'category' && reportData.length > 0) {
+      const grouped = reportData.reduce((acc: { [key: string]: ProductSummary[] }, item) => {
+        const categoryName = item.category || 'Uncategorized'
+        if (!acc[categoryName]) {
+          acc[categoryName] = []
+        }
+        acc[categoryName].push(item)
+        return acc
+      }, {})
+      return grouped
+    }
+    return null
+  }
+
+  const groupedData = getGroupedData()
+
+  // Calculate subtotals for each category group
+  const calculateCategorySubtotal = (items: ProductSummary[]) => {
+    return items.reduce(
+      (acc, item) => ({
+        soldQty: acc.soldQty + item.soldQty,
+        totalSales: acc.totalSales + item.totalSales,
+        cost: acc.cost + item.cost,
+        salesProfit: acc.salesProfit + item.salesProfit,
+        purchaseQty: acc.purchaseQty + item.purchaseQty,
+        purchaseSubtotal: acc.purchaseSubtotal + item.purchaseSubtotal,
+        totalProfit: acc.totalProfit + item.totalProfit,
+      }),
+      {
+        soldQty: 0,
+        totalSales: 0,
+        cost: 0,
+        salesProfit: 0,
+        purchaseQty: 0,
+        purchaseSubtotal: 0,
+        totalProfit: 0,
+      }
+    )
+  }
+
   return (
     <Box>
       {/* Header */}
@@ -770,69 +812,219 @@ const SalesByProductSummary: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {reportData.map((row) => (
-                      <TableRow
-                        key={row.productId}
-                        hover
-                        sx={{
-                          '&:hover': { backgroundColor: 'action.hover' },
-                          transition: 'background-color 0.2s ease',
-                          height: TABLE_STYLES.row.height
-                        }}
-                      >
-                        {selectedColumns.includes('productName') && (
-                          <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {row.productName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('category') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.category}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('soldQty') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {row.soldQty.toLocaleString()}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('totalSales') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.totalSales)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('cost') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.cost)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('salesProfit') && (
-                          <TableCell align="right" sx={{
-                            fontSize: '0.8rem',
-                            color: row.salesProfit > 0 ? 'success.main' : 'error.main'
-                          }}>
-                            {formatCurrency(row.salesProfit)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('purchaseQty') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {row.purchaseQty.toLocaleString()}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('purchaseSubtotal') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.purchaseSubtotal)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('totalProfit') && (
-                          <TableCell align="right" sx={{
-                            fontSize: '0.8rem',
-                            color: row.totalProfit > 0 ? 'success.main' : 'error.main'
-                          }}>
-                            {formatCurrency(row.totalProfit)}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
+                    {groupedData ? (
+                      // Render grouped by category
+                      Object.entries(groupedData).map(([categoryName, items]) => {
+                        const subtotal = calculateCategorySubtotal(items)
+                        return (
+                          <React.Fragment key={categoryName}>
+                            {/* Category Header Row */}
+                            <TableRow
+                              sx={{
+                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.1)' : 'primary.lighter',
+                                '& .MuiTableCell-root': {
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem',
+                                  color: 'primary.main'
+                                }
+                              }}
+                            >
+                              <TableCell colSpan={selectedColumns.length} sx={{ py: 1 }}>
+                                {categoryName}
+                              </TableCell>
+                            </TableRow>
+                            {/* Category Items */}
+                            {items.map((row) => (
+                              <TableRow
+                                key={row.productId}
+                                hover
+                                sx={{
+                                  '&:hover': { backgroundColor: 'action.hover' },
+                                  transition: 'background-color 0.2s ease',
+                                  height: TABLE_STYLES.row.height
+                                }}
+                              >
+                                {selectedColumns.includes('productName') && (
+                                  <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, pl: 4 }}>
+                                    {row.productName}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('category') && (
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    {row.category}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('soldQty') && (
+                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                    {row.soldQty.toLocaleString()}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('totalSales') && (
+                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                    {formatCurrency(row.totalSales)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('cost') && (
+                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                    {formatCurrency(row.cost)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('salesProfit') && (
+                                  <TableCell align="right" sx={{
+                                    fontSize: '0.8rem',
+                                    color: row.salesProfit > 0 ? 'success.main' : 'error.main'
+                                  }}>
+                                    {formatCurrency(row.salesProfit)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('purchaseQty') && (
+                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                    {row.purchaseQty.toLocaleString()}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('purchaseSubtotal') && (
+                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                    {formatCurrency(row.purchaseSubtotal)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('totalProfit') && (
+                                  <TableCell align="right" sx={{
+                                    fontSize: '0.8rem',
+                                    color: row.totalProfit > 0 ? 'success.main' : 'error.main'
+                                  }}>
+                                    {formatCurrency(row.totalProfit)}
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                            ))}
+                            {/* Category Subtotal Row */}
+                            <TableRow
+                              sx={{
+                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'grey.50',
+                                '& .MuiTableCell-root': {
+                                  fontWeight: 600,
+                                  fontSize: '0.8rem',
+                                  fontStyle: 'italic'
+                                }
+                              }}
+                            >
+                              {selectedColumns.includes('productName') && (
+                                <TableCell sx={{ pl: 4 }}>
+                                  Subtotal - {categoryName}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('category') && (
+                                <TableCell />
+                              )}
+                              {selectedColumns.includes('soldQty') && (
+                                <TableCell align="right">
+                                  {subtotal.soldQty.toLocaleString()}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('totalSales') && (
+                                <TableCell align="right">
+                                  {formatCurrency(subtotal.totalSales)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('cost') && (
+                                <TableCell align="right">
+                                  {formatCurrency(subtotal.cost)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('salesProfit') && (
+                                <TableCell align="right" sx={{
+                                  color: subtotal.salesProfit > 0 ? 'success.main' : 'error.main'
+                                }}>
+                                  {formatCurrency(subtotal.salesProfit)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('purchaseQty') && (
+                                <TableCell align="right">
+                                  {subtotal.purchaseQty.toLocaleString()}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('purchaseSubtotal') && (
+                                <TableCell align="right">
+                                  {formatCurrency(subtotal.purchaseSubtotal)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('totalProfit') && (
+                                <TableCell align="right" sx={{
+                                  color: subtotal.totalProfit > 0 ? 'success.main' : 'error.main'
+                                }}>
+                                  {formatCurrency(subtotal.totalProfit)}
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          </React.Fragment>
+                        )
+                      })
+                    ) : (
+                      // Render ungrouped
+                      reportData.map((row) => (
+                        <TableRow
+                          key={row.productId}
+                          hover
+                          sx={{
+                            '&:hover': { backgroundColor: 'action.hover' },
+                            transition: 'background-color 0.2s ease',
+                            height: TABLE_STYLES.row.height
+                          }}
+                        >
+                          {selectedColumns.includes('productName') && (
+                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                              {row.productName}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('category') && (
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {row.category}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('soldQty') && (
+                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                              {row.soldQty.toLocaleString()}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('totalSales') && (
+                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(row.totalSales)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('cost') && (
+                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(row.cost)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('salesProfit') && (
+                            <TableCell align="right" sx={{
+                              fontSize: '0.8rem',
+                              color: row.salesProfit > 0 ? 'success.main' : 'error.main'
+                            }}>
+                              {formatCurrency(row.salesProfit)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('purchaseQty') && (
+                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                              {row.purchaseQty.toLocaleString()}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('purchaseSubtotal') && (
+                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(row.purchaseSubtotal)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('totalProfit') && (
+                            <TableCell align="right" sx={{
+                              fontSize: '0.8rem',
+                              color: row.totalProfit > 0 ? 'success.main' : 'error.main'
+                            }}>
+                              {formatCurrency(row.totalProfit)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    )}
                     {/* Total Row */}
                     {totals && (
                       <TableRow
