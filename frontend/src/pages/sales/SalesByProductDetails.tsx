@@ -61,6 +61,7 @@ interface ProductDetail {
   category: string
   quantity: number
   unitPrice: number
+  priceLevel: string
   totalAmount: number
   cost: number
   profit: number
@@ -88,7 +89,7 @@ const SalesByProductDetails: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'transactionType', 'transactionDate', 'documentNumber', 'customerSupplier', 'productName', 'category', 'quantity', 'unitPrice', 'totalAmount', 'cost', 'profit'
+    'productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('transactionDate')
@@ -173,7 +174,7 @@ const SalesByProductDetails: React.FC = () => {
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['transactionType', 'transactionDate', 'documentNumber', 'customerSupplier', 'productName', 'category', 'quantity', 'unitPrice', 'totalAmount', 'cost', 'profit'])
+    setSelectedColumns(['productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'])
     setGroupBy('none')
     setSortBy1('transactionDate')
     setSortBy2('none')
@@ -186,17 +187,16 @@ const SalesByProductDetails: React.FC = () => {
 
     // Column headers mapping
     const columnHeaders: { [key: string]: string } = {
-      transactionType: 'Type',
-      transactionDate: 'Date',
-      documentNumber: 'Doc #',
-      customerSupplier: 'Customer/Supplier',
       productName: 'Product',
       category: 'Category',
-      quantity: 'Qty',
-      unitPrice: 'Unit Price',
-      totalAmount: 'Total Amount',
-      cost: 'Cost',
-      profit: 'Profit'
+      transactionDate: 'Order Date',
+      documentNumber: 'SO No / PO No',
+      customerSupplier: 'Customer',
+      priceLevel: 'Pricing',
+      quantity: 'Qty Sold',
+      totalAmount: 'Sales Amount',
+      cost: 'Sales Cost',
+      profit: 'Sales Profit'
     }
 
     // Build CSV content
@@ -296,17 +296,16 @@ const SalesByProductDetails: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      transactionType: 'Type',
-      transactionDate: 'Date',
-      documentNumber: 'Doc #',
-      customerSupplier: 'Customer/Supplier',
       productName: 'Product',
       category: 'Category',
-      quantity: 'Qty',
-      unitPrice: 'Unit Price',
-      totalAmount: 'Total Amount',
-      cost: 'Cost',
-      profit: 'Profit'
+      transactionDate: 'Order Date',
+      documentNumber: 'SO No / PO No',
+      customerSupplier: 'Customer',
+      priceLevel: 'Pricing',
+      quantity: 'Qty Sold',
+      totalAmount: 'Sales Amount',
+      cost: 'Sales Cost',
+      profit: 'Sales Profit'
     }
 
     let tableRows = ''
@@ -947,7 +946,7 @@ const SalesByProductDetails: React.FC = () => {
 
                       // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['transactionType', 'transactionDate', 'documentNumber', 'customerSupplier', 'productName', 'category', 'quantity', 'unitPrice', 'totalAmount', 'cost', 'profit']
+                        const allColumns = ['productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit']
                         // If all were selected, deselect all; otherwise select all
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
@@ -964,26 +963,10 @@ const SalesByProductDetails: React.FC = () => {
                   >
                     <MenuItem value="all">
                       <Checkbox
-                        checked={selectedColumns.length === 11}
-                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 11}
+                        checked={selectedColumns.length === 10}
+                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 10}
                       />
                       <ListItemText primary="All" />
-                    </MenuItem>
-                    <MenuItem value="transactionType">
-                      <Checkbox checked={selectedColumns.includes('transactionType')} />
-                      <ListItemText primary="Type" />
-                    </MenuItem>
-                    <MenuItem value="transactionDate">
-                      <Checkbox checked={selectedColumns.includes('transactionDate')} />
-                      <ListItemText primary="Date" />
-                    </MenuItem>
-                    <MenuItem value="documentNumber">
-                      <Checkbox checked={selectedColumns.includes('documentNumber')} />
-                      <ListItemText primary="Doc #" />
-                    </MenuItem>
-                    <MenuItem value="customerSupplier">
-                      <Checkbox checked={selectedColumns.includes('customerSupplier')} />
-                      <ListItemText primary="Customer/Supplier" />
                     </MenuItem>
                     <MenuItem value="productName">
                       <Checkbox checked={selectedColumns.includes('productName')} />
@@ -993,25 +976,37 @@ const SalesByProductDetails: React.FC = () => {
                       <Checkbox checked={selectedColumns.includes('category')} />
                       <ListItemText primary="Category" />
                     </MenuItem>
+                    <MenuItem value="transactionDate">
+                      <Checkbox checked={selectedColumns.includes('transactionDate')} />
+                      <ListItemText primary="Order Date" />
+                    </MenuItem>
+                    <MenuItem value="documentNumber">
+                      <Checkbox checked={selectedColumns.includes('documentNumber')} />
+                      <ListItemText primary="SO No / PO No" />
+                    </MenuItem>
+                    <MenuItem value="customerSupplier">
+                      <Checkbox checked={selectedColumns.includes('customerSupplier')} />
+                      <ListItemText primary="Customer" />
+                    </MenuItem>
+                    <MenuItem value="priceLevel">
+                      <Checkbox checked={selectedColumns.includes('priceLevel')} />
+                      <ListItemText primary="Pricing" />
+                    </MenuItem>
                     <MenuItem value="quantity">
                       <Checkbox checked={selectedColumns.includes('quantity')} />
-                      <ListItemText primary="Qty" />
-                    </MenuItem>
-                    <MenuItem value="unitPrice">
-                      <Checkbox checked={selectedColumns.includes('unitPrice')} />
-                      <ListItemText primary="Unit Price" />
+                      <ListItemText primary="Qty Sold" />
                     </MenuItem>
                     <MenuItem value="totalAmount">
                       <Checkbox checked={selectedColumns.includes('totalAmount')} />
-                      <ListItemText primary="Total Amount" />
+                      <ListItemText primary="Sales Amount" />
                     </MenuItem>
                     <MenuItem value="cost">
                       <Checkbox checked={selectedColumns.includes('cost')} />
-                      <ListItemText primary="Cost" />
+                      <ListItemText primary="Sales Cost" />
                     </MenuItem>
                     <MenuItem value="profit">
                       <Checkbox checked={selectedColumns.includes('profit')} />
-                      <ListItemText primary="Profit" />
+                      <ListItemText primary="Sales Profit" />
                     </MenuItem>
                   </Select>
                 </FormControl>
@@ -1040,17 +1035,16 @@ const SalesByProductDetails: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="transactionDate">Date</MenuItem>
-                    <MenuItem value="transactionType">Type</MenuItem>
-                    <MenuItem value="documentNumber">Doc #</MenuItem>
-                    <MenuItem value="customerSupplier">Customer/Supplier</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="quantity">Qty</MenuItem>
-                    <MenuItem value="unitPrice">Unit Price</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="transactionDate">Order Date</MenuItem>
+                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="customerSupplier">Customer</MenuItem>
+                    <MenuItem value="priceLevel">Pricing</MenuItem>
+                    <MenuItem value="quantity">Qty Sold</MenuItem>
+                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1063,17 +1057,16 @@ const SalesByProductDetails: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="transactionDate">Date</MenuItem>
-                    <MenuItem value="transactionType">Type</MenuItem>
-                    <MenuItem value="documentNumber">Doc #</MenuItem>
-                    <MenuItem value="customerSupplier">Customer/Supplier</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="quantity">Qty</MenuItem>
-                    <MenuItem value="unitPrice">Unit Price</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="transactionDate">Order Date</MenuItem>
+                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="customerSupplier">Customer</MenuItem>
+                    <MenuItem value="priceLevel">Pricing</MenuItem>
+                    <MenuItem value="quantity">Qty Sold</MenuItem>
+                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1086,17 +1079,16 @@ const SalesByProductDetails: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="transactionDate">Date</MenuItem>
-                    <MenuItem value="transactionType">Type</MenuItem>
-                    <MenuItem value="documentNumber">Doc #</MenuItem>
-                    <MenuItem value="customerSupplier">Customer/Supplier</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="quantity">Qty</MenuItem>
-                    <MenuItem value="unitPrice">Unit Price</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="transactionDate">Order Date</MenuItem>
+                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="customerSupplier">Customer</MenuItem>
+                    <MenuItem value="priceLevel">Pricing</MenuItem>
+                    <MenuItem value="quantity">Qty Sold</MenuItem>
+                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1187,17 +1179,16 @@ const SalesByProductDetails: React.FC = () => {
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                       textAlign: 'center'
                     } }}>
-                      {selectedColumns.includes('transactionType') && <TableCell align="center">Type</TableCell>}
-                      {selectedColumns.includes('transactionDate') && <TableCell align="center">Date</TableCell>}
-                      {selectedColumns.includes('documentNumber') && <TableCell align="center">Doc #</TableCell>}
-                      {selectedColumns.includes('customerSupplier') && <TableCell align="center">Customer/Supplier</TableCell>}
                       {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
                       {selectedColumns.includes('category') && <TableCell align="center">Category</TableCell>}
-                      {selectedColumns.includes('quantity') && <TableCell align="center">Qty</TableCell>}
-                      {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total Amount</TableCell>}
-                      {selectedColumns.includes('cost') && <TableCell align="center">Cost</TableCell>}
-                      {selectedColumns.includes('profit') && <TableCell align="center">Profit</TableCell>}
+                      {selectedColumns.includes('transactionDate') && <TableCell align="center">Order Date</TableCell>}
+                      {selectedColumns.includes('documentNumber') && <TableCell align="center">SO No / PO No</TableCell>}
+                      {selectedColumns.includes('customerSupplier') && <TableCell align="center">Customer</TableCell>}
+                      {selectedColumns.includes('priceLevel') && <TableCell align="center">Pricing</TableCell>}
+                      {selectedColumns.includes('quantity') && <TableCell align="center">Qty Sold</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Sales Amount</TableCell>}
+                      {selectedColumns.includes('cost') && <TableCell align="center">Sales Cost</TableCell>}
+                      {selectedColumns.includes('profit') && <TableCell align="center">Sales Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1233,14 +1224,14 @@ const SalesByProductDetails: React.FC = () => {
                                   height: TABLE_STYLES.row.height
                                 }}
                               >
-                                {selectedColumns.includes('transactionType') && (
+                                {selectedColumns.includes('productName') && (
                                   <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    <Chip
-                                      label={row.transactionType}
-                                      color={row.transactionType === 'Sale' ? 'success' : 'info'}
-                                      size="small"
-                                      sx={{ fontSize: '0.7rem', height: '20px' }}
-                                    />
+                                    {row.productName}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('category') && (
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    {row.category}
                                   </TableCell>
                                 )}
                                 {selectedColumns.includes('transactionDate') && (
@@ -1258,24 +1249,14 @@ const SalesByProductDetails: React.FC = () => {
                                     {row.customerSupplier}
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('productName') && (
+                                {selectedColumns.includes('priceLevel') && (
                                   <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {row.productName}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('category') && (
-                                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {row.category}
+                                    {row.priceLevel}
                                   </TableCell>
                                 )}
                                 {selectedColumns.includes('quantity') && (
                                   <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                     {row.quantity.toLocaleString()}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('unitPrice') && (
-                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {formatCurrency(row.unitPrice)}
                                   </TableCell>
                                 )}
                                 {selectedColumns.includes('totalAmount') && (
@@ -1309,22 +1290,21 @@ const SalesByProductDetails: React.FC = () => {
                                 }
                               }}
                             >
-                              {selectedColumns.includes('transactionType') && (
+                              {selectedColumns.includes('productName') && (
                                 <TableCell>
                                   Subtotal - {groupName}
                                 </TableCell>
                               )}
+                              {selectedColumns.includes('category') && <TableCell />}
                               {selectedColumns.includes('transactionDate') && <TableCell />}
                               {selectedColumns.includes('documentNumber') && <TableCell />}
                               {selectedColumns.includes('customerSupplier') && <TableCell />}
-                              {selectedColumns.includes('productName') && <TableCell />}
-                              {selectedColumns.includes('category') && <TableCell />}
+                              {selectedColumns.includes('priceLevel') && <TableCell />}
                               {selectedColumns.includes('quantity') && (
                                 <TableCell align="right">
                                   {subtotal.quantity.toLocaleString()}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('unitPrice') && <TableCell />}
                               {selectedColumns.includes('totalAmount') && (
                                 <TableCell align="right">
                                   {formatCurrency(subtotal.totalAmount)}
@@ -1358,14 +1338,14 @@ const SalesByProductDetails: React.FC = () => {
                             height: TABLE_STYLES.row.height
                           }}
                         >
-                          {selectedColumns.includes('transactionType') && (
+                          {selectedColumns.includes('productName') && (
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              <Chip
-                                label={row.transactionType}
-                                color={row.transactionType === 'Sale' ? 'success' : 'info'}
-                                size="small"
-                                sx={{ fontSize: '0.7rem', height: '20px' }}
-                              />
+                              {row.productName}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('category') && (
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {row.category}
                             </TableCell>
                           )}
                           {selectedColumns.includes('transactionDate') && (
@@ -1383,24 +1363,14 @@ const SalesByProductDetails: React.FC = () => {
                               {row.customerSupplier}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('productName') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {row.productName}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('category') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {row.category}
+                          {selectedColumns.includes('unitPrice') && (
+                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(row.unitPrice)}
                             </TableCell>
                           )}
                           {selectedColumns.includes('quantity') && (
                             <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                               {row.quantity.toLocaleString()}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('unitPrice') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(row.unitPrice)}
                             </TableCell>
                           )}
                           {selectedColumns.includes('totalAmount') && (
@@ -1437,22 +1407,21 @@ const SalesByProductDetails: React.FC = () => {
                           }
                         }}
                       >
-                        {selectedColumns.includes('transactionType') && (
+                        {selectedColumns.includes('productName') && (
                           <TableCell sx={{ fontWeight: 700 }}>
                             TOTAL
                           </TableCell>
                         )}
+                        {selectedColumns.includes('category') && <TableCell />}
                         {selectedColumns.includes('transactionDate') && <TableCell />}
                         {selectedColumns.includes('documentNumber') && <TableCell />}
                         {selectedColumns.includes('customerSupplier') && <TableCell />}
-                        {selectedColumns.includes('productName') && <TableCell />}
-                        {selectedColumns.includes('category') && <TableCell />}
+                        {selectedColumns.includes('priceLevel') && <TableCell />}
                         {selectedColumns.includes('quantity') && (
                           <TableCell align="right">
                             {totals.quantity.toLocaleString()}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('unitPrice') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
                           <TableCell align="right">
                             {formatCurrency(totals.totalAmount)}

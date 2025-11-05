@@ -797,6 +797,13 @@ export class SalesAnalyticsService {
         const totalCost = quantity * baseCost;
         const profit = totalAmount - totalCost;
 
+        // Determine price level from customer or default to retail
+        let priceLevel = 'Retail';
+        if (order.customer?.priceLevel) {
+          const level = order.customer.priceLevel;
+          priceLevel = level.charAt(0).toUpperCase() + level.slice(1);
+        }
+
         productDetails.push({
           transactionType: 'Sale',
           transactionDate: order.orderDate,
@@ -807,6 +814,7 @@ export class SalesAnalyticsService {
           category: product.category?.name || 'Uncategorized',
           quantity: quantity,
           unitPrice: unitPrice,
+          priceLevel: priceLevel,
           totalAmount: totalAmount,
           cost: totalCost,
           profit: profit,
@@ -848,6 +856,7 @@ export class SalesAnalyticsService {
           category: product.category?.name || 'Uncategorized',
           quantity: quantity,
           unitPrice: unitCost,
+          priceLevel: '-', // No price level for purchases
           totalAmount: totalAmount,
           cost: totalAmount,
           profit: 0, // No profit on purchases
