@@ -695,6 +695,10 @@ export class SalesAnalyticsService {
         const soldQty = salesItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const totalSales = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitPrice)), 0);
 
+        // Calculate COGS using actual unitCost from sales order items
+        // This represents the cost of goods that were actually SOLD
+        const cost = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost || 0)), 0);
+
         // Get purchase order items for this product
         const purchaseItemsQuery = this.purchaseOrderItemRepository
           .createQueryBuilder('item')
@@ -714,13 +718,12 @@ export class SalesAnalyticsService {
         const purchaseQty = purchaseItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const purchaseSubtotal = purchaseItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost)), 0);
 
-        // Calculate cost and profit
-        // Cost is the actual purchase cost from POs, or baseCost as fallback
-        const cost = purchaseSubtotal > 0 ? purchaseSubtotal : (soldQty * Number(product.baseCost || 0));
+        // Sales Profit = Revenue - COGS (profitability view)
         const salesProfit = totalSales - cost;
 
-        // Total profit is the same as sales profit (no double-counting)
-        const totalProfit = salesProfit;
+        // Total Profit = Revenue - Total Purchases (cash flow view)
+        // This shows the net cash impact considering inventory purchases
+        const totalProfit = totalSales - purchaseSubtotal;
 
         return {
           productId: product.id,
