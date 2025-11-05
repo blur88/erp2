@@ -378,6 +378,16 @@ const SalesByProductSummary: React.FC = () => {
       tableRows += '</tr>'
     }
 
+    // Build date range text
+    let dateRangeText = ''
+    if (dateFrom && dateTo) {
+      dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
+    } else if (dateFrom) {
+      dateRangeText = `<p><strong>Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`
+    } else if (dateTo) {
+      dateRangeText = `<p><strong>Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -385,20 +395,48 @@ const SalesByProductSummary: React.FC = () => {
           <title>${reportTitle}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { text-align: center; margin-bottom: 20px; }
+            h1 { text-align: center; margin-bottom: 10px; }
+            .header-info { text-align: center; margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #1976d2; color: white; font-weight: bold; }
             tr:nth-child(even) { background-color: #f9f9f9; }
             .text-right { text-align: right; }
             @media print {
-              body { margin: 0; }
+              body { margin: 0; padding: 40px 20px 60px 20px; }
+              @page {
+                margin: 20mm;
+                @bottom-right {
+                  content: "Page " counter(page) " of " counter(pages);
+                }
+              }
+              .footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                text-align: center;
+                font-size: 10px;
+                padding: 10px;
+                border-top: 1px solid #ddd;
+              }
+            }
+            .footer {
+              display: none;
+            }
+            @media print {
+              .footer {
+                display: block;
+              }
             }
           </style>
         </head>
         <body>
           <h1>${reportTitle}</h1>
-          <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <div class="header-info">
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            ${dateRangeText}
+          </div>
           <table>
             <thead>
               <tr>
@@ -409,6 +447,12 @@ const SalesByProductSummary: React.FC = () => {
               ${tableRows}
             </tbody>
           </table>
+          <div class="footer">
+            <script>
+              var pageNum = 1;
+              document.write("Page " + pageNum);
+            </script>
+          </div>
           <script>
             // Set document title for PDF filename
             document.title = '${reportTitle.replace(/'/g, "\\'")}';
