@@ -38,7 +38,6 @@ import {
 import {
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
-  Download as DownloadIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
   Inventory2 as ProductIcon,
@@ -178,6 +177,255 @@ const SalesByProductSummary: React.FC = () => {
     setSortBy2('none')
     setSortBy3('none')
     setReportTitle('Sales by Product Summary')
+  }
+
+  const handleExportExcel = () => {
+    if (sortedData.length === 0) return
+
+    // Column headers mapping
+    const columnHeaders: { [key: string]: string } = {
+      productName: 'Product',
+      category: 'Category',
+      soldQty: 'Sold Qty',
+      totalSales: 'Total Sales',
+      cost: 'Cost',
+      salesProfit: 'Sales Profit',
+      purchaseQty: 'Purchase Qty',
+      purchaseSubtotal: 'Purchase Subtotal',
+      totalProfit: 'Total Profit'
+    }
+
+    // Build CSV content
+    let csv = reportTitle + '\n\n'
+
+    // Add headers
+    const headers = selectedColumns.map(col => columnHeaders[col] || col)
+    csv += headers.join(',') + '\n'
+
+    // Add data rows
+    if (groupedData) {
+      // Export grouped data
+      Object.entries(groupedData).forEach(([categoryName, items]) => {
+        // Category header
+        csv += `\n"${categoryName}"\n`
+
+        // Items
+        items.forEach(row => {
+          const values = selectedColumns.map(col => {
+            const value = (row as any)[col]
+            if (col === 'soldQty' || col === 'purchaseQty') {
+              return value.toLocaleString()
+            } else if (typeof value === 'number') {
+              return value.toFixed(2)
+            }
+            return `"${value || ''}"`
+          })
+          csv += values.join(',') + '\n'
+        })
+
+        // Subtotal
+        const subtotal = calculateCategorySubtotal(items)
+        csv += '"Subtotal - ' + categoryName + '",'
+        const subtotalValues = selectedColumns.slice(1).map(col => {
+          const value = (subtotal as any)[col]
+          if (col === 'soldQty' || col === 'purchaseQty') {
+            return value?.toLocaleString() || ''
+          } else if (typeof value === 'number') {
+            return value.toFixed(2)
+          }
+          return ''
+        })
+        csv += subtotalValues.join(',') + '\n'
+      })
+    } else {
+      // Export ungrouped data
+      sortedData.forEach(row => {
+        const values = selectedColumns.map(col => {
+          const value = (row as any)[col]
+          if (col === 'soldQty' || col === 'purchaseQty') {
+            return value.toLocaleString()
+          } else if (typeof value === 'number') {
+            return value.toFixed(2)
+          }
+          return `"${value || ''}"`
+        })
+        csv += values.join(',') + '\n'
+      })
+    }
+
+    // Add totals
+    if (totals) {
+      csv += '\n"TOTAL",'
+      const totalValues = selectedColumns.slice(1).map(col => {
+        const value = (totals as any)[col]
+        if (col === 'soldQty' || col === 'purchaseQty') {
+          return value?.toLocaleString() || ''
+        } else if (typeof value === 'number') {
+          return value.toFixed(2)
+        }
+        return ''
+      })
+      csv += totalValues.join(',') + '\n'
+    }
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleExportPDF = () => {
+    if (sortedData.length === 0) return
+
+    // Create a printable version
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const columnHeaders: { [key: string]: string } = {
+      productName: 'Product',
+      category: 'Category',
+      soldQty: 'Sold Qty',
+      totalSales: 'Total Sales',
+      cost: 'Cost',
+      salesProfit: 'Sales Profit',
+      purchaseQty: 'Purchase Qty',
+      purchaseSubtotal: 'Purchase Subtotal',
+      totalProfit: 'Total Profit'
+    }
+
+    let tableRows = ''
+
+    if (groupedData) {
+      Object.entries(groupedData).forEach(([categoryName, items]) => {
+        // Category header
+        tableRows += `<tr style="background-color: #e3f2fd; font-weight: bold;"><td colspan="${selectedColumns.length}">${categoryName}</td></tr>`
+
+        // Items
+        items.forEach(row => {
+          tableRows += '<tr>'
+          selectedColumns.forEach(col => {
+            const value = (row as any)[col]
+            let displayValue = value
+            if (col === 'soldQty' || col === 'purchaseQty') {
+              displayValue = value.toLocaleString()
+            } else if (typeof value === 'number') {
+              displayValue = formatCurrency(value)
+            }
+            tableRows += `<td>${displayValue || ''}</td>`
+          })
+          tableRows += '</tr>'
+        })
+
+        // Subtotal
+        const subtotal = calculateCategorySubtotal(items)
+        tableRows += '<tr style="background-color: #f5f5f5; font-style: italic;">'
+        selectedColumns.forEach((col, idx) => {
+          if (idx === 0) {
+            tableRows += `<td>Subtotal - ${categoryName}</td>`
+          } else {
+            const value = (subtotal as any)[col]
+            let displayValue = ''
+            if (col === 'soldQty' || col === 'purchaseQty') {
+              displayValue = value?.toLocaleString() || ''
+            } else if (typeof value === 'number') {
+              displayValue = formatCurrency(value)
+            }
+            tableRows += `<td>${displayValue}</td>`
+          }
+        })
+        tableRows += '</tr>'
+      })
+    } else {
+      sortedData.forEach(row => {
+        tableRows += '<tr>'
+        selectedColumns.forEach(col => {
+          const value = (row as any)[col]
+          let displayValue = value
+          if (col === 'soldQty' || col === 'purchaseQty') {
+            displayValue = value.toLocaleString()
+          } else if (typeof value === 'number') {
+            displayValue = formatCurrency(value)
+          }
+          tableRows += `<td>${displayValue || ''}</td>`
+        })
+        tableRows += '</tr>'
+      })
+    }
+
+    // Add totals
+    if (totals) {
+      tableRows += '<tr style="background-color: #e0e0e0; font-weight: bold;">'
+      selectedColumns.forEach((col, idx) => {
+        if (idx === 0) {
+          tableRows += '<td>TOTAL</td>'
+        } else {
+          const value = (totals as any)[col]
+          let displayValue = ''
+          if (col === 'soldQty' || col === 'purchaseQty') {
+            displayValue = value?.toLocaleString() || ''
+          } else if (typeof value === 'number') {
+            displayValue = formatCurrency(value)
+          }
+          tableRows += `<td>${displayValue}</td>`
+        }
+      })
+      tableRows += '</tr>'
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${reportTitle}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { text-align: center; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #1976d2; color: white; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .text-right { text-align: right; }
+            @media print {
+              body { margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${reportTitle}</h1>
+          <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <table>
+            <thead>
+              <tr>
+                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+          <script>
+            // Set document title for PDF filename
+            document.title = '${reportTitle.replace(/'/g, "\\'")}';
+
+            window.onload = function() {
+              // Small delay to ensure content is rendered
+              setTimeout(function() {
+                window.print();
+              }, 250);
+            }
+          </script>
+        </body>
+      </html>
+    `
+
+    printWindow.document.write(html)
+    printWindow.document.close()
   }
 
   const handleProductSelectChange = (value: string) => {
@@ -506,16 +754,6 @@ const SalesByProductSummary: React.FC = () => {
           >
             {loading ? 'Generating...' : 'Generate Report'}
           </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <DownloadIcon /> : undefined}
-            onClick={() => console.log('Export')}
-            disabled={reportData.length === 0}
-            size="medium"
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Export" : "Export"}
-          </Button>
         </Box>
       </Box>
 
@@ -828,14 +1066,14 @@ const SalesByProductSummary: React.FC = () => {
                   <Button
                     size="small"
                     startIcon={<ExcelIcon />}
-                    onClick={() => console.log('Export Excel')}
+                    onClick={handleExportExcel}
                   >
                     Excel
                   </Button>
                   <Button
                     size="small"
                     startIcon={<PdfIcon />}
-                    onClick={() => console.log('Export PDF')}
+                    onClick={handleExportPDF}
                   >
                     PDF
                   </Button>
