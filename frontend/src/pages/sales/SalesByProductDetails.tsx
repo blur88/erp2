@@ -1363,9 +1363,9 @@ const SalesByProductDetails: React.FC = () => {
                               {row.customerSupplier}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('unitPrice') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(row.unitPrice)}
+                          {selectedColumns.includes('priceLevel') && (
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {row.priceLevel}
                             </TableCell>
                           )}
                           {selectedColumns.includes('quantity') && (
