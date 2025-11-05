@@ -403,9 +403,9 @@ const SalesByProductSummary: React.FC = () => {
             tr:nth-child(even) { background-color: #f9f9f9; }
             .text-right { text-align: right; }
             @media print {
-              body { margin: 0; padding: 40px 20px 60px 20px; }
+              body { margin: 0; padding: 20px 20px 40px 20px; }
               @page {
-                margin: 20mm;
+                margin: 0;
                 @bottom-right {
                   content: "Page " counter(page) " of " counter(pages);
                 }
