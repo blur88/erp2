@@ -1096,8 +1096,8 @@ const SalesByProductSummary: React.FC = () => {
               </Box>
             </Paper>
           ) : (
-            <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                   fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -1125,15 +1125,18 @@ const SalesByProductSummary: React.FC = () => {
               </Box>
 
               {/* Data Table */}
-              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+              <Box sx={{ flex: 1, overflow: 'auto' }}>
+                <TableContainer sx={{ height: '100%' }}>
                 <Table
                   size={TABLE_STYLES.size}
                   stickyHeader
                   sx={{
+                    minWidth: 'max-content',
                     '& .MuiTableCell-root': {
                       borderBottom: TABLE_STYLES.cell.border,
                       py: TABLE_STYLES.cell.padding.py,
-                      px: TABLE_STYLES.cell.padding.px
+                      px: TABLE_STYLES.cell.padding.px,
+                      whiteSpace: 'nowrap'
                     }
                   }}
                 >
@@ -1435,6 +1438,7 @@ const SalesByProductSummary: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+              </Box>
             </Paper>
           )}
         </Grid>
