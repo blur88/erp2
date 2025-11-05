@@ -833,6 +833,68 @@ const SalesByProductSummary: React.FC = () => {
                         )}
                       </TableRow>
                     ))}
+                    {/* Total Row */}
+                    {totals && (
+                      <TableRow
+                        sx={{
+                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
+                          borderTop: '2px solid',
+                          borderColor: 'divider',
+                          '& .MuiTableCell-root': {
+                            fontWeight: 700,
+                            fontSize: '0.85rem'
+                          }
+                        }}
+                      >
+                        {selectedColumns.includes('productName') && (
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            TOTAL
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('category') && (
+                          <TableCell />
+                        )}
+                        {selectedColumns.includes('soldQty') && (
+                          <TableCell align="right">
+                            {totals.soldQty.toLocaleString()}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalSales') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.totalSales)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('cost') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.cost)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('salesProfit') && (
+                          <TableCell align="right" sx={{
+                            color: totals.salesProfit > 0 ? 'success.main' : 'error.main'
+                          }}>
+                            {formatCurrency(totals.salesProfit)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('purchaseQty') && (
+                          <TableCell align="right">
+                            {totals.purchaseQty.toLocaleString()}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('purchaseSubtotal') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.purchaseSubtotal)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalProfit') && (
+                          <TableCell align="right" sx={{
+                            color: totals.totalProfit > 0 ? 'success.main' : 'error.main'
+                          }}>
+                            {formatCurrency(totals.totalProfit)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>
