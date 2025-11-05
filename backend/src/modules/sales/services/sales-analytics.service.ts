@@ -738,4 +738,132 @@ export class SalesAnalyticsService {
       data: productSummaries,
     };
   }
+
+  async getProductDetails(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    categoryId?: string;
+    productIds?: string[];
+  }) {
+    // Build WHERE conditions for products
+    const productWhere: any = { isActive: true };
+
+    if (query.categoryId) {
+      productWhere.categoryId = query.categoryId;
+    }
+
+    if (query.productIds && query.productIds.length > 0) {
+      productWhere.id = In(query.productIds);
+    }
+
+    // Get all products matching the filter
+    const products = await this.productRepository.find({
+      where: productWhere,
+      relations: ['category'],
+    });
+
+    // Get all transaction details for each product
+    const productDetails: any[] = [];
+
+    for (const product of products) {
+      // Get sales order items for this product
+      const salesItemsQuery = this.salesOrderItemRepository
+        .createQueryBuilder('item')
+        .leftJoinAndSelect('item.salesOrder', 'order')
+        .leftJoinAndSelect('order.customer', 'customer')
+        .where('item.productId = :productId', { productId: product.id })
+        .andWhere('order.status NOT IN (:...excludedStatuses)', {
+          excludedStatuses: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT],
+        });
+
+      if (query.dateFrom) {
+        salesItemsQuery.andWhere('order.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+      }
+      if (query.dateTo) {
+        salesItemsQuery.andWhere('order.orderDate <= :dateTo', { dateTo: query.dateTo });
+      }
+
+      const salesItems = await salesItemsQuery
+        .orderBy('order.orderDate', 'DESC')
+        .getMany();
+
+      // Transform sales items to detail records
+      for (const item of salesItems) {
+        const order = item.salesOrder;
+        const quantity = Number(item.quantity);
+        const unitPrice = Number(item.unitPrice);
+        const baseCost = Number(product.baseCost || 0);
+        const totalAmount = quantity * unitPrice;
+        const totalCost = quantity * baseCost;
+        const profit = totalAmount - totalCost;
+
+        productDetails.push({
+          transactionType: 'Sale',
+          transactionDate: order.orderDate,
+          documentNumber: order.orderNumber,
+          customerSupplier: order.customer?.name || 'Unknown',
+          productId: product.id,
+          productName: product.name,
+          category: product.category?.name || 'Uncategorized',
+          quantity: quantity,
+          unitPrice: unitPrice,
+          totalAmount: totalAmount,
+          cost: totalCost,
+          profit: profit,
+        });
+      }
+
+      // Get purchase order items for this product
+      const purchaseItemsQuery = this.purchaseOrderItemRepository
+        .createQueryBuilder('item')
+        .leftJoinAndSelect('item.purchaseOrder', 'po')
+        .leftJoinAndSelect('po.supplier', 'supplier')
+        .where('item.productId = :productId', { productId: product.id });
+
+      if (query.dateFrom) {
+        purchaseItemsQuery.andWhere('po.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+      }
+      if (query.dateTo) {
+        purchaseItemsQuery.andWhere('po.orderDate <= :dateTo', { dateTo: query.dateTo });
+      }
+
+      const purchaseItems = await purchaseItemsQuery
+        .orderBy('po.orderDate', 'DESC')
+        .getMany();
+
+      // Transform purchase items to detail records
+      for (const item of purchaseItems) {
+        const po = item.purchaseOrder;
+        const quantity = Number(item.quantity);
+        const unitCost = Number(item.unitCost);
+        const totalAmount = quantity * unitCost;
+
+        productDetails.push({
+          transactionType: 'Purchase',
+          transactionDate: po.orderDate,
+          documentNumber: po.orderNumber,
+          customerSupplier: po.supplier?.companyName || 'Unknown',
+          productId: product.id,
+          productName: product.name,
+          category: product.category?.name || 'Uncategorized',
+          quantity: quantity,
+          unitPrice: unitCost,
+          totalAmount: totalAmount,
+          cost: totalAmount,
+          profit: 0, // No profit on purchases
+        });
+      }
+    }
+
+    // Sort by transaction date descending
+    productDetails.sort((a, b) => {
+      const dateA = new Date(a.transactionDate).getTime();
+      const dateB = new Date(b.transactionDate).getTime();
+      return dateB - dateA;
+    });
+
+    return {
+      data: productDetails,
+    };
+  }
 }

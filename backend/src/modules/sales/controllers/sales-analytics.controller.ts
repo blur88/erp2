@@ -382,4 +382,53 @@ export class SalesAnalyticsController {
       productIds: Array.isArray(productIds) ? productIds : productIds ? [productIds] : undefined,
     });
   }
+
+  @Get('product-details')
+  @ApiOperation({ summary: 'Get product details report with transaction-level data' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
+  @ApiQuery({ name: 'productIds', required: false, type: [String], description: 'Filter by product IDs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Product details report retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              transactionType: { type: 'string', enum: ['Sale', 'Purchase'] },
+              transactionDate: { type: 'string', format: 'date-time' },
+              documentNumber: { type: 'string' },
+              customerSupplier: { type: 'string' },
+              productId: { type: 'string', format: 'uuid' },
+              productName: { type: 'string' },
+              category: { type: 'string' },
+              quantity: { type: 'number' },
+              unitPrice: { type: 'number' },
+              totalAmount: { type: 'number' },
+              cost: { type: 'number' },
+              profit: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getProductDetails(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('productIds') productIds?: string | string[],
+  ) {
+    return this.salesAnalyticsService.getProductDetails({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      categoryId,
+      productIds: Array.isArray(productIds) ? productIds : productIds ? [productIds] : undefined,
+    });
+  }
 }
