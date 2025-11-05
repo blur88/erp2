@@ -714,33 +714,53 @@ const SalesByProductDetails: React.FC = () => {
   // Group data by selected grouping
   const getGroupedData = () => {
     if (groupBy !== 'none' && sortedData.length > 0) {
-      const grouped = sortedData.reduce((acc: { [key: string]: ProductDetail[] }, item) => {
-        let groupKey = ''
+      if (groupBy === 'category-product') {
+        // Hierarchical grouping: Category -> Product
+        const categoryGroups: { [key: string]: { [key: string]: ProductDetail[] } } = {}
 
-        switch (groupBy) {
-          case 'transactionType':
-            groupKey = item.transactionType
-            break
-          case 'product':
-            groupKey = item.productName
-            break
-          case 'category':
-            groupKey = item.category || 'Uncategorized'
-            break
-          case 'customerSupplier':
-            groupKey = item.customerSupplier
-            break
-          default:
-            groupKey = 'Ungrouped'
-        }
+        sortedData.forEach(item => {
+          const categoryKey = item.category || 'Uncategorized'
+          const productKey = item.productName
 
-        if (!acc[groupKey]) {
-          acc[groupKey] = []
-        }
-        acc[groupKey].push(item)
-        return acc
-      }, {})
-      return grouped
+          if (!categoryGroups[categoryKey]) {
+            categoryGroups[categoryKey] = {}
+          }
+          if (!categoryGroups[categoryKey][productKey]) {
+            categoryGroups[categoryKey][productKey] = []
+          }
+          categoryGroups[categoryKey][productKey].push(item)
+        })
+
+        // Flatten into single-level groups with hierarchical keys
+        const flattened: { [key: string]: ProductDetail[] } = {}
+        Object.entries(categoryGroups).forEach(([category, products]) => {
+          Object.entries(products).forEach(([product, items]) => {
+            flattened[`${category} > ${product}`] = items
+          })
+        })
+
+        return flattened
+      } else {
+        // Single-level grouping
+        const grouped = sortedData.reduce((acc: { [key: string]: ProductDetail[] }, item) => {
+          let groupKey = ''
+
+          switch (groupBy) {
+            case 'category':
+              groupKey = item.category || 'Uncategorized'
+              break
+            default:
+              groupKey = 'Ungrouped'
+          }
+
+          if (!acc[groupKey]) {
+            acc[groupKey] = []
+          }
+          acc[groupKey].push(item)
+          return acc
+        }, {})
+        return grouped
+      }
     }
     return null
   }
@@ -1020,10 +1040,8 @@ const SalesByProductDetails: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="transactionType">Transaction Type</MenuItem>
-                    <MenuItem value="product">Product</MenuItem>
+                    <MenuItem value="category-product">Category, Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="customerSupplier">Customer/Supplier</MenuItem>
                   </Select>
                 </FormControl>
 
