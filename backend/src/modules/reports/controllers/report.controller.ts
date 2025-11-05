@@ -1,21 +1,21 @@
-import { 
-  Controller, 
-  Post, 
-  Get, 
-  Body, 
-  Query, 
-  Param, 
-  Req 
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Query,
 } from '@nestjs/common';
-import { 
-  ReportConfig, 
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ReportConfig,
   ReportGenerationOptions,
   ReportFormat,
-  ReportCategory 
+  ReportCategory
 } from '../interfaces/report-types.interface';
 import { SalesReportService } from '../services/sales-report.service';
 import { BaseReportService } from '../services/base-report.service';
 
+@ApiTags('reports')
 @Controller('reports')
 export class ReportController {
   constructor(
@@ -27,21 +27,19 @@ export class ReportController {
    * Generate a report
    */
   @Post('generate')
+  @ApiOperation({ summary: 'Generate a report based on configuration' })
+  @ApiResponse({ status: 200, description: 'Report generated successfully' })
   async generateReport(
     @Body('reportConfig') reportConfig: ReportConfig,
-    @Body('options') options: ReportGenerationOptions,
-    @Req() request
+    @Body('options') options: ReportGenerationOptions
   ) {
-    const userRole = request.user.role;
-
     // Determine appropriate report service based on category
     const reportService = this.getReportService(reportConfig.category);
 
     // Generate report
     const reportData = await reportService.generateReport(
-      reportConfig, 
-      options, 
-      userRole
+      reportConfig,
+      options
     );
 
     return {
@@ -54,13 +52,14 @@ export class ReportController {
    * Export a report
    */
   @Post('export')
+  @ApiOperation({ summary: 'Export report to specified format' })
+  @ApiResponse({ status: 200, description: 'Report exported successfully' })
   async exportReport(
     @Body('reportData') reportData: any,
-    @Body('format') format: ReportFormat,
-    @Req() request
+    @Body('format') format: ReportFormat
   ) {
     const exportedReport = await this.baseReportService.exportReport(
-      reportData, 
+      reportData,
       format
     );
 
@@ -74,14 +73,21 @@ export class ReportController {
    * Get available report templates
    */
   @Get('templates')
+  @ApiOperation({ summary: 'Get available report templates' })
+  @ApiResponse({ status: 200, description: 'Templates retrieved successfully' })
   async getReportTemplates(
     @Query('category') category?: ReportCategory
   ) {
-    // Placeholder for report template retrieval
-    // Implement logic to fetch report templates based on category
+    // Empty templates array - starting from scratch
+    const templates = [];
+
+    const filteredTemplates = category
+      ? templates.filter(t => t.category === category)
+      : templates;
+
     return {
       success: true,
-      templates: []
+      templates: filteredTemplates
     };
   }
 
