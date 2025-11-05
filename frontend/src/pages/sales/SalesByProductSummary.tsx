@@ -17,6 +17,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   CircularProgress,
   Stack,
   useTheme,
@@ -94,6 +95,10 @@ const SalesByProductSummary: React.FC = () => {
   const [sortBy3, setSortBy3] = useState<string>('none')
   const [reportTitle, setReportTitle] = useState<string>('Sales by Product Summary')
 
+  // Pagination
+  const [page, setPage] = useState<number>(0)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(25)
+
   useEffect(() => {
     // Load products
     fetch('/api/inventory/products?limit=100')
@@ -130,6 +135,7 @@ const SalesByProductSummary: React.FC = () => {
 
   const handleGenerateReport = async () => {
     setLoading(true)
+    setPage(0) // Reset to first page when generating new report
 
     try {
       // Build query parameters
@@ -177,6 +183,10 @@ const SalesByProductSummary: React.FC = () => {
     setSortBy2('none')
     setSortBy3('none')
     setReportTitle('Sales by Product Summary')
+
+    // Reset pagination
+    setPage(0)
+    setRowsPerPage(25)
   }
 
   const handleExportExcel = () => {
@@ -717,6 +727,9 @@ const SalesByProductSummary: React.FC = () => {
 
   const groupedData = getGroupedData()
 
+  // Apply pagination to sorted data
+  const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+
   // Calculate subtotals for each category group
   const calculateCategorySubtotal = (items: ProductSummary[]) => {
     return items.reduce(
@@ -739,6 +752,16 @@ const SalesByProductSummary: React.FC = () => {
         totalProfit: 0,
       }
     )
+  }
+
+  // Pagination handlers
+  const handleChangePage = (_: unknown, newPage: number) => {
+    setPage(newPage)
+  }
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10))
+    setPage(0)
   }
 
   return (
@@ -1308,8 +1331,8 @@ const SalesByProductSummary: React.FC = () => {
                         )
                       })
                     ) : (
-                      // Render ungrouped
-                      sortedData.map((row) => (
+                      // Render ungrouped with pagination
+                      paginatedData.map((row) => (
                         <TableRow
                           key={row.productId}
                           hover
@@ -1439,6 +1462,21 @@ const SalesByProductSummary: React.FC = () => {
                 </Table>
               </TableContainer>
               </Box>
+
+              {/* Pagination - only show when not grouped */}
+              {!groupedData && reportData.length > 0 && (
+                <Box sx={{ borderTop: TABLE_STYLES.cell.border, flexShrink: 0 }}>
+                  <TablePagination
+                    component="div"
+                    count={sortedData.length}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    rowsPerPageOptions={[10, 25, 50, 100]}
+                  />
+                </Box>
+              )}
             </Paper>
           )}
         </Grid>
