@@ -161,12 +161,23 @@ const SalesByProductSummary: React.FC = () => {
   }
 
   const handleClearFilters = () => {
+    // Clear filter options
     setSelectedProduct('all')
     setSelectedProducts([])
     setSelectedCategory('')
     setDateFrom('')
     setDateTo('')
+
+    // Clear report data
     setReportData([])
+
+    // Reset display options to defaults
+    setSelectedColumns(['productName', 'category', 'soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit'])
+    setGroupBy('none')
+    setSortBy1('productName')
+    setSortBy2('none')
+    setSortBy3('none')
+    setReportTitle('Sales by Product Summary')
   }
 
   const handleProductSelectChange = (value: string) => {
@@ -345,10 +356,61 @@ const SalesByProductSummary: React.FC = () => {
 
   const totals = calculateTotals()
 
+  // Sort the report data based on selected sort criteria
+  const getSortedData = () => {
+    if (reportData.length === 0) return []
+
+    const sorted = [...reportData]
+
+    const compareValues = (a: any, b: any, field: string) => {
+      const aVal = a[field]
+      const bVal = b[field]
+
+      // Handle null/undefined
+      if (aVal == null && bVal == null) return 0
+      if (aVal == null) return 1
+      if (bVal == null) return -1
+
+      // String comparison (case-insensitive) - ascending for text
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return aVal.toLowerCase().localeCompare(bVal.toLowerCase())
+      }
+
+      // Numeric comparison - descending (higher to lower)
+      return bVal - aVal
+    }
+
+    sorted.sort((a, b) => {
+      // First sort
+      if (sortBy1 !== 'none') {
+        const result1 = compareValues(a, b, sortBy1)
+        if (result1 !== 0) return result1
+      }
+
+      // Then sort (second level)
+      if (sortBy2 !== 'none') {
+        const result2 = compareValues(a, b, sortBy2)
+        if (result2 !== 0) return result2
+      }
+
+      // Then sort (third level)
+      if (sortBy3 !== 'none') {
+        const result3 = compareValues(a, b, sortBy3)
+        if (result3 !== 0) return result3
+      }
+
+      return 0
+    })
+
+    return sorted
+  }
+
+  const sortedData = getSortedData()
+
   // Group data by category if groupBy is set to 'category'
   const getGroupedData = () => {
-    if (groupBy === 'category' && reportData.length > 0) {
-      const grouped = reportData.reduce((acc: { [key: string]: ProductSummary[] }, item) => {
+    if (groupBy === 'category' && sortedData.length > 0) {
+      const grouped = sortedData.reduce((acc: { [key: string]: ProductSummary[] }, item) => {
         const categoryName = item.category || 'Uncategorized'
         if (!acc[categoryName]) {
           acc[categoryName] = []
@@ -845,7 +907,7 @@ const SalesByProductSummary: React.FC = () => {
                                 }}
                               >
                                 {selectedColumns.includes('productName') && (
-                                  <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, pl: 4 }}>
+                                  <TableCell sx={{ fontSize: '0.8rem', pl: 4 }}>
                                     {row.productName}
                                   </TableCell>
                                 )}
@@ -961,7 +1023,7 @@ const SalesByProductSummary: React.FC = () => {
                       })
                     ) : (
                       // Render ungrouped
-                      reportData.map((row) => (
+                      sortedData.map((row) => (
                         <TableRow
                           key={row.productId}
                           hover
@@ -972,7 +1034,7 @@ const SalesByProductSummary: React.FC = () => {
                           }}
                         >
                           {selectedColumns.includes('productName') && (
-                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {row.productName}
                             </TableCell>
                           )}
