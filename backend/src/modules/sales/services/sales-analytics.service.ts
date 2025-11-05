@@ -792,9 +792,9 @@ export class SalesAnalyticsService {
         const order = item.salesOrder;
         const quantity = Number(item.quantity);
         const unitPrice = Number(item.unitPrice);
-        const baseCost = Number(product.baseCost || 0);
+        const unitCost = Number(item.unitCost || 0); // Use cost from sales order item
         const totalAmount = quantity * unitPrice;
-        const totalCost = quantity * baseCost;
+        const totalCost = quantity * unitCost;
         const profit = totalAmount - totalCost;
 
         // Determine price level from customer or default to retail
