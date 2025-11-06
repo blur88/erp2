@@ -60,10 +60,10 @@ const SalesOrderSummary: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'orderNumber', 'orderDate', 'customerName', 'itemsCount', 'totalAmount', 'paidAmount', 'balanceDue', 'paymentStatus', 'fulfillmentStatus'
+    'orderNumber', 'customerName', 'invoiceStatus', 'paymentStatus', 'orderDate', 'totalAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('orderDate')
+  const [sortBy1, setSortBy1] = useState<string>('orderNumber')
   const [sortBy2, setSortBy2] = useState<string>('none')
   const [sortBy3, setSortBy3] = useState<string>('none')
   const [reportTitle, setReportTitle] = useState<string>('Sales Order Summary')
@@ -147,9 +147,9 @@ const SalesOrderSummary: React.FC = () => {
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['orderNumber', 'orderDate', 'customerName', 'itemsCount', 'totalAmount', 'paidAmount', 'balanceDue', 'paymentStatus', 'fulfillmentStatus'])
+    setSelectedColumns(['orderNumber', 'customerName', 'invoiceStatus', 'paymentStatus', 'orderDate', 'totalAmount'])
     setGroupBy('none')
-    setSortBy1('orderDate')
+    setSortBy1('orderNumber')
     setSortBy2('none')
     setSortBy3('none')
     setReportTitle('Sales Order Summary')
@@ -656,15 +656,12 @@ const SalesOrderSummary: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     renderValue={(selected) => `${selected.length} selected`}
                   >
-                    <MenuItem value="orderNumber">Order Number</MenuItem>
-                    <MenuItem value="orderDate">Order Date</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="itemsCount">Items</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="paidAmount">Paid Amount</MenuItem>
-                    <MenuItem value="balanceDue">Balance Due</MenuItem>
+                    <MenuItem value="invoiceStatus">Invoice Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="fulfillmentStatus">Fulfillment Status</MenuItem>
+                    <MenuItem value="orderDate">Order Date</MenuItem>
+                    <MenuItem value="totalAmount">Total</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -826,15 +823,12 @@ const SalesOrderSummary: React.FC = () => {
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                       textAlign: 'center'
                     } }}>
-                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order Number</TableCell>}
-                      {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
+                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
                       {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
-                      {selectedColumns.includes('itemsCount') && <TableCell align="center">Items</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total Amount</TableCell>}
-                      {selectedColumns.includes('paidAmount') && <TableCell align="center">Paid Amount</TableCell>}
-                      {selectedColumns.includes('balanceDue') && <TableCell align="center">Balance Due</TableCell>}
+                      {selectedColumns.includes('invoiceStatus') && <TableCell align="center">Invoice Status</TableCell>}
                       {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
-                      {selectedColumns.includes('fulfillmentStatus') && <TableCell align="center">Fulfillment Status</TableCell>}
+                      {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -853,34 +847,19 @@ const SalesOrderSummary: React.FC = () => {
                             {row.orderNumber}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('orderDate') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {new Date(row.orderDate).toLocaleDateString()}
-                          </TableCell>
-                        )}
                         {selectedColumns.includes('customerName') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
                             {row.customerName}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('itemsCount') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {row.itemsCount}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('totalAmount') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.totalAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('paidAmount') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.paidAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('balanceDue') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', color: row.balanceDue > 0 ? 'warning.main' : 'inherit' }}>
-                            {formatCurrency(row.balanceDue)}
+                        {selectedColumns.includes('invoiceStatus') && (
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                            <Chip
+                              label={row.status || 'Draft'}
+                              size="small"
+                              color={row.status === 'completed' ? 'success' : row.status === 'cancelled' ? 'error' : 'default'}
+                              sx={{ fontSize: '0.7rem', height: '20px' }}
+                            />
                           </TableCell>
                         )}
                         {selectedColumns.includes('paymentStatus') && (
@@ -893,14 +872,14 @@ const SalesOrderSummary: React.FC = () => {
                             />
                           </TableCell>
                         )}
-                        {selectedColumns.includes('fulfillmentStatus') && (
-                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            <Chip
-                              label={row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}
-                              size="small"
-                              color={row.isFulfilled ? 'success' : 'default'}
-                              sx={{ fontSize: '0.7rem', height: '20px' }}
-                            />
+                        {selectedColumns.includes('orderDate') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {new Date(row.orderDate).toLocaleDateString()}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {formatCurrency(row.totalAmount)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -923,30 +902,15 @@ const SalesOrderSummary: React.FC = () => {
                             TOTAL
                           </TableCell>
                         )}
-                        {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('customerName') && <TableCell />}
-                        {selectedColumns.includes('itemsCount') && (
-                          <TableCell align="right">
-                            {totals.itemsCount.toLocaleString()}
-                          </TableCell>
-                        )}
+                        {selectedColumns.includes('invoiceStatus') && <TableCell />}
+                        {selectedColumns.includes('paymentStatus') && <TableCell />}
+                        {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
                           <TableCell align="right">
                             {formatCurrency(totals.totalAmount)}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('paidAmount') && (
-                          <TableCell align="right">
-                            {formatCurrency(totals.paidAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('balanceDue') && (
-                          <TableCell align="right">
-                            {formatCurrency(totals.balanceDue)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('paymentStatus') && <TableCell />}
-                        {selectedColumns.includes('fulfillmentStatus') && <TableCell />}
                       </TableRow>
                     )}
                   </TableBody>
