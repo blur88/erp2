@@ -777,16 +777,17 @@ export class SalesAnalyticsService {
         .createQueryBuilder('item')
         .leftJoinAndSelect('item.salesOrder', 'order')
         .leftJoinAndSelect('order.customer', 'customer')
+        .leftJoin('order.invoices', 'invoice')
         .where('item.productId = :productId', { productId: product.id })
         .andWhere('order.status NOT IN (:...excludedStatuses)', {
           excludedStatuses: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT],
         });
 
       if (query.dateFrom) {
-        salesItemsQuery.andWhere('order.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+        salesItemsQuery.andWhere('invoice.invoiceDate >= :dateFrom', { dateFrom: query.dateFrom });
       }
       if (query.dateTo) {
-        salesItemsQuery.andWhere('order.orderDate <= :dateTo', { dateTo: query.dateTo });
+        salesItemsQuery.andWhere('invoice.invoiceDate <= :dateTo', { dateTo: query.dateTo });
       }
 
       const salesItems = await salesItemsQuery
@@ -824,48 +825,6 @@ export class SalesAnalyticsService {
           totalAmount: totalAmount,
           cost: totalCost,
           profit: profit,
-        });
-      }
-
-      // Get purchase order items for this product
-      const purchaseItemsQuery = this.purchaseOrderItemRepository
-        .createQueryBuilder('item')
-        .leftJoinAndSelect('item.purchaseOrder', 'po')
-        .leftJoinAndSelect('po.supplier', 'supplier')
-        .where('item.productId = :productId', { productId: product.id });
-
-      if (query.dateFrom) {
-        purchaseItemsQuery.andWhere('po.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
-      }
-      if (query.dateTo) {
-        purchaseItemsQuery.andWhere('po.orderDate <= :dateTo', { dateTo: query.dateTo });
-      }
-
-      const purchaseItems = await purchaseItemsQuery
-        .orderBy('po.orderDate', 'DESC')
-        .getMany();
-
-      // Transform purchase items to detail records
-      for (const item of purchaseItems) {
-        const po = item.purchaseOrder;
-        const quantity = Number(item.quantity);
-        const unitCost = Number(item.unitCost);
-        const totalAmount = quantity * unitCost;
-
-        productDetails.push({
-          transactionType: 'Purchase',
-          transactionDate: po.orderDate,
-          documentNumber: po.orderNumber,
-          customerSupplier: po.supplier?.companyName || 'Unknown',
-          productId: product.id,
-          productName: product.name,
-          category: product.category?.name || 'Uncategorized',
-          quantity: quantity,
-          unitPrice: unitCost,
-          priceLevel: '-', // No price level for purchases
-          totalAmount: totalAmount,
-          cost: totalAmount,
-          profit: 0, // No profit on purchases
         });
       }
     }
