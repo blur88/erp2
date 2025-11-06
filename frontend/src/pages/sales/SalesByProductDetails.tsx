@@ -52,24 +52,27 @@ import {
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
-interface ProductSummary {
+interface ProductDetail {
+  transactionType: 'Sale' | 'Purchase'
+  transactionDate: string
+  documentNumber: string
+  customerSupplier: string
   productId: string
   productName: string
   category: string
-  soldQty: number
-  totalSales: number
+  quantity: number
+  unitPrice: number
+  priceLevel: string
+  totalAmount: number
   cost: number
-  salesProfit: number
-  purchaseQty: number
-  purchaseSubtotal: number
-  totalProfit: number
+  profit: number
 }
 
-const SalesByProductSummary: React.FC = () => {
+const SalesByProductDetails: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
-  const [reportData, setReportData] = useState<ProductSummary[]>([])
+  const [reportData, setReportData] = useState<ProductDetail[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [selectedProduct, setSelectedProduct] = useState<string>('all')
@@ -87,13 +90,13 @@ const SalesByProductSummary: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'category', 'soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit'
+    'productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('productName')
   const [sortBy2, setSortBy2] = useState<string>('none')
   const [sortBy3, setSortBy3] = useState<string>('none')
-  const [reportTitle, setReportTitle] = useState<string>('Sales by Product Summary')
+  const [reportTitle, setReportTitle] = useState<string>('Sales by Product Details')
 
   // Pagination
   const [page, setPage] = useState<number>(0)
@@ -149,7 +152,7 @@ const SalesByProductSummary: React.FC = () => {
       }
 
       // Call the backend API
-      const response = await fetch(`/api/sales/analytics/product-summary?${params.toString()}`)
+      const response = await fetch(`/api/sales/analytics/product-details?${params.toString()}`)
 
       if (!response.ok) {
         throw new Error('Failed to fetch report data')
@@ -177,12 +180,12 @@ const SalesByProductSummary: React.FC = () => {
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['productName', 'category', 'soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit'])
+    setSelectedColumns(['productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'])
     setGroupBy('none')
     setSortBy1('productName')
     setSortBy2('none')
     setSortBy3('none')
-    setReportTitle('Sales by Product Summary')
+    setReportTitle('Sales by Product Details')
 
     // Reset pagination
     setPage(0)
@@ -196,13 +199,14 @@ const SalesByProductSummary: React.FC = () => {
     const columnHeaders: { [key: string]: string } = {
       productName: 'Product',
       category: 'Category',
-      soldQty: 'Sold Qty',
-      totalSales: 'Total Sales',
-      cost: 'Cost',
-      salesProfit: 'Sales Profit',
-      purchaseQty: 'Purchase Qty',
-      purchaseSubtotal: 'Purchase Subtotal',
-      totalProfit: 'Total Profit'
+      transactionDate: 'Order Date',
+      documentNumber: 'SO No / PO No',
+      customerSupplier: 'Customer',
+      priceLevel: 'Pricing',
+      quantity: 'Qty Sold',
+      totalAmount: 'Sales Amount',
+      cost: 'Sales Cost',
+      profit: 'Sales Profit'
     }
 
     // Build CSV content
@@ -215,15 +219,17 @@ const SalesByProductSummary: React.FC = () => {
     // Add data rows
     if (groupedData) {
       // Export grouped data
-      Object.entries(groupedData).forEach(([categoryName, items]) => {
-        // Category header
-        csv += `\n"${categoryName}"\n`
+      Object.entries(groupedData).forEach(([groupName, items]) => {
+        // Group header
+        csv += `\n"${groupName}"\n`
 
         // Items
         items.forEach(row => {
           const values = selectedColumns.map(col => {
             const value = (row as any)[col]
-            if (col === 'soldQty' || col === 'purchaseQty') {
+            if (col === 'transactionDate') {
+              return `"${new Date(value).toLocaleDateString()}"`
+            } else if (col === 'quantity') {
               return value.toLocaleString()
             } else if (typeof value === 'number') {
               return value.toFixed(2)
@@ -234,11 +240,11 @@ const SalesByProductSummary: React.FC = () => {
         })
 
         // Subtotal
-        const subtotal = calculateCategorySubtotal(items)
-        csv += '"Subtotal - ' + categoryName + '",'
+        const subtotal = calculateGroupSubtotal(items)
+        csv += `"Subtotal - ${groupName}",`
         const subtotalValues = selectedColumns.slice(1).map(col => {
           const value = (subtotal as any)[col]
-          if (col === 'soldQty' || col === 'purchaseQty') {
+          if (col === 'quantity') {
             return value?.toLocaleString() || ''
           } else if (typeof value === 'number') {
             return value.toFixed(2)
@@ -252,7 +258,9 @@ const SalesByProductSummary: React.FC = () => {
       sortedData.forEach(row => {
         const values = selectedColumns.map(col => {
           const value = (row as any)[col]
-          if (col === 'soldQty' || col === 'purchaseQty') {
+          if (col === 'transactionDate') {
+            return `"${new Date(value).toLocaleDateString()}"`
+          } else if (col === 'quantity') {
             return value.toLocaleString()
           } else if (typeof value === 'number') {
             return value.toFixed(2)
@@ -268,7 +276,7 @@ const SalesByProductSummary: React.FC = () => {
       csv += '\n"TOTAL",'
       const totalValues = selectedColumns.slice(1).map(col => {
         const value = (totals as any)[col]
-        if (col === 'soldQty' || col === 'purchaseQty') {
+        if (col === 'quantity') {
           return value?.toLocaleString() || ''
         } else if (typeof value === 'number') {
           return value.toFixed(2)
@@ -300,21 +308,22 @@ const SalesByProductSummary: React.FC = () => {
     const columnHeaders: { [key: string]: string } = {
       productName: 'Product',
       category: 'Category',
-      soldQty: 'Sold Qty',
-      totalSales: 'Total Sales',
-      cost: 'Cost',
-      salesProfit: 'Sales Profit',
-      purchaseQty: 'Purchase Qty',
-      purchaseSubtotal: 'Purchase Subtotal',
-      totalProfit: 'Total Profit'
+      transactionDate: 'Order Date',
+      documentNumber: 'SO No / PO No',
+      customerSupplier: 'Customer',
+      priceLevel: 'Pricing',
+      quantity: 'Qty Sold',
+      totalAmount: 'Sales Amount',
+      cost: 'Sales Cost',
+      profit: 'Sales Profit'
     }
 
     let tableRows = ''
 
     if (groupedData) {
-      Object.entries(groupedData).forEach(([categoryName, items]) => {
-        // Category header
-        tableRows += `<tr style="background-color: #e3f2fd; font-weight: bold;"><td colspan="${selectedColumns.length}">${categoryName}</td></tr>`
+      Object.entries(groupedData).forEach(([groupName, items]) => {
+        // Group header
+        tableRows += `<tr style="background-color: #e3f2fd; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupName}</td></tr>`
 
         // Items
         items.forEach(row => {
@@ -322,7 +331,9 @@ const SalesByProductSummary: React.FC = () => {
           selectedColumns.forEach(col => {
             const value = (row as any)[col]
             let displayValue = value
-            if (col === 'soldQty' || col === 'purchaseQty') {
+            if (col === 'transactionDate') {
+              displayValue = new Date(value).toLocaleDateString()
+            } else if (col === 'quantity') {
               displayValue = value.toLocaleString()
             } else if (typeof value === 'number') {
               displayValue = formatCurrency(value)
@@ -333,15 +344,15 @@ const SalesByProductSummary: React.FC = () => {
         })
 
         // Subtotal
-        const subtotal = calculateCategorySubtotal(items)
+        const subtotal = calculateGroupSubtotal(items)
         tableRows += '<tr style="background-color: #f5f5f5; font-style: italic;">'
         selectedColumns.forEach((col, idx) => {
           if (idx === 0) {
-            tableRows += `<td>Subtotal - ${categoryName}</td>`
+            tableRows += `<td>Subtotal - ${groupName}</td>`
           } else {
             const value = (subtotal as any)[col]
             let displayValue = ''
-            if (col === 'soldQty' || col === 'purchaseQty') {
+            if (col === 'quantity') {
               displayValue = value?.toLocaleString() || ''
             } else if (typeof value === 'number') {
               displayValue = formatCurrency(value)
@@ -357,7 +368,9 @@ const SalesByProductSummary: React.FC = () => {
         selectedColumns.forEach(col => {
           const value = (row as any)[col]
           let displayValue = value
-          if (col === 'soldQty' || col === 'purchaseQty') {
+          if (col === 'transactionDate') {
+            displayValue = new Date(value).toLocaleDateString()
+          } else if (col === 'quantity') {
             displayValue = value.toLocaleString()
           } else if (typeof value === 'number') {
             displayValue = formatCurrency(value)
@@ -377,7 +390,7 @@ const SalesByProductSummary: React.FC = () => {
         } else {
           const value = (totals as any)[col]
           let displayValue = ''
-          if (col === 'soldQty' || col === 'purchaseQty') {
+          if (col === 'quantity') {
             displayValue = value?.toLocaleString() || ''
           } else if (typeof value === 'number') {
             displayValue = formatCurrency(value)
@@ -407,8 +420,8 @@ const SalesByProductSummary: React.FC = () => {
             body { font-family: Arial, sans-serif; margin: 20px; }
             h1 { text-align: center; margin-bottom: 10px; }
             .header-info { text-align: center; margin-bottom: 20px; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
             th { background-color: #1976d2; color: white; font-weight: bold; }
             tr:nth-child(even) { background-color: #f9f9f9; }
             .text-right { text-align: right; }
@@ -636,22 +649,16 @@ const SalesByProductSummary: React.FC = () => {
 
     return reportData.reduce(
       (acc, item) => ({
-        soldQty: acc.soldQty + item.soldQty,
-        totalSales: acc.totalSales + item.totalSales,
+        quantity: acc.quantity + item.quantity,
+        totalAmount: acc.totalAmount + item.totalAmount,
         cost: acc.cost + item.cost,
-        salesProfit: acc.salesProfit + item.salesProfit,
-        purchaseQty: acc.purchaseQty + item.purchaseQty,
-        purchaseSubtotal: acc.purchaseSubtotal + item.purchaseSubtotal,
-        totalProfit: acc.totalProfit + item.totalProfit,
+        profit: acc.profit + item.profit,
       }),
       {
-        soldQty: 0,
-        totalSales: 0,
+        quantity: 0,
+        totalAmount: 0,
         cost: 0,
-        salesProfit: 0,
-        purchaseQty: 0,
-        purchaseSubtotal: 0,
-        totalProfit: 0,
+        profit: 0,
       }
     )
   }
@@ -672,6 +679,11 @@ const SalesByProductSummary: React.FC = () => {
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
       if (bVal == null) return -1
+
+      // Date comparison - descending (newer to older)
+      if (field === 'transactionDate') {
+        return new Date(bVal).getTime() - new Date(aVal).getTime()
+      }
 
       // String comparison (case-insensitive) - ascending for text
       if (typeof aVal === 'string' && typeof bVal === 'string') {
@@ -709,18 +721,56 @@ const SalesByProductSummary: React.FC = () => {
 
   const sortedData = getSortedData()
 
-  // Group data by category if groupBy is set to 'category'
+  // Group data by selected grouping
   const getGroupedData = () => {
-    if (groupBy === 'category' && sortedData.length > 0) {
-      const grouped = sortedData.reduce((acc: { [key: string]: ProductSummary[] }, item) => {
-        const categoryName = item.category || 'Uncategorized'
-        if (!acc[categoryName]) {
-          acc[categoryName] = []
-        }
-        acc[categoryName].push(item)
-        return acc
-      }, {})
-      return grouped
+    if (groupBy !== 'none' && sortedData.length > 0) {
+      if (groupBy === 'category-product') {
+        // Hierarchical grouping: Category -> Product
+        const categoryGroups: { [key: string]: { [key: string]: ProductDetail[] } } = {}
+
+        sortedData.forEach(item => {
+          const categoryKey = item.category || 'Uncategorized'
+          const productKey = item.productName
+
+          if (!categoryGroups[categoryKey]) {
+            categoryGroups[categoryKey] = {}
+          }
+          if (!categoryGroups[categoryKey][productKey]) {
+            categoryGroups[categoryKey][productKey] = []
+          }
+          categoryGroups[categoryKey][productKey].push(item)
+        })
+
+        // Flatten into single-level groups with hierarchical keys
+        const flattened: { [key: string]: ProductDetail[] } = {}
+        Object.entries(categoryGroups).forEach(([category, products]) => {
+          Object.entries(products).forEach(([product, items]) => {
+            flattened[`${category} > ${product}`] = items
+          })
+        })
+
+        return flattened
+      } else {
+        // Single-level grouping
+        const grouped = sortedData.reduce((acc: { [key: string]: ProductDetail[] }, item) => {
+          let groupKey = ''
+
+          switch (groupBy) {
+            case 'category':
+              groupKey = item.category || 'Uncategorized'
+              break
+            default:
+              groupKey = 'Ungrouped'
+          }
+
+          if (!acc[groupKey]) {
+            acc[groupKey] = []
+          }
+          acc[groupKey].push(item)
+          return acc
+        }, {})
+        return grouped
+      }
     }
     return null
   }
@@ -730,26 +780,20 @@ const SalesByProductSummary: React.FC = () => {
   // Apply pagination to sorted data
   const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
-  // Calculate subtotals for each category group
-  const calculateCategorySubtotal = (items: ProductSummary[]) => {
+  // Calculate subtotals for each group
+  const calculateGroupSubtotal = (items: ProductDetail[]) => {
     return items.reduce(
       (acc, item) => ({
-        soldQty: acc.soldQty + item.soldQty,
-        totalSales: acc.totalSales + item.totalSales,
+        quantity: acc.quantity + item.quantity,
+        totalAmount: acc.totalAmount + item.totalAmount,
         cost: acc.cost + item.cost,
-        salesProfit: acc.salesProfit + item.salesProfit,
-        purchaseQty: acc.purchaseQty + item.purchaseQty,
-        purchaseSubtotal: acc.purchaseSubtotal + item.purchaseSubtotal,
-        totalProfit: acc.totalProfit + item.totalProfit,
+        profit: acc.profit + item.profit,
       }),
       {
-        soldQty: 0,
-        totalSales: 0,
+        quantity: 0,
+        totalAmount: 0,
         cost: 0,
-        salesProfit: 0,
-        purchaseQty: 0,
-        purchaseSubtotal: 0,
-        totalProfit: 0,
+        profit: 0,
       }
     )
   }
@@ -787,12 +831,12 @@ const SalesByProductSummary: React.FC = () => {
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
-            Sales by Product Summary
+            Sales by Product Details
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             {reportData.length > 0
-              ? `Product performance report (${reportData.length} products)`
-              : 'Analyze product performance and sales metrics'}
+              ? `Detailed transaction report (${reportData.length} transactions)`
+              : 'View transaction-level product details'}
           </Typography>
         </Box>
         <Box sx={{
@@ -845,7 +889,7 @@ const SalesByProductSummary: React.FC = () => {
               <Box sx={{ p: 2 }}>
                 <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                  SO Date Range
+                  Transaction Date Range
                 </Typography>
                 <TextField
                   label="Date From"
@@ -945,7 +989,7 @@ const SalesByProductSummary: React.FC = () => {
 
                       // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['productName', 'category', 'soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit']
+                        const allColumns = ['productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit']
                         // If all were selected, deselect all; otherwise select all
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
@@ -962,8 +1006,8 @@ const SalesByProductSummary: React.FC = () => {
                   >
                     <MenuItem value="all">
                       <Checkbox
-                        checked={selectedColumns.length === 9}
-                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 9}
+                        checked={selectedColumns.length === 10}
+                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 10}
                       />
                       <ListItemText primary="All" />
                     </MenuItem>
@@ -975,33 +1019,37 @@ const SalesByProductSummary: React.FC = () => {
                       <Checkbox checked={selectedColumns.includes('category')} />
                       <ListItemText primary="Category" />
                     </MenuItem>
-                    <MenuItem value="soldQty">
-                      <Checkbox checked={selectedColumns.includes('soldQty')} />
-                      <ListItemText primary="Sold Qty" />
+                    <MenuItem value="transactionDate">
+                      <Checkbox checked={selectedColumns.includes('transactionDate')} />
+                      <ListItemText primary="Order Date" />
                     </MenuItem>
-                    <MenuItem value="totalSales">
-                      <Checkbox checked={selectedColumns.includes('totalSales')} />
-                      <ListItemText primary="Total Sales" />
+                    <MenuItem value="documentNumber">
+                      <Checkbox checked={selectedColumns.includes('documentNumber')} />
+                      <ListItemText primary="SO No / PO No" />
+                    </MenuItem>
+                    <MenuItem value="customerSupplier">
+                      <Checkbox checked={selectedColumns.includes('customerSupplier')} />
+                      <ListItemText primary="Customer" />
+                    </MenuItem>
+                    <MenuItem value="priceLevel">
+                      <Checkbox checked={selectedColumns.includes('priceLevel')} />
+                      <ListItemText primary="Pricing" />
+                    </MenuItem>
+                    <MenuItem value="quantity">
+                      <Checkbox checked={selectedColumns.includes('quantity')} />
+                      <ListItemText primary="Qty Sold" />
+                    </MenuItem>
+                    <MenuItem value="totalAmount">
+                      <Checkbox checked={selectedColumns.includes('totalAmount')} />
+                      <ListItemText primary="Sales Amount" />
                     </MenuItem>
                     <MenuItem value="cost">
                       <Checkbox checked={selectedColumns.includes('cost')} />
-                      <ListItemText primary="Cost" />
+                      <ListItemText primary="Sales Cost" />
                     </MenuItem>
-                    <MenuItem value="salesProfit">
-                      <Checkbox checked={selectedColumns.includes('salesProfit')} />
+                    <MenuItem value="profit">
+                      <Checkbox checked={selectedColumns.includes('profit')} />
                       <ListItemText primary="Sales Profit" />
-                    </MenuItem>
-                    <MenuItem value="purchaseQty">
-                      <Checkbox checked={selectedColumns.includes('purchaseQty')} />
-                      <ListItemText primary="Purchase Qty" />
-                    </MenuItem>
-                    <MenuItem value="purchaseSubtotal">
-                      <Checkbox checked={selectedColumns.includes('purchaseSubtotal')} />
-                      <ListItemText primary="Purchase Subtotal" />
-                    </MenuItem>
-                    <MenuItem value="totalProfit">
-                      <Checkbox checked={selectedColumns.includes('totalProfit')} />
-                      <ListItemText primary="Total Profit" />
                     </MenuItem>
                   </Select>
                 </FormControl>
@@ -1015,6 +1063,7 @@ const SalesByProductSummary: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="category-product">Category, Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
                   </Select>
                 </FormControl>
@@ -1029,13 +1078,14 @@ const SalesByProductSummary: React.FC = () => {
                   >
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="soldQty">Sold Qty</MenuItem>
-                    <MenuItem value="totalSales">Total Sales</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
-                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
-                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
-                    <MenuItem value="totalProfit">Total Profit</MenuItem>
+                    <MenuItem value="transactionDate">Order Date</MenuItem>
+                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="customerSupplier">Customer</MenuItem>
+                    <MenuItem value="priceLevel">Pricing</MenuItem>
+                    <MenuItem value="quantity">Qty Sold</MenuItem>
+                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1050,13 +1100,14 @@ const SalesByProductSummary: React.FC = () => {
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="soldQty">Sold Qty</MenuItem>
-                    <MenuItem value="totalSales">Total Sales</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
-                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
-                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
-                    <MenuItem value="totalProfit">Total Profit</MenuItem>
+                    <MenuItem value="transactionDate">Order Date</MenuItem>
+                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="customerSupplier">Customer</MenuItem>
+                    <MenuItem value="priceLevel">Pricing</MenuItem>
+                    <MenuItem value="quantity">Qty Sold</MenuItem>
+                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1071,13 +1122,14 @@ const SalesByProductSummary: React.FC = () => {
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="soldQty">Sold Qty</MenuItem>
-                    <MenuItem value="totalSales">Total Sales</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
-                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
-                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
-                    <MenuItem value="totalProfit">Total Profit</MenuItem>
+                    <MenuItem value="transactionDate">Order Date</MenuItem>
+                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="customerSupplier">Customer</MenuItem>
+                    <MenuItem value="priceLevel">Pricing</MenuItem>
+                    <MenuItem value="quantity">Qty Sold</MenuItem>
+                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1111,7 +1163,7 @@ const SalesByProductSummary: React.FC = () => {
                         No Report Generated
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Configure the filters on the left and click "Generate Report" to view sales data by product.
+                        Configure the filters on the left and click "Generate Report" to view transaction details by product.
                       </Typography>
                     </>
                   )}
@@ -1127,7 +1179,7 @@ const SalesByProductSummary: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Report Preview ({reportData.length} products)
+                  Report Preview ({reportData.length} transactions)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
@@ -1173,23 +1225,24 @@ const SalesByProductSummary: React.FC = () => {
                     } }}>
                       {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
                       {selectedColumns.includes('category') && <TableCell align="center">Category</TableCell>}
-                      {selectedColumns.includes('soldQty') && <TableCell align="center">Sold Qty</TableCell>}
-                      {selectedColumns.includes('totalSales') && <TableCell align="center">Total Sales</TableCell>}
-                      {selectedColumns.includes('cost') && <TableCell align="center">Cost</TableCell>}
-                      {selectedColumns.includes('salesProfit') && <TableCell align="center">Sales Profit</TableCell>}
-                      {selectedColumns.includes('purchaseQty') && <TableCell align="center">Purchase Qty</TableCell>}
-                      {selectedColumns.includes('purchaseSubtotal') && <TableCell align="center">Purchase Subtotal</TableCell>}
-                      {selectedColumns.includes('totalProfit') && <TableCell align="center">Total Profit</TableCell>}
+                      {selectedColumns.includes('transactionDate') && <TableCell align="center">Order Date</TableCell>}
+                      {selectedColumns.includes('documentNumber') && <TableCell align="center">SO No / PO No</TableCell>}
+                      {selectedColumns.includes('customerSupplier') && <TableCell align="center">Customer</TableCell>}
+                      {selectedColumns.includes('priceLevel') && <TableCell align="center">Pricing</TableCell>}
+                      {selectedColumns.includes('quantity') && <TableCell align="center">Qty Sold</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Sales Amount</TableCell>}
+                      {selectedColumns.includes('cost') && <TableCell align="center">Sales Cost</TableCell>}
+                      {selectedColumns.includes('profit') && <TableCell align="center">Sales Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {groupedData ? (
-                      // Render grouped by category
-                      Object.entries(groupedData).map(([categoryName, items]) => {
-                        const subtotal = calculateCategorySubtotal(items)
+                      // Render grouped
+                      Object.entries(groupedData).map(([groupName, items]) => {
+                        const subtotal = calculateGroupSubtotal(items)
                         return (
-                          <React.Fragment key={categoryName}>
-                            {/* Category Header Row */}
+                          <React.Fragment key={groupName}>
+                            {/* Group Header Row */}
                             <TableRow
                               sx={{
                                 backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.1)' : 'primary.lighter',
@@ -1201,13 +1254,13 @@ const SalesByProductSummary: React.FC = () => {
                               }}
                             >
                               <TableCell colSpan={selectedColumns.length} sx={{ py: 1 }}>
-                                {categoryName}
+                                {groupName}
                               </TableCell>
                             </TableRow>
-                            {/* Category Items */}
-                            {items.map((row) => (
+                            {/* Group Items */}
+                            {items.map((row, idx) => (
                               <TableRow
-                                key={row.productId}
+                                key={`${row.productId}-${row.documentNumber}-${idx}`}
                                 hover
                                 sx={{
                                   '&:hover': { backgroundColor: 'action.hover' },
@@ -1216,7 +1269,7 @@ const SalesByProductSummary: React.FC = () => {
                                 }}
                               >
                                 {selectedColumns.includes('productName') && (
-                                  <TableCell sx={{ fontSize: '0.8rem', pl: 4 }}>
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
                                     {row.productName}
                                   </TableCell>
                                 )}
@@ -1225,14 +1278,34 @@ const SalesByProductSummary: React.FC = () => {
                                     {row.category}
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('soldQty') && (
-                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {row.soldQty.toLocaleString()}
+                                {selectedColumns.includes('transactionDate') && (
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    {new Date(row.transactionDate).toLocaleDateString()}
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('totalSales') && (
+                                {selectedColumns.includes('documentNumber') && (
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    {row.documentNumber}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('customerSupplier') && (
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    {row.customerSupplier}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('priceLevel') && (
+                                  <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    {row.priceLevel}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('quantity') && (
                                   <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {formatCurrency(row.totalSales)}
+                                    {row.quantity.toLocaleString()}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('totalAmount') && (
+                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                    {formatCurrency(row.totalAmount)}
                                   </TableCell>
                                 )}
                                 {selectedColumns.includes('cost') && (
@@ -1240,35 +1313,17 @@ const SalesByProductSummary: React.FC = () => {
                                     {formatCurrency(row.cost)}
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('salesProfit') && (
+                                {selectedColumns.includes('profit') && (
                                   <TableCell align="right" sx={{
                                     fontSize: '0.8rem',
-                                    color: row.salesProfit > 0 ? 'success.main' : 'error.main'
+                                    color: row.profit > 0 ? 'success.main' : row.profit < 0 ? 'error.main' : 'inherit'
                                   }}>
-                                    {formatCurrency(row.salesProfit)}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('purchaseQty') && (
-                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {row.purchaseQty.toLocaleString()}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('purchaseSubtotal') && (
-                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {formatCurrency(row.purchaseSubtotal)}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('totalProfit') && (
-                                  <TableCell align="right" sx={{
-                                    fontSize: '0.8rem',
-                                    color: row.totalProfit > 0 ? 'success.main' : 'error.main'
-                                  }}>
-                                    {formatCurrency(row.totalProfit)}
+                                    {formatCurrency(row.profit)}
                                   </TableCell>
                                 )}
                               </TableRow>
                             ))}
-                            {/* Category Subtotal Row */}
+                            {/* Group Subtotal Row */}
                             <TableRow
                               sx={{
                                 backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'grey.50',
@@ -1280,21 +1335,23 @@ const SalesByProductSummary: React.FC = () => {
                               }}
                             >
                               {selectedColumns.includes('productName') && (
-                                <TableCell sx={{ pl: 4 }}>
-                                  Subtotal - {categoryName}
+                                <TableCell>
+                                  Subtotal - {groupName}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('category') && (
-                                <TableCell />
-                              )}
-                              {selectedColumns.includes('soldQty') && (
+                              {selectedColumns.includes('category') && <TableCell />}
+                              {selectedColumns.includes('transactionDate') && <TableCell />}
+                              {selectedColumns.includes('documentNumber') && <TableCell />}
+                              {selectedColumns.includes('customerSupplier') && <TableCell />}
+                              {selectedColumns.includes('priceLevel') && <TableCell />}
+                              {selectedColumns.includes('quantity') && (
                                 <TableCell align="right">
-                                  {subtotal.soldQty.toLocaleString()}
+                                  {subtotal.quantity.toLocaleString()}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('totalSales') && (
+                              {selectedColumns.includes('totalAmount') && (
                                 <TableCell align="right">
-                                  {formatCurrency(subtotal.totalSales)}
+                                  {formatCurrency(subtotal.totalAmount)}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('cost') && (
@@ -1302,28 +1359,11 @@ const SalesByProductSummary: React.FC = () => {
                                   {formatCurrency(subtotal.cost)}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('salesProfit') && (
+                              {selectedColumns.includes('profit') && (
                                 <TableCell align="right" sx={{
-                                  color: subtotal.salesProfit > 0 ? 'success.main' : 'error.main'
+                                  color: subtotal.profit > 0 ? 'success.main' : subtotal.profit < 0 ? 'error.main' : 'inherit'
                                 }}>
-                                  {formatCurrency(subtotal.salesProfit)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('purchaseQty') && (
-                                <TableCell align="right">
-                                  {subtotal.purchaseQty.toLocaleString()}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('purchaseSubtotal') && (
-                                <TableCell align="right">
-                                  {formatCurrency(subtotal.purchaseSubtotal)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('totalProfit') && (
-                                <TableCell align="right" sx={{
-                                  color: subtotal.totalProfit > 0 ? 'success.main' : 'error.main'
-                                }}>
-                                  {formatCurrency(subtotal.totalProfit)}
+                                  {formatCurrency(subtotal.profit)}
                                 </TableCell>
                               )}
                             </TableRow>
@@ -1332,9 +1372,9 @@ const SalesByProductSummary: React.FC = () => {
                       })
                     ) : (
                       // Render ungrouped with pagination
-                      paginatedData.map((row) => (
+                      paginatedData.map((row, idx) => (
                         <TableRow
-                          key={row.productId}
+                          key={`${row.productId}-${row.documentNumber}-${idx}`}
                           hover
                           sx={{
                             '&:hover': { backgroundColor: 'action.hover' },
@@ -1352,14 +1392,34 @@ const SalesByProductSummary: React.FC = () => {
                               {row.category}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('soldQty') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {row.soldQty.toLocaleString()}
+                          {selectedColumns.includes('transactionDate') && (
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {new Date(row.transactionDate).toLocaleDateString()}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('totalSales') && (
+                          {selectedColumns.includes('documentNumber') && (
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {row.documentNumber}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('customerSupplier') && (
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {row.customerSupplier}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('priceLevel') && (
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {row.priceLevel}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('quantity') && (
                             <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(row.totalSales)}
+                              {row.quantity.toLocaleString()}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('totalAmount') && (
+                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(row.totalAmount)}
                             </TableCell>
                           )}
                           {selectedColumns.includes('cost') && (
@@ -1367,30 +1427,12 @@ const SalesByProductSummary: React.FC = () => {
                               {formatCurrency(row.cost)}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('salesProfit') && (
+                          {selectedColumns.includes('profit') && (
                             <TableCell align="right" sx={{
                               fontSize: '0.8rem',
-                              color: row.salesProfit > 0 ? 'success.main' : 'error.main'
+                              color: row.profit > 0 ? 'success.main' : row.profit < 0 ? 'error.main' : 'inherit'
                             }}>
-                              {formatCurrency(row.salesProfit)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('purchaseQty') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {row.purchaseQty.toLocaleString()}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('purchaseSubtotal') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(row.purchaseSubtotal)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('totalProfit') && (
-                            <TableCell align="right" sx={{
-                              fontSize: '0.8rem',
-                              color: row.totalProfit > 0 ? 'success.main' : 'error.main'
-                            }}>
-                              {formatCurrency(row.totalProfit)}
+                              {formatCurrency(row.profit)}
                             </TableCell>
                           )}
                         </TableRow>
@@ -1414,17 +1456,19 @@ const SalesByProductSummary: React.FC = () => {
                             TOTAL
                           </TableCell>
                         )}
-                        {selectedColumns.includes('category') && (
-                          <TableCell />
-                        )}
-                        {selectedColumns.includes('soldQty') && (
+                        {selectedColumns.includes('category') && <TableCell />}
+                        {selectedColumns.includes('transactionDate') && <TableCell />}
+                        {selectedColumns.includes('documentNumber') && <TableCell />}
+                        {selectedColumns.includes('customerSupplier') && <TableCell />}
+                        {selectedColumns.includes('priceLevel') && <TableCell />}
+                        {selectedColumns.includes('quantity') && (
                           <TableCell align="right">
-                            {totals.soldQty.toLocaleString()}
+                            {totals.quantity.toLocaleString()}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('totalSales') && (
+                        {selectedColumns.includes('totalAmount') && (
                           <TableCell align="right">
-                            {formatCurrency(totals.totalSales)}
+                            {formatCurrency(totals.totalAmount)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('cost') && (
@@ -1432,28 +1476,11 @@ const SalesByProductSummary: React.FC = () => {
                             {formatCurrency(totals.cost)}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('salesProfit') && (
+                        {selectedColumns.includes('profit') && (
                           <TableCell align="right" sx={{
-                            color: totals.salesProfit > 0 ? 'success.main' : 'error.main'
+                            color: totals.profit > 0 ? 'success.main' : totals.profit < 0 ? 'error.main' : 'inherit'
                           }}>
-                            {formatCurrency(totals.salesProfit)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('purchaseQty') && (
-                          <TableCell align="right">
-                            {totals.purchaseQty.toLocaleString()}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('purchaseSubtotal') && (
-                          <TableCell align="right">
-                            {formatCurrency(totals.purchaseSubtotal)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('totalProfit') && (
-                          <TableCell align="right" sx={{
-                            color: totals.totalProfit > 0 ? 'success.main' : 'error.main'
-                          }}>
-                            {formatCurrency(totals.totalProfit)}
+                            {formatCurrency(totals.profit)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -1482,7 +1509,7 @@ const SalesByProductSummary: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Product Selection Dialog */}
+      {/* Product Selection Dialog - Same as Summary page */}
       <Dialog
         open={productDialogOpen}
         onClose={handleProductDialogClose}
@@ -1743,4 +1770,4 @@ const SalesByProductSummary: React.FC = () => {
   )
 }
 
-export default SalesByProductSummary
+export default SalesByProductDetails

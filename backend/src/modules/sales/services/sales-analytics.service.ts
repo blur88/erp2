@@ -694,8 +694,10 @@ export class SalesAnalyticsService {
         // Calculate sales metrics
         const soldQty = salesItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const totalSales = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitPrice)), 0);
-        const cost = soldQty * Number(product.baseCost || 0);
-        const salesProfit = totalSales - cost;
+
+        // Calculate COGS using actual unitCost from sales order items
+        // This represents the cost of goods that were actually SOLD
+        const cost = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost || 0)), 0);
 
         // Get purchase order items for this product
         const purchaseItemsQuery = this.purchaseOrderItemRepository
@@ -716,8 +718,12 @@ export class SalesAnalyticsService {
         const purchaseQty = purchaseItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const purchaseSubtotal = purchaseItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost)), 0);
 
-        // Calculate total profit (sales profit - purchase cost)
-        const totalProfit = salesProfit - purchaseSubtotal;
+        // Sales Profit = Revenue - COGS (profitability view)
+        const salesProfit = totalSales - cost;
+
+        // Total Profit = Revenue - Total Purchases (cash flow view)
+        // This shows the net cash impact considering inventory purchases
+        const totalProfit = totalSales - purchaseSubtotal;
 
         return {
           productId: product.id,
@@ -736,6 +742,143 @@ export class SalesAnalyticsService {
 
     return {
       data: productSummaries,
+    };
+  }
+
+  async getProductDetails(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    categoryId?: string;
+    productIds?: string[];
+  }) {
+    // Build WHERE conditions for products
+    const productWhere: any = { isActive: true };
+
+    if (query.categoryId) {
+      productWhere.categoryId = query.categoryId;
+    }
+
+    if (query.productIds && query.productIds.length > 0) {
+      productWhere.id = In(query.productIds);
+    }
+
+    // Get all products matching the filter
+    const products = await this.productRepository.find({
+      where: productWhere,
+      relations: ['category'],
+    });
+
+    // Get all transaction details for each product
+    const productDetails: any[] = [];
+
+    for (const product of products) {
+      // Get sales order items for this product
+      const salesItemsQuery = this.salesOrderItemRepository
+        .createQueryBuilder('item')
+        .leftJoinAndSelect('item.salesOrder', 'order')
+        .leftJoinAndSelect('order.customer', 'customer')
+        .where('item.productId = :productId', { productId: product.id })
+        .andWhere('order.status NOT IN (:...excludedStatuses)', {
+          excludedStatuses: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT],
+        });
+
+      if (query.dateFrom) {
+        salesItemsQuery.andWhere('order.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+      }
+      if (query.dateTo) {
+        salesItemsQuery.andWhere('order.orderDate <= :dateTo', { dateTo: query.dateTo });
+      }
+
+      const salesItems = await salesItemsQuery
+        .orderBy('order.orderDate', 'DESC')
+        .getMany();
+
+      // Transform sales items to detail records
+      for (const item of salesItems) {
+        const order = item.salesOrder;
+        const quantity = Number(item.quantity);
+        const unitPrice = Number(item.unitPrice);
+        const unitCost = Number(item.unitCost || 0); // Use cost from sales order item
+        const totalAmount = quantity * unitPrice;
+        const totalCost = quantity * unitCost;
+        const profit = totalAmount - totalCost;
+
+        // Determine price level from customer or default to retail
+        let priceLevel = 'Retail';
+        if (order.customer?.priceLevel) {
+          const level = order.customer.priceLevel;
+          priceLevel = level.charAt(0).toUpperCase() + level.slice(1);
+        }
+
+        productDetails.push({
+          transactionType: 'Sale',
+          transactionDate: order.orderDate,
+          documentNumber: order.orderNumber,
+          customerSupplier: order.customer?.name || 'Unknown',
+          productId: product.id,
+          productName: product.name,
+          category: product.category?.name || 'Uncategorized',
+          quantity: quantity,
+          unitPrice: unitPrice,
+          priceLevel: priceLevel,
+          totalAmount: totalAmount,
+          cost: totalCost,
+          profit: profit,
+        });
+      }
+
+      // Get purchase order items for this product
+      const purchaseItemsQuery = this.purchaseOrderItemRepository
+        .createQueryBuilder('item')
+        .leftJoinAndSelect('item.purchaseOrder', 'po')
+        .leftJoinAndSelect('po.supplier', 'supplier')
+        .where('item.productId = :productId', { productId: product.id });
+
+      if (query.dateFrom) {
+        purchaseItemsQuery.andWhere('po.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+      }
+      if (query.dateTo) {
+        purchaseItemsQuery.andWhere('po.orderDate <= :dateTo', { dateTo: query.dateTo });
+      }
+
+      const purchaseItems = await purchaseItemsQuery
+        .orderBy('po.orderDate', 'DESC')
+        .getMany();
+
+      // Transform purchase items to detail records
+      for (const item of purchaseItems) {
+        const po = item.purchaseOrder;
+        const quantity = Number(item.quantity);
+        const unitCost = Number(item.unitCost);
+        const totalAmount = quantity * unitCost;
+
+        productDetails.push({
+          transactionType: 'Purchase',
+          transactionDate: po.orderDate,
+          documentNumber: po.orderNumber,
+          customerSupplier: po.supplier?.companyName || 'Unknown',
+          productId: product.id,
+          productName: product.name,
+          category: product.category?.name || 'Uncategorized',
+          quantity: quantity,
+          unitPrice: unitCost,
+          priceLevel: '-', // No price level for purchases
+          totalAmount: totalAmount,
+          cost: totalAmount,
+          profit: 0, // No profit on purchases
+        });
+      }
+    }
+
+    // Sort by transaction date descending
+    productDetails.sort((a, b) => {
+      const dateA = new Date(a.transactionDate).getTime();
+      const dateB = new Date(b.transactionDate).getTime();
+      return dateB - dateA;
+    });
+
+    return {
+      data: productDetails,
     };
   }
 }
