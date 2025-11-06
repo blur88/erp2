@@ -200,7 +200,7 @@ const SalesByProductDetails: React.FC = () => {
       productName: 'Product',
       category: 'Category',
       transactionDate: 'Order Date',
-      documentNumber: 'SO No / PO No',
+      documentNumber: 'Order No',
       customerSupplier: 'Customer',
       priceLevel: 'Pricing',
       quantity: 'Qty Sold',
@@ -309,7 +309,7 @@ const SalesByProductDetails: React.FC = () => {
       productName: 'Product',
       category: 'Category',
       transactionDate: 'Order Date',
-      documentNumber: 'SO No / PO No',
+      documentNumber: 'Order No',
       customerSupplier: 'Customer',
       priceLevel: 'Pricing',
       quantity: 'Qty Sold',
@@ -889,7 +889,7 @@ const SalesByProductDetails: React.FC = () => {
               <Box sx={{ p: 2 }}>
                 <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                  Transaction Date Range
+                  Invoice Date Range
                 </Typography>
                 <TextField
                   label="Date From"
@@ -1025,7 +1025,7 @@ const SalesByProductDetails: React.FC = () => {
                     </MenuItem>
                     <MenuItem value="documentNumber">
                       <Checkbox checked={selectedColumns.includes('documentNumber')} />
-                      <ListItemText primary="SO No / PO No" />
+                      <ListItemText primary="Order No" />
                     </MenuItem>
                     <MenuItem value="customerSupplier">
                       <Checkbox checked={selectedColumns.includes('customerSupplier')} />
@@ -1079,7 +1079,7 @@ const SalesByProductDetails: React.FC = () => {
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
                     <MenuItem value="transactionDate">Order Date</MenuItem>
-                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="documentNumber">Order No</MenuItem>
                     <MenuItem value="customerSupplier">Customer</MenuItem>
                     <MenuItem value="priceLevel">Pricing</MenuItem>
                     <MenuItem value="quantity">Qty Sold</MenuItem>
@@ -1101,7 +1101,7 @@ const SalesByProductDetails: React.FC = () => {
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
                     <MenuItem value="transactionDate">Order Date</MenuItem>
-                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="documentNumber">Order No</MenuItem>
                     <MenuItem value="customerSupplier">Customer</MenuItem>
                     <MenuItem value="priceLevel">Pricing</MenuItem>
                     <MenuItem value="quantity">Qty Sold</MenuItem>
@@ -1123,7 +1123,7 @@ const SalesByProductDetails: React.FC = () => {
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
                     <MenuItem value="transactionDate">Order Date</MenuItem>
-                    <MenuItem value="documentNumber">SO No / PO No</MenuItem>
+                    <MenuItem value="documentNumber">Order No</MenuItem>
                     <MenuItem value="customerSupplier">Customer</MenuItem>
                     <MenuItem value="priceLevel">Pricing</MenuItem>
                     <MenuItem value="quantity">Qty Sold</MenuItem>
@@ -1226,7 +1226,7 @@ const SalesByProductDetails: React.FC = () => {
                       {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
                       {selectedColumns.includes('category') && <TableCell align="center">Category</TableCell>}
                       {selectedColumns.includes('transactionDate') && <TableCell align="center">Order Date</TableCell>}
-                      {selectedColumns.includes('documentNumber') && <TableCell align="center">SO No / PO No</TableCell>}
+                      {selectedColumns.includes('documentNumber') && <TableCell align="center">Order No</TableCell>}
                       {selectedColumns.includes('customerSupplier') && <TableCell align="center">Customer</TableCell>}
                       {selectedColumns.includes('priceLevel') && <TableCell align="center">Pricing</TableCell>}
                       {selectedColumns.includes('quantity') && <TableCell align="center">Qty Sold</TableCell>}
