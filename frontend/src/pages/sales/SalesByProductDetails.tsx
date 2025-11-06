@@ -93,7 +93,7 @@ const SalesByProductDetails: React.FC = () => {
     'productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('transactionDate')
+  const [sortBy1, setSortBy1] = useState<string>('productName')
   const [sortBy2, setSortBy2] = useState<string>('none')
   const [sortBy3, setSortBy3] = useState<string>('none')
   const [reportTitle, setReportTitle] = useState<string>('Sales by Product Details')
@@ -182,7 +182,7 @@ const SalesByProductDetails: React.FC = () => {
     // Reset display options to defaults
     setSelectedColumns(['productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'])
     setGroupBy('none')
-    setSortBy1('transactionDate')
+    setSortBy1('productName')
     setSortBy2('none')
     setSortBy3('none')
     setReportTitle('Sales by Product Details')
