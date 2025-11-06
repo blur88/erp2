@@ -28,7 +28,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Receipt as OrderIcon,
+  Inventory2 as ProductIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -494,7 +494,7 @@ const SalesOrderSummary: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <OrderIcon sx={{
+            <ProductIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
@@ -758,7 +758,7 @@ const SalesOrderSummary: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <OrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <ProductIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>
