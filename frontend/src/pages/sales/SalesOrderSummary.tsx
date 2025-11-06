@@ -62,8 +62,10 @@ const SalesOrderSummary: React.FC = () => {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
     'orderNumber', 'orderDate', 'customerName', 'itemsCount', 'totalAmount', 'paidAmount', 'balanceDue', 'paymentStatus', 'fulfillmentStatus'
   ])
+  const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderDate')
   const [sortBy2, setSortBy2] = useState<string>('none')
+  const [sortBy3, setSortBy3] = useState<string>('none')
   const [reportTitle, setReportTitle] = useState<string>('Sales Order Summary')
 
   // Pagination
@@ -146,8 +148,10 @@ const SalesOrderSummary: React.FC = () => {
 
     // Reset display options to defaults
     setSelectedColumns(['orderNumber', 'orderDate', 'customerName', 'itemsCount', 'totalAmount', 'paidAmount', 'balanceDue', 'paymentStatus', 'fulfillmentStatus'])
+    setGroupBy('none')
     setSortBy1('orderDate')
     setSortBy2('none')
+    setSortBy3('none')
     setReportTitle('Sales Order Summary')
 
     // Reset pagination
@@ -444,6 +448,12 @@ const SalesOrderSummary: React.FC = () => {
         if (result2 !== 0) return result2
       }
 
+      // Then sort (third level)
+      if (sortBy3 !== 'none') {
+        const result3 = compareValues(a, b, sortBy3)
+        if (result3 !== 0) return result3
+      }
+
       return 0
     })
 
@@ -636,11 +646,48 @@ const SalesOrderSummary: React.FC = () => {
 
               <Box sx={{ p: 2 }}>
                 <Stack spacing={2}>
-                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>First Sort By</InputLabel>
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Columns</InputLabel>
+                  <Select
+                    multiple
+                    value={selectedColumns}
+                    label="Columns"
+                    onChange={(e) => setSelectedColumns(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    renderValue={(selected) => `${selected.length} selected`}
+                  >
+                    <MenuItem value="orderNumber">Order Number</MenuItem>
+                    <MenuItem value="orderDate">Order Date</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
+                    <MenuItem value="itemsCount">Items</MenuItem>
+                    <MenuItem value="totalAmount">Total Amount</MenuItem>
+                    <MenuItem value="paidAmount">Paid Amount</MenuItem>
+                    <MenuItem value="balanceDue">Balance Due</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="fulfillmentStatus">Fulfillment Status</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Group By</InputLabel>
+                  <Select
+                    value={groupBy}
+                    label="Group By"
+                    onChange={(e) => setGroupBy(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="invoiceStatus">Invoice Status</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>First Sort Order</InputLabel>
                   <Select
                     value={sortBy1}
-                    label="First Sort By"
+                    label="First Sort Order"
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
@@ -653,12 +700,30 @@ const SalesOrderSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Then Sort By</InputLabel>
                   <Select
                     value={sortBy2}
                     label="Then Sort By"
                     onChange={(e) => setSortBy2(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="orderDate">Order Date</MenuItem>
+                    <MenuItem value="orderNumber">Order Number</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
+                    <MenuItem value="totalAmount">Total Amount</MenuItem>
+                    <MenuItem value="paidAmount">Paid Amount</MenuItem>
+                    <MenuItem value="balanceDue">Balance Due</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Then Sort By</InputLabel>
+                  <Select
+                    value={sortBy3}
+                    label="Then Sort By"
+                    onChange={(e) => setSortBy3(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
