@@ -587,13 +587,13 @@ export class SalesOrderService {
       thisWeekOrders,
     ] = await Promise.all([
       this.salesOrderRepository.count(),
-      this.salesOrderRepository.count({ where: { status: SalesOrderStatus.PENDING } }),
-      this.salesOrderRepository.count({ where: { status: SalesOrderStatus.SHIPPED } }),
+      this.salesOrderRepository.count({ where: { status: SalesOrderStatus.CONFIRMED } }),
+      this.salesOrderRepository.count({ where: { status: SalesOrderStatus.COMPLETED } }),
       this.salesOrderRepository
         .createQueryBuilder('order')
         .where('order.orderDate < :thirtyDaysAgo', { thirtyDaysAgo: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) })
         .andWhere('order.status NOT IN (:...completedStatuses)', {
-          completedStatuses: [SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED],
+          completedStatuses: [SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED],
         })
         .getCount(),
       this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisMonth) } }),
@@ -699,7 +699,7 @@ export class SalesOrderService {
     }
 
     // Check if order can be updated
-    if ([SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(order.status)) {
+    if ([SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(order.status)) {
       throw new ConflictException('Cannot update order in current status');
     }
 
@@ -803,9 +803,9 @@ export class SalesOrderService {
       );
     }
 
-    // Allow deletion of orders that haven't been shipped yet
-    if ([SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status)) {
-      throw new ConflictException('Cannot delete order that has been shipped, delivered, or completed');
+    // Allow deletion of orders that haven't been completed yet
+    if (order.status === SalesOrderStatus.COMPLETED) {
+      throw new ConflictException('Cannot delete order that has been completed');
     }
 
     // Find previous order details before deletion
@@ -876,7 +876,7 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
-    if (order.status !== SalesOrderStatus.DRAFT && order.status !== SalesOrderStatus.PENDING) {
+    if (order.status !== SalesOrderStatus.DRAFT) {
       throw new ConflictException('Cannot confirm order in current status');
     }
 
@@ -926,7 +926,7 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
-    if (order.status !== SalesOrderStatus.SHIPPED) {
+    if (order.status !== SalesOrderStatus.CONFIRMED) {
       throw new ConflictException('Cannot deliver order in current status');
     }
 
@@ -941,7 +941,7 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
-    if (order.status !== SalesOrderStatus.DELIVERED) {
+    if (order.status !== SalesOrderStatus.CONFIRMED) {
       throw new ConflictException('Cannot complete order in current status');
     }
 
@@ -965,7 +965,7 @@ export class SalesOrderService {
     }
 
     // Revert customer balance if order was confirmed
-    if (order.status === SalesOrderStatus.CONFIRMED || order.status === SalesOrderStatus.PROCESSING) {
+    if (order.status === SalesOrderStatus.CONFIRMED) {
       const customer = order.customer;
       if (customer) {
         // Update customer metrics (assuming these methods exist in Customer entity)
@@ -1092,7 +1092,7 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
-    if (order.status !== SalesOrderStatus.CONFIRMED && order.status !== SalesOrderStatus.PROCESSING) {
+    if (order.status !== SalesOrderStatus.CONFIRMED) {
       throw new ConflictException('Cannot create invoice for order in current status');
     }
 
@@ -1330,7 +1330,7 @@ export class SalesOrderService {
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
 
-    const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+    const isCompleted = order.status === SalesOrderStatus.COMPLETED;
 
     // Check for invoices with payments - cannot delete if invoices have payments
     const invoices = await this.invoiceRepository.find({
@@ -1420,7 +1420,7 @@ export class SalesOrderService {
           continue;
         }
 
-        const isCompleted = [SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED, SalesOrderStatus.COMPLETED].includes(order.status);
+        const isCompleted = order.status === SalesOrderStatus.COMPLETED;
 
         // Check for invoices with payments - cannot delete if invoices have payments
         const invoices = await this.invoiceRepository.find({

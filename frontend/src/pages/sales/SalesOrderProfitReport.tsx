@@ -28,45 +28,43 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Inventory2 as ProductIcon,
+  TrendingUp as ProfitIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
-interface SalesOrderSummary {
+interface SalesOrderProfit {
   orderNumber: string
   orderDate: string
   customerName: string
-  itemsCount: number
-  totalAmount: number
-  paidAmount: number
-  balanceDue: number
-  isPaidInFull: boolean
-  isFulfilled: boolean
-  status: string
+  inventoryStatus: string
+  paymentStatus: string
+  totalCost: number
+  totalRevenue: number
+  grossProfit: number
 }
 
-const SalesOrderSummary: React.FC = () => {
+const SalesOrderProfitReport: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
-  const [reportData, setReportData] = useState<SalesOrderSummary[]>([])
+  const [reportData, setReportData] = useState<SalesOrderProfit[]>([])
   const [customers, setCustomers] = useState<any[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
-  const [paymentStatus, setPaymentStatus] = useState<string>('all')
   const [inventoryStatus, setInventoryStatus] = useState<string>('all')
+  const [paymentStatus, setPaymentStatus] = useState<string>('all')
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount'
+    'orderNumber', 'inventoryStatus', 'paymentStatus', 'customerName', 'orderDate', 'totalCost', 'totalRevenue', 'grossProfit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderNumber')
   const [sortBy2, setSortBy2] = useState<string>('none')
   const [sortBy3, setSortBy3] = useState<string>('none')
-  const [reportTitle, setReportTitle] = useState<string>('Sales Order Summary')
+  const [reportTitle, setReportTitle] = useState<string>('Sales Order Profit Report')
 
   // Pagination
   const [page, setPage] = useState<number>(0)
@@ -92,41 +90,21 @@ const SalesOrderSummary: React.FC = () => {
       // Build query parameters
       const params = new URLSearchParams()
 
-      if (dateFrom) params.append('fromDate', dateFrom)
-      if (dateTo) params.append('toDate', dateTo)
+      if (dateFrom) params.append('dateFrom', dateFrom)
+      if (dateTo) params.append('dateTo', dateTo)
       if (selectedCustomer) params.append('customerId', selectedCustomer)
+      if (inventoryStatus && inventoryStatus !== 'all') params.append('status', inventoryStatus)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
-      if (inventoryStatus && inventoryStatus !== 'all') params.append('fulfillmentStatus', inventoryStatus)
-
-      params.append('limit', '1000') // Get all for report
-      params.append('sortBy', 'orderDate')
-      params.append('sortOrder', 'DESC')
 
       // Call the backend API
-      const response = await fetch(`/api/sales-orders?${params.toString()}`)
+      const response = await fetch(`/api/sales/analytics/sales-order-profit?${params.toString()}`)
 
       if (!response.ok) {
         throw new Error('Failed to fetch report data')
       }
 
       const result = await response.json()
-      const orders = result.data || []
-
-      // Transform data to match our interface
-      const transformedData: SalesOrderSummary[] = orders.map((order: any) => ({
-        orderNumber: order.orderNumber,
-        orderDate: order.orderDate,
-        customerName: order.customerName || order.customer?.name || 'Unknown',
-        itemsCount: order.itemsCount || order.items?.length || 0,
-        totalAmount: Number(order.totalAmount || 0),
-        paidAmount: Number(order.paidAmount || 0),
-        balanceDue: Number(order.balanceDue || 0),
-        isPaidInFull: order.isPaidInFull || false,
-        isFulfilled: order.isFulfilled || false,
-        status: order.status || 'draft'
-      }))
-
-      setReportData(transformedData)
+      setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])
@@ -140,19 +118,19 @@ const SalesOrderSummary: React.FC = () => {
     setSelectedCustomer('')
     setDateFrom('')
     setDateTo('')
-    setPaymentStatus('all')
     setInventoryStatus('all')
+    setPaymentStatus('all')
 
     // Clear report data
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount'])
+    setSelectedColumns(['orderNumber', 'inventoryStatus', 'paymentStatus', 'customerName', 'orderDate', 'totalCost', 'totalRevenue', 'grossProfit'])
     setGroupBy('none')
     setSortBy1('orderNumber')
     setSortBy2('none')
     setSortBy3('none')
-    setReportTitle('Sales Order Summary')
+    setReportTitle('Sales Order Profit Report')
 
     // Reset pagination
     setPage(0)
@@ -164,15 +142,14 @@ const SalesOrderSummary: React.FC = () => {
 
     // Column headers mapping
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'Order Number',
-      orderDate: 'Order Date',
-      customerName: 'Customer',
-      itemsCount: 'Items',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid Amount',
-      balanceDue: 'Balance Due',
+      orderNumber: 'Order No',
+      inventoryStatus: 'Inventory Status',
       paymentStatus: 'Payment Status',
-      fulfillmentStatus: 'Fulfillment Status'
+      customerName: 'Customer',
+      orderDate: 'Order Date',
+      totalCost: 'Cost',
+      totalRevenue: 'Sales Amount',
+      grossProfit: 'Gross Profit'
     }
 
     // Build CSV content
@@ -188,12 +165,10 @@ const SalesOrderSummary: React.FC = () => {
         const value = (row as any)[col]
         if (col === 'orderDate') {
           return `"${new Date(value).toLocaleDateString()}"`
-        } else if (col === 'itemsCount') {
-          return value
-        } else if (col === 'paymentStatus') {
-          return `"${row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'}"`
-        } else if (col === 'fulfillmentStatus') {
-          return `"${row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}"`
+        } else if (col === 'inventoryStatus' || col === 'paymentStatus') {
+          return `"${value}"`
+        } else if (col === 'customerName') {
+          return `"${value}"`
         } else if (typeof value === 'number') {
           return value.toFixed(2)
         }
@@ -207,9 +182,7 @@ const SalesOrderSummary: React.FC = () => {
       csv += '\n"TOTAL",'
       const totalValues = selectedColumns.slice(1).map(col => {
         const value = (totals as any)[col]
-        if (col === 'itemsCount') {
-          return value?.toLocaleString() || ''
-        } else if (typeof value === 'number') {
+        if (typeof value === 'number') {
           return value.toFixed(2)
         }
         return ''
@@ -237,15 +210,14 @@ const SalesOrderSummary: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'Order Number',
-      orderDate: 'Order Date',
-      customerName: 'Customer',
-      itemsCount: 'Items',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid Amount',
-      balanceDue: 'Balance Due',
+      orderNumber: 'Order No',
+      inventoryStatus: 'Inventory Status',
       paymentStatus: 'Payment Status',
-      fulfillmentStatus: 'Fulfillment Status'
+      customerName: 'Customer',
+      orderDate: 'Order Date',
+      totalCost: 'Cost',
+      totalRevenue: 'Sales Amount',
+      grossProfit: 'Gross Profit'
     }
 
     let tableRows = ''
@@ -257,12 +229,8 @@ const SalesOrderSummary: React.FC = () => {
         let displayValue = value
         if (col === 'orderDate') {
           displayValue = new Date(value).toLocaleDateString()
-        } else if (col === 'itemsCount') {
+        } else if (col === 'inventoryStatus' || col === 'paymentStatus') {
           displayValue = value
-        } else if (col === 'paymentStatus') {
-          displayValue = row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'
-        } else if (col === 'fulfillmentStatus') {
-          displayValue = row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
         } else if (typeof value === 'number') {
           displayValue = formatCurrency(value)
         }
@@ -280,9 +248,7 @@ const SalesOrderSummary: React.FC = () => {
         } else {
           const value = (totals as any)[col]
           let displayValue = ''
-          if (col === 'itemsCount') {
-            displayValue = value?.toLocaleString() || ''
-          } else if (typeof value === 'number') {
+          if (typeof value === 'number') {
             displayValue = formatCurrency(value)
           }
           tableRows += `<td>${displayValue}</td>`
@@ -388,20 +354,20 @@ const SalesOrderSummary: React.FC = () => {
   const calculateTotals = () => {
     if (reportData.length === 0) return null
 
-    return reportData.reduce(
+    const totals = reportData.reduce(
       (acc, item) => ({
-        itemsCount: acc.itemsCount + item.itemsCount,
-        totalAmount: acc.totalAmount + item.totalAmount,
-        paidAmount: acc.paidAmount + item.paidAmount,
-        balanceDue: acc.balanceDue + item.balanceDue,
+        totalCost: acc.totalCost + item.totalCost,
+        totalRevenue: acc.totalRevenue + item.totalRevenue,
+        grossProfit: acc.grossProfit + item.grossProfit,
       }),
       {
-        itemsCount: 0,
-        totalAmount: 0,
-        paidAmount: 0,
-        balanceDue: 0,
+        totalCost: 0,
+        totalRevenue: 0,
+        grossProfit: 0,
       }
     )
+
+    return totals
   }
 
   const totals = calculateTotals()
@@ -420,6 +386,13 @@ const SalesOrderSummary: React.FC = () => {
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
       if (bVal == null) return -1
+
+      // Order number comparison - ascending (low to high) by numeric value
+      if (field === 'orderNumber') {
+        const numA = parseInt(aVal.replace(/\D/g, ''), 10) || 0
+        const numB = parseInt(bVal.replace(/\D/g, ''), 10) || 0
+        return numA - numB
+      }
 
       // Date comparison - descending (newer to older)
       if (field === 'orderDate') {
@@ -494,16 +467,16 @@ const SalesOrderSummary: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <ProductIcon sx={{
+            <ProfitIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
-            Sales Order Summary
+            Sales Order Profit Report
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             {reportData.length > 0
-              ? `Sales order summary report (${reportData.length} orders)`
-              : 'View summary of sales orders with payment and fulfillment status'}
+              ? `Profit analysis report (${reportData.length} orders)`
+              : 'Analyze profit margins and performance for sales orders'}
           </Typography>
         </Box>
         <Box sx={{
@@ -573,7 +546,7 @@ const SalesOrderSummary: React.FC = () => {
                 </FormControl>
 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                  Invoice Date
+                  Order Date
                 </Typography>
                 <TextField
                   label="Date From"
@@ -656,7 +629,7 @@ const SalesOrderSummary: React.FC = () => {
 
                       // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount']
+                        const allColumns = ['orderNumber', 'inventoryStatus', 'paymentStatus', 'customerName', 'orderDate', 'totalCost', 'totalRevenue', 'grossProfit']
                         // If all were selected, deselect all; otherwise select all
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
@@ -673,11 +646,13 @@ const SalesOrderSummary: React.FC = () => {
                   >
                     <MenuItem value="all">All</MenuItem>
                     <MenuItem value="orderNumber">Order No</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="totalAmount">Total</MenuItem>
+                    <MenuItem value="totalCost">Cost</MenuItem>
+                    <MenuItem value="totalRevenue">Sales Amount</MenuItem>
+                    <MenuItem value="grossProfit">Gross Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -691,8 +666,8 @@ const SalesOrderSummary: React.FC = () => {
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
                     <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -707,9 +682,11 @@ const SalesOrderSummary: React.FC = () => {
                     <MenuItem value="orderDate">Order Date</MenuItem>
                     <MenuItem value="orderNumber">Order Number</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="paidAmount">Paid Amount</MenuItem>
-                    <MenuItem value="balanceDue">Balance Due</MenuItem>
+                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="totalRevenue">Sales Amount</MenuItem>
+                    <MenuItem value="totalCost">Cost</MenuItem>
+                    <MenuItem value="grossProfit">Gross Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -738,12 +715,12 @@ const SalesOrderSummary: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <ProductIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <ProfitIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Configure the filters on the left and click "Generate Report" to view sales order summary.
+                        Configure the filters on the left and click "Generate Report" to view sales order profit analysis.
                       </Typography>
                     </>
                   )}
@@ -804,11 +781,13 @@ const SalesOrderSummary: React.FC = () => {
                       textAlign: 'center'
                     } }}>
                       {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
-                      {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
                       {selectedColumns.includes('inventoryStatus') && <TableCell align="center">Inventory Status</TableCell>}
                       {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
+                      {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
                       {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total</TableCell>}
+                      {selectedColumns.includes('totalCost') && <TableCell align="center">Cost</TableCell>}
+                      {selectedColumns.includes('totalRevenue') && <TableCell align="center">Sales Amount</TableCell>}
+                      {selectedColumns.includes('grossProfit') && <TableCell align="center">Gross Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -827,17 +806,12 @@ const SalesOrderSummary: React.FC = () => {
                             {row.orderNumber}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('customerName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.customerName}
-                          </TableCell>
-                        )}
                         {selectedColumns.includes('inventoryStatus') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                             <Chip
-                              label={row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}
+                              label={row.inventoryStatus.charAt(0).toUpperCase() + row.inventoryStatus.slice(1)}
                               size="small"
-                              color={row.isFulfilled ? 'success' : 'warning'}
+                              color={row.inventoryStatus === 'fulfilled' ? 'success' : 'warning'}
                               sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
@@ -845,11 +819,21 @@ const SalesOrderSummary: React.FC = () => {
                         {selectedColumns.includes('paymentStatus') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                             <Chip
-                              label={row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'}
+                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
                               size="small"
-                              color={row.isPaidInFull ? 'success' : row.paidAmount > 0 ? 'warning' : 'default'}
+                              color={
+                                row.paymentStatus === 'paid' ? 'success' :
+                                row.paymentStatus === 'partial' ? 'warning' :
+                                row.paymentStatus === 'overpaid' ? 'info' :
+                                'error'
+                              }
                               sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('customerName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.customerName}
                           </TableCell>
                         )}
                         {selectedColumns.includes('orderDate') && (
@@ -857,9 +841,22 @@ const SalesOrderSummary: React.FC = () => {
                             {new Date(row.orderDate).toLocaleDateString()}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('totalAmount') && (
+                        {selectedColumns.includes('totalCost') && (
                           <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.totalAmount)}
+                            {formatCurrency(row.totalCost)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalRevenue') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {formatCurrency(row.totalRevenue)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('grossProfit') && (
+                          <TableCell align="right" sx={{
+                            fontSize: '0.8rem',
+                            color: row.grossProfit > 0 ? 'success.main' : 'error.main'
+                          }}>
+                            {formatCurrency(row.grossProfit)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -882,13 +879,25 @@ const SalesOrderSummary: React.FC = () => {
                             TOTAL
                           </TableCell>
                         )}
-                        {selectedColumns.includes('customerName') && <TableCell />}
                         {selectedColumns.includes('inventoryStatus') && <TableCell />}
                         {selectedColumns.includes('paymentStatus') && <TableCell />}
+                        {selectedColumns.includes('customerName') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
-                        {selectedColumns.includes('totalAmount') && (
+                        {selectedColumns.includes('totalCost') && (
                           <TableCell align="right">
-                            {formatCurrency(totals.totalAmount)}
+                            {formatCurrency(totals.totalCost)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalRevenue') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.totalRevenue)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('grossProfit') && (
+                          <TableCell align="right" sx={{
+                            color: totals.grossProfit > 0 ? 'success.main' : 'error.main'
+                          }}>
+                            {formatCurrency(totals.grossProfit)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -920,4 +929,4 @@ const SalesOrderSummary: React.FC = () => {
   )
 }
 
-export default SalesOrderSummary
+export default SalesOrderProfitReport

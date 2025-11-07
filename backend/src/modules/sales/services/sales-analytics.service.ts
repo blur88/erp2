@@ -111,7 +111,7 @@ export class SalesAnalyticsService {
 
     // Calculate conversion rate (completed orders / total orders)
     const completedOrders = stagesData
-      .filter(stage => [SalesOrderStatus.COMPLETED, SalesOrderStatus.DELIVERED].includes(stage.order_status))
+      .filter(stage => stage.order_status === SalesOrderStatus.COMPLETED)
       .reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
 
     const conversionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
@@ -329,13 +329,13 @@ export class SalesAnalyticsService {
           'COUNT(*) as totalOrders',
           'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
           'COUNT(CASE WHEN order.status = :completed THEN 1 END) as completedOrders',
-          'COUNT(CASE WHEN order.status = :pending THEN 1 END) as pendingOrders',
-          'COUNT(CASE WHEN order.status = :shipped THEN 1 END) as shippedOrders',
+          'COUNT(CASE WHEN order.status = :confirmed THEN 1 END) as confirmedOrders',
+          'COUNT(CASE WHEN order.status = :draft THEN 1 END) as draftOrders',
         ])
         .setParameters({
           completed: SalesOrderStatus.COMPLETED,
-          pending: SalesOrderStatus.PENDING,
-          shipped: SalesOrderStatus.SHIPPED,
+          confirmed: SalesOrderStatus.CONFIRMED,
+          draft: SalesOrderStatus.DRAFT,
         })
         .getRawOne(),
 
@@ -382,8 +382,8 @@ export class SalesAnalyticsService {
       pendingInvoicesAmount: parseFloat(invoiceStats.pendingInvoicesAmount) || 0,
       overdueInvoicesAmount: parseFloat(invoiceStats.overdueInvoicesAmount) || 0,
       completedOrders: parseInt(orderStats.completedOrders) || 0,
-      pendingOrders: parseInt(orderStats.pendingOrders) || 0,
-      shippedOrders: parseInt(orderStats.shippedOrders) || 0,
+      confirmedOrders: parseInt(orderStats.confirmedOrders) || 0,
+      draftOrders: parseInt(orderStats.draftOrders) || 0,
     };
   }
 
@@ -618,16 +618,8 @@ export class SalesAnalyticsService {
     switch (status) {
       case SalesOrderStatus.DRAFT:
         return 'Draft';
-      case SalesOrderStatus.PENDING:
-        return 'Pending';
       case SalesOrderStatus.CONFIRMED:
         return 'Confirmed';
-      case SalesOrderStatus.PROCESSING:
-        return 'In Progress';
-      case SalesOrderStatus.SHIPPED:
-        return 'Shipped';
-      case SalesOrderStatus.DELIVERED:
-        return 'Delivered';
       case SalesOrderStatus.COMPLETED:
         return 'Completed';
       case SalesOrderStatus.CANCELLED:
@@ -838,6 +830,106 @@ export class SalesAnalyticsService {
 
     return {
       data: productDetails,
+    };
+  }
+
+  async getSalesOrderProfitReport(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    status?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for sales orders
+    const orderWhere: any = {};
+
+    if (query.customerId) {
+      orderWhere.customerId = query.customerId;
+    }
+
+    // Filter by fulfillment status if specified
+    if (query.status && query.status !== 'all') {
+      if (query.status === 'fulfilled') {
+        orderWhere.isFulfilled = true;
+      } else if (query.status === 'unfulfilled') {
+        orderWhere.isFulfilled = false;
+      }
+    }
+
+    // Build date range for orders
+    if (query.dateFrom && query.dateTo) {
+      orderWhere.orderDate = Between(query.dateFrom, query.dateTo);
+    } else if (query.dateFrom) {
+      orderWhere.orderDate = Between(query.dateFrom, new Date());
+    } else if (query.dateTo) {
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
+    }
+
+    // Get all sales orders with items and invoices for payment status
+    const orders = await this.salesOrderRepository.find({
+      where: orderWhere,
+      relations: ['customer', 'items', 'items.product', 'invoices', 'invoices.payments'],
+      order: { orderNumber: 'ASC' },
+    });
+
+    // Calculate profit for each order and filter by payment status if needed
+    let profitReports = orders.map((order) => {
+      const items = order.items || [];
+
+      // Calculate totals from items
+      const totalRevenue = items.reduce((sum, item) => {
+        return sum + Number(item.totalAmount || 0);
+      }, 0);
+
+      const totalCost = items.reduce((sum, item) => {
+        const quantity = Number(item.quantity || 0);
+        const unitCost = Number(item.unitCost || 0);
+        return sum + (quantity * unitCost);
+      }, 0);
+
+      const grossProfit = totalRevenue - totalCost;
+
+      // Calculate payment status from invoices
+      const invoices = order.invoices || [];
+      const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
+      const totalPaid = invoices.reduce((sum, inv) => {
+        const payments = inv.payments || [];
+        return sum + payments.reduce((pSum, p) => pSum + Number(p.amount || 0), 0);
+      }, 0);
+
+      let paymentStatus = 'unpaid';
+      if (totalPaid >= totalInvoiced && totalInvoiced > 0) {
+        paymentStatus = totalPaid > totalInvoiced ? 'overpaid' : 'paid';
+      } else if (totalPaid > 0) {
+        paymentStatus = 'partial';
+      }
+
+      return {
+        orderNumber: order.orderNumber,
+        orderDate: order.orderDate,
+        customerName: order.customer?.name || 'Unknown',
+        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        paymentStatus,
+        totalRevenue,
+        totalCost,
+        grossProfit,
+      };
+    });
+
+    // Filter by payment status if specified
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      profitReports = profitReports.filter(report => report.paymentStatus === query.paymentStatus);
+    }
+
+    // Sort by order number (extract numeric part for proper sorting)
+    profitReports.sort((a, b) => {
+      const numA = parseInt(a.orderNumber.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.orderNumber.replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
+
+    return {
+      data: profitReports,
     };
   }
 }

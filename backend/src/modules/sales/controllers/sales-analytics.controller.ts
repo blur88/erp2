@@ -431,4 +431,52 @@ export class SalesAnalyticsController {
       productIds: Array.isArray(productIds) ? productIds : productIds ? [productIds] : undefined,
     });
   }
+
+  @Get('sales-order-profit')
+  @ApiOperation({ summary: 'Get sales order profit report' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
+  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sales order profit report retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              orderNumber: { type: 'string' },
+              orderDate: { type: 'string', format: 'date' },
+              customerName: { type: 'string' },
+              inventoryStatus: { type: 'string' },
+              paymentStatus: { type: 'string' },
+              totalRevenue: { type: 'number' },
+              totalCost: { type: 'number' },
+              grossProfit: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getSalesOrderProfitReport(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('customerId') customerId?: string,
+    @Query('status') status?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+  ) {
+    return this.salesAnalyticsService.getSalesOrderProfitReport({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      customerId,
+      status,
+      paymentStatus,
+    });
+  }
 }

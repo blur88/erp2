@@ -123,11 +123,11 @@ export class SalesMetricsDto {
   @ApiProperty({ example: 180, description: 'Completed orders' })
   completedOrders!: number;
 
-  @ApiProperty({ example: 45, description: 'Pending orders' })
-  pendingOrders!: number;
+  @ApiProperty({ example: 45, description: 'Confirmed orders' })
+  confirmedOrders!: number;
 
-  @ApiProperty({ example: 25, description: 'Shipped orders' })
-  shippedOrders!: number;
+  @ApiProperty({ example: 25, description: 'Draft orders' })
+  draftOrders!: number;
 }
 
 export class PeriodMetricDto {
