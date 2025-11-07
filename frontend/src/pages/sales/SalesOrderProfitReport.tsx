@@ -54,7 +54,7 @@ const SalesOrderProfitReport: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
-  const [orderStatus, setOrderStatus] = useState<string>('all')
+  const [inventoryStatus, setInventoryStatus] = useState<string>('all')
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
@@ -93,7 +93,7 @@ const SalesOrderProfitReport: React.FC = () => {
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedCustomer) params.append('customerId', selectedCustomer)
-      if (orderStatus && orderStatus !== 'all') params.append('status', orderStatus)
+      if (inventoryStatus && inventoryStatus !== 'all') params.append('status', inventoryStatus)
 
       // Call the backend API
       const response = await fetch(`/api/sales/analytics/sales-order-profit?${params.toString()}`)
@@ -117,7 +117,7 @@ const SalesOrderProfitReport: React.FC = () => {
     setSelectedCustomer('')
     setDateFrom('')
     setDateTo('')
-    setOrderStatus('all')
+    setInventoryStatus('all')
 
     // Clear report data
     setReportData([])
@@ -588,18 +588,16 @@ const SalesOrderProfitReport: React.FC = () => {
                 />
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Order Status</InputLabel>
+                  <InputLabel>Inventory Status</InputLabel>
                   <Select
-                    value={orderStatus}
-                    label="Order Status"
-                    onChange={(e) => setOrderStatus(e.target.value)}
+                    value={inventoryStatus}
+                    label="Inventory Status"
+                    onChange={(e) => setInventoryStatus(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="draft">Draft</MenuItem>
-                    <MenuItem value="confirmed">Confirmed</MenuItem>
-                    <MenuItem value="completed">Completed</MenuItem>
-                    <MenuItem value="cancelled">Cancelled</MenuItem>
+                    <MenuItem value="fulfilled">Fulfilled</MenuItem>
+                    <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
                   </Select>
                 </FormControl>
                 </Stack>
@@ -653,7 +651,7 @@ const SalesOrderProfitReport: React.FC = () => {
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="status">Order Status</MenuItem>
+                    <MenuItem value="status">Inventory Status</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -843,9 +841,9 @@ const SalesOrderProfitReport: React.FC = () => {
                         {selectedColumns.includes('status') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                             <Chip
-                              label={row.status}
+                              label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                               size="small"
-                              color={row.status === 'completed' ? 'success' : row.status === 'cancelled' ? 'error' : 'default'}
+                              color={row.status === 'fulfilled' ? 'success' : 'warning'}
                               sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>

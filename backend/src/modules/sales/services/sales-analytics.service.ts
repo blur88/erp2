@@ -846,8 +846,13 @@ export class SalesAnalyticsService {
       orderWhere.customerId = query.customerId;
     }
 
+    // Filter by fulfillment status if specified
     if (query.status && query.status !== 'all') {
-      orderWhere.status = query.status;
+      if (query.status === 'fulfilled') {
+        orderWhere.isFulfilled = true;
+      } else if (query.status === 'unfulfilled') {
+        orderWhere.isFulfilled = false;
+      }
     }
 
     // Build date range for orders
@@ -888,7 +893,7 @@ export class SalesAnalyticsService {
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
         customerName: order.customer?.name || 'Unknown',
-        status: order.status,
+        status: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
         itemsCount: items.length,
         totalRevenue,
         totalCost,
