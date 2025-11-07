@@ -934,7 +934,7 @@ const SalesByProductSummary: React.FC = () => {
 
               <Box sx={{ p: 2 }}>
                 <Stack spacing={2}>
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Columns</InputLabel>
                   <Select
                     multiple
@@ -960,49 +960,16 @@ const SalesByProductSummary: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="all">
-                      <Checkbox
-                        checked={selectedColumns.length === 9}
-                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 9}
-                      />
-                      <ListItemText primary="All" />
-                    </MenuItem>
-                    <MenuItem value="productName">
-                      <Checkbox checked={selectedColumns.includes('productName')} />
-                      <ListItemText primary="Product" />
-                    </MenuItem>
-                    <MenuItem value="category">
-                      <Checkbox checked={selectedColumns.includes('category')} />
-                      <ListItemText primary="Category" />
-                    </MenuItem>
-                    <MenuItem value="soldQty">
-                      <Checkbox checked={selectedColumns.includes('soldQty')} />
-                      <ListItemText primary="Sold Qty" />
-                    </MenuItem>
-                    <MenuItem value="totalSales">
-                      <Checkbox checked={selectedColumns.includes('totalSales')} />
-                      <ListItemText primary="Total Sales" />
-                    </MenuItem>
-                    <MenuItem value="cost">
-                      <Checkbox checked={selectedColumns.includes('cost')} />
-                      <ListItemText primary="Cost" />
-                    </MenuItem>
-                    <MenuItem value="salesProfit">
-                      <Checkbox checked={selectedColumns.includes('salesProfit')} />
-                      <ListItemText primary="Sales Profit" />
-                    </MenuItem>
-                    <MenuItem value="purchaseQty">
-                      <Checkbox checked={selectedColumns.includes('purchaseQty')} />
-                      <ListItemText primary="Purchase Qty" />
-                    </MenuItem>
-                    <MenuItem value="purchaseSubtotal">
-                      <Checkbox checked={selectedColumns.includes('purchaseSubtotal')} />
-                      <ListItemText primary="Purchase Subtotal" />
-                    </MenuItem>
-                    <MenuItem value="totalProfit">
-                      <Checkbox checked={selectedColumns.includes('totalProfit')} />
-                      <ListItemText primary="Total Profit" />
-                    </MenuItem>
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="productName">Product</MenuItem>
+                    <MenuItem value="category">Category</MenuItem>
+                    <MenuItem value="soldQty">Sold Qty</MenuItem>
+                    <MenuItem value="totalSales">Total Sales</MenuItem>
+                    <MenuItem value="cost">Cost</MenuItem>
+                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
+                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
+                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
+                    <MenuItem value="totalProfit">Total Profit</MenuItem>
                   </Select>
                 </FormControl>
 
