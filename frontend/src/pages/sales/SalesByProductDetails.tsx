@@ -978,7 +978,7 @@ const SalesByProductDetails: React.FC = () => {
 
               <Box sx={{ p: 2 }}>
                 <Stack spacing={2}>
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Columns</InputLabel>
                   <Select
                     multiple
@@ -1004,53 +1004,17 @@ const SalesByProductDetails: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="all">
-                      <Checkbox
-                        checked={selectedColumns.length === 10}
-                        indeterminate={selectedColumns.length > 0 && selectedColumns.length < 10}
-                      />
-                      <ListItemText primary="All" />
-                    </MenuItem>
-                    <MenuItem value="productName">
-                      <Checkbox checked={selectedColumns.includes('productName')} />
-                      <ListItemText primary="Product" />
-                    </MenuItem>
-                    <MenuItem value="category">
-                      <Checkbox checked={selectedColumns.includes('category')} />
-                      <ListItemText primary="Category" />
-                    </MenuItem>
-                    <MenuItem value="transactionDate">
-                      <Checkbox checked={selectedColumns.includes('transactionDate')} />
-                      <ListItemText primary="Order Date" />
-                    </MenuItem>
-                    <MenuItem value="documentNumber">
-                      <Checkbox checked={selectedColumns.includes('documentNumber')} />
-                      <ListItemText primary="Order No" />
-                    </MenuItem>
-                    <MenuItem value="customerSupplier">
-                      <Checkbox checked={selectedColumns.includes('customerSupplier')} />
-                      <ListItemText primary="Customer" />
-                    </MenuItem>
-                    <MenuItem value="priceLevel">
-                      <Checkbox checked={selectedColumns.includes('priceLevel')} />
-                      <ListItemText primary="Pricing" />
-                    </MenuItem>
-                    <MenuItem value="quantity">
-                      <Checkbox checked={selectedColumns.includes('quantity')} />
-                      <ListItemText primary="Qty Sold" />
-                    </MenuItem>
-                    <MenuItem value="totalAmount">
-                      <Checkbox checked={selectedColumns.includes('totalAmount')} />
-                      <ListItemText primary="Sales Amount" />
-                    </MenuItem>
-                    <MenuItem value="cost">
-                      <Checkbox checked={selectedColumns.includes('cost')} />
-                      <ListItemText primary="Sales Cost" />
-                    </MenuItem>
-                    <MenuItem value="profit">
-                      <Checkbox checked={selectedColumns.includes('profit')} />
-                      <ListItemText primary="Sales Profit" />
-                    </MenuItem>
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="productName">Product</MenuItem>
+                    <MenuItem value="category">Category</MenuItem>
+                    <MenuItem value="transactionDate">Order Date</MenuItem>
+                    <MenuItem value="documentNumber">Order No</MenuItem>
+                    <MenuItem value="customerSupplier">Customer</MenuItem>
+                    <MenuItem value="priceLevel">Pricing</MenuItem>
+                    <MenuItem value="quantity">Qty Sold</MenuItem>
+                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1069,57 +1033,13 @@ const SalesByProductDetails: React.FC = () => {
                 </FormControl>
 
                 <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>First Sort By</InputLabel>
+                  <InputLabel>Sort By</InputLabel>
                   <Select
                     value={sortBy1}
-                    label="First Sort By"
+                    label="Sort By"
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="transactionDate">Order Date</MenuItem>
-                    <MenuItem value="documentNumber">Order No</MenuItem>
-                    <MenuItem value="customerSupplier">Customer</MenuItem>
-                    <MenuItem value="priceLevel">Pricing</MenuItem>
-                    <MenuItem value="quantity">Qty Sold</MenuItem>
-                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
-                    <MenuItem value="cost">Sales Cost</MenuItem>
-                    <MenuItem value="profit">Sales Profit</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Then Sort By</InputLabel>
-                  <Select
-                    value={sortBy2}
-                    label="Then Sort By"
-                    onChange={(e) => setSortBy2(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="transactionDate">Order Date</MenuItem>
-                    <MenuItem value="documentNumber">Order No</MenuItem>
-                    <MenuItem value="customerSupplier">Customer</MenuItem>
-                    <MenuItem value="priceLevel">Pricing</MenuItem>
-                    <MenuItem value="quantity">Qty Sold</MenuItem>
-                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
-                    <MenuItem value="cost">Sales Cost</MenuItem>
-                    <MenuItem value="profit">Sales Profit</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Then Sort By</InputLabel>
-                  <Select
-                    value={sortBy3}
-                    label="Then Sort By"
-                    onChange={(e) => setSortBy3(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="none">None</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
                     <MenuItem value="transactionDate">Order Date</MenuItem>
