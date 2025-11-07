@@ -437,7 +437,8 @@ export class SalesAnalyticsController {
   @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
   @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by order status' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
+  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
   @ApiResponse({
     status: 200,
     description: 'Sales order profit report retrieved successfully',
@@ -452,12 +453,11 @@ export class SalesAnalyticsController {
               orderNumber: { type: 'string' },
               orderDate: { type: 'string', format: 'date' },
               customerName: { type: 'string' },
-              status: { type: 'string' },
-              itemsCount: { type: 'number' },
+              inventoryStatus: { type: 'string' },
+              paymentStatus: { type: 'string' },
               totalRevenue: { type: 'number' },
               totalCost: { type: 'number' },
               grossProfit: { type: 'number' },
-              grossMargin: { type: 'number' },
             },
           },
         },
@@ -469,12 +469,14 @@ export class SalesAnalyticsController {
     @Query('dateTo') dateTo?: string,
     @Query('customerId') customerId?: string,
     @Query('status') status?: string,
+    @Query('paymentStatus') paymentStatus?: string,
   ) {
     return this.salesAnalyticsService.getSalesOrderProfitReport({
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
       customerId,
       status,
+      paymentStatus,
     });
   }
 }

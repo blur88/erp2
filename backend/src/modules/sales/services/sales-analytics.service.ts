@@ -838,6 +838,7 @@ export class SalesAnalyticsService {
     dateTo?: Date;
     customerId?: string;
     status?: string;
+    paymentStatus?: string;
   }) {
     // Build WHERE conditions for sales orders
     const orderWhere: any = {};
@@ -864,15 +865,15 @@ export class SalesAnalyticsService {
       orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
     }
 
-    // Get all sales orders with items
+    // Get all sales orders with items and invoices for payment status
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: ['customer', 'items', 'items.product'],
-      order: { orderDate: 'DESC' },
+      relations: ['customer', 'items', 'items.product', 'invoices', 'invoices.payments'],
+      order: { orderNumber: 'ASC' },
     });
 
-    // Calculate profit for each order
-    const profitReports = orders.map((order) => {
+    // Calculate profit for each order and filter by payment status if needed
+    let profitReports = orders.map((order) => {
       const items = order.items || [];
 
       // Calculate totals from items
@@ -887,19 +888,44 @@ export class SalesAnalyticsService {
       }, 0);
 
       const grossProfit = totalRevenue - totalCost;
-      const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+      // Calculate payment status from invoices
+      const invoices = order.invoices || [];
+      const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
+      const totalPaid = invoices.reduce((sum, inv) => {
+        const payments = inv.payments || [];
+        return sum + payments.reduce((pSum, p) => pSum + Number(p.amount || 0), 0);
+      }, 0);
+
+      let paymentStatus = 'unpaid';
+      if (totalPaid >= totalInvoiced && totalInvoiced > 0) {
+        paymentStatus = totalPaid > totalInvoiced ? 'overpaid' : 'paid';
+      } else if (totalPaid > 0) {
+        paymentStatus = 'partial';
+      }
 
       return {
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
         customerName: order.customer?.name || 'Unknown',
-        status: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
-        itemsCount: items.length,
+        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        paymentStatus,
         totalRevenue,
         totalCost,
         grossProfit,
-        grossMargin,
       };
+    });
+
+    // Filter by payment status if specified
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      profitReports = profitReports.filter(report => report.paymentStatus === query.paymentStatus);
+    }
+
+    // Sort by order number (extract numeric part for proper sorting)
+    profitReports.sort((a, b) => {
+      const numA = parseInt(a.orderNumber.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.orderNumber.replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
     });
 
     return {
