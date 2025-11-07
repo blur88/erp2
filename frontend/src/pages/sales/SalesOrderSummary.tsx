@@ -56,11 +56,11 @@ const SalesOrderSummary: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
   const [paymentStatus, setPaymentStatus] = useState<string>('all')
-  const [invoiceStatus, setInvoiceStatus] = useState<string>('all')
+  const [inventoryStatus, setInventoryStatus] = useState<string>('all')
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'orderNumber', 'customerName', 'invoiceStatus', 'paymentStatus', 'orderDate', 'totalAmount'
+    'orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderNumber')
@@ -96,7 +96,7 @@ const SalesOrderSummary: React.FC = () => {
       if (dateTo) params.append('toDate', dateTo)
       if (selectedCustomer) params.append('customerId', selectedCustomer)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
-      if (invoiceStatus && invoiceStatus !== 'all') params.append('status', invoiceStatus)
+      if (inventoryStatus && inventoryStatus !== 'all') params.append('fulfillmentStatus', inventoryStatus)
 
       params.append('limit', '1000') // Get all for report
       params.append('sortBy', 'orderDate')
@@ -141,13 +141,13 @@ const SalesOrderSummary: React.FC = () => {
     setDateFrom('')
     setDateTo('')
     setPaymentStatus('all')
-    setInvoiceStatus('all')
+    setInventoryStatus('all')
 
     // Clear report data
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['orderNumber', 'customerName', 'invoiceStatus', 'paymentStatus', 'orderDate', 'totalAmount'])
+    setSelectedColumns(['orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount'])
     setGroupBy('none')
     setSortBy1('orderNumber')
     setSortBy2('none')
@@ -598,17 +598,16 @@ const SalesOrderSummary: React.FC = () => {
                 />
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Invoice Status</InputLabel>
+                  <InputLabel>Inventory Status</InputLabel>
                   <Select
-                    value={invoiceStatus}
-                    label="Invoice Status"
-                    onChange={(e) => setInvoiceStatus(e.target.value)}
+                    value={inventoryStatus}
+                    label="Inventory Status"
+                    onChange={(e) => setInventoryStatus(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="draft">Draft</MenuItem>
-                    <MenuItem value="partial_paid">Partial Paid</MenuItem>
-                    <MenuItem value="paid">Paid</MenuItem>
+                    <MenuItem value="fulfilled">Fulfilled</MenuItem>
+                    <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -658,7 +657,7 @@ const SalesOrderSummary: React.FC = () => {
                   >
                     <MenuItem value="orderNumber">Order No</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="invoiceStatus">Invoice Status</MenuItem>
+                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
                     <MenuItem value="totalAmount">Total</MenuItem>
@@ -676,7 +675,7 @@ const SalesOrderSummary: React.FC = () => {
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="invoiceStatus">Invoice Status</MenuItem>
+                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -825,7 +824,7 @@ const SalesOrderSummary: React.FC = () => {
                     } }}>
                       {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
                       {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
-                      {selectedColumns.includes('invoiceStatus') && <TableCell align="center">Invoice Status</TableCell>}
+                      {selectedColumns.includes('inventoryStatus') && <TableCell align="center">Inventory Status</TableCell>}
                       {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
                       {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
                       {selectedColumns.includes('totalAmount') && <TableCell align="center">Total</TableCell>}
@@ -852,12 +851,12 @@ const SalesOrderSummary: React.FC = () => {
                             {row.customerName}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('invoiceStatus') && (
+                        {selectedColumns.includes('inventoryStatus') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                             <Chip
-                              label={row.status || 'Draft'}
+                              label={row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}
                               size="small"
-                              color={row.status === 'completed' ? 'success' : row.status === 'cancelled' ? 'error' : 'default'}
+                              color={row.isFulfilled ? 'success' : 'warning'}
                               sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
@@ -903,7 +902,7 @@ const SalesOrderSummary: React.FC = () => {
                           </TableCell>
                         )}
                         {selectedColumns.includes('customerName') && <TableCell />}
-                        {selectedColumns.includes('invoiceStatus') && <TableCell />}
+                        {selectedColumns.includes('inventoryStatus') && <TableCell />}
                         {selectedColumns.includes('paymentStatus') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
