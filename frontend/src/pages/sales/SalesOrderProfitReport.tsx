@@ -597,11 +597,7 @@ const SalesOrderProfitReport: React.FC = () => {
                   >
                     <MenuItem value="all">All</MenuItem>
                     <MenuItem value="draft">Draft</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
                     <MenuItem value="confirmed">Confirmed</MenuItem>
-                    <MenuItem value="processing">Processing</MenuItem>
-                    <MenuItem value="shipped">Shipped</MenuItem>
-                    <MenuItem value="delivered">Delivered</MenuItem>
                     <MenuItem value="completed">Completed</MenuItem>
                     <MenuItem value="cancelled">Cancelled</MenuItem>
                   </Select>

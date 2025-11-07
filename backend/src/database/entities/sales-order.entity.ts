@@ -24,13 +24,9 @@ import { Invoice } from './invoice.entity';
 
 export enum SalesOrderStatus {
   DRAFT = 'draft',
-  PENDING = 'pending',
   CONFIRMED = 'confirmed',
-  PROCESSING = 'processing',
-  SHIPPED = 'shipped',
-  DELIVERED = 'delivered',
-  CANCELLED = 'cancelled',
-  COMPLETED = 'completed'
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled'
 }
 
 export enum SalesOrderPriority {

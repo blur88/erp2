@@ -111,7 +111,7 @@ export class SalesAnalyticsService {
 
     // Calculate conversion rate (completed orders / total orders)
     const completedOrders = stagesData
-      .filter(stage => [SalesOrderStatus.COMPLETED, SalesOrderStatus.DELIVERED].includes(stage.order_status))
+      .filter(stage => stage.order_status === SalesOrderStatus.COMPLETED)
       .reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
 
     const conversionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
@@ -329,13 +329,13 @@ export class SalesAnalyticsService {
           'COUNT(*) as totalOrders',
           'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
           'COUNT(CASE WHEN order.status = :completed THEN 1 END) as completedOrders',
-          'COUNT(CASE WHEN order.status = :pending THEN 1 END) as pendingOrders',
-          'COUNT(CASE WHEN order.status = :shipped THEN 1 END) as shippedOrders',
+          'COUNT(CASE WHEN order.status = :confirmed THEN 1 END) as confirmedOrders',
+          'COUNT(CASE WHEN order.status = :draft THEN 1 END) as draftOrders',
         ])
         .setParameters({
           completed: SalesOrderStatus.COMPLETED,
-          pending: SalesOrderStatus.PENDING,
-          shipped: SalesOrderStatus.SHIPPED,
+          confirmed: SalesOrderStatus.CONFIRMED,
+          draft: SalesOrderStatus.DRAFT,
         })
         .getRawOne(),
 
@@ -382,8 +382,8 @@ export class SalesAnalyticsService {
       pendingInvoicesAmount: parseFloat(invoiceStats.pendingInvoicesAmount) || 0,
       overdueInvoicesAmount: parseFloat(invoiceStats.overdueInvoicesAmount) || 0,
       completedOrders: parseInt(orderStats.completedOrders) || 0,
-      pendingOrders: parseInt(orderStats.pendingOrders) || 0,
-      shippedOrders: parseInt(orderStats.shippedOrders) || 0,
+      confirmedOrders: parseInt(orderStats.confirmedOrders) || 0,
+      draftOrders: parseInt(orderStats.draftOrders) || 0,
     };
   }
 
@@ -618,16 +618,8 @@ export class SalesAnalyticsService {
     switch (status) {
       case SalesOrderStatus.DRAFT:
         return 'Draft';
-      case SalesOrderStatus.PENDING:
-        return 'Pending';
       case SalesOrderStatus.CONFIRMED:
         return 'Confirmed';
-      case SalesOrderStatus.PROCESSING:
-        return 'In Progress';
-      case SalesOrderStatus.SHIPPED:
-        return 'Shipped';
-      case SalesOrderStatus.DELIVERED:
-        return 'Delivered';
       case SalesOrderStatus.COMPLETED:
         return 'Completed';
       case SalesOrderStatus.CANCELLED:
