@@ -840,4 +840,73 @@ export class SalesAnalyticsService {
       data: productDetails,
     };
   }
+
+  async getSalesOrderProfitReport(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    status?: string;
+  }) {
+    // Build WHERE conditions for sales orders
+    const orderWhere: any = {};
+
+    if (query.customerId) {
+      orderWhere.customerId = query.customerId;
+    }
+
+    if (query.status && query.status !== 'all') {
+      orderWhere.status = query.status;
+    }
+
+    // Build date range for orders
+    if (query.dateFrom && query.dateTo) {
+      orderWhere.orderDate = Between(query.dateFrom, query.dateTo);
+    } else if (query.dateFrom) {
+      orderWhere.orderDate = Between(query.dateFrom, new Date());
+    } else if (query.dateTo) {
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
+    }
+
+    // Get all sales orders with items
+    const orders = await this.salesOrderRepository.find({
+      where: orderWhere,
+      relations: ['customer', 'items', 'items.product'],
+      order: { orderDate: 'DESC' },
+    });
+
+    // Calculate profit for each order
+    const profitReports = orders.map((order) => {
+      const items = order.items || [];
+
+      // Calculate totals from items
+      const totalRevenue = items.reduce((sum, item) => {
+        return sum + Number(item.totalAmount || 0);
+      }, 0);
+
+      const totalCost = items.reduce((sum, item) => {
+        const quantity = Number(item.quantity || 0);
+        const unitCost = Number(item.unitCost || 0);
+        return sum + (quantity * unitCost);
+      }, 0);
+
+      const grossProfit = totalRevenue - totalCost;
+      const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+      return {
+        orderNumber: order.orderNumber,
+        orderDate: order.orderDate,
+        customerName: order.customer?.name || 'Unknown',
+        status: order.status,
+        itemsCount: items.length,
+        totalRevenue,
+        totalCost,
+        grossProfit,
+        grossMargin,
+      };
+    });
+
+    return {
+      data: profitReports,
+    };
+  }
 }
