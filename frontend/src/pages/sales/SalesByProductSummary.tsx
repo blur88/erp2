@@ -987,55 +987,13 @@ const SalesByProductSummary: React.FC = () => {
                 </FormControl>
 
                 <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>First Sort By</InputLabel>
+                  <InputLabel>Sort By</InputLabel>
                   <Select
                     value={sortBy1}
-                    label="First Sort By"
+                    label="Sort By"
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="soldQty">Sold Qty</MenuItem>
-                    <MenuItem value="totalSales">Total Sales</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
-                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
-                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
-                    <MenuItem value="totalProfit">Total Profit</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Then Sort By</InputLabel>
-                  <Select
-                    value={sortBy2}
-                    label="Then Sort By"
-                    onChange={(e) => setSortBy2(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="soldQty">Sold Qty</MenuItem>
-                    <MenuItem value="totalSales">Total Sales</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="salesProfit">Sales Profit</MenuItem>
-                    <MenuItem value="purchaseQty">Purchase Qty</MenuItem>
-                    <MenuItem value="purchaseSubtotal">Purchase Subtotal</MenuItem>
-                    <MenuItem value="totalProfit">Total Profit</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Then Sort By</InputLabel>
-                  <Select
-                    value={sortBy3}
-                    label="Then Sort By"
-                    onChange={(e) => setSortBy3(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="none">None</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
                     <MenuItem value="soldQty">Sold Qty</MenuItem>
