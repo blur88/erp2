@@ -932,4 +932,109 @@ export class SalesAnalyticsService {
       data: profitReports,
     };
   }
+
+  async getCustomerPaymentSummary(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for payments
+    const paymentWhere: any = {
+      status: PaymentStatus.COMPLETED,
+    };
+
+    if (query.customerId) {
+      paymentWhere.customerId = query.customerId;
+    }
+
+    // Build date range for payments
+    if (query.dateFrom && query.dateTo) {
+      paymentWhere.paymentDate = Between(query.dateFrom, query.dateTo);
+    } else if (query.dateFrom) {
+      paymentWhere.paymentDate = Between(query.dateFrom, new Date());
+    } else if (query.dateTo) {
+      paymentWhere.paymentDate = Between(new Date('2000-01-01'), query.dateTo);
+    }
+
+    // Get all payments with related invoice and customer data
+    const payments = await this.paymentRepository.find({
+      where: paymentWhere,
+      relations: ['customer', 'invoice', 'invoice.salesOrder'],
+      order: { paymentNumber: 'ASC' },
+    });
+
+    // Group payments by customer
+    const customerPaymentMap = new Map<string, {
+      customerId: string;
+      customerName: string;
+      customerPhone: string;
+      totalPayments: number;
+      paymentCount: number;
+      lastPaymentDate: Date;
+      firstPaymentDate: Date;
+      invoicesPaid: number;
+      averagePaymentAmount: number;
+      payments: any[];
+    }>();
+
+    payments.forEach((payment) => {
+      const customerId = payment.customerId;
+      const customerName = payment.customer?.name || 'Unknown';
+      const customerPhone = payment.customer?.phone || '';
+
+      if (!customerPaymentMap.has(customerId)) {
+        customerPaymentMap.set(customerId, {
+          customerId,
+          customerName,
+          customerPhone,
+          totalPayments: 0,
+          paymentCount: 0,
+          lastPaymentDate: payment.paymentDate,
+          firstPaymentDate: payment.paymentDate,
+          invoicesPaid: 0,
+          averagePaymentAmount: 0,
+          payments: [],
+        });
+      }
+
+      const customerData = customerPaymentMap.get(customerId)!;
+      customerData.totalPayments += Number(payment.amount);
+      customerData.paymentCount += 1;
+      customerData.payments.push(payment);
+
+      // Track date ranges
+      if (new Date(payment.paymentDate) > new Date(customerData.lastPaymentDate)) {
+        customerData.lastPaymentDate = payment.paymentDate;
+      }
+      if (new Date(payment.paymentDate) < new Date(customerData.firstPaymentDate)) {
+        customerData.firstPaymentDate = payment.paymentDate;
+      }
+
+      // Count unique invoices
+      const invoiceIds = new Set(customerData.payments.filter(p => p.invoiceId).map(p => p.invoiceId));
+      customerData.invoicesPaid = invoiceIds.size;
+    });
+
+    // Convert to array and calculate averages
+    const customerSummaries = Array.from(customerPaymentMap.values()).map(customer => {
+      customer.averagePaymentAmount = customer.paymentCount > 0
+        ? customer.totalPayments / customer.paymentCount
+        : 0;
+
+      // Remove the payments array from the response
+      const { payments, ...summary } = customer;
+      return summary;
+    });
+
+    // Filter by payment status if needed (for future enhancement)
+    let filteredSummaries = customerSummaries;
+
+    // Sort by total payments descending
+    filteredSummaries.sort((a, b) => b.totalPayments - a.totalPayments);
+
+    return {
+      data: filteredSummaries,
+    };
+  }
 }

@@ -479,4 +479,50 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
   }
+
+  @Get('customer-payment-summary')
+  @ApiOperation({ summary: 'Get customer payment summary report' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer payment summary report retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              customerId: { type: 'string', format: 'uuid' },
+              customerName: { type: 'string' },
+              customerPhone: { type: 'string' },
+              totalPayments: { type: 'number' },
+              paymentCount: { type: 'number' },
+              lastPaymentDate: { type: 'string', format: 'date' },
+              firstPaymentDate: { type: 'string', format: 'date' },
+              invoicesPaid: { type: 'number' },
+              averagePaymentAmount: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getCustomerPaymentSummary(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('customerId') customerId?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+  ) {
+    return this.salesAnalyticsService.getCustomerPaymentSummary({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      customerId,
+      paymentStatus,
+    });
+  }
 }

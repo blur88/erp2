@@ -31,6 +31,7 @@ const SalesByProductSummary = React.lazy(() => import('./pages/sales/SalesByProd
 const SalesByProductDetails = React.lazy(() => import('./pages/sales/SalesByProductDetails'))
 const SalesOrderSummary = React.lazy(() => import('./pages/sales/SalesOrderSummary'))
 const SalesOrderProfitReport = React.lazy(() => import('./pages/sales/SalesOrderProfitReport'))
+const CustomerPaymentSummary = React.lazy(() => import('./pages/sales/CustomerPaymentSummary'))
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
 const UserManagementPage = React.lazy(() => import('./pages/settings/UserManagementPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
@@ -97,6 +98,7 @@ function App() {
                     <Route path="/reports/sales/product-details" element={<SalesByProductDetails />} />
                     <Route path="/reports/sales/order-summary" element={<SalesOrderSummary />} />
                     <Route path="/reports/sales/order-profit" element={<SalesOrderProfitReport />} />
+                    <Route path="/reports/sales/customer-payment-summary" element={<CustomerPaymentSummary />} />
 
                     {/* Settings */}
                     <Route path="/settings" element={<SettingsPage />} />
