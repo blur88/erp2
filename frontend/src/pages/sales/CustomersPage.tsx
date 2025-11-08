@@ -38,7 +38,7 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   RestoreFromTrash as RestoreIcon,
-  Person as PersonIcon,
+  People as CustomersIcon,
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
   TrendingUp as SalesIcon,
@@ -376,7 +376,7 @@ const CustomersPage: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <PersonIcon sx={{
+            <CustomersIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
@@ -573,7 +573,7 @@ const CustomersPage: React.FC = () => {
       )}
 
       {/* Customer Table */}
-      <Paper>
+      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
           <Table
             size={TABLE_STYLES.size}
