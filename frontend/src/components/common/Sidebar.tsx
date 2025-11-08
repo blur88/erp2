@@ -213,18 +213,6 @@ const menuSections: MenuSection[] = [
             path: '/reports/sales/order-profit',
           },
           {
-            id: 'sales-order-operational-report',
-            title: 'Sales Order Operational Report',
-            icon: <ReportsIcon />,
-            path: '/reports/sales/order-operational',
-          },
-          {
-            id: 'sales-tax-report',
-            title: 'Sales Tax Report',
-            icon: <ReportsIcon />,
-            path: '/reports/sales/tax',
-          },
-          {
             id: 'customer-payment-summary',
             title: 'Customer Payment Summary',
             icon: <ReportsIcon />,
