@@ -510,7 +510,7 @@ const SuppliersPage: React.FC = () => {
       )}
 
       {/* Supplier Table */}
-      <Paper>
+      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
           <Table
             size={TABLE_STYLES.size}
