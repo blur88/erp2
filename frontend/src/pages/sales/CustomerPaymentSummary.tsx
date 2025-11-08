@@ -70,7 +70,7 @@ const CustomerPaymentSummary: React.FC = () => {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
     'customerName', 'lastOrderDate', 'lastPaymentDate', 'totalInvoiced', 'totalPaid', 'balance'
   ])
-  const [sortBy1, setSortBy1] = useState<string>('totalInvoiced')
+  const [sortBy1, setSortBy1] = useState<string>('customerName')
   const [reportTitle, setReportTitle] = useState<string>('Customer Payment Summary')
 
   // Pagination
@@ -139,7 +139,7 @@ const CustomerPaymentSummary: React.FC = () => {
 
     // Reset display options to defaults
     setSelectedColumns(['customerName', 'lastOrderDate', 'lastPaymentDate', 'totalInvoiced', 'totalPaid', 'balance'])
-    setSortBy1('totalInvoiced')
+    setSortBy1('customerName')
     setReportTitle('Customer Payment Summary')
 
     // Reset pagination
