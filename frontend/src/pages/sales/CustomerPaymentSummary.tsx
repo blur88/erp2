@@ -22,6 +22,8 @@ import {
   useTheme,
   useMediaQuery,
   Chip,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -43,6 +45,10 @@ interface CustomerPaymentSummary {
   firstPaymentDate: string
   invoicesPaid: number
   averagePaymentAmount: number
+  paymentStatus: string
+  totalInvoiced: number
+  totalPaid: number
+  orderCount: number
 }
 
 const CustomerPaymentSummary: React.FC = () => {
@@ -55,6 +61,9 @@ const CustomerPaymentSummary: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
   const [paymentStatus, setPaymentStatus] = useState<string>('all')
+
+  // Options
+  const [showOnlyOwing, setShowOnlyOwing] = useState<boolean>(false)
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
@@ -78,6 +87,11 @@ const CustomerPaymentSummary: React.FC = () => {
       })
       .catch(() => {})
   }, [])
+
+  // Reset to first page when Show Only Owing changes
+  useEffect(() => {
+    setPage(0)
+  }, [showOnlyOwing])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -115,6 +129,9 @@ const CustomerPaymentSummary: React.FC = () => {
     setDateFrom('')
     setDateTo('')
     setPaymentStatus('all')
+
+    // Clear options
+    setShowOnlyOwing(false)
 
     // Clear report data
     setReportData([])
@@ -367,11 +384,18 @@ const CustomerPaymentSummary: React.FC = () => {
 
   const totals = calculateTotals()
 
-  // Sort the report data based on selected sort criteria
+  // Sort and filter the report data
   const getSortedData = () => {
     if (reportData.length === 0) return []
 
-    const sorted = [...reportData]
+    let filtered = [...reportData]
+
+    // Apply "Show Only Owing" filter - show customers who owe money (not fully paid)
+    if (showOnlyOwing) {
+      filtered = filtered.filter(customer =>
+        customer.paymentStatus !== 'paid'
+      )
+    }
 
     const compareValues = (a: any, b: any, field: string) => {
       const aVal = a[field]
@@ -396,7 +420,7 @@ const CustomerPaymentSummary: React.FC = () => {
       return bVal - aVal
     }
 
-    sorted.sort((a, b) => {
+    filtered.sort((a, b) => {
       if (sortBy1 !== 'none') {
         const result1 = compareValues(a, b, sortBy1)
         if (result1 !== 0) return result1
@@ -404,7 +428,7 @@ const CustomerPaymentSummary: React.FC = () => {
       return 0
     })
 
-    return sorted
+    return filtered
   }
 
   const sortedData = getSortedData()
@@ -560,6 +584,37 @@ const CustomerPaymentSummary: React.FC = () => {
                   </Select>
                 </FormControl>
                 </Stack>
+              </Box>
+            </Paper>
+
+            {/* Options Section */}
+            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Options
+                </Typography>
+              </Box>
+
+              <Box sx={{ p: 2 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showOnlyOwing}
+                      onChange={(e) => setShowOnlyOwing(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: '0.75rem' }}>
+                      Show Only Owing
+                    </Typography>
+                  }
+                />
               </Box>
             </Paper>
 
