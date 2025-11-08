@@ -939,96 +939,130 @@ export class SalesAnalyticsService {
     customerId?: string;
     paymentStatus?: string;
   }) {
-    // Build WHERE conditions for payments
-    const paymentWhere: any = {
-      status: PaymentStatus.COMPLETED,
-    };
+    // Build WHERE conditions for sales orders
+    const orderWhere: any = {};
 
     if (query.customerId) {
-      paymentWhere.customerId = query.customerId;
+      orderWhere.customerId = query.customerId;
     }
 
-    // Build date range for payments
+    // Build date range for orders
     if (query.dateFrom && query.dateTo) {
-      paymentWhere.paymentDate = Between(query.dateFrom, query.dateTo);
+      orderWhere.orderDate = Between(query.dateFrom, query.dateTo);
     } else if (query.dateFrom) {
-      paymentWhere.paymentDate = Between(query.dateFrom, new Date());
+      orderWhere.orderDate = Between(query.dateFrom, new Date());
     } else if (query.dateTo) {
-      paymentWhere.paymentDate = Between(new Date('2000-01-01'), query.dateTo);
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
     }
 
-    // Get all payments with related invoice and customer data
-    const payments = await this.paymentRepository.find({
-      where: paymentWhere,
-      relations: ['customer', 'invoice', 'invoice.salesOrder'],
-      order: { paymentNumber: 'ASC' },
+    // Get all sales orders with invoices and payments
+    const orders = await this.salesOrderRepository.find({
+      where: orderWhere,
+      relations: ['customer', 'invoices', 'invoices.payments'],
+      order: { orderDate: 'DESC' },
     });
 
-    // Group payments by customer
+    // Group by customer and calculate payment status
     const customerPaymentMap = new Map<string, {
       customerId: string;
       customerName: string;
       customerPhone: string;
+      totalInvoiced: number;
+      totalPaid: number;
       totalPayments: number;
       paymentCount: number;
-      lastPaymentDate: Date;
-      firstPaymentDate: Date;
+      lastPaymentDate: Date | null;
+      firstPaymentDate: Date | null;
       invoicesPaid: number;
       averagePaymentAmount: number;
-      payments: any[];
+      paymentStatus: string;
+      orderCount: number;
     }>();
 
-    payments.forEach((payment) => {
-      const customerId = payment.customerId;
-      const customerName = payment.customer?.name || 'Unknown';
-      const customerPhone = payment.customer?.phone || '';
+    orders.forEach((order) => {
+      const customerId = order.customer?.id;
+      const customerName = order.customer?.name || 'Unknown';
+      const customerPhone = order.customer?.phone || '';
+
+      if (!customerId) return;
 
       if (!customerPaymentMap.has(customerId)) {
         customerPaymentMap.set(customerId, {
           customerId,
           customerName,
           customerPhone,
+          totalInvoiced: 0,
+          totalPaid: 0,
           totalPayments: 0,
           paymentCount: 0,
-          lastPaymentDate: payment.paymentDate,
-          firstPaymentDate: payment.paymentDate,
+          lastPaymentDate: null,
+          firstPaymentDate: null,
           invoicesPaid: 0,
           averagePaymentAmount: 0,
-          payments: [],
+          paymentStatus: 'unpaid',
+          orderCount: 0,
         });
       }
 
       const customerData = customerPaymentMap.get(customerId)!;
-      customerData.totalPayments += Number(payment.amount);
-      customerData.paymentCount += 1;
-      customerData.payments.push(payment);
+      customerData.orderCount += 1;
 
-      // Track date ranges
-      if (new Date(payment.paymentDate) > new Date(customerData.lastPaymentDate)) {
-        customerData.lastPaymentDate = payment.paymentDate;
-      }
-      if (new Date(payment.paymentDate) < new Date(customerData.firstPaymentDate)) {
-        customerData.firstPaymentDate = payment.paymentDate;
-      }
+      // Process invoices and payments
+      const invoices = order.invoices || [];
+      invoices.forEach((invoice) => {
+        customerData.totalInvoiced += Number(invoice.totalAmount || 0);
 
-      // Count unique invoices
-      const invoiceIds = new Set(customerData.payments.filter(p => p.invoiceId).map(p => p.invoiceId));
-      customerData.invoicesPaid = invoiceIds.size;
+        const payments = invoice.payments || [];
+        payments.forEach((payment) => {
+          const paymentAmount = Number(payment.amount || 0);
+          customerData.totalPaid += paymentAmount;
+          customerData.totalPayments += paymentAmount;
+          customerData.paymentCount += 1;
+
+          const paymentDate = new Date(payment.paymentDate);
+
+          // Track date ranges
+          if (!customerData.lastPaymentDate || paymentDate > customerData.lastPaymentDate) {
+            customerData.lastPaymentDate = paymentDate;
+          }
+          if (!customerData.firstPaymentDate || paymentDate < customerData.firstPaymentDate) {
+            customerData.firstPaymentDate = paymentDate;
+          }
+        });
+
+        // Count invoices that have payments
+        if (payments.length > 0) {
+          customerData.invoicesPaid += 1;
+        }
+      });
     });
 
-    // Convert to array and calculate averages
+    // Calculate payment status and averages for each customer
     const customerSummaries = Array.from(customerPaymentMap.values()).map(customer => {
+      // Calculate payment status based on total invoiced vs total paid
+      if (customer.totalPaid >= customer.totalInvoiced && customer.totalInvoiced > 0) {
+        customer.paymentStatus = customer.totalPaid > customer.totalInvoiced ? 'overpaid' : 'paid';
+      } else if (customer.totalPaid > 0) {
+        customer.paymentStatus = 'partial';
+      } else {
+        customer.paymentStatus = 'unpaid';
+      }
+
+      // Calculate average payment amount
       customer.averagePaymentAmount = customer.paymentCount > 0
         ? customer.totalPayments / customer.paymentCount
         : 0;
 
-      // Remove the payments array from the response
-      const { payments, ...summary } = customer;
-      return summary;
+      return customer;
     });
 
-    // Filter by payment status if needed (for future enhancement)
+    // Filter by payment status if specified
     let filteredSummaries = customerSummaries;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredSummaries = customerSummaries.filter(
+        customer => customer.paymentStatus === query.paymentStatus
+      );
+    }
 
     // Sort by total payments descending
     filteredSummaries.sort((a, b) => b.totalPayments - a.totalPayments);

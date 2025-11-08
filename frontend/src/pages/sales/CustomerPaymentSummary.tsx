@@ -54,6 +54,7 @@ const CustomerPaymentSummary: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
+  const [paymentStatus, setPaymentStatus] = useState<string>('all')
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
@@ -89,6 +90,7 @@ const CustomerPaymentSummary: React.FC = () => {
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedCustomer) params.append('customerId', selectedCustomer)
+      if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
 
       // Call the backend API
       const response = await fetch(`/api/sales/analytics/customer-payment-summary?${params.toString()}`)
@@ -112,6 +114,7 @@ const CustomerPaymentSummary: React.FC = () => {
     setSelectedCustomer('')
     setDateFrom('')
     setDateTo('')
+    setPaymentStatus('all')
 
     // Clear report data
     setReportData([])
@@ -540,6 +543,22 @@ const CustomerPaymentSummary: React.FC = () => {
                   size="small"
                   fullWidth
                 />
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select
+                    value={paymentStatus}
+                    label="Payment Status"
+                    onChange={(e) => setPaymentStatus(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="unpaid">Unpaid</MenuItem>
+                    <MenuItem value="partial">Partial</MenuItem>
+                    <MenuItem value="paid">Paid</MenuItem>
+                    <MenuItem value="overpaid">Overpaid</MenuItem>
+                  </Select>
+                </FormControl>
                 </Stack>
               </Box>
             </Paper>
