@@ -973,6 +973,7 @@ export class SalesAnalyticsService {
       paymentCount: number;
       lastPaymentDate: Date | null;
       firstPaymentDate: Date | null;
+      lastOrderDate: Date | null;
       invoicesPaid: number;
       averagePaymentAmount: number;
       paymentStatus: string;
@@ -997,6 +998,7 @@ export class SalesAnalyticsService {
           paymentCount: 0,
           lastPaymentDate: null,
           firstPaymentDate: null,
+          lastOrderDate: null,
           invoicesPaid: 0,
           averagePaymentAmount: 0,
           paymentStatus: 'unpaid',
@@ -1006,6 +1008,12 @@ export class SalesAnalyticsService {
 
       const customerData = customerPaymentMap.get(customerId)!;
       customerData.orderCount += 1;
+
+      // Track last order date
+      const orderDate = new Date(order.orderDate);
+      if (!customerData.lastOrderDate || orderDate > customerData.lastOrderDate) {
+        customerData.lastOrderDate = orderDate;
+      }
 
       // Process invoices and payments
       const invoices = order.invoices || [];
