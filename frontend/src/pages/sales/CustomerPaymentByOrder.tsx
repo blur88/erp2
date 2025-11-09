@@ -170,8 +170,22 @@ const CustomerPaymentByOrder: React.FC = () => {
     const headers = selectedColumns.map(col => columnHeaders[col] || col)
     csv += headers.join(',') + '\n'
 
-    // Add data rows
-    sortedData.forEach(row => {
+    // Add data rows with grouping support
+    let prevGroupValue: any = null
+
+    sortedData.forEach((row, idx) => {
+      // Determine current group value
+      const currentGroupValue = groupBy !== 'none' ? (row as any)[groupBy] : null
+
+      // Add group header if group changed
+      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
+        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
+                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
+                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+        csv += `\n"${groupLabel}"\n`
+        prevGroupValue = currentGroupValue
+      }
+
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'orderDate' || col === 'lastPaymentDate') {
@@ -184,6 +198,31 @@ const CustomerPaymentByOrder: React.FC = () => {
         return `"${value || ''}"`
       })
       csv += values.join(',') + '\n'
+
+      // Check if we need to add subtotal
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      const nextGroupValue = nextRow && groupBy !== 'none' ? (nextRow as any)[groupBy] : null
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+        // Calculate subtotal for this group
+        const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+
+        const subtotal = {
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+        }
+
+        csv += '"Subtotal",'
+        const subtotalValues = selectedColumns.slice(1).map(col => {
+          const value = (subtotal as any)[col]
+          if (typeof value === 'number') {
+            return value.toFixed(2)
+          }
+          return ''
+        })
+        csv += subtotalValues.join(',') + '\n'
+      }
     })
 
     // Add totals
@@ -231,8 +270,21 @@ const CustomerPaymentByOrder: React.FC = () => {
     }
 
     let tableRows = ''
+    let prevGroupValue: any = null
 
-    sortedData.forEach(row => {
+    sortedData.forEach((row, idx) => {
+      // Determine current group value
+      const currentGroupValue = groupBy !== 'none' ? (row as any)[groupBy] : null
+
+      // Add group header if group changed
+      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
+        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
+                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
+                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+        tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
+        prevGroupValue = currentGroupValue
+      }
+
       tableRows += '<tr>'
       selectedColumns.forEach(col => {
         const value = (row as any)[col]
@@ -248,6 +300,37 @@ const CustomerPaymentByOrder: React.FC = () => {
         tableRows += `<td style="${align}">${displayValue || ''}</td>`
       })
       tableRows += '</tr>'
+
+      // Check if we need to add subtotal
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      const nextGroupValue = nextRow && groupBy !== 'none' ? (nextRow as any)[groupBy] : null
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+        // Calculate subtotal for this group
+        const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+
+        const subtotal = {
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+        }
+
+        tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
+        selectedColumns.forEach((col, colIdx) => {
+          if (colIdx === 0) {
+            tableRows += '<td>Subtotal</td>'
+          } else {
+            const value = (subtotal as any)[col]
+            let displayValue = ''
+            if (typeof value === 'number') {
+              displayValue = formatCurrency(value)
+            }
+            const align = typeof value === 'number' ? 'text-align: right;' : ''
+            tableRows += `<td style="${align}">${displayValue}</td>`
+          }
+        })
+        tableRows += '</tr>'
+      }
     })
 
     // Add totals
@@ -838,7 +921,10 @@ const CustomerPaymentByOrder: React.FC = () => {
                     {paginatedData.map((row, idx) => {
                       // Check if we need to display a group header
                       const prevRow = idx > 0 ? paginatedData[idx - 1] : null
+                      const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
+
                       const showGroupHeader = groupBy !== 'none' && (!prevRow || (row as any)[groupBy] !== (prevRow as any)[groupBy])
+                      const showGroupFooter = groupBy !== 'none' && (!nextRow || (row as any)[groupBy] !== (nextRow as any)[groupBy])
 
                       const getGroupLabel = (field: string, value: any) => {
                         if (field === 'customerName') return `Customer: ${value}`
@@ -846,6 +932,22 @@ const CustomerPaymentByOrder: React.FC = () => {
                         if (field === 'paymentStatus') return `Payment: ${value.charAt(0).toUpperCase() + value.slice(1)}`
                         return value
                       }
+
+                      // Calculate group subtotals
+                      const calculateGroupSubtotals = () => {
+                        if (groupBy === 'none') return null
+
+                        const currentGroupValue = (row as any)[groupBy]
+                        const groupData = paginatedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+
+                        return {
+                          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+                          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+                          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+                        }
+                      }
+
+                      const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
 
                       return (
                         <React.Fragment key={`${row.invoiceNumber}-${idx}`}>
@@ -927,6 +1029,46 @@ const CustomerPaymentByOrder: React.FC = () => {
                           </TableCell>
                         )}
                       </TableRow>
+                          {showGroupFooter && groupSubtotals && (
+                            <TableRow sx={{
+                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
+                              borderBottom: '2px solid',
+                              borderColor: 'divider',
+                              '& .MuiTableCell-root': {
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                fontStyle: 'italic'
+                              }
+                            }}>
+                              {selectedColumns.includes('orderNumber') && (
+                                <TableCell sx={{ fontWeight: 600 }}>
+                                  Subtotal
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('customerName') && <TableCell />}
+                              {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                              {selectedColumns.includes('paymentStatus') && <TableCell />}
+                              {selectedColumns.includes('orderDate') && <TableCell />}
+                              {selectedColumns.includes('lastPaymentDate') && <TableCell />}
+                              {selectedColumns.includes('totalAmount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.totalAmount)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('paidAmount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.paidAmount)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('balance') && (
+                                <TableCell align="right" sx={{
+                                  color: groupSubtotals.balance > 0 ? 'error.main' : 'success.main'
+                                }}>
+                                  {formatCurrency(groupSubtotals.balance)}
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          )}
                         </React.Fragment>
                       )
                     })}

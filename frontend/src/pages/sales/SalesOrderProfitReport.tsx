@@ -159,8 +159,29 @@ const SalesOrderProfitReport: React.FC = () => {
     const headers = selectedColumns.map(col => columnHeaders[col] || col)
     csv += headers.join(',') + '\n'
 
-    // Add data rows
-    sortedData.forEach(row => {
+    // Add data rows with grouping support
+    let prevGroupValue: any = null
+
+    sortedData.forEach((row, idx) => {
+      // Determine current group value
+      let currentGroupValue: any = null
+      if (groupBy === 'customerName') {
+        currentGroupValue = row.customerName
+      } else if (groupBy === 'paymentStatus') {
+        currentGroupValue = row.paymentStatus
+      } else if (groupBy === 'inventoryStatus') {
+        currentGroupValue = row.inventoryStatus
+      }
+
+      // Add group header if group changed
+      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
+        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
+                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
+                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+        csv += `\n"${groupLabel}"\n`
+        prevGroupValue = currentGroupValue
+      }
+
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'orderDate') {
@@ -175,6 +196,41 @@ const SalesOrderProfitReport: React.FC = () => {
         return `"${value || ''}"`
       })
       csv += values.join(',') + '\n'
+
+      // Check if we need to add subtotal
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      let nextGroupValue: any = null
+      if (nextRow) {
+        if (groupBy === 'customerName') nextGroupValue = nextRow.customerName
+        else if (groupBy === 'paymentStatus') nextGroupValue = nextRow.paymentStatus
+        else if (groupBy === 'inventoryStatus') nextGroupValue = nextRow.inventoryStatus
+      }
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+        // Calculate subtotal for this group
+        const groupData = sortedData.filter(r => {
+          if (groupBy === 'customerName') return r.customerName === currentGroupValue
+          if (groupBy === 'paymentStatus') return r.paymentStatus === currentGroupValue
+          if (groupBy === 'inventoryStatus') return r.inventoryStatus === currentGroupValue
+          return false
+        })
+
+        const subtotal = {
+          totalCost: groupData.reduce((sum, r) => sum + r.totalCost, 0),
+          totalRevenue: groupData.reduce((sum, r) => sum + r.totalRevenue, 0),
+          grossProfit: groupData.reduce((sum, r) => sum + r.grossProfit, 0),
+        }
+
+        csv += '"Subtotal",'
+        const subtotalValues = selectedColumns.slice(1).map(col => {
+          const value = (subtotal as any)[col]
+          if (typeof value === 'number') {
+            return value.toFixed(2)
+          }
+          return ''
+        })
+        csv += subtotalValues.join(',') + '\n'
+      }
     })
 
     // Add totals
@@ -221,8 +277,28 @@ const SalesOrderProfitReport: React.FC = () => {
     }
 
     let tableRows = ''
+    let prevGroupValue: any = null
 
-    sortedData.forEach(row => {
+    sortedData.forEach((row, idx) => {
+      // Determine current group value
+      let currentGroupValue: any = null
+      if (groupBy === 'customerName') {
+        currentGroupValue = row.customerName
+      } else if (groupBy === 'paymentStatus') {
+        currentGroupValue = row.paymentStatus
+      } else if (groupBy === 'inventoryStatus') {
+        currentGroupValue = row.inventoryStatus
+      }
+
+      // Add group header if group changed
+      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
+        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
+                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
+                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+        tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
+        prevGroupValue = currentGroupValue
+      }
+
       tableRows += '<tr>'
       selectedColumns.forEach(col => {
         const value = (row as any)[col]
@@ -237,6 +313,46 @@ const SalesOrderProfitReport: React.FC = () => {
         tableRows += `<td>${displayValue || ''}</td>`
       })
       tableRows += '</tr>'
+
+      // Check if we need to add subtotal
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      let nextGroupValue: any = null
+      if (nextRow) {
+        if (groupBy === 'customerName') nextGroupValue = nextRow.customerName
+        else if (groupBy === 'paymentStatus') nextGroupValue = nextRow.paymentStatus
+        else if (groupBy === 'inventoryStatus') nextGroupValue = nextRow.inventoryStatus
+      }
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+        // Calculate subtotal for this group
+        const groupData = sortedData.filter(r => {
+          if (groupBy === 'customerName') return r.customerName === currentGroupValue
+          if (groupBy === 'paymentStatus') return r.paymentStatus === currentGroupValue
+          if (groupBy === 'inventoryStatus') return r.inventoryStatus === currentGroupValue
+          return false
+        })
+
+        const subtotal = {
+          totalCost: groupData.reduce((sum, r) => sum + r.totalCost, 0),
+          totalRevenue: groupData.reduce((sum, r) => sum + r.totalRevenue, 0),
+          grossProfit: groupData.reduce((sum, r) => sum + r.grossProfit, 0),
+        }
+
+        tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
+        selectedColumns.forEach((col, colIdx) => {
+          if (colIdx === 0) {
+            tableRows += '<td>Subtotal</td>'
+          } else {
+            const value = (subtotal as any)[col]
+            let displayValue = ''
+            if (typeof value === 'number') {
+              displayValue = formatCurrency(value)
+            }
+            tableRows += `<td>${displayValue}</td>`
+          }
+        })
+        tableRows += '</tr>'
+      }
     })
 
     // Add totals
@@ -791,76 +907,185 @@ const SalesOrderProfitReport: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {paginatedData.map((row, idx) => (
-                      <TableRow
-                        key={`${row.orderNumber}-${idx}`}
-                        hover
-                        sx={{
-                          '&:hover': { backgroundColor: 'action.hover' },
-                          transition: 'background-color 0.2s ease',
-                          height: TABLE_STYLES.row.height
-                        }}
-                      >
-                        {selectedColumns.includes('orderNumber') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.orderNumber}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('inventoryStatus') && (
-                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            <Chip
-                              label={row.inventoryStatus.charAt(0).toUpperCase() + row.inventoryStatus.slice(1)}
-                              size="small"
-                              color={row.inventoryStatus === 'fulfilled' ? 'success' : 'warning'}
-                              sx={{ fontSize: '0.7rem', height: '20px' }}
-                            />
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('paymentStatus') && (
-                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            <Chip
-                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
-                              size="small"
-                              color={
-                                row.paymentStatus === 'paid' ? 'success' :
-                                row.paymentStatus === 'partial' ? 'warning' :
-                                row.paymentStatus === 'overpaid' ? 'info' :
-                                'error'
+                    {paginatedData.map((row, idx) => {
+                      // Check if we need to display a group header
+                      const prevRow = idx > 0 ? paginatedData[idx - 1] : null
+                      const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
+
+                      // Determine current group value based on groupBy field
+                      let currentGroupValue: any = null
+                      let prevGroupValue: any = null
+                      let nextGroupValue: any = null
+
+                      if (groupBy === 'customerName') {
+                        currentGroupValue = row.customerName
+                        prevGroupValue = prevRow?.customerName
+                        nextGroupValue = nextRow?.customerName
+                      } else if (groupBy === 'paymentStatus') {
+                        currentGroupValue = row.paymentStatus
+                        prevGroupValue = prevRow?.paymentStatus
+                        nextGroupValue = nextRow?.paymentStatus
+                      } else if (groupBy === 'inventoryStatus') {
+                        currentGroupValue = row.inventoryStatus
+                        prevGroupValue = prevRow?.inventoryStatus
+                        nextGroupValue = nextRow?.inventoryStatus
+                      }
+
+                      const showGroupHeader = groupBy !== 'none' && (!prevRow || currentGroupValue !== prevGroupValue)
+                      const showGroupFooter = groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)
+
+                      const getGroupLabel = (field: string, value: any) => {
+                        if (field === 'customerName') return `Customer: ${value}`
+                        if (field === 'inventoryStatus') return `Inventory: ${value.charAt(0).toUpperCase() + value.slice(1)}`
+                        if (field === 'paymentStatus') return `Payment: ${value.charAt(0).toUpperCase() + value.slice(1)}`
+                        return value
+                      }
+
+                      // Calculate group subtotals
+                      const calculateGroupSubtotals = () => {
+                        if (groupBy === 'none') return null
+
+                        const groupData = paginatedData.filter(r => {
+                          if (groupBy === 'customerName') return r.customerName === currentGroupValue
+                          if (groupBy === 'paymentStatus') return r.paymentStatus === currentGroupValue
+                          if (groupBy === 'inventoryStatus') return r.inventoryStatus === currentGroupValue
+                          return false
+                        })
+
+                        return {
+                          totalCost: groupData.reduce((sum, r) => sum + r.totalCost, 0),
+                          totalRevenue: groupData.reduce((sum, r) => sum + r.totalRevenue, 0),
+                          grossProfit: groupData.reduce((sum, r) => sum + r.grossProfit, 0),
+                        }
+                      }
+
+                      const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
+
+                      return (
+                        <React.Fragment key={`${row.orderNumber}-${idx}`}>
+                          {showGroupHeader && (
+                            <TableRow sx={{
+                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                              '& .MuiTableCell-root': {
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                py: 1
                               }
-                              sx={{ fontSize: '0.7rem', height: '20px' }}
-                            />
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('customerName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.customerName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('orderDate') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {new Date(row.orderDate).toLocaleDateString()}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('totalCost') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.totalCost)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('totalRevenue') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {formatCurrency(row.totalRevenue)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('grossProfit') && (
-                          <TableCell align="right" sx={{
-                            fontSize: '0.8rem',
-                            color: row.grossProfit > 0 ? 'success.main' : 'error.main'
-                          }}>
-                            {formatCurrency(row.grossProfit)}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
+                            }}>
+                              <TableCell colSpan={selectedColumns.length}>
+                                {getGroupLabel(groupBy, currentGroupValue)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow
+                            hover
+                            sx={{
+                              '&:hover': { backgroundColor: 'action.hover' },
+                              transition: 'background-color 0.2s ease',
+                              height: TABLE_STYLES.row.height
+                            }}
+                          >
+                            {selectedColumns.includes('orderNumber') && (
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {row.orderNumber}
+                              </TableCell>
+                            )}
+                            {selectedColumns.includes('inventoryStatus') && (
+                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                <Chip
+                                  label={row.inventoryStatus.charAt(0).toUpperCase() + row.inventoryStatus.slice(1)}
+                                  size="small"
+                                  color={row.inventoryStatus === 'fulfilled' ? 'success' : 'warning'}
+                                  sx={{ fontSize: '0.7rem', height: '20px' }}
+                                />
+                              </TableCell>
+                            )}
+                            {selectedColumns.includes('paymentStatus') && (
+                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                <Chip
+                                  label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
+                                  size="small"
+                                  color={
+                                    row.paymentStatus === 'paid' ? 'success' :
+                                    row.paymentStatus === 'partial' ? 'warning' :
+                                    row.paymentStatus === 'overpaid' ? 'info' :
+                                    'error'
+                                  }
+                                  sx={{ fontSize: '0.7rem', height: '20px' }}
+                                />
+                              </TableCell>
+                            )}
+                            {selectedColumns.includes('customerName') && (
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {row.customerName}
+                              </TableCell>
+                            )}
+                            {selectedColumns.includes('orderDate') && (
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {new Date(row.orderDate).toLocaleDateString()}
+                              </TableCell>
+                            )}
+                            {selectedColumns.includes('totalCost') && (
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(row.totalCost)}
+                              </TableCell>
+                            )}
+                            {selectedColumns.includes('totalRevenue') && (
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(row.totalRevenue)}
+                              </TableCell>
+                            )}
+                            {selectedColumns.includes('grossProfit') && (
+                              <TableCell align="right" sx={{
+                                fontSize: '0.8rem',
+                                color: row.grossProfit > 0 ? 'success.main' : 'error.main'
+                              }}>
+                                {formatCurrency(row.grossProfit)}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                          {showGroupFooter && groupSubtotals && (
+                            <TableRow sx={{
+                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
+                              borderBottom: '2px solid',
+                              borderColor: 'divider',
+                              '& .MuiTableCell-root': {
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                fontStyle: 'italic'
+                              }
+                            }}>
+                              {selectedColumns.includes('orderNumber') && (
+                                <TableCell sx={{ fontWeight: 600 }}>
+                                  Subtotal
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                              {selectedColumns.includes('paymentStatus') && <TableCell />}
+                              {selectedColumns.includes('customerName') && <TableCell />}
+                              {selectedColumns.includes('orderDate') && <TableCell />}
+                              {selectedColumns.includes('totalCost') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.totalCost)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('totalRevenue') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.totalRevenue)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('grossProfit') && (
+                                <TableCell align="right" sx={{
+                                  color: groupSubtotals.grossProfit > 0 ? 'success.main' : 'error.main'
+                                }}>
+                                  {formatCurrency(groupSubtotals.grossProfit)}
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
                     {/* Total Row */}
                     {totals && (
                       <TableRow
