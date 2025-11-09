@@ -1147,6 +1147,7 @@ export class SalesAnalyticsService {
           orderDate: order.orderDate,
           invoiceNumber: invoice.invoiceNumber,
           invoiceDate: invoice.invoiceDate,
+          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
           totalAmount,
           paidAmount: totalPaid,
           balance,

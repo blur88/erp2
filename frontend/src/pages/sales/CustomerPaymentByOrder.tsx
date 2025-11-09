@@ -42,6 +42,7 @@ interface CustomerPaymentByOrder {
   orderDate: string
   invoiceNumber: string
   invoiceDate: string
+  inventoryStatus: string
   totalAmount: number
   paidAmount: number
   balance: number
@@ -65,7 +66,7 @@ const CustomerPaymentByOrder: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'customerName', 'orderNumber', 'invoiceNumber', 'orderDate', 'totalAmount', 'paidAmount', 'balance'
+    'orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'lastPaymentDate', 'totalAmount', 'paidAmount', 'balance'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderNumber')
@@ -136,7 +137,7 @@ const CustomerPaymentByOrder: React.FC = () => {
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['customerName', 'orderNumber', 'invoiceNumber', 'orderDate', 'totalAmount', 'paidAmount', 'balance'])
+    setSelectedColumns(['orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'lastPaymentDate', 'totalAmount', 'paidAmount', 'balance'])
     setGroupBy('none')
     setSortBy1('orderNumber')
     setReportTitle('Customer Payment by Order')
@@ -151,16 +152,15 @@ const CustomerPaymentByOrder: React.FC = () => {
 
     // Column headers mapping
     const columnHeaders: { [key: string]: string } = {
+      orderNumber: 'Order No',
       customerName: 'Customer',
-      orderNumber: 'Order #',
-      invoiceNumber: 'Invoice #',
+      inventoryStatus: 'Inventory Status',
+      paymentStatus: 'Payment Status',
       orderDate: 'Order Date',
-      invoiceDate: 'Invoice Date',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid Amount',
-      balance: 'Balance',
-      paymentStatus: 'Status',
-      lastPaymentDate: 'Last Payment'
+      lastPaymentDate: 'Date Paid',
+      totalAmount: 'Sales Total',
+      paidAmount: 'Amount Paid',
+      balance: 'Balance'
     }
 
     // Build CSV content
@@ -174,9 +174,9 @@ const CustomerPaymentByOrder: React.FC = () => {
     sortedData.forEach(row => {
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
-        if (col === 'orderDate' || col === 'invoiceDate' || col === 'lastPaymentDate') {
+        if (col === 'orderDate' || col === 'lastPaymentDate') {
           return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
-        } else if (col === 'customerName' || col === 'orderNumber' || col === 'invoiceNumber' || col === 'paymentStatus') {
+        } else if (col === 'customerName' || col === 'orderNumber' || col === 'paymentStatus' || col === 'inventoryStatus') {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
           return value.toFixed(2)
@@ -219,16 +219,15 @@ const CustomerPaymentByOrder: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
+      orderNumber: 'Order No',
       customerName: 'Customer',
-      orderNumber: 'Order #',
-      invoiceNumber: 'Invoice #',
+      inventoryStatus: 'Inventory Status',
+      paymentStatus: 'Payment Status',
       orderDate: 'Order Date',
-      invoiceDate: 'Invoice Date',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid Amount',
-      balance: 'Balance',
-      paymentStatus: 'Status',
-      lastPaymentDate: 'Last Payment'
+      lastPaymentDate: 'Date Paid',
+      totalAmount: 'Sales Total',
+      paidAmount: 'Amount Paid',
+      balance: 'Balance'
     }
 
     let tableRows = ''
@@ -238,11 +237,11 @@ const CustomerPaymentByOrder: React.FC = () => {
       selectedColumns.forEach(col => {
         const value = (row as any)[col]
         let displayValue = value
-        if (col === 'orderDate' || col === 'invoiceDate' || col === 'lastPaymentDate') {
+        if (col === 'orderDate' || col === 'lastPaymentDate') {
           displayValue = value ? new Date(value).toLocaleDateString() : '-'
         } else if (typeof value === 'number') {
           displayValue = formatCurrency(value)
-        } else if (col === 'paymentStatus') {
+        } else if (col === 'paymentStatus' || col === 'inventoryStatus') {
           displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
         }
         const align = (typeof value === 'number') ? 'text-align: right;' : ''
@@ -671,7 +670,7 @@ const CustomerPaymentByOrder: React.FC = () => {
 
                       // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['customerName', 'orderNumber', 'invoiceNumber', 'orderDate', 'invoiceDate', 'totalAmount', 'paidAmount', 'balance', 'paymentStatus', 'lastPaymentDate']
+                        const allColumns = ['orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'lastPaymentDate', 'totalAmount', 'paidAmount', 'balance']
                         // If all were selected, deselect all; otherwise select all
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
@@ -687,16 +686,15 @@ const CustomerPaymentByOrder: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="orderNumber">Order #</MenuItem>
-                    <MenuItem value="invoiceNumber">Invoice #</MenuItem>
+                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="invoiceDate">Invoice Date</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="paidAmount">Paid Amount</MenuItem>
+                    <MenuItem value="lastPaymentDate">Date Paid</MenuItem>
+                    <MenuItem value="totalAmount">Sales Total</MenuItem>
+                    <MenuItem value="paidAmount">Amount Paid</MenuItem>
                     <MenuItem value="balance">Balance</MenuItem>
-                    <MenuItem value="paymentStatus">Status</MenuItem>
-                    <MenuItem value="lastPaymentDate">Last Payment</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -723,16 +721,15 @@ const CustomerPaymentByOrder: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
+                    <MenuItem value="orderNumber">Order No</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="orderNumber">Order #</MenuItem>
-                    <MenuItem value="invoiceNumber">Invoice #</MenuItem>
+                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="invoiceDate">Invoice Date</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="paidAmount">Paid Amount</MenuItem>
+                    <MenuItem value="lastPaymentDate">Date Paid</MenuItem>
+                    <MenuItem value="totalAmount">Sales Total</MenuItem>
+                    <MenuItem value="paidAmount">Amount Paid</MenuItem>
                     <MenuItem value="balance">Balance</MenuItem>
-                    <MenuItem value="paymentStatus">Status</MenuItem>
-                    <MenuItem value="lastPaymentDate">Last Payment</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -826,16 +823,15 @@ const CustomerPaymentByOrder: React.FC = () => {
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                       textAlign: 'center'
                     } }}>
+                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
                       {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
-                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order #</TableCell>}
-                      {selectedColumns.includes('invoiceNumber') && <TableCell align="center">Invoice #</TableCell>}
+                      {selectedColumns.includes('inventoryStatus') && <TableCell align="center">Inventory Status</TableCell>}
+                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
                       {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
-                      {selectedColumns.includes('invoiceDate') && <TableCell align="center">Invoice Date</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total Amount</TableCell>}
-                      {selectedColumns.includes('paidAmount') && <TableCell align="center">Paid Amount</TableCell>}
+                      {selectedColumns.includes('lastPaymentDate') && <TableCell align="center">Date Paid</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Sales Total</TableCell>}
+                      {selectedColumns.includes('paidAmount') && <TableCell align="center">Amount Paid</TableCell>}
                       {selectedColumns.includes('balance') && <TableCell align="center">Balance</TableCell>}
-                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">Status</TableCell>}
-                      {selectedColumns.includes('lastPaymentDate') && <TableCell align="center">Last Payment</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -849,19 +845,32 @@ const CustomerPaymentByOrder: React.FC = () => {
                           height: TABLE_STYLES.row.height
                         }}
                       >
-                        {selectedColumns.includes('customerName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.customerName}
-                          </TableCell>
-                        )}
                         {selectedColumns.includes('orderNumber') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
                             {row.orderNumber}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('invoiceNumber') && (
+                        {selectedColumns.includes('customerName') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.invoiceNumber}
+                            {row.customerName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('inventoryStatus') && (
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                            <Chip
+                              label={row.inventoryStatus.charAt(0).toUpperCase() + row.inventoryStatus.slice(1)}
+                              color={row.inventoryStatus === 'fulfilled' ? 'success' : 'warning'}
+                              size="small"
+                            />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('paymentStatus') && (
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                            <Chip
+                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
+                              color={getStatusColor(row.paymentStatus) as any}
+                              size="small"
+                            />
                           </TableCell>
                         )}
                         {selectedColumns.includes('orderDate') && (
@@ -869,9 +878,9 @@ const CustomerPaymentByOrder: React.FC = () => {
                             {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('invoiceDate') && (
+                        {selectedColumns.includes('lastPaymentDate') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.invoiceDate ? new Date(row.invoiceDate).toLocaleDateString() : '-'}
+                            {row.lastPaymentDate ? new Date(row.lastPaymentDate).toLocaleDateString() : '-'}
                           </TableCell>
                         )}
                         {selectedColumns.includes('totalAmount') && (
@@ -889,20 +898,6 @@ const CustomerPaymentByOrder: React.FC = () => {
                             {formatCurrency(row.balance)}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('paymentStatus') && (
-                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            <Chip
-                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
-                              color={getStatusColor(row.paymentStatus) as any}
-                              size="small"
-                            />
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('lastPaymentDate') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.lastPaymentDate ? new Date(row.lastPaymentDate).toLocaleDateString() : '-'}
-                          </TableCell>
-                        )}
                       </TableRow>
                     ))}
                     {/* Total Row */}
@@ -918,15 +913,16 @@ const CustomerPaymentByOrder: React.FC = () => {
                           }
                         }}
                       >
-                        {selectedColumns.includes('customerName') && (
+                        {selectedColumns.includes('orderNumber') && (
                           <TableCell sx={{ fontWeight: 700 }}>
                             TOTAL
                           </TableCell>
                         )}
-                        {selectedColumns.includes('orderNumber') && <TableCell />}
-                        {selectedColumns.includes('invoiceNumber') && <TableCell />}
+                        {selectedColumns.includes('customerName') && <TableCell />}
+                        {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                        {selectedColumns.includes('paymentStatus') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
-                        {selectedColumns.includes('invoiceDate') && <TableCell />}
+                        {selectedColumns.includes('lastPaymentDate') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
                           <TableCell align="right">
                             {formatCurrency(totals.totalAmount)}
@@ -942,8 +938,6 @@ const CustomerPaymentByOrder: React.FC = () => {
                             {formatCurrency(totals.balance)}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('paymentStatus') && <TableCell />}
-                        {selectedColumns.includes('lastPaymentDate') && <TableCell />}
                       </TableRow>
                     )}
                   </TableBody>

@@ -549,6 +549,7 @@ export class SalesAnalyticsController {
               orderDate: { type: 'string', format: 'date' },
               invoiceNumber: { type: 'string' },
               invoiceDate: { type: 'string', format: 'date' },
+              inventoryStatus: { type: 'string' },
               totalAmount: { type: 'number' },
               paidAmount: { type: 'number' },
               balance: { type: 'number' },
