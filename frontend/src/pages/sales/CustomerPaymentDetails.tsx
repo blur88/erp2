@@ -22,8 +22,6 @@ import {
   useTheme,
   useMediaQuery,
   Chip,
-  FormControlLabel,
-  Checkbox,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -64,10 +62,6 @@ const CustomerPaymentDetails: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
-  const [paymentStatus, setPaymentStatus] = useState<string>('all')
-
-  // Options
-  const [showOnlyOwing, setShowOnlyOwing] = useState<boolean>(false)
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
@@ -96,7 +90,7 @@ const CustomerPaymentDetails: React.FC = () => {
   // Reset to first page when filters or display options change
   useEffect(() => {
     setPage(0)
-  }, [showOnlyOwing, groupBy, sortBy1])
+  }, [groupBy, sortBy1])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -109,7 +103,6 @@ const CustomerPaymentDetails: React.FC = () => {
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedCustomer) params.append('customerId', selectedCustomer)
-      if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
 
       // Call the backend API
       const response = await fetch(`/api/sales/analytics/customer-payment-details?${params.toString()}`)
@@ -133,10 +126,6 @@ const CustomerPaymentDetails: React.FC = () => {
     setSelectedCustomer('')
     setDateFrom('')
     setDateTo('')
-    setPaymentStatus('all')
-
-    // Clear options
-    setShowOnlyOwing(false)
 
     // Clear report data
     setReportData([])
@@ -490,11 +479,6 @@ const CustomerPaymentDetails: React.FC = () => {
 
     let filtered = [...reportData]
 
-    // Apply "Show Only Owing" filter - show payments where invoice has outstanding balance
-    if (showOnlyOwing) {
-      filtered = filtered.filter(payment => payment.invoiceBalance > 0)
-    }
-
     const compareValues = (a: any, b: any, field: string) => {
       const aVal = a[field]
       const bVal = b[field]
@@ -693,54 +677,7 @@ const CustomerPaymentDetails: React.FC = () => {
                   size="small"
                   fullWidth
                 />
-
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Payment Status</InputLabel>
-                  <Select
-                    value={paymentStatus}
-                    label="Payment Status"
-                    onChange={(e) => setPaymentStatus(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="unpaid">Unpaid</MenuItem>
-                    <MenuItem value="partial">Partial</MenuItem>
-                    <MenuItem value="paid">Paid</MenuItem>
-                    <MenuItem value="overpaid">Overpaid</MenuItem>
-                  </Select>
-                </FormControl>
                 </Stack>
-              </Box>
-            </Paper>
-
-            {/* Options Section */}
-            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  Options
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={showOnlyOwing}
-                      onChange={(e) => setShowOnlyOwing(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography sx={{ fontSize: '0.75rem' }}>
-                      Show Only Owing
-                    </Typography>
-                  }
-                />
               </Box>
             </Paper>
 
