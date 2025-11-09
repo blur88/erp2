@@ -67,6 +67,7 @@ const CustomerPaymentByOrder: React.FC = () => {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
     'customerName', 'orderNumber', 'invoiceNumber', 'orderDate', 'totalAmount', 'paidAmount', 'balance'
   ])
+  const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderNumber')
   const [reportTitle, setReportTitle] = useState<string>('Customer Payment by Order')
 
@@ -136,6 +137,7 @@ const CustomerPaymentByOrder: React.FC = () => {
 
     // Reset display options to defaults
     setSelectedColumns(['customerName', 'orderNumber', 'invoiceNumber', 'orderDate', 'totalAmount', 'paidAmount', 'balance'])
+    setGroupBy('none')
     setSortBy1('orderNumber')
     setReportTitle('Customer Payment by Order')
 
@@ -417,13 +419,30 @@ const CustomerPaymentByOrder: React.FC = () => {
       return bVal - aVal
     }
 
-    filtered.sort((a, b) => {
-      if (sortBy1 !== 'none') {
-        const result1 = compareValues(a, b, sortBy1)
-        if (result1 !== 0) return result1
-      }
-      return 0
-    })
+    // Apply grouping first, then sorting
+    if (groupBy !== 'none') {
+      filtered.sort((a, b) => {
+        // Group by the selected field first
+        const groupResult = compareValues(a, b, groupBy)
+        if (groupResult !== 0) return groupResult
+
+        // Then sort within groups
+        if (sortBy1 !== 'none') {
+          const sortResult = compareValues(a, b, sortBy1)
+          if (sortResult !== 0) return sortResult
+        }
+        return 0
+      })
+    } else {
+      // No grouping, just sort
+      filtered.sort((a, b) => {
+        if (sortBy1 !== 'none') {
+          const result1 = compareValues(a, b, sortBy1)
+          if (result1 !== 0) return result1
+        }
+        return 0
+      })
+    }
 
     return filtered
   }
@@ -678,6 +697,21 @@ const CustomerPaymentByOrder: React.FC = () => {
                     <MenuItem value="balance">Balance</MenuItem>
                     <MenuItem value="paymentStatus">Status</MenuItem>
                     <MenuItem value="lastPaymentDate">Last Payment</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Group By</InputLabel>
+                  <Select
+                    value={groupBy}
+                    label="Group By"
+                    onChange={(e) => setGroupBy(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="none">None</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
+                    <MenuItem value="orderNumber">Order #</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
                   </Select>
                 </FormControl>
 
