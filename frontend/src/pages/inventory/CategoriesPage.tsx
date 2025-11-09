@@ -470,7 +470,7 @@ const CategoriesPage: React.FC = () => {
       </Box>
 
       {/* Categories Content */}
-      <Paper>        
+      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {loading?.categories ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
@@ -491,6 +491,9 @@ const CategoriesPage: React.FC = () => {
                   borderBottom: TABLE_STYLES.cell.border,
                   py: TABLE_STYLES.cell.padding.py,
                   px: TABLE_STYLES.cell.padding.px
+                },
+                '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root': {
+                  borderBottom: 'none'
                 }
               }}
             >

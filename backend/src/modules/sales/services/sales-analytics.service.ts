@@ -932,4 +932,248 @@ export class SalesAnalyticsService {
       data: profitReports,
     };
   }
+
+  async getCustomerPaymentSummary(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for sales orders
+    const orderWhere: any = {};
+
+    if (query.customerId) {
+      orderWhere.customerId = query.customerId;
+    }
+
+    // Build date range for orders
+    if (query.dateFrom && query.dateTo) {
+      orderWhere.orderDate = Between(query.dateFrom, query.dateTo);
+    } else if (query.dateFrom) {
+      orderWhere.orderDate = Between(query.dateFrom, new Date());
+    } else if (query.dateTo) {
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
+    }
+
+    // Get all sales orders with invoices and payments
+    const orders = await this.salesOrderRepository.find({
+      where: orderWhere,
+      relations: ['customer', 'invoices', 'invoices.payments'],
+      order: { orderDate: 'DESC' },
+    });
+
+    // Group by customer and calculate payment status
+    const customerPaymentMap = new Map<string, {
+      customerId: string;
+      customerName: string;
+      customerPhone: string;
+      totalInvoiced: number;
+      totalPaid: number;
+      totalPayments: number;
+      paymentCount: number;
+      lastPaymentDate: Date | null;
+      firstPaymentDate: Date | null;
+      lastOrderDate: Date | null;
+      invoicesPaid: number;
+      averagePaymentAmount: number;
+      paymentStatus: string;
+      orderCount: number;
+    }>();
+
+    orders.forEach((order) => {
+      const customerId = order.customer?.id;
+      const customerName = order.customer?.name || 'Unknown';
+      const customerPhone = order.customer?.phone || '';
+
+      if (!customerId) return;
+
+      if (!customerPaymentMap.has(customerId)) {
+        customerPaymentMap.set(customerId, {
+          customerId,
+          customerName,
+          customerPhone,
+          totalInvoiced: 0,
+          totalPaid: 0,
+          totalPayments: 0,
+          paymentCount: 0,
+          lastPaymentDate: null,
+          firstPaymentDate: null,
+          lastOrderDate: null,
+          invoicesPaid: 0,
+          averagePaymentAmount: 0,
+          paymentStatus: 'unpaid',
+          orderCount: 0,
+        });
+      }
+
+      const customerData = customerPaymentMap.get(customerId)!;
+      customerData.orderCount += 1;
+
+      // Track last order date
+      const orderDate = new Date(order.orderDate);
+      if (!customerData.lastOrderDate || orderDate > customerData.lastOrderDate) {
+        customerData.lastOrderDate = orderDate;
+      }
+
+      // Process invoices and payments
+      const invoices = order.invoices || [];
+      invoices.forEach((invoice) => {
+        customerData.totalInvoiced += Number(invoice.totalAmount || 0);
+
+        const payments = invoice.payments || [];
+        payments.forEach((payment) => {
+          const paymentAmount = Number(payment.amount || 0);
+          customerData.totalPaid += paymentAmount;
+          customerData.totalPayments += paymentAmount;
+          customerData.paymentCount += 1;
+
+          const paymentDate = new Date(payment.paymentDate);
+
+          // Track date ranges
+          if (!customerData.lastPaymentDate || paymentDate > customerData.lastPaymentDate) {
+            customerData.lastPaymentDate = paymentDate;
+          }
+          if (!customerData.firstPaymentDate || paymentDate < customerData.firstPaymentDate) {
+            customerData.firstPaymentDate = paymentDate;
+          }
+        });
+
+        // Count invoices that have payments
+        if (payments.length > 0) {
+          customerData.invoicesPaid += 1;
+        }
+      });
+    });
+
+    // Calculate payment status and averages for each customer
+    const customerSummaries = Array.from(customerPaymentMap.values()).map(customer => {
+      // Calculate payment status based on total invoiced vs total paid
+      if (customer.totalPaid >= customer.totalInvoiced && customer.totalInvoiced > 0) {
+        customer.paymentStatus = customer.totalPaid > customer.totalInvoiced ? 'overpaid' : 'paid';
+      } else if (customer.totalPaid > 0) {
+        customer.paymentStatus = 'partial';
+      } else {
+        customer.paymentStatus = 'unpaid';
+      }
+
+      // Calculate average payment amount
+      customer.averagePaymentAmount = customer.paymentCount > 0
+        ? customer.totalPayments / customer.paymentCount
+        : 0;
+
+      return customer;
+    });
+
+    // Filter by payment status if specified
+    let filteredSummaries = customerSummaries;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredSummaries = customerSummaries.filter(
+        customer => customer.paymentStatus === query.paymentStatus
+      );
+    }
+
+    // Sort by total payments descending
+    filteredSummaries.sort((a, b) => b.totalPayments - a.totalPayments);
+
+    return {
+      data: filteredSummaries,
+    };
+  }
+
+  async getCustomerPaymentByOrder(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for sales orders
+    const orderWhere: any = {};
+
+    if (query.customerId) {
+      orderWhere.customerId = query.customerId;
+    }
+
+    // Build date range for orders
+    if (query.dateFrom && query.dateTo) {
+      orderWhere.orderDate = Between(query.dateFrom, query.dateTo);
+    } else if (query.dateFrom) {
+      orderWhere.orderDate = Between(query.dateFrom, new Date());
+    } else if (query.dateTo) {
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
+    }
+
+    // Get all sales orders with invoices and payments
+    const orders = await this.salesOrderRepository.find({
+      where: orderWhere,
+      relations: ['customer', 'invoices', 'invoices.payments'],
+      order: { orderNumber: 'ASC' },
+    });
+
+    // Transform to payment by order report format
+    const paymentByOrderData: any[] = [];
+
+    orders.forEach((order) => {
+      const invoices = order.invoices || [];
+
+      invoices.forEach((invoice) => {
+        const payments = invoice.payments || [];
+
+        // Calculate payment totals for this invoice
+        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        const totalAmount = Number(invoice.totalAmount || 0);
+        const balance = totalAmount - totalPaid;
+
+        // Determine payment status
+        let paymentStatus = 'unpaid';
+        if (totalPaid >= totalAmount && totalAmount > 0) {
+          paymentStatus = totalPaid > totalAmount ? 'overpaid' : 'paid';
+        } else if (totalPaid > 0) {
+          paymentStatus = 'partial';
+        }
+
+        // Find last payment date for this invoice
+        let lastPaymentDate: Date | null = null;
+        if (payments.length > 0) {
+          lastPaymentDate = payments.reduce((latest, p) => {
+            const pDate = new Date(p.paymentDate);
+            return !latest || pDate > latest ? pDate : latest;
+          }, null as Date | null);
+        }
+
+        paymentByOrderData.push({
+          customerId: order.customer?.id || '',
+          customerName: order.customer?.name || 'Unknown',
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: invoice.invoiceDate,
+          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+          totalAmount,
+          paidAmount: totalPaid,
+          balance,
+          paymentStatus,
+          lastPaymentDate,
+        });
+      });
+    });
+
+    // Filter by payment status if specified
+    let filteredData = paymentByOrderData;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredData = paymentByOrderData.filter(
+        item => item.paymentStatus === query.paymentStatus
+      );
+    }
+
+    // Sort by order number (extract numeric part for proper sorting)
+    filteredData.sort((a, b) => {
+      const numA = parseInt(a.orderNumber.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.orderNumber.replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
+
+    return {
+      data: filteredData,
+    };
+  }
 }

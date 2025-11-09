@@ -216,7 +216,7 @@ const menuSections: MenuSection[] = [
             id: 'customer-payment-summary',
             title: 'Customer Payment Summary',
             icon: <ReportsIcon />,
-            path: '/reports/sales/payment-summary',
+            path: '/reports/sales/customer-payment-summary',
           },
           {
             id: 'customer-payment-by-order',
