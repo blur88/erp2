@@ -1079,4 +1079,100 @@ export class SalesAnalyticsService {
       data: filteredSummaries,
     };
   }
+
+  async getCustomerPaymentByOrder(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for sales orders
+    const orderWhere: any = {};
+
+    if (query.customerId) {
+      orderWhere.customerId = query.customerId;
+    }
+
+    // Build date range for orders
+    if (query.dateFrom && query.dateTo) {
+      orderWhere.orderDate = Between(query.dateFrom, query.dateTo);
+    } else if (query.dateFrom) {
+      orderWhere.orderDate = Between(query.dateFrom, new Date());
+    } else if (query.dateTo) {
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
+    }
+
+    // Get all sales orders with invoices and payments
+    const orders = await this.salesOrderRepository.find({
+      where: orderWhere,
+      relations: ['customer', 'invoices', 'invoices.payments'],
+      order: { orderNumber: 'ASC' },
+    });
+
+    // Transform to payment by order report format
+    const paymentByOrderData: any[] = [];
+
+    orders.forEach((order) => {
+      const invoices = order.invoices || [];
+
+      invoices.forEach((invoice) => {
+        const payments = invoice.payments || [];
+
+        // Calculate payment totals for this invoice
+        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        const totalAmount = Number(invoice.totalAmount || 0);
+        const balance = totalAmount - totalPaid;
+
+        // Determine payment status
+        let paymentStatus = 'unpaid';
+        if (totalPaid >= totalAmount && totalAmount > 0) {
+          paymentStatus = totalPaid > totalAmount ? 'overpaid' : 'paid';
+        } else if (totalPaid > 0) {
+          paymentStatus = 'partial';
+        }
+
+        // Find last payment date for this invoice
+        let lastPaymentDate: Date | null = null;
+        if (payments.length > 0) {
+          lastPaymentDate = payments.reduce((latest, p) => {
+            const pDate = new Date(p.paymentDate);
+            return !latest || pDate > latest ? pDate : latest;
+          }, null as Date | null);
+        }
+
+        paymentByOrderData.push({
+          customerId: order.customer?.id || '',
+          customerName: order.customer?.name || 'Unknown',
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: invoice.invoiceDate,
+          totalAmount,
+          paidAmount: totalPaid,
+          balance,
+          paymentStatus,
+          lastPaymentDate,
+        });
+      });
+    });
+
+    // Filter by payment status if specified
+    let filteredData = paymentByOrderData;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredData = paymentByOrderData.filter(
+        item => item.paymentStatus === query.paymentStatus
+      );
+    }
+
+    // Sort by order number (extract numeric part for proper sorting)
+    filteredData.sort((a, b) => {
+      const numA = parseInt(a.orderNumber.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.orderNumber.replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
+
+    return {
+      data: filteredData,
+    };
+  }
 }
