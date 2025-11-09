@@ -88,10 +88,10 @@ const CustomerPaymentByOrder: React.FC = () => {
       .catch(() => {})
   }, [])
 
-  // Reset to first page when Show Only Owing changes
+  // Reset to first page when filters or display options change
   useEffect(() => {
     setPage(0)
-  }, [showOnlyOwing])
+  }, [showOnlyOwing, groupBy, sortBy1])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -708,7 +708,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="orderNumber">Order #</MenuItem>
+                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
                   </Select>
                 </FormControl>
@@ -835,16 +835,42 @@ const CustomerPaymentByOrder: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {paginatedData.map((row, idx) => (
-                      <TableRow
-                        key={`${row.invoiceNumber}-${idx}`}
-                        hover
-                        sx={{
-                          '&:hover': { backgroundColor: 'action.hover' },
-                          transition: 'background-color 0.2s ease',
-                          height: TABLE_STYLES.row.height
-                        }}
-                      >
+                    {paginatedData.map((row, idx) => {
+                      // Check if we need to display a group header
+                      const prevRow = idx > 0 ? paginatedData[idx - 1] : null
+                      const showGroupHeader = groupBy !== 'none' && (!prevRow || (row as any)[groupBy] !== (prevRow as any)[groupBy])
+
+                      const getGroupLabel = (field: string, value: any) => {
+                        if (field === 'customerName') return `Customer: ${value}`
+                        if (field === 'inventoryStatus') return `Inventory: ${value.charAt(0).toUpperCase() + value.slice(1)}`
+                        if (field === 'paymentStatus') return `Payment: ${value.charAt(0).toUpperCase() + value.slice(1)}`
+                        return value
+                      }
+
+                      return (
+                        <React.Fragment key={`${row.invoiceNumber}-${idx}`}>
+                          {showGroupHeader && (
+                            <TableRow sx={{
+                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                              '& .MuiTableCell-root': {
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                py: 1
+                              }
+                            }}>
+                              <TableCell colSpan={selectedColumns.length}>
+                                {getGroupLabel(groupBy, (row as any)[groupBy])}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow
+                            hover
+                            sx={{
+                              '&:hover': { backgroundColor: 'action.hover' },
+                              transition: 'background-color 0.2s ease',
+                              height: TABLE_STYLES.row.height
+                            }}
+                          >
                         {selectedColumns.includes('orderNumber') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
                             {row.orderNumber}
@@ -901,7 +927,9 @@ const CustomerPaymentByOrder: React.FC = () => {
                           </TableCell>
                         )}
                       </TableRow>
-                    ))}
+                        </React.Fragment>
+                      )
+                    })}
                     {/* Total Row */}
                     {totals && (
                       <TableRow
