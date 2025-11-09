@@ -1176,4 +1176,98 @@ export class SalesAnalyticsService {
       data: filteredData,
     };
   }
+
+  async getCustomerPaymentDetails(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for payments
+    let paymentQuery = this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.invoice', 'invoice')
+      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer');
+
+    // Apply date range filter on payment date
+    if (query.dateFrom && query.dateTo) {
+      paymentQuery = paymentQuery.andWhere('payment.paymentDate BETWEEN :dateFrom AND :dateTo', {
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      });
+    } else if (query.dateFrom) {
+      paymentQuery = paymentQuery.andWhere('payment.paymentDate >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    } else if (query.dateTo) {
+      paymentQuery = paymentQuery.andWhere('payment.paymentDate <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    // Apply customer filter
+    if (query.customerId) {
+      paymentQuery = paymentQuery.andWhere('customer.id = :customerId', {
+        customerId: query.customerId,
+      });
+    }
+
+    // Get all payments
+    const payments = await paymentQuery
+      .orderBy('payment.paymentDate', 'DESC')
+      .addOrderBy('payment.paymentNumber', 'DESC')
+      .getMany();
+
+    // Transform to payment details format
+    const paymentDetailsData = payments.map((payment) => {
+      const invoice = payment.invoice;
+      const salesOrder = invoice?.salesOrder;
+      const customer = salesOrder?.customer;
+
+      // Calculate payment status for the invoice
+      const totalAmount = Number(invoice?.totalAmount || 0);
+      const paidAmount = Number(invoice?.paidAmount || 0);
+      const balance = totalAmount - paidAmount;
+
+      let paymentStatus = 'unpaid';
+      if (paidAmount >= totalAmount && totalAmount > 0) {
+        paymentStatus = paidAmount > totalAmount ? 'overpaid' : 'paid';
+      } else if (paidAmount > 0) {
+        paymentStatus = 'partial';
+      }
+
+      return {
+        paymentId: payment.id,
+        paymentNumber: payment.paymentNumber,
+        paymentDate: payment.paymentDate,
+        paymentAmount: Number(payment.amount || 0),
+        paymentMethod: payment.paymentMethod || 'cash',
+        customerId: customer?.id || '',
+        customerName: customer?.name || 'Unknown',
+        orderNumber: salesOrder?.orderNumber || '',
+        orderDate: salesOrder?.orderDate || null,
+        invoiceNumber: invoice?.invoiceNumber || '',
+        invoiceDate: invoice?.invoiceDate || null,
+        invoiceTotal: totalAmount,
+        invoicePaid: paidAmount,
+        invoiceBalance: balance,
+        paymentStatus,
+        inventoryStatus: salesOrder?.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        notes: payment.notes || '',
+      };
+    });
+
+    // Filter by payment status if specified
+    let filteredData = paymentDetailsData;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredData = paymentDetailsData.filter(
+        item => item.paymentStatus === query.paymentStatus
+      );
+    }
+
+    return {
+      data: filteredData,
+    };
+  }
 }

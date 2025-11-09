@@ -574,4 +574,58 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
   }
+
+  @Get('customer-payment-details')
+  @ApiOperation({ summary: 'Get customer payment details report - shows individual payment transactions' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for payment date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'End date for payment date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer payment details report retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              paymentId: { type: 'string', format: 'uuid' },
+              paymentNumber: { type: 'string' },
+              paymentDate: { type: 'string', format: 'date' },
+              paymentAmount: { type: 'number' },
+              paymentMethod: { type: 'string' },
+              customerId: { type: 'string', format: 'uuid' },
+              customerName: { type: 'string' },
+              orderNumber: { type: 'string' },
+              orderDate: { type: 'string', format: 'date' },
+              invoiceNumber: { type: 'string' },
+              invoiceDate: { type: 'string', format: 'date' },
+              invoiceTotal: { type: 'number' },
+              invoicePaid: { type: 'number' },
+              invoiceBalance: { type: 'number' },
+              paymentStatus: { type: 'string' },
+              inventoryStatus: { type: 'string' },
+              notes: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getCustomerPaymentDetails(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('customerId') customerId?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+  ) {
+    return this.salesAnalyticsService.getCustomerPaymentDetails({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      customerId,
+      paymentStatus,
+    });
+  }
 }
