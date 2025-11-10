@@ -628,4 +628,57 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
   }
+
+  @Get('customer-order-history')
+  @ApiOperation({ summary: 'Get customer order history report - shows all orders with details' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for order date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'End date for order date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'inventoryStatus', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
+  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer order history report retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              orderId: { type: 'string', format: 'uuid' },
+              orderNumber: { type: 'string' },
+              orderDate: { type: 'string', format: 'date' },
+              customerId: { type: 'string', format: 'uuid' },
+              customerName: { type: 'string' },
+              customerPhone: { type: 'string' },
+              totalAmount: { type: 'number' },
+              paidAmount: { type: 'number' },
+              balance: { type: 'number' },
+              paymentStatus: { type: 'string' },
+              inventoryStatus: { type: 'string' },
+              itemCount: { type: 'number' },
+              notes: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getCustomerOrderHistory(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('customerId') customerId?: string,
+    @Query('inventoryStatus') inventoryStatus?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+  ) {
+    return this.salesAnalyticsService.getCustomerOrderHistory({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      customerId,
+      inventoryStatus,
+      paymentStatus,
+    });
+  }
 }

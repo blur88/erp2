@@ -234,7 +234,7 @@ const menuSections: MenuSection[] = [
             id: 'customer-order-history',
             title: 'Customer Order History',
             icon: <ReportsIcon />,
-            path: '/reports/sales/customer-order-history',
+            path: '/reports/sales/order-history',
           },
           {
             id: 'product-customer-report',

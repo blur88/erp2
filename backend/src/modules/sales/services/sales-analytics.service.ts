@@ -1270,4 +1270,116 @@ export class SalesAnalyticsService {
       data: filteredData,
     };
   }
+
+  async getCustomerOrderHistory(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerId?: string;
+    inventoryStatus?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for sales orders
+    let orderQuery = this.salesOrderRepository
+      .createQueryBuilder('salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .leftJoinAndSelect('salesOrder.items', 'items')
+      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
+      .leftJoinAndSelect('invoices.payments', 'payments');
+
+    // Apply date range filter on order date
+    if (query.dateFrom && query.dateTo) {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate BETWEEN :dateFrom AND :dateTo', {
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      });
+    } else if (query.dateFrom) {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    } else if (query.dateTo) {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    // Apply customer filter
+    if (query.customerId) {
+      orderQuery = orderQuery.andWhere('customer.id = :customerId', {
+        customerId: query.customerId,
+      });
+    }
+
+    // Apply inventory status filter
+    if (query.inventoryStatus && query.inventoryStatus !== 'all') {
+      if (query.inventoryStatus === 'fulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: true,
+        });
+      } else if (query.inventoryStatus === 'unfulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: false,
+        });
+      }
+    }
+
+    // Get all orders
+    const orders = await orderQuery
+      .orderBy('salesOrder.orderDate', 'DESC')
+      .addOrderBy('salesOrder.orderNumber', 'DESC')
+      .getMany();
+
+    // Transform to order history format
+    const orderHistoryData = orders.map((order) => {
+      const customer = order.customer;
+      const items = order.items || [];
+      const invoices = order.invoices || [];
+
+      // Calculate total amount from items
+      const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
+
+      // Calculate paid amount from all payments
+      const paidAmount = invoices.reduce((sum, invoice) => {
+        const payments = invoice.payments || [];
+        return sum + payments.reduce((pSum, payment) => pSum + Number(payment.amount || 0), 0);
+      }, 0);
+
+      const balance = totalAmount - paidAmount;
+
+      // Determine payment status
+      let paymentStatus = 'unpaid';
+      if (paidAmount >= totalAmount && totalAmount > 0) {
+        paymentStatus = paidAmount > totalAmount ? 'overpaid' : 'paid';
+      } else if (paidAmount > 0) {
+        paymentStatus = 'partial';
+      }
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        orderDate: order.orderDate,
+        customerId: customer?.id || '',
+        customerName: customer?.name || 'Unknown',
+        customerPhone: customer?.phone || '',
+        totalAmount,
+        paidAmount,
+        balance,
+        paymentStatus,
+        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        itemCount: items.length,
+        notes: order.notes || '',
+      };
+    });
+
+    // Filter by payment status if specified
+    let filteredData = orderHistoryData;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredData = orderHistoryData.filter(
+        item => item.paymentStatus === query.paymentStatus
+      );
+    }
+
+    return {
+      data: filteredData,
+    };
+  }
 }
