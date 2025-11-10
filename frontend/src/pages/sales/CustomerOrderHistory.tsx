@@ -350,27 +350,44 @@ const CustomerOrderHistory: React.FC = () => {
     csv += headers.join(',') + '\n'
 
     // Add data rows with grouping support
-    let prevGroupValue: any = null
+    let prevGroupKey: any = null
+
+    // Helper to get group key for export
+    const getExportGroupKey = (r: any) => {
+      if (groupBy === 'customerOrder') {
+        return `${r.customerName}|${r.orderNumber}`
+      } else if (groupBy === 'customerProduct') {
+        return `${r.customerName}|${r.productName}`
+      }
+      return r[groupBy]
+    }
+
+    // Helper to get group label for export
+    const getExportGroupLabel = (r: any) => {
+      if (groupBy === 'customerOrder') {
+        return `Customer: ${r.customerName} | Order: ${r.orderNumber}`
+      } else if (groupBy === 'customerProduct') {
+        return `Customer: ${r.customerName} | Product: ${r.productName}`
+      }
+      return r[groupBy]
+    }
 
     sortedData.forEach((row, idx) => {
       // Determine current group value
-      const currentGroupValue = groupBy !== 'none' ? (row as any)[groupBy] : null
+      const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
 
       // Add group header if group changed
-      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
-        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'orderDate' ? `Order Date: ${currentGroupValue ? new Date(currentGroupValue).toLocaleDateString() : 'N/A'}` :
-                          groupBy === 'paymentStatus' ? `Payment Status: ${currentGroupValue}` :
-                          groupBy === 'inventoryStatus' ? `Inventory Status: ${currentGroupValue}` : currentGroupValue
+      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
+        const groupLabel = getExportGroupLabel(row)
         csv += `\n"${groupLabel}"\n`
-        prevGroupValue = currentGroupValue
+        prevGroupKey = currentGroupKey
       }
 
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'orderDate') {
           return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
-        } else if (col === 'customerName' || col === 'orderNumber' || col === 'paymentStatus' || col === 'inventoryStatus' || col === 'customerPhone' || col === 'notes') {
+        } else if (col === 'customerName' || col === 'orderNumber' || col === 'paymentStatus' || col === 'inventoryStatus' || col === 'customerPhone' || col === 'notes' || col === 'productName' || col === 'categoryName') {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
           return value.toFixed(2)
@@ -381,11 +398,11 @@ const CustomerOrderHistory: React.FC = () => {
 
       // Check if we need to add subtotal
       const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupValue = nextRow && groupBy !== 'none' ? (nextRow as any)[groupBy] : null
+      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
 
-      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
         // Calculate subtotal for this group
-        const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+        const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
 
         const subtotal = {
           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
@@ -453,20 +470,37 @@ const CustomerOrderHistory: React.FC = () => {
     }
 
     let tableRows = ''
-    let prevGroupValue: any = null
+    let prevGroupKey: any = null
+
+    // Helper to get group key for PDF export
+    const getPdfGroupKey = (r: any) => {
+      if (groupBy === 'customerOrder') {
+        return `${r.customerName}|${r.orderNumber}`
+      } else if (groupBy === 'customerProduct') {
+        return `${r.customerName}|${r.productName}`
+      }
+      return r[groupBy]
+    }
+
+    // Helper to get group label for PDF export
+    const getPdfGroupLabel = (r: any) => {
+      if (groupBy === 'customerOrder') {
+        return `Customer: ${r.customerName} | Order: ${r.orderNumber}`
+      } else if (groupBy === 'customerProduct') {
+        return `Customer: ${r.customerName} | Product: ${r.productName}`
+      }
+      return r[groupBy]
+    }
 
     sortedData.forEach((row, idx) => {
       // Determine current group value
-      const currentGroupValue = groupBy !== 'none' ? (row as any)[groupBy] : null
+      const currentGroupKey = groupBy !== 'none' ? getPdfGroupKey(row) : null
 
       // Add group header if group changed
-      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
-        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'orderDate' ? `Order Date: ${currentGroupValue ? new Date(currentGroupValue).toLocaleDateString() : 'N/A'}` :
-                          groupBy === 'paymentStatus' ? `Payment Status: ${currentGroupValue}` :
-                          groupBy === 'inventoryStatus' ? `Inventory Status: ${currentGroupValue}` : currentGroupValue
+      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
+        const groupLabel = getPdfGroupLabel(row)
         tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
-        prevGroupValue = currentGroupValue
+        prevGroupKey = currentGroupKey
       }
 
       tableRows += '<tr>'
@@ -487,11 +521,11 @@ const CustomerOrderHistory: React.FC = () => {
 
       // Check if we need to add subtotal
       const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupValue = nextRow && groupBy !== 'none' ? (nextRow as any)[groupBy] : null
+      const nextGroupKey = nextRow && groupBy !== 'none' ? getPdfGroupKey(nextRow) : null
 
-      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
         // Calculate subtotal for this group
-        const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+        const groupData = sortedData.filter(r => getPdfGroupKey(r) === currentGroupKey)
 
         const subtotal = {
           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
@@ -686,9 +720,25 @@ const CustomerOrderHistory: React.FC = () => {
     // Apply grouping first, then sorting
     if (groupBy !== 'none') {
       filtered.sort((a, b) => {
-        // Group by the selected field first
-        const groupResult = compareValues(a, b, groupBy)
-        if (groupResult !== 0) return groupResult
+        // Group by the selected field(s) first
+        if (groupBy === 'customerOrder') {
+          // First sort by customer
+          const customerResult = compareValues(a, b, 'customerName')
+          if (customerResult !== 0) return customerResult
+          // Then by order number
+          const orderResult = compareValues(a, b, 'orderNumber')
+          if (orderResult !== 0) return orderResult
+        } else if (groupBy === 'customerProduct') {
+          // First sort by customer
+          const customerResult = compareValues(a, b, 'customerName')
+          if (customerResult !== 0) return customerResult
+          // Then by product name
+          const productResult = compareValues(a, b, 'productName')
+          if (productResult !== 0) return productResult
+        } else {
+          const groupResult = compareValues(a, b, groupBy)
+          if (groupResult !== 0) return groupResult
+        }
 
         // Then sort within groups
         if (sortBy1 !== 'none') {
@@ -1010,10 +1060,8 @@ const CustomerOrderHistory: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="customerOrder">Customer, Order</MenuItem>
+                    <MenuItem value="customerProduct">Customer, Product</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1143,23 +1191,34 @@ const CustomerOrderHistory: React.FC = () => {
                       const prevRow = idx > 0 ? paginatedData[idx - 1] : null
                       const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
-                      const showGroupHeader = groupBy !== 'none' && (!prevRow || (row as any)[groupBy] !== (prevRow as any)[groupBy])
-                      const showGroupFooter = groupBy !== 'none' && (!nextRow || (row as any)[groupBy] !== (nextRow as any)[groupBy])
+                      // Helper to get group key for a row
+                      const getGroupKey = (r: any) => {
+                        if (groupBy === 'customerOrder') {
+                          return `${r.customerName}|${r.orderNumber}`
+                        } else if (groupBy === 'customerProduct') {
+                          return `${r.customerName}|${r.productName}`
+                        }
+                        return r[groupBy]
+                      }
 
-                      const getGroupLabel = (field: string, value: any) => {
-                        if (field === 'customerName') return `Customer: ${value}`
-                        if (field === 'orderDate') return `Order Date: ${value ? new Date(value).toLocaleDateString() : 'N/A'}`
-                        if (field === 'paymentStatus') return `Payment Status: ${value}`
-                        if (field === 'inventoryStatus') return `Inventory Status: ${value}`
-                        return value
+                      const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
+                      const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
+
+                      const getGroupLabel = (field: string, r: any) => {
+                        if (field === 'customerOrder') {
+                          return `Customer: ${r.customerName} | Order: ${r.orderNumber}`
+                        } else if (field === 'customerProduct') {
+                          return `Customer: ${r.customerName} | Product: ${r.productName}`
+                        }
+                        return r[field]
                       }
 
                       // Calculate group subtotals
                       const calculateGroupSubtotals = () => {
                         if (groupBy === 'none') return null
 
-                        const currentGroupValue = (row as any)[groupBy]
-                        const groupData = paginatedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+                        const currentGroupKey = getGroupKey(row)
+                        const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
 
                         return {
                           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
@@ -1183,7 +1242,7 @@ const CustomerOrderHistory: React.FC = () => {
                               }
                             }}>
                               <TableCell colSpan={selectedColumns.length}>
-                                {getGroupLabel(groupBy, (row as any)[groupBy])}
+                                {getGroupLabel(groupBy, row)}
                               </TableCell>
                             </TableRow>
                           )}
