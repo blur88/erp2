@@ -91,21 +91,9 @@ const CustomerOrderHistory: React.FC = () => {
     // Load categories
     fetch('/api/inventory/categories')
       .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data) {
-          // Flatten the tree structure
-          const flattenCategories = (cats: any[]): any[] => {
-            let flat: any[] = []
-            cats.forEach(cat => {
-              flat.push(cat)
-              if (cat.children && cat.children.length > 0) {
-                flat = flat.concat(flattenCategories(cat.children))
-              }
-            })
-            return flat
-          }
-          const flattened = flattenCategories(Array.isArray(data) ? data : [])
-          setCategories(flattened)
+      .then(response => {
+        if (response?.data) {
+          setCategories(response.data)
         }
       })
       .catch(() => {})
