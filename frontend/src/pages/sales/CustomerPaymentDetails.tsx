@@ -168,8 +168,8 @@ const CustomerPaymentDetails: React.FC = () => {
       // Add group header if group changed
       if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
         const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'paymentMethod' ? `Method: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
-                          groupBy === 'paymentStatus' ? `Status: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+                          groupBy === 'paymentDate' ? `Payment Date: ${currentGroupValue ? new Date(currentGroupValue).toLocaleDateString() : 'N/A'}` :
+                          groupBy === 'orderNumber' ? `Order: ${currentGroupValue}` : currentGroupValue
         csv += `\n"${groupLabel}"\n`
         prevGroupValue = currentGroupValue
       }
@@ -263,8 +263,8 @@ const CustomerPaymentDetails: React.FC = () => {
       // Add group header if group changed
       if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
         const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'paymentMethod' ? `Method: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
-                          groupBy === 'paymentStatus' ? `Status: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+                          groupBy === 'paymentDate' ? `Payment Date: ${currentGroupValue ? new Date(currentGroupValue).toLocaleDateString() : 'N/A'}` :
+                          groupBy === 'orderNumber' ? `Order: ${currentGroupValue}` : currentGroupValue
         tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
         prevGroupValue = currentGroupValue
       }
@@ -704,8 +704,8 @@ const CustomerPaymentDetails: React.FC = () => {
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="paymentMethod">Payment Method</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="paymentDate">Payment Date</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -831,8 +831,8 @@ const CustomerPaymentDetails: React.FC = () => {
 
                       const getGroupLabel = (field: string, value: any) => {
                         if (field === 'customerName') return `Customer: ${value}`
-                        if (field === 'paymentMethod') return `Method: ${value.charAt(0).toUpperCase() + value.slice(1)}`
-                        if (field === 'paymentStatus') return `Status: ${value.charAt(0).toUpperCase() + value.slice(1)}`
+                        if (field === 'paymentDate') return `Payment Date: ${value ? new Date(value).toLocaleDateString() : 'N/A'}`
+                        if (field === 'orderNumber') return `Order: ${value}`
                         return value
                       }
 
