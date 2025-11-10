@@ -1073,12 +1073,17 @@ const CustomerOrderHistory: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="customerName">Customer</MenuItem>
+                    <MenuItem value="productName">Product</MenuItem>
+                    <MenuItem value="categoryName">Category</MenuItem>
                     <MenuItem value="orderNumber">Order No</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="quantity">Quantity</MenuItem>
+                    <MenuItem value="amount">Amount</MenuItem>
+                    <MenuItem value="cost">Cost</MenuItem>
+                    <MenuItem value="profit">Profit</MenuItem>
                   </Select>
                 </FormControl>
 
