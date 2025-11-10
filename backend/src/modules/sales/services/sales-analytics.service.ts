@@ -1351,8 +1351,10 @@ export class SalesAnalyticsService {
       new Map(orders.map(order => [order.id, order])).values()
     );
 
-    // Transform to order history format
-    const orderHistoryData = uniqueOrders.map((order) => {
+    // Transform to order history format - return individual line items
+    const orderHistoryData: any[] = [];
+
+    uniqueOrders.forEach((order) => {
       const customer = order.customer;
       const items = order.items || [];
       const invoices = order.invoices || [];
@@ -1366,8 +1368,6 @@ export class SalesAnalyticsService {
         return sum + payments.reduce((pSum, payment) => pSum + Number(payment.amount || 0), 0);
       }, 0);
 
-      const balance = totalAmount - paidAmount;
-
       // Determine payment status
       let paymentStatus = 'unpaid';
       if (paidAmount >= totalAmount && totalAmount > 0) {
@@ -1376,21 +1376,33 @@ export class SalesAnalyticsService {
         paymentStatus = 'partial';
       }
 
-      return {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        orderDate: order.orderDate,
-        customerId: customer?.id || '',
-        customerName: customer?.name || 'Unknown',
-        customerPhone: customer?.phone || '',
-        totalAmount,
-        paidAmount,
-        balance,
-        paymentStatus,
-        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
-        itemCount: items.length,
-        notes: order.notes || '',
-      };
+      // Create a row for each line item
+      items.forEach((item) => {
+        const product = item.product;
+        const quantity = Number(item.quantity || 0);
+        const unitPrice = Number(item.unitPrice || 0);
+        const amount = Number(item.totalAmount || 0);
+        const unitCost = Number(product?.baseCost || 0);
+        const cost = unitCost * quantity;
+        const profit = amount - cost;
+
+        orderHistoryData.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+          customerId: customer?.id || '',
+          customerName: customer?.name || 'Unknown',
+          productId: product?.id || '',
+          productName: product?.name || 'Unknown Product',
+          categoryName: product?.category?.name || '-',
+          quantity,
+          amount,
+          cost,
+          profit,
+          paymentStatus,
+          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        });
+      });
     });
 
     // Filter by payment status if specified

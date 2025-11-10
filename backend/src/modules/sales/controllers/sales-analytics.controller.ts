@@ -630,7 +630,7 @@ export class SalesAnalyticsController {
   }
 
   @Get('customer-order-history')
-  @ApiOperation({ summary: 'Get customer order history report - shows all orders with details' })
+  @ApiOperation({ summary: 'Get customer order history report - shows order line items with product details' })
   @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for order date (YYYY-MM-DD)' })
   @ApiQuery({ name: 'dateTo', required: false, description: 'End date for order date (YYYY-MM-DD)' })
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
@@ -654,14 +654,15 @@ export class SalesAnalyticsController {
               orderDate: { type: 'string', format: 'date' },
               customerId: { type: 'string', format: 'uuid' },
               customerName: { type: 'string' },
-              customerPhone: { type: 'string' },
-              totalAmount: { type: 'number' },
-              paidAmount: { type: 'number' },
-              balance: { type: 'number' },
+              productId: { type: 'string', format: 'uuid' },
+              productName: { type: 'string' },
+              categoryName: { type: 'string' },
+              quantity: { type: 'number' },
+              amount: { type: 'number' },
+              cost: { type: 'number' },
+              profit: { type: 'number' },
               paymentStatus: { type: 'string' },
               inventoryStatus: { type: 'string' },
-              itemCount: { type: 'number' },
-              notes: { type: 'string' },
             },
           },
         },

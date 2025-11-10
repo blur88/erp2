@@ -50,14 +50,15 @@ interface CustomerOrderHistory {
   orderDate: string
   customerId: string
   customerName: string
-  customerPhone: string
-  totalAmount: number
-  paidAmount: number
-  balance: number
+  productId: string
+  productName: string
+  categoryName: string
+  quantity: number
+  amount: number
+  cost: number
+  profit: number
   paymentStatus: string
   inventoryStatus: string
-  itemCount: number
-  notes: string
 }
 
 const CustomerOrderHistory: React.FC = () => {
@@ -86,7 +87,7 @@ const CustomerOrderHistory: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'customerName', 'orderNumber', 'orderDate', 'totalAmount', 'paymentStatus', 'inventoryStatus'
+    'productName', 'categoryName', 'orderNumber', 'orderDate', 'customerName', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderDate')
@@ -313,7 +314,7 @@ const CustomerOrderHistory: React.FC = () => {
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['customerName', 'orderNumber', 'orderDate', 'totalAmount', 'paymentStatus', 'inventoryStatus'])
+    setSelectedColumns(['productName', 'categoryName', 'orderNumber', 'orderDate', 'customerName', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'])
     setGroupBy('none')
     setSortBy1('orderDate')
     setReportTitle('Customer Order History')
@@ -328,17 +329,17 @@ const CustomerOrderHistory: React.FC = () => {
 
     // Column headers mapping
     const columnHeaders: { [key: string]: string } = {
-      customerName: 'Customer',
+      productName: 'Product',
+      categoryName: 'Category',
       orderNumber: 'Order No',
       orderDate: 'Order Date',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid',
-      balance: 'Balance',
-      paymentStatus: 'Payment Status',
+      customerName: 'Customer',
       inventoryStatus: 'Inventory Status',
-      itemCount: 'Items',
-      customerPhone: 'Phone',
-      notes: 'Notes'
+      paymentStatus: 'Payment Status',
+      quantity: 'Quantity',
+      amount: 'Amount',
+      cost: 'Cost',
+      profit: 'Profit'
     }
 
     // Build CSV content
@@ -387,10 +388,10 @@ const CustomerOrderHistory: React.FC = () => {
         const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
 
         const subtotal = {
-          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
-          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
-          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
-          itemCount: groupData.reduce((sum, r) => sum + r.itemCount, 0),
+          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
+          amount: groupData.reduce((sum, r) => sum + r.amount, 0),
+          cost: groupData.reduce((sum, r) => sum + r.cost, 0),
+          profit: groupData.reduce((sum, r) => sum + r.profit, 0),
         }
 
         csv += '"Subtotal",'
@@ -438,17 +439,17 @@ const CustomerOrderHistory: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      customerName: 'Customer',
+      productName: 'Product',
+      categoryName: 'Category',
       orderNumber: 'Order No',
       orderDate: 'Order Date',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid',
-      balance: 'Balance',
-      paymentStatus: 'Payment Status',
+      customerName: 'Customer',
       inventoryStatus: 'Inventory Status',
-      itemCount: 'Items',
-      customerPhone: 'Phone',
-      notes: 'Notes'
+      paymentStatus: 'Payment Status',
+      quantity: 'Quantity',
+      amount: 'Amount',
+      cost: 'Cost',
+      profit: 'Profit'
     }
 
     let tableRows = ''
@@ -493,10 +494,10 @@ const CustomerOrderHistory: React.FC = () => {
         const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
 
         const subtotal = {
-          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
-          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
-          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
-          itemCount: groupData.reduce((sum, r) => sum + r.itemCount, 0),
+          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
+          amount: groupData.reduce((sum, r) => sum + r.amount, 0),
+          cost: groupData.reduce((sum, r) => sum + r.cost, 0),
+          profit: groupData.reduce((sum, r) => sum + r.profit, 0),
         }
 
         tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
@@ -635,16 +636,16 @@ const CustomerOrderHistory: React.FC = () => {
 
     const totals = reportData.reduce(
       (acc, item) => ({
-        totalAmount: acc.totalAmount + item.totalAmount,
-        paidAmount: acc.paidAmount + item.paidAmount,
-        balance: acc.balance + item.balance,
-        itemCount: acc.itemCount + item.itemCount,
+        quantity: acc.quantity + item.quantity,
+        amount: acc.amount + item.amount,
+        cost: acc.cost + item.cost,
+        profit: acc.profit + item.profit,
       }),
       {
-        totalAmount: 0,
-        paidAmount: 0,
-        balance: 0,
-        itemCount: 0,
+        quantity: 0,
+        amount: 0,
+        cost: 0,
+        profit: 0,
       }
     )
 
@@ -970,7 +971,7 @@ const CustomerOrderHistory: React.FC = () => {
 
                       // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['customerName', 'orderNumber', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'paymentStatus', 'inventoryStatus', 'itemCount']
+                        const allColumns = ['productName', 'categoryName', 'orderNumber', 'orderDate', 'customerName', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit']
                         // If all were selected, deselect all; otherwise select all
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
@@ -986,15 +987,17 @@ const CustomerOrderHistory: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
+                    <MenuItem value="productName">Product</MenuItem>
+                    <MenuItem value="categoryName">Category</MenuItem>
                     <MenuItem value="orderNumber">Order No</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="paidAmount">Paid</MenuItem>
-                    <MenuItem value="balance">Balance</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
-                    <MenuItem value="itemCount">Items</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="quantity">Quantity</MenuItem>
+                    <MenuItem value="amount">Amount</MenuItem>
+                    <MenuItem value="cost">Cost</MenuItem>
+                    <MenuItem value="profit">Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1121,15 +1124,17 @@ const CustomerOrderHistory: React.FC = () => {
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                       textAlign: 'center'
                     } }}>
-                      {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
+                      {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
+                      {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
                       {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
                       {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total Amount</TableCell>}
-                      {selectedColumns.includes('paidAmount') && <TableCell align="center">Paid</TableCell>}
-                      {selectedColumns.includes('balance') && <TableCell align="center">Balance</TableCell>}
-                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
+                      {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
                       {selectedColumns.includes('inventoryStatus') && <TableCell align="center">Inventory Status</TableCell>}
-                      {selectedColumns.includes('itemCount') && <TableCell align="center">Items</TableCell>}
+                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
+                      {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
+                      {selectedColumns.includes('amount') && <TableCell align="center">Amount</TableCell>}
+                      {selectedColumns.includes('cost') && <TableCell align="center">Cost</TableCell>}
+                      {selectedColumns.includes('profit') && <TableCell align="center">Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1157,10 +1162,10 @@ const CustomerOrderHistory: React.FC = () => {
                         const groupData = paginatedData.filter(r => (r as any)[groupBy] === currentGroupValue)
 
                         return {
-                          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
-                          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
-                          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
-                          itemCount: groupData.reduce((sum, r) => sum + r.itemCount, 0),
+                          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
+                          amount: groupData.reduce((sum, r) => sum + r.amount, 0),
+                          cost: groupData.reduce((sum, r) => sum + r.cost, 0),
+                          profit: groupData.reduce((sum, r) => sum + r.profit, 0),
                         }
                       }
 
@@ -1190,9 +1195,14 @@ const CustomerOrderHistory: React.FC = () => {
                               height: TABLE_STYLES.row.height
                             }}
                           >
-                        {selectedColumns.includes('customerName') && (
+                        {selectedColumns.includes('productName') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.customerName}
+                            {row.productName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('categoryName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.categoryName}
                           </TableCell>
                         )}
                         {selectedColumns.includes('orderNumber') && (
@@ -1205,28 +1215,9 @@ const CustomerOrderHistory: React.FC = () => {
                             {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('totalAmount') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.totalAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('paidAmount') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.paidAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('balance') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.balance)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('paymentStatus') && (
-                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            <Chip
-                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
-                              color={getPaymentStatusColor(row.paymentStatus) as any}
-                              size="small"
-                            />
+                        {selectedColumns.includes('customerName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.customerName}
                           </TableCell>
                         )}
                         {selectedColumns.includes('inventoryStatus') && (
@@ -1238,9 +1229,33 @@ const CustomerOrderHistory: React.FC = () => {
                             />
                           </TableCell>
                         )}
-                        {selectedColumns.includes('itemCount') && (
+                        {selectedColumns.includes('paymentStatus') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            {row.itemCount}
+                            <Chip
+                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
+                              color={getPaymentStatusColor(row.paymentStatus) as any}
+                              size="small"
+                            />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('quantity') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                            {row.quantity}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('amount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.amount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('cost') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.cost)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('profit') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.profit)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -1255,33 +1270,35 @@ const CustomerOrderHistory: React.FC = () => {
                                 fontStyle: 'italic'
                               }
                             }}>
-                              {selectedColumns.includes('customerName') && (
+                              {selectedColumns.includes('productName') && (
                                 <TableCell sx={{ fontWeight: 600 }}>
                                   Subtotal
                                 </TableCell>
                               )}
+                              {selectedColumns.includes('categoryName') && <TableCell />}
                               {selectedColumns.includes('orderNumber') && <TableCell />}
                               {selectedColumns.includes('orderDate') && <TableCell />}
-                              {selectedColumns.includes('totalAmount') && (
-                                <TableCell align="right">
-                                  {formatCurrency(groupSubtotals.totalAmount)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('paidAmount') && (
-                                <TableCell align="right">
-                                  {formatCurrency(groupSubtotals.paidAmount)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('balance') && (
-                                <TableCell align="right">
-                                  {formatCurrency(groupSubtotals.balance)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('paymentStatus') && <TableCell />}
+                              {selectedColumns.includes('customerName') && <TableCell />}
                               {selectedColumns.includes('inventoryStatus') && <TableCell />}
-                              {selectedColumns.includes('itemCount') && (
-                                <TableCell align="center">
-                                  {groupSubtotals.itemCount}
+                              {selectedColumns.includes('paymentStatus') && <TableCell />}
+                              {selectedColumns.includes('quantity') && (
+                                <TableCell align="right">
+                                  {groupSubtotals.quantity}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('amount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.amount)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('cost') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.cost)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('profit') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.profit)}
                                 </TableCell>
                               )}
                             </TableRow>
@@ -1302,33 +1319,35 @@ const CustomerOrderHistory: React.FC = () => {
                           }
                         }}
                       >
-                        {selectedColumns.includes('customerName') && (
+                        {selectedColumns.includes('productName') && (
                           <TableCell sx={{ fontWeight: 700 }}>
                             TOTAL
                           </TableCell>
                         )}
+                        {selectedColumns.includes('categoryName') && <TableCell />}
                         {selectedColumns.includes('orderNumber') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
-                        {selectedColumns.includes('totalAmount') && (
-                          <TableCell align="right">
-                            {formatCurrency(totals.totalAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('paidAmount') && (
-                          <TableCell align="right">
-                            {formatCurrency(totals.paidAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('balance') && (
-                          <TableCell align="right">
-                            {formatCurrency(totals.balance)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('paymentStatus') && <TableCell />}
+                        {selectedColumns.includes('customerName') && <TableCell />}
                         {selectedColumns.includes('inventoryStatus') && <TableCell />}
-                        {selectedColumns.includes('itemCount') && (
-                          <TableCell align="center">
-                            {totals.itemCount}
+                        {selectedColumns.includes('paymentStatus') && <TableCell />}
+                        {selectedColumns.includes('quantity') && (
+                          <TableCell align="right">
+                            {totals.quantity}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('amount') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.amount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('cost') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.cost)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('profit') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.profit)}
                           </TableCell>
                         )}
                       </TableRow>
