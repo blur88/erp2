@@ -22,6 +22,12 @@ import {
   useTheme,
   useMediaQuery,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Divider,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -29,6 +35,11 @@ import {
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
   Receipt as OrderIcon,
+  Close as CloseIcon,
+  KeyboardArrowRight as KeyboardArrowRightIcon,
+  KeyboardArrowLeft as KeyboardArrowLeftIcon,
+  KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
+  KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -59,7 +70,15 @@ const CustomerOrderHistory: React.FC = () => {
   const [products, setProducts] = useState<any[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedProduct, setSelectedProduct] = useState<string>('all')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [productDialogOpen, setProductDialogOpen] = useState(false)
+  const [productSearchFilter, setProductSearchFilter] = useState<string>('')
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
+  const [selectedRemovedIds, setSelectedRemovedIds] = useState<string[]>([])
+  const [lastClickedProductId, setLastClickedProductId] = useState<string | null>(null)
+  const [lastClickedRemovedId, setLastClickedRemovedId] = useState<string | null>(null)
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
   const [inventoryStatus, setInventoryStatus] = useState<string>('all')
@@ -79,7 +98,7 @@ const CustomerOrderHistory: React.FC = () => {
 
   useEffect(() => {
     // Load customers
-    fetch('/api/customers?limit=1000')
+    fetch('/api/customers?limit=100')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.data) {
@@ -99,7 +118,7 @@ const CustomerOrderHistory: React.FC = () => {
       .catch(() => {})
 
     // Load products
-    fetch('/api/inventory/products?limit=1000')
+    fetch('/api/inventory/products?limit=100')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.data) {
@@ -149,10 +168,141 @@ const CustomerOrderHistory: React.FC = () => {
     }
   }
 
+  const handleProductSelectChange = (value: string) => {
+    if (value === 'select') {
+      setProductDialogOpen(true)
+      // Initialize selected product IDs with current selections
+      setSelectedProductIds([])
+    } else {
+      setSelectedProduct(value)
+      setSelectedProducts([])
+    }
+  }
+
+  const handleProductToggle = (productId: string) => {
+    setSelectedProducts(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    )
+  }
+
+  const handleProductDialogClose = () => {
+    setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
+    setSelectedProductIds([])
+    setSelectedRemovedIds([])
+    if (selectedProducts.length > 0) {
+      setSelectedProduct('select')
+    } else {
+      setSelectedProduct('all')
+    }
+  }
+
+  const getFilteredProducts = () => {
+    return products.filter(product => {
+      // Exclude already selected products
+      if (selectedProducts.includes(product.id)) return false
+
+      // Apply search filter
+      if (productSearchFilter && !product.name.toLowerCase().includes(productSearchFilter.toLowerCase())) {
+        return false
+      }
+
+      // Apply category filter
+      if (productCategoryFilter && product.category?.id !== productCategoryFilter) {
+        return false
+      }
+
+      return true
+    })
+  }
+
+  const handleProductClick = (productId: string, e: React.MouseEvent) => {
+    if (e.shiftKey && lastClickedProductId) {
+      // Shift+click: select range
+      const filteredProducts = getFilteredProducts()
+      const startIndex = filteredProducts.findIndex(p => p.id === lastClickedProductId)
+      const endIndex = filteredProducts.findIndex(p => p.id === productId)
+      if (startIndex !== -1 && endIndex !== -1) {
+        const rangeStart = Math.min(startIndex, endIndex)
+        const rangeEnd = Math.max(startIndex, endIndex)
+        const rangeIds = filteredProducts.slice(rangeStart, rangeEnd + 1).map(p => p.id)
+        setSelectedProductIds(prev => Array.from(new Set([...prev, ...rangeIds])))
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      // Ctrl+click: toggle selection
+      setSelectedProductIds(prev =>
+        prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+      )
+    } else {
+      // Normal click: select single
+      setSelectedProductIds([productId])
+    }
+    setLastClickedProductId(productId)
+  }
+
+  const getSelectedProductsList = () => {
+    return products.filter(product => selectedProducts.includes(product.id))
+  }
+
+  const handleSelectedProductClick = (productId: string, event: React.MouseEvent) => {
+    const selectedProductsList = getSelectedProductsList()
+
+    if (event.ctrlKey || event.metaKey) {
+      // Ctrl/Cmd+Click: Toggle individual selection
+      setSelectedRemovedIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedRemovedId(productId)
+    } else if (event.shiftKey && lastClickedRemovedId) {
+      // Shift+Click: Select range
+      const lastIndex = selectedProductsList.findIndex(p => p.id === lastClickedRemovedId)
+      const currentIndex = selectedProductsList.findIndex(p => p.id === productId)
+
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex)
+        const end = Math.max(lastIndex, currentIndex)
+        const rangeIds = selectedProductsList.slice(start, end + 1).map(p => p.id)
+
+        setSelectedRemovedIds(prev => Array.from(new Set([...prev, ...rangeIds])))
+      }
+    } else {
+      // Single click: Select only this item
+      setSelectedRemovedIds([productId])
+      setLastClickedRemovedId(productId)
+    }
+  }
+
+  const handleAddSelectedProducts = () => {
+    setSelectedProducts(prev => Array.from(new Set([...prev, ...selectedProductIds])))
+    setSelectedProductIds([])
+  }
+
+  const handleAddAllProducts = () => {
+    const filteredProducts = getFilteredProducts()
+    setSelectedProducts(prev => Array.from(new Set([...prev, ...filteredProducts.map(p => p.id)])))
+    setSelectedProductIds([])
+  }
+
+  const handleRemoveSelectedProducts = () => {
+    setSelectedProducts(prev => prev.filter(id => !selectedRemovedIds.includes(id)))
+    setSelectedRemovedIds([])
+  }
+
+  const handleRemoveAllProducts = () => {
+    setSelectedProducts([])
+    setSelectedRemovedIds([])
+  }
+
   const handleClearFilters = () => {
     // Clear filter options
     setSelectedCustomer('')
     setSelectedCategory('')
+    setSelectedProduct('all')
     setSelectedProducts([])
     setDateFrom('')
     setDateTo('')
@@ -764,23 +914,32 @@ const CustomerOrderHistory: React.FC = () => {
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Products</InputLabel>
                   <Select
-                    multiple
-                    value={selectedProducts}
+                    value={selectedProduct}
                     label="Products"
-                    onChange={(e) => {
-                      const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
-                      setSelectedProducts(value as string[])
-                    }}
+                    onChange={(e) => handleProductSelectChange(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                    renderValue={(selected) => `${selected.length} product${selected.length !== 1 ? 's' : ''} selected`}
                   >
-                    {products.map((product) => (
-                      <MenuItem key={product.id} value={product.id}>
-                        {product.name}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="all">All Products</MenuItem>
+                    <MenuItem value="select">Select Products</MenuItem>
                   </Select>
                 </FormControl>
+
+                {selectedProduct === 'select' && selectedProducts.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selectedProducts.map(productId => {
+                      const product = products.find(p => p.id === productId)
+                      return (
+                        <Chip
+                          key={productId}
+                          label={product?.name || productId}
+                          size="small"
+                          onDelete={() => handleProductToggle(productId)}
+                          sx={{ fontSize: '0.7rem' }}
+                        />
+                      )
+                    })}
+                  </Box>
+                )}
                 </Stack>
               </Box>
             </Paper>
@@ -1197,6 +1356,260 @@ const CustomerOrderHistory: React.FC = () => {
           )}
         </Grid>
       </Grid>
+
+      {/* Product Selection Dialog */}
+      <Dialog
+        open={productDialogOpen}
+        onClose={handleProductDialogClose}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { height: '80vh', maxHeight: '80vh' }
+        }}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Select Products
+          </Typography>
+          <Button
+            size="small"
+            onClick={handleProductDialogClose}
+            sx={{ minWidth: 'auto', p: 0.5 }}
+          >
+            <CloseIcon />
+          </Button>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
+            {/* Left Side - Product List */}
+            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Product List
+                  </Typography>
+                </Box>
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader sx={{
+                    '& .MuiTableCell-root': {
+                      fontSize: '0.75rem',
+                      py: 0.5,
+                      px: 1
+                    }
+                  }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {getFilteredProducts().length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
+                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              {products.length === 0 ? 'No products available' : 'No products found'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        getFilteredProducts().map((product) => (
+                          <TableRow
+                            key={product.id}
+                            hover
+                            onClick={(e) => handleProductClick(product.id, e)}
+                            sx={{
+                              cursor: 'pointer',
+                              backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'inherit',
+                              '&:hover': {
+                                backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'action.hover'
+                              }
+                            }}
+                          >
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+
+            {/* Middle - Action Buttons */}
+            <Grid item xs={1.5} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
+              <IconButton
+                color="primary"
+                onClick={handleAddSelectedProducts}
+                disabled={selectedProductIds.length === 0}
+                title="Add selected products"
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardArrowRightIcon />
+              </IconButton>
+
+              <IconButton
+                color="primary"
+                onClick={handleAddAllProducts}
+                disabled={getFilteredProducts().length === 0}
+                title="Add all filtered products"
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardDoubleArrowRightIcon />
+              </IconButton>
+
+              <IconButton
+                color="error"
+                onClick={handleRemoveAllProducts}
+                disabled={selectedProducts.length === 0}
+                title="Remove all products"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'error.main',
+                  color: 'error.main',
+                  '&:hover': { bgcolor: 'error.light' },
+                  '&.Mui-disabled': { borderColor: 'action.disabled', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardDoubleArrowLeftIcon />
+              </IconButton>
+
+              <IconButton
+                onClick={handleRemoveSelectedProducts}
+                disabled={selectedRemovedIds.length === 0}
+                title="Remove selected products"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&.Mui-disabled': { borderColor: 'action.disabled', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardArrowLeftIcon />
+              </IconButton>
+            </Grid>
+
+            {/* Right Side - Selected Products */}
+            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Selected Products ({selectedProducts.length})
+                  </Typography>
+                </Box>
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader sx={{
+                    '& .MuiTableCell-root': {
+                      fontSize: '0.75rem',
+                      py: 0.5,
+                      px: 1
+                    }
+                  }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {getSelectedProductsList().length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
+                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              No products selected
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        getSelectedProductsList().map((product) => (
+                          <TableRow
+                            key={product.id}
+                            hover
+                            onClick={(e) => handleSelectedProductClick(product.id, e)}
+                            sx={{
+                              cursor: 'pointer',
+                              backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'inherit',
+                              '&:hover': {
+                                backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'action.hover'
+                              }
+                            }}
+                          >
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* Filter Section at Bottom */}
+          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+              Filter Products
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  size="small"
+                  placeholder="Search by product name..."
+                  value={productSearchFilter}
+                  onChange={(e) => setProductSearchFilter(e.target.value)}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Filter by Category</InputLabel>
+                  <Select
+                    value={productCategoryFilter}
+                    label="Filter by Category"
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+            {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
+          </Typography>
+          <Button onClick={handleProductDialogClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleProductDialogClose} variant="contained">
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
