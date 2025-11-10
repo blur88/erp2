@@ -1275,6 +1275,8 @@ export class SalesAnalyticsService {
     dateFrom?: Date;
     dateTo?: Date;
     customerId?: string;
+    categoryId?: string;
+    productIds?: string[];
     inventoryStatus?: string;
     paymentStatus?: string;
   }) {
@@ -1283,6 +1285,8 @@ export class SalesAnalyticsService {
       .createQueryBuilder('salesOrder')
       .leftJoinAndSelect('salesOrder.customer', 'customer')
       .leftJoinAndSelect('salesOrder.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('salesOrder.invoices', 'invoices')
       .leftJoinAndSelect('invoices.payments', 'payments');
 
@@ -1309,6 +1313,20 @@ export class SalesAnalyticsService {
       });
     }
 
+    // Apply category filter
+    if (query.categoryId) {
+      orderQuery = orderQuery.andWhere('category.id = :categoryId', {
+        categoryId: query.categoryId,
+      });
+    }
+
+    // Apply product filter
+    if (query.productIds && query.productIds.length > 0) {
+      orderQuery = orderQuery.andWhere('product.id IN (:...productIds)', {
+        productIds: query.productIds,
+      });
+    }
+
     // Apply inventory status filter
     if (query.inventoryStatus && query.inventoryStatus !== 'all') {
       if (query.inventoryStatus === 'fulfilled') {
@@ -1328,8 +1346,13 @@ export class SalesAnalyticsService {
       .addOrderBy('salesOrder.orderNumber', 'DESC')
       .getMany();
 
+    // Remove duplicates if filtering by products (since one order can have multiple products)
+    const uniqueOrders = Array.from(
+      new Map(orders.map(order => [order.id, order])).values()
+    );
+
     // Transform to order history format
-    const orderHistoryData = orders.map((order) => {
+    const orderHistoryData = uniqueOrders.map((order) => {
       const customer = order.customer;
       const items = order.items || [];
       const invoices = order.invoices || [];

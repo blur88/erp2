@@ -55,7 +55,11 @@ const CustomerOrderHistory: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<CustomerOrderHistory[]>([])
   const [customers, setCustomers] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
   const [inventoryStatus, setInventoryStatus] = useState<string>('all')
@@ -75,11 +79,43 @@ const CustomerOrderHistory: React.FC = () => {
 
   useEffect(() => {
     // Load customers
-    fetch('/api/customers?limit=100')
+    fetch('/api/customers?limit=1000')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)
+        }
+      })
+      .catch(() => {})
+
+    // Load categories
+    fetch('/api/inventory/categories')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          // Flatten the tree structure
+          const flattenCategories = (cats: any[]): any[] => {
+            let flat: any[] = []
+            cats.forEach(cat => {
+              flat.push(cat)
+              if (cat.children && cat.children.length > 0) {
+                flat = flat.concat(flattenCategories(cat.children))
+              }
+            })
+            return flat
+          }
+          const flattened = flattenCategories(Array.isArray(data) ? data : [])
+          setCategories(flattened)
+        }
+      })
+      .catch(() => {})
+
+    // Load products
+    fetch('/api/inventory/products?limit=1000')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data) {
+          setProducts(data.data)
         }
       })
       .catch(() => {})
@@ -88,7 +124,7 @@ const CustomerOrderHistory: React.FC = () => {
   // Reset to first page when filters or display options change
   useEffect(() => {
     setPage(0)
-  }, [groupBy, sortBy1, inventoryStatus, paymentStatus])
+  }, [groupBy, sortBy1, inventoryStatus, paymentStatus, selectedCategory, selectedProducts])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -101,6 +137,10 @@ const CustomerOrderHistory: React.FC = () => {
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedCustomer) params.append('customerId', selectedCustomer)
+      if (selectedCategory) params.append('categoryId', selectedCategory)
+      if (selectedProducts.length > 0) {
+        selectedProducts.forEach(productId => params.append('productIds', productId))
+      }
       if (inventoryStatus && inventoryStatus !== 'all') params.append('inventoryStatus', inventoryStatus)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
 
@@ -124,6 +164,8 @@ const CustomerOrderHistory: React.FC = () => {
   const handleClearFilters = () => {
     // Clear filter options
     setSelectedCustomer('')
+    setSelectedCategory('')
+    setSelectedProducts([])
     setDateFrom('')
     setDateTo('')
     setInventoryStatus('all')
@@ -685,6 +727,20 @@ const CustomerOrderHistory: React.FC = () => {
                 />
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Inventory Status</InputLabel>
+                  <Select
+                    value={inventoryStatus}
+                    label="Inventory Status"
+                    onChange={(e) => setInventoryStatus(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="fulfilled">Fulfilled</MenuItem>
+                    <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Payment Status</InputLabel>
                   <Select
                     value={paymentStatus}
@@ -701,16 +757,40 @@ const CustomerOrderHistory: React.FC = () => {
                 </FormControl>
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Inventory Status</InputLabel>
+                  <InputLabel>Category</InputLabel>
                   <Select
-                    value={inventoryStatus}
-                    label="Inventory Status"
-                    onChange={(e) => setInventoryStatus(e.target.value)}
+                    value={selectedCategory}
+                    label="Category"
+                    onChange={(e) => setSelectedCategory(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="fulfilled">Fulfilled</MenuItem>
-                    <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
+                    <MenuItem value="">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Products</InputLabel>
+                  <Select
+                    multiple
+                    value={selectedProducts}
+                    label="Products"
+                    onChange={(e) => {
+                      const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
+                      setSelectedProducts(value as string[])
+                    }}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    renderValue={(selected) => `${selected.length} product${selected.length !== 1 ? 's' : ''} selected`}
+                  >
+                    {products.map((product) => (
+                      <MenuItem key={product.id} value={product.id}>
+                        {product.name}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
                 </Stack>
