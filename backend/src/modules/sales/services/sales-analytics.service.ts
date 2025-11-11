@@ -1417,4 +1417,158 @@ export class SalesAnalyticsService {
       data: filteredData,
     };
   }
+
+  async getProductCustomerReport(query: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    productId?: string;
+    customerId?: string;
+    customerIds?: string[];
+    categoryId?: string;
+    inventoryStatus?: string;
+    paymentStatus?: string;
+  }) {
+    // Build WHERE conditions for sales orders
+    let orderQuery = this.salesOrderRepository
+      .createQueryBuilder('salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .leftJoinAndSelect('salesOrder.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
+      .leftJoinAndSelect('invoices.payments', 'payments');
+
+    // Apply date range filter on order date
+    if (query.dateFrom && query.dateTo) {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate BETWEEN :dateFrom AND :dateTo', {
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      });
+    } else if (query.dateFrom) {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    } else if (query.dateTo) {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    // Apply product filter
+    if (query.productId) {
+      orderQuery = orderQuery.andWhere('product.id = :productId', {
+        productId: query.productId,
+      });
+    }
+
+    // Apply customer filter (single or multiple)
+    if (query.customerId) {
+      orderQuery = orderQuery.andWhere('customer.id = :customerId', {
+        customerId: query.customerId,
+      });
+    } else if (query.customerIds && query.customerIds.length > 0) {
+      orderQuery = orderQuery.andWhere('customer.id IN (:...customerIds)', {
+        customerIds: query.customerIds,
+      });
+    }
+
+    // Apply category filter
+    if (query.categoryId) {
+      orderQuery = orderQuery.andWhere('category.id = :categoryId', {
+        categoryId: query.categoryId,
+      });
+    }
+
+    // Apply inventory status filter
+    if (query.inventoryStatus && query.inventoryStatus !== 'all') {
+      if (query.inventoryStatus === 'fulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: true,
+        });
+      } else if (query.inventoryStatus === 'unfulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: false,
+        });
+      }
+    }
+
+    // Get all orders
+    const orders = await orderQuery
+      .orderBy('salesOrder.orderDate', 'DESC')
+      .addOrderBy('salesOrder.orderNumber', 'DESC')
+      .getMany();
+
+    // Remove duplicates if filtering by products (since one order can have multiple products)
+    const uniqueOrders = Array.from(
+      new Map(orders.map(order => [order.id, order])).values()
+    );
+
+    // Transform to product-customer format - return individual line items
+    const productCustomerData: any[] = [];
+
+    uniqueOrders.forEach((order) => {
+      const customer = order.customer;
+      const items = order.items || [];
+      const invoices = order.invoices || [];
+
+      // Calculate total amount from items
+      const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
+
+      // Calculate paid amount from all payments
+      const paidAmount = invoices.reduce((sum, invoice) => {
+        const payments = invoice.payments || [];
+        return sum + payments.reduce((pSum, payment) => pSum + Number(payment.amount || 0), 0);
+      }, 0);
+
+      // Determine payment status
+      let paymentStatus = 'unpaid';
+      if (paidAmount >= totalAmount && totalAmount > 0) {
+        paymentStatus = paidAmount > totalAmount ? 'overpaid' : 'paid';
+      } else if (paidAmount > 0) {
+        paymentStatus = 'partial';
+      }
+
+      // Create a row for each line item
+      items.forEach((item) => {
+        const product = item.product;
+        const quantity = Number(item.quantity || 0);
+        const unitPrice = Number(item.unitPrice || 0);
+        const amount = Number(item.totalAmount || 0);
+        const unitCost = Number(product?.baseCost || 0);
+        const cost = unitCost * quantity;
+        const profit = amount - cost;
+
+        productCustomerData.push({
+          productId: product?.id || '',
+          productName: product?.name || 'Unknown Product',
+          categoryName: product?.category?.name || '-',
+          customerId: customer?.id || '',
+          customerName: customer?.name || 'Unknown',
+          customerPhone: customer?.phone || '',
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+          quantity,
+          unitPrice,
+          amount,
+          cost,
+          profit,
+          paymentStatus,
+          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        });
+      });
+    });
+
+    // Filter by payment status if specified
+    let filteredData = productCustomerData;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredData = productCustomerData.filter(
+        item => item.paymentStatus === query.paymentStatus
+      );
+    }
+
+    return {
+      data: filteredData,
+    };
+  }
 }

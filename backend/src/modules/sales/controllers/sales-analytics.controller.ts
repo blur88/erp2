@@ -688,4 +688,69 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
   }
+
+  @Get('product-customer-report')
+  @ApiOperation({ summary: 'Get product-customer report - shows which customers purchased which products' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for order date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'End date for order date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'productId', required: false, description: 'Filter by product ID' })
+  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
+  @ApiQuery({ name: 'customerIds', required: false, type: [String], description: 'Filter by customer IDs' })
+  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
+  @ApiQuery({ name: 'inventoryStatus', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
+  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Product-customer report retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              productId: { type: 'string', format: 'uuid' },
+              productName: { type: 'string' },
+              categoryName: { type: 'string' },
+              customerId: { type: 'string', format: 'uuid' },
+              customerName: { type: 'string' },
+              customerPhone: { type: 'string' },
+              orderId: { type: 'string', format: 'uuid' },
+              orderNumber: { type: 'string' },
+              orderDate: { type: 'string', format: 'date' },
+              quantity: { type: 'number' },
+              unitPrice: { type: 'number' },
+              amount: { type: 'number' },
+              cost: { type: 'number' },
+              profit: { type: 'number' },
+              paymentStatus: { type: 'string' },
+              inventoryStatus: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async getProductCustomerReport(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('productId') productId?: string,
+    @Query('customerId') customerId?: string,
+    @Query('customerIds') customerIds?: string | string[],
+    @Query('categoryId') categoryId?: string,
+    @Query('inventoryStatus') inventoryStatus?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+  ) {
+    return this.salesAnalyticsService.getProductCustomerReport({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      productId,
+      customerId,
+      customerIds: Array.isArray(customerIds) ? customerIds : customerIds ? [customerIds] : undefined,
+      categoryId,
+      inventoryStatus,
+      paymentStatus,
+    });
+  }
 }
