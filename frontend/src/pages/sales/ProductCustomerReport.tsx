@@ -108,7 +108,7 @@ const ProductCustomerReport: React.FC = () => {
       .catch(() => {})
 
     // Load products
-    fetch('/api/inventory/products?limit=1000')
+    fetch('/api/inventory/products?limit=100')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.data) {
