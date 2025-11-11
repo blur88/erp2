@@ -869,13 +869,13 @@ const SalesByProductDetails: React.FC = () => {
       </Box>
 
       {/* Split Layout */}
-      <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
+      <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}
-        <Grid item xs={12} md={3} sx={{ display: 'flex' }}>
-          <Stack spacing={2} sx={{ flex: 1 }}>
+        <Grid item xs={12} md={3} sx={{ display: 'flex', height: '100%' }}>
+          <Stack spacing={2} sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
             {/* Filters Section */}
-            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+            <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                   fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -886,7 +886,7 @@ const SalesByProductDetails: React.FC = () => {
                 </Typography>
               </Box>
 
-              <Box sx={{ p: 2 }}>
+              <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
                   Invoice Date Range
@@ -964,8 +964,8 @@ const SalesByProductDetails: React.FC = () => {
             </Paper>
 
             {/* Display Section */}
-            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+            <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                   fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -976,7 +976,7 @@ const SalesByProductDetails: React.FC = () => {
                 </Typography>
               </Box>
 
-              <Box sx={{ p: 2 }}>
+              <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                 <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Columns</InputLabel>
@@ -1069,7 +1069,7 @@ const SalesByProductDetails: React.FC = () => {
         </Grid>
 
         {/* Right Side - Report Preview */}
-        <Grid item xs={12} md={9} sx={{ display: 'flex' }}>
+        <Grid item xs={12} md={9} sx={{ display: 'flex', height: '100%' }}>
           {reportData.length === 0 ? (
             <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
@@ -1138,10 +1138,13 @@ const SalesByProductDetails: React.FC = () => {
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-head': {
                       fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      backgroundColor: 'grey.50',
+                      backgroundColor: '#fafafa',
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
                     } }}>
                       {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
                       {selectedColumns.includes('category') && <TableCell align="center">Category</TableCell>}
