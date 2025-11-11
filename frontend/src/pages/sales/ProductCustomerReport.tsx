@@ -86,7 +86,7 @@ const ProductCustomerReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'categoryName', 'customerName', 'customerPhone', 'orderNumber', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'
+    'productName', 'categoryName', 'customerName', 'orderNumber', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderDate')
@@ -301,7 +301,7 @@ const ProductCustomerReport: React.FC = () => {
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['productName', 'categoryName', 'customerName', 'customerPhone', 'orderNumber', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'])
+    setSelectedColumns(['productName', 'categoryName', 'customerName', 'orderNumber', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'])
     setGroupBy('none')
     setSortBy1('orderDate')
     setReportTitle('Product Customer Report')
