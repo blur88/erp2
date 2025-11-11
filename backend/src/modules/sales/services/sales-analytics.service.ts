@@ -1421,9 +1421,7 @@ export class SalesAnalyticsService {
   async getProductCustomerReport(query: {
     dateFrom?: Date;
     dateTo?: Date;
-    productId?: string;
-    customerId?: string;
-    customerIds?: string[];
+    productIds?: string[];
     categoryId?: string;
     inventoryStatus?: string;
     paymentStatus?: string;
@@ -1454,21 +1452,10 @@ export class SalesAnalyticsService {
       });
     }
 
-    // Apply product filter
-    if (query.productId) {
-      orderQuery = orderQuery.andWhere('product.id = :productId', {
-        productId: query.productId,
-      });
-    }
-
-    // Apply customer filter (single or multiple)
-    if (query.customerId) {
-      orderQuery = orderQuery.andWhere('customer.id = :customerId', {
-        customerId: query.customerId,
-      });
-    } else if (query.customerIds && query.customerIds.length > 0) {
-      orderQuery = orderQuery.andWhere('customer.id IN (:...customerIds)', {
-        customerIds: query.customerIds,
+    // Apply product filter (multiple)
+    if (query.productIds && query.productIds.length > 0) {
+      orderQuery = orderQuery.andWhere('product.id IN (:...productIds)', {
+        productIds: query.productIds,
       });
     }
 

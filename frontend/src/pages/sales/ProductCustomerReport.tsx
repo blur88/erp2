@@ -67,19 +67,18 @@ const ProductCustomerReport: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<ProductCustomerReport[]>([])
-  const [customers, setCustomers] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
-  const [selectedProduct, setSelectedProduct] = useState<string>('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('all')
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
-  const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
-  const [customerSearchFilter, setCustomerSearchFilter] = useState<string>('')
-  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<string>('all')
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [productDialogOpen, setProductDialogOpen] = useState(false)
+  const [productSearchFilter, setProductSearchFilter] = useState<string>('')
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
   const [selectedRemovedIds, setSelectedRemovedIds] = useState<string[]>([])
-  const [lastClickedCustomerId, setLastClickedCustomerId] = useState<string | null>(null)
+  const [lastClickedProductId, setLastClickedProductId] = useState<string | null>(null)
   const [lastClickedRemovedId, setLastClickedRemovedId] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
   const [inventoryStatus, setInventoryStatus] = useState<string>('all')
@@ -98,16 +97,6 @@ const ProductCustomerReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load customers
-    fetch('/api/customers?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setCustomers(data.data)
-        }
-      })
-      .catch(() => {})
-
     // Load categories
     fetch('/api/inventory/categories')
       .then(res => res.ok ? res.json() : null)
@@ -119,7 +108,7 @@ const ProductCustomerReport: React.FC = () => {
       .catch(() => {})
 
     // Load products
-    fetch('/api/inventory/products?limit=100')
+    fetch('/api/inventory/products?limit=1000')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.data) {
@@ -132,7 +121,7 @@ const ProductCustomerReport: React.FC = () => {
   // Reset to first page when filters or display options change
   useEffect(() => {
     setPage(0)
-  }, [groupBy, sortBy1, inventoryStatus, paymentStatus, selectedCategory, selectedCustomers, selectedProduct])
+  }, [groupBy, sortBy1, inventoryStatus, paymentStatus, selectedCategory, selectedProducts])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -144,10 +133,9 @@ const ProductCustomerReport: React.FC = () => {
 
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
-      if (selectedProduct) params.append('productId', selectedProduct)
       if (selectedCategory) params.append('categoryId', selectedCategory)
-      if (selectedCustomers.length > 0) {
-        selectedCustomers.forEach(customerId => params.append('customerIds', customerId))
+      if (selectedProducts.length > 0) {
+        selectedProducts.forEach(productId => params.append('productIds', productId))
       }
       if (inventoryStatus && inventoryStatus !== 'all') params.append('inventoryStatus', inventoryStatus)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
@@ -169,44 +157,50 @@ const ProductCustomerReport: React.FC = () => {
     }
   }
 
-  const handleCustomerSelectChange = (value: string) => {
+  const handleProductSelectChange = (value: string) => {
     if (value === 'select') {
-      setCustomerDialogOpen(true)
-      // Initialize selected customer IDs with current selections
-      setSelectedCustomerIds([])
+      setProductDialogOpen(true)
+      // Initialize selected product IDs with current selections
+      setSelectedProductIds([])
     } else {
-      setSelectedCustomer(value)
-      setSelectedCustomers([])
+      setSelectedProduct(value)
+      setSelectedProducts([])
     }
   }
 
-  const handleCustomerToggle = (customerId: string) => {
-    setSelectedCustomers(prev =>
-      prev.includes(customerId)
-        ? prev.filter(id => id !== customerId)
-        : [...prev, customerId]
+  const handleProductToggle = (productId: string) => {
+    setSelectedProducts(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
     )
   }
 
-  const handleCustomerDialogClose = () => {
-    setCustomerDialogOpen(false)
-    setCustomerSearchFilter('')
-    setSelectedCustomerIds([])
+  const handleProductDialogClose = () => {
+    setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
+    setSelectedProductIds([])
     setSelectedRemovedIds([])
-    if (selectedCustomers.length > 0) {
-      setSelectedCustomer('select')
+    if (selectedProducts.length > 0) {
+      setSelectedProduct('select')
     } else {
-      setSelectedCustomer('all')
+      setSelectedProduct('all')
     }
   }
 
-  const getFilteredCustomers = () => {
-    return customers.filter(customer => {
-      // Exclude already selected customers
-      if (selectedCustomers.includes(customer.id)) return false
+  const getFilteredProducts = () => {
+    return products.filter(product => {
+      // Exclude already selected products
+      if (selectedProducts.includes(product.id)) return false
 
       // Apply search filter
-      if (customerSearchFilter && !customer.name.toLowerCase().includes(customerSearchFilter.toLowerCase())) {
+      if (productSearchFilter && !product.name.toLowerCase().includes(productSearchFilter.toLowerCase())) {
+        return false
+      }
+
+      // Apply category filter
+      if (productCategoryFilter && product.category?.id !== productCategoryFilter) {
         return false
       }
 
@@ -214,91 +208,90 @@ const ProductCustomerReport: React.FC = () => {
     })
   }
 
-  const handleCustomerClick = (customerId: string, e: React.MouseEvent) => {
-    if (e.shiftKey && lastClickedCustomerId) {
+  const handleProductClick = (productId: string, e: React.MouseEvent) => {
+    if (e.shiftKey && lastClickedProductId) {
       // Shift+click: select range
-      const filteredCustomers = getFilteredCustomers()
-      const startIndex = filteredCustomers.findIndex(c => c.id === lastClickedCustomerId)
-      const endIndex = filteredCustomers.findIndex(c => c.id === customerId)
+      const filteredProducts = getFilteredProducts()
+      const startIndex = filteredProducts.findIndex(p => p.id === lastClickedProductId)
+      const endIndex = filteredProducts.findIndex(p => p.id === productId)
       if (startIndex !== -1 && endIndex !== -1) {
         const rangeStart = Math.min(startIndex, endIndex)
         const rangeEnd = Math.max(startIndex, endIndex)
-        const rangeIds = filteredCustomers.slice(rangeStart, rangeEnd + 1).map(c => c.id)
-        setSelectedCustomerIds(prev => Array.from(new Set([...prev, ...rangeIds])))
+        const rangeIds = filteredProducts.slice(rangeStart, rangeEnd + 1).map(p => p.id)
+        setSelectedProductIds(prev => Array.from(new Set([...prev, ...rangeIds])))
       }
     } else if (e.ctrlKey || e.metaKey) {
       // Ctrl+click: toggle selection
-      setSelectedCustomerIds(prev =>
-        prev.includes(customerId) ? prev.filter(id => id !== customerId) : [...prev, customerId]
+      setSelectedProductIds(prev =>
+        prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
       )
     } else {
       // Normal click: select single
-      setSelectedCustomerIds([customerId])
+      setSelectedProductIds([productId])
     }
-    setLastClickedCustomerId(customerId)
+    setLastClickedProductId(productId)
   }
 
-  const getSelectedCustomersList = () => {
-    return customers.filter(customer => selectedCustomers.includes(customer.id))
+  const getSelectedProductsList = () => {
+    return products.filter(product => selectedProducts.includes(product.id))
   }
 
-  const handleSelectedCustomerClick = (customerId: string, event: React.MouseEvent) => {
-    const selectedCustomersList = getSelectedCustomersList()
+  const handleSelectedProductClick = (productId: string, event: React.MouseEvent) => {
+    const selectedProductsList = getSelectedProductsList()
 
     if (event.ctrlKey || event.metaKey) {
       // Ctrl/Cmd+Click: Toggle individual selection
       setSelectedRemovedIds(prev =>
-        prev.includes(customerId)
-          ? prev.filter(id => id !== customerId)
-          : [...prev, customerId]
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
       )
-      setLastClickedRemovedId(customerId)
+      setLastClickedRemovedId(productId)
     } else if (event.shiftKey && lastClickedRemovedId) {
       // Shift+Click: Select range
-      const lastIndex = selectedCustomersList.findIndex(c => c.id === lastClickedRemovedId)
-      const currentIndex = selectedCustomersList.findIndex(c => c.id === customerId)
+      const lastIndex = selectedProductsList.findIndex(p => p.id === lastClickedRemovedId)
+      const currentIndex = selectedProductsList.findIndex(p => p.id === productId)
 
       if (lastIndex !== -1 && currentIndex !== -1) {
         const start = Math.min(lastIndex, currentIndex)
         const end = Math.max(lastIndex, currentIndex)
-        const rangeIds = selectedCustomersList.slice(start, end + 1).map(c => c.id)
+        const rangeIds = selectedProductsList.slice(start, end + 1).map(p => p.id)
 
         setSelectedRemovedIds(prev => Array.from(new Set([...prev, ...rangeIds])))
       }
     } else {
       // Single click: Select only this item
-      setSelectedRemovedIds([customerId])
-      setLastClickedRemovedId(customerId)
+      setSelectedRemovedIds([productId])
+      setLastClickedRemovedId(productId)
     }
   }
 
-  const handleAddSelectedCustomers = () => {
-    setSelectedCustomers(prev => Array.from(new Set([...prev, ...selectedCustomerIds])))
-    setSelectedCustomerIds([])
+  const handleAddSelectedProducts = () => {
+    setSelectedProducts(prev => Array.from(new Set([...prev, ...selectedProductIds])))
+    setSelectedProductIds([])
   }
 
-  const handleAddAllCustomers = () => {
-    const filteredCustomers = getFilteredCustomers()
-    setSelectedCustomers(prev => Array.from(new Set([...prev, ...filteredCustomers.map(c => c.id)])))
-    setSelectedCustomerIds([])
+  const handleAddAllProducts = () => {
+    const filteredProducts = getFilteredProducts()
+    setSelectedProducts(prev => Array.from(new Set([...prev, ...filteredProducts.map(p => p.id)])))
+    setSelectedProductIds([])
   }
 
-  const handleRemoveSelectedCustomers = () => {
-    setSelectedCustomers(prev => prev.filter(id => !selectedRemovedIds.includes(id)))
+  const handleRemoveSelectedProducts = () => {
+    setSelectedProducts(prev => prev.filter(id => !selectedRemovedIds.includes(id)))
     setSelectedRemovedIds([])
   }
 
-  const handleRemoveAllCustomers = () => {
-    setSelectedCustomers([])
+  const handleRemoveAllProducts = () => {
+    setSelectedProducts([])
     setSelectedRemovedIds([])
   }
 
   const handleClearFilters = () => {
     // Clear filter options
-    setSelectedProduct('')
+    setSelectedProduct('all')
+    setSelectedProducts([])
     setSelectedCategory('')
-    setSelectedCustomer('all')
-    setSelectedCustomers([])
     setDateFrom('')
     setDateTo('')
     setInventoryStatus('all')
@@ -876,23 +869,6 @@ const ProductCustomerReport: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Product</InputLabel>
-                  <Select
-                    value={selectedProduct}
-                    label="Product"
-                    onChange={(e) => setSelectedProduct(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="">All Products</MenuItem>
-                    {products.map((product) => (
-                      <MenuItem key={product.id} value={product.id}>
-                        {product.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
                   Order Date
                 </Typography>
@@ -917,6 +893,53 @@ const ProductCustomerReport: React.FC = () => {
                   size="small"
                   fullWidth
                 />
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Products</InputLabel>
+                  <Select
+                    value={selectedProduct}
+                    label="Products"
+                    onChange={(e) => handleProductSelectChange(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="all">All Products</MenuItem>
+                    <MenuItem value="select">Select Products</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {selectedProduct === 'select' && selectedProducts.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selectedProducts.map(productId => {
+                      const product = products.find(p => p.id === productId)
+                      return (
+                        <Chip
+                          key={productId}
+                          label={product?.name || productId}
+                          size="small"
+                          onDelete={() => handleProductToggle(productId)}
+                          sx={{ fontSize: '0.7rem' }}
+                        />
+                      )
+                    })}
+                  </Box>
+                )}
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={selectedCategory}
+                    label="Category"
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Inventory Status</InputLabel>
@@ -947,53 +970,6 @@ const ProductCustomerReport: React.FC = () => {
                     <MenuItem value="overpaid">Overpaid</MenuItem>
                   </Select>
                 </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={selectedCategory}
-                    label="Category"
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="">All Categories</MenuItem>
-                    {categories.map((category) => (
-                      <MenuItem key={category.id} value={category.id}>
-                        {category.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Customers</InputLabel>
-                  <Select
-                    value={selectedCustomer}
-                    label="Customers"
-                    onChange={(e) => handleCustomerSelectChange(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="all">All Customers</MenuItem>
-                    <MenuItem value="select">Select Customers</MenuItem>
-                  </Select>
-                </FormControl>
-
-                {selectedCustomer === 'select' && selectedCustomers.length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selectedCustomers.map(customerId => {
-                      const customer = customers.find(c => c.id === customerId)
-                      return (
-                        <Chip
-                          key={customerId}
-                          label={customer?.name || customerId}
-                          size="small"
-                          onDelete={() => handleCustomerToggle(customerId)}
-                          sx={{ fontSize: '0.7rem' }}
-                        />
-                      )
-                    })}
-                  </Box>
-                )}
                 </Stack>
               </Box>
             </Paper>
@@ -1466,10 +1442,10 @@ const ProductCustomerReport: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Customer Selection Dialog */}
+      {/* Product Selection Dialog */}
       <Dialog
-        open={customerDialogOpen}
-        onClose={handleCustomerDialogClose}
+        open={productDialogOpen}
+        onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
         PaperProps={{
@@ -1484,11 +1460,11 @@ const ProductCustomerReport: React.FC = () => {
           borderColor: 'divider'
         }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Select Customers
+            Select Products
           </Typography>
           <Button
             size="small"
-            onClick={handleCustomerDialogClose}
+            onClick={handleProductDialogClose}
             sx={{ minWidth: 'auto', p: 0.5 }}
           >
             <CloseIcon />
@@ -1496,12 +1472,12 @@ const ProductCustomerReport: React.FC = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
-            {/* Left Side - Customer List */}
+            {/* Left Side - Product List */}
             <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    Customer List
+                    Product List
                   </Typography>
                 </Box>
                 <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
@@ -1514,35 +1490,35 @@ const ProductCustomerReport: React.FC = () => {
                   }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Customer Name</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {getFilteredCustomers().length === 0 ? (
+                      {getFilteredProducts().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
                             <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              {customers.length === 0 ? 'No customers available' : 'No customers found'}
+                              {products.length === 0 ? 'No products available' : 'No products found'}
                             </Typography>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        getFilteredCustomers().map((customer) => (
+                        getFilteredProducts().map((product) => (
                           <TableRow
-                            key={customer.id}
+                            key={product.id}
                             hover
-                            onClick={(e) => handleCustomerClick(customer.id, e)}
+                            onClick={(e) => handleProductClick(product.id, e)}
                             sx={{
                               cursor: 'pointer',
-                              backgroundColor: selectedCustomerIds.includes(customer.id) ? 'primary.light' : 'inherit',
+                              backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'inherit',
                               '&:hover': {
-                                backgroundColor: selectedCustomerIds.includes(customer.id) ? 'primary.light' : 'action.hover'
+                                backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'action.hover'
                               }
                             }}
                           >
-                            <TableCell>{customer.name}</TableCell>
-                            <TableCell>{customer.phone || '-'}</TableCell>
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
                           </TableRow>
                         ))
                       )}
@@ -1556,9 +1532,9 @@ const ProductCustomerReport: React.FC = () => {
             <Grid item xs={1.5} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
               <IconButton
                 color="primary"
-                onClick={handleAddSelectedCustomers}
-                disabled={selectedCustomerIds.length === 0}
-                title="Add selected customers"
+                onClick={handleAddSelectedProducts}
+                disabled={selectedProductIds.length === 0}
+                title="Add selected products"
                 sx={{
                   bgcolor: 'primary.main',
                   color: 'white',
@@ -1571,9 +1547,9 @@ const ProductCustomerReport: React.FC = () => {
 
               <IconButton
                 color="primary"
-                onClick={handleAddAllCustomers}
-                disabled={getFilteredCustomers().length === 0}
-                title="Add all filtered customers"
+                onClick={handleAddAllProducts}
+                disabled={getFilteredProducts().length === 0}
+                title="Add all filtered products"
                 sx={{
                   bgcolor: 'primary.main',
                   color: 'white',
@@ -1586,9 +1562,9 @@ const ProductCustomerReport: React.FC = () => {
 
               <IconButton
                 color="error"
-                onClick={handleRemoveAllCustomers}
-                disabled={selectedCustomers.length === 0}
-                title="Remove all customers"
+                onClick={handleRemoveAllProducts}
+                disabled={selectedProducts.length === 0}
+                title="Remove all products"
                 sx={{
                   border: '1px solid',
                   borderColor: 'error.main',
@@ -1601,9 +1577,9 @@ const ProductCustomerReport: React.FC = () => {
               </IconButton>
 
               <IconButton
-                onClick={handleRemoveSelectedCustomers}
+                onClick={handleRemoveSelectedProducts}
                 disabled={selectedRemovedIds.length === 0}
-                title="Remove selected customers"
+                title="Remove selected products"
                 sx={{
                   border: '1px solid',
                   borderColor: 'divider',
@@ -1615,12 +1591,12 @@ const ProductCustomerReport: React.FC = () => {
               </IconButton>
             </Grid>
 
-            {/* Right Side - Selected Customers */}
+            {/* Right Side - Selected Products */}
             <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    Selected Customers ({selectedCustomers.length})
+                    Selected Products ({selectedProducts.length})
                   </Typography>
                 </Box>
                 <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
@@ -1633,35 +1609,35 @@ const ProductCustomerReport: React.FC = () => {
                   }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Customer Name</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {getSelectedCustomersList().length === 0 ? (
+                      {getSelectedProductsList().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
                             <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              No customers selected
+                              No products selected
                             </Typography>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        getSelectedCustomersList().map((customer) => (
+                        getSelectedProductsList().map((product) => (
                           <TableRow
-                            key={customer.id}
+                            key={product.id}
                             hover
-                            onClick={(e) => handleSelectedCustomerClick(customer.id, e)}
+                            onClick={(e) => handleSelectedProductClick(product.id, e)}
                             sx={{
                               cursor: 'pointer',
-                              backgroundColor: selectedRemovedIds.includes(customer.id) ? 'error.light' : 'inherit',
+                              backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'inherit',
                               '&:hover': {
-                                backgroundColor: selectedRemovedIds.includes(customer.id) ? 'error.light' : 'action.hover'
+                                backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'action.hover'
                               }
                             }}
                           >
-                            <TableCell>{customer.name}</TableCell>
-                            <TableCell>{customer.phone || '-'}</TableCell>
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
                           </TableRow>
                         ))
                       )}
@@ -1675,29 +1651,46 @@ const ProductCustomerReport: React.FC = () => {
           {/* Filter Section at Bottom */}
           <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
-              Filter Customers
+              Filter Products
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid item xs={6}>
                 <TextField
                   size="small"
-                  placeholder="Search by customer name..."
-                  value={customerSearchFilter}
-                  onChange={(e) => setCustomerSearchFilter(e.target.value)}
+                  placeholder="Search by product name..."
+                  value={productSearchFilter}
+                  onChange={(e) => setProductSearchFilter(e.target.value)}
                   fullWidth
                 />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Filter by Category</InputLabel>
+                  <Select
+                    value={productCategoryFilter}
+                    label="Filter by Category"
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
-            {selectedCustomers.length} customer{selectedCustomers.length !== 1 ? 's' : ''} selected
+            {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
           </Typography>
-          <Button onClick={handleCustomerDialogClose}>
+          <Button onClick={handleProductDialogClose}>
             Cancel
           </Button>
-          <Button onClick={handleCustomerDialogClose} variant="contained">
+          <Button onClick={handleProductDialogClose} variant="contained">
             Done
           </Button>
         </DialogActions>

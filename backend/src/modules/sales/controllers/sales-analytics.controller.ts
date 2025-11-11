@@ -693,9 +693,7 @@ export class SalesAnalyticsController {
   @ApiOperation({ summary: 'Get product-customer report - shows which customers purchased which products' })
   @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for order date (YYYY-MM-DD)' })
   @ApiQuery({ name: 'dateTo', required: false, description: 'End date for order date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'productId', required: false, description: 'Filter by product ID' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'customerIds', required: false, type: [String], description: 'Filter by customer IDs' })
+  @ApiQuery({ name: 'productIds', required: false, type: [String], description: 'Filter by product IDs' })
   @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
   @ApiQuery({ name: 'inventoryStatus', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
   @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
@@ -735,9 +733,7 @@ export class SalesAnalyticsController {
   async getProductCustomerReport(
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
-    @Query('productId') productId?: string,
-    @Query('customerId') customerId?: string,
-    @Query('customerIds') customerIds?: string | string[],
+    @Query('productIds') productIds?: string | string[],
     @Query('categoryId') categoryId?: string,
     @Query('inventoryStatus') inventoryStatus?: string,
     @Query('paymentStatus') paymentStatus?: string,
@@ -745,9 +741,7 @@ export class SalesAnalyticsController {
     return this.salesAnalyticsService.getProductCustomerReport({
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
-      productId,
-      customerId,
-      customerIds: Array.isArray(customerIds) ? customerIds : customerIds ? [customerIds] : undefined,
+      productIds: Array.isArray(productIds) ? productIds : productIds ? [productIds] : undefined,
       categoryId,
       inventoryStatus,
       paymentStatus,
