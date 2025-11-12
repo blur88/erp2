@@ -242,12 +242,6 @@ const menuSections: MenuSection[] = [
             icon: <ReportsIcon />,
             path: '/reports/sales/product-customer',
           },
-          {
-            id: 'customer-list',
-            title: 'Customer List',
-            icon: <ReportsIcon />,
-            path: '/reports/sales/customer-list',
-          },
         ],
       },
       {
