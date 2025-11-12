@@ -67,7 +67,7 @@ const CustomerPaymentDetails: React.FC = () => {
     'customerName', 'paymentDate', 'orderNumber', 'paymentAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('paymentDate')
+  const [sortBy1, setSortBy1] = useState<string>('customerName')
   const [reportTitle, setReportTitle] = useState<string>('Customer Payment Details')
 
   // Pagination
@@ -132,7 +132,7 @@ const CustomerPaymentDetails: React.FC = () => {
     // Reset display options to defaults
     setSelectedColumns(['customerName', 'paymentDate', 'orderNumber', 'paymentAmount'])
     setGroupBy('none')
-    setSortBy1('paymentDate')
+    setSortBy1('customerName')
     setReportTitle('Customer Payment Details')
 
     // Reset pagination
