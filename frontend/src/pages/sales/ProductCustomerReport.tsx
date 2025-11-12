@@ -339,20 +339,18 @@ const ProductCustomerReport: React.FC = () => {
 
     // Helper to get group key for export
     const getExportGroupKey = (r: any) => {
-      if (groupBy === 'productCustomer') {
-        return `${r.productName}|${r.customerName}`
-      } else if (groupBy === 'productCategory') {
-        return `${r.productName}|${r.categoryName}`
+      if (groupBy === 'categoryProduct') {
+        return `${r.categoryName}|${r.productName}`
       }
       return r[groupBy]
     }
 
     // Helper to get group label for export
     const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'productCustomer') {
-        return `Product: ${r.productName} | Customer: ${r.customerName}`
-      } else if (groupBy === 'productCategory') {
-        return `Product: ${r.productName} | Category: ${r.categoryName}`
+      if (groupBy === 'categoryProduct') {
+        return `Category: ${r.categoryName} | Product: ${r.productName}`
+      } else if (groupBy === 'categoryName') {
+        return `Category: ${r.categoryName}`
       }
       return r[groupBy]
     }
@@ -459,20 +457,18 @@ const ProductCustomerReport: React.FC = () => {
 
     // Helper to get group key for PDF export
     const getPdfGroupKey = (r: any) => {
-      if (groupBy === 'productCustomer') {
-        return `${r.productName}|${r.customerName}`
-      } else if (groupBy === 'productCategory') {
-        return `${r.productName}|${r.categoryName}`
+      if (groupBy === 'categoryProduct') {
+        return `${r.categoryName}|${r.productName}`
       }
       return r[groupBy]
     }
 
     // Helper to get group label for PDF export
     const getPdfGroupLabel = (r: any) => {
-      if (groupBy === 'productCustomer') {
-        return `Product: ${r.productName} | Customer: ${r.customerName}`
-      } else if (groupBy === 'productCategory') {
-        return `Product: ${r.productName} | Category: ${r.categoryName}`
+      if (groupBy === 'categoryProduct') {
+        return `Category: ${r.categoryName} | Product: ${r.productName}`
+      } else if (groupBy === 'categoryName') {
+        return `Category: ${r.categoryName}`
       }
       return r[groupBy]
     }
@@ -706,20 +702,13 @@ const ProductCustomerReport: React.FC = () => {
     if (groupBy !== 'none') {
       filtered.sort((a, b) => {
         // Group by the selected field(s) first
-        if (groupBy === 'productCustomer') {
-          // First sort by product
-          const productResult = compareValues(a, b, 'productName')
-          if (productResult !== 0) return productResult
-          // Then by customer name
-          const customerResult = compareValues(a, b, 'customerName')
-          if (customerResult !== 0) return customerResult
-        } else if (groupBy === 'productCategory') {
-          // First sort by product
-          const productResult = compareValues(a, b, 'productName')
-          if (productResult !== 0) return productResult
-          // Then by category name
+        if (groupBy === 'categoryProduct') {
+          // First sort by category
           const categoryResult = compareValues(a, b, 'categoryName')
           if (categoryResult !== 0) return categoryResult
+          // Then by product name
+          const productResult = compareValues(a, b, 'productName')
+          if (productResult !== 0) return productResult
         } else {
           const groupResult = compareValues(a, b, groupBy)
           if (groupResult !== 0) return groupResult
@@ -1028,8 +1017,8 @@ const ProductCustomerReport: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="productCustomer">Product, Customer</MenuItem>
-                    <MenuItem value="productCategory">Product, Category</MenuItem>
+                    <MenuItem value="categoryName">Category</MenuItem>
+                    <MenuItem value="categoryProduct">Category, Product</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1169,10 +1158,8 @@ const ProductCustomerReport: React.FC = () => {
 
                       // Helper to get group key for a row
                       const getGroupKey = (r: any) => {
-                        if (groupBy === 'productCustomer') {
-                          return `${r.productName}|${r.customerName}`
-                        } else if (groupBy === 'productCategory') {
-                          return `${r.productName}|${r.categoryName}`
+                        if (groupBy === 'categoryProduct') {
+                          return `${r.categoryName}|${r.productName}`
                         }
                         return r[groupBy]
                       }
@@ -1181,10 +1168,10 @@ const ProductCustomerReport: React.FC = () => {
                       const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                       const getGroupLabel = (field: string, r: any) => {
-                        if (field === 'productCustomer') {
-                          return `Product: ${r.productName} | Customer: ${r.customerName}`
-                        } else if (field === 'productCategory') {
-                          return `Product: ${r.productName} | Category: ${r.categoryName}`
+                        if (field === 'categoryProduct') {
+                          return `Category: ${r.categoryName} | Product: ${r.productName}`
+                        } else if (field === 'categoryName') {
+                          return `Category: ${r.categoryName}`
                         }
                         return r[field]
                       }
