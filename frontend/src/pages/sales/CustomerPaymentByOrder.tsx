@@ -487,9 +487,9 @@ const CustomerPaymentByOrder: React.FC = () => {
       if (aVal == null) return 1
       if (bVal == null) return -1
 
-      // Date comparison - descending (newer to older)
+      // Date comparison - ascending (earlier to latest)
       if (field === 'orderDate' || field === 'invoiceDate' || field === 'lastPaymentDate') {
-        return new Date(bVal).getTime() - new Date(aVal).getTime()
+        return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
       // String comparison (case-insensitive) - ascending for text
