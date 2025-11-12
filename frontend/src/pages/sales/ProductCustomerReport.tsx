@@ -49,12 +49,10 @@ interface ProductCustomerReport {
   categoryName: string
   customerId: string
   customerName: string
-  customerPhone: string
   orderId: string
   orderNumber: string
   orderDate: string
   quantity: number
-  unitPrice: number
   amount: number
   cost: number
   profit: number
@@ -86,7 +84,7 @@ const ProductCustomerReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'categoryName', 'customerName', 'orderNumber', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'
+    'productName', 'categoryName', 'orderNumber', 'customerName', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderDate')
@@ -301,7 +299,7 @@ const ProductCustomerReport: React.FC = () => {
     setReportData([])
 
     // Reset display options to defaults
-    setSelectedColumns(['productName', 'categoryName', 'customerName', 'orderNumber', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'])
+    setSelectedColumns(['productName', 'categoryName', 'orderNumber', 'customerName', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'])
     setGroupBy('none')
     setSortBy1('orderDate')
     setReportTitle('Product Customer Report')
@@ -318,18 +316,15 @@ const ProductCustomerReport: React.FC = () => {
     const columnHeaders: { [key: string]: string } = {
       productName: 'Product',
       categoryName: 'Category',
-      customerName: 'Customer',
-      customerPhone: 'Phone',
-      customerEmail: 'Email',
       orderNumber: 'Order No',
+      customerName: 'Customer',
       orderDate: 'Order Date',
       inventoryStatus: 'Inventory Status',
       paymentStatus: 'Payment Status',
-      quantity: 'Quantity',
-      unitPrice: 'Unit Price',
-      amount: 'Amount',
-      cost: 'Cost',
-      profit: 'Profit'
+      quantity: 'Quantity Sold',
+      amount: 'Sales Amount',
+      cost: 'Sales Cost',
+      profit: 'Sales Profit'
     }
 
     // Build CSV content
@@ -377,7 +372,7 @@ const ProductCustomerReport: React.FC = () => {
         const value = (row as any)[col]
         if (col === 'orderDate') {
           return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
-        } else if (col === 'customerName' || col === 'customerPhone' || col === 'orderNumber' || col === 'paymentStatus' || col === 'inventoryStatus' || col === 'productName' || col === 'categoryName') {
+        } else if (col === 'customerName' || col === 'orderNumber' || col === 'paymentStatus' || col === 'inventoryStatus' || col === 'productName' || col === 'categoryName') {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
           return value.toFixed(2)
@@ -396,7 +391,6 @@ const ProductCustomerReport: React.FC = () => {
 
         const subtotal = {
           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-          unitPrice: 0,
           amount: groupData.reduce((sum, r) => sum + r.amount, 0),
           cost: groupData.reduce((sum, r) => sum + r.cost, 0),
           profit: groupData.reduce((sum, r) => sum + r.profit, 0),
@@ -449,17 +443,15 @@ const ProductCustomerReport: React.FC = () => {
     const columnHeaders: { [key: string]: string } = {
       productName: 'Product',
       categoryName: 'Category',
-      customerName: 'Customer',
-      customerPhone: 'Phone',
       orderNumber: 'Order No',
+      customerName: 'Customer',
       orderDate: 'Order Date',
       inventoryStatus: 'Inventory Status',
       paymentStatus: 'Payment Status',
-      quantity: 'Quantity',
-      unitPrice: 'Unit Price',
-      amount: 'Amount',
-      cost: 'Cost',
-      profit: 'Profit'
+      quantity: 'Quantity Sold',
+      amount: 'Sales Amount',
+      cost: 'Sales Cost',
+      profit: 'Sales Profit'
     }
 
     let tableRows = ''
@@ -522,7 +514,6 @@ const ProductCustomerReport: React.FC = () => {
 
         const subtotal = {
           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-          unitPrice: 0,
           amount: groupData.reduce((sum, r) => sum + r.amount, 0),
           cost: groupData.reduce((sum, r) => sum + r.cost, 0),
           profit: groupData.reduce((sum, r) => sum + r.profit, 0),
@@ -665,14 +656,12 @@ const ProductCustomerReport: React.FC = () => {
     const totals = reportData.reduce(
       (acc, item) => ({
         quantity: acc.quantity + item.quantity,
-        unitPrice: 0,
         amount: acc.amount + item.amount,
         cost: acc.cost + item.cost,
         profit: acc.profit + item.profit,
       }),
       {
         quantity: 0,
-        unitPrice: 0,
         amount: 0,
         cost: 0,
         profit: 0,
@@ -1000,7 +989,7 @@ const ProductCustomerReport: React.FC = () => {
 
                       // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['productName', 'categoryName', 'customerName', 'customerPhone', 'orderNumber', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit']
+                        const allColumns = ['productName', 'categoryName', 'orderNumber', 'customerName', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit']
                         // If all were selected, deselect all; otherwise select all
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
@@ -1018,17 +1007,15 @@ const ProductCustomerReport: React.FC = () => {
                     <MenuItem value="all">All</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="customerPhone">Phone</MenuItem>
                     <MenuItem value="orderNumber">Order No</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
                     <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="quantity">Quantity</MenuItem>
-                    <MenuItem value="unitPrice">Unit Price</MenuItem>
-                    <MenuItem value="amount">Amount</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="quantity">Quantity Sold</MenuItem>
+                    <MenuItem value="amount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1056,16 +1043,15 @@ const ProductCustomerReport: React.FC = () => {
                   >
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="orderNumber">Order No</MenuItem>
+                    <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="orderDate">Order Date</MenuItem>
                     <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="quantity">Quantity</MenuItem>
-                    <MenuItem value="unitPrice">Unit Price</MenuItem>
-                    <MenuItem value="amount">Amount</MenuItem>
-                    <MenuItem value="cost">Cost</MenuItem>
-                    <MenuItem value="profit">Profit</MenuItem>
+                    <MenuItem value="quantity">Quantity Sold</MenuItem>
+                    <MenuItem value="amount">Sales Amount</MenuItem>
+                    <MenuItem value="cost">Sales Cost</MenuItem>
+                    <MenuItem value="profit">Sales Profit</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1164,17 +1150,15 @@ const ProductCustomerReport: React.FC = () => {
                     } }}>
                       {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
                       {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
-                      {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
-                      {selectedColumns.includes('customerPhone') && <TableCell align="center">Phone</TableCell>}
                       {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
+                      {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
                       {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
                       {selectedColumns.includes('inventoryStatus') && <TableCell align="center">Inventory Status</TableCell>}
                       {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
-                      {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
-                      {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
-                      {selectedColumns.includes('amount') && <TableCell align="center">Amount</TableCell>}
-                      {selectedColumns.includes('cost') && <TableCell align="center">Cost</TableCell>}
-                      {selectedColumns.includes('profit') && <TableCell align="center">Profit</TableCell>}
+                      {selectedColumns.includes('quantity') && <TableCell align="center">Quantity Sold</TableCell>}
+                      {selectedColumns.includes('amount') && <TableCell align="center">Sales Amount</TableCell>}
+                      {selectedColumns.includes('cost') && <TableCell align="center">Sales Cost</TableCell>}
+                      {selectedColumns.includes('profit') && <TableCell align="center">Sales Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1214,7 +1198,6 @@ const ProductCustomerReport: React.FC = () => {
 
                         return {
                           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-                          unitPrice: 0,
                           amount: groupData.reduce((sum, r) => sum + r.amount, 0),
                           cost: groupData.reduce((sum, r) => sum + r.cost, 0),
                           profit: groupData.reduce((sum, r) => sum + r.profit, 0),
@@ -1257,19 +1240,14 @@ const ProductCustomerReport: React.FC = () => {
                             {row.categoryName}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('customerName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.customerName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('customerPhone') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.customerPhone || '-'}
-                          </TableCell>
-                        )}
                         {selectedColumns.includes('orderNumber') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
                             {row.orderNumber}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('customerName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.customerName}
                           </TableCell>
                         )}
                         {selectedColumns.includes('orderDate') && (
@@ -1298,11 +1276,6 @@ const ProductCustomerReport: React.FC = () => {
                         {selectedColumns.includes('quantity') && (
                           <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                             {row.quantity}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('unitPrice') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.unitPrice)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('amount') && (
@@ -1338,9 +1311,8 @@ const ProductCustomerReport: React.FC = () => {
                                 </TableCell>
                               )}
                               {selectedColumns.includes('categoryName') && <TableCell />}
-                              {selectedColumns.includes('customerName') && <TableCell />}
-                              {selectedColumns.includes('customerPhone') && <TableCell />}
                               {selectedColumns.includes('orderNumber') && <TableCell />}
+                              {selectedColumns.includes('customerName') && <TableCell />}
                               {selectedColumns.includes('orderDate') && <TableCell />}
                               {selectedColumns.includes('inventoryStatus') && <TableCell />}
                               {selectedColumns.includes('paymentStatus') && <TableCell />}
@@ -1349,7 +1321,6 @@ const ProductCustomerReport: React.FC = () => {
                                   {groupSubtotals.quantity}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('unitPrice') && <TableCell />}
                               {selectedColumns.includes('amount') && (
                                 <TableCell align="right">
                                   {formatCurrency(groupSubtotals.amount)}
@@ -1389,9 +1360,8 @@ const ProductCustomerReport: React.FC = () => {
                           </TableCell>
                         )}
                         {selectedColumns.includes('categoryName') && <TableCell />}
-                        {selectedColumns.includes('customerName') && <TableCell />}
-                        {selectedColumns.includes('customerPhone') && <TableCell />}
                         {selectedColumns.includes('orderNumber') && <TableCell />}
+                        {selectedColumns.includes('customerName') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('inventoryStatus') && <TableCell />}
                         {selectedColumns.includes('paymentStatus') && <TableCell />}
@@ -1400,7 +1370,6 @@ const ProductCustomerReport: React.FC = () => {
                             {totals.quantity}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('unitPrice') && <TableCell />}
                         {selectedColumns.includes('amount') && (
                           <TableCell align="right">
                             {formatCurrency(totals.amount)}
