@@ -537,17 +537,26 @@ const SalesOrderSummary: React.FC = () => {
     const sorted = [...reportData]
 
     const compareValues = (a: any, b: any, field: string) => {
-      const aVal = a[field]
-      const bVal = b[field]
+      let aVal = a[field]
+      let bVal = b[field]
+
+      // Handle derived fields
+      if (field === 'inventoryStatus') {
+        aVal = a.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
+        bVal = b.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
+      } else if (field === 'paymentStatus') {
+        aVal = a.isPaidInFull ? 'Paid' : a.paidAmount > 0 ? 'Partial' : 'Unpaid'
+        bVal = b.isPaidInFull ? 'Paid' : b.paidAmount > 0 ? 'Partial' : 'Unpaid'
+      }
 
       // Handle null/undefined
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
       if (bVal == null) return -1
 
-      // Date comparison - descending (newer to older)
+      // Date comparison - ascending (earlier to later)
       if (field === 'orderDate') {
-        return new Date(bVal).getTime() - new Date(aVal).getTime()
+        return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
       // String comparison (case-insensitive) - ascending for text
@@ -828,12 +837,12 @@ const SalesOrderSummary: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="orderNumber">Order Number</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
                     <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
-                    <MenuItem value="paidAmount">Paid Amount</MenuItem>
-                    <MenuItem value="balanceDue">Balance Due</MenuItem>
+                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="orderDate">Order Date</MenuItem>
+                    <MenuItem value="totalAmount">Total</MenuItem>
                   </Select>
                 </FormControl>
 
