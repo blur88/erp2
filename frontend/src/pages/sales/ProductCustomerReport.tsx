@@ -87,7 +87,7 @@ const ProductCustomerReport: React.FC = () => {
     'productName', 'categoryName', 'orderNumber', 'customerName', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('orderDate')
+  const [sortBy1, setSortBy1] = useState<string>('productName')
   const [reportTitle, setReportTitle] = useState<string>('Product Customer Report')
 
   // Pagination
@@ -301,7 +301,7 @@ const ProductCustomerReport: React.FC = () => {
     // Reset display options to defaults
     setSelectedColumns(['productName', 'categoryName', 'orderNumber', 'customerName', 'orderDate', 'inventoryStatus', 'paymentStatus', 'quantity', 'amount', 'cost', 'profit'])
     setGroupBy('none')
-    setSortBy1('orderDate')
+    setSortBy1('productName')
     setReportTitle('Product Customer Report')
 
     // Reset pagination
@@ -684,9 +684,9 @@ const ProductCustomerReport: React.FC = () => {
       if (aVal == null) return 1
       if (bVal == null) return -1
 
-      // Date comparison - descending (newer to older)
+      // Date comparison - ascending (older to newer)
       if (field === 'orderDate') {
-        return new Date(bVal).getTime() - new Date(aVal).getTime()
+        return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
       // String comparison (case-insensitive) - ascending for text
