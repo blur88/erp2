@@ -765,7 +765,7 @@ const SalesByProductSummary: React.FC = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: '100%', overflow: 'hidden' }}>
+    <Box sx={{ width: '100%' }}>
       {/* Header */}
       <Box sx={{
         display: 'flex',
@@ -1075,11 +1075,31 @@ const SalesByProductSummary: React.FC = () => {
 
               {/* Data Table */}
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                <TableContainer sx={{
+                  flex: 1,
+                  overflow: 'auto',
+                  '&::-webkit-scrollbar': {
+                    height: '8px',
+                    width: '8px'
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'rgba(0,0,0,0.05)'
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.3)'
+                    }
+                  }
+                }}>
                 <Table
                   size={TABLE_STYLES.size}
                   stickyHeader
                   sx={{
+                    minWidth: 'max-content',
+                    width: '100%',
+                    tableLayout: 'auto',
                     '& .MuiTableCell-root': {
                       borderBottom: TABLE_STYLES.cell.border,
                       py: TABLE_STYLES.cell.padding.py,

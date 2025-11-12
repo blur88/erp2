@@ -791,8 +791,24 @@ const CustomerPaymentDetails: React.FC = () => {
               </Box>
 
               {/* Data Table */}
-              <Box sx={{ flex: 1, overflow: 'auto' }}>
-                <TableContainer sx={{ height: '100%' }}>
+              <Box sx={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+                <TableContainer sx={{
+                  height: '100%',
+                  '&::-webkit-scrollbar': {
+                    height: '8px',
+                    width: '8px'
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'rgba(0,0,0,0.05)'
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.3)'
+                    }
+                  }
+                }}>
                 <Table
                   size={TABLE_STYLES.size}
                   stickyHeader
