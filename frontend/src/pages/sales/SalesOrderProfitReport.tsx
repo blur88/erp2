@@ -510,9 +510,9 @@ const SalesOrderProfitReport: React.FC = () => {
         return numA - numB
       }
 
-      // Date comparison - descending (newer to older)
+      // Date comparison - ascending (earlier to latest)
       if (field === 'orderDate') {
-        return new Date(bVal).getTime() - new Date(aVal).getTime()
+        return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
       // String comparison (case-insensitive) - ascending for text
