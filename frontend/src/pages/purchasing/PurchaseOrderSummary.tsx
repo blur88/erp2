@@ -77,8 +77,8 @@ const PurchaseOrderSummary: React.FC = () => {
     fetch('/api/purchasing/suppliers?limit=100')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        if (data?.data) {
-          setSuppliers(data.data)
+        if (data?.suppliers) {
+          setSuppliers(data.suppliers)
         }
       })
       .catch(() => {})
@@ -638,7 +638,7 @@ const PurchaseOrderSummary: React.FC = () => {
                     <MenuItem value="">All Vendors</MenuItem>
                     {suppliers.map((supplier) => (
                       <MenuItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
+                        {supplier.companyName}
                       </MenuItem>
                     ))}
                   </Select>
