@@ -255,7 +255,38 @@ const menuSections: MenuSection[] = [
         id: 'purchasing-reports',
         title: 'Purchasing Reports',
         icon: <PurchasingIcon />,
-        path: '/reports/purchasing',
+        children: [
+          {
+            id: 'purchase-order-summary',
+            title: 'Purchase Order Summary',
+            icon: <SummaryIcon />,
+            path: '/reports/purchasing/order-summary',
+          },
+          {
+            id: 'purchase-order-details',
+            title: 'Purchase Order Details',
+            icon: <DetailIcon />,
+            path: '/reports/purchasing/order-details',
+          },
+          {
+            id: 'purchase-order-status',
+            title: 'Purchase Order Status',
+            icon: <OrdersIcon />,
+            path: '/reports/purchasing/order-status',
+          },
+          {
+            id: 'vendor-payment-details',
+            title: 'Vendor Payment Details',
+            icon: <PaymentDetailIcon />,
+            path: '/reports/purchasing/vendor-payment-details',
+          },
+          {
+            id: 'vendor-purchase-list',
+            title: 'Vendor Purchase List',
+            icon: <SuppliersIcon />,
+            path: '/reports/purchasing/vendor-purchase-list',
+          },
+        ],
       },
       {
         id: 'inventory-reports',
