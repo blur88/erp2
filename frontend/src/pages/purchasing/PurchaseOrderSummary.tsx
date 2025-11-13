@@ -62,7 +62,7 @@ const PurchaseOrderSummary: React.FC = () => {
     'orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('orderDate')
+  const [sortBy1, setSortBy1] = useState<string>('orderNumber')
   const [reportTitle, setReportTitle] = useState<string>('Purchase Order Summary Report')
 
   // Pagination
@@ -85,6 +85,14 @@ const PurchaseOrderSummary: React.FC = () => {
   useEffect(() => {
     setPage(0)
   }, [groupBy, sortBy1, status, paymentStatus, selectedSupplier])
+
+  // Reset sortBy1 if the selected column is removed from selectedColumns
+  useEffect(() => {
+    if (sortBy1 !== 'none' && !selectedColumns.includes(sortBy1)) {
+      // Set to first available column, or orderNumber as fallback
+      setSortBy1(selectedColumns.length > 0 ? selectedColumns[0] : 'orderNumber')
+    }
+  }, [selectedColumns, sortBy1])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -126,7 +134,7 @@ const PurchaseOrderSummary: React.FC = () => {
     setReportData([])
     setSelectedColumns(['orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount'])
     setGroupBy('none')
-    setSortBy1('orderDate')
+    setSortBy1('orderNumber')
     setReportTitle('Purchase Order Summary Report')
     setPage(0)
     setRowsPerPage(25)
@@ -761,13 +769,15 @@ const PurchaseOrderSummary: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="orderDate">PO Date</MenuItem>
-                    <MenuItem value="orderNumber">PO No</MenuItem>
-                    <MenuItem value="supplierName">Vendor</MenuItem>
-                    <MenuItem value="status">Inventory Status</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="totalAmount">Order Total</MenuItem>
-                    <MenuItem value="balance">Balance</MenuItem>
+                    {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">PO No</MenuItem>}
+                    {selectedColumns.includes('status') && <MenuItem value="status">Inventory Status</MenuItem>}
+                    {selectedColumns.includes('paymentStatus') && <MenuItem value="paymentStatus">Payment Status</MenuItem>}
+                    {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
+                    {selectedColumns.includes('orderDate') && <MenuItem value="orderDate">PO Date</MenuItem>}
+                    {selectedColumns.includes('totalAmount') && <MenuItem value="totalAmount">Order Total</MenuItem>}
+                    {selectedColumns.includes('paidAmount') && <MenuItem value="paidAmount">Amount Paid</MenuItem>}
+                    {selectedColumns.includes('balance') && <MenuItem value="balance">Balance</MenuItem>}
+                    {selectedColumns.includes('shippingAmount') && <MenuItem value="shippingAmount">Freight</MenuItem>}
                   </Select>
                 </FormControl>
 
