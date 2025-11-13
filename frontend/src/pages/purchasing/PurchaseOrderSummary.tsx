@@ -154,19 +154,16 @@ const PurchaseOrderSummary: React.FC = () => {
     let prevGroupKey: any = null
 
     const getExportGroupKey = (r: any) => {
-      if (groupBy === 'supplierCategory') {
-        return `${r.supplierName}|${r.categoryName}`
-      }
       return r[groupBy]
     }
 
     const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'supplierCategory') {
-        return `Vendor: ${r.supplierName} | Category: ${r.categoryName}`
-      } else if (groupBy === 'supplierName') {
+      if (groupBy === 'supplierName') {
         return `Vendor: ${r.supplierName}`
-      } else if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
+      } else if (groupBy === 'status') {
+        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+      } else if (groupBy === 'paymentStatus') {
+        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
       }
       return r[groupBy]
     }
@@ -261,19 +258,16 @@ const PurchaseOrderSummary: React.FC = () => {
     let prevGroupKey: any = null
 
     const getPdfGroupKey = (r: any) => {
-      if (groupBy === 'supplierCategory') {
-        return `${r.supplierName}|${r.categoryName}`
-      }
       return r[groupBy]
     }
 
     const getPdfGroupLabel = (r: any) => {
-      if (groupBy === 'supplierCategory') {
-        return `Supplier: ${r.supplierName} | Category: ${r.categoryName}`
-      } else if (groupBy === 'supplierName') {
-        return `Supplier: ${r.supplierName}`
-      } else if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
+      if (groupBy === 'supplierName') {
+        return `Vendor: ${r.supplierName}`
+      } else if (groupBy === 'status') {
+        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+      } else if (groupBy === 'paymentStatus') {
+        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
       }
       return r[groupBy]
     }
@@ -490,15 +484,8 @@ const PurchaseOrderSummary: React.FC = () => {
 
     if (groupBy !== 'none') {
       filtered.sort((a, b) => {
-        if (groupBy === 'supplierCategory') {
-          const supplierResult = compareValues(a, b, 'supplierName')
-          if (supplierResult !== 0) return supplierResult
-          const categoryResult = compareValues(a, b, 'categoryName')
-          if (categoryResult !== 0) return categoryResult
-        } else {
-          const groupResult = compareValues(a, b, groupBy)
-          if (groupResult !== 0) return groupResult
-        }
+        const groupResult = compareValues(a, b, groupBy)
+        if (groupResult !== 0) return groupResult
 
         if (sortBy1 !== 'none') {
           const sortResult = compareValues(a, b, sortBy1)
@@ -761,8 +748,8 @@ const PurchaseOrderSummary: React.FC = () => {
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="supplierName">Vendor</MenuItem>
-                    <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="supplierCategory">Vendor, Category</MenuItem>
+                    <MenuItem value="status">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -894,9 +881,6 @@ const PurchaseOrderSummary: React.FC = () => {
                       const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                       const getGroupKey = (r: any) => {
-                        if (groupBy === 'supplierCategory') {
-                          return `${r.supplierName}|${r.categoryName}`
-                        }
                         return r[groupBy]
                       }
 
@@ -904,12 +888,12 @@ const PurchaseOrderSummary: React.FC = () => {
                       const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                       const getGroupLabel = (field: string, r: any) => {
-                        if (field === 'supplierCategory') {
-                          return `Vendor: ${r.supplierName} | Category: ${r.categoryName}`
-                        } else if (field === 'supplierName') {
+                        if (field === 'supplierName') {
                           return `Vendor: ${r.supplierName}`
-                        } else if (field === 'categoryName') {
-                          return `Category: ${r.categoryName}`
+                        } else if (field === 'status') {
+                          return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+                        } else if (field === 'paymentStatus') {
+                          return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
                         }
                         return r[field]
                       }
