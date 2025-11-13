@@ -187,6 +187,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           pb: 3,
           bgcolor: 'background.default',
           minHeight: '100vh',
+          overflow: 'hidden',
+          maxWidth: '100%',
         }}
       >
         {children}

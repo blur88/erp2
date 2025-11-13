@@ -30,7 +30,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Receipt as OrderIcon,
+  ReceiptLongOutlined as PaymentOrderIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -170,8 +170,22 @@ const CustomerPaymentByOrder: React.FC = () => {
     const headers = selectedColumns.map(col => columnHeaders[col] || col)
     csv += headers.join(',') + '\n'
 
-    // Add data rows
-    sortedData.forEach(row => {
+    // Add data rows with grouping support
+    let prevGroupValue: any = null
+
+    sortedData.forEach((row, idx) => {
+      // Determine current group value
+      const currentGroupValue = groupBy !== 'none' ? (row as any)[groupBy] : null
+
+      // Add group header if group changed
+      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
+        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
+                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
+                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+        csv += `\n"${groupLabel}"\n`
+        prevGroupValue = currentGroupValue
+      }
+
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'orderDate' || col === 'lastPaymentDate') {
@@ -184,6 +198,31 @@ const CustomerPaymentByOrder: React.FC = () => {
         return `"${value || ''}"`
       })
       csv += values.join(',') + '\n'
+
+      // Check if we need to add subtotal
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      const nextGroupValue = nextRow && groupBy !== 'none' ? (nextRow as any)[groupBy] : null
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+        // Calculate subtotal for this group
+        const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+
+        const subtotal = {
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+        }
+
+        csv += '"Subtotal",'
+        const subtotalValues = selectedColumns.slice(1).map(col => {
+          const value = (subtotal as any)[col]
+          if (typeof value === 'number') {
+            return value.toFixed(2)
+          }
+          return ''
+        })
+        csv += subtotalValues.join(',') + '\n'
+      }
     })
 
     // Add totals
@@ -231,8 +270,21 @@ const CustomerPaymentByOrder: React.FC = () => {
     }
 
     let tableRows = ''
+    let prevGroupValue: any = null
 
-    sortedData.forEach(row => {
+    sortedData.forEach((row, idx) => {
+      // Determine current group value
+      const currentGroupValue = groupBy !== 'none' ? (row as any)[groupBy] : null
+
+      // Add group header if group changed
+      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
+        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
+                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
+                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+        tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
+        prevGroupValue = currentGroupValue
+      }
+
       tableRows += '<tr>'
       selectedColumns.forEach(col => {
         const value = (row as any)[col]
@@ -248,6 +300,37 @@ const CustomerPaymentByOrder: React.FC = () => {
         tableRows += `<td style="${align}">${displayValue || ''}</td>`
       })
       tableRows += '</tr>'
+
+      // Check if we need to add subtotal
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      const nextGroupValue = nextRow && groupBy !== 'none' ? (nextRow as any)[groupBy] : null
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
+        // Calculate subtotal for this group
+        const groupData = sortedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+
+        const subtotal = {
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+        }
+
+        tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
+        selectedColumns.forEach((col, colIdx) => {
+          if (colIdx === 0) {
+            tableRows += '<td>Subtotal</td>'
+          } else {
+            const value = (subtotal as any)[col]
+            let displayValue = ''
+            if (typeof value === 'number') {
+              displayValue = formatCurrency(value)
+            }
+            const align = typeof value === 'number' ? 'text-align: right;' : ''
+            tableRows += `<td style="${align}">${displayValue}</td>`
+          }
+        })
+        tableRows += '</tr>'
+      }
     })
 
     // Add totals
@@ -404,9 +487,9 @@ const CustomerPaymentByOrder: React.FC = () => {
       if (aVal == null) return 1
       if (bVal == null) return -1
 
-      // Date comparison - descending (newer to older)
+      // Date comparison - ascending (earlier to latest)
       if (field === 'orderDate' || field === 'invoiceDate' || field === 'lastPaymentDate') {
-        return new Date(bVal).getTime() - new Date(aVal).getTime()
+        return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
       // String comparison (case-insensitive) - ascending for text
@@ -491,7 +574,7 @@ const CustomerPaymentByOrder: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <OrderIcon sx={{
+            <PaymentOrderIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
@@ -533,13 +616,13 @@ const CustomerPaymentByOrder: React.FC = () => {
       </Box>
 
       {/* Split Layout */}
-      <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
+      <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}
-        <Grid item xs={12} md={3} sx={{ display: 'flex' }}>
-          <Stack spacing={2} sx={{ flex: 1 }}>
+        <Grid item xs={12} md={3} sx={{ display: 'flex', height: '100%' }}>
+          <Stack spacing={2} sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
             {/* Filters Section */}
-            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+            <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                   fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -550,7 +633,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                 </Typography>
               </Box>
 
-              <Box sx={{ p: 2 }}>
+              <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Customer</InputLabel>
@@ -614,8 +697,8 @@ const CustomerPaymentByOrder: React.FC = () => {
             </Paper>
 
             {/* Options Section */}
-            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+            <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 0.5, overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                   fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -626,7 +709,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                 </Typography>
               </Box>
 
-              <Box sx={{ p: 2 }}>
+              <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -645,8 +728,8 @@ const CustomerPaymentByOrder: React.FC = () => {
             </Paper>
 
             {/* Display Section */}
-            <Paper sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+            <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
                 <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                   fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                   fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -657,7 +740,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                 </Typography>
               </Box>
 
-              <Box sx={{ p: 2 }}>
+              <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                 <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Columns</InputLabel>
@@ -749,7 +832,7 @@ const CustomerPaymentByOrder: React.FC = () => {
         </Grid>
 
         {/* Right Side - Report Preview */}
-        <Grid item xs={12} md={9} sx={{ display: 'flex' }}>
+        <Grid item xs={12} md={9} sx={{ display: 'flex', height: '100%' }}>
           {reportData.length === 0 ? (
             <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
@@ -758,7 +841,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <OrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <PaymentOrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>
@@ -818,10 +901,13 @@ const CustomerPaymentByOrder: React.FC = () => {
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-head': {
                       fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      backgroundColor: 'grey.50',
+                      backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#fafafa',
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
                     } }}>
                       {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
                       {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
@@ -838,7 +924,10 @@ const CustomerPaymentByOrder: React.FC = () => {
                     {paginatedData.map((row, idx) => {
                       // Check if we need to display a group header
                       const prevRow = idx > 0 ? paginatedData[idx - 1] : null
+                      const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
+
                       const showGroupHeader = groupBy !== 'none' && (!prevRow || (row as any)[groupBy] !== (prevRow as any)[groupBy])
+                      const showGroupFooter = groupBy !== 'none' && (!nextRow || (row as any)[groupBy] !== (nextRow as any)[groupBy])
 
                       const getGroupLabel = (field: string, value: any) => {
                         if (field === 'customerName') return `Customer: ${value}`
@@ -846,6 +935,22 @@ const CustomerPaymentByOrder: React.FC = () => {
                         if (field === 'paymentStatus') return `Payment: ${value.charAt(0).toUpperCase() + value.slice(1)}`
                         return value
                       }
+
+                      // Calculate group subtotals
+                      const calculateGroupSubtotals = () => {
+                        if (groupBy === 'none') return null
+
+                        const currentGroupValue = (row as any)[groupBy]
+                        const groupData = paginatedData.filter(r => (r as any)[groupBy] === currentGroupValue)
+
+                        return {
+                          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+                          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+                          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+                        }
+                      }
+
+                      const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
 
                       return (
                         <React.Fragment key={`${row.invoiceNumber}-${idx}`}>
@@ -927,6 +1032,46 @@ const CustomerPaymentByOrder: React.FC = () => {
                           </TableCell>
                         )}
                       </TableRow>
+                          {showGroupFooter && groupSubtotals && (
+                            <TableRow sx={{
+                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
+                              borderBottom: '2px solid',
+                              borderColor: 'divider',
+                              '& .MuiTableCell-root': {
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                fontStyle: 'italic'
+                              }
+                            }}>
+                              {selectedColumns.includes('orderNumber') && (
+                                <TableCell sx={{ fontWeight: 600 }}>
+                                  Subtotal
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('customerName') && <TableCell />}
+                              {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                              {selectedColumns.includes('paymentStatus') && <TableCell />}
+                              {selectedColumns.includes('orderDate') && <TableCell />}
+                              {selectedColumns.includes('lastPaymentDate') && <TableCell />}
+                              {selectedColumns.includes('totalAmount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.totalAmount)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('paidAmount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.paidAmount)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('balance') && (
+                                <TableCell align="right" sx={{
+                                  color: groupSubtotals.balance > 0 ? 'error.main' : 'success.main'
+                                }}>
+                                  {formatCurrency(groupSubtotals.balance)}
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          )}
                         </React.Fragment>
                       )
                     })}
