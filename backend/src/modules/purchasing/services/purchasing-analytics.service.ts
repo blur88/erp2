@@ -104,9 +104,16 @@ export class PurchasingAnalyticsService {
       const paidAmount = 0; // TODO: Calculate from vendor payments when available
       const balance = totalAmount - paidAmount;
 
+      // Safely handle orderDate conversion
+      let orderDateStr = '';
+      if (po.orderDate) {
+        const date = po.orderDate instanceof Date ? po.orderDate : new Date(po.orderDate);
+        orderDateStr = date.toISOString().split('T')[0];
+      }
+
       return {
         orderNumber: po.orderNumber,
-        orderDate: po.orderDate.toISOString().split('T')[0],
+        orderDate: orderDateStr,
         supplierName: supplier?.companyName || 'N/A',
         status: po.isFullyReceived ? 'received' : 'pending',
         paymentStatus: po.paymentStatus || 'unpaid',
