@@ -49,6 +49,7 @@ export class PurchasingAnalyticsService {
     const queryBuilder = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
       .where('po.isActive = :isActive', { isActive: true })
       .andWhere('po.deletedAt IS NULL');
 
@@ -85,24 +86,52 @@ export class PurchasingAnalyticsService {
       }
     }
 
-    // Payment status filter
-    if (query.paymentStatus && query.paymentStatus !== 'all') {
-      queryBuilder.andWhere('po.paymentStatus = :paymentStatus', {
-        paymentStatus: query.paymentStatus,
-      });
-    }
-
     // Order by date
     queryBuilder.orderBy('po.orderDate', 'DESC');
     queryBuilder.addOrderBy('po.orderNumber', 'ASC');
 
     const purchaseOrders = await queryBuilder.getMany();
 
-    const data: PurchaseOrderSummaryItem[] = purchaseOrders.map((po) => {
+    // Filter by payment status after loading vendor payments
+    let filteredOrders = purchaseOrders;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredOrders = purchaseOrders.filter((po) => {
+        const totalAmount = parseFloat(po.totalAmount?.toString() || '0');
+        const paidAmount = (po.vendorPayments || []).reduce(
+          (sum, payment) => sum + parseFloat(payment.amount?.toString() || '0'),
+          0,
+        );
+
+        let paymentStatus = 'unpaid';
+        if (paidAmount >= totalAmount && totalAmount > 0) {
+          paymentStatus = 'paid';
+        } else if (paidAmount > 0) {
+          paymentStatus = 'partial';
+        }
+
+        return paymentStatus === query.paymentStatus;
+      });
+    }
+
+    const data: PurchaseOrderSummaryItem[] = filteredOrders.map((po) => {
       const supplier = po.supplier;
       const totalAmount = parseFloat(po.totalAmount?.toString() || '0');
-      const paidAmount = 0; // TODO: Calculate from vendor payments when available
+
+      // Calculate paid amount from vendor payments
+      const paidAmount = (po.vendorPayments || []).reduce(
+        (sum, payment) => sum + parseFloat(payment.amount?.toString() || '0'),
+        0,
+      );
+
       const balance = totalAmount - paidAmount;
+
+      // Determine payment status
+      let paymentStatus = 'unpaid';
+      if (paidAmount >= totalAmount && totalAmount > 0) {
+        paymentStatus = 'paid';
+      } else if (paidAmount > 0) {
+        paymentStatus = 'partial';
+      }
 
       // Safely handle orderDate conversion
       let orderDateStr = '';
@@ -116,7 +145,7 @@ export class PurchasingAnalyticsService {
         orderDate: orderDateStr,
         supplierName: supplier?.companyName || 'N/A',
         status: po.isFullyReceived ? 'received' : 'pending',
-        paymentStatus: po.paymentStatus || 'unpaid',
+        paymentStatus: paymentStatus,
         totalAmount: totalAmount,
         paidAmount: paidAmount,
         balance: balance,
