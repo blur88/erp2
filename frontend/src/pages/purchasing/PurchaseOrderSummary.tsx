@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -46,6 +47,7 @@ interface PurchaseOrderSummaryReport {
 }
 
 const PurchaseOrderSummary: React.FC = () => {
+  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
@@ -950,7 +952,26 @@ const PurchaseOrderSummary: React.FC = () => {
                           >
                         {selectedColumns.includes('orderNumber') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.orderNumber}
+                            <Typography
+                              component="span"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                // Navigate to order details - need to get order ID from orderNumber
+                                // For now, we'll need to fetch the order by orderNumber or pass ID in the report data
+                                // As a workaround, we can navigate to the orders page with a search filter
+                                navigate(`/purchasing/orders?search=${encodeURIComponent(row.orderNumber)}`)
+                              }}
+                              sx={{
+                                color: 'primary.main',
+                                cursor: 'pointer',
+                                textDecoration: 'none',
+                                '&:hover': {
+                                  textDecoration: 'underline'
+                                }
+                              }}
+                            >
+                              {row.orderNumber}
+                            </Typography>
                           </TableCell>
                         )}
                         {selectedColumns.includes('status') && (

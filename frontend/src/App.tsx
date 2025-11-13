@@ -37,6 +37,7 @@ const CustomerPaymentDetails = React.lazy(() => import('./pages/sales/CustomerPa
 const CustomerOrderHistory = React.lazy(() => import('./pages/sales/CustomerOrderHistory'))
 const ProductCustomerReport = React.lazy(() => import('./pages/sales/ProductCustomerReport'))
 const PurchaseOrderSummary = React.lazy(() => import('./pages/purchasing/PurchaseOrderSummary'))
+const PurchaseOrderDetails = React.lazy(() => import('./pages/purchasing/PurchaseOrderDetails'))
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
 const UserManagementPage = React.lazy(() => import('./pages/settings/UserManagementPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
@@ -94,6 +95,7 @@ function App() {
                     <Route path="/purchasing/suppliers" element={<SuppliersPage />} />
                     <Route path="/purchasing/orders" element={<PurchaseOrdersPage />} />
                     <Route path="/purchasing/orders/create" element={<CreatePurchaseOrderPage />} />
+                    <Route path="/purchasing/orders/:id" element={<PurchaseOrderDetails />} />
                     <Route path="/purchasing/orders/:id/edit" element={<CreatePurchaseOrderPage />} />
                     <Route path="/purchasing/goods-received" element={<GoodsReceivedPage />} />
                     <Route path="/purchasing/vendor-payments" element={<VendorPaymentsPage />} />

@@ -37,6 +37,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -1101,6 +1102,18 @@ const PurchaseOrdersPage: React.FC = () => {
                   PO Details - {selectedOrder.orderNumber}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                  <IconButton
+                    size="small"
+                    title="View Full Details"
+                    onClick={() => navigate(`/purchasing/orders/${selectedOrder.id}`)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      color: 'info.main',
+                    }}
+                  >
+                    <ViewIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                  </IconButton>
                   <IconButton
                     size="small"
                     title="Edit Order"
