@@ -18,6 +18,7 @@ import { SupplierService } from './services/supplier.service';
 import { PurchaseOrderService } from './services/purchase-order.service';
 import { GoodsReceivedNoteService } from './services/goods-received-note.service';
 import { VendorPaymentService } from './services/vendor-payment.service';
+import { PurchasingAnalyticsService } from './services/purchasing-analytics.service';
 
 // Controllers
 import {
@@ -25,6 +26,7 @@ import {
   PurchaseOrderController,
   GoodsReceivedNoteController,
   VendorPaymentController,
+  PurchasingAnalyticsController,
 } from './controllers';
 
 // Import InventoryModule for BaseCostCalculatorService
@@ -50,6 +52,7 @@ import { InventoryModule } from '../inventory/inventory.module';
     PurchaseOrderController,
     GoodsReceivedNoteController,
     VendorPaymentController,
+    PurchasingAnalyticsController,
   ],
 
   providers: [
@@ -57,6 +60,7 @@ import { InventoryModule } from '../inventory/inventory.module';
     PurchaseOrderService,
     GoodsReceivedNoteService,
     VendorPaymentService,
+    PurchasingAnalyticsService,
   ],
 
   exports: [
@@ -64,6 +68,7 @@ import { InventoryModule } from '../inventory/inventory.module';
     PurchaseOrderService,
     GoodsReceivedNoteService,
     VendorPaymentService,
+    PurchasingAnalyticsService,
   ],
 })
 export class PurchasingModule {}
