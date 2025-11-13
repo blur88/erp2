@@ -22,11 +22,6 @@ import {
   useTheme,
   useMediaQuery,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -34,11 +29,6 @@ import {
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
   ShoppingCart as PurchaseOrderIcon,
-  Close as CloseIcon,
-  KeyboardArrowRight as KeyboardArrowRightIcon,
-  KeyboardArrowLeft as KeyboardArrowLeftIcon,
-  KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
-  KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -63,19 +53,7 @@ const PurchaseOrderSummary: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<PurchaseOrderSummaryReport[]>([])
-  const [categories, setCategories] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
-  const [selectedProduct, setSelectedProduct] = useState<string>('all')
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
-  const [productDialogOpen, setProductDialogOpen] = useState(false)
-  const [productSearchFilter, setProductSearchFilter] = useState<string>('')
-  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
-  const [selectedRemovedIds, setSelectedRemovedIds] = useState<string[]>([])
-  const [lastClickedProductId, setLastClickedProductId] = useState<string | null>(null)
-  const [lastClickedRemovedId, setLastClickedRemovedId] = useState<string | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
@@ -95,26 +73,6 @@ const PurchaseOrderSummary: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load categories
-    fetch('/api/inventory/categories')
-      .then(res => res.ok ? res.json() : null)
-      .then(response => {
-        if (response?.data) {
-          setCategories(response.data)
-        }
-      })
-      .catch(() => {})
-
-    // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
-        }
-      })
-      .catch(() => {})
-
     // Load suppliers
     fetch('/api/purchasing/suppliers?limit=100')
       .then(res => res.ok ? res.json() : null)
@@ -129,7 +87,7 @@ const PurchaseOrderSummary: React.FC = () => {
   // Reset to first page when filters or display options change
   useEffect(() => {
     setPage(0)
-  }, [groupBy, sortBy1, status, paymentStatus, selectedCategory, selectedSupplier, selectedProducts])
+  }, [groupBy, sortBy1, status, paymentStatus, selectedSupplier])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -142,10 +100,6 @@ const PurchaseOrderSummary: React.FC = () => {
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedSupplier) params.append('supplierId', selectedSupplier)
-      if (selectedCategory) params.append('categoryId', selectedCategory)
-      if (selectedProducts.length > 0) {
-        selectedProducts.forEach(productId => params.append('productIds', productId))
-      }
       if (status && status !== 'all') params.append('status', status)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
 
@@ -166,127 +120,7 @@ const PurchaseOrderSummary: React.FC = () => {
     }
   }
 
-  const handleProductSelectChange = (value: string) => {
-    if (value === 'select') {
-      setProductDialogOpen(true)
-      setSelectedProductIds([])
-    } else {
-      setSelectedProduct(value)
-      setSelectedProducts([])
-    }
-  }
-
-  const handleProductToggle = (productId: string) => {
-    setSelectedProducts(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    )
-  }
-
-  const handleProductDialogClose = () => {
-    setProductDialogOpen(false)
-    setProductSearchFilter('')
-    setProductCategoryFilter('')
-    setSelectedProductIds([])
-    setSelectedRemovedIds([])
-    if (selectedProducts.length > 0) {
-      setSelectedProduct('select')
-    } else {
-      setSelectedProduct('all')
-    }
-  }
-
-  const getFilteredProducts = () => {
-    return products.filter(product => {
-      if (selectedProducts.includes(product.id)) return false
-      if (productSearchFilter && !product.name.toLowerCase().includes(productSearchFilter.toLowerCase())) {
-        return false
-      }
-      if (productCategoryFilter && product.category?.id !== productCategoryFilter) {
-        return false
-      }
-      return true
-    })
-  }
-
-  const handleProductClick = (productId: string, e: React.MouseEvent) => {
-    if (e.shiftKey && lastClickedProductId) {
-      const filteredProducts = getFilteredProducts()
-      const startIndex = filteredProducts.findIndex(p => p.id === lastClickedProductId)
-      const endIndex = filteredProducts.findIndex(p => p.id === productId)
-      if (startIndex !== -1 && endIndex !== -1) {
-        const rangeStart = Math.min(startIndex, endIndex)
-        const rangeEnd = Math.max(startIndex, endIndex)
-        const rangeIds = filteredProducts.slice(rangeStart, rangeEnd + 1).map(p => p.id)
-        setSelectedProductIds(prev => Array.from(new Set([...prev, ...rangeIds])))
-      }
-    } else if (e.ctrlKey || e.metaKey) {
-      setSelectedProductIds(prev =>
-        prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
-      )
-    } else {
-      setSelectedProductIds([productId])
-    }
-    setLastClickedProductId(productId)
-  }
-
-  const getSelectedProductsList = () => {
-    return products.filter(product => selectedProducts.includes(product.id))
-  }
-
-  const handleSelectedProductClick = (productId: string, event: React.MouseEvent) => {
-    const selectedProductsList = getSelectedProductsList()
-
-    if (event.ctrlKey || event.metaKey) {
-      setSelectedRemovedIds(prev =>
-        prev.includes(productId)
-          ? prev.filter(id => id !== productId)
-          : [...prev, productId]
-      )
-      setLastClickedRemovedId(productId)
-    } else if (event.shiftKey && lastClickedRemovedId) {
-      const lastIndex = selectedProductsList.findIndex(p => p.id === lastClickedRemovedId)
-      const currentIndex = selectedProductsList.findIndex(p => p.id === productId)
-
-      if (lastIndex !== -1 && currentIndex !== -1) {
-        const start = Math.min(lastIndex, currentIndex)
-        const end = Math.max(lastIndex, currentIndex)
-        const rangeIds = selectedProductsList.slice(start, end + 1).map(p => p.id)
-
-        setSelectedRemovedIds(prev => Array.from(new Set([...prev, ...rangeIds])))
-      }
-    } else {
-      setSelectedRemovedIds([productId])
-      setLastClickedRemovedId(productId)
-    }
-  }
-
-  const handleAddSelectedProducts = () => {
-    setSelectedProducts(prev => Array.from(new Set([...prev, ...selectedProductIds])))
-    setSelectedProductIds([])
-  }
-
-  const handleAddAllProducts = () => {
-    const filteredProducts = getFilteredProducts()
-    setSelectedProducts(prev => Array.from(new Set([...prev, ...filteredProducts.map(p => p.id)])))
-    setSelectedProductIds([])
-  }
-
-  const handleRemoveSelectedProducts = () => {
-    setSelectedProducts(prev => prev.filter(id => !selectedRemovedIds.includes(id)))
-    setSelectedRemovedIds([])
-  }
-
-  const handleRemoveAllProducts = () => {
-    setSelectedProducts([])
-    setSelectedRemovedIds([])
-  }
-
   const handleClearFilters = () => {
-    setSelectedProduct('all')
-    setSelectedProducts([])
-    setSelectedCategory('')
     setSelectedSupplier('')
     setDateFrom('')
     setDateTo('')
@@ -305,16 +139,16 @@ const PurchaseOrderSummary: React.FC = () => {
     if (sortedData.length === 0) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'Order No',
-      orderDate: 'Order Date',
-      supplierName: 'Supplier',
+      orderNumber: 'PO Number',
+      orderDate: 'PO Date',
+      supplierName: 'Vendor',
       productName: 'Product',
       categoryName: 'Category',
       quantity: 'Quantity',
       unitPrice: 'Unit Price',
       subtotal: 'Subtotal',
-      status: 'Status',
-      paymentStatus: 'Payment Status'
+      status: 'PO Inventory Status',
+      paymentStatus: 'PO Payment Status'
     }
 
     let csv = reportTitle + '\n\n'
@@ -332,9 +166,9 @@ const PurchaseOrderSummary: React.FC = () => {
 
     const getExportGroupLabel = (r: any) => {
       if (groupBy === 'supplierCategory') {
-        return `Supplier: ${r.supplierName} | Category: ${r.categoryName}`
+        return `Vendor: ${r.supplierName} | Category: ${r.categoryName}`
       } else if (groupBy === 'supplierName') {
-        return `Supplier: ${r.supplierName}`
+        return `Vendor: ${r.supplierName}`
       } else if (groupBy === 'categoryName') {
         return `Category: ${r.categoryName}`
       }
@@ -416,16 +250,16 @@ const PurchaseOrderSummary: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'Order No',
-      orderDate: 'Order Date',
-      supplierName: 'Supplier',
+      orderNumber: 'PO Number',
+      orderDate: 'PO Date',
+      supplierName: 'Vendor',
       productName: 'Product',
       categoryName: 'Category',
       quantity: 'Quantity',
       unitPrice: 'Unit Price',
       subtotal: 'Subtotal',
-      status: 'Status',
-      paymentStatus: 'Payment Status'
+      status: 'PO Inventory Status',
+      paymentStatus: 'PO Payment Status'
     }
 
     let tableRows = ''
@@ -793,8 +627,25 @@ const PurchaseOrderSummary: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Vendor</InputLabel>
+                  <Select
+                    value={selectedSupplier}
+                    label="Vendor"
+                    onChange={(e) => setSelectedSupplier(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="">All Vendors</MenuItem>
+                    {suppliers.map((supplier) => (
+                      <MenuItem key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                  Order Date
+                  PO Date
                 </Typography>
                 <TextField
                   label="Date From"
@@ -819,74 +670,10 @@ const PurchaseOrderSummary: React.FC = () => {
                 />
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Supplier</InputLabel>
-                  <Select
-                    value={selectedSupplier}
-                    label="Supplier"
-                    onChange={(e) => setSelectedSupplier(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="">All Suppliers</MenuItem>
-                    {suppliers.map((supplier) => (
-                      <MenuItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Products</InputLabel>
-                  <Select
-                    value={selectedProduct}
-                    label="Products"
-                    onChange={(e) => handleProductSelectChange(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="all">All Products</MenuItem>
-                    <MenuItem value="select">Select Products</MenuItem>
-                  </Select>
-                </FormControl>
-
-                {selectedProduct === 'select' && selectedProducts.length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selectedProducts.map(productId => {
-                      const product = products.find(p => p.id === productId)
-                      return (
-                        <Chip
-                          key={productId}
-                          label={product?.name || productId}
-                          size="small"
-                          onDelete={() => handleProductToggle(productId)}
-                          sx={{ fontSize: '0.7rem' }}
-                        />
-                      )
-                    })}
-                  </Box>
-                )}
-
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={selectedCategory}
-                    label="Category"
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="">All Categories</MenuItem>
-                    {categories.map((category) => (
-                      <MenuItem key={category.id} value={category.id}>
-                        {category.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Status</InputLabel>
+                  <InputLabel>PO Inventory Status</InputLabel>
                   <Select
                     value={status}
-                    label="Status"
+                    label="PO Inventory Status"
                     onChange={(e) => setStatus(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
@@ -897,10 +684,10 @@ const PurchaseOrderSummary: React.FC = () => {
                 </FormControl>
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Payment Status</InputLabel>
+                  <InputLabel>PO Payment Status</InputLabel>
                   <Select
                     value={paymentStatus}
-                    label="Payment Status"
+                    label="PO Payment Status"
                     onChange={(e) => setPaymentStatus(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
@@ -953,16 +740,16 @@ const PurchaseOrderSummary: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="orderNumber">Order No</MenuItem>
-                    <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="supplierName">Supplier</MenuItem>
+                    <MenuItem value="orderNumber">PO Number</MenuItem>
+                    <MenuItem value="orderDate">PO Date</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="categoryName">Category</MenuItem>
                     <MenuItem value="quantity">Quantity</MenuItem>
                     <MenuItem value="unitPrice">Unit Price</MenuItem>
                     <MenuItem value="subtotal">Subtotal</MenuItem>
-                    <MenuItem value="status">Status</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="status">PO Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">PO Payment Status</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -975,9 +762,9 @@ const PurchaseOrderSummary: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="supplierName">Supplier</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
                     <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="supplierCategory">Supplier, Category</MenuItem>
+                    <MenuItem value="supplierCategory">Vendor, Category</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -989,9 +776,9 @@ const PurchaseOrderSummary: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="orderNumber">Order No</MenuItem>
-                    <MenuItem value="supplierName">Supplier</MenuItem>
+                    <MenuItem value="orderDate">PO Date</MenuItem>
+                    <MenuItem value="orderNumber">PO Number</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="categoryName">Category</MenuItem>
                     <MenuItem value="quantity">Quantity</MenuItem>
@@ -1092,16 +879,16 @@ const PurchaseOrderSummary: React.FC = () => {
                       top: 0,
                       zIndex: 10
                     } }}>
-                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
-                      {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
-                      {selectedColumns.includes('supplierName') && <TableCell align="center">Supplier</TableCell>}
+                      {selectedColumns.includes('orderNumber') && <TableCell align="center">PO Number</TableCell>}
+                      {selectedColumns.includes('orderDate') && <TableCell align="center">PO Date</TableCell>}
+                      {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
                       {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
                       {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
                       {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
                       {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
                       {selectedColumns.includes('subtotal') && <TableCell align="center">Subtotal</TableCell>}
-                      {selectedColumns.includes('status') && <TableCell align="center">Status</TableCell>}
-                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
+                      {selectedColumns.includes('status') && <TableCell align="center">PO Inventory Status</TableCell>}
+                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">PO Payment Status</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1121,9 +908,9 @@ const PurchaseOrderSummary: React.FC = () => {
 
                       const getGroupLabel = (field: string, r: any) => {
                         if (field === 'supplierCategory') {
-                          return `Supplier: ${r.supplierName} | Category: ${r.categoryName}`
+                          return `Vendor: ${r.supplierName} | Category: ${r.categoryName}`
                         } else if (field === 'supplierName') {
-                          return `Supplier: ${r.supplierName}`
+                          return `Vendor: ${r.supplierName}`
                         } else if (field === 'categoryName') {
                           return `Category: ${r.categoryName}`
                         }
@@ -1325,260 +1112,6 @@ const PurchaseOrderSummary: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
-      {/* Product Selection Dialog */}
-      <Dialog
-        open={productDialogOpen}
-        onClose={handleProductDialogClose}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{
-          sx: { height: '80vh', maxHeight: '80vh' }
-        }}
-      >
-        <DialogTitle sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '1px solid',
-          borderColor: 'divider'
-        }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Select Products
-          </Typography>
-          <Button
-            size="small"
-            onClick={handleProductDialogClose}
-            sx={{ minWidth: 'auto', p: 0.5 }}
-          >
-            <CloseIcon />
-          </Button>
-        </DialogTitle>
-        <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
-            {/* Left Side - Product List */}
-            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    Product List
-                  </Typography>
-                </Box>
-                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                  <Table size="small" stickyHeader sx={{
-                    '& .MuiTableCell-root': {
-                      fontSize: '0.75rem',
-                      py: 0.5,
-                      px: 1
-                    }
-                  }}>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {getFilteredProducts().length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              {products.length === 0 ? 'No products available' : 'No products found'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        getFilteredProducts().map((product) => (
-                          <TableRow
-                            key={product.id}
-                            hover
-                            onClick={(e) => handleProductClick(product.id, e)}
-                            sx={{
-                              cursor: 'pointer',
-                              backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'inherit',
-                              '&:hover': {
-                                backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'action.hover'
-                              }
-                            }}
-                          >
-                            <TableCell>{product.name}</TableCell>
-                            <TableCell>{product.category?.name || '-'}</TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            </Grid>
-
-            {/* Middle - Action Buttons */}
-            <Grid item xs={1.5} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
-              <IconButton
-                color="primary"
-                onClick={handleAddSelectedProducts}
-                disabled={selectedProductIds.length === 0}
-                title="Add selected products"
-                sx={{
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' }
-                }}
-              >
-                <KeyboardArrowRightIcon />
-              </IconButton>
-
-              <IconButton
-                color="primary"
-                onClick={handleAddAllProducts}
-                disabled={getFilteredProducts().length === 0}
-                title="Add all filtered products"
-                sx={{
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' }
-                }}
-              >
-                <KeyboardDoubleArrowRightIcon />
-              </IconButton>
-
-              <IconButton
-                color="error"
-                onClick={handleRemoveAllProducts}
-                disabled={selectedProducts.length === 0}
-                title="Remove all products"
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'error.main',
-                  color: 'error.main',
-                  '&:hover': { bgcolor: 'error.light' },
-                  '&.Mui-disabled': { borderColor: 'action.disabled', color: 'action.disabled' }
-                }}
-              >
-                <KeyboardDoubleArrowLeftIcon />
-              </IconButton>
-
-              <IconButton
-                onClick={handleRemoveSelectedProducts}
-                disabled={selectedRemovedIds.length === 0}
-                title="Remove selected products"
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&:hover': { bgcolor: 'action.hover' },
-                  '&.Mui-disabled': { borderColor: 'action.disabled', color: 'action.disabled' }
-                }}
-              >
-                <KeyboardArrowLeftIcon />
-              </IconButton>
-            </Grid>
-
-            {/* Right Side - Selected Products */}
-            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    Selected Products ({selectedProducts.length})
-                  </Typography>
-                </Box>
-                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                  <Table size="small" stickyHeader sx={{
-                    '& .MuiTableCell-root': {
-                      fontSize: '0.75rem',
-                      py: 0.5,
-                      px: 1
-                    }
-                  }}>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {getSelectedProductsList().length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              No products selected
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        getSelectedProductsList().map((product) => (
-                          <TableRow
-                            key={product.id}
-                            hover
-                            onClick={(e) => handleSelectedProductClick(product.id, e)}
-                            sx={{
-                              cursor: 'pointer',
-                              backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'inherit',
-                              '&:hover': {
-                                backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'action.hover'
-                              }
-                            }}
-                          >
-                            <TableCell>{product.name}</TableCell>
-                            <TableCell>{product.category?.name || '-'}</TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            </Grid>
-          </Grid>
-
-          {/* Filter Section at Bottom */}
-          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
-              Filter Products
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <TextField
-                  size="small"
-                  placeholder="Search by product name..."
-                  value={productSearchFilter}
-                  onChange={(e) => setProductSearchFilter(e.target.value)}
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControl size="small" fullWidth>
-                  <InputLabel>Filter by Category</InputLabel>
-                  <Select
-                    value={productCategoryFilter}
-                    label="Filter by Category"
-                    onChange={(e) => setProductCategoryFilter(e.target.value)}
-                  >
-                    <MenuItem value="">All Categories</MenuItem>
-                    {categories.map((category) => (
-                      <MenuItem key={category.id} value={category.id}>
-                        {category.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
-            {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
-          </Typography>
-          <Button onClick={handleProductDialogClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleProductDialogClose} variant="contained">
-            Done
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   )
 }
