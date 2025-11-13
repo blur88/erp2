@@ -33,7 +33,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Inventory2 as ProductIcon,
+  PersonSearch as CustomerProductIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
@@ -786,7 +786,7 @@ const ProductCustomerReport: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <ProductIcon sx={{
+            <CustomerProductIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
@@ -1069,7 +1069,7 @@ const ProductCustomerReport: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <ProductIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <CustomerProductIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>

@@ -34,7 +34,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Receipt as OrderIcon,
+  History as HistoryIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
@@ -812,7 +812,7 @@ const CustomerOrderHistory: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <OrderIcon sx={{
+            <HistoryIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
@@ -1112,7 +1112,7 @@ const CustomerOrderHistory: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <OrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <HistoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>

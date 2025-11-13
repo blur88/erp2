@@ -30,7 +30,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Receipt as OrderIcon,
+  ReceiptLongOutlined as PaymentOrderIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -574,7 +574,7 @@ const CustomerPaymentByOrder: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <OrderIcon sx={{
+            <PaymentOrderIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
@@ -841,7 +841,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <OrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <PaymentOrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>
