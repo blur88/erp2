@@ -573,7 +573,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                   {confirmDelete.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Email: {confirmDelete.email || 'N/A'}
+                  Phone: {confirmDelete.phone || 'N/A'}
                 </Typography>
               </Box>
               <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">

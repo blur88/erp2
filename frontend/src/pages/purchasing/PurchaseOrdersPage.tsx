@@ -161,6 +161,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
   const [blockedDialogType, setBlockedDialogType] = useState<'edit' | 'delete'>('edit')
   const [isLoading, setIsLoading] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState<Record<string, boolean>>({})
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 

@@ -207,8 +207,9 @@ const PurchaseOrderSummary: React.FC = () => {
         const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
 
         const subtotal = {
-          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-          subtotal: groupData.reduce((sum, r) => sum + r.subtotal, 0),
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
         }
 
         csv += '"Subtotal",'
@@ -314,8 +315,9 @@ const PurchaseOrderSummary: React.FC = () => {
         const groupData = sortedData.filter(r => getPdfGroupKey(r) === currentGroupKey)
 
         const subtotal = {
-          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-          subtotal: groupData.reduce((sum, r) => sum + r.subtotal, 0),
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
         }
 
         tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
