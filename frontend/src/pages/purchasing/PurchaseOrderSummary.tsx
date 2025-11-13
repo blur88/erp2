@@ -480,7 +480,7 @@ const PurchaseOrderSummary: React.FC = () => {
       if (bVal == null) return -1
 
       if (field === 'orderDate') {
-        return new Date(bVal).getTime() - new Date(aVal).getTime()
+        return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
       if (typeof aVal === 'string' && typeof bVal === 'string') {
