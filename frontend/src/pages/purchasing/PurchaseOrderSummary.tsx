@@ -37,15 +37,12 @@ interface PurchaseOrderSummaryReport {
   orderNumber: string
   orderDate: string
   supplierName: string
-  productName: string
-  categoryName: string
-  quantity: number
-  unitPrice: number
-  subtotal: number
   status: string
   paymentStatus: string
-  supplierPhone: string
-  supplierEmail: string
+  totalAmount: number
+  paidAmount: number
+  balance: number
+  shippingAmount: number
 }
 
 const PurchaseOrderSummary: React.FC = () => {
@@ -62,7 +59,7 @@ const PurchaseOrderSummary: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'orderNumber', 'orderDate', 'supplierName', 'productName', 'categoryName', 'quantity', 'unitPrice', 'subtotal', 'status', 'paymentStatus'
+    'orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderDate')
@@ -127,7 +124,7 @@ const PurchaseOrderSummary: React.FC = () => {
     setStatus('all')
     setPaymentStatus('all')
     setReportData([])
-    setSelectedColumns(['orderNumber', 'orderDate', 'supplierName', 'productName', 'categoryName', 'quantity', 'unitPrice', 'subtotal', 'status', 'paymentStatus'])
+    setSelectedColumns(['orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount'])
     setGroupBy('none')
     setSortBy1('orderDate')
     setReportTitle('Purchase Order Summary Report')
@@ -139,16 +136,15 @@ const PurchaseOrderSummary: React.FC = () => {
     if (sortedData.length === 0) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'PO Number',
-      orderDate: 'PO Date',
+      orderNumber: 'PO No',
+      status: 'Inventory Status',
+      paymentStatus: 'Payment Status',
       supplierName: 'Vendor',
-      productName: 'Product',
-      categoryName: 'Category',
-      quantity: 'Quantity',
-      unitPrice: 'Unit Price',
-      subtotal: 'Subtotal',
-      status: 'PO Inventory Status',
-      paymentStatus: 'PO Payment Status'
+      orderDate: 'PO Date',
+      totalAmount: 'Order Total',
+      paidAmount: 'Amount Paid',
+      balance: 'Balance',
+      shippingAmount: 'Freight'
     }
 
     let csv = reportTitle + '\n\n'
@@ -250,16 +246,15 @@ const PurchaseOrderSummary: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'PO Number',
-      orderDate: 'PO Date',
+      orderNumber: 'PO No',
+      status: 'Inventory Status',
+      paymentStatus: 'Payment Status',
       supplierName: 'Vendor',
-      productName: 'Product',
-      categoryName: 'Category',
-      quantity: 'Quantity',
-      unitPrice: 'Unit Price',
-      subtotal: 'Subtotal',
-      status: 'PO Inventory Status',
-      paymentStatus: 'PO Payment Status'
+      orderDate: 'PO Date',
+      totalAmount: 'Order Total',
+      paidAmount: 'Amount Paid',
+      balance: 'Balance',
+      shippingAmount: 'Freight'
     }
 
     let tableRows = ''
@@ -451,12 +446,16 @@ const PurchaseOrderSummary: React.FC = () => {
 
     const totals = reportData.reduce(
       (acc, item) => ({
-        quantity: acc.quantity + item.quantity,
-        subtotal: acc.subtotal + item.subtotal,
+        totalAmount: acc.totalAmount + item.totalAmount,
+        paidAmount: acc.paidAmount + item.paidAmount,
+        balance: acc.balance + item.balance,
+        shippingAmount: acc.shippingAmount + item.shippingAmount,
       }),
       {
-        quantity: 0,
-        subtotal: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        balance: 0,
+        shippingAmount: 0,
       }
     )
 
@@ -726,7 +725,7 @@ const PurchaseOrderSummary: React.FC = () => {
                       const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
                       if (value.includes('all')) {
-                        const allColumns = ['orderNumber', 'orderDate', 'supplierName', 'productName', 'categoryName', 'quantity', 'unitPrice', 'subtotal', 'status', 'paymentStatus']
+                        const allColumns = ['orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount']
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
                         } else {
@@ -740,16 +739,15 @@ const PurchaseOrderSummary: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="orderNumber">PO Number</MenuItem>
-                    <MenuItem value="orderDate">PO Date</MenuItem>
+                    <MenuItem value="orderNumber">PO No</MenuItem>
+                    <MenuItem value="status">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
                     <MenuItem value="supplierName">Vendor</MenuItem>
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="quantity">Quantity</MenuItem>
-                    <MenuItem value="unitPrice">Unit Price</MenuItem>
-                    <MenuItem value="subtotal">Subtotal</MenuItem>
-                    <MenuItem value="status">PO Inventory Status</MenuItem>
-                    <MenuItem value="paymentStatus">PO Payment Status</MenuItem>
+                    <MenuItem value="orderDate">PO Date</MenuItem>
+                    <MenuItem value="totalAmount">Order Total</MenuItem>
+                    <MenuItem value="paidAmount">Amount Paid</MenuItem>
+                    <MenuItem value="balance">Balance</MenuItem>
+                    <MenuItem value="shippingAmount">Freight</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -777,12 +775,12 @@ const PurchaseOrderSummary: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="orderDate">PO Date</MenuItem>
-                    <MenuItem value="orderNumber">PO Number</MenuItem>
+                    <MenuItem value="orderNumber">PO No</MenuItem>
                     <MenuItem value="supplierName">Vendor</MenuItem>
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="quantity">Quantity</MenuItem>
-                    <MenuItem value="subtotal">Subtotal</MenuItem>
+                    <MenuItem value="status">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="totalAmount">Order Total</MenuItem>
+                    <MenuItem value="balance">Balance</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -879,16 +877,15 @@ const PurchaseOrderSummary: React.FC = () => {
                       top: 0,
                       zIndex: 10
                     } }}>
-                      {selectedColumns.includes('orderNumber') && <TableCell align="center">PO Number</TableCell>}
-                      {selectedColumns.includes('orderDate') && <TableCell align="center">PO Date</TableCell>}
+                      {selectedColumns.includes('orderNumber') && <TableCell align="center">PO No</TableCell>}
+                      {selectedColumns.includes('status') && <TableCell align="center">Inventory Status</TableCell>}
+                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
                       {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
-                      {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
-                      {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
-                      {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
-                      {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
-                      {selectedColumns.includes('subtotal') && <TableCell align="center">Subtotal</TableCell>}
-                      {selectedColumns.includes('status') && <TableCell align="center">PO Inventory Status</TableCell>}
-                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">PO Payment Status</TableCell>}
+                      {selectedColumns.includes('orderDate') && <TableCell align="center">PO Date</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Order Total</TableCell>}
+                      {selectedColumns.includes('paidAmount') && <TableCell align="center">Amount Paid</TableCell>}
+                      {selectedColumns.includes('balance') && <TableCell align="center">Balance</TableCell>}
+                      {selectedColumns.includes('shippingAmount') && <TableCell align="center">Freight</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -924,8 +921,10 @@ const PurchaseOrderSummary: React.FC = () => {
                         const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
 
                         return {
-                          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-                          subtotal: groupData.reduce((sum, r) => sum + r.subtotal, 0),
+                          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+                          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
+                          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+                          shippingAmount: groupData.reduce((sum, r) => sum + r.shippingAmount, 0),
                         }
                       }
 
@@ -960,41 +959,6 @@ const PurchaseOrderSummary: React.FC = () => {
                             {row.orderNumber}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('orderDate') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('supplierName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.supplierName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('productName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.productName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('categoryName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.categoryName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('quantity') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                            {row.quantity}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('unitPrice') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.unitPrice)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('subtotal') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.subtotal)}
-                          </TableCell>
-                        )}
                         {selectedColumns.includes('status') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
                             <Chip
@@ -1011,6 +975,36 @@ const PurchaseOrderSummary: React.FC = () => {
                               color={getPaymentStatusColor(row.paymentStatus) as any}
                               size="small"
                             />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('supplierName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.supplierName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('orderDate') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.totalAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('paidAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.paidAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('balance') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.balance)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('shippingAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.shippingAmount)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -1030,23 +1024,30 @@ const PurchaseOrderSummary: React.FC = () => {
                                   Subtotal
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('orderDate') && <TableCell />}
-                              {selectedColumns.includes('supplierName') && <TableCell />}
-                              {selectedColumns.includes('productName') && <TableCell />}
-                              {selectedColumns.includes('categoryName') && <TableCell />}
-                              {selectedColumns.includes('quantity') && (
-                                <TableCell align="right">
-                                  {groupSubtotals.quantity}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('unitPrice') && <TableCell />}
-                              {selectedColumns.includes('subtotal') && (
-                                <TableCell align="right">
-                                  {formatCurrency(groupSubtotals.subtotal)}
-                                </TableCell>
-                              )}
                               {selectedColumns.includes('status') && <TableCell />}
                               {selectedColumns.includes('paymentStatus') && <TableCell />}
+                              {selectedColumns.includes('supplierName') && <TableCell />}
+                              {selectedColumns.includes('orderDate') && <TableCell />}
+                              {selectedColumns.includes('totalAmount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.totalAmount)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('paidAmount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.paidAmount)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('balance') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.balance)}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('shippingAmount') && (
+                                <TableCell align="right">
+                                  {formatCurrency(groupSubtotals.shippingAmount)}
+                                </TableCell>
+                              )}
                             </TableRow>
                           )}
                         </React.Fragment>
@@ -1070,23 +1071,30 @@ const PurchaseOrderSummary: React.FC = () => {
                             TOTAL
                           </TableCell>
                         )}
-                        {selectedColumns.includes('orderDate') && <TableCell />}
-                        {selectedColumns.includes('supplierName') && <TableCell />}
-                        {selectedColumns.includes('productName') && <TableCell />}
-                        {selectedColumns.includes('categoryName') && <TableCell />}
-                        {selectedColumns.includes('quantity') && (
-                          <TableCell align="right">
-                            {totals.quantity}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('unitPrice') && <TableCell />}
-                        {selectedColumns.includes('subtotal') && (
-                          <TableCell align="right">
-                            {formatCurrency(totals.subtotal)}
-                          </TableCell>
-                        )}
                         {selectedColumns.includes('status') && <TableCell />}
                         {selectedColumns.includes('paymentStatus') && <TableCell />}
+                        {selectedColumns.includes('supplierName') && <TableCell />}
+                        {selectedColumns.includes('orderDate') && <TableCell />}
+                        {selectedColumns.includes('totalAmount') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.totalAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('paidAmount') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.paidAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('balance') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.balance)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('shippingAmount') && (
+                          <TableCell align="right">
+                            {formatCurrency(totals.shippingAmount)}
+                          </TableCell>
+                        )}
                       </TableRow>
                     )}
                   </TableBody>
