@@ -670,22 +670,30 @@ const PurchaseOrderDetailsReport: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Vendor</InputLabel>
-                  <Select
-                    value={selectedSupplier}
-                    label="Vendor"
-                    onChange={(e) => setSelectedSupplier(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="">All Vendors</MenuItem>
-                    {suppliers.map((supplier) => (
-                      <MenuItem key={supplier.id} value={supplier.id}>
-                        {supplier.companyName}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                  PO Date
+                </Typography>
+                <TextField
+                  label="Date From"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  size="small"
+                  fullWidth
+                />
+
+                <TextField
+                  label="Date To"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  size="small"
+                  fullWidth
+                />
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Category</InputLabel>
@@ -718,31 +726,6 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                   </Button>
                 </Box>
 
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                  PO Date
-                </Typography>
-                <TextField
-                  label="Date From"
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
-                  size="small"
-                  fullWidth
-                />
-
-                <TextField
-                  label="Date To"
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
-                  size="small"
-                  fullWidth
-                />
-
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>PO Inventory Status</InputLabel>
                   <Select
@@ -769,6 +752,23 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                     <MenuItem value="unpaid">Unpaid</MenuItem>
                     <MenuItem value="partial">Partial</MenuItem>
                     <MenuItem value="paid">Paid</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Vendor</InputLabel>
+                  <Select
+                    value={selectedSupplier}
+                    label="Vendor"
+                    onChange={(e) => setSelectedSupplier(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="">All Vendors</MenuItem>
+                    {suppliers.map((supplier) => (
+                      <MenuItem key={supplier.id} value={supplier.id}>
+                        {supplier.companyName}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
                 </Stack>
