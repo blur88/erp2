@@ -115,7 +115,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
       .catch(() => {})
 
     // Load products
-    fetch('/api/inventory/products?limit=1000')
+    fetch('/api/inventory/products?limit=100')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.data) {
@@ -1401,7 +1401,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                             }}
                           >
                             <TableCell>{product.name}</TableCell>
-                            <TableCell>{categories.find((c: any) => c.id === product.categoryId)?.name || '-'}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
                           </TableRow>
                         ))
                       )}
@@ -1520,7 +1520,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                             }}
                           >
                             <TableCell>{product.name}</TableCell>
-                            <TableCell>{categories.find((c: any) => c.id === product.categoryId)?.name || '-'}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
                           </TableRow>
                         ))
                       )}
