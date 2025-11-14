@@ -93,7 +93,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'orderNumber', 'orderDate', 'supplierName', 'productName', 'categoryName', 'quantity', 'unitPrice', 'discountAmount', 'totalAmount', 'status', 'paymentStatus'
+    'productName', 'categoryName', 'orderNumber', 'orderDate', 'supplierName', 'status', 'paymentStatus', 'quantity', 'unitPrice', 'totalAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderNumber')
@@ -187,7 +187,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
     setStatus('all')
     setPaymentStatus('all')
     setReportData([])
-    setSelectedColumns(['orderNumber', 'orderDate', 'supplierName', 'productName', 'categoryName', 'quantity', 'unitPrice', 'discountAmount', 'totalAmount', 'status', 'paymentStatus'])
+    setSelectedColumns(['productName', 'categoryName', 'orderNumber', 'orderDate', 'supplierName', 'status', 'paymentStatus', 'quantity', 'unitPrice', 'totalAmount'])
     setGroupBy('none')
     setSortBy1('orderNumber')
     setReportTitle('Purchase Order Details Report')
@@ -317,17 +317,16 @@ const PurchaseOrderDetailsReport: React.FC = () => {
     if (sortedData.length === 0) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'PO No',
-      orderDate: 'PO Date',
-      supplierName: 'Vendor',
-      productName: 'Product',
+      productName: 'Products',
       categoryName: 'Category',
+      orderNumber: 'Order No',
+      orderDate: 'Order Date',
+      supplierName: 'Vendor',
+      status: 'Inventory Status',
+      paymentStatus: 'Payment Status',
       quantity: 'Quantity',
       unitPrice: 'Unit Price',
-      discountAmount: 'Discount',
-      totalAmount: 'Total Amount',
-      status: 'Inventory Status',
-      paymentStatus: 'Payment Status'
+      totalAmount: 'Subtotal'
     }
 
     let csv = reportTitle + '\n\n'
@@ -430,17 +429,16 @@ const PurchaseOrderDetailsReport: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'PO No',
-      orderDate: 'PO Date',
-      supplierName: 'Vendor',
-      productName: 'Product',
+      productName: 'Products',
       categoryName: 'Category',
+      orderNumber: 'Order No',
+      orderDate: 'Order Date',
+      supplierName: 'Vendor',
+      status: 'Inventory Status',
+      paymentStatus: 'Payment Status',
       quantity: 'Quantity',
       unitPrice: 'Unit Price',
-      discountAmount: 'Discount',
-      totalAmount: 'Total Amount',
-      status: 'Inventory Status',
-      paymentStatus: 'Payment Status'
+      totalAmount: 'Subtotal'
     }
 
     let tableRows = ''
@@ -923,7 +921,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                       const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
                       if (value.includes('all')) {
-                        const allColumns = ['orderNumber', 'orderDate', 'supplierName', 'productName', 'categoryName', 'quantity', 'unitPrice', 'discountAmount', 'totalAmount', 'status', 'paymentStatus']
+                        const allColumns = ['productName', 'categoryName', 'orderNumber', 'orderDate', 'supplierName', 'status', 'paymentStatus', 'quantity', 'unitPrice', 'totalAmount']
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
                         } else {
@@ -937,17 +935,16 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="orderNumber">PO No</MenuItem>
-                    <MenuItem value="orderDate">PO Date</MenuItem>
-                    <MenuItem value="supplierName">Vendor</MenuItem>
-                    <MenuItem value="productName">Product</MenuItem>
+                    <MenuItem value="productName">Products</MenuItem>
                     <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="quantity">Quantity</MenuItem>
-                    <MenuItem value="unitPrice">Unit Price</MenuItem>
-                    <MenuItem value="discountAmount">Discount</MenuItem>
-                    <MenuItem value="totalAmount">Total Amount</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
+                    <MenuItem value="orderDate">Order Date</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
                     <MenuItem value="status">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="quantity">Quantity</MenuItem>
+                    <MenuItem value="unitPrice">Unit Price</MenuItem>
+                    <MenuItem value="totalAmount">Subtotal</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -976,16 +973,16 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">PO No</MenuItem>}
-                    {selectedColumns.includes('orderDate') && <MenuItem value="orderDate">PO Date</MenuItem>}
-                    {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
-                    {selectedColumns.includes('productName') && <MenuItem value="productName">Product</MenuItem>}
+                    {selectedColumns.includes('productName') && <MenuItem value="productName">Products</MenuItem>}
                     {selectedColumns.includes('categoryName') && <MenuItem value="categoryName">Category</MenuItem>}
-                    {selectedColumns.includes('quantity') && <MenuItem value="quantity">Quantity</MenuItem>}
-                    {selectedColumns.includes('unitPrice') && <MenuItem value="unitPrice">Unit Price</MenuItem>}
-                    {selectedColumns.includes('totalAmount') && <MenuItem value="totalAmount">Total Amount</MenuItem>}
+                    {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">Order No</MenuItem>}
+                    {selectedColumns.includes('orderDate') && <MenuItem value="orderDate">Order Date</MenuItem>}
+                    {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
                     {selectedColumns.includes('status') && <MenuItem value="status">Inventory Status</MenuItem>}
                     {selectedColumns.includes('paymentStatus') && <MenuItem value="paymentStatus">Payment Status</MenuItem>}
+                    {selectedColumns.includes('quantity') && <MenuItem value="quantity">Quantity</MenuItem>}
+                    {selectedColumns.includes('unitPrice') && <MenuItem value="unitPrice">Unit Price</MenuItem>}
+                    {selectedColumns.includes('totalAmount') && <MenuItem value="totalAmount">Subtotal</MenuItem>}
                   </Select>
                 </FormControl>
 
@@ -1082,17 +1079,16 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                       top: 0,
                       zIndex: 10
                     } }}>
-                      {selectedColumns.includes('orderNumber') && <TableCell align="center">PO No</TableCell>}
-                      {selectedColumns.includes('orderDate') && <TableCell align="center">PO Date</TableCell>}
-                      {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
-                      {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
+                      {selectedColumns.includes('productName') && <TableCell align="center">Products</TableCell>}
                       {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
-                      {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
-                      {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
-                      {selectedColumns.includes('discountAmount') && <TableCell align="center">Discount</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total Amount</TableCell>}
+                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
+                      {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
+                      {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
                       {selectedColumns.includes('status') && <TableCell align="center">Inventory Status</TableCell>}
                       {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
+                      {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
+                      {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Subtotal</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1160,6 +1156,16 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                               height: TABLE_STYLES.row.height
                             }}
                           >
+                        {selectedColumns.includes('productName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.productName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('categoryName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.categoryName}
+                          </TableCell>
+                        )}
                         {selectedColumns.includes('orderNumber') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
                             {row.orderNumber}
@@ -1173,36 +1179,6 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                         {selectedColumns.includes('supplierName') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
                             {row.supplierName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('productName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.productName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('categoryName') && (
-                          <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.categoryName}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('quantity') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {row.quantity}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('unitPrice') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.unitPrice)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('discountAmount') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {row.discountAmount > 0 ? `-${formatCurrency(row.discountAmount)}` : '-'}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('totalAmount') && (
-                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {formatCurrency(row.totalAmount)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('status') && (
@@ -1223,6 +1199,21 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                             />
                           </TableCell>
                         )}
+                        {selectedColumns.includes('quantity') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {row.quantity}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('unitPrice') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.unitPrice)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.totalAmount)}
+                          </TableCell>
+                        )}
                       </TableRow>
                           {showGroupFooter && groupSubtotals && (
                             <TableRow sx={{
@@ -1235,29 +1226,28 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                                 fontStyle: 'italic'
                               }
                             }}>
-                              {selectedColumns.includes('orderNumber') && (
+                              {selectedColumns.includes('productName') && (
                                 <TableCell sx={{ fontWeight: 600 }}>
                                   Subtotal
                                 </TableCell>
                               )}
+                              {selectedColumns.includes('categoryName') && <TableCell />}
+                              {selectedColumns.includes('orderNumber') && <TableCell />}
                               {selectedColumns.includes('orderDate') && <TableCell />}
                               {selectedColumns.includes('supplierName') && <TableCell />}
-                              {selectedColumns.includes('productName') && <TableCell />}
-                              {selectedColumns.includes('categoryName') && <TableCell />}
+                              {selectedColumns.includes('status') && <TableCell />}
+                              {selectedColumns.includes('paymentStatus') && <TableCell />}
                               {selectedColumns.includes('quantity') && (
                                 <TableCell align="right">
                                   {groupSubtotals.quantity}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('unitPrice') && <TableCell />}
-                              {selectedColumns.includes('discountAmount') && <TableCell />}
                               {selectedColumns.includes('totalAmount') && (
                                 <TableCell align="right">
                                   {formatCurrency(groupSubtotals.totalAmount)}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('status') && <TableCell />}
-                              {selectedColumns.includes('paymentStatus') && <TableCell />}
                             </TableRow>
                           )}
                         </React.Fragment>
@@ -1276,29 +1266,28 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                           }
                         }}
                       >
-                        {selectedColumns.includes('orderNumber') && (
+                        {selectedColumns.includes('productName') && (
                           <TableCell sx={{ fontWeight: 700 }}>
                             TOTAL
                           </TableCell>
                         )}
+                        {selectedColumns.includes('categoryName') && <TableCell />}
+                        {selectedColumns.includes('orderNumber') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('supplierName') && <TableCell />}
-                        {selectedColumns.includes('productName') && <TableCell />}
-                        {selectedColumns.includes('categoryName') && <TableCell />}
+                        {selectedColumns.includes('status') && <TableCell />}
+                        {selectedColumns.includes('paymentStatus') && <TableCell />}
                         {selectedColumns.includes('quantity') && (
                           <TableCell align="right">
                             {totals.quantity}
                           </TableCell>
                         )}
                         {selectedColumns.includes('unitPrice') && <TableCell />}
-                        {selectedColumns.includes('discountAmount') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
                           <TableCell align="right">
                             {formatCurrency(totals.totalAmount)}
                           </TableCell>
                         )}
-                        {selectedColumns.includes('status') && <TableCell />}
-                        {selectedColumns.includes('paymentStatus') && <TableCell />}
                       </TableRow>
                     )}
                   </TableBody>
