@@ -6,6 +6,7 @@ import {
   Paper,
   Grid,
   Button,
+  IconButton,
   FormControl,
   InputLabel,
   Select,
@@ -43,6 +44,10 @@ import {
   PlayArrow as GenerateIcon,
   ShoppingCart as PurchaseOrderIcon,
   Close as CloseIcon,
+  KeyboardArrowRight as KeyboardArrowRightIcon,
+  KeyboardArrowLeft as KeyboardArrowLeftIcon,
+  KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
+  KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -81,6 +86,10 @@ const PurchaseOrderDetailsReport: React.FC = () => {
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
+  const [selectedRemovedIds, setSelectedRemovedIds] = useState<string[]>([])
+  const [lastClickedProductId, setLastClickedProductId] = useState<string | null>(null)
+  const [lastClickedRemovedId, setLastClickedRemovedId] = useState<string | null>(null)
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
@@ -186,30 +195,122 @@ const PurchaseOrderDetailsReport: React.FC = () => {
     setRowsPerPage(25)
   }
 
-  const filteredProducts = products.filter((product: any) => {
-    const matchesSearch = !productSearchFilter ||
-      product.name.toLowerCase().includes(productSearchFilter.toLowerCase()) ||
-      (product.barcode && product.barcode.toLowerCase().includes(productSearchFilter.toLowerCase()))
-    const matchesCategory = !productCategoryFilter || product.categoryId === productCategoryFilter
-    return matchesSearch && matchesCategory
-  })
+  const handleProductClick = (productId: string, event: React.MouseEvent) => {
+    const filteredProducts = getFilteredProducts()
 
-  const selectedProductObjects = products.filter((p: any) => selectedProducts.includes(p.id))
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedProductIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedProductId(productId)
+    } else if (event.shiftKey && lastClickedProductId) {
+      const lastIndex = filteredProducts.findIndex((p: any) => p.id === lastClickedProductId)
+      const currentIndex = filteredProducts.findIndex((p: any) => p.id === productId)
 
-  const handleProductToggle = (productId: string) => {
-    setSelectedProducts(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    )
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex)
+        const end = Math.max(lastIndex, currentIndex)
+        const rangeIds = filteredProducts.slice(start, end + 1).map((p: any) => p.id)
+
+        setSelectedProductIds(prev => [...new Set([...prev, ...rangeIds])])
+      }
+    } else {
+      setSelectedProductIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedProductId(productId)
+    }
   }
 
-  const handleProductSelectAll = () => {
-    if (selectedProducts.length === filteredProducts.length) {
-      setSelectedProducts([])
+  const handleSelectedProductClick = (productId: string, event: React.MouseEvent) => {
+    const selectedProductsList = getSelectedProductsList()
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedRemovedIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedRemovedId(productId)
+    } else if (event.shiftKey && lastClickedRemovedId) {
+      const lastIndex = selectedProductsList.findIndex((p: any) => p.id === lastClickedRemovedId)
+      const currentIndex = selectedProductsList.findIndex((p: any) => p.id === productId)
+
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex)
+        const end = Math.max(lastIndex, currentIndex)
+        const rangeIds = selectedProductsList.slice(start, end + 1).map((p: any) => p.id)
+
+        setSelectedRemovedIds(prev => [...new Set([...prev, ...rangeIds])])
+      }
     } else {
-      setSelectedProducts(filteredProducts.map((p: any) => p.id))
+      setSelectedRemovedIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedRemovedId(productId)
     }
+  }
+
+  const handleAddSelectedProducts = () => {
+    if (selectedProductIds.length > 0) {
+      setSelectedProducts(prev => [...new Set([...prev, ...selectedProductIds])])
+      setSelectedProductIds([])
+    }
+  }
+
+  const handleRemoveSelectedProducts = () => {
+    if (selectedRemovedIds.length > 0) {
+      setSelectedProducts(prev => prev.filter(id => !selectedRemovedIds.includes(id)))
+      setSelectedRemovedIds([])
+    }
+  }
+
+  const handleAddAllProducts = () => {
+    const allFilteredIds = getFilteredProducts().map((p: any) => p.id)
+    setSelectedProducts(prev => [...new Set([...prev, ...allFilteredIds])])
+    setSelectedProductIds([])
+  }
+
+  const handleRemoveAllProducts = () => {
+    setSelectedProducts([])
+    setSelectedRemovedIds([])
+  }
+
+  const getFilteredProducts = () => {
+    return products.filter((product: any) => {
+      const matchesName = !productSearchFilter ||
+        product.name.toLowerCase().includes(productSearchFilter.toLowerCase())
+      const matchesCategory = !productCategoryFilter ||
+        product.categoryId === productCategoryFilter
+      const notSelected = !selectedProducts.includes(product.id)
+      return matchesName && matchesCategory && notSelected
+    })
+  }
+
+  const getSelectedProductsList = () => {
+    return products.filter((product: any) => selectedProducts.includes(product.id))
+  }
+
+  const handleProductDialogClose = () => {
+    setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
+    setSelectedProductIds([])
+    setSelectedRemovedIds([])
+  }
+
+  const handleProductDialogConfirm = () => {
+    setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
+    setSelectedProductIds([])
+    setSelectedRemovedIds([])
   }
 
   const handleExportExcel = () => {
@@ -712,19 +813,41 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <Box>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    onClick={() => setProductDialogOpen(true)}
-                    size="small"
-                    sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Products</InputLabel>
+                  <Select
+                    value={selectedProducts.length > 0 ? 'select' : 'all'}
+                    label="Products"
+                    onChange={(e) => {
+                      if (e.target.value === 'select') {
+                        setProductDialogOpen(true)
+                      }
+                    }}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    {selectedProducts.length === 0
-                      ? 'Select Products'
-                      : `${selectedProducts.length} Product${selectedProducts.length > 1 ? 's' : ''} Selected`}
-                  </Button>
-                </Box>
+                    <MenuItem value="all">All Products</MenuItem>
+                    <MenuItem value="select">Select Products</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {selectedProducts.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selectedProducts.map(productId => {
+                      const product = products.find((p: any) => p.id === productId)
+                      return (
+                        <Chip
+                          key={productId}
+                          label={product?.name || productId}
+                          size="small"
+                          onDelete={() => {
+                            setSelectedProducts(prev => prev.filter(id => id !== productId))
+                          }}
+                          sx={{ fontSize: '0.7rem' }}
+                        />
+                      )
+                    })}
+                  </Box>
+                )}
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>PO Inventory Status</InputLabel>
@@ -1205,105 +1328,256 @@ const PurchaseOrderDetailsReport: React.FC = () => {
       {/* Product Selection Dialog */}
       <Dialog
         open={productDialogOpen}
-        onClose={() => setProductDialogOpen(false)}
-        maxWidth="md"
+        onClose={handleProductDialogClose}
+        maxWidth="lg"
         fullWidth
+        PaperProps={{
+          sx: { height: '90vh', maxHeight: '90vh' }
+        }}
       >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Select Products</Typography>
+        <DialogTitle sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Select Products
+          </Typography>
           <Button
-            startIcon={<CloseIcon />}
-            onClick={() => setProductDialogOpen(false)}
             size="small"
+            onClick={handleProductDialogClose}
+            sx={{ minWidth: 'auto', p: 0.5 }}
           >
-            Close
+            <CloseIcon />
           </Button>
         </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search products..."
-                value={productSearchFilter}
-                onChange={(e) => setProductSearchFilter(e.target.value)}
-              />
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={productCategoryFilter}
-                  label="Category"
-                  onChange={(e) => setProductCategoryFilter(e.target.value)}
-                >
-                  <MenuItem value="">All Categories</MenuItem>
-                  {categories.map((category) => (
-                    <MenuItem key={category.id} value={category.id}>
-                      {'  '.repeat(category.level)}{category.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                {selectedProducts.length} of {filteredProducts.length} selected
-              </Typography>
-              <Button
-                size="small"
-                onClick={handleProductSelectAll}
-              >
-                {selectedProducts.length === filteredProducts.length ? 'Deselect All' : 'Select All'}
-              </Button>
-            </Box>
-
-            <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-              {filteredProducts.map((product: any) => (
-                <ListItem key={product.id} disablePadding>
-                  <ListItemButton onClick={() => handleProductToggle(product.id)} dense>
-                    <ListItemIcon>
-                      <Checkbox
-                        edge="start"
-                        checked={selectedProducts.includes(product.id)}
-                        tabIndex={-1}
-                        disableRipple
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={product.name}
-                      secondary={`${product.barcode || 'No SKU'} • ${categories.find((c: any) => c.id === product.categoryId)?.name || 'No Category'}`}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-
-            {selectedProductObjects.length > 0 && (
-              <>
-                <Divider />
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Selected Products:
+        <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
+            {/* Left Side - Product List */}
+            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Product List
                   </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {selectedProductObjects.map((product: any) => (
-                      <Chip
-                        key={product.id}
-                        label={product.name}
-                        onDelete={() => handleProductToggle(product.id)}
-                        size="small"
-                      />
-                    ))}
-                  </Box>
                 </Box>
-              </>
-            )}
-          </Stack>
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader sx={{
+                    '& .MuiTableCell-root': {
+                      fontSize: '0.75rem',
+                      py: 0.5,
+                      px: 1
+                    }
+                  }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {getFilteredProducts().length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
+                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              {products.length === 0 ? 'No products available' : 'No products found'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        getFilteredProducts().map((product: any) => (
+                          <TableRow
+                            key={product.id}
+                            hover
+                            onClick={(e) => handleProductClick(product.id, e)}
+                            sx={{
+                              cursor: 'pointer',
+                              backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'inherit',
+                              '&:hover': {
+                                backgroundColor: selectedProductIds.includes(product.id) ? 'primary.light' : 'action.hover'
+                              }
+                            }}
+                          >
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{categories.find((c: any) => c.id === product.categoryId)?.name || '-'}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+
+            {/* Middle - Action Buttons */}
+            <Grid item xs={1.5} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
+              <IconButton
+                color="primary"
+                onClick={handleAddSelectedProducts}
+                disabled={selectedProductIds.length === 0}
+                title="Add selected products"
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardArrowRightIcon />
+              </IconButton>
+
+              <IconButton
+                color="primary"
+                onClick={handleAddAllProducts}
+                disabled={getFilteredProducts().length === 0}
+                title="Add all filtered products"
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardDoubleArrowRightIcon />
+              </IconButton>
+
+              <IconButton
+                color="error"
+                onClick={handleRemoveAllProducts}
+                disabled={selectedProducts.length === 0}
+                title="Remove all products"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'error.main',
+                  color: 'error.main',
+                  '&:hover': { bgcolor: 'error.light' },
+                  '&.Mui-disabled': { borderColor: 'action.disabled', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardDoubleArrowLeftIcon />
+              </IconButton>
+
+              <IconButton
+                onClick={handleRemoveSelectedProducts}
+                disabled={selectedRemovedIds.length === 0}
+                title="Remove selected products"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&.Mui-disabled': { borderColor: 'action.disabled', color: 'action.disabled' }
+                }}
+              >
+                <KeyboardArrowLeftIcon />
+              </IconButton>
+            </Grid>
+
+            {/* Right Side - Selected Products */}
+            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Selected Products ({selectedProducts.length})
+                  </Typography>
+                </Box>
+                <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                  <Table size="small" stickyHeader sx={{
+                    '& .MuiTableCell-root': {
+                      fontSize: '0.75rem',
+                      py: 0.5,
+                      px: 1
+                    }
+                  }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {getSelectedProductsList().length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
+                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              No products selected
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        getSelectedProductsList().map((product: any) => (
+                          <TableRow
+                            key={product.id}
+                            hover
+                            onClick={(e) => handleSelectedProductClick(product.id, e)}
+                            sx={{
+                              cursor: 'pointer',
+                              backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'inherit',
+                              '&:hover': {
+                                backgroundColor: selectedRemovedIds.includes(product.id) ? 'error.light' : 'action.hover'
+                              }
+                            }}
+                          >
+                            <TableCell>{product.name}</TableCell>
+                            <TableCell>{categories.find((c: any) => c.id === product.categoryId)?.name || '-'}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* Filter Section at Bottom */}
+          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+              Filter Products
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  size="small"
+                  placeholder="Search by product name..."
+                  value={productSearchFilter}
+                  onChange={(e) => setProductSearchFilter(e.target.value)}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Filter by Category</InputLabel>
+                  <Select
+                    value={productCategoryFilter}
+                    label="Filter by Category"
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setProductDialogOpen(false)}>
-            Done
+        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+            {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
+          </Typography>
+          <Button onClick={handleProductDialogClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleProductDialogConfirm}
+          >
+            Apply
           </Button>
         </DialogActions>
       </Dialog>
