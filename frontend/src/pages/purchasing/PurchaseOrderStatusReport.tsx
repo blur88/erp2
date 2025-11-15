@@ -64,12 +64,14 @@ const PurchaseOrderStatusReport: React.FC = () => {
   const [reportData, setReportData] = useState<PurchaseOrderStatus[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [status, setStatus] = useState<string>('all')
   const [paymentStatus, setPaymentStatus] = useState<string>('all')
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
   const [selectedRemovedIds, setSelectedRemovedIds] = useState<string[]>([])
   const [lastClickedProductId, setLastClickedProductId] = useState<string | null>(null)
@@ -104,6 +106,26 @@ const PurchaseOrderStatusReport: React.FC = () => {
       .then(data => {
         if (data?.data) {
           setProducts(data.data)
+        }
+      })
+      .catch(() => {})
+
+    // Load categories
+    fetch('/api/inventory/categories/tree')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const categoryData = data?.data || data
+        if (Array.isArray(categoryData)) {
+          const flattenCategories = (cats: any[], level = 0): any[] => {
+            return cats.reduce((acc: any[], cat: any) => {
+              acc.push({ ...cat, level })
+              if (cat.children && cat.children.length > 0) {
+                acc.push(...flattenCategories(cat.children, level + 1))
+              }
+              return acc
+            }, [])
+          }
+          setCategories(flattenCategories(categoryData))
         }
       })
       .catch(() => {})
@@ -244,8 +266,10 @@ const PurchaseOrderStatusReport: React.FC = () => {
     return products.filter((product: any) => {
       const matchesName = !productSearchFilter ||
         product.name.toLowerCase().includes(productSearchFilter.toLowerCase())
+      const matchesCategory = !productCategoryFilter ||
+        product.categoryId === productCategoryFilter
       const notSelected = !selectedProducts.includes(product.id)
-      return matchesName && notSelected
+      return matchesName && matchesCategory && notSelected
     })
   }
 
@@ -256,6 +280,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
   const handleProductDialogClose = () => {
     setProductDialogOpen(false)
     setProductSearchFilter('')
+    setProductCategoryFilter('')
     setSelectedProductIds([])
     setSelectedRemovedIds([])
   }
@@ -263,6 +288,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
   const handleProductDialogConfirm = () => {
     setProductDialogOpen(false)
     setProductSearchFilter('')
+    setProductCategoryFilter('')
     setSelectedProductIds([])
     setSelectedRemovedIds([])
   }
@@ -1275,12 +1301,13 @@ const PurchaseOrderStatusReport: React.FC = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {getFilteredProducts().length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={1} align="center" sx={{ py: 4 }}>
+                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
                             <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                               {products.length === 0 ? 'No products available' : 'No products found'}
                             </Typography>
@@ -1301,6 +1328,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
                             }}
                           >
                             <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
                           </TableRow>
                         ))
                       )}
@@ -1392,12 +1420,13 @@ const PurchaseOrderStatusReport: React.FC = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600 }}>Product Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {getSelectedProductsList().length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={1} align="center" sx={{ py: 4 }}>
+                          <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
                             <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                               No products selected
                             </Typography>
@@ -1418,6 +1447,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
                             }}
                           >
                             <TableCell>{product.name}</TableCell>
+                            <TableCell>{product.category?.name || '-'}</TableCell>
                           </TableRow>
                         ))
                       )}
@@ -1434,7 +1464,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
               Filter Products
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid item xs={6}>
                 <TextField
                   size="small"
                   placeholder="Search by product name..."
@@ -1442,6 +1472,23 @@ const PurchaseOrderStatusReport: React.FC = () => {
                   onChange={(e) => setProductSearchFilter(e.target.value)}
                   fullWidth
                 />
+              </Grid>
+              <Grid item xs={6}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Filter by Category</InputLabel>
+                  <Select
+                    value={productCategoryFilter}
+                    label="Filter by Category"
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category.id} value={category.id}>
+                        {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
             </Grid>
           </Box>
