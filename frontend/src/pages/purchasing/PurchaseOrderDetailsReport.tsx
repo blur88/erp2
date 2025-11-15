@@ -336,20 +336,21 @@ const PurchaseOrderDetailsReport: React.FC = () => {
     let prevGroupKey: any = null
 
     const getExportGroupKey = (r: any) => {
+      if (groupBy === 'categoryProduct') {
+        return `${r.categoryName}|${r.productName}`
+      }
       return r[groupBy]
     }
 
     const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
-      } else if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+      if (groupBy === 'orderNumber') {
+        return `Order No: ${r.orderNumber}`
+      } else if (groupBy === 'categoryProduct') {
+        return `${r.categoryName} - ${r.productName}`
       } else if (groupBy === 'categoryName') {
         return `Category: ${r.categoryName}`
-      } else if (groupBy === 'status') {
-        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
-      } else if (groupBy === 'paymentStatus') {
-        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+      } else if (groupBy === 'supplierName') {
+        return `Vendor: ${r.supplierName}`
       }
       return r[groupBy]
     }
@@ -445,20 +446,21 @@ const PurchaseOrderDetailsReport: React.FC = () => {
     let prevGroupKey: any = null
 
     const getPdfGroupKey = (r: any) => {
+      if (groupBy === 'categoryProduct') {
+        return `${r.categoryName}|${r.productName}`
+      }
       return r[groupBy]
     }
 
     const getPdfGroupLabel = (r: any) => {
-      if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
-      } else if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+      if (groupBy === 'orderNumber') {
+        return `Order No: ${r.orderNumber}`
+      } else if (groupBy === 'categoryProduct') {
+        return `${r.categoryName} - ${r.productName}`
       } else if (groupBy === 'categoryName') {
         return `Category: ${r.categoryName}`
-      } else if (groupBy === 'status') {
-        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
-      } else if (groupBy === 'paymentStatus') {
-        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+      } else if (groupBy === 'supplierName') {
+        return `Vendor: ${r.supplierName}`
       }
       return r[groupBy]
     }
@@ -640,8 +642,17 @@ const PurchaseOrderDetailsReport: React.FC = () => {
 
     if (groupBy !== 'none') {
       filtered.sort((a, b) => {
-        const groupResult = compareValues(a, b, groupBy)
-        if (groupResult !== 0) return groupResult
+        if (groupBy === 'categoryProduct') {
+          // Sort by category first, then by product
+          const categoryResult = compareValues(a, b, 'categoryName')
+          if (categoryResult !== 0) return categoryResult
+
+          const productResult = compareValues(a, b, 'productName')
+          if (productResult !== 0) return productResult
+        } else {
+          const groupResult = compareValues(a, b, groupBy)
+          if (groupResult !== 0) return groupResult
+        }
 
         if (sortBy1 !== 'none') {
           const sortResult = compareValues(a, b, sortBy1)
@@ -957,11 +968,10 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="supplierName">Vendor</MenuItem>
-                    <MenuItem value="productName">Product</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
+                    <MenuItem value="categoryProduct">Category, Product</MenuItem>
                     <MenuItem value="categoryName">Category</MenuItem>
-                    <MenuItem value="status">Inventory Status</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1097,6 +1107,9 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                       const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                       const getGroupKey = (r: any) => {
+                        if (groupBy === 'categoryProduct') {
+                          return `${r.categoryName}|${r.productName}`
+                        }
                         return r[groupBy]
                       }
 
@@ -1104,16 +1117,14 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                       const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                       const getGroupLabel = (field: string, r: any) => {
-                        if (field === 'supplierName') {
-                          return `Vendor: ${r.supplierName}`
-                        } else if (field === 'productName') {
-                          return `Product: ${r.productName}`
+                        if (field === 'orderNumber') {
+                          return `Order No: ${r.orderNumber}`
+                        } else if (field === 'categoryProduct') {
+                          return `${r.categoryName} - ${r.productName}`
                         } else if (field === 'categoryName') {
                           return `Category: ${r.categoryName}`
-                        } else if (field === 'status') {
-                          return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
-                        } else if (field === 'paymentStatus') {
-                          return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+                        } else if (field === 'supplierName') {
+                          return `Vendor: ${r.supplierName}`
                         }
                         return r[field]
                       }
