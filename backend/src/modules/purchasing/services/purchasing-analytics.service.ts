@@ -37,6 +37,8 @@ interface PurchaseOrderDetailsItem {
   productName: string;
   categoryName: string;
   quantity: number;
+  receivedQuantity: number;
+  remainingQuantity: number;
   unitPrice: number;
   discountPercent: number;
   discountAmount: number;
@@ -269,13 +271,19 @@ export class PurchasingAnalyticsService {
 
       // Create a detail row for each item
       for (const item of po.items || []) {
+        const orderedQty = parseFloat(item.quantity?.toString() || '0');
+        const receivedQty = parseFloat(item.receivedQuantity?.toString() || '0');
+        const remainingQty = orderedQty - receivedQty;
+
         detailsData.push({
           orderNumber: po.orderNumber,
           orderDate: orderDateStr,
           supplierName: po.supplier?.companyName || 'N/A',
           productName: item.product?.name || 'N/A',
           categoryName: item.product?.category?.name || 'N/A',
-          quantity: parseFloat(item.quantity?.toString() || '0'),
+          quantity: orderedQty,
+          receivedQuantity: receivedQty,
+          remainingQuantity: remainingQty,
           unitPrice: parseFloat(item.unitCost?.toString() || '0'),
           discountPercent: parseFloat(item.discountPercent?.toString() || '0'),
           discountAmount: parseFloat(item.discountAmount?.toString() || '0'),
