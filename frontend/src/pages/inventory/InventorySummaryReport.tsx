@@ -67,10 +67,8 @@ const InventorySummaryReport: React.FC = () => {
   const [reportData, setReportData] = useState<InventorySummary[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
-  const [selectedType, setSelectedType] = useState<string>('')
-  const [selectedStatus, setSelectedStatus] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
 
   // Options
   const [pricingType, setPricingType] = useState<string>('retailPrice')
@@ -135,8 +133,6 @@ const InventorySummaryReport: React.FC = () => {
       const params = new URLSearchParams()
 
       if (selectedCategory) params.append('categoryId', selectedCategory)
-      if (selectedType) params.append('type', selectedType)
-      if (selectedStatus) params.append('status', selectedStatus)
       if (selectedProducts.length > 0) {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
@@ -158,10 +154,8 @@ const InventorySummaryReport: React.FC = () => {
   }
 
   const handleClearFilters = () => {
-    setSelectedCategory('')
-    setSelectedType('')
-    setSelectedStatus('')
     setSelectedProducts([])
+    setSelectedCategory('')
     setPricingType('retailPrice')
     setReportData([])
     setSelectedColumns(['productName', 'categoryName', 'type', 'stockQuantity', 'inventoryValue', 'sellingValue', 'potentialProfit'])
@@ -542,20 +536,14 @@ const InventorySummaryReport: React.FC = () => {
     }
 
     const filterText = []
+    if (selectedProducts.length > 0) {
+      filterText.push(`<p><strong>Products:</strong> ${selectedProducts.length} selected</p>`)
+    }
     if (selectedCategory) {
       const category = categories.find(c => c.id === selectedCategory)
       if (category) {
         filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
       }
-    }
-    if (selectedType) {
-      filterText.push(`<p><strong>Type:</strong> ${selectedType}</p>`)
-    }
-    if (selectedStatus) {
-      filterText.push(`<p><strong>Status:</strong> ${selectedStatus}</p>`)
-    }
-    if (selectedProducts.length > 0) {
-      filterText.push(`<p><strong>Products:</strong> ${selectedProducts.length} selected</p>`)
     }
     const dateRangeText = filterText.join('')
 
@@ -796,52 +784,6 @@ const InventorySummaryReport: React.FC = () => {
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                   <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                      value={selectedCategory}
-                      label="Category"
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                    >
-                      <MenuItem value="">All Categories</MenuItem>
-                      {categories.map((category) => (
-                        <MenuItem key={category.id} value={category.id}>
-                          {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Type</InputLabel>
-                    <Select
-                      value={selectedType}
-                      label="Type"
-                      onChange={(e) => setSelectedType(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                    >
-                      <MenuItem value="">All Types</MenuItem>
-                      <MenuItem value="product">Product</MenuItem>
-                      <MenuItem value="service">Service</MenuItem>
-                      <MenuItem value="bundle">Bundle</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={selectedStatus}
-                      label="Status"
-                      onChange={(e) => setSelectedStatus(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                    >
-                      <MenuItem value="">All Status</MenuItem>
-                      <MenuItem value="active">Active</MenuItem>
-                      <MenuItem value="discontinued">Discontinued</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                     <InputLabel>Products</InputLabel>
                     <Select
                       value={selectedProducts.length > 0 ? 'select' : 'all'}
@@ -876,6 +818,23 @@ const InventorySummaryReport: React.FC = () => {
                       })}
                     </Box>
                   )}
+
+                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={selectedCategory}
+                      label="Category"
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    >
+                      <MenuItem value="">All Categories</MenuItem>
+                      {categories.map((category) => (
+                        <MenuItem key={category.id} value={category.id}>
+                          {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Stack>
               </Box>
             </Paper>

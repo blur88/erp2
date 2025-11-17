@@ -4,10 +4,8 @@ import { Repository } from 'typeorm';
 import { Product, Category } from '../../../database/entities';
 
 interface InventorySummaryQuery {
-  categoryId?: string;
   productIds?: string[];
-  type?: string;
-  status?: string;
+  categoryId?: string;
 }
 
 interface InventorySummaryItem {
@@ -43,13 +41,6 @@ export class InventoryAnalyticsService {
       .where('product.isActive = :isActive', { isActive: true })
       .andWhere('product.deletedAt IS NULL');
 
-    // Category filter
-    if (query.categoryId) {
-      queryBuilder.andWhere('product.categoryId = :categoryId', {
-        categoryId: query.categoryId,
-      });
-    }
-
     // Product IDs filter
     if (query.productIds && query.productIds.length > 0) {
       queryBuilder.andWhere('product.id IN (:...productIds)', {
@@ -57,17 +48,10 @@ export class InventoryAnalyticsService {
       });
     }
 
-    // Type filter
-    if (query.type && query.type !== 'all') {
-      queryBuilder.andWhere('product.type = :type', {
-        type: query.type,
-      });
-    }
-
-    // Status filter
-    if (query.status && query.status !== 'all') {
-      queryBuilder.andWhere('product.status = :status', {
-        status: query.status,
+    // Category filter
+    if (query.categoryId) {
+      queryBuilder.andWhere('product.categoryId = :categoryId', {
+        categoryId: query.categoryId,
       });
     }
 

@@ -15,45 +15,31 @@ export class InventoryAnalyticsController {
       'Get inventory summary report - shows product-level inventory data with values and profit potential',
   })
   @ApiQuery({
-    name: 'categoryId',
-    required: false,
-    description: 'Filter by category ID',
-  })
-  @ApiQuery({
     name: 'productIds',
     required: false,
     type: [String],
     description: 'Filter by product IDs',
   })
   @ApiQuery({
-    name: 'type',
+    name: 'categoryId',
     required: false,
-    description: 'Filter by product type (product/service/bundle)',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    description: 'Filter by status (active/discontinued)',
+    description: 'Filter by category ID',
   })
   @ApiResponse({
     status: 200,
     description: 'Inventory summary report retrieved successfully',
   })
   async getInventorySummary(
-    @Query('categoryId') categoryId?: string,
     @Query('productIds') productIds?: string | string[],
-    @Query('type') type?: string,
-    @Query('status') status?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
     return this.inventoryAnalyticsService.getInventorySummary({
-      categoryId,
       productIds: Array.isArray(productIds)
         ? productIds
         : productIds
           ? [productIds]
           : undefined,
-      type,
-      status,
+      categoryId,
     });
   }
 }
