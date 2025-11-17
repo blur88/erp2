@@ -56,6 +56,9 @@ interface VendorProductList {
   totalAmount: number
   status: string
   paymentStatus: string
+  retailPrice: number
+  wholesalePrice: number
+  specialPrice: number
 }
 
 const VendorProductListReport: React.FC = () => {
@@ -84,7 +87,7 @@ const VendorProductListReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'supplierName', 'status', 'paymentStatus', 'orderDate', 'quantity', 'receivedQuantity', 'unitPrice', 'totalAmount'
+    'productName', 'categoryName', 'supplierName', 'unitPrice', 'sellingPrice', 'sellingProfit'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('productName')
@@ -171,7 +174,7 @@ const VendorProductListReport: React.FC = () => {
     setSelectedProducts([])
     setPricingType('retailPrice')
     setReportData([])
-    setSelectedColumns(['productName', 'supplierName', 'status', 'paymentStatus', 'orderDate', 'quantity', 'receivedQuantity', 'unitPrice', 'totalAmount'])
+    setSelectedColumns(['productName', 'categoryName', 'supplierName', 'unitPrice', 'sellingPrice', 'sellingProfit'])
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Vendor Product List Report')
@@ -301,17 +304,19 @@ const VendorProductListReport: React.FC = () => {
     if (sortedData.length === 0) return
 
     const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
+      productName: 'Products',
+      categoryName: 'Category',
       supplierName: 'Vendor',
+      unitPrice: 'Vendor Price',
+      sellingPrice: 'Selling Price',
+      sellingProfit: 'Selling Profit',
       status: 'Inventory Status',
       paymentStatus: 'Payment Status',
       orderDate: 'Order Date',
       quantity: 'Ordered Qty',
       receivedQuantity: 'Received Qty',
-      unitPrice: 'Unit Price',
       totalAmount: 'Total Amount',
-      orderNumber: 'Order No',
-      categoryName: 'Category'
+      orderNumber: 'Order No'
     }
 
     let csv = reportTitle + '\n\n'
@@ -345,6 +350,18 @@ const VendorProductListReport: React.FC = () => {
       }
 
       const values = selectedColumns.map(col => {
+        if (col === 'sellingPrice') {
+          const price = pricingType === 'retailPrice' ? row.retailPrice :
+                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
+                       row.specialPrice
+          return price.toFixed(2)
+        } else if (col === 'sellingProfit') {
+          const price = pricingType === 'retailPrice' ? row.retailPrice :
+                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
+                       row.specialPrice
+          return (price - row.unitPrice).toFixed(2)
+        }
+
         const value = (row as any)[col]
         if (col === 'orderDate') {
           return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
@@ -411,17 +428,19 @@ const VendorProductListReport: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
+      productName: 'Products',
+      categoryName: 'Category',
       supplierName: 'Vendor',
+      unitPrice: 'Vendor Price',
+      sellingPrice: 'Selling Price',
+      sellingProfit: 'Selling Profit',
       status: 'Inventory Status',
       paymentStatus: 'Payment Status',
       orderDate: 'Order Date',
       quantity: 'Ordered Qty',
       receivedQuantity: 'Received Qty',
-      unitPrice: 'Unit Price',
       totalAmount: 'Total Amount',
-      orderNumber: 'Order No',
-      categoryName: 'Category'
+      orderNumber: 'Order No'
     }
 
     let tableRows = ''
@@ -453,16 +472,34 @@ const VendorProductListReport: React.FC = () => {
 
       tableRows += '<tr>'
       selectedColumns.forEach(col => {
-        const value = (row as any)[col]
-        let displayValue = value
-        if (col === 'orderDate') {
-          displayValue = value ? new Date(value).toLocaleDateString() : '-'
-        } else if (typeof value === 'number') {
-          displayValue = formatCurrency(value)
-        } else if (col === 'status' || col === 'paymentStatus') {
-          displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
+        let displayValue: any
+        let align = ''
+
+        if (col === 'sellingPrice') {
+          const price = pricingType === 'retailPrice' ? row.retailPrice :
+                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
+                       row.specialPrice
+          displayValue = formatCurrency(price)
+          align = 'text-align: right;'
+        } else if (col === 'sellingProfit') {
+          const price = pricingType === 'retailPrice' ? row.retailPrice :
+                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
+                       row.specialPrice
+          displayValue = formatCurrency(price - row.unitPrice)
+          align = 'text-align: right;'
+        } else {
+          const value = (row as any)[col]
+          displayValue = value
+          if (col === 'orderDate') {
+            displayValue = value ? new Date(value).toLocaleDateString() : '-'
+          } else if (typeof value === 'number') {
+            displayValue = formatCurrency(value)
+            align = 'text-align: right;'
+          } else if (col === 'status' || col === 'paymentStatus') {
+            displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
+          }
         }
-        const align = (typeof value === 'number') ? 'text-align: right;' : ''
+
         tableRows += `<td style="${align}">${displayValue || ''}</td>`
       })
       tableRows += '</tr>'
@@ -611,8 +648,29 @@ const VendorProductListReport: React.FC = () => {
     let filtered = [...reportData]
 
     const compareValues = (a: any, b: any, field: string) => {
-      const aVal = a[field]
-      const bVal = b[field]
+      let aVal: any
+      let bVal: any
+
+      if (field === 'sellingPrice') {
+        aVal = pricingType === 'retailPrice' ? a.retailPrice :
+               pricingType === 'wholesalePrice' ? a.wholesalePrice :
+               a.specialPrice
+        bVal = pricingType === 'retailPrice' ? b.retailPrice :
+               pricingType === 'wholesalePrice' ? b.wholesalePrice :
+               b.specialPrice
+      } else if (field === 'sellingProfit') {
+        const aSelling = pricingType === 'retailPrice' ? a.retailPrice :
+                        pricingType === 'wholesalePrice' ? a.wholesalePrice :
+                        a.specialPrice
+        const bSelling = pricingType === 'retailPrice' ? b.retailPrice :
+                        pricingType === 'wholesalePrice' ? b.wholesalePrice :
+                        b.specialPrice
+        aVal = aSelling - a.unitPrice
+        bVal = bSelling - b.unitPrice
+      } else {
+        aVal = a[field]
+        bVal = b[field]
+      }
 
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
@@ -890,7 +948,7 @@ const VendorProductListReport: React.FC = () => {
                         const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
                         if (value.includes('all')) {
-                          const allColumns = ['productName', 'supplierName', 'status', 'paymentStatus', 'orderDate', 'quantity', 'receivedQuantity', 'unitPrice', 'totalAmount', 'orderNumber', 'categoryName']
+                          const allColumns = ['productName', 'categoryName', 'supplierName', 'unitPrice', 'sellingPrice', 'sellingProfit']
                           if (selectedColumns.length === allColumns.length) {
                             setSelectedColumns([])
                           } else {
@@ -904,17 +962,12 @@ const VendorProductListReport: React.FC = () => {
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="productName">Product</MenuItem>
-                      <MenuItem value="supplierName">Vendor</MenuItem>
-                      <MenuItem value="status">Inventory Status</MenuItem>
-                      <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                      <MenuItem value="orderDate">Order Date</MenuItem>
-                      <MenuItem value="quantity">Ordered Qty</MenuItem>
-                      <MenuItem value="receivedQuantity">Received Qty</MenuItem>
-                      <MenuItem value="unitPrice">Unit Price</MenuItem>
-                      <MenuItem value="totalAmount">Total Amount</MenuItem>
-                      <MenuItem value="orderNumber">Order No</MenuItem>
+                      <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
+                      <MenuItem value="supplierName">Vendor</MenuItem>
+                      <MenuItem value="unitPrice">Vendor Price</MenuItem>
+                      <MenuItem value="sellingPrice">Selling Price</MenuItem>
+                      <MenuItem value="sellingProfit">Selling Profit</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -941,17 +994,12 @@ const VendorProductListReport: React.FC = () => {
                       onChange={(e) => setSortBy1(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      {selectedColumns.includes('productName') && <MenuItem value="productName">Product</MenuItem>}
-                      {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
-                      {selectedColumns.includes('status') && <MenuItem value="status">Inventory Status</MenuItem>}
-                      {selectedColumns.includes('paymentStatus') && <MenuItem value="paymentStatus">Payment Status</MenuItem>}
-                      {selectedColumns.includes('orderDate') && <MenuItem value="orderDate">Order Date</MenuItem>}
-                      {selectedColumns.includes('quantity') && <MenuItem value="quantity">Ordered Qty</MenuItem>}
-                      {selectedColumns.includes('receivedQuantity') && <MenuItem value="receivedQuantity">Received Qty</MenuItem>}
-                      {selectedColumns.includes('unitPrice') && <MenuItem value="unitPrice">Unit Price</MenuItem>}
-                      {selectedColumns.includes('totalAmount') && <MenuItem value="totalAmount">Total Amount</MenuItem>}
-                      {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">Order No</MenuItem>}
+                      {selectedColumns.includes('productName') && <MenuItem value="productName">Products</MenuItem>}
                       {selectedColumns.includes('categoryName') && <MenuItem value="categoryName">Category</MenuItem>}
+                      {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
+                      {selectedColumns.includes('unitPrice') && <MenuItem value="unitPrice">Vendor Price</MenuItem>}
+                      {selectedColumns.includes('sellingPrice') && <MenuItem value="sellingPrice">Selling Price</MenuItem>}
+                      {selectedColumns.includes('sellingProfit') && <MenuItem value="sellingProfit">Selling Profit</MenuItem>}
                     </Select>
                   </FormControl>
 
@@ -1048,17 +1096,12 @@ const VendorProductListReport: React.FC = () => {
                         top: 0,
                         zIndex: 10
                       } }}>
-                        {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
-                        {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
-                        {selectedColumns.includes('status') && <TableCell align="center">Inventory Status</TableCell>}
-                        {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
-                        {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
-                        {selectedColumns.includes('quantity') && <TableCell align="center">Ordered Qty</TableCell>}
-                        {selectedColumns.includes('receivedQuantity') && <TableCell align="center">Received Qty</TableCell>}
-                        {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
-                        {selectedColumns.includes('totalAmount') && <TableCell align="center">Total Amount</TableCell>}
-                        {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
+                        {selectedColumns.includes('productName') && <TableCell align="center">Products</TableCell>}
                         {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
+                        {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
+                        {selectedColumns.includes('unitPrice') && <TableCell align="center">Vendor Price</TableCell>}
+                        {selectedColumns.includes('sellingPrice') && <TableCell align="center">Selling Price</TableCell>}
+                        {selectedColumns.includes('sellingProfit') && <TableCell align="center">Selling Profit</TableCell>}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1128,42 +1171,14 @@ const VendorProductListReport: React.FC = () => {
                                   {row.productName}
                                 </TableCell>
                               )}
+                              {selectedColumns.includes('categoryName') && (
+                                <TableCell sx={{ fontSize: '0.8rem' }}>
+                                  {row.categoryName}
+                                </TableCell>
+                              )}
                               {selectedColumns.includes('supplierName') && (
                                 <TableCell sx={{ fontSize: '0.8rem' }}>
                                   {row.supplierName}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('status') && (
-                                <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                                    color={getStatusColor(row.status) as any}
-                                    size="small"
-                                  />
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('paymentStatus') && (
-                                <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
-                                    color={getPaymentStatusColor(row.paymentStatus) as any}
-                                    size="small"
-                                  />
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('orderDate') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('quantity') && (
-                                <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                  {row.quantity}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('receivedQuantity') && (
-                                <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                  {row.receivedQuantity}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('unitPrice') && (
@@ -1171,19 +1186,22 @@ const VendorProductListReport: React.FC = () => {
                                   {formatCurrency(row.unitPrice)}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('totalAmount') && (
+                              {selectedColumns.includes('sellingPrice') && (
+                                <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                  {formatCurrency(
+                                    pricingType === 'retailPrice' ? row.retailPrice :
+                                    pricingType === 'wholesalePrice' ? row.wholesalePrice :
+                                    row.specialPrice
+                                  )}
+                                </TableCell>
+                              )}
+                              {selectedColumns.includes('sellingProfit') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                                  {formatCurrency(row.totalAmount)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('orderNumber') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.orderNumber}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('categoryName') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.categoryName}
+                                  {formatCurrency(
+                                    (pricingType === 'retailPrice' ? row.retailPrice :
+                                     pricingType === 'wholesalePrice' ? row.wholesalePrice :
+                                     row.specialPrice) - row.unitPrice
+                                  )}
                                 </TableCell>
                               )}
                             </TableRow>
@@ -1203,28 +1221,11 @@ const VendorProductListReport: React.FC = () => {
                                     Subtotal
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('supplierName') && <TableCell />}
-                                {selectedColumns.includes('status') && <TableCell />}
-                                {selectedColumns.includes('paymentStatus') && <TableCell />}
-                                {selectedColumns.includes('orderDate') && <TableCell />}
-                                {selectedColumns.includes('quantity') && (
-                                  <TableCell align="right">
-                                    {groupSubtotals.quantity}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('receivedQuantity') && (
-                                  <TableCell align="right">
-                                    {groupSubtotals.receivedQuantity}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('unitPrice') && <TableCell />}
-                                {selectedColumns.includes('totalAmount') && (
-                                  <TableCell align="right">
-                                    {formatCurrency(groupSubtotals.totalAmount)}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('orderNumber') && <TableCell />}
                                 {selectedColumns.includes('categoryName') && <TableCell />}
+                                {selectedColumns.includes('supplierName') && <TableCell />}
+                                {selectedColumns.includes('unitPrice') && <TableCell />}
+                                {selectedColumns.includes('sellingPrice') && <TableCell />}
+                                {selectedColumns.includes('sellingProfit') && <TableCell />}
                               </TableRow>
                             )}
                           </React.Fragment>
@@ -1248,28 +1249,11 @@ const VendorProductListReport: React.FC = () => {
                               TOTAL
                             </TableCell>
                           )}
-                          {selectedColumns.includes('supplierName') && <TableCell />}
-                          {selectedColumns.includes('status') && <TableCell />}
-                          {selectedColumns.includes('paymentStatus') && <TableCell />}
-                          {selectedColumns.includes('orderDate') && <TableCell />}
-                          {selectedColumns.includes('quantity') && (
-                            <TableCell align="right">
-                              {totals.quantity}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('receivedQuantity') && (
-                            <TableCell align="right">
-                              {totals.receivedQuantity}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('unitPrice') && <TableCell />}
-                          {selectedColumns.includes('totalAmount') && (
-                            <TableCell align="right">
-                              {formatCurrency(totals.totalAmount)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('orderNumber') && <TableCell />}
                           {selectedColumns.includes('categoryName') && <TableCell />}
+                          {selectedColumns.includes('supplierName') && <TableCell />}
+                          {selectedColumns.includes('unitPrice') && <TableCell />}
+                          {selectedColumns.includes('sellingPrice') && <TableCell />}
+                          {selectedColumns.includes('sellingProfit') && <TableCell />}
                         </TableRow>
                       )}
                     </TableBody>

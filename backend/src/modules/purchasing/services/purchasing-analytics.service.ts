@@ -74,6 +74,9 @@ interface VendorProductListItem {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  retailPrice: number;
+  wholesalePrice: number;
+  specialPrice: number;
 }
 
 @Injectable()
@@ -484,6 +487,9 @@ export class PurchasingAnalyticsService {
         totalAmount: parseFloat(item.totalPrice?.toString() || '0'),
         status: item.purchaseOrder?.status || 'pending',
         paymentStatus: item.purchaseOrder?.paymentStatus || 'unpaid',
+        retailPrice: parseFloat(item.product?.retailPrice?.toString() || '0'),
+        wholesalePrice: parseFloat(item.product?.wholesalePrice?.toString() || '0'),
+        specialPrice: parseFloat(item.product?.specialPrice?.toString() || '0'),
       };
     });
 
