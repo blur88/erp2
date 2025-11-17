@@ -146,4 +146,47 @@ export class PurchasingAnalyticsController {
       paymentStatus,
     });
   }
+
+  @Get('vendor-payment-details')
+  @ApiOperation({
+    summary:
+      'Get vendor payment details report - shows individual vendor payment transactions',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date for payment date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date for payment date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'supplierId',
+    required: false,
+    description: 'Filter by supplier ID',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by payment status (pending/completed/cancelled)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor payment details report retrieved successfully',
+  })
+  async getVendorPaymentDetails(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('supplierId') supplierId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.purchasingAnalyticsService.getVendorPaymentDetails({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      supplierId,
+      status,
+    });
+  }
 }

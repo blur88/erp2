@@ -278,7 +278,7 @@ const menuSections: MenuSection[] = [
             id: 'vendor-payment-details',
             title: 'Vendor Payment Details',
             icon: <PaymentDetailIcon />,
-            path: '/reports/purchasing/vendor-payment-details',
+            path: '/reports/purchasing/payment-details',
           },
           {
             id: 'vendor-purchase-list',

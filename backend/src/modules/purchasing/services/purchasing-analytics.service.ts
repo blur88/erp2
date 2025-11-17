@@ -6,6 +6,7 @@ import {
   PurchaseOrderItem,
   Supplier,
   Product,
+  VendorPayment,
 } from '../../../database/entities';
 
 interface PurchaseOrderSummaryQuery {
@@ -47,6 +48,20 @@ interface PurchaseOrderDetailsItem {
   paymentStatus: string;
 }
 
+interface VendorPaymentDetailsItem {
+  paymentNumber: string;
+  paymentDate: string;
+  supplierName: string;
+  orderNumber: string;
+  orderDate: string | null;
+  grnNumber: string | null;
+  paymentAmount: number;
+  paymentMethod: string;
+  referenceNumber: string | null;
+  status: string;
+  notes: string;
+}
+
 @Injectable()
 export class PurchasingAnalyticsService {
   constructor(
@@ -58,6 +73,8 @@ export class PurchasingAnalyticsService {
     private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(VendorPayment)
+    private readonly vendorPaymentRepository: Repository<VendorPayment>,
   ) {}
 
   async getPurchaseOrderSummary(
@@ -295,5 +312,82 @@ export class PurchasingAnalyticsService {
     }
 
     return { data: detailsData };
+  }
+
+  async getVendorPaymentDetails(
+    query: PurchaseOrderSummaryQuery,
+  ): Promise<{ data: VendorPaymentDetailsItem[] }> {
+    const queryBuilder = this.vendorPaymentRepository
+      .createQueryBuilder('vp')
+      .leftJoinAndSelect('vp.supplier', 'supplier')
+      .leftJoinAndSelect('vp.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('vp.grn', 'grn')
+      .where('vp.isActive = :isActive', { isActive: true })
+      .andWhere('vp.deletedAt IS NULL');
+
+    // Date filters - filter by payment date
+    if (query.dateFrom) {
+      queryBuilder.andWhere('vp.paymentDate >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    }
+
+    if (query.dateTo) {
+      queryBuilder.andWhere('vp.paymentDate <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    // Supplier filter
+    if (query.supplierId) {
+      queryBuilder.andWhere('vp.supplierId = :supplierId', {
+        supplierId: query.supplierId,
+      });
+    }
+
+    // Status filter
+    if (query.status && query.status !== 'all') {
+      queryBuilder.andWhere('vp.status = :status', {
+        status: query.status,
+      });
+    }
+
+    // Order by payment date and payment number
+    queryBuilder.orderBy('vp.paymentDate', 'DESC');
+    queryBuilder.addOrderBy('vp.paymentNumber', 'ASC');
+
+    const vendorPayments = await queryBuilder.getMany();
+
+    const data: VendorPaymentDetailsItem[] = vendorPayments.map((vp) => {
+      // Safely handle paymentDate conversion
+      let paymentDateStr = '';
+      if (vp.paymentDate) {
+        const date = vp.paymentDate instanceof Date ? vp.paymentDate : new Date(vp.paymentDate);
+        paymentDateStr = date.toISOString().split('T')[0];
+      }
+
+      // Safely handle orderDate conversion
+      let orderDateStr: string | null = null;
+      if (vp.purchaseOrder?.orderDate) {
+        const date = vp.purchaseOrder.orderDate instanceof Date ? vp.purchaseOrder.orderDate : new Date(vp.purchaseOrder.orderDate);
+        orderDateStr = date.toISOString().split('T')[0];
+      }
+
+      return {
+        paymentNumber: vp.paymentNumber,
+        paymentDate: paymentDateStr,
+        supplierName: vp.supplier?.companyName || 'N/A',
+        orderNumber: vp.purchaseOrder?.orderNumber || '',
+        orderDate: orderDateStr,
+        grnNumber: vp.grn?.grnNumber || null,
+        paymentAmount: parseFloat(vp.amount?.toString() || '0'),
+        paymentMethod: vp.paymentMethod,
+        referenceNumber: vp.referenceNumber || null,
+        status: vp.status,
+        notes: vp.notes || '',
+      };
+    });
+
+    return { data };
   }
 }
