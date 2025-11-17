@@ -189,4 +189,66 @@ export class PurchasingAnalyticsController {
       status,
     });
   }
+
+  @Get('vendor-product-list')
+  @ApiOperation({
+    summary:
+      'Get vendor product list report - shows product-level details for vendor purchases',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date for order date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date for order date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'supplierId',
+    required: false,
+    description: 'Filter by supplier ID',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by inventory status (received/pending)',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by payment status (unpaid/partial/paid)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vendor product list report retrieved successfully',
+  })
+  async getVendorProductList(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('supplierId') supplierId?: string,
+    @Query('productIds') productIds?: string | string[],
+    @Query('status') status?: string,
+    @Query('paymentStatus') paymentStatus?: string,
+  ) {
+    return this.purchasingAnalyticsService.getVendorProductList({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      supplierId,
+      productIds: Array.isArray(productIds)
+        ? productIds
+        : productIds
+          ? [productIds]
+          : undefined,
+      status,
+      paymentStatus,
+    });
+  }
 }

@@ -62,6 +62,20 @@ interface VendorPaymentDetailsItem {
   notes: string;
 }
 
+interface VendorProductListItem {
+  supplierName: string;
+  productName: string;
+  categoryName: string;
+  orderNumber: string;
+  orderDate: string;
+  quantity: number;
+  receivedQuantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  status: string;
+  paymentStatus: string;
+}
+
 @Injectable()
 export class PurchasingAnalyticsService {
   constructor(
@@ -385,6 +399,91 @@ export class PurchasingAnalyticsService {
         referenceNumber: vp.referenceNumber || null,
         status: vp.status,
         notes: vp.notes || '',
+      };
+    });
+
+    return { data };
+  }
+
+  async getVendorProductList(
+    query: PurchaseOrderSummaryQuery,
+  ): Promise<{ data: VendorProductListItem[] }> {
+    const queryBuilder = this.purchaseOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoinAndSelect('item.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('purchaseOrder.supplier', 'supplier')
+      .leftJoinAndSelect('item.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('purchaseOrder.isActive = :isActive', { isActive: true })
+      .andWhere('purchaseOrder.deletedAt IS NULL');
+
+    // Date filters - filter by order date
+    if (query.dateFrom) {
+      queryBuilder.andWhere('purchaseOrder.orderDate >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    }
+
+    if (query.dateTo) {
+      queryBuilder.andWhere('purchaseOrder.orderDate <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    // Supplier filter
+    if (query.supplierId) {
+      queryBuilder.andWhere('purchaseOrder.supplierId = :supplierId', {
+        supplierId: query.supplierId,
+      });
+    }
+
+    // Product filter
+    if (query.productIds && query.productIds.length > 0) {
+      queryBuilder.andWhere('item.productId IN (:...productIds)', {
+        productIds: query.productIds,
+      });
+    }
+
+    // Status filter (inventory status)
+    if (query.status && query.status !== 'all') {
+      queryBuilder.andWhere('purchaseOrder.status = :status', {
+        status: query.status,
+      });
+    }
+
+    // Payment status filter
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      queryBuilder.andWhere('purchaseOrder.paymentStatus = :paymentStatus', {
+        paymentStatus: query.paymentStatus,
+      });
+    }
+
+    // Order by order date and order number
+    queryBuilder.orderBy('purchaseOrder.orderDate', 'DESC');
+    queryBuilder.addOrderBy('purchaseOrder.orderNumber', 'ASC');
+
+    const items = await queryBuilder.getMany();
+
+    const data: VendorProductListItem[] = items.map((item) => {
+      // Safely handle orderDate conversion
+      let orderDateStr = '';
+      if (item.purchaseOrder?.orderDate) {
+        const date = item.purchaseOrder.orderDate instanceof Date ? item.purchaseOrder.orderDate : new Date(item.purchaseOrder.orderDate);
+        orderDateStr = date.toISOString().split('T')[0];
+      }
+
+      return {
+        supplierName: item.purchaseOrder?.supplier?.companyName || 'N/A',
+        productName: item.product?.name || 'N/A',
+        categoryName: item.product?.category?.name || 'N/A',
+        orderNumber: item.purchaseOrder?.orderNumber || '',
+        orderDate: orderDateStr,
+        quantity: item.quantity,
+        receivedQuantity: item.receivedQuantity || 0,
+        unitPrice: parseFloat(item.unitPrice?.toString() || '0'),
+        totalAmount: parseFloat(item.totalPrice?.toString() || '0'),
+        status: item.purchaseOrder?.status || 'pending',
+        paymentStatus: item.purchaseOrder?.paymentStatus || 'unpaid',
       };
     });
 
