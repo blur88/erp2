@@ -323,12 +323,12 @@ const PurchaseOrderStatusReport: React.FC = () => {
     }
 
     const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'supplierName') {
+      if (groupBy === 'productName') {
+        return `Product: ${r.productName}`
+      } else if (groupBy === 'supplierName') {
         return `Vendor: ${r.supplierName}`
-      } else if (groupBy === 'status') {
-        return `Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
-      } else if (groupBy === 'paymentStatus') {
-        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+      } else if (groupBy === 'orderNumber') {
+        return `Order No.: ${r.orderNumber}`
       }
       return r[groupBy]
     }
@@ -430,12 +430,12 @@ const PurchaseOrderStatusReport: React.FC = () => {
     }
 
     const getPdfGroupLabel = (r: any) => {
-      if (groupBy === 'supplierName') {
+      if (groupBy === 'productName') {
+        return `Product: ${r.productName}`
+      } else if (groupBy === 'supplierName') {
         return `Vendor: ${r.supplierName}`
-      } else if (groupBy === 'status') {
-        return `Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
-      } else if (groupBy === 'paymentStatus') {
-        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+      } else if (groupBy === 'orderNumber') {
+        return `Order No.: ${r.orderNumber}`
       }
       return r[groupBy]
     }
@@ -898,9 +898,9 @@ const PurchaseOrderStatusReport: React.FC = () => {
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
+                      <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="supplierName">Vendor</MenuItem>
-                      <MenuItem value="status">Inventory Status</MenuItem>
-                      <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                      <MenuItem value="orderNumber">Order No.</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -1043,12 +1043,12 @@ const PurchaseOrderStatusReport: React.FC = () => {
                         const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                         const getGroupLabel = (field: string, r: any) => {
-                          if (field === 'supplierName') {
+                          if (field === 'productName') {
+                            return `Product: ${r.productName}`
+                          } else if (field === 'supplierName') {
                             return `Vendor: ${r.supplierName}`
-                          } else if (field === 'status') {
-                            return `Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
-                          } else if (field === 'paymentStatus') {
-                            return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+                          } else if (field === 'orderNumber') {
+                            return `Order No.: ${r.orderNumber}`
                           }
                           return r[field]
                         }
