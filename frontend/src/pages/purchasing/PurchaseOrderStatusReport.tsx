@@ -85,7 +85,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
     'productName', 'status', 'paymentStatus', 'orderDate', 'orderNumber', 'supplierName', 'totalAmount', 'quantity', 'receivedQuantity', 'remainingQuantity'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('orderNumber')
+  const [sortBy1, setSortBy1] = useState<string>('productName')
   const [reportTitle, setReportTitle] = useState<string>('Purchase Order Status Report')
 
   // Pagination
@@ -172,7 +172,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
     setReportData([])
     setSelectedColumns(['productName', 'status', 'paymentStatus', 'orderDate', 'orderNumber', 'supplierName', 'totalAmount', 'quantity', 'receivedQuantity', 'remainingQuantity'])
     setGroupBy('none')
-    setSortBy1('orderNumber')
+    setSortBy1('productName')
     setReportTitle('Purchase Order Status Report')
     setPage(0)
     setRowsPerPage(25)
