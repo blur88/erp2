@@ -21,7 +21,6 @@ import {
   Stack,
   useTheme,
   useMediaQuery,
-  Chip,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
@@ -143,11 +142,11 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
     const getExportGroupLabel = (r: any) => {
       if (groupBy === 'supplierName') {
-        return `Supplier: ${r.supplierName}`
-      } else if (groupBy === 'paymentMethod') {
-        return `Payment Method: ${r.paymentMethod}`
-      } else if (groupBy === 'status') {
-        return `Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+        return `Vendor: ${r.supplierName}`
+      } else if (groupBy === 'paymentDate') {
+        return `Payment Date: ${r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : 'N/A'}`
+      } else if (groupBy === 'orderNumber') {
+        return `Order No: ${r.orderNumber || 'N/A'}`
       }
       return r[groupBy]
     }
@@ -241,11 +240,11 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'supplierName') {
-        return `Supplier: ${r.supplierName}`
-      } else if (groupBy === 'paymentMethod') {
-        return `Payment Method: ${r.paymentMethod}`
-      } else if (groupBy === 'status') {
-        return `Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+        return `Vendor: ${r.supplierName}`
+      } else if (groupBy === 'paymentDate') {
+        return `Payment Date: ${r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : 'N/A'}`
+      } else if (groupBy === 'orderNumber') {
+        return `Order No: ${r.orderNumber || 'N/A'}`
       }
       return r[groupBy]
     }
@@ -457,29 +456,6 @@ const VendorPaymentDetailsReport: React.FC = () => {
     setPage(0)
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'success'
-      case 'pending':
-        return 'warning'
-      case 'cancelled':
-        return 'error'
-      default:
-        return 'default'
-    }
-  }
-
-  const getPaymentMethodLabel = (method: string) => {
-    const labels: Record<string, string> = {
-      'cash': 'Cash',
-      'bank_transfer': 'Bank Transfer',
-      'check': 'Check',
-      'card': 'Card'
-    }
-    return labels[method] || method
-  }
-
   return (
     <Box>
       {/* Header */}
@@ -660,9 +636,9 @@ const VendorPaymentDetailsReport: React.FC = () => {
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
-                      <MenuItem value="supplierName">Supplier</MenuItem>
-                      <MenuItem value="paymentMethod">Payment Method</MenuItem>
-                      <MenuItem value="status">Status</MenuItem>
+                      <MenuItem value="supplierName">Vendor</MenuItem>
+                      <MenuItem value="paymentDate">Payment Date</MenuItem>
+                      <MenuItem value="orderNumber">Order No</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -794,11 +770,11 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
                         const getGroupLabel = (field: string, r: any) => {
                           if (field === 'supplierName') {
-                            return `Supplier: ${r.supplierName}`
-                          } else if (field === 'paymentMethod') {
-                            return `Payment Method: ${getPaymentMethodLabel(r.paymentMethod)}`
-                          } else if (field === 'status') {
-                            return `Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+                            return `Vendor: ${r.supplierName}`
+                          } else if (field === 'paymentDate') {
+                            return `Payment Date: ${r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : 'N/A'}`
+                          } else if (field === 'orderNumber') {
+                            return `Order No: ${r.orderNumber || 'N/A'}`
                           }
                           return r[field]
                         }
