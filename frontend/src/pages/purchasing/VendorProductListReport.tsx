@@ -993,12 +993,12 @@ const VendorProductListReport: React.FC = () => {
                       onChange={(e) => setSortBy1(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      {selectedColumns.includes('productName') && <MenuItem value="productName">Products</MenuItem>}
-                      {selectedColumns.includes('categoryName') && <MenuItem value="categoryName">Category</MenuItem>}
-                      {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
-                      {selectedColumns.includes('unitPrice') && <MenuItem value="unitPrice">Vendor Price</MenuItem>}
-                      {selectedColumns.includes('sellingPrice') && <MenuItem value="sellingPrice">Selling Price</MenuItem>}
-                      {selectedColumns.includes('sellingProfit') && <MenuItem value="sellingProfit">Selling Profit</MenuItem>}
+                      <MenuItem value="productName">Products</MenuItem>
+                      <MenuItem value="categoryName">Category</MenuItem>
+                      <MenuItem value="supplierName">Vendor</MenuItem>
+                      <MenuItem value="unitPrice">Vendor Price</MenuItem>
+                      <MenuItem value="sellingPrice">Selling Price</MenuItem>
+                      <MenuItem value="sellingProfit">Selling Profit</MenuItem>
                     </Select>
                   </FormControl>
 
