@@ -61,7 +61,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
     'supplierName', 'paymentDate', 'orderNumber', 'paymentAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('paymentDate')
+  const [sortBy1, setSortBy1] = useState<string>('supplierName')
   const [reportTitle, setReportTitle] = useState<string>('Vendor Payment Details Report')
 
   // Pagination
@@ -114,7 +114,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
     setReportData([])
     setSelectedColumns(['supplierName', 'paymentDate', 'orderNumber', 'paymentAmount'])
     setGroupBy('none')
-    setSortBy1('paymentDate')
+    setSortBy1('supplierName')
     setReportTitle('Vendor Payment Details Report')
     setPage(0)
     setRowsPerPage(25)
