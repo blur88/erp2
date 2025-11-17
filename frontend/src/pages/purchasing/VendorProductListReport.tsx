@@ -70,6 +70,10 @@ const VendorProductListReport: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+
+  // Options
+  const [pricingType, setPricingType] = useState<string>('retailPrice')
+
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
@@ -165,6 +169,7 @@ const VendorProductListReport: React.FC = () => {
     setSelectedSupplier('')
     setSelectedCategory('')
     setSelectedProducts([])
+    setPricingType('retailPrice')
     setReportData([])
     setSelectedColumns(['productName', 'supplierName', 'status', 'paymentStatus', 'orderDate', 'quantity', 'receivedQuantity', 'unitPrice', 'totalAmount'])
     setGroupBy('none')
@@ -824,6 +829,38 @@ const VendorProductListReport: React.FC = () => {
                       })}
                     </Box>
                   )}
+                </Stack>
+              </Box>
+            </Paper>
+
+            {/* Options Section */}
+            <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 0.5, overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Options
+                </Typography>
+              </Box>
+
+              <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
+                <Stack spacing={2}>
+                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                    <InputLabel>Pricing</InputLabel>
+                    <Select
+                      value={pricingType}
+                      label="Pricing"
+                      onChange={(e) => setPricingType(e.target.value)}
+                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    >
+                      <MenuItem value="retailPrice">Retail Price</MenuItem>
+                      <MenuItem value="wholesalePrice">Wholesale Price</MenuItem>
+                      <MenuItem value="specialPrice">Special Price</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Stack>
               </Box>
             </Paper>
