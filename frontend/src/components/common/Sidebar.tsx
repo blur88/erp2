@@ -42,7 +42,6 @@ import {
   History as HistoryIcon,
   PersonSearch as CustomerProductIcon,
   Inventory2 as InventorySummaryIcon,
-  ViewList as InventoryDetailsIcon,
   Timeline as HistoricalInventoryIcon,
   CompareArrows as MovementSummaryIcon,
   AttachMoney as PriceListIcon,
@@ -305,12 +304,6 @@ const menuSections: MenuSection[] = [
             title: 'Inventory Summary',
             icon: <InventorySummaryIcon />,
             path: '/reports/inventory/summary',
-          },
-          {
-            id: 'inventory-details',
-            title: 'Inventory Details Report',
-            icon: <InventoryDetailsIcon />,
-            path: '/reports/inventory/details',
           },
           {
             id: 'historical-inventory',
