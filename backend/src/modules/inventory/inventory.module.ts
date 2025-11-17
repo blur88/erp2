@@ -21,6 +21,7 @@ import { ProductController } from './controllers/product.controller';
 import { CategoryController } from './controllers/category.controller';
 import { StockController } from './controllers/stock.controller';
 import { StockAdjustmentController } from './controllers/stock-adjustment.controller';
+import { InventoryAnalyticsController } from './controllers/inventory-analytics.controller';
 
 // Services
 import { ProductService } from './services/product.service';
@@ -30,6 +31,7 @@ import { StockAdjustmentService } from './services/stock-adjustment.service';
 import { PricingService } from './services/pricing.service';
 import { IntegrationService } from './services/integration.service';
 import { BaseCostCalculatorService } from './services/base-cost-calculator.service';
+import { InventoryAnalyticsService } from './services/inventory-analytics.service';
 
 // Other modules
 import { UsersModule } from '../users/users.module';
@@ -62,6 +64,7 @@ import { UsersModule } from '../users/users.module';
     CategoryController,
     StockController,
     StockAdjustmentController,
+    InventoryAnalyticsController,
   ],
   providers: [
     // Core services
@@ -72,6 +75,7 @@ import { UsersModule } from '../users/users.module';
     PricingService,
     IntegrationService,
     BaseCostCalculatorService,
+    InventoryAnalyticsService,
   ],
   exports: [
     // Export services for use by other modules
