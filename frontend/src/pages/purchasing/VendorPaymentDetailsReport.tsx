@@ -27,7 +27,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  AccountBalance as PaymentIcon,
+  MonetizationOn as PaymentIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'

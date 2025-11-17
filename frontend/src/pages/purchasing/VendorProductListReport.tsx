@@ -34,7 +34,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Inventory2 as ProductIcon,
+  Business as ProductIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,

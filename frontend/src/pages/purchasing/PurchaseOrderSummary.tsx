@@ -29,7 +29,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  ShoppingCart as PurchaseOrderIcon,
+  Summarize as PurchaseOrderIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'

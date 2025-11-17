@@ -42,7 +42,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  ShoppingCart as PurchaseOrderIcon,
+  ListAlt as PurchaseOrderIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
