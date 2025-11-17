@@ -41,6 +41,13 @@ import {
   MonetizationOn as PaymentDetailIcon,
   History as HistoryIcon,
   PersonSearch as CustomerProductIcon,
+  Inventory2 as InventorySummaryIcon,
+  ViewList as InventoryDetailsIcon,
+  Timeline as HistoricalInventoryIcon,
+  CompareArrows as MovementSummaryIcon,
+  AttachMoney as PriceListIcon,
+  Checklist as CountSheetIcon,
+  TrendingDown as CostReportIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -292,7 +299,50 @@ const menuSections: MenuSection[] = [
         id: 'inventory-reports',
         title: 'Inventory Reports',
         icon: <InventoryIcon />,
-        path: '/reports/inventory',
+        children: [
+          {
+            id: 'inventory-summary',
+            title: 'Inventory Summary',
+            icon: <InventorySummaryIcon />,
+            path: '/reports/inventory/summary',
+          },
+          {
+            id: 'inventory-details',
+            title: 'Inventory Details Report',
+            icon: <InventoryDetailsIcon />,
+            path: '/reports/inventory/details',
+          },
+          {
+            id: 'historical-inventory',
+            title: 'Historical Inventory',
+            icon: <HistoricalInventoryIcon />,
+            path: '/reports/inventory/historical',
+          },
+          {
+            id: 'inventory-movement-summary',
+            title: 'Inventory Movement Summary',
+            icon: <MovementSummaryIcon />,
+            path: '/reports/inventory/movement-summary',
+          },
+          {
+            id: 'product-price-list',
+            title: 'Product Price List',
+            icon: <PriceListIcon />,
+            path: '/reports/inventory/price-list',
+          },
+          {
+            id: 'count-sheet-report',
+            title: 'Count Sheet Report',
+            icon: <CountSheetIcon />,
+            path: '/reports/inventory/count-sheet',
+          },
+          {
+            id: 'product-cost-report',
+            title: 'Product Cost Report',
+            icon: <CostReportIcon />,
+            path: '/reports/inventory/cost-report',
+          },
+        ],
       },
     ],
   },
