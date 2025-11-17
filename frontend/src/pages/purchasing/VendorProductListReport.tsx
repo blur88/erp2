@@ -68,11 +68,8 @@ const VendorProductListReport: React.FC = () => {
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
-  const [status, setStatus] = useState<string>('all')
-  const [paymentStatus, setPaymentStatus] = useState<string>('all')
-  const [dateFrom, setDateFrom] = useState<string>('')
-  const [dateTo, setDateTo] = useState<string>('')
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
@@ -142,14 +139,11 @@ const VendorProductListReport: React.FC = () => {
     try {
       const params = new URLSearchParams()
 
-      if (dateFrom) params.append('dateFrom', dateFrom)
-      if (dateTo) params.append('dateTo', dateTo)
-      if (status && status !== 'all') params.append('status', status)
-      if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
+      if (selectedSupplier) params.append('supplierId', selectedSupplier)
+      if (selectedCategory) params.append('categoryId', selectedCategory)
       if (selectedProducts.length > 0) {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
-      if (selectedSupplier) params.append('supplierId', selectedSupplier)
 
       const response = await fetch(`/api/purchasing/analytics/vendor-product-list?${params.toString()}`)
 
@@ -168,12 +162,9 @@ const VendorProductListReport: React.FC = () => {
   }
 
   const handleClearFilters = () => {
-    setStatus('all')
-    setPaymentStatus('all')
-    setDateFrom('')
-    setDateTo('')
-    setSelectedProducts([])
     setSelectedSupplier('')
+    setSelectedCategory('')
+    setSelectedProducts([])
     setReportData([])
     setSelectedColumns(['productName', 'supplierName', 'status', 'paymentStatus', 'orderDate', 'quantity', 'receivedQuantity', 'unitPrice', 'totalAmount'])
     setGroupBy('none')
@@ -520,18 +511,20 @@ const VendorProductListReport: React.FC = () => {
     }
 
     const filterText = []
-    if (dateFrom && dateTo) {
-      filterText.push(`<p><strong>Order Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`)
-    } else if (dateFrom) {
-      filterText.push(`<p><strong>Order Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`)
-    } else if (dateTo) {
-      filterText.push(`<p><strong>Order Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`)
+    if (selectedSupplier) {
+      const supplier = suppliers.find(s => s.id === selectedSupplier)
+      if (supplier) {
+        filterText.push(`<p><strong>Vendor:</strong> ${supplier.companyName}</p>`)
+      }
     }
-    if (status && status !== 'all') {
-      filterText.push(`<p><strong>Inventory Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>`)
+    if (selectedCategory) {
+      const category = categories.find(c => c.id === selectedCategory)
+      if (category) {
+        filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
+      }
     }
-    if (paymentStatus && paymentStatus !== 'all') {
-      filterText.push(`<p><strong>Payment Status:</strong> ${paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}</p>`)
+    if (selectedProducts.length > 0) {
+      filterText.push(`<p><strong>Products:</strong> ${selectedProducts.length} selected</p>`)
     }
     const dateRangeText = filterText.join('')
 
@@ -762,57 +755,37 @@ const VendorProductListReport: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                    Order Date
-                  </Typography>
-                  <TextField
-                    label="Date From"
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
-                    size="small"
-                    fullWidth
-                  />
-
-                  <TextField
-                    label="Date To"
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
-                    size="small"
-                    fullWidth
-                  />
-
                   <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>PO Inventory Status</InputLabel>
+                    <InputLabel>Vendor</InputLabel>
                     <Select
-                      value={status}
-                      label="PO Inventory Status"
-                      onChange={(e) => setStatus(e.target.value)}
+                      value={selectedSupplier}
+                      label="Vendor"
+                      onChange={(e) => setSelectedSupplier(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="received">Received</MenuItem>
-                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="">All Vendors</MenuItem>
+                      {suppliers.map((supplier) => (
+                        <MenuItem key={supplier.id} value={supplier.id}>
+                          {supplier.companyName}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
 
                   <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>PO Payment Status</InputLabel>
+                    <InputLabel>Category</InputLabel>
                     <Select
-                      value={paymentStatus}
-                      label="PO Payment Status"
-                      onChange={(e) => setPaymentStatus(e.target.value)}
+                      value={selectedCategory}
+                      label="Category"
+                      onChange={(e) => setSelectedCategory(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="unpaid">Unpaid</MenuItem>
-                      <MenuItem value="partial">Partial</MenuItem>
-                      <MenuItem value="paid">Paid</MenuItem>
+                      <MenuItem value="">All Categories</MenuItem>
+                      {categories.map((category) => (
+                        <MenuItem key={category.id} value={category.id}>
+                          {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
 
@@ -851,23 +824,6 @@ const VendorProductListReport: React.FC = () => {
                       })}
                     </Box>
                   )}
-
-                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Vendor</InputLabel>
-                    <Select
-                      value={selectedSupplier}
-                      label="Vendor"
-                      onChange={(e) => setSelectedSupplier(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                    >
-                      <MenuItem value="">All Vendors</MenuItem>
-                      {suppliers.map((supplier) => (
-                        <MenuItem key={supplier.id} value={supplier.id}>
-                          {supplier.companyName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
                 </Stack>
               </Box>
             </Paper>
