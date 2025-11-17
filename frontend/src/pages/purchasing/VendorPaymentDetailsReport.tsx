@@ -54,7 +54,6 @@ const VendorPaymentDetailsReport: React.FC = () => {
   const [reportData, setReportData] = useState<VendorPaymentDetail[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [selectedSupplier, setSelectedSupplier] = useState<string>('')
-  const [status, setStatus] = useState<string>('all')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
 
@@ -92,7 +91,6 @@ const VendorPaymentDetailsReport: React.FC = () => {
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedSupplier) params.append('supplierId', selectedSupplier)
-      if (status && status !== 'all') params.append('status', status)
 
       const response = await fetch(`/api/purchasing/analytics/vendor-payment-details?${params.toString()}`)
 
@@ -111,7 +109,6 @@ const VendorPaymentDetailsReport: React.FC = () => {
   }
 
   const handleClearFilters = () => {
-    setStatus('all')
     setSelectedSupplier('')
     setDateFrom('')
     setDateTo('')
@@ -339,15 +336,12 @@ const VendorPaymentDetailsReport: React.FC = () => {
     }
 
     const filterText = []
-    if (status && status !== 'all') {
-      filterText.push(`<p><strong>Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>`)
-    }
     if (dateFrom && dateTo) {
-      filterText.push(`<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Payment Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`)
     } else if (dateFrom) {
-      filterText.push(`<p><strong>Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Payment Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`)
     } else if (dateTo) {
-      filterText.push(`<p><strong>Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Payment Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`)
     }
     const dateRangeText = filterText.join('')
 
@@ -582,38 +576,6 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Supplier</InputLabel>
-                    <Select
-                      value={selectedSupplier}
-                      label="Supplier"
-                      onChange={(e) => setSelectedSupplier(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                    >
-                      <MenuItem value="">All Suppliers</MenuItem>
-                      {suppliers.map((supplier) => (
-                        <MenuItem key={supplier.id} value={supplier.id}>
-                          {supplier.companyName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Payment Status</InputLabel>
-                    <Select
-                      value={status}
-                      label="Payment Status"
-                      onChange={(e) => setStatus(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                    >
-                      <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="pending">Pending</MenuItem>
-                      <MenuItem value="completed">Completed</MenuItem>
-                      <MenuItem value="cancelled">Cancelled</MenuItem>
-                    </Select>
-                  </FormControl>
-
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
                     Payment Date
                   </Typography>
@@ -638,6 +600,23 @@ const VendorPaymentDetailsReport: React.FC = () => {
                     size="small"
                     fullWidth
                   />
+
+                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                    <InputLabel>Vendor</InputLabel>
+                    <Select
+                      value={selectedSupplier}
+                      label="Vendor"
+                      onChange={(e) => setSelectedSupplier(e.target.value)}
+                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    >
+                      <MenuItem value="">All Vendors</MenuItem>
+                      {suppliers.map((supplier) => (
+                        <MenuItem key={supplier.id} value={supplier.id}>
+                          {supplier.companyName}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Stack>
               </Box>
             </Paper>
