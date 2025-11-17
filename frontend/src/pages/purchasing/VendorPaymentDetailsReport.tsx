@@ -59,7 +59,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'paymentNumber', 'paymentDate', 'supplierName', 'orderNumber', 'paymentAmount', 'paymentMethod', 'status'
+    'supplierName', 'paymentDate', 'orderNumber', 'paymentAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('paymentDate')
@@ -113,7 +113,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
     setDateFrom('')
     setDateTo('')
     setReportData([])
-    setSelectedColumns(['paymentNumber', 'paymentDate', 'supplierName', 'orderNumber', 'paymentAmount', 'paymentMethod', 'status'])
+    setSelectedColumns(['supplierName', 'paymentDate', 'orderNumber', 'paymentAmount'])
     setGroupBy('none')
     setSortBy1('paymentDate')
     setReportTitle('Vendor Payment Details Report')
@@ -125,17 +125,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
     if (sortedData.length === 0) return
 
     const columnHeaders: { [key: string]: string } = {
-      paymentNumber: 'Payment No',
+      supplierName: 'Vendor',
       paymentDate: 'Payment Date',
-      supplierName: 'Supplier',
-      orderNumber: 'PO No',
-      orderDate: 'PO Date',
-      grnNumber: 'GRN No',
-      paymentAmount: 'Amount',
-      paymentMethod: 'Method',
-      referenceNumber: 'Reference',
-      status: 'Status',
-      notes: 'Notes'
+      orderNumber: 'Order No',
+      paymentAmount: 'Amount'
     }
 
     let csv = reportTitle + '\n\n'
@@ -170,9 +163,9 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
-        if (col === 'paymentDate' || col === 'orderDate') {
+        if (col === 'paymentDate') {
           return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
-        } else if (['supplierName', 'orderNumber', 'grnNumber', 'paymentNumber', 'paymentMethod', 'referenceNumber', 'status', 'notes'].includes(col)) {
+        } else if (col === 'supplierName' || col === 'orderNumber') {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
           return value.toFixed(2)
@@ -233,17 +226,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      paymentNumber: 'Payment No',
+      supplierName: 'Vendor',
       paymentDate: 'Payment Date',
-      supplierName: 'Supplier',
-      orderNumber: 'PO No',
-      orderDate: 'PO Date',
-      grnNumber: 'GRN No',
-      paymentAmount: 'Amount',
-      paymentMethod: 'Method',
-      referenceNumber: 'Reference',
-      status: 'Status',
-      notes: 'Notes'
+      orderNumber: 'Order No',
+      paymentAmount: 'Amount'
     }
 
     let tableRows = ''
@@ -277,12 +263,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
       selectedColumns.forEach(col => {
         const value = (row as any)[col]
         let displayValue = value
-        if (col === 'paymentDate' || col === 'orderDate') {
+        if (col === 'paymentDate') {
           displayValue = value ? new Date(value).toLocaleDateString() : '-'
         } else if (typeof value === 'number') {
           displayValue = formatCurrency(value)
-        } else if (col === 'status' || col === 'paymentMethod') {
-          displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' ') : ''
         }
         const align = (typeof value === 'number') ? 'text-align: right;' : ''
         tableRows += `<td style="${align}">${displayValue || ''}</td>`
@@ -646,7 +630,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
                         const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
                         if (value.includes('all')) {
-                          const allColumns = ['paymentNumber', 'paymentDate', 'supplierName', 'orderNumber', 'orderDate', 'grnNumber', 'paymentAmount', 'paymentMethod', 'referenceNumber', 'status', 'notes']
+                          const allColumns = ['supplierName', 'paymentDate', 'orderNumber', 'paymentAmount']
                           if (selectedColumns.length === allColumns.length) {
                             setSelectedColumns([])
                           } else {
@@ -660,17 +644,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="paymentNumber">Payment No</MenuItem>
+                      <MenuItem value="supplierName">Vendor</MenuItem>
                       <MenuItem value="paymentDate">Payment Date</MenuItem>
-                      <MenuItem value="supplierName">Supplier</MenuItem>
-                      <MenuItem value="orderNumber">PO No</MenuItem>
-                      <MenuItem value="orderDate">PO Date</MenuItem>
-                      <MenuItem value="grnNumber">GRN No</MenuItem>
+                      <MenuItem value="orderNumber">Order No</MenuItem>
                       <MenuItem value="paymentAmount">Amount</MenuItem>
-                      <MenuItem value="paymentMethod">Method</MenuItem>
-                      <MenuItem value="referenceNumber">Reference</MenuItem>
-                      <MenuItem value="status">Status</MenuItem>
-                      <MenuItem value="notes">Notes</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -697,13 +674,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                       onChange={(e) => setSortBy1(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      {selectedColumns.includes('paymentNumber') && <MenuItem value="paymentNumber">Payment No</MenuItem>}
+                      {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
                       {selectedColumns.includes('paymentDate') && <MenuItem value="paymentDate">Payment Date</MenuItem>}
-                      {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Supplier</MenuItem>}
-                      {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">PO No</MenuItem>}
+                      {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">Order No</MenuItem>}
                       {selectedColumns.includes('paymentAmount') && <MenuItem value="paymentAmount">Amount</MenuItem>}
-                      {selectedColumns.includes('paymentMethod') && <MenuItem value="paymentMethod">Method</MenuItem>}
-                      {selectedColumns.includes('status') && <MenuItem value="status">Status</MenuItem>}
                     </Select>
                   </FormControl>
 
@@ -800,17 +774,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                         top: 0,
                         zIndex: 10
                       } }}>
-                        {selectedColumns.includes('paymentNumber') && <TableCell align="center">Payment No</TableCell>}
+                        {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
                         {selectedColumns.includes('paymentDate') && <TableCell align="center">Payment Date</TableCell>}
-                        {selectedColumns.includes('supplierName') && <TableCell align="center">Supplier</TableCell>}
-                        {selectedColumns.includes('orderNumber') && <TableCell align="center">PO No</TableCell>}
-                        {selectedColumns.includes('orderDate') && <TableCell align="center">PO Date</TableCell>}
-                        {selectedColumns.includes('grnNumber') && <TableCell align="center">GRN No</TableCell>}
+                        {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
                         {selectedColumns.includes('paymentAmount') && <TableCell align="center">Amount</TableCell>}
-                        {selectedColumns.includes('paymentMethod') && <TableCell align="center">Method</TableCell>}
-                        {selectedColumns.includes('referenceNumber') && <TableCell align="center">Reference</TableCell>}
-                        {selectedColumns.includes('status') && <TableCell align="center">Status</TableCell>}
-                        {selectedColumns.includes('notes') && <TableCell align="center">Notes</TableCell>}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -850,7 +817,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
                         const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
 
                         return (
-                          <React.Fragment key={`${row.paymentNumber}-${idx}`}>
+                          <React.Fragment key={`${row.supplierName}-${idx}`}>
                             {showGroupHeader && (
                               <TableRow sx={{
                                 backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
@@ -873,9 +840,9 @@ const VendorPaymentDetailsReport: React.FC = () => {
                                 height: TABLE_STYLES.row.height
                               }}
                             >
-                              {selectedColumns.includes('paymentNumber') && (
+                              {selectedColumns.includes('supplierName') && (
                                 <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.paymentNumber}
+                                  {row.supplierName}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('paymentDate') && (
@@ -883,53 +850,14 @@ const VendorPaymentDetailsReport: React.FC = () => {
                                   {row.paymentDate ? new Date(row.paymentDate).toLocaleDateString() : '-'}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('supplierName') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.supplierName}
-                                </TableCell>
-                              )}
                               {selectedColumns.includes('orderNumber') && (
                                 <TableCell sx={{ fontSize: '0.8rem' }}>
                                   {row.orderNumber || '-'}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('orderDate') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('grnNumber') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.grnNumber || '-'}
-                                </TableCell>
-                              )}
                               {selectedColumns.includes('paymentAmount') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
                                   {formatCurrency(row.paymentAmount)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('paymentMethod') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {getPaymentMethodLabel(row.paymentMethod)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('referenceNumber') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.referenceNumber || '-'}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('status') && (
-                                <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                                    color={getStatusColor(row.status) as any}
-                                    size="small"
-                                  />
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('notes') && (
-                                <TableCell sx={{ fontSize: '0.8rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {row.notes || '-'}
                                 </TableCell>
                               )}
                             </TableRow>
@@ -944,25 +872,18 @@ const VendorPaymentDetailsReport: React.FC = () => {
                                   fontStyle: 'italic'
                                 }
                               }}>
-                                {selectedColumns.includes('paymentNumber') && (
+                                {selectedColumns.includes('supplierName') && (
                                   <TableCell sx={{ fontWeight: 600 }}>
                                     Subtotal
                                   </TableCell>
                                 )}
                                 {selectedColumns.includes('paymentDate') && <TableCell />}
-                                {selectedColumns.includes('supplierName') && <TableCell />}
                                 {selectedColumns.includes('orderNumber') && <TableCell />}
-                                {selectedColumns.includes('orderDate') && <TableCell />}
-                                {selectedColumns.includes('grnNumber') && <TableCell />}
                                 {selectedColumns.includes('paymentAmount') && (
                                   <TableCell align="right">
                                     {formatCurrency(groupSubtotals.paymentAmount)}
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('paymentMethod') && <TableCell />}
-                                {selectedColumns.includes('referenceNumber') && <TableCell />}
-                                {selectedColumns.includes('status') && <TableCell />}
-                                {selectedColumns.includes('notes') && <TableCell />}
                               </TableRow>
                             )}
                           </React.Fragment>
@@ -981,25 +902,18 @@ const VendorPaymentDetailsReport: React.FC = () => {
                             }
                           }}
                         >
-                          {selectedColumns.includes('paymentNumber') && (
+                          {selectedColumns.includes('supplierName') && (
                             <TableCell sx={{ fontWeight: 700 }}>
                               TOTAL
                             </TableCell>
                           )}
                           {selectedColumns.includes('paymentDate') && <TableCell />}
-                          {selectedColumns.includes('supplierName') && <TableCell />}
                           {selectedColumns.includes('orderNumber') && <TableCell />}
-                          {selectedColumns.includes('orderDate') && <TableCell />}
-                          {selectedColumns.includes('grnNumber') && <TableCell />}
                           {selectedColumns.includes('paymentAmount') && (
                             <TableCell align="right">
                               {formatCurrency(totals.paymentAmount)}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('paymentMethod') && <TableCell />}
-                          {selectedColumns.includes('referenceNumber') && <TableCell />}
-                          {selectedColumns.includes('status') && <TableCell />}
-                          {selectedColumns.includes('notes') && <TableCell />}
                         </TableRow>
                       )}
                     </TableBody>
