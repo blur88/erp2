@@ -83,7 +83,7 @@ const InventorySummaryReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'categoryName', 'type', 'stockQuantity', 'inventoryValue', 'sellingValue', 'potentialProfit'
+    'productName', 'categoryName', 'qtyAvailable', 'averageCost', 'totalCostValue', 'unitPrice', 'totalSalesValue'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('productName')
@@ -158,7 +158,7 @@ const InventorySummaryReport: React.FC = () => {
     setSelectedCategory('')
     setPricingType('retailPrice')
     setReportData([])
-    setSelectedColumns(['productName', 'categoryName', 'type', 'stockQuantity', 'inventoryValue', 'sellingValue', 'potentialProfit'])
+    setSelectedColumns(['productName', 'categoryName', 'qtyAvailable', 'averageCost', 'totalCostValue', 'unitPrice', 'totalSalesValue'])
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Inventory Summary Report')
@@ -288,16 +288,13 @@ const InventorySummaryReport: React.FC = () => {
     if (sortedData.length === 0) return
 
     const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
+      productName: 'Products',
       categoryName: 'Category',
-      type: 'Type',
-      stockQuantity: 'Stock Qty',
-      baseCost: 'Base Cost',
-      inventoryValue: 'Inventory Value',
-      sellingPrice: 'Selling Price',
-      sellingValue: 'Selling Value',
-      potentialProfit: 'Potential Profit',
-      status: 'Status'
+      qtyAvailable: 'Qty Available',
+      averageCost: 'Average Cost',
+      totalCostValue: 'Total Cost Value',
+      unitPrice: 'Unit Price',
+      totalSalesValue: 'Total Sales Value'
     }
 
     let csv = reportTitle + '\n\n'
@@ -313,10 +310,6 @@ const InventorySummaryReport: React.FC = () => {
     const getExportGroupLabel = (r: any) => {
       if (groupBy === 'categoryName') {
         return `Category: ${r.categoryName}`
-      } else if (groupBy === 'type') {
-        return `Type: ${r.type}`
-      } else if (groupBy === 'status') {
-        return `Status: ${r.status}`
       }
       return r[groupBy]
     }
@@ -331,25 +324,26 @@ const InventorySummaryReport: React.FC = () => {
       }
 
       const values = selectedColumns.map(col => {
-        if (col === 'sellingPrice') {
+        if (col === 'qtyAvailable') {
+          return row.stockQuantity
+        } else if (col === 'averageCost') {
+          return row.baseCost.toFixed(2)
+        } else if (col === 'totalCostValue') {
+          return row.inventoryValue.toFixed(2)
+        } else if (col === 'unitPrice') {
           const price = pricingType === 'retailPrice' ? row.retailPrice :
                        pricingType === 'wholesalePrice' ? row.wholesalePrice :
                        row.specialPrice
           return price.toFixed(2)
-        } else if (col === 'sellingValue') {
+        } else if (col === 'totalSalesValue') {
           const price = pricingType === 'retailPrice' ? row.retailPrice :
                        pricingType === 'wholesalePrice' ? row.wholesalePrice :
                        row.specialPrice
           return (price * row.stockQuantity).toFixed(2)
-        } else if (col === 'potentialProfit') {
-          const price = pricingType === 'retailPrice' ? row.retailPrice :
-                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                       row.specialPrice
-          return ((price * row.stockQuantity) - row.inventoryValue).toFixed(2)
         }
 
         const value = (row as any)[col]
-        if (['productName', 'categoryName', 'type', 'status'].includes(col)) {
+        if (['productName', 'categoryName'].includes(col)) {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
           return value.toFixed(2)
@@ -365,15 +359,16 @@ const InventorySummaryReport: React.FC = () => {
         const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
 
         const subtotal = {
-          stockQuantity: groupData.reduce((sum, r) => sum + r.stockQuantity, 0),
-          inventoryValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
+          qtyAvailable: groupData.reduce((sum, r) => sum + r.stockQuantity, 0),
+          totalCostValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
         }
 
         csv += '"Subtotal",'
         const subtotalValues = selectedColumns.slice(1).map(col => {
-          const value = (subtotal as any)[col]
-          if (typeof value === 'number') {
-            return value.toFixed(2)
+          if (col === 'qtyAvailable') {
+            return subtotal.qtyAvailable
+          } else if (col === 'totalCostValue') {
+            return subtotal.totalCostValue.toFixed(2)
           }
           return ''
         })
@@ -384,9 +379,10 @@ const InventorySummaryReport: React.FC = () => {
     if (totals) {
       csv += '\n"TOTAL",'
       const totalValues = selectedColumns.slice(1).map(col => {
-        const value = (totals as any)[col]
-        if (typeof value === 'number') {
-          return value.toFixed(2)
+        if (col === 'qtyAvailable') {
+          return totals.qtyAvailable
+        } else if (col === 'totalCostValue') {
+          return totals.totalCostValue.toFixed(2)
         }
         return ''
       })
@@ -411,16 +407,13 @@ const InventorySummaryReport: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
+      productName: 'Products',
       categoryName: 'Category',
-      type: 'Type',
-      stockQuantity: 'Stock Qty',
-      baseCost: 'Base Cost',
-      inventoryValue: 'Inventory Value',
-      sellingPrice: 'Selling Price',
-      sellingValue: 'Selling Value',
-      potentialProfit: 'Potential Profit',
-      status: 'Status'
+      qtyAvailable: 'Qty Available',
+      averageCost: 'Average Cost',
+      totalCostValue: 'Total Cost Value',
+      unitPrice: 'Unit Price',
+      totalSalesValue: 'Total Sales Value'
     }
 
     let tableRows = ''
@@ -433,10 +426,6 @@ const InventorySummaryReport: React.FC = () => {
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'categoryName') {
         return `Category: ${r.categoryName}`
-      } else if (groupBy === 'type') {
-        return `Type: ${r.type}`
-      } else if (groupBy === 'status') {
-        return `Status: ${r.status}`
       }
       return r[groupBy]
     }
@@ -455,36 +444,33 @@ const InventorySummaryReport: React.FC = () => {
         let displayValue: any
         let align = ''
 
-        if (col === 'sellingPrice') {
+        if (col === 'qtyAvailable') {
+          displayValue = row.stockQuantity
+          align = 'text-align: right;'
+        } else if (col === 'averageCost') {
+          displayValue = formatCurrency(row.baseCost)
+          align = 'text-align: right;'
+        } else if (col === 'totalCostValue') {
+          displayValue = formatCurrency(row.inventoryValue)
+          align = 'text-align: right;'
+        } else if (col === 'unitPrice') {
           const price = pricingType === 'retailPrice' ? row.retailPrice :
                        pricingType === 'wholesalePrice' ? row.wholesalePrice :
                        row.specialPrice
           displayValue = formatCurrency(price)
           align = 'text-align: right;'
-        } else if (col === 'sellingValue') {
+        } else if (col === 'totalSalesValue') {
           const price = pricingType === 'retailPrice' ? row.retailPrice :
                        pricingType === 'wholesalePrice' ? row.wholesalePrice :
                        row.specialPrice
           displayValue = formatCurrency(price * row.stockQuantity)
           align = 'text-align: right;'
-        } else if (col === 'potentialProfit') {
-          const price = pricingType === 'retailPrice' ? row.retailPrice :
-                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                       row.specialPrice
-          displayValue = formatCurrency((price * row.stockQuantity) - row.inventoryValue)
-          align = 'text-align: right;'
         } else {
           const value = (row as any)[col]
-          displayValue = value
-          if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-            align = 'text-align: right;'
-          } else if (col === 'type' || col === 'status') {
-            displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
-          }
+          displayValue = value || ''
         }
 
-        tableRows += `<td style="${align}">${displayValue || ''}</td>`
+        tableRows += `<td style="${align}">${displayValue}</td>`
       })
       tableRows += '</tr>'
 
@@ -495,22 +481,20 @@ const InventorySummaryReport: React.FC = () => {
         const groupData = sortedData.filter(r => getPdfGroupKey(r) === currentGroupKey)
 
         const subtotal = {
-          stockQuantity: groupData.reduce((sum, r) => sum + r.stockQuantity, 0),
-          inventoryValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
+          qtyAvailable: groupData.reduce((sum, r) => sum + r.stockQuantity, 0),
+          totalCostValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
         }
 
         tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
         selectedColumns.forEach((col, colIdx) => {
           if (colIdx === 0) {
             tableRows += '<td>Subtotal</td>'
+          } else if (col === 'qtyAvailable') {
+            tableRows += `<td style="text-align: right;">${subtotal.qtyAvailable}</td>`
+          } else if (col === 'totalCostValue') {
+            tableRows += `<td style="text-align: right;">${formatCurrency(subtotal.totalCostValue)}</td>`
           } else {
-            const value = (subtotal as any)[col]
-            let displayValue = ''
-            if (typeof value === 'number') {
-              displayValue = formatCurrency(value)
-            }
-            const align = typeof value === 'number' ? 'text-align: right;' : ''
-            tableRows += `<td style="${align}">${displayValue}</td>`
+            tableRows += '<td></td>'
           }
         })
         tableRows += '</tr>'
@@ -522,14 +506,12 @@ const InventorySummaryReport: React.FC = () => {
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
           tableRows += '<td>TOTAL</td>'
+        } else if (col === 'qtyAvailable') {
+          tableRows += `<td style="text-align: right;">${totals.qtyAvailable}</td>`
+        } else if (col === 'totalCostValue') {
+          tableRows += `<td style="text-align: right;">${formatCurrency(totals.totalCostValue)}</td>`
         } else {
-          const value = (totals as any)[col]
-          let displayValue = ''
-          if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-          }
-          const align = typeof value === 'number' ? 'text-align: right;' : ''
-          tableRows += `<td style="${align}">${displayValue}</td>`
+          tableRows += '<td></td>'
         }
       })
       tableRows += '</tr>'
@@ -603,12 +585,12 @@ const InventorySummaryReport: React.FC = () => {
 
     const totals = reportData.reduce(
       (acc, item) => ({
-        stockQuantity: acc.stockQuantity + item.stockQuantity,
-        inventoryValue: acc.inventoryValue + item.inventoryValue,
+        qtyAvailable: acc.qtyAvailable + item.stockQuantity,
+        totalCostValue: acc.totalCostValue + item.inventoryValue,
       }),
       {
-        stockQuantity: 0,
-        inventoryValue: 0,
+        qtyAvailable: 0,
+        totalCostValue: 0,
       }
     )
 
@@ -626,14 +608,23 @@ const InventorySummaryReport: React.FC = () => {
       let aVal: any
       let bVal: any
 
-      if (field === 'sellingPrice') {
+      if (field === 'qtyAvailable') {
+        aVal = a.stockQuantity
+        bVal = b.stockQuantity
+      } else if (field === 'averageCost') {
+        aVal = a.baseCost
+        bVal = b.baseCost
+      } else if (field === 'totalCostValue') {
+        aVal = a.inventoryValue
+        bVal = b.inventoryValue
+      } else if (field === 'unitPrice') {
         aVal = pricingType === 'retailPrice' ? a.retailPrice :
                pricingType === 'wholesalePrice' ? a.wholesalePrice :
                a.specialPrice
         bVal = pricingType === 'retailPrice' ? b.retailPrice :
                pricingType === 'wholesalePrice' ? b.wholesalePrice :
                b.specialPrice
-      } else if (field === 'sellingValue') {
+      } else if (field === 'totalSalesValue') {
         const aPrice = pricingType === 'retailPrice' ? a.retailPrice :
                       pricingType === 'wholesalePrice' ? a.wholesalePrice :
                       a.specialPrice
@@ -642,15 +633,6 @@ const InventorySummaryReport: React.FC = () => {
                       b.specialPrice
         aVal = aPrice * a.stockQuantity
         bVal = bPrice * b.stockQuantity
-      } else if (field === 'potentialProfit') {
-        const aPrice = pricingType === 'retailPrice' ? a.retailPrice :
-                      pricingType === 'wholesalePrice' ? a.wholesalePrice :
-                      a.specialPrice
-        const bPrice = pricingType === 'retailPrice' ? b.retailPrice :
-                      pricingType === 'wholesalePrice' ? b.wholesalePrice :
-                      b.specialPrice
-        aVal = (aPrice * a.stockQuantity) - a.inventoryValue
-        bVal = (bPrice * b.stockQuantity) - b.inventoryValue
       } else {
         aVal = a[field]
         bVal = b[field]
@@ -896,7 +878,7 @@ const InventorySummaryReport: React.FC = () => {
                         const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
                         if (value.includes('all')) {
-                          const allColumns = ['productName', 'categoryName', 'type', 'stockQuantity', 'inventoryValue', 'sellingValue', 'potentialProfit']
+                          const allColumns = ['productName', 'categoryName', 'qtyAvailable', 'averageCost', 'totalCostValue', 'unitPrice', 'totalSalesValue']
                           if (selectedColumns.length === allColumns.length) {
                             setSelectedColumns([])
                           } else {
@@ -910,16 +892,13 @@ const InventorySummaryReport: React.FC = () => {
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="productName">Product</MenuItem>
+                      <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="type">Type</MenuItem>
-                      <MenuItem value="stockQuantity">Stock Qty</MenuItem>
-                      <MenuItem value="baseCost">Base Cost</MenuItem>
-                      <MenuItem value="inventoryValue">Inventory Value</MenuItem>
-                      <MenuItem value="sellingPrice">Selling Price</MenuItem>
-                      <MenuItem value="sellingValue">Selling Value</MenuItem>
-                      <MenuItem value="potentialProfit">Potential Profit</MenuItem>
-                      <MenuItem value="status">Status</MenuItem>
+                      <MenuItem value="qtyAvailable">Qty Available</MenuItem>
+                      <MenuItem value="averageCost">Average Cost</MenuItem>
+                      <MenuItem value="totalCostValue">Total Cost Value</MenuItem>
+                      <MenuItem value="unitPrice">Unit Price</MenuItem>
+                      <MenuItem value="totalSalesValue">Total Sales Value</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -933,8 +912,6 @@ const InventorySummaryReport: React.FC = () => {
                     >
                       <MenuItem value="none">None</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="type">Type</MenuItem>
-                      <MenuItem value="status">Status</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -946,13 +923,13 @@ const InventorySummaryReport: React.FC = () => {
                       onChange={(e) => setSortBy1(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      <MenuItem value="productName">Product</MenuItem>
+                      <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="type">Type</MenuItem>
-                      <MenuItem value="stockQuantity">Stock Qty</MenuItem>
-                      <MenuItem value="inventoryValue">Inventory Value</MenuItem>
-                      <MenuItem value="sellingValue">Selling Value</MenuItem>
-                      <MenuItem value="potentialProfit">Potential Profit</MenuItem>
+                      <MenuItem value="qtyAvailable">Qty Available</MenuItem>
+                      <MenuItem value="averageCost">Average Cost</MenuItem>
+                      <MenuItem value="totalCostValue">Total Cost Value</MenuItem>
+                      <MenuItem value="unitPrice">Unit Price</MenuItem>
+                      <MenuItem value="totalSalesValue">Total Sales Value</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -1049,16 +1026,13 @@ const InventorySummaryReport: React.FC = () => {
                         top: 0,
                         zIndex: 10
                       } }}>
-                        {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
+                        {selectedColumns.includes('productName') && <TableCell align="center">Products</TableCell>}
                         {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
-                        {selectedColumns.includes('type') && <TableCell align="center">Type</TableCell>}
-                        {selectedColumns.includes('stockQuantity') && <TableCell align="center">Stock Qty</TableCell>}
-                        {selectedColumns.includes('baseCost') && <TableCell align="center">Base Cost</TableCell>}
-                        {selectedColumns.includes('inventoryValue') && <TableCell align="center">Inventory Value</TableCell>}
-                        {selectedColumns.includes('sellingPrice') && <TableCell align="center">Selling Price</TableCell>}
-                        {selectedColumns.includes('sellingValue') && <TableCell align="center">Selling Value</TableCell>}
-                        {selectedColumns.includes('potentialProfit') && <TableCell align="center">Potential Profit</TableCell>}
-                        {selectedColumns.includes('status') && <TableCell align="center">Status</TableCell>}
+                        {selectedColumns.includes('qtyAvailable') && <TableCell align="center">Qty Available</TableCell>}
+                        {selectedColumns.includes('averageCost') && <TableCell align="center">Average Cost</TableCell>}
+                        {selectedColumns.includes('totalCostValue') && <TableCell align="center">Total Cost Value</TableCell>}
+                        {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
+                        {selectedColumns.includes('totalSalesValue') && <TableCell align="center">Total Sales Value</TableCell>}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1076,10 +1050,6 @@ const InventorySummaryReport: React.FC = () => {
                         const getGroupLabel = (field: string, r: any) => {
                           if (field === 'categoryName') {
                             return `Category: ${r.categoryName}`
-                          } else if (field === 'type') {
-                            return `Type: ${r.type}`
-                          } else if (field === 'status') {
-                            return `Status: ${r.status}`
                           }
                           return r[field]
                         }
@@ -1091,8 +1061,8 @@ const InventorySummaryReport: React.FC = () => {
                           const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
 
                           return {
-                            stockQuantity: groupData.reduce((sum, r) => sum + r.stockQuantity, 0),
-                            inventoryValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
+                            qtyAvailable: groupData.reduce((sum, r) => sum + r.stockQuantity, 0),
+                            totalCostValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
                           }
                         }
 
@@ -1132,32 +1102,22 @@ const InventorySummaryReport: React.FC = () => {
                                   {row.categoryName}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('type') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.type.charAt(0).toUpperCase() + row.type.slice(1)}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ fontSize: '0.7rem' }}
-                                  />
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('stockQuantity') && (
+                              {selectedColumns.includes('qtyAvailable') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                   {row.stockQuantity}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('baseCost') && (
+                              {selectedColumns.includes('averageCost') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                   {formatCurrency(row.baseCost)}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('inventoryValue') && (
+                              {selectedColumns.includes('totalCostValue') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                   {formatCurrency(row.inventoryValue)}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('sellingPrice') && (
+                              {selectedColumns.includes('unitPrice') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                   {formatCurrency(
                                     pricingType === 'retailPrice' ? row.retailPrice :
@@ -1166,33 +1126,13 @@ const InventorySummaryReport: React.FC = () => {
                                   )}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('sellingValue') && (
+                              {selectedColumns.includes('totalSalesValue') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                   {formatCurrency(
                                     (pricingType === 'retailPrice' ? row.retailPrice :
                                     pricingType === 'wholesalePrice' ? row.wholesalePrice :
                                     row.specialPrice) * row.stockQuantity
                                   )}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('potentialProfit') && (
-                                <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                                  {formatCurrency(
-                                    ((pricingType === 'retailPrice' ? row.retailPrice :
-                                     pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                                     row.specialPrice) * row.stockQuantity) - row.inventoryValue
-                                  )}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('status') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                                    color={row.status === 'active' ? 'success' : 'warning'}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ fontSize: '0.7rem' }}
-                                  />
                                 </TableCell>
                               )}
                             </TableRow>
@@ -1213,22 +1153,19 @@ const InventorySummaryReport: React.FC = () => {
                                   </TableCell>
                                 )}
                                 {selectedColumns.includes('categoryName') && <TableCell />}
-                                {selectedColumns.includes('type') && <TableCell />}
-                                {selectedColumns.includes('stockQuantity') && (
+                                {selectedColumns.includes('qtyAvailable') && (
                                   <TableCell align="right">
-                                    {groupSubtotals.stockQuantity}
+                                    {groupSubtotals.qtyAvailable}
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('baseCost') && <TableCell />}
-                                {selectedColumns.includes('inventoryValue') && (
+                                {selectedColumns.includes('averageCost') && <TableCell />}
+                                {selectedColumns.includes('totalCostValue') && (
                                   <TableCell align="right">
-                                    {formatCurrency(groupSubtotals.inventoryValue)}
+                                    {formatCurrency(groupSubtotals.totalCostValue)}
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('sellingPrice') && <TableCell />}
-                                {selectedColumns.includes('sellingValue') && <TableCell />}
-                                {selectedColumns.includes('potentialProfit') && <TableCell />}
-                                {selectedColumns.includes('status') && <TableCell />}
+                                {selectedColumns.includes('unitPrice') && <TableCell />}
+                                {selectedColumns.includes('totalSalesValue') && <TableCell />}
                               </TableRow>
                             )}
                           </React.Fragment>
@@ -1253,22 +1190,19 @@ const InventorySummaryReport: React.FC = () => {
                             </TableCell>
                           )}
                           {selectedColumns.includes('categoryName') && <TableCell />}
-                          {selectedColumns.includes('type') && <TableCell />}
-                          {selectedColumns.includes('stockQuantity') && (
+                          {selectedColumns.includes('qtyAvailable') && (
                             <TableCell align="right">
-                              {totals.stockQuantity}
+                              {totals.qtyAvailable}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('baseCost') && <TableCell />}
-                          {selectedColumns.includes('inventoryValue') && (
+                          {selectedColumns.includes('averageCost') && <TableCell />}
+                          {selectedColumns.includes('totalCostValue') && (
                             <TableCell align="right">
-                              {formatCurrency(totals.inventoryValue)}
+                              {formatCurrency(totals.totalCostValue)}
                             </TableCell>
                           )}
-                          {selectedColumns.includes('sellingPrice') && <TableCell />}
-                          {selectedColumns.includes('sellingValue') && <TableCell />}
-                          {selectedColumns.includes('potentialProfit') && <TableCell />}
-                          {selectedColumns.includes('status') && <TableCell />}
+                          {selectedColumns.includes('unitPrice') && <TableCell />}
+                          {selectedColumns.includes('totalSalesValue') && <TableCell />}
                         </TableRow>
                       )}
                     </TableBody>
