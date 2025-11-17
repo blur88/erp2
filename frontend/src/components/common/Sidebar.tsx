@@ -282,7 +282,7 @@ const menuSections: MenuSection[] = [
           },
           {
             id: 'vendor-purchase-list',
-            title: 'Vendor Purchase List',
+            title: 'Vendor Product List',
             icon: <SuppliersIcon />,
             path: '/reports/purchasing/vendor-purchase-list',
           },
