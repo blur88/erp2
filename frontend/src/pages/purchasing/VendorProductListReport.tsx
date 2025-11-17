@@ -980,9 +980,8 @@ const VendorProductListReport: React.FC = () => {
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
-                      <MenuItem value="productName">Product</MenuItem>
-                      <MenuItem value="supplierName">Vendor</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
+                      <MenuItem value="supplierName">Vendor</MenuItem>
                     </Select>
                   </FormControl>
 
