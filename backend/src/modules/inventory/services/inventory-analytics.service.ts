@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, MoreThan } from 'typeorm';
 import { Product, Category, StockMovement } from '../../../database/entities';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 
 interface InventorySummaryQuery {
   productIds?: string[];
@@ -56,6 +57,8 @@ export class InventoryAnalyticsService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(StockMovement)
     private readonly stockMovementRepository: Repository<StockMovement>,
+    @InjectRepository(PurchaseCostHistory)
+    private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
   ) {}
 
   async getInventorySummary(
@@ -188,129 +191,67 @@ export class InventoryAnalyticsService {
       });
     }
 
-    const movements = await movementQueryBuilder.getMany();
+    // Get all purchase cost history batches for the filtered products
+    const productIds = products.map(p => p.id);
 
-    // Initialize product map with all products (including those with no movements)
-    const productMap = new Map<string, {
-      productName: string;
-      categoryName: string;
-      quantity: number;
-      totalValue: number;
-      runningAvgCost: number; // Track average cost for outward movements
-    }>();
-
-    // Add all products to the map first
-    products.forEach((product) => {
-      productMap.set(product.id, {
-        productName: product.name,
-        categoryName: product.category?.name || 'Uncategorized',
-        quantity: 0,
-        totalValue: 0,
-        runningAvgCost: 0,
-      });
-    });
-
-    // Define inward movement types (increase stock)
-    const inwardMovements = [
-      'purchase_receipt',
-      'sales_return',
-      'sale_reversal',
-      'production_receipt',
-      'transfer_in',
-      'adjustment_increase',
-      'initial_stock',
-    ];
-
-    // Define outward movement types (decrease stock)
-    const outwardMovements = [
-      'sale',
-      'purchase_return',
-      'production_consumption',
-      'transfer_out',
-      'adjustment_decrease',
-      'damage',
-      'expiry',
-      'theft',
-      'loss',
-    ];
-
-    // Now process movements for products that have them
-    movements.forEach((movement) => {
-      const productId = movement.productId;
-      const quantity = parseFloat(movement.quantity?.toString() || '0');
-      const totalValue = parseFloat(movement.totalValue?.toString() || '0');
-      const unitValue = parseFloat(movement.unitValue?.toString() || '0');
-
-      // Product should already be in map, but check just in case
-      if (!productMap.has(productId)) {
-        productMap.set(productId, {
-          productName: movement.product?.name || 'Unknown Product',
-          categoryName: movement.product?.category?.name || 'Uncategorized',
-          quantity: 0,
-          totalValue: 0,
-          runningAvgCost: 0,
+    // Calculate cost and quantity for each product using purchase_cost_history
+    // This matches the BaseCostCalculatorService method
+    const data: HistoricalInventoryItem[] = await Promise.all(
+      products.map(async (product) => {
+        // Get batches with remaining stock for this product
+        const batches = await this.purchaseCostHistoryRepository.find({
+          where: {
+            productId: product.id,
+            remainingQuantity: MoreThan(0),
+          },
+          order: { receivedDate: 'ASC' },
         });
-      }
 
-      const productData = productMap.get(productId);
+        // Apply date filter if endDate is specified
+        const filteredBatches = query.endDate
+          ? batches.filter(batch => batch.receivedDate <= query.endDate)
+          : batches;
 
-      // For inward movements, add to quantity and update running average
-      if (inwardMovements.includes(movement.movementType)) {
-        const inQty = Math.abs(quantity);
-        const inValue = Math.abs(totalValue);
+        // Calculate using Moving Average from RECEIVED quantities
+        // Formula: SUM(receivedQty × landedCost) / SUM(receivedQty)
+        let totalCost = 0;
+        let totalReceivedQty = 0;
+        let totalRemainingQty = 0;
 
-        productData.quantity += inQty;
-        productData.totalValue += inValue;
+        for (const batch of filteredBatches) {
+          const receivedQty = parseFloat(batch.receivedQuantity?.toString() || '0');
+          const remainingQty = parseFloat(batch.remainingQuantity?.toString() || '0');
+          const landedCost = parseFloat(batch.landedCost?.toString() || '0');
 
-        // Update running average cost
-        if (productData.quantity > 0) {
-          productData.runningAvgCost = productData.totalValue / productData.quantity;
-        }
-      }
-      // For outward movements, subtract quantity using running average cost
-      else if (outwardMovements.includes(movement.movementType)) {
-        const outQty = Math.abs(quantity);
-
-        // Use movement's totalValue if available, otherwise use running average
-        let outValue = Math.abs(totalValue);
-        if (!outValue && unitValue) {
-          outValue = outQty * unitValue;
-        } else if (!outValue && productData.runningAvgCost > 0) {
-          outValue = outQty * productData.runningAvgCost;
+          totalReceivedQty += receivedQty;
+          totalRemainingQty += remainingQty;
+          totalCost += receivedQty * landedCost;
         }
 
-        productData.quantity -= outQty;
-        productData.totalValue -= outValue;
+        // Calculate weighted average unit cost
+        const unitValue = totalReceivedQty > 0 ? totalCost / totalReceivedQty : 0;
 
-        // Update running average cost (should remain stable for FIFO/weighted avg)
-        if (productData.quantity > 0 && productData.totalValue > 0) {
-          productData.runningAvgCost = productData.totalValue / productData.quantity;
-        }
-      }
-    });
+        // Total value is based on REMAINING quantity, not received quantity
+        const totalValue = totalRemainingQty * unitValue;
 
-    // Calculate weighted average unit value and convert to array
-    const data: HistoricalInventoryItem[] = Array.from(productMap.values()).map((item) => {
-      // Calculate average unit value (avoid division by zero)
-      const unitValue = item.quantity !== 0 ? item.totalValue / item.quantity : 0;
-
-      return {
-        productName: item.productName,
-        categoryName: item.categoryName,
-        movementDate: null, // Not applicable for summary
-        movementType: '', // Not applicable for summary
-        movementDescription: '', // Not applicable for summary
-        quantity: item.quantity,
-        previousBalance: 0, // Not applicable for summary
-        newBalance: item.quantity, // Same as quantity for summary
-        unitValue: Math.abs(unitValue),
-        totalValue: Math.abs(item.totalValue),
-        referenceNumber: '', // Not applicable for summary
-        referenceType: '', // Not applicable for summary
-        reason: '', // Not applicable for summary
-        notes: '', // Not applicable for summary
-      };
-    });
+        return {
+          productName: product.name,
+          categoryName: product.category?.name || 'Uncategorized',
+          movementDate: null, // Not applicable for summary
+          movementType: '', // Not applicable for summary
+          movementDescription: '', // Not applicable for summary
+          quantity: totalRemainingQty,
+          previousBalance: 0, // Not applicable for summary
+          newBalance: totalRemainingQty, // Same as quantity for summary
+          unitValue,
+          totalValue,
+          referenceNumber: '', // Not applicable for summary
+          referenceType: '', // Not applicable for summary
+          reason: '', // Not applicable for summary
+          notes: '', // Not applicable for summary
+        };
+      })
+    );
 
     return { data };
   }
