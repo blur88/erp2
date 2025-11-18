@@ -71,8 +71,6 @@ const HistoricalInventoryReport: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
 
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
@@ -137,8 +135,6 @@ const HistoricalInventoryReport: React.FC = () => {
       if (selectedProducts.length > 0) {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
-      if (startDate) params.append('startDate', new Date(startDate).toISOString())
-      if (endDate) params.append('endDate', new Date(endDate).toISOString())
 
       const response = await fetch(`/api/inventory/analytics/historical-inventory?${params.toString()}`)
 
@@ -159,8 +155,6 @@ const HistoricalInventoryReport: React.FC = () => {
   const handleClearFilters = () => {
     setSelectedProducts([])
     setSelectedCategory('')
-    setStartDate('')
-    setEndDate('')
     setReportData([])
     setSelectedColumns(['movementDate', 'productName', 'categoryName', 'movementDescription', 'quantity', 'previousBalance', 'newBalance', 'unitValue', 'totalValue'])
     setGroupBy('none')
@@ -446,13 +440,7 @@ const HistoricalInventoryReport: React.FC = () => {
         filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
       }
     }
-    if (startDate) {
-      filterText.push(`<p><strong>Start Date:</strong> ${new Date(startDate).toLocaleDateString()}</p>`)
-    }
-    if (endDate) {
-      filterText.push(`<p><strong>End Date:</strong> ${new Date(endDate).toLocaleDateString()}</p>`)
-    }
-    const dateRangeText = filterText.join('')
+    const filtersText = filterText.join('')
 
     const html = `
       <!DOCTYPE html>
@@ -478,7 +466,7 @@ const HistoricalInventoryReport: React.FC = () => {
           <h1>${reportTitle}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
-            ${dateRangeText}
+            ${filtersText}
           </div>
           <table>
             <thead>
@@ -659,28 +647,6 @@ const HistoricalInventoryReport: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                  <TextField
-                    label="Start Date"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
-                    size="small"
-                    fullWidth
-                  />
-
-                  <TextField
-                    label="End Date"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
-                    size="small"
-                    fullWidth
-                  />
-
                   <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                     <InputLabel>Products</InputLabel>
                     <Select
@@ -752,7 +718,7 @@ const HistoricalInventoryReport: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                  <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                     <InputLabel>Columns</InputLabel>
                     <Select
                       multiple
@@ -791,7 +757,7 @@ const HistoricalInventoryReport: React.FC = () => {
                     </Select>
                   </FormControl>
 
-                  <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                     <InputLabel>Group By</InputLabel>
                     <Select
                       value={groupBy}
@@ -806,7 +772,7 @@ const HistoricalInventoryReport: React.FC = () => {
                     </Select>
                   </FormControl>
 
-                  <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                     <InputLabel>Sort By</InputLabel>
                     <Select
                       value={sortBy1}
