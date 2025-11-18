@@ -124,45 +124,66 @@ export class InventoryAnalyticsService {
   async getHistoricalInventory(
     query: HistoricalInventoryQuery,
   ): Promise<{ data: HistoricalInventoryItem[] }> {
-    const queryBuilder = this.stockMovementRepository
-      .createQueryBuilder('movement')
-      .leftJoinAndSelect('movement.product', 'product')
+    // First, get all products that match the filters
+    const productQueryBuilder = this.productRepository
+      .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .where('movement.status = :status', { status: 'completed' });
-
-    // Date range filter
-    if (query.startDate && query.endDate) {
-      queryBuilder.andWhere('movement.movementDate BETWEEN :startDate AND :endDate', {
-        startDate: query.startDate,
-        endDate: query.endDate,
-      });
-    } else if (query.startDate) {
-      queryBuilder.andWhere('movement.movementDate >= :startDate', {
-        startDate: query.startDate,
-      });
-    } else if (query.endDate) {
-      queryBuilder.andWhere('movement.movementDate <= :endDate', {
-        endDate: query.endDate,
-      });
-    }
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
 
     // Product IDs filter
     if (query.productIds && query.productIds.length > 0) {
-      queryBuilder.andWhere('movement.productId IN (:...productIds)', {
+      productQueryBuilder.andWhere('product.id IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Category filter
     if (query.categoryId) {
-      queryBuilder.andWhere('product.categoryId = :categoryId', {
+      productQueryBuilder.andWhere('product.categoryId = :categoryId', {
         categoryId: query.categoryId,
       });
     }
 
-    const movements = await queryBuilder.getMany();
+    productQueryBuilder.orderBy('product.name', 'ASC');
+    const products = await productQueryBuilder.getMany();
 
-    // Aggregate movements by product with running average cost tracking
+    // Now get stock movements for these products
+    const movementQueryBuilder = this.stockMovementRepository
+      .createQueryBuilder('movement')
+      .leftJoinAndSelect('movement.product', 'product')
+      .where('movement.status = :status', { status: 'completed' });
+
+    // Only get movements for the filtered products
+    if (products.length > 0) {
+      const productIds = products.map(p => p.id);
+      movementQueryBuilder.andWhere('movement.productId IN (:...productIds)', {
+        productIds,
+      });
+    } else {
+      // No products match filters, return empty
+      return { data: [] };
+    }
+
+    // Date range filter
+    if (query.startDate && query.endDate) {
+      movementQueryBuilder.andWhere('movement.movementDate BETWEEN :startDate AND :endDate', {
+        startDate: query.startDate,
+        endDate: query.endDate,
+      });
+    } else if (query.startDate) {
+      movementQueryBuilder.andWhere('movement.movementDate >= :startDate', {
+        startDate: query.startDate,
+      });
+    } else if (query.endDate) {
+      movementQueryBuilder.andWhere('movement.movementDate <= :endDate', {
+        endDate: query.endDate,
+      });
+    }
+
+    const movements = await movementQueryBuilder.getMany();
+
+    // Initialize product map with all products (including those with no movements)
     const productMap = new Map<string, {
       productName: string;
       categoryName: string;
@@ -170,6 +191,17 @@ export class InventoryAnalyticsService {
       totalValue: number;
       runningAvgCost: number; // Track average cost for outward movements
     }>();
+
+    // Add all products to the map first
+    products.forEach((product) => {
+      productMap.set(product.id, {
+        productName: product.name,
+        categoryName: product.category?.name || 'Uncategorized',
+        quantity: 0,
+        totalValue: 0,
+        runningAvgCost: 0,
+      });
+    });
 
     // Define inward movement types (increase stock)
     const inwardMovements = [
@@ -195,12 +227,14 @@ export class InventoryAnalyticsService {
       'loss',
     ];
 
+    // Now process movements for products that have them
     movements.forEach((movement) => {
       const productId = movement.productId;
       const quantity = parseFloat(movement.quantity?.toString() || '0');
       const totalValue = parseFloat(movement.totalValue?.toString() || '0');
       const unitValue = parseFloat(movement.unitValue?.toString() || '0');
 
+      // Product should already be in map, but check just in case
       if (!productMap.has(productId)) {
         productMap.set(productId, {
           productName: movement.product?.name || 'Unknown Product',
