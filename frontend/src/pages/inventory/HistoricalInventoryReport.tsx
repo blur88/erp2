@@ -34,7 +34,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  History as HistoryIcon,
+  Timeline as HistoricalInventoryIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
@@ -555,7 +555,7 @@ const HistoricalInventoryReport: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <HistoryIcon sx={{
+            <HistoricalInventoryIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
@@ -804,7 +804,7 @@ const HistoricalInventoryReport: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <HistoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <HistoricalInventoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>
