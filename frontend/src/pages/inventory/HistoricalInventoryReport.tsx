@@ -309,12 +309,8 @@ const HistoricalInventoryReport: React.FC = () => {
     }
 
     const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
-      } else if (groupBy === 'categoryName') {
+      if (groupBy === 'categoryName') {
         return `Category: ${r.categoryName}`
-      } else if (groupBy === 'movementDescription') {
-        return `Movement Type: ${r.movementDescription}`
       }
       return r[groupBy]
     }
@@ -376,12 +372,8 @@ const HistoricalInventoryReport: React.FC = () => {
     }
 
     const getPdfGroupLabel = (r: any) => {
-      if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
-      } else if (groupBy === 'categoryName') {
+      if (groupBy === 'categoryName') {
         return `Category: ${r.categoryName}`
-      } else if (groupBy === 'movementDescription') {
-        return `Movement Type: ${r.movementDescription}`
       }
       return r[groupBy]
     }
@@ -770,9 +762,7 @@ const HistoricalInventoryReport: React.FC = () => {
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
-                      <MenuItem value="productName">Product</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="movementDescription">Movement Type</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -903,12 +893,8 @@ const HistoricalInventoryReport: React.FC = () => {
                         const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
 
                         const getGroupLabel = (field: string, r: any) => {
-                          if (field === 'productName') {
-                            return `Product: ${r.productName}`
-                          } else if (field === 'categoryName') {
+                          if (field === 'categoryName') {
                             return `Category: ${r.categoryName}`
-                          } else if (field === 'movementDescription') {
-                            return `Movement Type: ${r.movementDescription}`
                           }
                           return r[field]
                         }
