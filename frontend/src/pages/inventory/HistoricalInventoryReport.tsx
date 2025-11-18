@@ -332,7 +332,7 @@ const HistoricalInventoryReport: React.FC = () => {
           const value = (row as any)[col]
           return typeof value === 'number' ? value.toFixed(2) : '0.00'
         } else if (col === 'quantity') {
-          return row.quantity.toFixed(2)
+          return Math.round(row.quantity).toString()
         }
         return '""'
       })
@@ -398,7 +398,7 @@ const HistoricalInventoryReport: React.FC = () => {
           displayValue = formatCurrency((row as any)[col])
           align = 'text-align: right;'
         } else if (col === 'quantity') {
-          displayValue = row.quantity.toFixed(2)
+          displayValue = Math.round(row.quantity).toString()
           align = 'text-align: right;'
         } else {
           displayValue = ''
@@ -932,7 +932,7 @@ const HistoricalInventoryReport: React.FC = () => {
                               )}
                               {selectedColumns.includes('quantity') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                  {row.quantity.toFixed(2)}
+                                  {Math.round(row.quantity)}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('totalValue') && (
