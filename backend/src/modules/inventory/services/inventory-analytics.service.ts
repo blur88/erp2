@@ -145,6 +145,13 @@ export class InventoryAnalyticsService {
       });
     }
 
+    // If target date (endDate) is specified, only include products created on or before that date
+    if (query.endDate) {
+      productQueryBuilder.andWhere('product.createdAt <= :endDate', {
+        endDate: query.endDate,
+      });
+    }
+
     productQueryBuilder.orderBy('product.name', 'ASC');
     const products = await productQueryBuilder.getMany();
 
