@@ -88,7 +88,7 @@ const HistoricalInventoryReport: React.FC = () => {
     'productName', 'categoryName', 'unitValue', 'quantity', 'totalValue'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
-  const [sortBy1, setSortBy1] = useState<string>('movementDate')
+  const [sortBy1, setSortBy1] = useState<string>('productName')
   const [reportTitle, setReportTitle] = useState<string>('Historical Inventory Report')
 
   // Pagination
@@ -163,7 +163,7 @@ const HistoricalInventoryReport: React.FC = () => {
     setReportData([])
     setSelectedColumns(['productName', 'categoryName', 'unitValue', 'quantity', 'totalValue'])
     setGroupBy('none')
-    setSortBy1('movementDate')
+    setSortBy1('productName')
     setReportTitle('Historical Inventory Report')
     setPage(0)
     setRowsPerPage(25)
@@ -481,16 +481,8 @@ const HistoricalInventoryReport: React.FC = () => {
     let filtered = [...reportData]
 
     const compareValues = (a: any, b: any, field: string) => {
-      let aVal: any
-      let bVal: any
-
-      if (field === 'movementDate') {
-        aVal = new Date(a.movementDate).getTime()
-        bVal = new Date(b.movementDate).getTime()
-      } else {
-        aVal = a[field]
-        bVal = b[field]
-      }
+      let aVal: any = a[field]
+      let bVal: any = b[field]
 
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
@@ -774,11 +766,11 @@ const HistoricalInventoryReport: React.FC = () => {
                       onChange={(e) => setSortBy1(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      <MenuItem value="movementDate">Date</MenuItem>
-                      <MenuItem value="productName">Product</MenuItem>
+                      <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="movementDescription">Movement Type</MenuItem>
+                      <MenuItem value="unitValue">Average Cost</MenuItem>
                       <MenuItem value="quantity">Quantity</MenuItem>
+                      <MenuItem value="totalValue">Total Cost Value</MenuItem>
                     </Select>
                   </FormControl>
 
