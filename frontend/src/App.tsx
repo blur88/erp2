@@ -45,6 +45,7 @@ const VendorProductListReport = React.lazy(() => import('./pages/purchasing/Vend
 const InventorySummaryReport = React.lazy(() => import('./pages/inventory/InventorySummaryReport'))
 const HistoricalInventoryReport = React.lazy(() => import('./pages/inventory/HistoricalInventoryReport'))
 const MovementSummaryReport = React.lazy(() => import('./pages/inventory/MovementSummaryReport'))
+const PriceListReport = React.lazy(() => import('./pages/inventory/PriceListReport'))
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
 const UserManagementPage = React.lazy(() => import('./pages/settings/UserManagementPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
@@ -111,6 +112,7 @@ function App() {
                     <Route path="/reports/inventory/summary" element={<InventorySummaryReport />} />
                     <Route path="/reports/inventory/historical" element={<HistoricalInventoryReport />} />
                     <Route path="/reports/inventory/movement-summary" element={<MovementSummaryReport />} />
+                    <Route path="/reports/inventory/price-list" element={<PriceListReport />} />
                     <Route path="/reports/purchasing/order-summary" element={<PurchaseOrderSummary />} />
                     <Route path="/reports/purchasing/order-status" element={<PurchaseOrderStatusReport />} />
                     <Route path="/reports/purchasing/order-details" element={<PurchaseOrderDetailsReport />} />

@@ -142,4 +142,54 @@ export class InventoryAnalyticsController {
       endDate: endDate ? new Date(endDate) : undefined,
     });
   }
+
+  @Get('price-list')
+  @ApiOperation({
+    summary:
+      'Get product price list report - shows products with prices, discounts, and sales costs',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'priceType',
+    required: false,
+    type: String,
+    description: 'Price type: retail, wholesale, or special (default: retail)',
+  })
+  @ApiQuery({
+    name: 'discountPercent',
+    required: false,
+    type: Number,
+    description: 'Discount percentage to apply (0-100)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Price list report retrieved successfully',
+  })
+  async getPriceList(
+    @Query('productIds') productIds?: string | string[],
+    @Query('categoryId') categoryId?: string,
+    @Query('priceType') priceType?: string,
+    @Query('discountPercent') discountPercent?: string,
+  ) {
+    return this.inventoryAnalyticsService.getPriceList({
+      productIds: Array.isArray(productIds)
+        ? productIds
+        : productIds
+          ? [productIds]
+          : undefined,
+      categoryId,
+      priceType,
+      discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
+    });
+  }
 }

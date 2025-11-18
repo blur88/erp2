@@ -63,6 +63,21 @@ interface MovementSummaryItem {
   quantityOnHand: number;
 }
 
+interface PriceListQuery {
+  productIds?: string[];
+  categoryId?: string;
+  priceType?: string; // 'retail', 'wholesale', 'special'
+  discountPercent?: number;
+}
+
+interface PriceListItem {
+  productName: string;
+  categoryName: string;
+  price: number;
+  discountedPrice: number;
+  salesCost: number;
+}
+
 @Injectable()
 export class InventoryAnalyticsService {
   constructor(
@@ -353,6 +368,68 @@ export class InventoryAnalyticsService {
         quantityIn,
         quantityOut,
         quantityOnHand,
+      };
+    });
+
+    return { data };
+  }
+
+  async getPriceList(
+    query: PriceListQuery,
+  ): Promise<{ data: PriceListItem[] }> {
+    // Get all products that match the filters
+    const productQueryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
+
+    // Product IDs filter
+    if (query.productIds && query.productIds.length > 0) {
+      productQueryBuilder.andWhere('product.id IN (:...productIds)', {
+        productIds: query.productIds,
+      });
+    }
+
+    // Category filter
+    if (query.categoryId) {
+      productQueryBuilder.andWhere('product.categoryId = :categoryId', {
+        categoryId: query.categoryId,
+      });
+    }
+
+    productQueryBuilder.orderBy('product.name', 'ASC');
+    const products = await productQueryBuilder.getMany();
+
+    // Default price type and discount
+    const priceType = query.priceType || 'retail';
+    const discountPercent = query.discountPercent || 0;
+
+    // Calculate price list for each product
+    const data: PriceListItem[] = products.map((product) => {
+      // Determine which price to use
+      let price = 0;
+      if (priceType === 'wholesale') {
+        price = parseFloat(product.wholesalePrice?.toString() || '0');
+      } else if (priceType === 'special') {
+        price = parseFloat(product.specialPrice?.toString() || '0');
+      } else {
+        // Default to retail
+        price = parseFloat(product.retailPrice?.toString() || '0');
+      }
+
+      // Calculate discounted price
+      const discountedPrice = price * (1 - discountPercent / 100);
+
+      // Sales cost is the base cost
+      const salesCost = parseFloat(product.baseCost?.toString() || '0');
+
+      return {
+        productName: product.name,
+        categoryName: product.category?.name || 'Uncategorized',
+        price,
+        discountedPrice,
+        salesCost,
       };
     });
 
