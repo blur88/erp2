@@ -160,33 +160,114 @@ export class InventoryAnalyticsService {
       });
     }
 
-    // Order by movement date descending (most recent first)
-    queryBuilder.orderBy('movement.movementDate', 'DESC');
-
     const movements = await queryBuilder.getMany();
 
-    const data: HistoricalInventoryItem[] = movements.map((movement) => {
+    // Aggregate movements by product with running average cost tracking
+    const productMap = new Map<string, {
+      productName: string;
+      categoryName: string;
+      quantity: number;
+      totalValue: number;
+      runningAvgCost: number; // Track average cost for outward movements
+    }>();
+
+    // Define inward movement types (increase stock)
+    const inwardMovements = [
+      'purchase_receipt',
+      'sales_return',
+      'sale_reversal',
+      'production_receipt',
+      'transfer_in',
+      'adjustment_increase',
+      'initial_stock',
+    ];
+
+    // Define outward movement types (decrease stock)
+    const outwardMovements = [
+      'sale',
+      'purchase_return',
+      'production_consumption',
+      'transfer_out',
+      'adjustment_decrease',
+      'damage',
+      'expiry',
+      'theft',
+      'loss',
+    ];
+
+    movements.forEach((movement) => {
+      const productId = movement.productId;
       const quantity = parseFloat(movement.quantity?.toString() || '0');
-      const previousBalance = parseFloat(movement.previousBalance?.toString() || '0');
-      const newBalance = parseFloat(movement.newBalance?.toString() || '0');
-      const unitValue = parseFloat(movement.unitValue?.toString() || '0');
       const totalValue = parseFloat(movement.totalValue?.toString() || '0');
+      const unitValue = parseFloat(movement.unitValue?.toString() || '0');
+
+      if (!productMap.has(productId)) {
+        productMap.set(productId, {
+          productName: movement.product?.name || 'Unknown Product',
+          categoryName: movement.product?.category?.name || 'Uncategorized',
+          quantity: 0,
+          totalValue: 0,
+          runningAvgCost: 0,
+        });
+      }
+
+      const productData = productMap.get(productId);
+
+      // For inward movements, add to quantity and update running average
+      if (inwardMovements.includes(movement.movementType)) {
+        const inQty = Math.abs(quantity);
+        const inValue = Math.abs(totalValue);
+
+        productData.quantity += inQty;
+        productData.totalValue += inValue;
+
+        // Update running average cost
+        if (productData.quantity > 0) {
+          productData.runningAvgCost = productData.totalValue / productData.quantity;
+        }
+      }
+      // For outward movements, subtract quantity using running average cost
+      else if (outwardMovements.includes(movement.movementType)) {
+        const outQty = Math.abs(quantity);
+
+        // Use movement's totalValue if available, otherwise use running average
+        let outValue = Math.abs(totalValue);
+        if (!outValue && unitValue) {
+          outValue = outQty * unitValue;
+        } else if (!outValue && productData.runningAvgCost > 0) {
+          outValue = outQty * productData.runningAvgCost;
+        }
+
+        productData.quantity -= outQty;
+        productData.totalValue -= outValue;
+
+        // Update running average cost (should remain stable for FIFO/weighted avg)
+        if (productData.quantity > 0 && productData.totalValue > 0) {
+          productData.runningAvgCost = productData.totalValue / productData.quantity;
+        }
+      }
+    });
+
+    // Calculate weighted average unit value and convert to array
+    const data: HistoricalInventoryItem[] = Array.from(productMap.values()).map((item) => {
+      // Calculate average unit value (avoid division by zero)
+      const unitValue = item.quantity !== 0 ? item.totalValue / item.quantity : 0;
 
       return {
-        productName: movement.product?.name || 'Unknown Product',
-        categoryName: movement.product?.category?.name || 'Uncategorized',
-        movementDate: movement.movementDate,
-        movementType: movement.movementType,
-        movementDescription: movement.getDescription(),
-        quantity,
-        previousBalance,
-        newBalance,
-        unitValue,
-        totalValue,
-        referenceNumber: movement.referenceNumber || '',
-        referenceType: movement.referenceType || '',
-        reason: movement.reason || '',
-        notes: movement.notes || '',
+        productName: item.productName,
+        categoryName: item.categoryName,
+        movementDate: null, // Not applicable for summary
+        movementType: '', // Not applicable for summary
+        movementDescription: '', // Not applicable for summary
+        quantity: item.quantity,
+        previousBalance: 0, // Not applicable for summary
+        newBalance: item.quantity, // Same as quantity for summary
+        unitValue: Math.abs(unitValue),
+        totalValue: Math.abs(item.totalValue),
+        referenceNumber: '', // Not applicable for summary
+        referenceType: '', // Not applicable for summary
+        reason: '', // Not applicable for summary
+        notes: '', // Not applicable for summary
       };
     });
 

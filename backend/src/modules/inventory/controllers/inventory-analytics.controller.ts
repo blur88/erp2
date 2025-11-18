@@ -46,7 +46,7 @@ export class InventoryAnalyticsController {
   @Get('historical-inventory')
   @ApiOperation({
     summary:
-      'Get historical inventory report - shows all stock movements with date range filtering',
+      'Get historical inventory report - shows aggregated inventory by product based on stock movements',
   })
   @ApiQuery({
     name: 'productIds',
