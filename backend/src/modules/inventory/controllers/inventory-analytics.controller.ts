@@ -42,4 +42,54 @@ export class InventoryAnalyticsController {
       categoryId,
     });
   }
+
+  @Get('historical-inventory')
+  @ApiOperation({
+    summary:
+      'Get historical inventory report - shows all stock movements with date range filtering',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    type: String,
+    description: 'Start date for filtering (ISO 8601 format)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    type: String,
+    description: 'End date for filtering (ISO 8601 format)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Historical inventory report retrieved successfully',
+  })
+  async getHistoricalInventory(
+    @Query('productIds') productIds?: string | string[],
+    @Query('categoryId') categoryId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.inventoryAnalyticsService.getHistoricalInventory({
+      productIds: Array.isArray(productIds)
+        ? productIds
+        : productIds
+          ? [productIds]
+          : undefined,
+      categoryId,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+    });
+  }
 }
