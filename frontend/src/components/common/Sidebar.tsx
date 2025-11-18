@@ -369,7 +369,42 @@ const menuSections: MenuSection[] = [
 const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const [expandedItems, setExpandedItems] = React.useState<string[]>([])
+  const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
+    // Initialize from localStorage
+    const stored = localStorage.getItem('sidebar-expanded')
+    return stored ? JSON.parse(stored) : []
+  })
+
+  // Auto-expand parent items based on current route
+  useEffect(() => {
+    const currentPath = location.pathname
+    const parentItems: string[] = []
+
+    // Find which parent menu item contains the current path
+    menuSections.forEach(section => {
+      section.items.forEach(item => {
+        if (item.children) {
+          const hasActivePath = item.children.some(child => child.path === currentPath)
+          if (hasActivePath) {
+            parentItems.push(item.id)
+          }
+        }
+      })
+    })
+
+    // Only update if the parent has changed
+    if (parentItems.length > 0) {
+      const currentParent = parentItems[0]
+      const isAlreadyExpanded = expandedItems.includes(currentParent)
+      const hasOtherParentsExpanded = expandedItems.some(id => !parentItems.includes(id))
+
+      // If navigating to a different parent, close others and open the new one
+      if (!isAlreadyExpanded || hasOtherParentsExpanded) {
+        setExpandedItems([currentParent])
+        localStorage.setItem('sidebar-expanded', JSON.stringify([currentParent]))
+      }
+    }
+  }, [location.pathname])
 
   // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
@@ -386,11 +421,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   }
 
   const toggleExpanded = (itemId: string) => {
-    setExpandedItems(prev =>
-      prev.includes(itemId)
+    setExpandedItems(prev => {
+      const newExpanded = prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [itemId] // Only keep the newly clicked item expanded
-    )
+
+      // Save to localStorage
+      localStorage.setItem('sidebar-expanded', JSON.stringify(newExpanded))
+      return newExpanded
+    })
   }
 
   const isItemActive = (item: MenuItem): boolean => {
