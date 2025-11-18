@@ -48,6 +48,21 @@ interface HistoricalInventoryItem {
   notes: string;
 }
 
+interface MovementSummaryQuery {
+  productIds?: string[];
+  categoryId?: string;
+  startDate?: Date;
+  endDate?: Date;
+}
+
+interface MovementSummaryItem {
+  productName: string;
+  categoryName: string;
+  quantityIn: number;
+  quantityOut: number;
+  quantityOnHand: number;
+}
+
 @Injectable()
 export class InventoryAnalyticsService {
   constructor(
@@ -252,6 +267,94 @@ export class InventoryAnalyticsService {
         };
       })
     );
+
+    return { data };
+  }
+
+  async getMovementSummary(
+    query: MovementSummaryQuery,
+  ): Promise<{ data: MovementSummaryItem[] }> {
+    // First, get all products that match the filters
+    const productQueryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
+
+    // Product IDs filter
+    if (query.productIds && query.productIds.length > 0) {
+      productQueryBuilder.andWhere('product.id IN (:...productIds)', {
+        productIds: query.productIds,
+      });
+    }
+
+    // Category filter
+    if (query.categoryId) {
+      productQueryBuilder.andWhere('product.categoryId = :categoryId', {
+        categoryId: query.categoryId,
+      });
+    }
+
+    productQueryBuilder.orderBy('product.name', 'ASC');
+    const products = await productQueryBuilder.getMany();
+
+    if (products.length === 0) {
+      return { data: [] };
+    }
+
+    // Get stock movements for these products
+    const movementQueryBuilder = this.stockMovementRepository
+      .createQueryBuilder('movement')
+      .where('movement.status = :status', { status: 'completed' })
+      .andWhere('movement.productId IN (:...productIds)', {
+        productIds: products.map(p => p.id),
+      });
+
+    // Date range filter
+    if (query.startDate && query.endDate) {
+      movementQueryBuilder.andWhere('movement.movementDate BETWEEN :startDate AND :endDate', {
+        startDate: query.startDate,
+        endDate: query.endDate,
+      });
+    } else if (query.startDate) {
+      movementQueryBuilder.andWhere('movement.movementDate >= :startDate', {
+        startDate: query.startDate,
+      });
+    } else if (query.endDate) {
+      movementQueryBuilder.andWhere('movement.movementDate <= :endDate', {
+        endDate: query.endDate,
+      });
+    }
+
+    const movements = await movementQueryBuilder.getMany();
+
+    // Calculate summary for each product
+    const data: MovementSummaryItem[] = products.map((product) => {
+      const productMovements = movements.filter(m => m.productId === product.id);
+
+      let quantityIn = 0;
+      let quantityOut = 0;
+
+      productMovements.forEach(movement => {
+        const qty = parseFloat(movement.quantity?.toString() || '0');
+        if (qty > 0) {
+          quantityIn += qty;
+        } else {
+          quantityOut += Math.abs(qty);
+        }
+      });
+
+      // Quantity on hand is current stock quantity
+      const quantityOnHand = parseFloat(product.stockQuantity?.toString() || '0');
+
+      return {
+        productName: product.name,
+        categoryName: product.category?.name || 'Uncategorized',
+        quantityIn,
+        quantityOut,
+        quantityOnHand,
+      };
+    });
 
     return { data };
   }
