@@ -72,6 +72,9 @@ const HistoricalInventoryReport: React.FC = () => {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
 
+  // Options
+  const [targetDate, setTargetDate] = useState<string>('')
+
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
@@ -135,6 +138,7 @@ const HistoricalInventoryReport: React.FC = () => {
       if (selectedProducts.length > 0) {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
+      if (targetDate) params.append('endDate', new Date(targetDate).toISOString())
 
       const response = await fetch(`/api/inventory/analytics/historical-inventory?${params.toString()}`)
 
@@ -155,6 +159,7 @@ const HistoricalInventoryReport: React.FC = () => {
   const handleClearFilters = () => {
     setSelectedProducts([])
     setSelectedCategory('')
+    setTargetDate('')
     setReportData([])
     setSelectedColumns(['movementDate', 'productName', 'categoryName', 'movementDescription', 'quantity', 'previousBalance', 'newBalance', 'unitValue', 'totalValue'])
     setGroupBy('none')
@@ -440,6 +445,9 @@ const HistoricalInventoryReport: React.FC = () => {
         filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
       }
     }
+    if (targetDate) {
+      filterText.push(`<p><strong>Target Date:</strong> ${new Date(targetDate).toLocaleDateString()}</p>`)
+    }
     const filtersText = filterText.join('')
 
     const html = `
@@ -699,6 +707,37 @@ const HistoricalInventoryReport: React.FC = () => {
                       ))}
                     </Select>
                   </FormControl>
+                </Stack>
+              </Box>
+            </Paper>
+
+            {/* Options Section */}
+            <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 0.5, overflow: 'hidden' }}>
+              <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
+                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Options
+                </Typography>
+              </Box>
+
+              <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
+                <Stack spacing={2}>
+                  <TextField
+                    label="Target Date"
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    size="small"
+                    fullWidth
+                    helperText="Show movements up to this date"
+                    FormHelperTextProps={{ sx: { fontSize: '0.65rem' } }}
+                  />
                 </Stack>
               </Box>
             </Paper>
