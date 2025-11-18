@@ -34,7 +34,7 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  SwapVert as MovementIcon,
+  CompareArrows as MovementIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
