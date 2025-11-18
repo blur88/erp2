@@ -492,7 +492,12 @@ const HistoricalInventoryReport: React.FC = () => {
         return aVal.toLowerCase().localeCompare(bVal.toLowerCase())
       }
 
-      return aVal - bVal
+      // For numeric fields (unitValue, quantity, totalValue), sort descending (largest first)
+      if (field === 'unitValue' || field === 'quantity' || field === 'totalValue') {
+        return bVal - aVal  // Descending order
+      }
+
+      return aVal - bVal  // Ascending order for other fields
     }
 
     if (groupBy !== 'none') {
