@@ -85,7 +85,7 @@ const HistoricalInventoryReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'movementDate', 'productName', 'categoryName', 'movementDescription', 'quantity', 'previousBalance', 'newBalance', 'unitValue', 'totalValue'
+    'productName', 'categoryName', 'unitValue', 'quantity', 'totalValue'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('movementDate')
@@ -161,7 +161,7 @@ const HistoricalInventoryReport: React.FC = () => {
     setSelectedCategory('')
     setTargetDate('')
     setReportData([])
-    setSelectedColumns(['movementDate', 'productName', 'categoryName', 'movementDescription', 'quantity', 'previousBalance', 'newBalance', 'unitValue', 'totalValue'])
+    setSelectedColumns(['productName', 'categoryName', 'unitValue', 'quantity', 'totalValue'])
     setGroupBy('none')
     setSortBy1('movementDate')
     setReportTitle('Historical Inventory Report')
@@ -291,18 +291,11 @@ const HistoricalInventoryReport: React.FC = () => {
     if (sortedData.length === 0) return
 
     const columnHeaders: { [key: string]: string } = {
-      movementDate: 'Date',
-      productName: 'Product',
+      productName: 'Products',
       categoryName: 'Category',
-      movementDescription: 'Movement Type',
+      unitValue: 'Average Cost',
       quantity: 'Quantity',
-      previousBalance: 'Previous Balance',
-      newBalance: 'New Balance',
-      unitValue: 'Unit Value',
-      totalValue: 'Total Value',
-      referenceNumber: 'Reference',
-      reason: 'Reason',
-      notes: 'Notes'
+      totalValue: 'Total Cost Value'
     }
 
     let csv = reportTitle + '\n\n'
@@ -336,16 +329,16 @@ const HistoricalInventoryReport: React.FC = () => {
       }
 
       const values = selectedColumns.map(col => {
-        if (col === 'movementDate') {
-          return `"${new Date(row.movementDate).toLocaleDateString()}"`
-        }
-        const value = (row as any)[col]
-        if (['productName', 'categoryName', 'movementDescription', 'referenceNumber', 'reason', 'notes'].includes(col)) {
+        if (col === 'productName' || col === 'categoryName') {
+          const value = (row as any)[col]
           return `"${value || ''}"`
-        } else if (typeof value === 'number') {
-          return value.toFixed(2)
+        } else if (col === 'unitValue' || col === 'totalValue') {
+          const value = (row as any)[col]
+          return typeof value === 'number' ? value.toFixed(2) : '0.00'
+        } else if (col === 'quantity') {
+          return row.quantity.toFixed(2)
         }
-        return `"${value || ''}"`
+        return '""'
       })
       csv += values.join(',') + '\n'
     })
@@ -368,18 +361,11 @@ const HistoricalInventoryReport: React.FC = () => {
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      movementDate: 'Date',
-      productName: 'Product',
+      productName: 'Products',
       categoryName: 'Category',
-      movementDescription: 'Movement Type',
+      unitValue: 'Average Cost',
       quantity: 'Quantity',
-      previousBalance: 'Previous Balance',
-      newBalance: 'New Balance',
-      unitValue: 'Unit Value',
-      totalValue: 'Total Value',
-      referenceNumber: 'Reference',
-      reason: 'Reason',
-      notes: 'Notes'
+      totalValue: 'Total Cost Value'
     }
 
     let tableRows = ''
@@ -414,20 +400,16 @@ const HistoricalInventoryReport: React.FC = () => {
         let displayValue: any
         let align = ''
 
-        if (col === 'movementDate') {
-          displayValue = new Date(row.movementDate).toLocaleDateString()
-        } else if (col === 'quantity') {
-          displayValue = row.quantity.toFixed(2)
-          align = 'text-align: right;'
-        } else if (col === 'previousBalance' || col === 'newBalance') {
-          displayValue = (row as any)[col].toFixed(2)
-          align = 'text-align: right;'
+        if (col === 'productName' || col === 'categoryName') {
+          displayValue = (row as any)[col] || ''
         } else if (col === 'unitValue' || col === 'totalValue') {
           displayValue = formatCurrency((row as any)[col])
           align = 'text-align: right;'
+        } else if (col === 'quantity') {
+          displayValue = row.quantity.toFixed(2)
+          align = 'text-align: right;'
         } else {
-          const value = (row as any)[col]
-          displayValue = value || ''
+          displayValue = ''
         }
 
         tableRows += `<td style="${align}">${displayValue}</td>`
@@ -563,16 +545,6 @@ const HistoricalInventoryReport: React.FC = () => {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10))
     setPage(0)
-  }
-
-  const getMovementTypeColor = (type: string) => {
-    if (type.includes('sale') || type.includes('decrease') || type.includes('damage') || type.includes('loss') || type.includes('theft') || type.includes('expiry')) {
-      return 'error'
-    }
-    if (type.includes('purchase') || type.includes('increase') || type.includes('receipt') || type.includes('return')) {
-      return 'success'
-    }
-    return 'default'
   }
 
   return (
@@ -767,7 +739,7 @@ const HistoricalInventoryReport: React.FC = () => {
                         const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
                         if (value.includes('all')) {
-                          const allColumns = ['movementDate', 'productName', 'categoryName', 'movementDescription', 'quantity', 'previousBalance', 'newBalance', 'unitValue', 'totalValue', 'referenceNumber', 'reason', 'notes']
+                          const allColumns = ['productName', 'categoryName', 'unitValue', 'quantity', 'totalValue']
                           if (selectedColumns.length === allColumns.length) {
                             setSelectedColumns([])
                           } else {
@@ -781,18 +753,11 @@ const HistoricalInventoryReport: React.FC = () => {
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="movementDate">Date</MenuItem>
-                      <MenuItem value="productName">Product</MenuItem>
+                      <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="movementDescription">Movement Type</MenuItem>
+                      <MenuItem value="unitValue">Average Cost</MenuItem>
                       <MenuItem value="quantity">Quantity</MenuItem>
-                      <MenuItem value="previousBalance">Previous Balance</MenuItem>
-                      <MenuItem value="newBalance">New Balance</MenuItem>
-                      <MenuItem value="unitValue">Unit Value</MenuItem>
-                      <MenuItem value="totalValue">Total Value</MenuItem>
-                      <MenuItem value="referenceNumber">Reference</MenuItem>
-                      <MenuItem value="reason">Reason</MenuItem>
-                      <MenuItem value="notes">Notes</MenuItem>
+                      <MenuItem value="totalValue">Total Cost Value</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -920,18 +885,11 @@ const HistoricalInventoryReport: React.FC = () => {
                         top: 0,
                         zIndex: 10
                       } }}>
-                        {selectedColumns.includes('movementDate') && <TableCell align="center">Date</TableCell>}
-                        {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
+                        {selectedColumns.includes('productName') && <TableCell align="center">Products</TableCell>}
                         {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
-                        {selectedColumns.includes('movementDescription') && <TableCell align="center">Movement Type</TableCell>}
+                        {selectedColumns.includes('unitValue') && <TableCell align="center">Average Cost</TableCell>}
                         {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
-                        {selectedColumns.includes('previousBalance') && <TableCell align="center">Previous Balance</TableCell>}
-                        {selectedColumns.includes('newBalance') && <TableCell align="center">New Balance</TableCell>}
-                        {selectedColumns.includes('unitValue') && <TableCell align="center">Unit Value</TableCell>}
-                        {selectedColumns.includes('totalValue') && <TableCell align="center">Total Value</TableCell>}
-                        {selectedColumns.includes('referenceNumber') && <TableCell align="center">Reference</TableCell>}
-                        {selectedColumns.includes('reason') && <TableCell align="center">Reason</TableCell>}
-                        {selectedColumns.includes('notes') && <TableCell align="center">Notes</TableCell>}
+                        {selectedColumns.includes('totalValue') && <TableCell align="center">Total Cost Value</TableCell>}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -979,11 +937,6 @@ const HistoricalInventoryReport: React.FC = () => {
                                 height: TABLE_STYLES.row.height
                               }}
                             >
-                              {selectedColumns.includes('movementDate') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {new Date(row.movementDate).toLocaleDateString()}
-                                </TableCell>
-                              )}
                               {selectedColumns.includes('productName') && (
                                 <TableCell sx={{ fontSize: '0.8rem' }}>
                                   {row.productName}
@@ -994,58 +947,19 @@ const HistoricalInventoryReport: React.FC = () => {
                                   {row.categoryName}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('movementDescription') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.movementDescription}
-                                    size="small"
-                                    color={getMovementTypeColor(row.movementType) as any}
-                                    sx={{ fontSize: '0.7rem' }}
-                                  />
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('quantity') && (
-                                <TableCell align="right" sx={{
-                                  fontSize: '0.8rem',
-                                  color: row.quantity > 0 ? 'success.main' : 'error.main',
-                                  fontWeight: 600
-                                }}>
-                                  {row.quantity > 0 ? '+' : ''}{row.quantity.toFixed(2)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('previousBalance') && (
-                                <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                  {row.previousBalance.toFixed(2)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('newBalance') && (
-                                <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                  {row.newBalance.toFixed(2)}
-                                </TableCell>
-                              )}
                               {selectedColumns.includes('unitValue') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                   {formatCurrency(row.unitValue)}
                                 </TableCell>
                               )}
+                              {selectedColumns.includes('quantity') && (
+                                <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                  {row.quantity.toFixed(2)}
+                                </TableCell>
+                              )}
                               {selectedColumns.includes('totalValue') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                   {formatCurrency(row.totalValue)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('referenceNumber') && (
-                                <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.referenceNumber || '-'}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('reason') && (
-                                <TableCell sx={{ fontSize: '0.8rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {row.reason || '-'}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('notes') && (
-                                <TableCell sx={{ fontSize: '0.8rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {row.notes || '-'}
                                 </TableCell>
                               )}
                             </TableRow>
