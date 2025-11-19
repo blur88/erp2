@@ -85,7 +85,7 @@ const ProductCostReport: React.FC = () => {
     'quantityChange', 'quantityAfter', 'costChange', 'totalCost', 'averageCost'
   ])
   const [groupBy, setGroupBy] = useState<string>('productName')
-  const [sortBy1, setSortBy1] = useState<string>('orderDate')
+  const [sortBy1, setSortBy1] = useState<string>('productName')
   const [reportTitle, setReportTitle] = useState<string>('Product Cost Report')
 
   // Pagination
@@ -160,7 +160,7 @@ const ProductCostReport: React.FC = () => {
     setReportData([])
     setSelectedColumns(['productName', 'categoryName', 'productType', 'orderNumber', 'orderDate', 'quantityChange', 'quantityAfter', 'costChange', 'totalCost', 'averageCost'])
     setGroupBy('productName')
-    setSortBy1('orderDate')
+    setSortBy1('productName')
     setReportTitle('Product Cost Report')
     setPage(0)
     setRowsPerPage(25)
