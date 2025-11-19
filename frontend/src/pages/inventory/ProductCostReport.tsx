@@ -47,7 +47,7 @@ import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 interface ProductCostItem {
   productName: string
   categoryName: string
-  productType: string
+  transactionType: string
   orderNumber: string
   orderDate: Date
   quantityChange: number
@@ -81,7 +81,7 @@ const ProductCostReport: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'categoryName', 'productType', 'orderNumber', 'orderDate',
+    'productName', 'categoryName', 'transactionType', 'orderNumber', 'orderDate',
     'quantityChange', 'quantityAfter', 'costChange', 'totalCost', 'averageCost'
   ])
   const [groupBy, setGroupBy] = useState<string>('productName')
@@ -158,7 +158,7 @@ const ProductCostReport: React.FC = () => {
     setStartDate('')
     setEndDate('')
     setReportData([])
-    setSelectedColumns(['productName', 'categoryName', 'productType', 'orderNumber', 'orderDate', 'quantityChange', 'quantityAfter', 'costChange', 'totalCost', 'averageCost'])
+    setSelectedColumns(['productName', 'categoryName', 'transactionType', 'orderNumber', 'orderDate', 'quantityChange', 'quantityAfter', 'costChange', 'totalCost', 'averageCost'])
     setGroupBy('productName')
     setSortBy1('productName')
     setReportTitle('Product Cost Report')
@@ -290,7 +290,7 @@ const ProductCostReport: React.FC = () => {
     const columnHeaders: { [key: string]: string } = {
       productName: 'Product',
       categoryName: 'Category',
-      productType: 'Type',
+      transactionType: 'Type',
       orderNumber: 'Order No',
       orderDate: 'Order Date',
       quantityChange: 'Qty Change',
@@ -331,7 +331,7 @@ const ProductCostReport: React.FC = () => {
       }
 
       const values = selectedColumns.map(col => {
-        if (col === 'productName' || col === 'categoryName' || col === 'productType' || col === 'orderNumber') {
+        if (col === 'productName' || col === 'categoryName' || col === 'transactionType' || col === 'orderNumber') {
           const value = (row as any)[col]
           return `"${value || ''}"`
         } else if (col === 'orderDate') {
@@ -366,7 +366,7 @@ const ProductCostReport: React.FC = () => {
     const columnHeaders: { [key: string]: string } = {
       productName: 'Product',
       categoryName: 'Category',
-      productType: 'Type',
+      transactionType: 'Type',
       orderNumber: 'Order No',
       orderDate: 'Order Date',
       quantityChange: 'Qty Change',
@@ -408,7 +408,7 @@ const ProductCostReport: React.FC = () => {
         let displayValue: any
         let align = ''
 
-        if (col === 'productName' || col === 'categoryName' || col === 'productType' || col === 'orderNumber') {
+        if (col === 'productName' || col === 'categoryName' || col === 'transactionType' || col === 'orderNumber') {
           displayValue = (row as any)[col] || ''
         } else if (col === 'orderDate') {
           displayValue = formatDate((row as any)[col])
@@ -725,7 +725,7 @@ const ProductCostReport: React.FC = () => {
                         const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
                         if (value.includes('all')) {
-                          const allColumns = ['productName', 'categoryName', 'productType', 'orderNumber', 'orderDate', 'quantityChange', 'quantityAfter', 'costChange', 'totalCost', 'averageCost']
+                          const allColumns = ['productName', 'categoryName', 'transactionType', 'orderNumber', 'orderDate', 'quantityChange', 'quantityAfter', 'costChange', 'totalCost', 'averageCost']
                           if (selectedColumns.length === allColumns.length) {
                             setSelectedColumns([])
                           } else {
@@ -741,7 +741,7 @@ const ProductCostReport: React.FC = () => {
                       <MenuItem value="all">All</MenuItem>
                       <MenuItem value="productName">Product</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="productType">Type</MenuItem>
+                      <MenuItem value="transactionType">Type</MenuItem>
                       <MenuItem value="orderNumber">Order No</MenuItem>
                       <MenuItem value="orderDate">Order Date</MenuItem>
                       <MenuItem value="quantityChange">Qty Change</MenuItem>
@@ -777,7 +777,7 @@ const ProductCostReport: React.FC = () => {
                     >
                       <MenuItem value="productName">Product</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
-                      <MenuItem value="productType">Type</MenuItem>
+                      <MenuItem value="transactionType">Type</MenuItem>
                       <MenuItem value="orderNumber">Order No</MenuItem>
                       <MenuItem value="orderDate">Order Date</MenuItem>
                       <MenuItem value="quantityChange">Qty Change</MenuItem>
@@ -883,7 +883,7 @@ const ProductCostReport: React.FC = () => {
                       } }}>
                         {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
                         {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
-                        {selectedColumns.includes('productType') && <TableCell align="center">Type</TableCell>}
+                        {selectedColumns.includes('transactionType') && <TableCell align="center">Type</TableCell>}
                         {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
                         {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
                         {selectedColumns.includes('quantityChange') && <TableCell align="center">Qty Change</TableCell>}
@@ -951,9 +951,9 @@ const ProductCostReport: React.FC = () => {
                                   {row.categoryName}
                                 </TableCell>
                               )}
-                              {selectedColumns.includes('productType') && (
-                                <TableCell sx={{ fontSize: '0.8rem', textTransform: 'capitalize' }}>
-                                  {row.productType}
+                              {selectedColumns.includes('transactionType') && (
+                                <TableCell sx={{ fontSize: '0.8rem' }}>
+                                  {row.transactionType}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('orderNumber') && (

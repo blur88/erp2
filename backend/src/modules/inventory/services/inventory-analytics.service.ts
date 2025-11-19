@@ -87,7 +87,7 @@ interface ProductCostQuery {
 interface ProductCostItem {
   productName: string;
   categoryName: string;
-  productType: string;
+  transactionType: string;
   orderNumber: string;
   orderDate: Date;
   quantityChange: number;
@@ -502,6 +502,45 @@ export class InventoryAnalyticsService {
       totalCost: number;
     }>();
 
+    // Helper function to map movement type to transaction type label
+    const getTransactionType = (movementType: string): string => {
+      switch (movementType) {
+        case 'purchase_receipt':
+          return 'Purchase Order Receive';
+        case 'sale':
+          return 'Sales Order Fulfillment';
+        case 'adjustment_increase':
+        case 'adjustment_decrease':
+          return 'Stock Adjustment';
+        case 'sales_return':
+          return 'Sales Return';
+        case 'sale_reversal':
+          return 'Sales Order Unfulfillment';
+        case 'purchase_return':
+          return 'Purchase Return';
+        case 'initial_stock':
+          return 'Initial Stock';
+        case 'production_receipt':
+          return 'Production Receipt';
+        case 'production_consumption':
+          return 'Production Consumption';
+        case 'transfer_in':
+          return 'Transfer In';
+        case 'transfer_out':
+          return 'Transfer Out';
+        case 'damage':
+          return 'Damage';
+        case 'expiry':
+          return 'Expiry';
+        case 'theft':
+          return 'Theft';
+        case 'loss':
+          return 'Loss';
+        default:
+          return 'Other';
+      }
+    };
+
     const data: ProductCostItem[] = movements.map((movement) => {
       const productId = movement.productId;
       const quantityChange = parseFloat(movement.quantity?.toString() || '0');
@@ -545,7 +584,7 @@ export class InventoryAnalyticsService {
       return {
         productName: movement.product?.name || 'Unknown',
         categoryName: movement.product?.category?.name || 'Uncategorized',
-        productType: movement.product?.type || 'product',
+        transactionType: getTransactionType(movement.movementType),
         orderNumber: movement.referenceNumber || '-',
         orderDate: movement.movementDate,
         quantityChange,
