@@ -458,11 +458,15 @@ export class InventoryAnalyticsService {
   async getProductCost(
     query: ProductCostQuery,
   ): Promise<{ data: ProductCostItem[] }> {
-    // Build query to get stock movements
+    // Build query to get stock movements with related order information
     const movementQueryBuilder = this.stockMovementRepository
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
+      .leftJoin('sales_orders', 'so', 'movement.referenceType = \'sales_order\' AND movement.referenceId = so.id')
+      .leftJoin('purchase_orders', 'po', 'movement.referenceType = \'purchase_order\' AND movement.referenceId = po.id')
+      .leftJoin('stock_adjustments', 'sa', 'movement.referenceType = \'stock_adjustment\' AND movement.referenceId = sa.id')
+      .addSelect('COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, movement.referenceNumber, \'-\')', 'orderNumberResolved')
       .where('movement.status = :status', { status: 'completed' })
       .andWhere('product.isActive = :isActive', { isActive: true })
       .andWhere('product.deletedAt IS NULL');
@@ -494,7 +498,13 @@ export class InventoryAnalyticsService {
     movementQueryBuilder.orderBy('movement.movementDate', 'ASC')
       .addOrderBy('product.name', 'ASC');
 
-    const movements = await movementQueryBuilder.getMany();
+    const { entities: movements, raw: rawResults } = await movementQueryBuilder.getRawAndEntities();
+
+    // Create a map of movement IDs to resolved order numbers
+    const orderNumberMap = new Map<string, string>();
+    rawResults.forEach((raw: any) => {
+      orderNumberMap.set(raw.movement_id, raw.orderNumberResolved || '-');
+    });
 
     // Calculate running cost for each product movement
     const productRunningTotals = new Map<string, {
@@ -585,7 +595,7 @@ export class InventoryAnalyticsService {
         productName: movement.product?.name || 'Unknown',
         categoryName: movement.product?.category?.name || 'Uncategorized',
         transactionType: getTransactionType(movement.movementType),
-        orderNumber: movement.referenceNumber || '-',
+        orderNumber: orderNumberMap.get(movement.id) || movement.referenceNumber || '-',
         orderDate: movement.movementDate,
         quantityChange,
         quantityAfter,
