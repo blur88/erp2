@@ -977,7 +977,7 @@ const ProductCostReport: React.FC = () => {
                                 </TableCell>
                               )}
                               {selectedColumns.includes('costChange') && (
-                                <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                <TableCell align="right" sx={{ fontSize: '0.8rem', color: row.costChange >= 0 ? 'success.main' : 'error.main' }}>
                                   {formatCurrency(row.costChange)}
                                 </TableCell>
                               )}

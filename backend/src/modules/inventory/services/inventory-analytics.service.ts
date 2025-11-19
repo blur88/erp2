@@ -565,11 +565,14 @@ export class InventoryAnalyticsService {
       }
 
       // Calculate cost change for this movement
-      const costChange = Math.abs(quantityChange) * unitValue;
+      // For inward movements: positive cost change
+      // For outward movements: negative cost change
+      let costChange: number;
 
       // Update running totals based on movement type (inward vs outward)
       if (quantityChange > 0) {
         // Inward movement: add to totals
+        costChange = quantityChange * unitValue;
         productTotals.totalQuantity += quantityChange;
         productTotals.totalCost += costChange;
       } else {
@@ -579,6 +582,7 @@ export class InventoryAnalyticsService {
           : unitValue;
 
         const outwardCost = Math.abs(quantityChange) * avgCostBefore;
+        costChange = -outwardCost; // Negative for outward movements
         productTotals.totalQuantity += quantityChange; // Will decrease
         productTotals.totalCost -= outwardCost; // Decrease cost proportionally
       }
