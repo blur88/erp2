@@ -45,7 +45,6 @@ import {
   Timeline as HistoricalInventoryIcon,
   CompareArrows as MovementSummaryIcon,
   AttachMoney as PriceListIcon,
-  Checklist as CountSheetIcon,
   TrendingDown as CostReportIcon,
 } from '@mui/icons-material'
 
@@ -322,12 +321,6 @@ const menuSections: MenuSection[] = [
             title: 'Product Price List',
             icon: <PriceListIcon />,
             path: '/reports/inventory/price-list',
-          },
-          {
-            id: 'count-sheet-report',
-            title: 'Count Sheet Report',
-            icon: <CountSheetIcon />,
-            path: '/reports/inventory/count-sheet',
           },
           {
             id: 'product-cost-report',
