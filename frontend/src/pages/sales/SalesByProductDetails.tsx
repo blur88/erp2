@@ -241,8 +241,10 @@ const SalesByProductDetails: React.FC = () => {
 
         // Subtotal
         const subtotal = calculateGroupSubtotal(items)
-        csv += `"Subtotal - ${groupName}",`
-        const subtotalValues = selectedColumns.slice(1).map(col => {
+        const subtotalValues = selectedColumns.map((col, colIdx) => {
+          if (colIdx === 0) {
+            return '"Subtotal"'
+          }
           const value = (subtotal as any)[col]
           if (col === 'quantity') {
             return value?.toLocaleString() || ''
@@ -252,6 +254,8 @@ const SalesByProductDetails: React.FC = () => {
           return ''
         })
         csv += subtotalValues.join(',') + '\n'
+        // Blank row after subtotal
+        csv += '\n'
       })
     } else {
       // Export ungrouped data
@@ -273,8 +277,11 @@ const SalesByProductDetails: React.FC = () => {
 
     // Add totals
     if (totals) {
-      csv += '\n"TOTAL",'
-      const totalValues = selectedColumns.slice(1).map(col => {
+      csv += '\n'
+      const totalValues = selectedColumns.map((col, colIdx) => {
+        if (colIdx === 0) {
+          return '"GRAND TOTAL"'
+        }
         const value = (totals as any)[col]
         if (col === 'quantity') {
           return value?.toLocaleString() || ''
@@ -345,22 +352,23 @@ const SalesByProductDetails: React.FC = () => {
 
         // Subtotal
         const subtotal = calculateGroupSubtotal(items)
-        tableRows += '<tr style="background-color: #f5f5f5; font-style: italic;">'
+        tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
         selectedColumns.forEach((col, idx) => {
           if (idx === 0) {
-            tableRows += `<td>Subtotal - ${groupName}</td>`
-          } else {
+            tableRows += '<td style="font-weight: bold;">Subtotal</td>'
+          } else if (col === 'quantity') {
             const value = (subtotal as any)[col]
-            let displayValue = ''
-            if (col === 'quantity') {
-              displayValue = value?.toLocaleString() || ''
-            } else if (typeof value === 'number') {
-              displayValue = formatCurrency(value)
-            }
-            tableRows += `<td>${displayValue}</td>`
+            tableRows += `<td style="text-align: right; font-weight: bold;">${value?.toLocaleString() || ''}</td>`
+          } else if (col === 'totalAmount' || col === 'cost' || col === 'profit') {
+            const value = (subtotal as any)[col]
+            tableRows += `<td style="text-align: right; font-weight: bold;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
+          } else {
+            tableRows += '<td></td>'
           }
         })
         tableRows += '</tr>'
+        // Blank row after subtotal
+        tableRows += `<tr style="height: 20px;"><td colspan="${selectedColumns.length}" style="border: none;"></td></tr>`
       })
     } else {
       sortedData.forEach(row => {
@@ -383,19 +391,18 @@ const SalesByProductDetails: React.FC = () => {
 
     // Add totals
     if (totals) {
-      tableRows += '<tr style="background-color: #e0e0e0; font-weight: bold;">'
+      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
-          tableRows += '<td>TOTAL</td>'
-        } else {
+          tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
+        } else if (col === 'quantity') {
           const value = (totals as any)[col]
-          let displayValue = ''
-          if (col === 'quantity') {
-            displayValue = value?.toLocaleString() || ''
-          } else if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-          }
-          tableRows += `<td>${displayValue}</td>`
+          tableRows += `<td style="text-align: right; font-weight: 800;">${value?.toLocaleString() || ''}</td>`
+        } else if (col === 'totalAmount' || col === 'cost' || col === 'profit') {
+          const value = (totals as any)[col]
+          tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
+        } else {
+          tableRows += '<td></td>'
         }
       })
       tableRows += '</tr>'
@@ -1249,17 +1256,18 @@ const SalesByProductDetails: React.FC = () => {
                             {/* Group Subtotal Row */}
                             <TableRow
                               sx={{
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'grey.50',
+                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
                                 '& .MuiTableCell-root': {
-                                  fontWeight: 600,
-                                  fontSize: '0.8rem',
-                                  fontStyle: 'italic'
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem',
+                                  borderTop: '2px solid',
+                                  borderColor: 'primary.main'
                                 }
                               }}
                             >
                               {selectedColumns.includes('productName') && (
-                                <TableCell>
-                                  Subtotal - {groupName}
+                                <TableCell sx={{ fontWeight: 700 }}>
+                                  Subtotal
                                 </TableCell>
                               )}
                               {selectedColumns.includes('category') && <TableCell />}
@@ -1268,27 +1276,32 @@ const SalesByProductDetails: React.FC = () => {
                               {selectedColumns.includes('customerSupplier') && <TableCell />}
                               {selectedColumns.includes('priceLevel') && <TableCell />}
                               {selectedColumns.includes('quantity') && (
-                                <TableCell align="right">
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>
                                   {subtotal.quantity.toLocaleString()}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('totalAmount') && (
-                                <TableCell align="right">
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>
                                   {formatCurrency(subtotal.totalAmount)}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('cost') && (
-                                <TableCell align="right">
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>
                                   {formatCurrency(subtotal.cost)}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('profit') && (
                                 <TableCell align="right" sx={{
+                                  fontWeight: 700,
                                   color: subtotal.profit > 0 ? 'success.main' : subtotal.profit < 0 ? 'error.main' : 'inherit'
                                 }}>
                                   {formatCurrency(subtotal.profit)}
                                 </TableCell>
                               )}
+                            </TableRow>
+                            {/* Blank row after subtotal */}
+                            <TableRow sx={{ height: TABLE_STYLES.row.height }}>
+                              <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
                             </TableRow>
                           </React.Fragment>
                         )
@@ -1365,18 +1378,18 @@ const SalesByProductDetails: React.FC = () => {
                     {totals && (
                       <TableRow
                         sx={{
-                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                          borderTop: '2px solid',
-                          borderColor: 'divider',
+                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
                           '& .MuiTableCell-root': {
-                            fontWeight: 700,
-                            fontSize: '0.85rem'
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            borderTop: '3px solid',
+                            borderColor: 'success.main'
                           }
                         }}
                       >
                         {selectedColumns.includes('productName') && (
-                          <TableCell sx={{ fontWeight: 700 }}>
-                            TOTAL
+                          <TableCell sx={{ fontWeight: 800 }}>
+                            GRAND TOTAL
                           </TableCell>
                         )}
                         {selectedColumns.includes('category') && <TableCell />}
@@ -1385,22 +1398,23 @@ const SalesByProductDetails: React.FC = () => {
                         {selectedColumns.includes('customerSupplier') && <TableCell />}
                         {selectedColumns.includes('priceLevel') && <TableCell />}
                         {selectedColumns.includes('quantity') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {totals.quantity.toLocaleString()}
                           </TableCell>
                         )}
                         {selectedColumns.includes('totalAmount') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalAmount)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('cost') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.cost)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('profit') && (
                           <TableCell align="right" sx={{
+                            fontWeight: 800,
                             color: totals.profit > 0 ? 'success.main' : totals.profit < 0 ? 'error.main' : 'inherit'
                           }}>
                             {formatCurrency(totals.profit)}
