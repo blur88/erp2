@@ -78,6 +78,25 @@ interface PriceListItem {
   salesCost: number;
 }
 
+interface ProductCostQuery {
+  productIds?: string[];
+  startDate?: Date;
+  endDate?: Date;
+}
+
+interface ProductCostItem {
+  productName: string;
+  categoryName: string;
+  productType: string;
+  orderNumber: string;
+  orderDate: Date;
+  quantityChange: number;
+  quantityAfter: number;
+  costChange: number;
+  totalCost: number;
+  averageCost: number;
+}
+
 @Injectable()
 export class InventoryAnalyticsService {
   constructor(
@@ -430,6 +449,110 @@ export class InventoryAnalyticsService {
         price,
         discountedPrice,
         salesCost,
+      };
+    });
+
+    return { data };
+  }
+
+  async getProductCost(
+    query: ProductCostQuery,
+  ): Promise<{ data: ProductCostItem[] }> {
+    // Build query to get stock movements
+    const movementQueryBuilder = this.stockMovementRepository
+      .createQueryBuilder('movement')
+      .leftJoinAndSelect('movement.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('movement.status = :status', { status: 'completed' })
+      .andWhere('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
+
+    // Product IDs filter
+    if (query.productIds && query.productIds.length > 0) {
+      movementQueryBuilder.andWhere('movement.productId IN (:...productIds)', {
+        productIds: query.productIds,
+      });
+    }
+
+    // Date range filter
+    if (query.startDate && query.endDate) {
+      movementQueryBuilder.andWhere('movement.movementDate BETWEEN :startDate AND :endDate', {
+        startDate: query.startDate,
+        endDate: query.endDate,
+      });
+    } else if (query.startDate) {
+      movementQueryBuilder.andWhere('movement.movementDate >= :startDate', {
+        startDate: query.startDate,
+      });
+    } else if (query.endDate) {
+      movementQueryBuilder.andWhere('movement.movementDate <= :endDate', {
+        endDate: query.endDate,
+      });
+    }
+
+    // Order by date and product
+    movementQueryBuilder.orderBy('movement.movementDate', 'ASC')
+      .addOrderBy('product.name', 'ASC');
+
+    const movements = await movementQueryBuilder.getMany();
+
+    // Calculate running cost for each product movement
+    const productRunningTotals = new Map<string, {
+      totalQuantity: number;
+      totalCost: number;
+    }>();
+
+    const data: ProductCostItem[] = movements.map((movement) => {
+      const productId = movement.productId;
+      const quantityChange = parseFloat(movement.quantity?.toString() || '0');
+      const unitValue = parseFloat(movement.unitValue?.toString() || '0');
+      const quantityAfter = parseFloat(movement.newBalance?.toString() || '0');
+
+      // Get or initialize running totals for this product
+      let productTotals = productRunningTotals.get(productId);
+      if (!productTotals) {
+        productTotals = { totalQuantity: 0, totalCost: 0 };
+        productRunningTotals.set(productId, productTotals);
+      }
+
+      // Calculate cost change for this movement
+      const costChange = Math.abs(quantityChange) * unitValue;
+
+      // Update running totals based on movement type (inward vs outward)
+      if (quantityChange > 0) {
+        // Inward movement: add to totals
+        productTotals.totalQuantity += quantityChange;
+        productTotals.totalCost += costChange;
+      } else {
+        // Outward movement: calculate cost based on average, then update totals
+        const avgCostBefore = productTotals.totalQuantity > 0
+          ? productTotals.totalCost / productTotals.totalQuantity
+          : unitValue;
+
+        const outwardCost = Math.abs(quantityChange) * avgCostBefore;
+        productTotals.totalQuantity += quantityChange; // Will decrease
+        productTotals.totalCost -= outwardCost; // Decrease cost proportionally
+      }
+
+      // Calculate average cost after this movement
+      const averageCost = productTotals.totalQuantity > 0
+        ? productTotals.totalCost / productTotals.totalQuantity
+        : 0;
+
+      // Total cost is the current accumulated cost for this product
+      const totalCost = productTotals.totalCost;
+
+      return {
+        productName: movement.product?.name || 'Unknown',
+        categoryName: movement.product?.category?.name || 'Uncategorized',
+        productType: movement.product?.type || 'product',
+        orderNumber: movement.referenceNumber || '-',
+        orderDate: movement.movementDate,
+        quantityChange,
+        quantityAfter,
+        costChange,
+        totalCost,
+        averageCost,
       };
     });
 

@@ -326,7 +326,7 @@ const menuSections: MenuSection[] = [
             id: 'product-cost-report',
             title: 'Product Cost Report',
             icon: <CostReportIcon />,
-            path: '/reports/inventory/cost-report',
+            path: '/reports/inventory/product-cost',
           },
         ],
       },

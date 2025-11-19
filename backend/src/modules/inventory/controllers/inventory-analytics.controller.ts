@@ -192,4 +192,47 @@ export class InventoryAnalyticsController {
       discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
     });
   }
+
+  @Get('product-cost')
+  @ApiOperation({
+    summary:
+      'Get product cost report - shows cost changes based on stock movements with running average',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    type: String,
+    description: 'Start date for filtering movements (ISO 8601 format)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    type: String,
+    description: 'End date for filtering movements (ISO 8601 format)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Product cost report retrieved successfully',
+  })
+  async getProductCost(
+    @Query('productIds') productIds?: string | string[],
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.inventoryAnalyticsService.getProductCost({
+      productIds: Array.isArray(productIds)
+        ? productIds
+        : productIds
+          ? [productIds]
+          : undefined,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+    });
+  }
 }
