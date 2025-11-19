@@ -248,8 +248,10 @@ const SalesOrderSummary: React.FC = () => {
           balanceDue: groupData.reduce((sum, r) => sum + r.balanceDue, 0),
         }
 
-        csv += '"Subtotal",'
-        const subtotalValues = selectedColumns.slice(1).map(col => {
+        const subtotalValues = selectedColumns.map((col, colIdx) => {
+          if (colIdx === 0) {
+            return '"Subtotal"'
+          }
           const value = (subtotal as any)[col]
           if (col === 'itemsCount') {
             return value?.toLocaleString() || ''
@@ -259,13 +261,18 @@ const SalesOrderSummary: React.FC = () => {
           return ''
         })
         csv += subtotalValues.join(',') + '\n'
+        // Blank row after subtotal
+        csv += '\n'
       }
     })
 
     // Add totals
     if (totals) {
-      csv += '\n"TOTAL",'
-      const totalValues = selectedColumns.slice(1).map(col => {
+      csv += '\n'
+      const totalValues = selectedColumns.map((col, colIdx) => {
+        if (colIdx === 0) {
+          return '"GRAND TOTAL"'
+        }
         const value = (totals as any)[col]
         if (col === 'itemsCount') {
           return value?.toLocaleString() || ''
@@ -376,40 +383,40 @@ const SalesOrderSummary: React.FC = () => {
           balanceDue: groupData.reduce((sum, r) => sum + r.balanceDue, 0),
         }
 
-        tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
+        tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
         selectedColumns.forEach((col, colIdx) => {
           if (colIdx === 0) {
-            tableRows += '<td>Subtotal</td>'
-          } else {
+            tableRows += '<td style="font-weight: bold;">Subtotal</td>'
+          } else if (col === 'itemsCount') {
             const value = (subtotal as any)[col]
-            let displayValue = ''
-            if (col === 'itemsCount') {
-              displayValue = value?.toLocaleString() || ''
-            } else if (typeof value === 'number') {
-              displayValue = formatCurrency(value)
-            }
-            tableRows += `<td>${displayValue}</td>`
+            tableRows += `<td style="text-align: right; font-weight: bold;">${value?.toLocaleString() || ''}</td>`
+          } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balanceDue') {
+            const value = (subtotal as any)[col]
+            tableRows += `<td style="text-align: right; font-weight: bold;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
+          } else {
+            tableRows += '<td></td>'
           }
         })
         tableRows += '</tr>'
+        // Blank row after subtotal
+        tableRows += `<tr style="height: 20px;"><td colspan="${selectedColumns.length}" style="border: none;"></td></tr>`
       }
     })
 
     // Add totals
     if (totals) {
-      tableRows += '<tr style="background-color: #e0e0e0; font-weight: bold;">'
+      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
-          tableRows += '<td>TOTAL</td>'
-        } else {
+          tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
+        } else if (col === 'itemsCount') {
           const value = (totals as any)[col]
-          let displayValue = ''
-          if (col === 'itemsCount') {
-            displayValue = value?.toLocaleString() || ''
-          } else if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-          }
-          tableRows += `<td>${displayValue}</td>`
+          tableRows += `<td style="text-align: right; font-weight: 800;">${value?.toLocaleString() || ''}</td>`
+        } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balanceDue') {
+          const value = (totals as any)[col]
+          tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
+        } else {
+          tableRows += '<td></td>'
         }
       })
       tableRows += '</tr>'
@@ -1075,31 +1082,36 @@ const SalesOrderSummary: React.FC = () => {
                             )}
                           </TableRow>
                           {showGroupFooter && groupSubtotals && (
-                            <TableRow sx={{
-                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                              borderBottom: '2px solid',
-                              borderColor: 'divider',
-                              '& .MuiTableCell-root': {
-                                fontWeight: 600,
-                                fontSize: '0.8rem',
-                                fontStyle: 'italic'
-                              }
-                            }}>
-                              {selectedColumns.includes('orderNumber') && (
-                                <TableCell sx={{ fontWeight: 600 }}>
-                                  Subtotal
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('customerName') && <TableCell />}
-                              {selectedColumns.includes('inventoryStatus') && <TableCell />}
-                              {selectedColumns.includes('paymentStatus') && <TableCell />}
-                              {selectedColumns.includes('orderDate') && <TableCell />}
-                              {selectedColumns.includes('totalAmount') && (
-                                <TableCell align="right">
-                                  {formatCurrency(groupSubtotals.totalAmount)}
-                                </TableCell>
-                              )}
-                            </TableRow>
+                            <>
+                              <TableRow sx={{
+                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
+                                '& .MuiTableCell-root': {
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem',
+                                  borderTop: '2px solid',
+                                  borderColor: 'primary.main'
+                                }
+                              }}>
+                                {selectedColumns.includes('orderNumber') && (
+                                  <TableCell sx={{ fontWeight: 700 }}>
+                                    Subtotal
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('customerName') && <TableCell />}
+                                {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                                {selectedColumns.includes('paymentStatus') && <TableCell />}
+                                {selectedColumns.includes('orderDate') && <TableCell />}
+                                {selectedColumns.includes('totalAmount') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                    {formatCurrency(groupSubtotals.totalAmount)}
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                              {/* Blank row after subtotal */}
+                              <TableRow sx={{ height: TABLE_STYLES.row.height }}>
+                                <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
+                              </TableRow>
+                            </>
                           )}
                         </React.Fragment>
                       )
@@ -1108,18 +1120,18 @@ const SalesOrderSummary: React.FC = () => {
                     {totals && (
                       <TableRow
                         sx={{
-                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                          borderTop: '2px solid',
-                          borderColor: 'divider',
+                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
                           '& .MuiTableCell-root': {
-                            fontWeight: 700,
-                            fontSize: '0.85rem'
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            borderTop: '3px solid',
+                            borderColor: 'success.main'
                           }
                         }}
                       >
                         {selectedColumns.includes('orderNumber') && (
-                          <TableCell sx={{ fontWeight: 700 }}>
-                            TOTAL
+                          <TableCell sx={{ fontWeight: 800 }}>
+                            GRAND TOTAL
                           </TableCell>
                         )}
                         {selectedColumns.includes('customerName') && <TableCell />}
@@ -1127,7 +1139,7 @@ const SalesOrderSummary: React.FC = () => {
                         {selectedColumns.includes('paymentStatus') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalAmount)}
                           </TableCell>
                         )}
