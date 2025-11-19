@@ -321,7 +321,7 @@ const ProductCostReport: React.FC = () => {
       return r[groupBy]
     }
 
-    let groupSubtotals = { quantityChange: 0, costChange: 0, totalCost: 0 }
+    let groupSubtotals = { quantityChange: 0, costChange: 0 }
 
     sortedData.forEach((row, idx) => {
       const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
@@ -331,7 +331,7 @@ const ProductCostReport: React.FC = () => {
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
         // Reset subtotals for new group
-        groupSubtotals = { quantityChange: 0, costChange: 0, totalCost: 0 }
+        groupSubtotals = { quantityChange: 0, costChange: 0 }
         const groupLabel = getExportGroupLabel(row)
         csv += `\n"${groupLabel}"\n`
         prevGroupKey = currentGroupKey
@@ -341,7 +341,6 @@ const ProductCostReport: React.FC = () => {
       if (groupBy !== 'none') {
         groupSubtotals.quantityChange += row.quantityChange || 0
         groupSubtotals.costChange += row.costChange || 0
-        groupSubtotals.totalCost += row.totalCost || 0
       }
 
       const values = selectedColumns.map(col => {
@@ -368,8 +367,6 @@ const ProductCostReport: React.FC = () => {
             return groupSubtotals.quantityChange.toFixed(2)
           } else if (col === 'costChange') {
             return groupSubtotals.costChange.toFixed(2)
-          } else if (col === 'totalCost') {
-            return groupSubtotals.totalCost.toFixed(2)
           }
           return '""'
         })
@@ -385,9 +382,8 @@ const ProductCostReport: React.FC = () => {
     // Add grand total
     const grandTotals = sortedData.reduce((acc, row) => ({
       quantityChange: acc.quantityChange + (row.quantityChange || 0),
-      costChange: acc.costChange + (row.costChange || 0),
-      totalCost: acc.totalCost + (row.totalCost || 0)
-    }), { quantityChange: 0, costChange: 0, totalCost: 0 })
+      costChange: acc.costChange + (row.costChange || 0)
+    }), { quantityChange: 0, costChange: 0 })
 
     csv += '\n'
     const grandTotalValues = selectedColumns.map((col, colIdx) => {
@@ -397,8 +393,6 @@ const ProductCostReport: React.FC = () => {
         return grandTotals.quantityChange.toFixed(2)
       } else if (col === 'costChange') {
         return grandTotals.costChange.toFixed(2)
-      } else if (col === 'totalCost') {
-        return grandTotals.totalCost.toFixed(2)
       }
       return '""'
     })
@@ -452,7 +446,7 @@ const ProductCostReport: React.FC = () => {
       return r[groupBy]
     }
 
-    let groupSubtotals = { quantityChange: 0, costChange: 0, totalCost: 0 }
+    let groupSubtotals = { quantityChange: 0, costChange: 0 }
 
     sortedData.forEach((row, idx) => {
       const currentGroupKey = groupBy !== 'none' ? getPdfGroupKey(row) : null
@@ -462,7 +456,7 @@ const ProductCostReport: React.FC = () => {
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
         // Reset subtotals for new group
-        groupSubtotals = { quantityChange: 0, costChange: 0, totalCost: 0 }
+        groupSubtotals = { quantityChange: 0, costChange: 0 }
         const groupLabel = getPdfGroupLabel(row)
         tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
         prevGroupKey = currentGroupKey
@@ -472,7 +466,6 @@ const ProductCostReport: React.FC = () => {
       if (groupBy !== 'none') {
         groupSubtotals.quantityChange += row.quantityChange || 0
         groupSubtotals.costChange += row.costChange || 0
-        groupSubtotals.totalCost += row.totalCost || 0
       }
 
       tableRows += '<tr>'
@@ -509,8 +502,6 @@ const ProductCostReport: React.FC = () => {
             tableRows += `<td style="text-align: right; font-weight: bold;">${sign}${groupSubtotals.quantityChange.toFixed(2)}</td>`
           } else if (col === 'costChange') {
             tableRows += `<td style="text-align: right; font-weight: bold;">${formatCurrency(groupSubtotals.costChange)}</td>`
-          } else if (col === 'totalCost') {
-            tableRows += `<td style="text-align: right; font-weight: bold;">${formatCurrency(groupSubtotals.totalCost)}</td>`
           } else {
             tableRows += '<td></td>'
           }
@@ -527,9 +518,8 @@ const ProductCostReport: React.FC = () => {
     // Add grand total
     const grandTotals = sortedData.reduce((acc, row) => ({
       quantityChange: acc.quantityChange + (row.quantityChange || 0),
-      costChange: acc.costChange + (row.costChange || 0),
-      totalCost: acc.totalCost + (row.totalCost || 0)
-    }), { quantityChange: 0, costChange: 0, totalCost: 0 })
+      costChange: acc.costChange + (row.costChange || 0)
+    }), { quantityChange: 0, costChange: 0 })
 
     tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
     selectedColumns.forEach((col, colIdx) => {
@@ -540,8 +530,6 @@ const ProductCostReport: React.FC = () => {
         tableRows += `<td style="text-align: right; font-weight: 800;">${sign}${grandTotals.quantityChange.toFixed(2)}</td>`
       } else if (col === 'costChange') {
         tableRows += `<td style="text-align: right; font-weight: 800;">${formatCurrency(grandTotals.costChange)}</td>`
-      } else if (col === 'totalCost') {
-        tableRows += `<td style="text-align: right; font-weight: 800;">${formatCurrency(grandTotals.totalCost)}</td>`
       } else {
         tableRows += '<td></td>'
       }
@@ -1019,8 +1007,7 @@ const ProductCostReport: React.FC = () => {
                         const rows: JSX.Element[] = []
                         let groupSubtotals = {
                           quantityChange: 0,
-                          costChange: 0,
-                          totalCost: 0
+                          costChange: 0
                         }
 
                         paginatedData.forEach((row, idx) => {
@@ -1042,8 +1029,7 @@ const ProductCostReport: React.FC = () => {
                           if (showGroupHeader) {
                             groupSubtotals = {
                               quantityChange: 0,
-                              costChange: 0,
-                              totalCost: 0
+                              costChange: 0
                             }
                           }
 
@@ -1051,7 +1037,6 @@ const ProductCostReport: React.FC = () => {
                           if (groupBy !== 'none') {
                             groupSubtotals.quantityChange += row.quantityChange || 0
                             groupSubtotals.costChange += row.costChange || 0
-                            groupSubtotals.totalCost += row.totalCost || 0
                           }
 
                           const getGroupLabel = (field: string, r: any) => {
@@ -1174,12 +1159,6 @@ const ProductCostReport: React.FC = () => {
                                         {formatCurrency(groupSubtotals.costChange)}
                                       </TableCell>
                                     )
-                                  } else if (col === 'totalCost') {
-                                    return (
-                                      <TableCell key={col} align="right" sx={{ fontWeight: 700 }}>
-                                        {formatCurrency(groupSubtotals.totalCost)}
-                                      </TableCell>
-                                    )
                                   } else {
                                     return <TableCell key={col}></TableCell>
                                   }
@@ -1202,9 +1181,8 @@ const ProductCostReport: React.FC = () => {
                         if (paginatedData.length > 0) {
                           const grandTotals = paginatedData.reduce((acc, row) => ({
                             quantityChange: acc.quantityChange + (row.quantityChange || 0),
-                            costChange: acc.costChange + (row.costChange || 0),
-                            totalCost: acc.totalCost + (row.totalCost || 0)
-                          }), { quantityChange: 0, costChange: 0, totalCost: 0 })
+                            costChange: acc.costChange + (row.costChange || 0)
+                          }), { quantityChange: 0, costChange: 0 })
 
                           rows.push(
                             <TableRow key="grand-total" sx={{
@@ -1229,12 +1207,6 @@ const ProductCostReport: React.FC = () => {
                                   return (
                                     <TableCell key={col} align="right" sx={{ fontWeight: 800 }}>
                                       {formatCurrency(grandTotals.costChange)}
-                                    </TableCell>
-                                  )
-                                } else if (col === 'totalCost') {
-                                  return (
-                                    <TableCell key={col} align="right" sx={{ fontWeight: 800 }}>
-                                      {formatCurrency(grandTotals.totalCost)}
                                     </TableCell>
                                   )
                                 } else {
