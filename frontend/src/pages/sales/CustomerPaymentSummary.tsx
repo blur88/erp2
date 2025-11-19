@@ -189,9 +189,11 @@ const CustomerPaymentSummary: React.FC = () => {
 
     // Add totals
     if (totals) {
-      csv += '\n"TOTAL",'
-      const totalValues = selectedColumns.slice(1).map(col => {
-        if (col === 'balance') {
+      csv += '\n'
+      const totalValues = selectedColumns.map((col, colIdx) => {
+        if (colIdx === 0) {
+          return '"GRAND TOTAL"'
+        } else if (col === 'balance') {
           return (totals.totalInvoiced - totals.totalPaid).toFixed(2)
         }
         const value = (totals as any)[col]
@@ -256,21 +258,18 @@ const CustomerPaymentSummary: React.FC = () => {
 
     // Add totals
     if (totals) {
-      tableRows += '<tr style="background-color: #e0e0e0; font-weight: bold;">'
+      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
-          tableRows += '<td>TOTAL</td>'
+          tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
         } else if (col === 'balance') {
           const balance = totals.totalInvoiced - totals.totalPaid
-          tableRows += `<td style="text-align: right;">${formatCurrency(balance)}</td>`
-        } else {
+          tableRows += `<td style="text-align: right; font-weight: 800;">${formatCurrency(balance)}</td>`
+        } else if (col === 'totalInvoiced' || col === 'totalPaid') {
           const value = (totals as any)[col]
-          let displayValue = ''
-          if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-          }
-          const align = typeof value === 'number' ? 'text-align: right;' : ''
-          tableRows += `<td style="${align}">${displayValue}</td>`
+          tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
+        } else {
+          tableRows += '<td></td>'
         }
       })
       tableRows += '</tr>'
@@ -859,34 +858,34 @@ const CustomerPaymentSummary: React.FC = () => {
                     {totals && (
                       <TableRow
                         sx={{
-                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                          borderTop: '2px solid',
-                          borderColor: 'divider',
+                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
                           '& .MuiTableCell-root': {
-                            fontWeight: 700,
-                            fontSize: '0.85rem'
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            borderTop: '3px solid',
+                            borderColor: 'success.main'
                           }
                         }}
                       >
                         {selectedColumns.includes('customerName') && (
-                          <TableCell sx={{ fontWeight: 700 }}>
-                            TOTAL
+                          <TableCell sx={{ fontWeight: 800 }}>
+                            GRAND TOTAL
                           </TableCell>
                         )}
                         {selectedColumns.includes('lastOrderDate') && <TableCell />}
                         {selectedColumns.includes('lastPaymentDate') && <TableCell />}
                         {selectedColumns.includes('totalInvoiced') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalInvoiced)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('totalPaid') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalPaid)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('balance') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalInvoiced - totals.totalPaid)}
                           </TableCell>
                         )}
