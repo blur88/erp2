@@ -447,6 +447,13 @@ export class PurchasingAnalyticsService {
       });
     }
 
+    // Category filter
+    if (query.categoryId) {
+      queryBuilder.andWhere('product.categoryId = :categoryId', {
+        categoryId: query.categoryId,
+      });
+    }
+
     // Status filter (inventory status)
     if (query.status && query.status !== 'all') {
       queryBuilder.andWhere('purchaseOrder.status = :status', {
@@ -461,37 +468,63 @@ export class PurchasingAnalyticsService {
       });
     }
 
-    // Order by order date and order number
-    queryBuilder.orderBy('purchaseOrder.orderDate', 'DESC');
-    queryBuilder.addOrderBy('purchaseOrder.orderNumber', 'ASC');
-
     const items = await queryBuilder.getMany();
 
-    const data: VendorProductListItem[] = items.map((item) => {
-      // Safely handle orderDate conversion
-      let orderDateStr = '';
-      if (item.purchaseOrder?.orderDate) {
-        const date = item.purchaseOrder.orderDate instanceof Date ? item.purchaseOrder.orderDate : new Date(item.purchaseOrder.orderDate);
-        orderDateStr = date.toISOString().split('T')[0];
-      }
+    // Group by product and supplier to get unique product-supplier combinations
+    const productMap = new Map<string, VendorProductListItem>();
 
-      return {
-        supplierName: item.purchaseOrder?.supplier?.companyName || 'N/A',
-        productName: item.product?.name || 'N/A',
-        categoryName: item.product?.category?.name || 'N/A',
-        orderNumber: item.purchaseOrder?.orderNumber || '',
-        orderDate: orderDateStr,
-        quantity: item.quantity,
-        receivedQuantity: item.receivedQuantity || 0,
-        unitPrice: parseFloat(item.unitCost?.toString() || '0'),
-        totalAmount: parseFloat(item.totalAmount?.toString() || '0'),
-        status: item.purchaseOrder?.status || 'pending',
-        paymentStatus: item.purchaseOrder?.paymentStatus || 'unpaid',
-        retailPrice: parseFloat(item.product?.retailPrice?.toString() || '0'),
-        wholesalePrice: parseFloat(item.product?.wholesalePrice?.toString() || '0'),
-        specialPrice: parseFloat(item.product?.specialPrice?.toString() || '0'),
-      };
-    });
+    for (const item of items) {
+      if (!item.product) continue;
+
+      const key = `${item.product.id}-${item.purchaseOrder?.supplier?.id || 'no-supplier'}`;
+
+      if (!productMap.has(key)) {
+        // First time seeing this product-supplier combination
+        let orderDateStr = '';
+        if (item.purchaseOrder?.orderDate) {
+          const date = item.purchaseOrder.orderDate instanceof Date ? item.purchaseOrder.orderDate : new Date(item.purchaseOrder.orderDate);
+          orderDateStr = date.toISOString().split('T')[0];
+        }
+
+        productMap.set(key, {
+          supplierName: item.purchaseOrder?.supplier?.companyName || 'N/A',
+          productName: item.product.name || 'N/A',
+          categoryName: item.product.category?.name || 'N/A',
+          orderNumber: item.purchaseOrder?.orderNumber || '',
+          orderDate: orderDateStr,
+          quantity: parseFloat(item.quantity?.toString() || '0'),
+          receivedQuantity: parseFloat(item.receivedQuantity?.toString() || '0'),
+          unitPrice: parseFloat(item.unitCost?.toString() || '0'),
+          totalAmount: parseFloat(item.totalAmount?.toString() || '0'),
+          status: item.purchaseOrder?.status || 'pending',
+          paymentStatus: item.purchaseOrder?.paymentStatus || 'unpaid',
+          retailPrice: parseFloat(item.product.retailPrice?.toString() || '0'),
+          wholesalePrice: parseFloat(item.product.wholesalePrice?.toString() || '0'),
+          specialPrice: parseFloat(item.product.specialPrice?.toString() || '0'),
+        });
+      } else {
+        // Aggregate quantities and amounts for this product-supplier combination
+        const existing = productMap.get(key)!;
+        existing.quantity += parseFloat(item.quantity?.toString() || '0');
+        existing.receivedQuantity += parseFloat(item.receivedQuantity?.toString() || '0');
+        existing.totalAmount += parseFloat(item.totalAmount?.toString() || '0');
+
+        // Keep the most recent order info
+        if (item.purchaseOrder?.orderDate) {
+          const date = item.purchaseOrder.orderDate instanceof Date ? item.purchaseOrder.orderDate : new Date(item.purchaseOrder.orderDate);
+          const existingDate = existing.orderDate ? new Date(existing.orderDate) : new Date(0);
+          if (date > existingDate) {
+            existing.orderNumber = item.purchaseOrder.orderNumber || '';
+            existing.orderDate = date.toISOString().split('T')[0];
+          }
+        }
+      }
+    }
+
+    // Convert map to array and sort by product name
+    const data = Array.from(productMap.values()).sort((a, b) =>
+      a.productName.localeCompare(b.productName)
+    );
 
     return { data };
   }
