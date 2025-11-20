@@ -17,7 +17,7 @@ Comprehensive ERP system with modern full-stack architecture:
 **⚠️ CRITICAL: Authentication system completely removed**
 
 **Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule` (5 active)
-**Disabled Modules**: `ReportsModule` (generic reports), `PluginsModule` (commented out in `app.module.ts`)
+**Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 **Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
 - All API endpoints publicly accessible
@@ -122,7 +122,7 @@ docker compose logs backend # Check specific service logs
 ### Backend Module Structure
 - **Core**: `users/` - User management
 - **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
-- **Analytics**: `dashboard/` (✅ with WebSocket), `reports/` (❌ generic reports disabled, but module-specific reports active)
+- **Analytics**: `dashboard/` (✅ with WebSocket)
 - **System**: `plugins/` (❌ disabled)
 
 ### Architecture Patterns
@@ -204,7 +204,7 @@ docker compose logs backend # Check specific service logs
 4. Add frontend pages and Redux slices as needed
 
 ### Adding Reports to Modules
-Reports are embedded within their business modules, not in a separate ReportsModule:
+Reports are embedded within their business modules:
 1. Create report service in `backend/src/modules/{module}/services/` (e.g., `inventory-report.service.ts`)
 2. Add report endpoints to module controller or create dedicated report controller
 3. Implement Excel export using ExcelJS with subtotal/grand total styling pattern
@@ -240,7 +240,7 @@ When enabling disabled modules:
 
 ### 📊 Module-Integrated Reports (November 2025)
 - ✅ **COMPLETE**: Comprehensive reporting system embedded in Inventory, Sales, and Purchasing modules
-- **Architecture Note**: Generic `ReportsModule` remains disabled; each business module has its own integrated reports
+- **Architecture Note**: Each business module has its own integrated reports (generic reports module removed)
 - **Inventory Reports**:
   - **Product Cost Report**: Running average cost calculations, proper order number resolution, negative cost changes for outward movements
   - **Product Price List**: Dynamic pricing with retail, wholesale, and special prices
@@ -495,7 +495,6 @@ const { control, handleSubmit } = useForm<FormData>({
 - Inventory reports support Excel/PDF export via module-specific endpoints
 - Sales reports support Excel/PDF export via module-specific endpoints
 - Purchasing reports support Excel/PDF export via module-specific endpoints
-- **Note**: Generic `/api/reports` endpoints are disabled; use module-specific report endpoints instead
 
 ## Troubleshooting
 
@@ -530,14 +529,14 @@ curl http://localhost:3001/socket.io/ | head -1
 ```
 
 ### Module Re-enabling
-For disabled modules (Plugins, generic ReportsModule):
+For disabled modules (Plugins):
 1. Fix auth-related TypeScript errors using `'system'` default
 2. Install missing dependencies if needed: `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
 3. Check compilation: `npx tsc --noEmit`
 4. Update `app.module.ts` to uncomment the module import
 
 **Note**: Purchasing module successfully re-enabled in October 2025 following this pattern.
-**Note**: Generic ReportsModule remains disabled, but module-integrated reports (Inventory, Sales, Purchasing) are fully functional.
+**Note**: Module-integrated reports (Inventory, Sales, Purchasing) are fully functional.
 
 ## Key Files
 
@@ -552,7 +551,6 @@ For disabled modules (Plugins, generic ReportsModule):
 - `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes with integrated reports
 - `backend/src/modules/dashboard/` - ✅ WebSocket support for real-time updates
 - `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025) with integrated reports (5 report types)
-- `backend/src/modules/reports/` - ❌ Generic reports module disabled (use module-specific reports instead)
 
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products
