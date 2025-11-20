@@ -363,26 +363,30 @@ const InventorySummaryReport: React.FC = () => {
           totalCostValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
         }
 
-        csv += '"Subtotal",'
-        const subtotalValues = selectedColumns.slice(1).map(col => {
-          if (col === 'qtyAvailable') {
-            return subtotal.qtyAvailable
-          } else if (col === 'totalCostValue') {
-            return subtotal.totalCostValue.toFixed(2)
+        const subtotalValues = selectedColumns.map((col, colIdx) => {
+          if (colIdx === 0) {
+            return '"Subtotal"'
+          }
+          const value = (subtotal as any)[col]
+          if (typeof value === 'number') {
+            return value.toFixed(2)
           }
           return ''
         })
         csv += subtotalValues.join(',') + '\n'
+        csv += '\n'
       }
     })
 
     if (totals) {
-      csv += '\n"TOTAL",'
-      const totalValues = selectedColumns.slice(1).map(col => {
-        if (col === 'qtyAvailable') {
-          return totals.qtyAvailable
-        } else if (col === 'totalCostValue') {
-          return totals.totalCostValue.toFixed(2)
+      csv += '\n'
+      const totalValues = selectedColumns.map((col, colIdx) => {
+        if (colIdx === 0) {
+          return '"GRAND TOTAL"'
+        }
+        const value = (totals as any)[col]
+        if (typeof value === 'number') {
+          return value.toFixed(2)
         }
         return ''
       })
@@ -485,31 +489,32 @@ const InventorySummaryReport: React.FC = () => {
           totalCostValue: groupData.reduce((sum, r) => sum + r.inventoryValue, 0),
         }
 
-        tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
+        tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
         selectedColumns.forEach((col, colIdx) => {
           if (colIdx === 0) {
-            tableRows += '<td>Subtotal</td>'
+            tableRows += '<td style="font-weight: bold;">Subtotal</td>'
           } else if (col === 'qtyAvailable') {
-            tableRows += `<td style="text-align: right;">${subtotal.qtyAvailable}</td>`
+            tableRows += `<td style="text-align: right; font-weight: bold;">${subtotal.qtyAvailable}</td>`
           } else if (col === 'totalCostValue') {
-            tableRows += `<td style="text-align: right;">${formatCurrency(subtotal.totalCostValue)}</td>`
+            tableRows += `<td style="text-align: right; font-weight: bold;">${formatCurrency(subtotal.totalCostValue)}</td>`
           } else {
             tableRows += '<td></td>'
           }
         })
         tableRows += '</tr>'
+        tableRows += `<tr style="height: 20px;"><td colspan="${selectedColumns.length}" style="border: none;"></td></tr>`
       }
     })
 
     if (totals) {
-      tableRows += '<tr style="background-color: #e0e0e0; font-weight: bold;">'
+      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
-          tableRows += '<td>TOTAL</td>'
+          tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
         } else if (col === 'qtyAvailable') {
-          tableRows += `<td style="text-align: right;">${totals.qtyAvailable}</td>`
+          tableRows += `<td style="text-align: right; font-weight: 800;">${totals.qtyAvailable}</td>`
         } else if (col === 'totalCostValue') {
-          tableRows += `<td style="text-align: right;">${formatCurrency(totals.totalCostValue)}</td>`
+          tableRows += `<td style="text-align: right; font-weight: 800;">${formatCurrency(totals.totalCostValue)}</td>`
         } else {
           tableRows += '<td></td>'
         }
@@ -1137,36 +1142,40 @@ const InventorySummaryReport: React.FC = () => {
                               )}
                             </TableRow>
                             {showGroupFooter && groupSubtotals && (
-                              <TableRow sx={{
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                                borderBottom: '2px solid',
-                                borderColor: 'divider',
-                                '& .MuiTableCell-root': {
-                                  fontWeight: 600,
-                                  fontSize: '0.8rem',
-                                  fontStyle: 'italic'
-                                }
-                              }}>
-                                {selectedColumns.includes('productName') && (
-                                  <TableCell sx={{ fontWeight: 600 }}>
-                                    Subtotal
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('categoryName') && <TableCell />}
-                                {selectedColumns.includes('qtyAvailable') && (
-                                  <TableCell align="right">
-                                    {groupSubtotals.qtyAvailable}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('averageCost') && <TableCell />}
-                                {selectedColumns.includes('totalCostValue') && (
-                                  <TableCell align="right">
-                                    {formatCurrency(groupSubtotals.totalCostValue)}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('unitPrice') && <TableCell />}
-                                {selectedColumns.includes('totalSalesValue') && <TableCell />}
-                              </TableRow>
+                              <>
+                                <TableRow sx={{
+                                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
+                                  '& .MuiTableCell-root': {
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    borderTop: '2px solid',
+                                    borderColor: 'primary.main'
+                                  }
+                                }}>
+                                  {selectedColumns.includes('productName') && (
+                                    <TableCell sx={{ fontWeight: 700 }}>
+                                      Subtotal
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('categoryName') && <TableCell />}
+                                  {selectedColumns.includes('qtyAvailable') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {groupSubtotals.qtyAvailable}
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('averageCost') && <TableCell />}
+                                  {selectedColumns.includes('totalCostValue') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {formatCurrency(groupSubtotals.totalCostValue)}
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('unitPrice') && <TableCell />}
+                                  {selectedColumns.includes('totalSalesValue') && <TableCell />}
+                                </TableRow>
+                                <TableRow sx={{ height: TABLE_STYLES.row.height }}>
+                                  <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
+                                </TableRow>
+                              </>
                             )}
                           </React.Fragment>
                         )
@@ -1175,29 +1184,29 @@ const InventorySummaryReport: React.FC = () => {
                       {totals && (
                         <TableRow
                           sx={{
-                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                            borderTop: '2px solid',
-                            borderColor: 'divider',
+                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
                             '& .MuiTableCell-root': {
-                              fontWeight: 700,
-                              fontSize: '0.85rem'
+                              fontWeight: 800,
+                              fontSize: '0.9rem',
+                              borderTop: '3px solid',
+                              borderColor: 'success.main'
                             }
                           }}
                         >
                           {selectedColumns.includes('productName') && (
-                            <TableCell sx={{ fontWeight: 700 }}>
-                              TOTAL
+                            <TableCell sx={{ fontWeight: 800 }}>
+                              GRAND TOTAL
                             </TableCell>
                           )}
                           {selectedColumns.includes('categoryName') && <TableCell />}
                           {selectedColumns.includes('qtyAvailable') && (
-                            <TableCell align="right">
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
                               {totals.qtyAvailable}
                             </TableCell>
                           )}
                           {selectedColumns.includes('averageCost') && <TableCell />}
                           {selectedColumns.includes('totalCostValue') && (
-                            <TableCell align="right">
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
                               {formatCurrency(totals.totalCostValue)}
                             </TableCell>
                           )}
