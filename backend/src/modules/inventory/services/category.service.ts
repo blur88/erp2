@@ -76,7 +76,6 @@ export class CategoryService {
       level,
       path,
       parentId: createCategoryDto.parentId,
-      sortOrder: createCategoryDto.sortOrder ?? 0,
     });
 
     const savedCategory = await this.categoryRepository.save(category);
@@ -133,7 +132,7 @@ export class CategoryService {
 
 
     // Apply hierarchical sorting
-    const validSortFields = ['name', 'createdAt', 'sortOrder'];
+    const validSortFields = ['name', 'createdAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     
     // For hierarchical ordering, sort by path first (maintains parent-child relationships)
@@ -256,8 +255,7 @@ export class CategoryService {
       const rootCategories = await this.categoryRepository
         .createQueryBuilder('category')
         .where('category.level = 0')
-        .orderBy('category.sortOrder', 'ASC')
-        .addOrderBy('UPPER(category.name)', 'ASC')
+        .orderBy('UPPER(category.name)', 'ASC')
         .getMany();
       
       const data = await Promise.all(
@@ -458,10 +456,6 @@ export class CategoryService {
       category.parent = null;
       category.parentId = null;
       category.level = 0;
-    }
-
-    if (moveCategoryDto.sortOrder !== undefined) {
-      category.sortOrder = moveCategoryDto.sortOrder;
     }
 
     const movedCategory = await this.categoryRepository.save(category);
@@ -771,7 +765,7 @@ export class CategoryService {
 
       // Track changes
       const changes: Record<string, { from: any; to: any }> = {};
-      ['name', 'sortOrder', 'parentId'].forEach(field => {
+      ['name', 'parentId'].forEach(field => {
         if (categoryUpdate[field] !== undefined && categoryUpdate[field] !== category[field]) {
           changes[field] = { from: category[field], to: categoryUpdate[field] };
         }
@@ -885,7 +879,6 @@ export class CategoryService {
     const response: CategoryResponseDto = {
       id: category.id,
       name: category.name,
-      sortOrder: category.sortOrder,
       path: category.path,
       level: category.level,
       parentId: category.parentId,
@@ -1008,8 +1001,7 @@ export class CategoryService {
     const children = await this.categoryRepository
       .createQueryBuilder('category')
       .where('category.parentId = :parentId', { parentId: category.id })
-      .orderBy('category.sortOrder', 'ASC')
-      .addOrderBy('UPPER(category.name)', 'ASC')
+      .orderBy('UPPER(category.name)', 'ASC')
       .getMany();
 
     if (children.length > 0) {
@@ -1103,7 +1095,6 @@ export class CategoryService {
       this.logger.log('Creating Uncategorized category');
       uncategorizedCategory = this.categoryRepository.create({
         name: 'Uncategorized',
-        sortOrder: 999,
         level: 0,
         path: 'Uncategorized',
         fullPath: 'Uncategorized',

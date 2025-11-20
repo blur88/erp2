@@ -73,7 +73,7 @@ export class CategoryController {
   @ApiQuery({ name: 'includeTree', required: false, description: 'Include full tree structure' })
   @ApiQuery({ name: 'includeProductCount', required: false, description: 'Include product count' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, description: 'Sort order' })
+  @ApiQuery({ name: 'sortOrder', required: false, description: 'Sort direction (ASC/DESC)' })
   async findAll(@Query() query: QueryCategoriesDto): Promise<CategoryListResponseDto> {
     return this.categoryService.findAll(query);
   }

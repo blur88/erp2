@@ -19,15 +19,6 @@ export class CreateCategoryDto {
   @MaxLength(100)
   name: string;
 
-
-  
-
-  @ApiPropertyOptional({ description: 'Display order for sorting', minimum: 0, default: 0 })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  sortOrder?: number;
-
   @ApiPropertyOptional({ description: 'Parent category ID (for nested categories)' })
   @IsOptional()
   @IsUUID(4)
@@ -90,12 +81,12 @@ export class QueryCategoriesDto {
   @IsBoolean()
   includeProductCount?: boolean;
 
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'createdAt', 'sortOrder'] })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'createdAt'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
 
-  @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'] })
+  @ApiPropertyOptional({ description: 'Sort direction', enum: ['ASC', 'DESC'] })
   @IsOptional()
   @IsString()
   sortOrder?: 'ASC' | 'DESC';
@@ -107,12 +98,6 @@ export class CategoryResponseDto {
 
   @ApiProperty({ description: 'Category name' })
   name: string;
-
-
-  
-
-  @ApiProperty({ description: 'Sort order' })
-  sortOrder: number;
 
   @ApiPropertyOptional({ description: 'Materialized path' })
   path?: string;
@@ -180,12 +165,6 @@ export class MoveCategoryDto {
   @IsOptional()
   @IsUUID(4)
   newParentId?: string;
-
-  @ApiPropertyOptional({ description: 'New sort order in the target parent', minimum: 0 })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  sortOrder?: number;
 }
 
 export class BulkUpdateCategoriesDto {
@@ -206,13 +185,6 @@ export class CategoryBulkUpdateDto {
   @IsString()
   @MaxLength(100)
   name?: string;
-
-
-  @ApiPropertyOptional({ description: 'New sort order' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  sortOrder?: number;
 
   @ApiPropertyOptional({ description: 'New parent ID' })
   @IsOptional()

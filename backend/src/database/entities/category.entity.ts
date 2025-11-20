@@ -40,18 +40,6 @@ export class Category extends BaseEntity {
   @MaxLength(100)
   name: string;
 
-
-  
-
-  @Column({
-    type: 'int',
-    default: 0,
-    comment: 'Display order for sorting',
-  })
-  @IsInt()
-  @Min(0)
-  sortOrder: number;
-
   @Column({
     type: 'varchar',
     length: 500,

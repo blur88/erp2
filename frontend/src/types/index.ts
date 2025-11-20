@@ -80,7 +80,6 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  sortOrder: number;
   path?: string | null;
   level: number;
   parentId?: string | null;
