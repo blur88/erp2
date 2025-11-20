@@ -232,8 +232,6 @@ export class PurchaseOrderService {
     const queryBuilder = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
-      .leftJoinAndSelect('po.createdByUser', 'createdByUser')
-      .leftJoinAndSelect('po.approvedByUser', 'approvedByUser')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
@@ -310,8 +308,6 @@ export class PurchaseOrderService {
     const purchaseOrder = await this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
-      .leftJoinAndSelect('po.createdByUser', 'createdByUser')
-      .leftJoinAndSelect('po.approvedByUser', 'approvedByUser')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
@@ -551,8 +547,6 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('po.supplier', 'supplier')
       .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.createdByUser', 'createdByUser')
-      .leftJoinAndSelect('po.approvedByUser', 'approvedByUser')
       .withDeleted() // Include soft-deleted records
       .where('po.deletedAt IS NOT NULL'); // Only get deleted ones
 
@@ -598,7 +592,7 @@ export class PurchaseOrderService {
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
       withDeleted: true,
-      relations: ['supplier', 'items', 'items.product', 'createdByUser', 'approvedByUser'],
+      relations: ['supplier', 'items', 'items.product'],
     });
 
     if (!purchaseOrder) {
@@ -636,7 +630,7 @@ export class PurchaseOrderService {
     // Fetch the restored order
     const restoredOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['supplier', 'items', 'items.product', 'createdByUser', 'approvedByUser'],
+      relations: ['supplier', 'items', 'items.product'],
     });
 
     this.logger.log(`Purchase order ${purchaseOrder.orderNumber} restored successfully (deletedAt set to null)`);

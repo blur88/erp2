@@ -77,15 +77,9 @@ export class PurchaseOrderController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   @ApiQuery({ name: 'search', required: false, description: 'Search by order number, supplier name, or notes' })
   @ApiQuery({ name: 'supplierId', required: false, description: 'Filter by supplier ID' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
-  @ApiQuery({ name: 'priority', required: false, description: 'Filter by priority' })
-  @ApiQuery({ name: 'createdByUserId', required: false, description: 'Filter by creator user ID' })
   @ApiQuery({ name: 'orderDateFrom', required: false, description: 'Filter by order date from' })
   @ApiQuery({ name: 'orderDateTo', required: false, description: 'Filter by order date to' })
-  @ApiQuery({ name: 'requiredDateFrom', required: false, description: 'Filter by required date from' })
-  @ApiQuery({ name: 'requiredDateTo', required: false, description: 'Filter by required date to' })
-  @ApiQuery({ name: 'isOverdue', required: false, type: Boolean, description: 'Filter overdue orders' })
-  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field (orderNumber, orderDate, requiredDate, status, priority, totalAmount, createdAt)' })
+  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field (orderNumber, orderDate, totalAmount, createdAt)' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
   async findAll(
     @Query() query: PurchaseOrderQueryDto,
