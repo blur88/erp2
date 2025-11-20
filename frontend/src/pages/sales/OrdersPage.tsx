@@ -2076,7 +2076,7 @@ const OrdersPage: React.FC = () => {
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                             }}>
-                              {item.product?.name || item.productName || 'Unknown Product'}
+                              {item.product?.name || 'Unknown Product'}
                               {item.description && (
                                 <Typography sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
@@ -2311,7 +2311,7 @@ const OrdersPage: React.FC = () => {
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                                 }}>
-                                  {item.product?.name || item.productName || 'Unknown Product'}
+                                  {item.product?.name || 'Unknown Product'}
                                   {item.description && (
                                     <Typography sx={{
                                       fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,

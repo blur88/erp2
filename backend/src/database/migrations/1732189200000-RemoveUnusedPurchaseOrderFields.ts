@@ -8,25 +8,25 @@ export class RemoveUnusedPurchaseOrderFields1732189200000 implements MigrationIn
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_purchase_orders_requiredDate"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_purchase_orders_createdByUserId"`);
 
-    // Drop columns
-    await queryRunner.dropColumn('purchase_orders', 'requiredDate');
-    await queryRunner.dropColumn('purchase_orders', 'sentDate');
-    await queryRunner.dropColumn('purchase_orders', 'acknowledgedDate');
-    await queryRunner.dropColumn('purchase_orders', 'expectedDeliveryDate');
-    await queryRunner.dropColumn('purchase_orders', 'deliveredDate');
-    await queryRunner.dropColumn('purchase_orders', 'deliveryAddress');
-    await queryRunner.dropColumn('purchase_orders', 'deliveryCity');
-    await queryRunner.dropColumn('purchase_orders', 'deliveryState');
-    await queryRunner.dropColumn('purchase_orders', 'deliveryPostalCode');
-    await queryRunner.dropColumn('purchase_orders', 'deliveryCountry');
-    await queryRunner.dropColumn('purchase_orders', 'deliveryContact');
-    await queryRunner.dropColumn('purchase_orders', 'deliveryPhone');
-    await queryRunner.dropColumn('purchase_orders', 'paymentTermsDays');
-    await queryRunner.dropColumn('purchase_orders', 'paymentTerms');
-    await queryRunner.dropColumn('purchase_orders', 'internalNotes');
-    await queryRunner.dropColumn('purchase_orders', 'supplierQuoteRef');
-    await queryRunner.dropColumn('purchase_orders', 'createdByUserId');
-    await queryRunner.dropColumn('purchase_orders', 'approvedByUserId');
+    // Drop columns using raw SQL with IF EXISTS
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "requiredDate"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "sentDate"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "acknowledgedDate"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "expectedDeliveryDate"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveredDate"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryAddress"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryCity"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryState"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryPostalCode"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryCountry"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryContact"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryPhone"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "paymentTermsDays"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "paymentTerms"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "internalNotes"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "supplierQuoteRef"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "createdByUserId"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "approvedByUserId"`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

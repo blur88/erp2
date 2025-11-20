@@ -174,11 +174,6 @@ export class User extends BaseEntity {
   })
   salesOrders: SalesOrder[];
 
-  @OneToMany(() => PurchaseOrder, (purchaseOrder) => purchaseOrder.createdByUser, {
-    cascade: false,
-  })
-  purchaseOrders: PurchaseOrder[];
-
   
   // Virtual fields
   get fullName(): string {

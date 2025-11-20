@@ -4,9 +4,9 @@ export class RemoveDeliveryTermsAndMetadata1732189300000 implements MigrationInt
   name = 'RemoveDeliveryTermsAndMetadata1732189300000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Drop columns
-    await queryRunner.dropColumn('purchase_orders', 'deliveryTerms');
-    await queryRunner.dropColumn('purchase_orders', 'metadata');
+    // Drop columns using raw SQL with IF EXISTS
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "deliveryTerms"`);
+    await queryRunner.query(`ALTER TABLE "purchase_orders" DROP COLUMN IF EXISTS "metadata"`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

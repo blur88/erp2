@@ -491,7 +491,7 @@ export class SalesOrderService {
 
     // Build find options with filters using TypeORM operators
     let findOptions: any = {
-      relations: ['customer', 'items', 'invoices'],
+      relations: ['customer', 'items', 'items.product', 'invoices'],
       where: { deletedAt: null },
       order: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
@@ -747,8 +747,6 @@ export class SalesOrderService {
         await this.salesOrderItemRepository.insert({
           lineNumber: itemData.lineNumber || 1,
           productId: itemData.productId,
-          productName: itemData.productName || 'Unknown Product',
-          unit: itemData.unit || 'pcs',
           quantity: itemData.quantity || 1,
           unitPrice: itemData.unitPrice || 0,
           unitCost: itemData.unitCost || 0,
@@ -1155,8 +1153,6 @@ export class SalesOrderService {
       processedItems.push({
         lineNumber: lineNumber++,
         productId: item.productId,
-        productName: product.name || 'Unknown Product',
-        unit: 'pcs', // Default unit since Product entity doesn't have unit field
         quantity: Number(item.quantity) || 1,
         unitPrice: Number(unitPrice) || 0,
         unitCost: Number(product.baseCost) || 0,
@@ -1549,7 +1545,6 @@ export class SalesOrderService {
             invoiceId: invoice.id,
             lineNumber: soItem.lineNumber,
             productId: soItem.productId,
-            productName: soItem.productName,
             quantity: Number(soItem.quantity),
             unitPrice: Number(soItem.unitPrice),
             discount: Number(soItem.discountAmount),
@@ -1880,7 +1875,6 @@ export class SalesOrderService {
       items: order.items?.map(item => ({
         id: item.id,
         productId: item.productId,
-        productName: item.product?.name || 'Unknown Product',
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
         discountType: item.discountType || DiscountType.PERCENTAGE,
