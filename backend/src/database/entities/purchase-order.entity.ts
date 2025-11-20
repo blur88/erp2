@@ -106,16 +106,6 @@ export class PurchaseOrder extends BaseEntity {
   @Min(0)
   totalAmount: number;
 
-  // Terms and Conditions
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Delivery terms (FOB, CIF, etc.)',
-  })
-  @IsOptional()
-  @IsString()
-  deliveryTerms?: string;
-
   // Additional Information
   @Column({
     type: 'text',
@@ -125,14 +115,6 @@ export class PurchaseOrder extends BaseEntity {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Additional order metadata',
-  })
-  @IsOptional()
-  metadata?: Record<string, any>;
 
   // Foreign Keys
   @Column({

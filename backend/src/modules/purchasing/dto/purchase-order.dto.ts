@@ -80,11 +80,6 @@ export class CreatePurchaseOrderDto {
   @Min(0)
   shippingAmount?: number;
 
-  @ApiPropertyOptional({ description: 'Delivery terms (FOB, CIF, etc.)' })
-  @IsOptional()
-  @IsString()
-  deliveryTerms?: string;
-
   @ApiPropertyOptional({ description: 'Special instructions or notes' })
   @IsOptional()
   @IsString()
@@ -96,10 +91,6 @@ export class CreatePurchaseOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseOrderItemDto)
   items: CreatePurchaseOrderItemDto[];
-
-  @ApiPropertyOptional({ description: 'Additional metadata' })
-  @IsOptional()
-  metadata?: Record<string, any>;
 }
 
 export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {}
@@ -227,9 +218,6 @@ export class PurchaseOrderResponseDto {
 
   @ApiProperty({ description: 'Total amount' })
   totalAmount: number;
-
-  @ApiProperty({ description: 'Delivery terms' })
-  deliveryTerms?: string;
 
   @ApiProperty({ description: 'Notes' })
   notes?: string;

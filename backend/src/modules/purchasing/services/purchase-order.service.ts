@@ -1307,7 +1307,6 @@ export class PurchaseOrderService {
       discountAmount: Number(purchaseOrder.discountAmount),
       shippingAmount: Number(purchaseOrder.shippingAmount),
       totalAmount: Number(purchaseOrder.totalAmount),
-      deliveryTerms: purchaseOrder.deliveryTerms,
       notes: purchaseOrder.notes,
       isFullyReceived: purchaseOrder.isFullyReceived(),
       totalReceivedQuantity: purchaseOrder.getTotalReceivedQuantity(),

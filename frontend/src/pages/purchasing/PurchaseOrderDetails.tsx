@@ -27,7 +27,6 @@ import {
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
   ShoppingCart as PurchaseOrderIcon,
-  LocalShipping as ShippingIcon,
   Assignment as GRNIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
@@ -68,7 +67,6 @@ interface PurchaseOrder {
   discountAmount: number
   shippingAmount: number
   totalAmount: number
-  deliveryTerms?: string
   notes?: string
   isFullyReceived: boolean
   totalReceivedQuantity: number
@@ -342,26 +340,6 @@ const PurchaseOrderDetails: React.FC = () => {
             </Stack>
           </Paper>
         </Grid>
-
-        {/* Delivery Terms */}
-        {purchaseOrder.deliveryTerms && (
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-                mb: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <ShippingIcon fontSize="small" />
-                Delivery Terms
-              </Typography>
-              <Typography variant="body2">{purchaseOrder.deliveryTerms}</Typography>
-            </Paper>
-          </Grid>
-        )}
 
         {/* Order Items */}
         <Grid item xs={12}>
