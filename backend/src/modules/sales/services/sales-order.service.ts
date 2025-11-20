@@ -547,7 +547,11 @@ export class SalesOrderService {
           name: order.customer.name
         } : null,
         customerName: order.customer?.name || 'Unknown Customer',
-        items: order.items || [],
+        items: order.items?.map(item => ({
+          ...item,
+          product: item.product || null,
+          productId: item.productId
+        })) || [],
         itemsCount: order.items?.length || 0,
         invoices: order.invoices?.map(invoice => ({
           id: invoice.id,
@@ -637,6 +641,20 @@ export class SalesOrderService {
 
     if (!order) {
       throw new NotFoundException('Sales order not found');
+    }
+
+    // Manually load products for items if not already loaded
+    if (order.items && order.items.length > 0) {
+      console.log(`[findById] Loading products for ${order.items.length} items`);
+      for (const item of order.items) {
+        console.log(`[findById] Item ${item.id}: productId=${item.productId}, product=${item.product ? 'loaded' : 'null'}`);
+        if (!item.product && item.productId) {
+          item.product = await this.productRepository.findOne({
+            where: { id: item.productId }
+          });
+          console.log(`[findById] Manually loaded product: ${item.product?.name || 'FAILED'}`);
+        }
+      }
     }
 
     // Also fetch payments directly associated with this order (not through invoice)
@@ -1875,6 +1893,12 @@ export class SalesOrderService {
       items: order.items?.map(item => ({
         id: item.id,
         productId: item.productId,
+        product: item.product ? {
+          id: item.product.id,
+          name: item.product.name,
+          description: item.product.description,
+          barcode: item.product.barcode,
+        } : null,
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
         discountType: item.discountType || DiscountType.PERCENTAGE,
