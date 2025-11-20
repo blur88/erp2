@@ -516,26 +516,6 @@ const PriceListReport: React.FC = () => {
     return filtered
   }
 
-  const calculateTotals = () => {
-    if (reportData.length === 0) return null
-
-    const totals = reportData.reduce(
-      (acc, item) => ({
-        price: acc.price + item.price,
-        discountedPrice: acc.discountedPrice + item.discountedPrice,
-        salesCost: acc.salesCost + item.salesCost,
-      }),
-      {
-        price: 0,
-        discountedPrice: 0,
-        salesCost: 0,
-      }
-    )
-
-    return totals
-  }
-
-  const totals = calculateTotals()
   const sortedData = getSortedData()
   const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
@@ -913,7 +893,6 @@ const PriceListReport: React.FC = () => {
                         }
 
                         const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
-                        const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                         const getGroupLabel = (field: string, r: any) => {
                           if (field === 'categoryName') {
@@ -921,21 +900,6 @@ const PriceListReport: React.FC = () => {
                           }
                           return r[field]
                         }
-
-                        const calculateGroupSubtotals = () => {
-                          if (groupBy === 'none') return null
-
-                          const currentGroupKey = getGroupKey(row)
-                          const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
-
-                          return {
-                            price: groupData.reduce((sum, r) => sum + r.price, 0),
-                            discountedPrice: groupData.reduce((sum, r) => sum + r.discountedPrice, 0),
-                            salesCost: groupData.reduce((sum, r) => sum + r.salesCost, 0),
-                          }
-                        }
-
-                        const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
 
                         return (
                           <React.Fragment key={idx}>
@@ -987,83 +951,9 @@ const PriceListReport: React.FC = () => {
                                 </TableCell>
                               )}
                             </TableRow>
-                            {showGroupFooter && groupSubtotals && (
-                              <>
-                                <TableRow sx={{
-                                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
-                                  '& .MuiTableCell-root': {
-                                    fontWeight: 700,
-                                    fontSize: '0.85rem',
-                                    borderTop: '2px solid',
-                                    borderColor: 'primary.main'
-                                  }
-                                }}>
-                                  {selectedColumns.includes('productName') && (
-                                    <TableCell sx={{ fontWeight: 700 }}>
-                                      Subtotal
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('categoryName') && <TableCell />}
-                                  {selectedColumns.includes('price') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {formatCurrency(groupSubtotals.price)}
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('discountedPrice') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {formatCurrency(groupSubtotals.discountedPrice)}
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('salesCost') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {formatCurrency(groupSubtotals.salesCost)}
-                                    </TableCell>
-                                  )}
-                                </TableRow>
-                                <TableRow sx={{ height: TABLE_STYLES.row.height }}>
-                                  <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
-                                </TableRow>
-                              </>
-                            )}
                           </React.Fragment>
                         )
                       })}
-                      {/* Total Row */}
-                      {totals && (
-                        <TableRow
-                          sx={{
-                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
-                            '& .MuiTableCell-root': {
-                              fontWeight: 800,
-                              fontSize: '0.9rem',
-                              borderTop: '3px solid',
-                              borderColor: 'success.main'
-                            }
-                          }}
-                        >
-                          {selectedColumns.includes('productName') && (
-                            <TableCell sx={{ fontWeight: 800 }}>
-                              GRAND TOTAL
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('categoryName') && <TableCell />}
-                          {selectedColumns.includes('price') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {formatCurrency(totals.price)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('discountedPrice') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {formatCurrency(totals.discountedPrice)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('salesCost') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {formatCurrency(totals.salesCost)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
