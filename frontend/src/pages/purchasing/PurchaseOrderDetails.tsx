@@ -62,38 +62,14 @@ interface PurchaseOrder {
     email?: string
     phone?: string
   }
-  createdByUser?: {
-    id: string
-    username: string
-    firstName?: string
-    lastName?: string
-  }
-  approvedByUser?: {
-    id: string
-    username: string
-    firstName?: string
-    lastName?: string
-  }
   orderDate: string
-  sentDate?: string
-  acknowledgedDate?: string
-  expectedDeliveryDate?: string
-  deliveredDate?: string
-  fullDeliveryAddress: string
-  deliveryContact?: string
-  deliveryPhone?: string
   subtotal: number
   discountPercent: number
   discountAmount: number
   shippingAmount: number
   totalAmount: number
-  paymentTermsDays: number
-  paymentTerms?: string
   deliveryTerms?: string
   notes?: string
-  internalNotes?: string
-  supplierQuoteRef?: string
-  isOverdue: boolean
   isFullyReceived: boolean
   totalReceivedQuantity: number
   totalOrderedQuantity: number
@@ -306,12 +282,6 @@ const PurchaseOrderDetails: React.FC = () => {
                 <Typography variant="body2" color="text.secondary">Order Date:</Typography>
                 <Typography variant="body2">{new Date(purchaseOrder.orderDate).toLocaleDateString()}</Typography>
               </Box>
-              {purchaseOrder.expectedDeliveryDate && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Expected Delivery:</Typography>
-                  <Typography variant="body2">{new Date(purchaseOrder.expectedDeliveryDate).toLocaleDateString()}</Typography>
-                </Box>
-              )}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2" color="text.secondary">Inventory Status:</Typography>
                 <Chip
@@ -328,16 +298,6 @@ const PurchaseOrderDetails: React.FC = () => {
                   size="small"
                 />
               </Box>
-              {purchaseOrder.createdByUser && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Created By:</Typography>
-                  <Typography variant="body2">
-                    {purchaseOrder.createdByUser.firstName && purchaseOrder.createdByUser.lastName
-                      ? `${purchaseOrder.createdByUser.firstName} ${purchaseOrder.createdByUser.lastName}`
-                      : purchaseOrder.createdByUser.username}
-                  </Typography>
-                </Box>
-              )}
             </Stack>
           </Paper>
         </Grid>
@@ -383,8 +343,8 @@ const PurchaseOrderDetails: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Delivery Information */}
-        {purchaseOrder.fullDeliveryAddress && (
+        {/* Delivery Terms */}
+        {purchaseOrder.deliveryTerms && (
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -396,64 +356,12 @@ const PurchaseOrderDetails: React.FC = () => {
                 gap: 1
               }}>
                 <ShippingIcon fontSize="small" />
-                Delivery Information
+                Delivery Terms
               </Typography>
-              <Stack spacing={1.5}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Address:</Typography>
-                  <Typography variant="body2">{purchaseOrder.fullDeliveryAddress}</Typography>
-                </Box>
-                {purchaseOrder.deliveryContact && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Contact:</Typography>
-                    <Typography variant="body2">{purchaseOrder.deliveryContact}</Typography>
-                  </Box>
-                )}
-                {purchaseOrder.deliveryPhone && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Phone:</Typography>
-                    <Typography variant="body2">{purchaseOrder.deliveryPhone}</Typography>
-                  </Box>
-                )}
-              </Stack>
+              <Typography variant="body2">{purchaseOrder.deliveryTerms}</Typography>
             </Paper>
           </Grid>
         )}
-
-        {/* Payment Terms */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
-              mb: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1
-            }}>
-              <PaymentIcon fontSize="small" />
-              Payment Terms
-            </Typography>
-            <Stack spacing={1.5}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">Payment Terms:</Typography>
-                <Typography variant="body2">{purchaseOrder.paymentTermsDays} days</Typography>
-              </Box>
-              {purchaseOrder.paymentTerms && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Description:</Typography>
-                  <Typography variant="body2">{purchaseOrder.paymentTerms}</Typography>
-                </Box>
-              )}
-              {purchaseOrder.deliveryTerms && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Delivery Terms:</Typography>
-                  <Typography variant="body2">{purchaseOrder.deliveryTerms}</Typography>
-                </Box>
-              )}
-            </Stack>
-          </Paper>
-        </Grid>
 
         {/* Order Items */}
         <Grid item xs={12}>
@@ -552,25 +460,13 @@ const PurchaseOrderDetails: React.FC = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   {/* Notes section */}
-                  {(purchaseOrder.notes || purchaseOrder.internalNotes) && (
-                    <Stack spacing={2}>
-                      {purchaseOrder.notes && (
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600 }}>
-                            Notes:
-                          </Typography>
-                          <Typography variant="body2">{purchaseOrder.notes}</Typography>
-                        </Box>
-                      )}
-                      {purchaseOrder.internalNotes && (
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600 }}>
-                            Internal Notes:
-                          </Typography>
-                          <Typography variant="body2">{purchaseOrder.internalNotes}</Typography>
-                        </Box>
-                      )}
-                    </Stack>
+                  {purchaseOrder.notes && (
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600 }}>
+                        Notes:
+                      </Typography>
+                      <Typography variant="body2">{purchaseOrder.notes}</Typography>
+                    </Box>
                   )}
                 </Grid>
                 <Grid item xs={12} md={6}>

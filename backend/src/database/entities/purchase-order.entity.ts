@@ -19,7 +19,6 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Supplier } from './supplier.entity';
-import { User } from './user.entity';
 import { PurchaseOrderItem } from './purchase-order-item.entity';
 import { GoodsReceivedNote } from './goods-received-note.entity';
 import { VendorPayment } from './vendor-payment.entity';
@@ -33,8 +32,6 @@ import { VendorPayment } from './vendor-payment.entity';
 @Index(['orderNumber'], { unique: true })
 @Index(['supplierId'])
 @Index(['orderDate'])
-@Index(['requiredDate'])
-@Index(['createdByUserId'])
 export class PurchaseOrder extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -52,51 +49,6 @@ export class PurchaseOrder extends BaseEntity {
   })
   @IsDate()
   orderDate: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Required/expected delivery date',
-  })
-  @IsOptional()
-  @IsDate()
-  requiredDate?: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Date when order was sent to supplier',
-  })
-  @IsOptional()
-  @IsDate()
-  sentDate?: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Date when supplier acknowledged the order',
-  })
-  @IsOptional()
-  @IsDate()
-  acknowledgedDate?: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Expected delivery date from supplier',
-  })
-  @IsOptional()
-  @IsDate()
-  expectedDeliveryDate?: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Actual delivery completion date',
-  })
-  @IsOptional()
-  @IsDate()
-  deliveredDate?: Date;
 
   // Financial Information
   @Column({
@@ -154,99 +106,7 @@ export class PurchaseOrder extends BaseEntity {
   @Min(0)
   totalAmount: number;
 
-  // Delivery Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Delivery address',
-  })
-  @IsOptional()
-  @IsString()
-  deliveryAddress?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Delivery city',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  deliveryCity?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Delivery state/province',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  deliveryState?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Delivery postal code',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  deliveryPostalCode?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Delivery country',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  deliveryCountry?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 200,
-    nullable: true,
-    comment: 'Contact person for delivery',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  deliveryContact?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Contact phone for delivery',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  deliveryPhone?: string;
-
   // Terms and Conditions
-  @Column({
-    type: 'int',
-    default: 30,
-    comment: 'Payment terms in days',
-  })
-  paymentTermsDays: number;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Payment terms description',
-  })
-  @IsOptional()
-  @IsString()
-  paymentTerms?: string;
-
   @Column({
     type: 'text',
     nullable: true,
@@ -267,26 +127,6 @@ export class PurchaseOrder extends BaseEntity {
   notes?: string;
 
   @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Internal notes',
-  })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: true,
-    comment: 'Supplier quotation reference',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  supplierQuoteRef?: string;
-
-  @Column({
     type: 'json',
     nullable: true,
     comment: 'Additional order metadata',
@@ -301,22 +141,6 @@ export class PurchaseOrder extends BaseEntity {
   })
   supplierId: string;
 
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who created the order',
-  })
-  @IsOptional()
-  createdByUserId?: string;
-
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who approved the order',
-  })
-  @IsOptional()
-  approvedByUserId?: string;
-
   // Relationships
   @ManyToOne(() => Supplier, (supplier) => supplier.purchaseOrders, {
     onDelete: 'RESTRICT',
@@ -324,20 +148,6 @@ export class PurchaseOrder extends BaseEntity {
   })
   @JoinColumn({ name: 'supplierId' })
   supplier: Supplier;
-
-  @ManyToOne(() => User, (user) => user.purchaseOrders, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'createdByUserId' })
-  createdByUser?: User;
-
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'approvedByUserId' })
-  approvedByUser?: User;
 
   @OneToMany(() => PurchaseOrderItem, (item) => item.purchaseOrder, {
     cascade: true,
@@ -355,22 +165,7 @@ export class PurchaseOrder extends BaseEntity {
   })
   vendorPayments: VendorPayment[];
 
-  // Computed properties
-  get fullDeliveryAddress(): string {
-    const parts = [
-      this.deliveryAddress,
-      this.deliveryCity,
-      this.deliveryState,
-      this.deliveryPostalCode,
-      this.deliveryCountry,
-    ].filter(Boolean);
-    return parts.join(', ');
-  }
-
-  get isOverdue(): boolean {
-    if (!this.requiredDate) return false;
-    return new Date() > this.requiredDate;
-  }
+  // Computed properties - removed fullDeliveryAddress and isOverdue as related fields were removed
 
   // Hooks
   @BeforeInsert()

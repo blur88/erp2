@@ -65,47 +65,6 @@ export class CreatePurchaseOrderDto {
   @IsDateString()
   orderDate: string;
 
-  @ApiPropertyOptional({ description: 'Delivery address' })
-  @IsOptional()
-  @IsString()
-  deliveryAddress?: string;
-
-  @ApiPropertyOptional({ description: 'Delivery city', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  deliveryCity?: string;
-
-  @ApiPropertyOptional({ description: 'Delivery state/province', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  deliveryState?: string;
-
-  @ApiPropertyOptional({ description: 'Delivery postal code', maxLength: 20 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  deliveryPostalCode?: string;
-
-  @ApiPropertyOptional({ description: 'Delivery country', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  deliveryCountry?: string;
-
-  @ApiPropertyOptional({ description: 'Delivery contact person', maxLength: 200 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  deliveryContact?: string;
-
-  @ApiPropertyOptional({ description: 'Delivery contact phone', maxLength: 20 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  deliveryPhone?: string;
-
   @ApiPropertyOptional({ description: 'Discount percentage for entire order', default: 0 })
   @IsOptional()
   @Transform(({ value }) => value == null ? 0 : parseFloat(value))
@@ -121,18 +80,6 @@ export class CreatePurchaseOrderDto {
   @Min(0)
   shippingAmount?: number;
 
-  @ApiPropertyOptional({ description: 'Payment terms in days', default: 30 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(365)
-  paymentTermsDays?: number;
-
-  @ApiPropertyOptional({ description: 'Payment terms description' })
-  @IsOptional()
-  @IsString()
-  paymentTerms?: string;
-
   @ApiPropertyOptional({ description: 'Delivery terms (FOB, CIF, etc.)' })
   @IsOptional()
   @IsString()
@@ -142,17 +89,6 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @ApiPropertyOptional({ description: 'Internal notes' })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Supplier quotation reference', maxLength: 50 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  supplierQuoteRef?: string;
 
   @ApiProperty({ description: 'Order items', type: [CreatePurchaseOrderItemDto] })
   @IsArray()
@@ -166,12 +102,7 @@ export class CreatePurchaseOrderDto {
   metadata?: Record<string, any>;
 }
 
-export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {
-  @ApiPropertyOptional({ description: 'Expected delivery date from supplier' })
-  @IsOptional()
-  @IsDateString()
-  expectedDeliveryDate?: string;
-}
+export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {}
 
 export class PurchaseOrderQueryDto {
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
@@ -199,11 +130,6 @@ export class PurchaseOrderQueryDto {
   @IsUUID()
   supplierId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by created user ID' })
-  @IsOptional()
-  @IsUUID()
-  createdByUserId?: string;
-
   @ApiPropertyOptional({ description: 'Filter from order date' })
   @IsOptional()
   @IsDateString()
@@ -213,13 +139,6 @@ export class PurchaseOrderQueryDto {
   @IsOptional()
   @IsDateString()
   orderDateTo?: string;
-
-  
-  @ApiPropertyOptional({ description: 'Show overdue orders only' })
-  @IsOptional()
-  @Transform(({ value }) => value === 'true')
-  @IsBoolean()
-  isOverdue?: boolean;
 
   @ApiPropertyOptional({ description: 'Sort by field', default: 'orderDate' })
   @IsOptional()
@@ -291,46 +210,8 @@ export class PurchaseOrderResponseDto {
     phone?: string;
   };
 
-  @ApiPropertyOptional({ description: 'Created by user' })
-  createdByUser?: {
-    id: string;
-    username: string;
-    firstName?: string;
-    lastName?: string;
-  };
-
-  @ApiProperty({ description: 'Approved by user' })
-  approvedByUser?: {
-    id: string;
-    username: string;
-    firstName?: string;
-    lastName?: string;
-  };
-
   @ApiProperty({ description: 'Order date' })
   orderDate: Date;
-
-  
-  @ApiProperty({ description: 'Sent date' })
-  sentDate?: Date;
-
-  @ApiProperty({ description: 'Acknowledged date' })
-  acknowledgedDate?: Date;
-
-  @ApiProperty({ description: 'Expected delivery date' })
-  expectedDeliveryDate?: Date;
-
-  @ApiProperty({ description: 'Delivered date' })
-  deliveredDate?: Date;
-
-  @ApiProperty({ description: 'Full delivery address' })
-  fullDeliveryAddress: string;
-
-  @ApiProperty({ description: 'Delivery contact' })
-  deliveryContact?: string;
-
-  @ApiProperty({ description: 'Delivery phone' })
-  deliveryPhone?: string;
 
   @ApiProperty({ description: 'Subtotal amount' })
   subtotal: number;
@@ -347,26 +228,11 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Total amount' })
   totalAmount: number;
 
-  @ApiProperty({ description: 'Payment terms in days' })
-  paymentTermsDays: number;
-
-  @ApiProperty({ description: 'Payment terms description' })
-  paymentTerms?: string;
-
   @ApiProperty({ description: 'Delivery terms' })
   deliveryTerms?: string;
 
   @ApiProperty({ description: 'Notes' })
   notes?: string;
-
-  @ApiProperty({ description: 'Internal notes' })
-  internalNotes?: string;
-
-  @ApiProperty({ description: 'Supplier quote reference' })
-  supplierQuoteRef?: string;
-
-  @ApiProperty({ description: 'Is overdue' })
-  isOverdue: boolean;
 
   @ApiProperty({ description: 'Is fully received' })
   isFullyReceived: boolean;
@@ -416,11 +282,6 @@ export class ApprovePurchaseOrderDto {
 }
 
 export class AcknowledgePurchaseOrderDto {
-  @ApiPropertyOptional({ description: 'Expected delivery date from supplier' })
-  @IsOptional()
-  @IsDateString()
-  expectedDeliveryDate?: string;
-
   @ApiPropertyOptional({ description: 'Supplier acknowledgment notes' })
   @IsOptional()
   @IsString()

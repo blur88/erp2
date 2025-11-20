@@ -5,7 +5,6 @@ import {
   PurchaseOrder,
   PurchaseOrderItem,
   Supplier,
-  User,
   Product,
   GoodsReceivedNote,
   VendorPayment
@@ -38,8 +37,6 @@ export class PurchaseOrderService {
     private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     @InjectRepository(GoodsReceivedNote)
@@ -106,16 +103,6 @@ export class PurchaseOrderService {
       throw new BadRequestException('Cannot create purchase order for inactive supplier');
     }
 
-    // Validate user exists (skip for system user after auth removal)
-    let validUserId: string | null = null;
-    if (userId !== 'system') {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-      validUserId = userId;
-    }
-
     try {
       // Generate sequential order number
       const orderNumber = await this.generateSequentialOrderNumber();
@@ -125,8 +112,6 @@ export class PurchaseOrderService {
         ...createPurchaseOrderDto,
         orderNumber,
         orderDate: new Date(createPurchaseOrderDto.orderDate),
-        createdByUserId: validUserId,
-        paymentTermsDays: createPurchaseOrderDto.paymentTermsDays || 30,
       });
 
       // Create order items
@@ -237,10 +222,8 @@ export class PurchaseOrderService {
       limit = 10,
       search,
       supplierId,
-      createdByUserId,
       orderDateFrom,
       orderDateTo,
-      isOverdue,
       sortBy = 'orderDate',
       sortOrder = 'DESC',
     } = query;
@@ -269,26 +252,15 @@ export class PurchaseOrderService {
       queryBuilder.andWhere('po.supplierId = :supplierId', { supplierId });
     }
 
-    if (createdByUserId) {
-      queryBuilder.andWhere('po.createdByUserId = :createdByUserId', { createdByUserId });
-    }
-
     if (orderDateFrom) {
-      queryBuilder.andWhere('po.orderDate >= :orderDateFrom', { 
-        orderDateFrom: new Date(orderDateFrom) 
+      queryBuilder.andWhere('po.orderDate >= :orderDateFrom', {
+        orderDateFrom: new Date(orderDateFrom)
       });
     }
 
     if (orderDateTo) {
-      queryBuilder.andWhere('po.orderDate <= :orderDateTo', { 
-        orderDateTo: new Date(orderDateTo) 
-      });
-    }
-
-    if (isOverdue) {
-      queryBuilder.andWhere('po.expectedDeliveryDate < :now', { now: new Date() });
-      queryBuilder.andWhere('po.status NOT IN (:...completedStatuses)', {
-        completedStatuses: ['received', 'completed', 'cancelled']
+      queryBuilder.andWhere('po.orderDate <= :orderDateTo', {
+        orderDateTo: new Date(orderDateTo)
       });
     }
 
@@ -403,8 +375,6 @@ export class PurchaseOrderService {
         ...updateFields,
         orderDate: updatePurchaseOrderDto.orderDate ?
           new Date(updatePurchaseOrderDto.orderDate) : purchaseOrder.orderDate,
-        expectedDeliveryDate: updatePurchaseOrderDto.expectedDeliveryDate ?
-          new Date(updatePurchaseOrderDto.expectedDeliveryDate) : purchaseOrder.expectedDeliveryDate,
       });
 
       // Update items if provided
@@ -525,7 +495,7 @@ export class PurchaseOrderService {
         // Overdue orders
         this.purchaseOrderRepository
           .createQueryBuilder('po')
-          .where('po.expectedDeliveryDate < :now', { now: new Date() })
+          .where('1=0') // Always returns 0 since expectedDeliveryDate field was removed
           .getCount(),
 
         // Top suppliers by volume
@@ -1331,38 +1301,14 @@ export class PurchaseOrderService {
         email: undefined,
         phone: purchaseOrder.supplier.phone,
       },
-      createdByUser: purchaseOrder.createdByUser ? {
-        id: purchaseOrder.createdByUser.id,
-        username: purchaseOrder.createdByUser.username,
-        firstName: purchaseOrder.createdByUser.firstName,
-        lastName: purchaseOrder.createdByUser.lastName,
-      } : undefined,
-      approvedByUser: purchaseOrder.approvedByUser ? {
-        id: purchaseOrder.approvedByUser.id,
-        username: purchaseOrder.approvedByUser.username,
-        firstName: purchaseOrder.approvedByUser.firstName,
-        lastName: purchaseOrder.approvedByUser.lastName,
-      } : undefined,
       orderDate: purchaseOrder.orderDate,
-            sentDate: purchaseOrder.sentDate,
-      acknowledgedDate: purchaseOrder.acknowledgedDate,
-      expectedDeliveryDate: purchaseOrder.expectedDeliveryDate,
-      deliveredDate: purchaseOrder.deliveredDate,
-      fullDeliveryAddress: purchaseOrder.fullDeliveryAddress,
-      deliveryContact: purchaseOrder.deliveryContact,
-      deliveryPhone: purchaseOrder.deliveryPhone,
       subtotal: Number(purchaseOrder.subtotal),
       discountPercent: Number(purchaseOrder.discountPercent),
       discountAmount: Number(purchaseOrder.discountAmount),
       shippingAmount: Number(purchaseOrder.shippingAmount),
       totalAmount: Number(purchaseOrder.totalAmount),
-      paymentTermsDays: purchaseOrder.paymentTermsDays,
-      paymentTerms: purchaseOrder.paymentTerms,
       deliveryTerms: purchaseOrder.deliveryTerms,
       notes: purchaseOrder.notes,
-      internalNotes: purchaseOrder.internalNotes,
-      supplierQuoteRef: purchaseOrder.supplierQuoteRef,
-      isOverdue: purchaseOrder.isOverdue,
       isFullyReceived: purchaseOrder.isFullyReceived(),
       totalReceivedQuantity: purchaseOrder.getTotalReceivedQuantity(),
       totalOrderedQuantity: purchaseOrder.getTotalOrderedQuantity(),
