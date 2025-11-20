@@ -10,14 +10,15 @@ Comprehensive ERP system with modern full-stack architecture:
 - **Infrastructure**: Docker + NGINX + Node.js 22
 - **Testing**: Jest (backend) + Vitest (frontend)
 
-**Last Updated**: October 2025
+**Last Updated**: November 2025
 
 ## Current System Status
 
 **⚠️ CRITICAL: Authentication system completely removed**
 
 **Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule` (5 active)
-**Disabled Modules**: `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
+**Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
+**Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
 - All API endpoints publicly accessible
 - Frontend fully integrated with backend
@@ -120,8 +121,8 @@ docker compose logs backend # Check specific service logs
 
 ### Backend Module Structure
 - **Core**: `users/` - User management
-- **Business**: `inventory/` (✅), `sales/` (✅), `purchasing/` (✅)
-- **Analytics**: `dashboard/` (✅ with WebSocket), `reports/` (❌)
+- **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
+- **Analytics**: `dashboard/` (✅ with WebSocket)
 - **System**: `plugins/` (❌ disabled)
 
 ### Architecture Patterns
@@ -202,6 +203,16 @@ docker compose logs backend # Check specific service logs
 3. Register in `app.module.ts`
 4. Add frontend pages and Redux slices as needed
 
+### Adding Reports to Modules
+Reports are embedded within their business modules:
+1. Create report service in `backend/src/modules/{module}/services/` (e.g., `inventory-report.service.ts`)
+2. Add report endpoints to module controller or create dedicated report controller
+3. Implement Excel export using ExcelJS with subtotal/grand total styling pattern
+4. Implement PDF export using jsPDF/jsPDF-AutoTable as needed
+5. Create frontend report page in `frontend/src/pages/{module}/reports/`
+6. Add report navigation to module's sidebar section
+7. **Pattern**: Each report should support filtering, sorting, Excel/PDF export
+
 ### Entity Pattern
 All entities extend `BaseEntity` (UUID, timestamps, audit fields, soft delete)
 
@@ -225,7 +236,26 @@ When enabling disabled modules:
 - **TypeScript relaxed**: Project uses `"strict": false`, liberal use of `as any` when needed
 - **Path aliases**: Use `@/` for src imports, configured in both Vite and TypeScript
 
-## Recent Changes Timeline (October 2025)
+## Recent Changes Timeline
+
+### 📊 Module-Integrated Reports (November 2025)
+- ✅ **COMPLETE**: Comprehensive reporting system embedded in Inventory, Sales, and Purchasing modules
+- **Architecture Note**: Each business module has its own integrated reports (generic reports module removed)
+- **Inventory Reports**:
+  - **Product Cost Report**: Running average cost calculations, proper order number resolution, negative cost changes for outward movements
+  - **Product Price List**: Dynamic pricing with retail, wholesale, and special prices
+  - **Inventory Summary**: Stock levels and movement summary with enhanced styling
+  - **Historical Inventory**: Product-based summary with target date filtering (not movement-based)
+  - **Inventory Movement Summary**: Date range filtered movement tracking
+- **Sales Reports**: Enhanced with subtotals and grand totals across multiple report types
+- **Purchasing Reports**:
+  - **Vendor Product List**: Aggregated by product-supplier with weighted average pricing
+  - Enhanced subtotal and grand total styling across all 5 purchasing reports
+- **Report Styling Pattern**: Consistent subtotals and grand totals with blank row separators for visual clarity
+- **Data Export**: ExcelJS for Excel exports, jsPDF for PDF generation
+- **Report Removed**: Count Sheet Report and Inventory Details Report removed from navigation
+
+### Recent Updates (October-November 2025)
 
 ### 🚀 Redis 8 Upgrade (October 2025)
 - ✅ **COMPLETE**: Upgraded Redis from 7-alpine to 8-alpine3.22
@@ -325,6 +355,27 @@ export class EntityName extends BaseEntity {
 - Theme colors: `warning.main`, `error.main`, `success.main`
 - Icons from `@mui/icons-material` with consistent sizing
 
+### Report Styling Pattern
+```typescript
+// Subtotal and grand total styling for Excel reports
+// Add blank rows before subtotals for visual separation
+worksheet.addRow({}); // Blank row before subtotal
+
+// Subtotal row with distinct styling
+const subtotalRow = worksheet.addRow([
+  { formula: `SUBTOTAL(9, C${startRow}:C${endRow})` }, // Sum
+  'Subtotal',
+  // ... other columns
+]);
+subtotalRow.font = { bold: true };
+subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+// Grand total follows similar pattern with stronger emphasis
+const grandTotalRow = worksheet.addRow([...]);
+grandTotalRow.font = { bold: true, size: 12 };
+grandTotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD0D0D0' } };
+```
+
 ### Soft Delete Pattern
 ```typescript
 // Entity with soft delete support
@@ -419,6 +470,19 @@ const { control, handleSubmit } = useForm<FormData>({
 - Purchasing: http://localhost:3000/purchasing (re-enabled October 2025)
 - Users: http://localhost:3000/users
 
+### 📊 Inventory Reports (Active)
+- Product Cost Report: http://localhost:3000/inventory/reports/product-cost
+- Product Price List: http://localhost:3000/inventory/reports/price-list
+- Inventory Summary: http://localhost:3000/inventory/reports/summary
+- Historical Inventory: http://localhost:3000/inventory/reports/historical
+- Inventory Movement Summary: http://localhost:3000/inventory/reports/movements
+
+### 📊 Sales Reports (Active)
+- Sales reports accessible via Sales module navigation
+
+### 📊 Purchasing Reports (Active)
+- Vendor Product List and other purchasing reports accessible via Purchasing module navigation
+
 ### Key API Endpoints
 - Users: `/api/users`
 - Inventory: `/api/inventory/products`, `/api/inventory/categories`
@@ -426,6 +490,11 @@ const { control, handleSubmit } = useForm<FormData>({
 - Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
 - Purchasing: `/api/purchasing/suppliers`, `/api/purchasing/purchase-orders`, `/api/purchasing/overview`
 - Module Info: `/api/info`
+
+### 📊 Report Export Endpoints
+- Inventory reports support Excel/PDF export via module-specific endpoints
+- Sales reports support Excel/PDF export via module-specific endpoints
+- Purchasing reports support Excel/PDF export via module-specific endpoints
 
 ## Troubleshooting
 
@@ -460,13 +529,14 @@ curl http://localhost:3001/socket.io/ | head -1
 ```
 
 ### Module Re-enabling
-For disabled modules (Reports, Plugins):
+For disabled modules (Plugins):
 1. Fix auth-related TypeScript errors using `'system'` default
 2. Install missing dependencies if needed: `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
 3. Check compilation: `npx tsc --noEmit`
 4. Update `app.module.ts` to uncomment the module import
 
 **Note**: Purchasing module successfully re-enabled in October 2025 following this pattern.
+**Note**: Module-integrated reports (Inventory, Sales, Purchasing) are fully functional.
 
 ## Key Files
 
@@ -477,10 +547,10 @@ For disabled modules (Reports, Plugins):
 - `frontend/src/App.tsx` - Main React component
 
 ### Module Files
-- `backend/src/modules/inventory/` - ✅ Fully functional
-- `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes
-- `backend/src/modules/dashboard/` - ✅ WebSocket support
-- `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025)
+- `backend/src/modules/inventory/` - ✅ Fully functional with integrated reports (5 report types)
+- `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes with integrated reports
+- `backend/src/modules/dashboard/` - ✅ WebSocket support for real-time updates
+- `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025) with integrated reports (5 report types)
 
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products

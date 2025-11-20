@@ -12,7 +12,6 @@ import customerSlice from './slices/customerSlice'
 import purchasingSlice from './slices/purchasingSlice'
 import supplierSlice from './slices/supplierSlice'
 import dashboardSlice from './slices/dashboardSlice'
-import reportsSlice from './slices/reportsSlice'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -23,7 +22,6 @@ const rootReducer = combineReducers({
   purchasing: purchasingSlice,
   suppliers: supplierSlice,
   dashboard: dashboardSlice,
-  reports: reportsSlice,
 })
 
 // Persist configuration

@@ -90,6 +90,7 @@ export interface Category {
   children?: Category[];
   parent?: Partial<Category>;
   productCount?: number;  // Number of products in this category
+  isActive: boolean;  // Soft delete flag from BaseEntity
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string | null; // For soft-deleted categories

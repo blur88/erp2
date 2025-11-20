@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -22,6 +23,7 @@ import {
   Stack,
   useTheme,
   useMediaQuery,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,54 +34,55 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Chip,
-  Divider,
   OutlinedInput,
+  Divider,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  ListAlt as DetailIcon,
+  ListAlt as PurchaseOrderIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
-  ViewColumn as ViewColumnIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
-interface ProductDetail {
-  transactionType: 'Sale' | 'Purchase'
-  transactionDate: string
-  documentNumber: string
-  customerSupplier: string
-  productId: string
+interface PurchaseOrderDetail {
+  orderNumber: string
+  orderDate: string
+  supplierName: string
   productName: string
-  category: string
+  categoryName: string
   quantity: number
   unitPrice: number
-  priceLevel: string
+  discountPercent: number
+  discountAmount: number
   totalAmount: number
-  cost: number
-  profit: number
+  status: string
+  paymentStatus: string
 }
 
-const SalesByProductDetails: React.FC = () => {
+const PurchaseOrderDetailsReport: React.FC = () => {
+  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
-  const [reportData, setReportData] = useState<ProductDetail[]>([])
+  const [reportData, setReportData] = useState<PurchaseOrderDetail[]>([])
+  const [suppliers, setSuppliers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [selectedProduct, setSelectedProduct] = useState<string>('all')
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
+  const [status, setStatus] = useState<string>('all')
+  const [paymentStatus, setPaymentStatus] = useState<string>('all')
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
   const [productCategoryFilter, setProductCategoryFilter] = useState<string>('')
@@ -90,19 +93,27 @@ const SalesByProductDetails: React.FC = () => {
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'
+    'productName', 'categoryName', 'orderNumber', 'orderDate', 'supplierName', 'status', 'paymentStatus', 'quantity', 'unitPrice', 'totalAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('productName')
-  const [sortBy2, setSortBy2] = useState<string>('none')
-  const [sortBy3, setSortBy3] = useState<string>('none')
-  const [reportTitle, setReportTitle] = useState<string>('Sales by Product Details')
+  const [reportTitle, setReportTitle] = useState<string>('Purchase Order Details Report')
 
   // Pagination
   const [page, setPage] = useState<number>(0)
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
+    // Load suppliers
+    fetch('/api/purchasing/suppliers?limit=100')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.suppliers) {
+          setSuppliers(data.suppliers)
+        }
+      })
+      .catch(() => {})
+
     // Load products
     fetch('/api/inventory/products?limit=100')
       .then(res => res.ok ? res.json() : null)
@@ -117,10 +128,8 @@ const SalesByProductDetails: React.FC = () => {
     fetch('/api/inventory/categories/tree')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        // Handle both response formats: { data: [...] } or direct array
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
-          // Flatten the tree structure for dropdown
           const flattenCategories = (cats: any[], level = 0): any[] => {
             return cats.reduce((acc: any[], cat: any) => {
               acc.push({ ...cat, level })
@@ -138,28 +147,29 @@ const SalesByProductDetails: React.FC = () => {
 
   const handleGenerateReport = async () => {
     setLoading(true)
-    setPage(0) // Reset to first page when generating new report
+    setPage(0)
 
     try {
-      // Build query parameters
       const params = new URLSearchParams()
 
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
+      if (selectedSupplier) params.append('supplierId', selectedSupplier)
       if (selectedCategory) params.append('categoryId', selectedCategory)
       if (selectedProducts.length > 0) {
-        selectedProducts.forEach(productId => params.append('productIds', productId))
+        selectedProducts.forEach(id => params.append('productIds', id))
       }
+      if (status && status !== 'all') params.append('status', status)
+      if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
 
-      // Call the backend API
-      const response = await fetch(`/api/sales/analytics/product-details?${params.toString()}`)
+      const response = await fetch(`/api/purchasing/analytics/purchase-order-details?${params.toString()}`)
 
       if (!response.ok) {
         throw new Error('Failed to fetch report data')
       }
 
-      const data = await response.json()
-      setReportData(data.data || [])
+      const result = await response.json()
+      setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])
@@ -169,86 +179,221 @@ const SalesByProductDetails: React.FC = () => {
   }
 
   const handleClearFilters = () => {
-    // Clear filter options
-    setSelectedProduct('all')
+    setSelectedSupplier('')
     setSelectedProducts([])
     setSelectedCategory('')
     setDateFrom('')
     setDateTo('')
-
-    // Clear report data
+    setStatus('all')
+    setPaymentStatus('all')
     setReportData([])
-
-    // Reset display options to defaults
-    setSelectedColumns(['productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit'])
+    setSelectedColumns(['productName', 'categoryName', 'orderNumber', 'orderDate', 'supplierName', 'status', 'paymentStatus', 'quantity', 'unitPrice', 'totalAmount'])
     setGroupBy('none')
     setSortBy1('productName')
-    setSortBy2('none')
-    setSortBy3('none')
-    setReportTitle('Sales by Product Details')
-
-    // Reset pagination
+    setReportTitle('Purchase Order Details Report')
     setPage(0)
     setRowsPerPage(25)
+  }
+
+  const handleProductClick = (productId: string, event: React.MouseEvent) => {
+    const filteredProducts = getFilteredProducts()
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedProductIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedProductId(productId)
+    } else if (event.shiftKey && lastClickedProductId) {
+      const lastIndex = filteredProducts.findIndex((p: any) => p.id === lastClickedProductId)
+      const currentIndex = filteredProducts.findIndex((p: any) => p.id === productId)
+
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex)
+        const end = Math.max(lastIndex, currentIndex)
+        const rangeIds = filteredProducts.slice(start, end + 1).map((p: any) => p.id)
+
+        setSelectedProductIds(prev => [...new Set([...prev, ...rangeIds])])
+      }
+    } else {
+      setSelectedProductIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedProductId(productId)
+    }
+  }
+
+  const handleSelectedProductClick = (productId: string, event: React.MouseEvent) => {
+    const selectedProductsList = getSelectedProductsList()
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedRemovedIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedRemovedId(productId)
+    } else if (event.shiftKey && lastClickedRemovedId) {
+      const lastIndex = selectedProductsList.findIndex((p: any) => p.id === lastClickedRemovedId)
+      const currentIndex = selectedProductsList.findIndex((p: any) => p.id === productId)
+
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex)
+        const end = Math.max(lastIndex, currentIndex)
+        const rangeIds = selectedProductsList.slice(start, end + 1).map((p: any) => p.id)
+
+        setSelectedRemovedIds(prev => [...new Set([...prev, ...rangeIds])])
+      }
+    } else {
+      setSelectedRemovedIds(prev =>
+        prev.includes(productId)
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      )
+      setLastClickedRemovedId(productId)
+    }
+  }
+
+  const handleAddSelectedProducts = () => {
+    if (selectedProductIds.length > 0) {
+      setSelectedProducts(prev => [...new Set([...prev, ...selectedProductIds])])
+      setSelectedProductIds([])
+    }
+  }
+
+  const handleRemoveSelectedProducts = () => {
+    if (selectedRemovedIds.length > 0) {
+      setSelectedProducts(prev => prev.filter(id => !selectedRemovedIds.includes(id)))
+      setSelectedRemovedIds([])
+    }
+  }
+
+  const handleAddAllProducts = () => {
+    const allFilteredIds = getFilteredProducts().map((p: any) => p.id)
+    setSelectedProducts(prev => [...new Set([...prev, ...allFilteredIds])])
+    setSelectedProductIds([])
+  }
+
+  const handleRemoveAllProducts = () => {
+    setSelectedProducts([])
+    setSelectedRemovedIds([])
+  }
+
+  const getFilteredProducts = () => {
+    return products.filter((product: any) => {
+      const matchesName = !productSearchFilter ||
+        product.name.toLowerCase().includes(productSearchFilter.toLowerCase())
+      const matchesCategory = !productCategoryFilter ||
+        product.categoryId === productCategoryFilter
+      const notSelected = !selectedProducts.includes(product.id)
+      return matchesName && matchesCategory && notSelected
+    })
+  }
+
+  const getSelectedProductsList = () => {
+    return products.filter((product: any) => selectedProducts.includes(product.id))
+  }
+
+  const handleProductDialogClose = () => {
+    setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
+    setSelectedProductIds([])
+    setSelectedRemovedIds([])
+  }
+
+  const handleProductDialogConfirm = () => {
+    setProductDialogOpen(false)
+    setProductSearchFilter('')
+    setProductCategoryFilter('')
+    setSelectedProductIds([])
+    setSelectedRemovedIds([])
   }
 
   const handleExportExcel = () => {
     if (sortedData.length === 0) return
 
-    // Column headers mapping
     const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
-      category: 'Category',
-      transactionDate: 'Order Date',
-      documentNumber: 'Order No',
-      customerSupplier: 'Customer',
-      priceLevel: 'Pricing',
-      quantity: 'Qty Sold',
-      totalAmount: 'Sales Amount',
-      cost: 'Sales Cost',
-      profit: 'Sales Profit'
+      productName: 'Products',
+      categoryName: 'Category',
+      orderNumber: 'Order No',
+      orderDate: 'Order Date',
+      supplierName: 'Vendor',
+      status: 'Inventory Status',
+      paymentStatus: 'Payment Status',
+      quantity: 'Quantity',
+      unitPrice: 'Unit Price',
+      totalAmount: 'Subtotal'
     }
 
-    // Build CSV content
     let csv = reportTitle + '\n\n'
-
-    // Add headers
     const headers = selectedColumns.map(col => columnHeaders[col] || col)
     csv += headers.join(',') + '\n'
 
-    // Add data rows
-    if (groupedData) {
-      // Export grouped data
-      Object.entries(groupedData).forEach(([groupName, items]) => {
-        // Group header
-        csv += `\n"${groupName}"\n`
+    let prevGroupKey: any = null
 
-        // Items
-        items.forEach(row => {
-          const values = selectedColumns.map(col => {
-            const value = (row as any)[col]
-            if (col === 'transactionDate') {
-              return `"${new Date(value).toLocaleDateString()}"`
-            } else if (col === 'quantity') {
-              return value.toLocaleString()
-            } else if (typeof value === 'number') {
-              return value.toFixed(2)
-            }
-            return `"${value || ''}"`
-          })
-          csv += values.join(',') + '\n'
-        })
+    const getExportGroupKey = (r: any) => {
+      if (groupBy === 'categoryProduct') {
+        return `${r.categoryName}|${r.productName}`
+      }
+      return r[groupBy]
+    }
 
-        // Subtotal
-        const subtotal = calculateGroupSubtotal(items)
+    const getExportGroupLabel = (r: any) => {
+      if (groupBy === 'orderNumber') {
+        return `Order No: ${r.orderNumber}`
+      } else if (groupBy === 'categoryProduct') {
+        return `${r.categoryName} - ${r.productName}`
+      } else if (groupBy === 'categoryName') {
+        return `Category: ${r.categoryName}`
+      } else if (groupBy === 'supplierName') {
+        return `Vendor: ${r.supplierName}`
+      }
+      return r[groupBy]
+    }
+
+    sortedData.forEach((row, idx) => {
+      const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
+
+      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
+        const groupLabel = getExportGroupLabel(row)
+        csv += `\n"${groupLabel}"\n`
+        prevGroupKey = currentGroupKey
+      }
+
+      const values = selectedColumns.map(col => {
+        const value = (row as any)[col]
+        if (col === 'orderDate') {
+          return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
+        } else if (['supplierName', 'productName', 'categoryName', 'orderNumber', 'status', 'paymentStatus'].includes(col)) {
+          return `"${value || ''}"`
+        } else if (typeof value === 'number') {
+          return value.toFixed(2)
+        }
+        return `"${value || ''}"`
+      })
+      csv += values.join(',') + '\n'
+
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
+        const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
+
+        const subtotal = {
+          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+        }
+
         const subtotalValues = selectedColumns.map((col, colIdx) => {
           if (colIdx === 0) {
             return '"Subtotal"'
           }
           const value = (subtotal as any)[col]
-          if (col === 'quantity') {
-            return value?.toLocaleString() || ''
-          } else if (typeof value === 'number') {
+          if (typeof value === 'number') {
             return value.toFixed(2)
           }
           return ''
@@ -256,26 +401,9 @@ const SalesByProductDetails: React.FC = () => {
         csv += subtotalValues.join(',') + '\n'
         // Blank row after subtotal
         csv += '\n'
-      })
-    } else {
-      // Export ungrouped data
-      sortedData.forEach(row => {
-        const values = selectedColumns.map(col => {
-          const value = (row as any)[col]
-          if (col === 'transactionDate') {
-            return `"${new Date(value).toLocaleDateString()}"`
-          } else if (col === 'quantity') {
-            return value.toLocaleString()
-          } else if (typeof value === 'number') {
-            return value.toFixed(2)
-          }
-          return `"${value || ''}"`
-        })
-        csv += values.join(',') + '\n'
-      })
-    }
+      }
+    })
 
-    // Add totals
     if (totals) {
       csv += '\n'
       const totalValues = selectedColumns.map((col, colIdx) => {
@@ -283,9 +411,7 @@ const SalesByProductDetails: React.FC = () => {
           return '"GRAND TOTAL"'
         }
         const value = (totals as any)[col]
-        if (col === 'quantity') {
-          return value?.toLocaleString() || ''
-        } else if (typeof value === 'number') {
+        if (typeof value === 'number') {
           return value.toFixed(2)
         }
         return ''
@@ -293,7 +419,6 @@ const SalesByProductDetails: React.FC = () => {
       csv += totalValues.join(',') + '\n'
     }
 
-    // Download
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -308,58 +433,86 @@ const SalesByProductDetails: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-    // Create a printable version
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
-      category: 'Category',
-      transactionDate: 'Order Date',
-      documentNumber: 'Order No',
-      customerSupplier: 'Customer',
-      priceLevel: 'Pricing',
-      quantity: 'Qty Sold',
-      totalAmount: 'Sales Amount',
-      cost: 'Sales Cost',
-      profit: 'Sales Profit'
+      productName: 'Products',
+      categoryName: 'Category',
+      orderNumber: 'Order No',
+      orderDate: 'Order Date',
+      supplierName: 'Vendor',
+      status: 'Inventory Status',
+      paymentStatus: 'Payment Status',
+      quantity: 'Quantity',
+      unitPrice: 'Unit Price',
+      totalAmount: 'Subtotal'
     }
 
     let tableRows = ''
+    let prevGroupKey: any = null
 
-    if (groupedData) {
-      Object.entries(groupedData).forEach(([groupName, items]) => {
-        // Group header
-        tableRows += `<tr style="background-color: #e3f2fd; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupName}</td></tr>`
+    const getPdfGroupKey = (r: any) => {
+      if (groupBy === 'categoryProduct') {
+        return `${r.categoryName}|${r.productName}`
+      }
+      return r[groupBy]
+    }
 
-        // Items
-        items.forEach(row => {
-          tableRows += '<tr>'
-          selectedColumns.forEach(col => {
-            const value = (row as any)[col]
-            let displayValue = value
-            if (col === 'transactionDate') {
-              displayValue = new Date(value).toLocaleDateString()
-            } else if (col === 'quantity') {
-              displayValue = value.toLocaleString()
-            } else if (typeof value === 'number') {
-              displayValue = formatCurrency(value)
-            }
-            tableRows += `<td>${displayValue || ''}</td>`
-          })
-          tableRows += '</tr>'
-        })
+    const getPdfGroupLabel = (r: any) => {
+      if (groupBy === 'orderNumber') {
+        return `Order No: ${r.orderNumber}`
+      } else if (groupBy === 'categoryProduct') {
+        return `${r.categoryName} - ${r.productName}`
+      } else if (groupBy === 'categoryName') {
+        return `Category: ${r.categoryName}`
+      } else if (groupBy === 'supplierName') {
+        return `Vendor: ${r.supplierName}`
+      }
+      return r[groupBy]
+    }
 
-        // Subtotal
-        const subtotal = calculateGroupSubtotal(items)
+    sortedData.forEach((row, idx) => {
+      const currentGroupKey = groupBy !== 'none' ? getPdfGroupKey(row) : null
+
+      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
+        const groupLabel = getPdfGroupLabel(row)
+        tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
+        prevGroupKey = currentGroupKey
+      }
+
+      tableRows += '<tr>'
+      selectedColumns.forEach(col => {
+        const value = (row as any)[col]
+        let displayValue = value
+        if (col === 'orderDate') {
+          displayValue = value ? new Date(value).toLocaleDateString() : '-'
+        } else if (typeof value === 'number') {
+          displayValue = formatCurrency(value)
+        } else if (col === 'status' || col === 'paymentStatus') {
+          displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
+        }
+        const align = (typeof value === 'number') ? 'text-align: right;' : ''
+        tableRows += `<td style="${align}">${displayValue || ''}</td>`
+      })
+      tableRows += '</tr>'
+
+      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
+      const nextGroupKey = nextRow && groupBy !== 'none' ? getPdfGroupKey(nextRow) : null
+
+      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
+        const groupData = sortedData.filter(r => getPdfGroupKey(r) === currentGroupKey)
+
+        const subtotal = {
+          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
+          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+        }
+
         tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
-        selectedColumns.forEach((col, idx) => {
-          if (idx === 0) {
+        selectedColumns.forEach((col, colIdx) => {
+          if (colIdx === 0) {
             tableRows += '<td style="font-weight: bold;">Subtotal</td>'
-          } else if (col === 'quantity') {
-            const value = (subtotal as any)[col]
-            tableRows += `<td style="text-align: right; font-weight: bold;">${value?.toLocaleString() || ''}</td>`
-          } else if (col === 'totalAmount' || col === 'cost' || col === 'profit') {
+          } else if (col === 'quantity' || col === 'totalAmount') {
             const value = (subtotal as any)[col]
             tableRows += `<td style="text-align: right; font-weight: bold;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
           } else {
@@ -369,46 +522,25 @@ const SalesByProductDetails: React.FC = () => {
         tableRows += '</tr>'
         // Blank row after subtotal
         tableRows += `<tr style="height: 20px;"><td colspan="${selectedColumns.length}" style="border: none;"></td></tr>`
-      })
-    } else {
-      sortedData.forEach(row => {
-        tableRows += '<tr>'
-        selectedColumns.forEach(col => {
-          const value = (row as any)[col]
-          let displayValue = value
-          if (col === 'transactionDate') {
-            displayValue = new Date(value).toLocaleDateString()
-          } else if (col === 'quantity') {
-            displayValue = value.toLocaleString()
-          } else if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-          }
-          tableRows += `<td>${displayValue || ''}</td>`
-        })
-        tableRows += '</tr>'
-      })
-    }
+      }
+    })
 
-    // Add totals
     if (totals) {
       tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
           tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
-        } else if (col === 'quantity') {
-          const value = (totals as any)[col]
-          tableRows += `<td style="text-align: right; font-weight: 800;">${value?.toLocaleString() || ''}</td>`
-        } else if (col === 'totalAmount' || col === 'cost' || col === 'profit') {
+        } else if (col === 'quantity' || col === 'totalAmount') {
           const value = (totals as any)[col]
           tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
         } else {
-          tableRows += '<td></td>'
+          const align = 'text-align: right;'
+          tableRows += `<td style="${align}">${displayValue}</td>`
         }
       })
       tableRows += '</tr>'
     }
 
-    // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
       dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
@@ -434,30 +566,7 @@ const SalesByProductDetails: React.FC = () => {
             .text-right { text-align: right; }
             @media print {
               body { margin: 0; padding: 20px 20px 40px 20px; }
-              @page {
-                margin: 0;
-                @bottom-right {
-                  content: "Page " counter(page) " of " counter(pages);
-                }
-              }
-              .footer {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                text-align: center;
-                font-size: 10px;
-                padding: 10px;
-                border-top: 1px solid #ddd;
-              }
-            }
-            .footer {
-              display: none;
-            }
-            @media print {
-              .footer {
-                display: block;
-              }
+              @page { margin: 0; }
             }
           </style>
         </head>
@@ -477,18 +586,8 @@ const SalesByProductDetails: React.FC = () => {
               ${tableRows}
             </tbody>
           </table>
-          <div class="footer">
-            <script>
-              var pageNum = 1;
-              document.write("Page " + pageNum);
-            </script>
-          </div>
           <script>
-            // Set document title for PDF filename
-            document.title = '${reportTitle.replace(/'/g, "\\'")}';
-
             window.onload = function() {
-              // Small delay to ensure content is rendered
               setTimeout(function() {
                 window.print();
               }, 250);
@@ -502,310 +601,85 @@ const SalesByProductDetails: React.FC = () => {
     printWindow.document.close()
   }
 
-  const handleProductSelectChange = (value: string) => {
-    if (value === 'select') {
-      setProductDialogOpen(true)
-    } else {
-      setSelectedProduct(value)
-      setSelectedProducts([])
-    }
-  }
-
-  const handleProductToggle = (productId: string) => {
-    setSelectedProducts(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    )
-  }
-
-  const handleProductDialogClose = () => {
-    setProductDialogOpen(false)
-    setProductSearchFilter('')
-    setProductCategoryFilter('')
-    setSelectedProductIds([])
-    setSelectedRemovedIds([])
-    if (selectedProducts.length === 0) {
-      setSelectedProduct('all')
-    }
-  }
-
-  const handleProductDialogConfirm = () => {
-    if (selectedProducts.length > 0) {
-      setSelectedProduct('select')
-    } else {
-      setSelectedProduct('all')
-    }
-    setProductDialogOpen(false)
-    setProductSearchFilter('')
-    setProductCategoryFilter('')
-    setSelectedProductIds([])
-    setSelectedRemovedIds([])
-  }
-
-  const handleProductClick = (productId: string, event: React.MouseEvent) => {
-    const filteredProducts = getFilteredProducts()
-
-    if (event.ctrlKey || event.metaKey) {
-      // Ctrl/Cmd+Click: Toggle individual selection
-      setSelectedProductIds(prev =>
-        prev.includes(productId)
-          ? prev.filter(id => id !== productId)
-          : [...prev, productId]
-      )
-      setLastClickedProductId(productId)
-    } else if (event.shiftKey && lastClickedProductId) {
-      // Shift+Click: Select range
-      const lastIndex = filteredProducts.findIndex(p => p.id === lastClickedProductId)
-      const currentIndex = filteredProducts.findIndex(p => p.id === productId)
-
-      if (lastIndex !== -1 && currentIndex !== -1) {
-        const start = Math.min(lastIndex, currentIndex)
-        const end = Math.max(lastIndex, currentIndex)
-        const rangeIds = filteredProducts.slice(start, end + 1).map(p => p.id)
-
-        setSelectedProductIds(prev => [...new Set([...prev, ...rangeIds])])
-      }
-    } else {
-      // Normal click: Toggle single selection
-      setSelectedProductIds(prev =>
-        prev.includes(productId)
-          ? prev.filter(id => id !== productId)
-          : [...prev, productId]
-      )
-      setLastClickedProductId(productId)
-    }
-  }
-
-  const handleSelectedProductClick = (productId: string, event: React.MouseEvent) => {
-    const selectedProducts = getSelectedProductsList()
-
-    if (event.ctrlKey || event.metaKey) {
-      // Ctrl/Cmd+Click: Toggle individual selection
-      setSelectedRemovedIds(prev =>
-        prev.includes(productId)
-          ? prev.filter(id => id !== productId)
-          : [...prev, productId]
-      )
-      setLastClickedRemovedId(productId)
-    } else if (event.shiftKey && lastClickedRemovedId) {
-      // Shift+Click: Select range
-      const lastIndex = selectedProducts.findIndex(p => p.id === lastClickedRemovedId)
-      const currentIndex = selectedProducts.findIndex(p => p.id === productId)
-
-      if (lastIndex !== -1 && currentIndex !== -1) {
-        const start = Math.min(lastIndex, currentIndex)
-        const end = Math.max(lastIndex, currentIndex)
-        const rangeIds = selectedProducts.slice(start, end + 1).map(p => p.id)
-
-        setSelectedRemovedIds(prev => [...new Set([...prev, ...rangeIds])])
-      }
-    } else {
-      // Normal click: Toggle single selection
-      setSelectedRemovedIds(prev =>
-        prev.includes(productId)
-          ? prev.filter(id => id !== productId)
-          : [...prev, productId]
-      )
-      setLastClickedRemovedId(productId)
-    }
-  }
-
-  const handleAddSelectedProducts = () => {
-    if (selectedProductIds.length > 0) {
-      setSelectedProducts(prev => [...new Set([...prev, ...selectedProductIds])])
-      setSelectedProductIds([])
-    }
-  }
-
-  const handleRemoveSelectedProducts = () => {
-    if (selectedRemovedIds.length > 0) {
-      setSelectedProducts(prev => prev.filter(id => !selectedRemovedIds.includes(id)))
-      setSelectedRemovedIds([])
-    }
-  }
-
-  const handleAddAllProducts = () => {
-    const allFilteredIds = getFilteredProducts().map(p => p.id)
-    setSelectedProducts(prev => [...new Set([...prev, ...allFilteredIds])])
-    setSelectedProductIds([])
-  }
-
-  const handleRemoveAllProducts = () => {
-    setSelectedProducts([])
-    setSelectedRemovedIds([])
-  }
-
-  const getFilteredProducts = () => {
-    return products.filter(product => {
-      const matchesName = !productSearchFilter ||
-        product.name.toLowerCase().includes(productSearchFilter.toLowerCase())
-      const matchesCategory = !productCategoryFilter ||
-        product.category?.id === productCategoryFilter
-      const notSelected = !selectedProducts.includes(product.id)
-      return matchesName && matchesCategory && notSelected
-    })
-  }
-
-  const getSelectedProductsList = () => {
-    return products.filter(product => selectedProducts.includes(product.id))
-  }
-
   const calculateTotals = () => {
     if (reportData.length === 0) return null
 
-    return reportData.reduce(
+    const totals = reportData.reduce(
       (acc, item) => ({
         quantity: acc.quantity + item.quantity,
         totalAmount: acc.totalAmount + item.totalAmount,
-        cost: acc.cost + item.cost,
-        profit: acc.profit + item.profit,
       }),
       {
         quantity: 0,
         totalAmount: 0,
-        cost: 0,
-        profit: 0,
       }
     )
+
+    return totals
   }
 
   const totals = calculateTotals()
 
-  // Sort the report data based on selected sort criteria
   const getSortedData = () => {
     if (reportData.length === 0) return []
 
-    const sorted = [...reportData]
+    let filtered = [...reportData]
 
     const compareValues = (a: any, b: any, field: string) => {
       const aVal = a[field]
       const bVal = b[field]
 
-      // Handle null/undefined
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
       if (bVal == null) return -1
 
-      // Date comparison - descending (newer to older)
-      if (field === 'transactionDate') {
-        return new Date(bVal).getTime() - new Date(aVal).getTime()
+      if (field === 'orderDate') {
+        return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
-      // String comparison (case-insensitive) - ascending for text
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         return aVal.toLowerCase().localeCompare(bVal.toLowerCase())
       }
 
-      // Numeric comparison - descending (higher to lower)
-      return bVal - aVal
+      return aVal - bVal
     }
 
-    sorted.sort((a, b) => {
-      // First sort
-      if (sortBy1 !== 'none') {
-        const result1 = compareValues(a, b, sortBy1)
-        if (result1 !== 0) return result1
-      }
+    if (groupBy !== 'none') {
+      filtered.sort((a, b) => {
+        if (groupBy === 'categoryProduct') {
+          // Sort by category first, then by product
+          const categoryResult = compareValues(a, b, 'categoryName')
+          if (categoryResult !== 0) return categoryResult
 
-      // Then sort (second level)
-      if (sortBy2 !== 'none') {
-        const result2 = compareValues(a, b, sortBy2)
-        if (result2 !== 0) return result2
-      }
+          const productResult = compareValues(a, b, 'productName')
+          if (productResult !== 0) return productResult
+        } else {
+          const groupResult = compareValues(a, b, groupBy)
+          if (groupResult !== 0) return groupResult
+        }
 
-      // Then sort (third level)
-      if (sortBy3 !== 'none') {
-        const result3 = compareValues(a, b, sortBy3)
-        if (result3 !== 0) return result3
-      }
+        if (sortBy1 !== 'none') {
+          const sortResult = compareValues(a, b, sortBy1)
+          if (sortResult !== 0) return sortResult
+        }
+        return 0
+      })
+    } else {
+      filtered.sort((a, b) => {
+        if (sortBy1 !== 'none') {
+          const result1 = compareValues(a, b, sortBy1)
+          if (result1 !== 0) return result1
+        }
+        return 0
+      })
+    }
 
-      return 0
-    })
-
-    return sorted
+    return filtered
   }
 
   const sortedData = getSortedData()
-
-  // Group data by selected grouping
-  const getGroupedData = () => {
-    if (groupBy !== 'none' && sortedData.length > 0) {
-      if (groupBy === 'category-product') {
-        // Hierarchical grouping: Category -> Product
-        const categoryGroups: { [key: string]: { [key: string]: ProductDetail[] } } = {}
-
-        sortedData.forEach(item => {
-          const categoryKey = item.category || 'Uncategorized'
-          const productKey = item.productName
-
-          if (!categoryGroups[categoryKey]) {
-            categoryGroups[categoryKey] = {}
-          }
-          if (!categoryGroups[categoryKey][productKey]) {
-            categoryGroups[categoryKey][productKey] = []
-          }
-          categoryGroups[categoryKey][productKey].push(item)
-        })
-
-        // Flatten into single-level groups with hierarchical keys
-        const flattened: { [key: string]: ProductDetail[] } = {}
-        Object.entries(categoryGroups).forEach(([category, products]) => {
-          Object.entries(products).forEach(([product, items]) => {
-            flattened[`${category} > ${product}`] = items
-          })
-        })
-
-        return flattened
-      } else {
-        // Single-level grouping
-        const grouped = sortedData.reduce((acc: { [key: string]: ProductDetail[] }, item) => {
-          let groupKey = ''
-
-          switch (groupBy) {
-            case 'category':
-              groupKey = item.category || 'Uncategorized'
-              break
-            default:
-              groupKey = 'Ungrouped'
-          }
-
-          if (!acc[groupKey]) {
-            acc[groupKey] = []
-          }
-          acc[groupKey].push(item)
-          return acc
-        }, {})
-        return grouped
-      }
-    }
-    return null
-  }
-
-  const groupedData = getGroupedData()
-
-  // Apply pagination to sorted data
   const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
-  // Calculate subtotals for each group
-  const calculateGroupSubtotal = (items: ProductDetail[]) => {
-    return items.reduce(
-      (acc, item) => ({
-        quantity: acc.quantity + item.quantity,
-        totalAmount: acc.totalAmount + item.totalAmount,
-        cost: acc.cost + item.cost,
-        profit: acc.profit + item.profit,
-      }),
-      {
-        quantity: 0,
-        totalAmount: 0,
-        cost: 0,
-        profit: 0,
-      }
-    )
-  }
-
-  // Pagination handlers
   const handleChangePage = (_: unknown, newPage: number) => {
     setPage(newPage)
   }
@@ -813,6 +687,21 @@ const SalesByProductDetails: React.FC = () => {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10))
     setPage(0)
+  }
+
+  const getStatusColor = (status: string) => {
+    return status === 'received' ? 'success' : 'warning'
+  }
+
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return 'success'
+      case 'partial':
+        return 'warning'
+      default:
+        return 'error'
+    }
   }
 
   return (
@@ -834,16 +723,16 @@ const SalesByProductDetails: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <DetailIcon sx={{
+            <PurchaseOrderIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
-            Sales by Product Details
+            Purchase Order Details
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             {reportData.length > 0
-              ? `Detailed transaction report (${reportData.length} transactions)`
-              : 'View transaction-level product details'}
+              ? `${reportData.length} purchase order line items`
+              : 'View detailed purchase order line items'}
           </Typography>
         </Box>
         <Box sx={{
@@ -896,7 +785,7 @@ const SalesByProductDetails: React.FC = () => {
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                  Invoice Date Range
+                  PO Date
                 </Typography>
                 <TextField
                   label="Date From"
@@ -920,36 +809,6 @@ const SalesByProductDetails: React.FC = () => {
                   fullWidth
                 />
 
-                <FormControl fullWidth size="small" sx={{ mt: 2, '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Products</InputLabel>
-                  <Select
-                    value={selectedProduct}
-                    label="Products"
-                    onChange={(e) => handleProductSelectChange(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
-                  >
-                    <MenuItem value="all">All Products</MenuItem>
-                    <MenuItem value="select">Select Products</MenuItem>
-                  </Select>
-                </FormControl>
-
-                {selectedProduct === 'select' && selectedProducts.length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selectedProducts.map(productId => {
-                      const product = products.find(p => p.id === productId)
-                      return (
-                        <Chip
-                          key={productId}
-                          label={product?.name || productId}
-                          size="small"
-                          onDelete={() => handleProductToggle(productId)}
-                          sx={{ fontSize: '0.7rem' }}
-                        />
-                      )
-                    })}
-                  </Box>
-                )}
-
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
                   <InputLabel>Category</InputLabel>
                   <Select
@@ -961,7 +820,89 @@ const SalesByProductDetails: React.FC = () => {
                     <MenuItem value="">All Categories</MenuItem>
                     {categories.map((category) => (
                       <MenuItem key={category.id} value={category.id}>
-                        {'\u00A0'.repeat((category.level || 0) * 4)}{category.name}
+                        {'  '.repeat(category.level)}{category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Products</InputLabel>
+                  <Select
+                    value={selectedProducts.length > 0 ? 'select' : 'all'}
+                    label="Products"
+                    onChange={(e) => {
+                      if (e.target.value === 'select') {
+                        setProductDialogOpen(true)
+                      }
+                    }}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="all">All Products</MenuItem>
+                    <MenuItem value="select">Select Products</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {selectedProducts.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selectedProducts.map(productId => {
+                      const product = products.find((p: any) => p.id === productId)
+                      return (
+                        <Chip
+                          key={productId}
+                          label={product?.name || productId}
+                          size="small"
+                          onDelete={() => {
+                            setSelectedProducts(prev => prev.filter(id => id !== productId))
+                          }}
+                          sx={{ fontSize: '0.7rem' }}
+                        />
+                      )
+                    })}
+                  </Box>
+                )}
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>PO Inventory Status</InputLabel>
+                  <Select
+                    value={status}
+                    label="PO Inventory Status"
+                    onChange={(e) => setStatus(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="received">Received</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>PO Payment Status</InputLabel>
+                  <Select
+                    value={paymentStatus}
+                    label="PO Payment Status"
+                    onChange={(e) => setPaymentStatus(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="unpaid">Unpaid</MenuItem>
+                    <MenuItem value="partial">Partial</MenuItem>
+                    <MenuItem value="paid">Paid</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
+                  <InputLabel>Vendor</InputLabel>
+                  <Select
+                    value={selectedSupplier}
+                    label="Vendor"
+                    onChange={(e) => setSelectedSupplier(e.target.value)}
+                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                  >
+                    <MenuItem value="">All Vendors</MenuItem>
+                    {suppliers.map((supplier) => (
+                      <MenuItem key={supplier.id} value={supplier.id}>
+                        {supplier.companyName}
                       </MenuItem>
                     ))}
                   </Select>
@@ -994,34 +935,31 @@ const SalesByProductDetails: React.FC = () => {
                     onChange={(e) => {
                       const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
-                      // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['productName', 'category', 'transactionDate', 'documentNumber', 'customerSupplier', 'priceLevel', 'quantity', 'totalAmount', 'cost', 'profit']
-                        // If all were selected, deselect all; otherwise select all
+                        const allColumns = ['productName', 'categoryName', 'orderNumber', 'orderDate', 'supplierName', 'status', 'paymentStatus', 'quantity', 'unitPrice', 'totalAmount']
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
                         } else {
                           setSelectedColumns(allColumns)
                         }
                       } else {
-                        // Normal column selection
                         setSelectedColumns(value as string[])
                       }
                     }}
-                    renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="transactionDate">Order Date</MenuItem>
-                    <MenuItem value="documentNumber">Order No</MenuItem>
-                    <MenuItem value="customerSupplier">Customer</MenuItem>
-                    <MenuItem value="priceLevel">Pricing</MenuItem>
-                    <MenuItem value="quantity">Qty Sold</MenuItem>
-                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
-                    <MenuItem value="cost">Sales Cost</MenuItem>
-                    <MenuItem value="profit">Sales Profit</MenuItem>
+                    <MenuItem value="productName">Products</MenuItem>
+                    <MenuItem value="categoryName">Category</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
+                    <MenuItem value="orderDate">Order Date</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
+                    <MenuItem value="status">Inventory Status</MenuItem>
+                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
+                    <MenuItem value="quantity">Quantity</MenuItem>
+                    <MenuItem value="unitPrice">Unit Price</MenuItem>
+                    <MenuItem value="totalAmount">Subtotal</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1034,8 +972,10 @@ const SalesByProductDetails: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="category-product">Category, Product</MenuItem>
-                    <MenuItem value="category">Category</MenuItem>
+                    <MenuItem value="orderNumber">Order No</MenuItem>
+                    <MenuItem value="categoryProduct">Category, Product</MenuItem>
+                    <MenuItem value="categoryName">Category</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -1047,16 +987,16 @@ const SalesByProductDetails: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="productName">Product</MenuItem>
-                    <MenuItem value="category">Category</MenuItem>
-                    <MenuItem value="transactionDate">Order Date</MenuItem>
-                    <MenuItem value="documentNumber">Order No</MenuItem>
-                    <MenuItem value="customerSupplier">Customer</MenuItem>
-                    <MenuItem value="priceLevel">Pricing</MenuItem>
-                    <MenuItem value="quantity">Qty Sold</MenuItem>
-                    <MenuItem value="totalAmount">Sales Amount</MenuItem>
-                    <MenuItem value="cost">Sales Cost</MenuItem>
-                    <MenuItem value="profit">Sales Profit</MenuItem>
+                    {selectedColumns.includes('productName') && <MenuItem value="productName">Products</MenuItem>}
+                    {selectedColumns.includes('categoryName') && <MenuItem value="categoryName">Category</MenuItem>}
+                    {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">Order No</MenuItem>}
+                    {selectedColumns.includes('orderDate') && <MenuItem value="orderDate">Order Date</MenuItem>}
+                    {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
+                    {selectedColumns.includes('status') && <MenuItem value="status">Inventory Status</MenuItem>}
+                    {selectedColumns.includes('paymentStatus') && <MenuItem value="paymentStatus">Payment Status</MenuItem>}
+                    {selectedColumns.includes('quantity') && <MenuItem value="quantity">Quantity</MenuItem>}
+                    {selectedColumns.includes('unitPrice') && <MenuItem value="unitPrice">Unit Price</MenuItem>}
+                    {selectedColumns.includes('totalAmount') && <MenuItem value="totalAmount">Subtotal</MenuItem>}
                   </Select>
                 </FormControl>
 
@@ -1085,12 +1025,12 @@ const SalesByProductDetails: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <DetailIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <PurchaseOrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Configure the filters on the left and click "Generate Report" to view transaction details by product.
+                        Configure the filters on the left and click "Generate Report" to view purchase order line item details.
                       </Typography>
                     </>
                   )}
@@ -1106,7 +1046,7 @@ const SalesByProductDetails: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Report Preview ({reportData.length} transactions)
+                  Report Preview ({reportData.length} records)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
@@ -1153,109 +1093,146 @@ const SalesByProductDetails: React.FC = () => {
                       top: 0,
                       zIndex: 10
                     } }}>
-                      {selectedColumns.includes('productName') && <TableCell align="center">Product</TableCell>}
-                      {selectedColumns.includes('category') && <TableCell align="center">Category</TableCell>}
-                      {selectedColumns.includes('transactionDate') && <TableCell align="center">Order Date</TableCell>}
-                      {selectedColumns.includes('documentNumber') && <TableCell align="center">Order No</TableCell>}
-                      {selectedColumns.includes('customerSupplier') && <TableCell align="center">Customer</TableCell>}
-                      {selectedColumns.includes('priceLevel') && <TableCell align="center">Pricing</TableCell>}
-                      {selectedColumns.includes('quantity') && <TableCell align="center">Qty Sold</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Sales Amount</TableCell>}
-                      {selectedColumns.includes('cost') && <TableCell align="center">Sales Cost</TableCell>}
-                      {selectedColumns.includes('profit') && <TableCell align="center">Sales Profit</TableCell>}
+                      {selectedColumns.includes('productName') && <TableCell align="center">Products</TableCell>}
+                      {selectedColumns.includes('categoryName') && <TableCell align="center">Category</TableCell>}
+                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
+                      {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
+                      {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
+                      {selectedColumns.includes('status') && <TableCell align="center">Inventory Status</TableCell>}
+                      {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
+                      {selectedColumns.includes('quantity') && <TableCell align="center">Quantity</TableCell>}
+                      {selectedColumns.includes('unitPrice') && <TableCell align="center">Unit Price</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Subtotal</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {groupedData ? (
-                      // Render grouped
-                      Object.entries(groupedData).map(([groupName, items]) => {
-                        const subtotal = calculateGroupSubtotal(items)
-                        return (
-                          <React.Fragment key={groupName}>
-                            {/* Group Header Row */}
-                            <TableRow
-                              sx={{
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.1)' : 'primary.lighter',
-                                '& .MuiTableCell-root': {
-                                  fontWeight: 700,
-                                  fontSize: '0.85rem',
-                                  color: 'primary.main'
-                                }
-                              }}
-                            >
-                              <TableCell colSpan={selectedColumns.length} sx={{ py: 1 }}>
-                                {groupName}
+                    {paginatedData.map((row, idx) => {
+                      const prevRow = idx > 0 ? paginatedData[idx - 1] : null
+                      const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
+
+                      const getGroupKey = (r: any) => {
+                        if (groupBy === 'categoryProduct') {
+                          return `${r.categoryName}|${r.productName}`
+                        }
+                        return r[groupBy]
+                      }
+
+                      const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
+                      const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
+
+                      const getGroupLabel = (field: string, r: any) => {
+                        if (field === 'orderNumber') {
+                          return `Order No: ${r.orderNumber}`
+                        } else if (field === 'categoryProduct') {
+                          return `${r.categoryName} - ${r.productName}`
+                        } else if (field === 'categoryName') {
+                          return `Category: ${r.categoryName}`
+                        } else if (field === 'supplierName') {
+                          return `Vendor: ${r.supplierName}`
+                        }
+                        return r[field]
+                      }
+
+                      const calculateGroupSubtotals = () => {
+                        if (groupBy === 'none') return null
+
+                        const currentGroupKey = getGroupKey(row)
+                        const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
+
+                        return {
+                          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
+                          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+                        }
+                      }
+
+                      const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
+
+                      return (
+                        <React.Fragment key={`${row.orderNumber}-${row.productName}-${idx}`}>
+                          {showGroupHeader && (
+                            <TableRow sx={{
+                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                              '& .MuiTableCell-root': {
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                py: 1
+                              }
+                            }}>
+                              <TableCell colSpan={selectedColumns.length}>
+                                {getGroupLabel(groupBy, row)}
                               </TableCell>
                             </TableRow>
-                            {/* Group Items */}
-                            {items.map((row, idx) => (
-                              <TableRow
-                                key={`${row.productId}-${row.documentNumber}-${idx}`}
-                                hover
-                                sx={{
-                                  '&:hover': { backgroundColor: 'action.hover' },
-                                  transition: 'background-color 0.2s ease',
-                                  height: TABLE_STYLES.row.height
-                                }}
-                              >
-                                {selectedColumns.includes('productName') && (
-                                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {row.productName}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('category') && (
-                                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {row.category}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('transactionDate') && (
-                                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {new Date(row.transactionDate).toLocaleDateString()}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('documentNumber') && (
-                                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {row.documentNumber}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('customerSupplier') && (
-                                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {row.customerSupplier}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('priceLevel') && (
-                                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {row.priceLevel}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('quantity') && (
-                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {row.quantity.toLocaleString()}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('totalAmount') && (
-                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {formatCurrency(row.totalAmount)}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('cost') && (
-                                  <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                    {formatCurrency(row.cost)}
-                                  </TableCell>
-                                )}
-                                {selectedColumns.includes('profit') && (
-                                  <TableCell align="right" sx={{
-                                    fontSize: '0.8rem',
-                                    color: row.profit > 0 ? 'success.main' : row.profit < 0 ? 'error.main' : 'inherit'
-                                  }}>
-                                    {formatCurrency(row.profit)}
-                                  </TableCell>
-                                )}
-                              </TableRow>
-                            ))}
-                            {/* Group Subtotal Row */}
-                            <TableRow
-                              sx={{
+                          )}
+                          <TableRow
+                            hover
+                            sx={{
+                              '&:hover': { backgroundColor: 'action.hover' },
+                              transition: 'background-color 0.2s ease',
+                              height: TABLE_STYLES.row.height
+                            }}
+                          >
+                        {selectedColumns.includes('productName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.productName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('categoryName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.categoryName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('orderNumber') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.orderNumber}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('orderDate') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('supplierName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.supplierName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('status') && (
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                            <Chip
+                              label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                              color={getStatusColor(row.status) as any}
+                              size="small"
+                            />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('paymentStatus') && (
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                            <Chip
+                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
+                              color={getPaymentStatusColor(row.paymentStatus) as any}
+                              size="small"
+                            />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('quantity') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {row.quantity}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('unitPrice') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.unitPrice)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.totalAmount)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                          {showGroupFooter && groupSubtotals && (
+                            <>
+                              <TableRow sx={{
                                 backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
                                 '& .MuiTableCell-root': {
                                   fontWeight: 700,
@@ -1263,117 +1240,39 @@ const SalesByProductDetails: React.FC = () => {
                                   borderTop: '2px solid',
                                   borderColor: 'primary.main'
                                 }
-                              }}
-                            >
-                              {selectedColumns.includes('productName') && (
-                                <TableCell sx={{ fontWeight: 700 }}>
-                                  Subtotal
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('category') && <TableCell />}
-                              {selectedColumns.includes('transactionDate') && <TableCell />}
-                              {selectedColumns.includes('documentNumber') && <TableCell />}
-                              {selectedColumns.includes('customerSupplier') && <TableCell />}
-                              {selectedColumns.includes('priceLevel') && <TableCell />}
-                              {selectedColumns.includes('quantity') && (
-                                <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                  {subtotal.quantity.toLocaleString()}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('totalAmount') && (
-                                <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                  {formatCurrency(subtotal.totalAmount)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('cost') && (
-                                <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                  {formatCurrency(subtotal.cost)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('profit') && (
-                                <TableCell align="right" sx={{
-                                  fontWeight: 700,
-                                  color: subtotal.profit > 0 ? 'success.main' : subtotal.profit < 0 ? 'error.main' : 'inherit'
-                                }}>
-                                  {formatCurrency(subtotal.profit)}
-                                </TableCell>
-                              )}
-                            </TableRow>
-                            {/* Blank row after subtotal */}
-                            <TableRow sx={{ height: TABLE_STYLES.row.height }}>
-                              <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
-                            </TableRow>
-                          </React.Fragment>
-                        )
-                      })
-                    ) : (
-                      // Render ungrouped with pagination
-                      paginatedData.map((row, idx) => (
-                        <TableRow
-                          key={`${row.productId}-${row.documentNumber}-${idx}`}
-                          hover
-                          sx={{
-                            '&:hover': { backgroundColor: 'action.hover' },
-                            transition: 'background-color 0.2s ease',
-                            height: TABLE_STYLES.row.height
-                          }}
-                        >
-                          {selectedColumns.includes('productName') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {row.productName}
-                            </TableCell>
+                              }}>
+                                {selectedColumns.includes('productName') && (
+                                  <TableCell sx={{ fontWeight: 700 }}>
+                                    Subtotal
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('categoryName') && <TableCell />}
+                                {selectedColumns.includes('orderNumber') && <TableCell />}
+                                {selectedColumns.includes('orderDate') && <TableCell />}
+                                {selectedColumns.includes('supplierName') && <TableCell />}
+                                {selectedColumns.includes('status') && <TableCell />}
+                                {selectedColumns.includes('paymentStatus') && <TableCell />}
+                                {selectedColumns.includes('quantity') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                    {groupSubtotals.quantity}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('unitPrice') && <TableCell />}
+                                {selectedColumns.includes('totalAmount') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                    {formatCurrency(groupSubtotals.totalAmount)}
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                              {/* Blank row after subtotal */}
+                              <TableRow sx={{ height: TABLE_STYLES.row.height }}>
+                                <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
+                              </TableRow>
+                            </>
                           )}
-                          {selectedColumns.includes('category') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {row.category}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('transactionDate') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {new Date(row.transactionDate).toLocaleDateString()}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('documentNumber') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {row.documentNumber}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('customerSupplier') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {row.customerSupplier}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('priceLevel') && (
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {row.priceLevel}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('quantity') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {row.quantity.toLocaleString()}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('totalAmount') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(row.totalAmount)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('cost') && (
-                            <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                              {formatCurrency(row.cost)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('profit') && (
-                            <TableCell align="right" sx={{
-                              fontSize: '0.8rem',
-                              color: row.profit > 0 ? 'success.main' : row.profit < 0 ? 'error.main' : 'inherit'
-                            }}>
-                              {formatCurrency(row.profit)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))
-                    )}
+                        </React.Fragment>
+                      )
+                    })}
                     {/* Total Row */}
                     {totals && (
                       <TableRow
@@ -1392,32 +1291,21 @@ const SalesByProductDetails: React.FC = () => {
                             GRAND TOTAL
                           </TableCell>
                         )}
-                        {selectedColumns.includes('category') && <TableCell />}
-                        {selectedColumns.includes('transactionDate') && <TableCell />}
-                        {selectedColumns.includes('documentNumber') && <TableCell />}
-                        {selectedColumns.includes('customerSupplier') && <TableCell />}
-                        {selectedColumns.includes('priceLevel') && <TableCell />}
+                        {selectedColumns.includes('categoryName') && <TableCell />}
+                        {selectedColumns.includes('orderNumber') && <TableCell />}
+                        {selectedColumns.includes('orderDate') && <TableCell />}
+                        {selectedColumns.includes('supplierName') && <TableCell />}
+                        {selectedColumns.includes('status') && <TableCell />}
+                        {selectedColumns.includes('paymentStatus') && <TableCell />}
                         {selectedColumns.includes('quantity') && (
                           <TableCell align="right" sx={{ fontWeight: 800 }}>
-                            {totals.quantity.toLocaleString()}
+                            {totals.quantity}
                           </TableCell>
                         )}
+                        {selectedColumns.includes('unitPrice') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
                           <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalAmount)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('cost') && (
-                          <TableCell align="right" sx={{ fontWeight: 800 }}>
-                            {formatCurrency(totals.cost)}
-                          </TableCell>
-                        )}
-                        {selectedColumns.includes('profit') && (
-                          <TableCell align="right" sx={{
-                            fontWeight: 800,
-                            color: totals.profit > 0 ? 'success.main' : totals.profit < 0 ? 'error.main' : 'inherit'
-                          }}>
-                            {formatCurrency(totals.profit)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -1427,8 +1315,8 @@ const SalesByProductDetails: React.FC = () => {
               </TableContainer>
               </Box>
 
-              {/* Pagination - only show when not grouped */}
-              {!groupedData && reportData.length > 0 && (
+              {/* Pagination */}
+              {reportData.length > 0 && (
                 <Box sx={{ borderTop: TABLE_STYLES.cell.border, flexShrink: 0 }}>
                   <TablePagination
                     component="div"
@@ -1446,7 +1334,7 @@ const SalesByProductDetails: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Product Selection Dialog - Same as Summary page */}
+      {/* Product Selection Dialog */}
       <Dialog
         open={productDialogOpen}
         onClose={handleProductDialogClose}
@@ -1508,7 +1396,7 @@ const SalesByProductDetails: React.FC = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        getFilteredProducts().map((product) => (
+                        getFilteredProducts().map((product: any) => (
                           <TableRow
                             key={product.id}
                             hover
@@ -1627,7 +1515,7 @@ const SalesByProductDetails: React.FC = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        getSelectedProductsList().map((product) => (
+                        getSelectedProductsList().map((product: any) => (
                           <TableRow
                             key={product.id}
                             hover
@@ -1697,7 +1585,6 @@ const SalesByProductDetails: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleProductDialogConfirm}
-            disabled={selectedProducts.length === 0}
           >
             Apply
           </Button>
@@ -1707,4 +1594,4 @@ const SalesByProductDetails: React.FC = () => {
   )
 }
 
-export default SalesByProductDetails
+export default PurchaseOrderDetailsReport

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -28,61 +29,72 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Receipt as OrderIcon,
+  Summarize as PurchaseOrderIcon,
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
-interface SalesOrderSummary {
+interface PurchaseOrderSummaryReport {
   orderNumber: string
   orderDate: string
-  customerName: string
-  itemsCount: number
+  supplierName: string
+  status: string
+  paymentStatus: string
   totalAmount: number
   paidAmount: number
-  balanceDue: number
-  isPaidInFull: boolean
-  isFulfilled: boolean
-  status: string
+  balance: number
+  shippingAmount: number
 }
 
-const SalesOrderSummary: React.FC = () => {
+const PurchaseOrderSummary: React.FC = () => {
+  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
-  const [reportData, setReportData] = useState<SalesOrderSummary[]>([])
-  const [customers, setCustomers] = useState<any[]>([])
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('')
+  const [reportData, setReportData] = useState<PurchaseOrderSummaryReport[]>([])
+  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [selectedSupplier, setSelectedSupplier] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
+  const [status, setStatus] = useState<string>('all')
   const [paymentStatus, setPaymentStatus] = useState<string>('all')
-  const [inventoryStatus, setInventoryStatus] = useState<string>('all')
 
   // Display options
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    'orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount'
+    'orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount'
   ])
   const [groupBy, setGroupBy] = useState<string>('none')
   const [sortBy1, setSortBy1] = useState<string>('orderNumber')
-  const [sortBy2, setSortBy2] = useState<string>('none')
-  const [sortBy3, setSortBy3] = useState<string>('none')
-  const [reportTitle, setReportTitle] = useState<string>('Sales Order Summary')
+  const [reportTitle, setReportTitle] = useState<string>('Purchase Order Summary Report')
 
   // Pagination
   const [page, setPage] = useState<number>(0)
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load customers
-    fetch('/api/customers?limit=100')
+    // Load suppliers
+    fetch('/api/purchasing/suppliers?limit=100')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        if (data?.data) {
-          setCustomers(data.data)
+        if (data?.suppliers) {
+          setSuppliers(data.suppliers)
         }
       })
       .catch(() => {})
   }, [])
+
+  // Reset to first page when filters or display options change
+  useEffect(() => {
+    setPage(0)
+  }, [groupBy, sortBy1, status, paymentStatus, selectedSupplier])
+
+  // Reset sortBy1 if the selected column is removed from selectedColumns
+  useEffect(() => {
+    if (sortBy1 !== 'none' && !selectedColumns.includes(sortBy1)) {
+      // Set to first available column, or orderNumber as fallback
+      setSortBy1(selectedColumns.length > 0 ? selectedColumns[0] : 'orderNumber')
+    }
+  }, [selectedColumns, sortBy1])
 
   const handleGenerateReport = async () => {
     setLoading(true)
@@ -92,41 +104,21 @@ const SalesOrderSummary: React.FC = () => {
       // Build query parameters
       const params = new URLSearchParams()
 
-      if (dateFrom) params.append('fromDate', dateFrom)
-      if (dateTo) params.append('toDate', dateTo)
-      if (selectedCustomer) params.append('customerId', selectedCustomer)
+      if (dateFrom) params.append('dateFrom', dateFrom)
+      if (dateTo) params.append('dateTo', dateTo)
+      if (selectedSupplier) params.append('supplierId', selectedSupplier)
+      if (status && status !== 'all') params.append('status', status)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
-      if (inventoryStatus && inventoryStatus !== 'all') params.append('fulfillmentStatus', inventoryStatus)
-
-      params.append('limit', '1000') // Get all for report
-      params.append('sortBy', 'orderDate')
-      params.append('sortOrder', 'DESC')
 
       // Call the backend API
-      const response = await fetch(`/api/sales-orders?${params.toString()}`)
+      const response = await fetch(`/api/purchasing/analytics/purchase-order-summary?${params.toString()}`)
 
       if (!response.ok) {
         throw new Error('Failed to fetch report data')
       }
 
       const result = await response.json()
-      const orders = result.data || []
-
-      // Transform data to match our interface
-      const transformedData: SalesOrderSummary[] = orders.map((order: any) => ({
-        orderNumber: order.orderNumber,
-        orderDate: order.orderDate,
-        customerName: order.customerName || order.customer?.name || 'Unknown',
-        itemsCount: order.itemsCount || order.items?.length || 0,
-        totalAmount: Number(order.totalAmount || 0),
-        paidAmount: Number(order.paidAmount || 0),
-        balanceDue: Number(order.balanceDue || 0),
-        isPaidInFull: order.isPaidInFull || false,
-        isFulfilled: order.isFulfilled || false,
-        status: order.status || 'draft'
-      }))
-
-      setReportData(transformedData)
+      setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])
@@ -136,25 +128,16 @@ const SalesOrderSummary: React.FC = () => {
   }
 
   const handleClearFilters = () => {
-    // Clear filter options
-    setSelectedCustomer('')
+    setSelectedSupplier('')
     setDateFrom('')
     setDateTo('')
+    setStatus('all')
     setPaymentStatus('all')
-    setInventoryStatus('all')
-
-    // Clear report data
     setReportData([])
-
-    // Reset display options to defaults
-    setSelectedColumns(['orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount'])
+    setSelectedColumns(['orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount'])
     setGroupBy('none')
     setSortBy1('orderNumber')
-    setSortBy2('none')
-    setSortBy3('none')
-    setReportTitle('Sales Order Summary')
-
-    // Reset pagination
+    setReportTitle('Purchase Order Summary Report')
     setPage(0)
     setRowsPerPage(25)
   }
@@ -162,59 +145,54 @@ const SalesOrderSummary: React.FC = () => {
   const handleExportExcel = () => {
     if (sortedData.length === 0) return
 
-    // Column headers mapping
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'Order Number',
-      orderDate: 'Order Date',
-      customerName: 'Customer',
-      itemsCount: 'Items',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid Amount',
-      balanceDue: 'Balance Due',
+      orderNumber: 'PO No',
+      status: 'Inventory Status',
       paymentStatus: 'Payment Status',
-      fulfillmentStatus: 'Fulfillment Status'
+      supplierName: 'Vendor',
+      orderDate: 'PO Date',
+      totalAmount: 'Order Total',
+      paidAmount: 'Amount Paid',
+      balance: 'Balance',
+      shippingAmount: 'Freight'
     }
 
-    // Build CSV content
     let csv = reportTitle + '\n\n'
-
-    // Add headers
     const headers = selectedColumns.map(col => columnHeaders[col] || col)
     csv += headers.join(',') + '\n'
 
-    // Add data rows with grouping support
-    let prevGroupValue: any = null
+    let prevGroupKey: any = null
+
+    const getExportGroupKey = (r: any) => {
+      return r[groupBy]
+    }
+
+    const getExportGroupLabel = (r: any) => {
+      if (groupBy === 'supplierName') {
+        return `Vendor: ${r.supplierName}`
+      } else if (groupBy === 'status') {
+        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+      } else if (groupBy === 'paymentStatus') {
+        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+      }
+      return r[groupBy]
+    }
 
     sortedData.forEach((row, idx) => {
-      // Determine current group value
-      let currentGroupValue: any = null
-      if (groupBy === 'customerName') {
-        currentGroupValue = row.customerName
-      } else if (groupBy === 'paymentStatus') {
-        currentGroupValue = row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'
-      } else if (groupBy === 'inventoryStatus') {
-        currentGroupValue = row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-      }
+      const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
 
-      // Add group header if group changed
-      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
-        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue}` :
-                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue}` : currentGroupValue
+      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
+        const groupLabel = getExportGroupLabel(row)
         csv += `\n"${groupLabel}"\n`
-        prevGroupValue = currentGroupValue
+        prevGroupKey = currentGroupKey
       }
 
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'orderDate') {
-          return `"${new Date(value).toLocaleDateString()}"`
-        } else if (col === 'itemsCount') {
-          return value
-        } else if (col === 'paymentStatus') {
-          return `"${row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'}"`
-        } else if (col === 'fulfillmentStatus') {
-          return `"${row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}"`
+          return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
+        } else if (col === 'supplierName' || col === 'orderNumber' || col === 'status' || col === 'paymentStatus' || col === 'productName' || col === 'categoryName') {
+          return `"${value || ''}"`
         } else if (typeof value === 'number') {
           return value.toFixed(2)
         }
@@ -222,30 +200,16 @@ const SalesOrderSummary: React.FC = () => {
       })
       csv += values.join(',') + '\n'
 
-      // Check if we need to add subtotal
       const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      let nextGroupValue: any = null
-      if (nextRow) {
-        if (groupBy === 'customerName') nextGroupValue = nextRow.customerName
-        else if (groupBy === 'paymentStatus') nextGroupValue = nextRow.isPaidInFull ? 'Paid' : nextRow.paidAmount > 0 ? 'Partial' : 'Unpaid'
-        else if (groupBy === 'inventoryStatus') nextGroupValue = nextRow.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-      }
+      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
 
-      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
-        // Calculate subtotal for this group
-        const groupData = sortedData.filter(r => {
-          let rowGroupValue: any = null
-          if (groupBy === 'customerName') rowGroupValue = r.customerName
-          else if (groupBy === 'paymentStatus') rowGroupValue = r.isPaidInFull ? 'Paid' : r.paidAmount > 0 ? 'Partial' : 'Unpaid'
-          else if (groupBy === 'inventoryStatus') rowGroupValue = r.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-          return rowGroupValue === currentGroupValue
-        })
+      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
+        const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
 
         const subtotal = {
-          itemsCount: groupData.reduce((sum, r) => sum + r.itemsCount, 0),
           totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
           paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
-          balanceDue: groupData.reduce((sum, r) => sum + r.balanceDue, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
         }
 
         const subtotalValues = selectedColumns.map((col, colIdx) => {
@@ -253,9 +217,7 @@ const SalesOrderSummary: React.FC = () => {
             return '"Subtotal"'
           }
           const value = (subtotal as any)[col]
-          if (col === 'itemsCount') {
-            return value?.toLocaleString() || ''
-          } else if (typeof value === 'number') {
+          if (typeof value === 'number') {
             return value.toFixed(2)
           }
           return ''
@@ -266,7 +228,6 @@ const SalesOrderSummary: React.FC = () => {
       }
     })
 
-    // Add totals
     if (totals) {
       csv += '\n'
       const totalValues = selectedColumns.map((col, colIdx) => {
@@ -274,9 +235,7 @@ const SalesOrderSummary: React.FC = () => {
           return '"GRAND TOTAL"'
         }
         const value = (totals as any)[col]
-        if (col === 'itemsCount') {
-          return value?.toLocaleString() || ''
-        } else if (typeof value === 'number') {
+        if (typeof value === 'number') {
           return value.toFixed(2)
         }
         return ''
@@ -284,7 +243,6 @@ const SalesOrderSummary: React.FC = () => {
       csv += totalValues.join(',') + '\n'
     }
 
-    // Download
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -299,43 +257,46 @@ const SalesOrderSummary: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-    // Create a printable version
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'Order Number',
-      orderDate: 'Order Date',
-      customerName: 'Customer',
-      itemsCount: 'Items',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid Amount',
-      balanceDue: 'Balance Due',
+      orderNumber: 'PO No',
+      status: 'Inventory Status',
       paymentStatus: 'Payment Status',
-      fulfillmentStatus: 'Fulfillment Status'
+      supplierName: 'Vendor',
+      orderDate: 'PO Date',
+      totalAmount: 'Order Total',
+      paidAmount: 'Amount Paid',
+      balance: 'Balance',
+      shippingAmount: 'Freight'
     }
 
     let tableRows = ''
-    let prevGroupValue: any = null
+    let prevGroupKey: any = null
+
+    const getPdfGroupKey = (r: any) => {
+      return r[groupBy]
+    }
+
+    const getPdfGroupLabel = (r: any) => {
+      if (groupBy === 'supplierName') {
+        return `Vendor: ${r.supplierName}`
+      } else if (groupBy === 'status') {
+        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+      } else if (groupBy === 'paymentStatus') {
+        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+      }
+      return r[groupBy]
+    }
 
     sortedData.forEach((row, idx) => {
-      // Determine current group value
-      let currentGroupValue: any = null
-      if (groupBy === 'customerName') {
-        currentGroupValue = row.customerName
-      } else if (groupBy === 'paymentStatus') {
-        currentGroupValue = row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'
-      } else if (groupBy === 'inventoryStatus') {
-        currentGroupValue = row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-      }
+      const currentGroupKey = groupBy !== 'none' ? getPdfGroupKey(row) : null
 
-      // Add group header if group changed
-      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
-        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue}` :
-                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue}` : currentGroupValue
+      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
+        const groupLabel = getPdfGroupLabel(row)
         tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
-        prevGroupValue = currentGroupValue
+        prevGroupKey = currentGroupKey
       }
 
       tableRows += '<tr>'
@@ -343,54 +304,34 @@ const SalesOrderSummary: React.FC = () => {
         const value = (row as any)[col]
         let displayValue = value
         if (col === 'orderDate') {
-          displayValue = new Date(value).toLocaleDateString()
-        } else if (col === 'itemsCount') {
-          displayValue = value
-        } else if (col === 'paymentStatus') {
-          displayValue = row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'
-        } else if (col === 'fulfillmentStatus') {
-          displayValue = row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
+          displayValue = value ? new Date(value).toLocaleDateString() : '-'
         } else if (typeof value === 'number') {
           displayValue = formatCurrency(value)
+        } else if (col === 'status' || col === 'paymentStatus') {
+          displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
         }
-        tableRows += `<td>${displayValue || ''}</td>`
+        const align = (typeof value === 'number') ? 'text-align: right;' : ''
+        tableRows += `<td style="${align}">${displayValue || ''}</td>`
       })
       tableRows += '</tr>'
 
-      // Check if we need to add subtotal
       const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      let nextGroupValue: any = null
-      if (nextRow) {
-        if (groupBy === 'customerName') nextGroupValue = nextRow.customerName
-        else if (groupBy === 'paymentStatus') nextGroupValue = nextRow.isPaidInFull ? 'Paid' : nextRow.paidAmount > 0 ? 'Partial' : 'Unpaid'
-        else if (groupBy === 'inventoryStatus') nextGroupValue = nextRow.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-      }
+      const nextGroupKey = nextRow && groupBy !== 'none' ? getPdfGroupKey(nextRow) : null
 
-      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
-        // Calculate subtotal for this group
-        const groupData = sortedData.filter(r => {
-          let rowGroupValue: any = null
-          if (groupBy === 'customerName') rowGroupValue = r.customerName
-          else if (groupBy === 'paymentStatus') rowGroupValue = r.isPaidInFull ? 'Paid' : r.paidAmount > 0 ? 'Partial' : 'Unpaid'
-          else if (groupBy === 'inventoryStatus') rowGroupValue = r.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-          return rowGroupValue === currentGroupValue
-        })
+      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
+        const groupData = sortedData.filter(r => getPdfGroupKey(r) === currentGroupKey)
 
         const subtotal = {
-          itemsCount: groupData.reduce((sum, r) => sum + r.itemsCount, 0),
           totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
           paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
-          balanceDue: groupData.reduce((sum, r) => sum + r.balanceDue, 0),
+          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
         }
 
         tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
         selectedColumns.forEach((col, colIdx) => {
           if (colIdx === 0) {
             tableRows += '<td style="font-weight: bold;">Subtotal</td>'
-          } else if (col === 'itemsCount') {
-            const value = (subtotal as any)[col]
-            tableRows += `<td style="text-align: right; font-weight: bold;">${value?.toLocaleString() || ''}</td>`
-          } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balanceDue') {
+          } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balance') {
             const value = (subtotal as any)[col]
             tableRows += `<td style="text-align: right; font-weight: bold;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
           } else {
@@ -403,26 +344,22 @@ const SalesOrderSummary: React.FC = () => {
       }
     })
 
-    // Add totals
     if (totals) {
       tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
           tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
-        } else if (col === 'itemsCount') {
-          const value = (totals as any)[col]
-          tableRows += `<td style="text-align: right; font-weight: 800;">${value?.toLocaleString() || ''}</td>`
-        } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balanceDue') {
+        } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balance') {
           const value = (totals as any)[col]
           tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
         } else {
-          tableRows += '<td></td>'
+          const align = 'text-align: right;'
+          tableRows += `<td style="${align}">${displayValue}</td>`
         }
       })
       tableRows += '</tr>'
     }
 
-    // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
       dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
@@ -498,11 +435,9 @@ const SalesOrderSummary: React.FC = () => {
             </script>
           </div>
           <script>
-            // Set document title for PDF filename
             document.title = '${reportTitle.replace(/'/g, "\\'")}';
 
             window.onload = function() {
-              // Small delay to ensure content is rendered
               setTimeout(function() {
                 window.print();
               }, 250);
@@ -519,93 +454,77 @@ const SalesOrderSummary: React.FC = () => {
   const calculateTotals = () => {
     if (reportData.length === 0) return null
 
-    return reportData.reduce(
+    const totals = reportData.reduce(
       (acc, item) => ({
-        itemsCount: acc.itemsCount + item.itemsCount,
         totalAmount: acc.totalAmount + item.totalAmount,
         paidAmount: acc.paidAmount + item.paidAmount,
-        balanceDue: acc.balanceDue + item.balanceDue,
+        balance: acc.balance + item.balance,
+        shippingAmount: acc.shippingAmount + item.shippingAmount,
       }),
       {
-        itemsCount: 0,
         totalAmount: 0,
         paidAmount: 0,
-        balanceDue: 0,
+        balance: 0,
+        shippingAmount: 0,
       }
     )
+
+    return totals
   }
 
   const totals = calculateTotals()
 
-  // Sort the report data based on selected sort criteria
   const getSortedData = () => {
     if (reportData.length === 0) return []
 
-    const sorted = [...reportData]
+    let filtered = [...reportData]
 
     const compareValues = (a: any, b: any, field: string) => {
-      let aVal = a[field]
-      let bVal = b[field]
+      const aVal = a[field]
+      const bVal = b[field]
 
-      // Handle derived fields
-      if (field === 'inventoryStatus') {
-        aVal = a.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-        bVal = b.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-      } else if (field === 'paymentStatus') {
-        aVal = a.isPaidInFull ? 'Paid' : a.paidAmount > 0 ? 'Partial' : 'Unpaid'
-        bVal = b.isPaidInFull ? 'Paid' : b.paidAmount > 0 ? 'Partial' : 'Unpaid'
-      }
-
-      // Handle null/undefined
       if (aVal == null && bVal == null) return 0
       if (aVal == null) return 1
       if (bVal == null) return -1
 
-      // Date comparison - ascending (earlier to later)
       if (field === 'orderDate') {
         return new Date(aVal).getTime() - new Date(bVal).getTime()
       }
 
-      // String comparison (case-insensitive) - ascending for text
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         return aVal.toLowerCase().localeCompare(bVal.toLowerCase())
       }
 
-      // Numeric comparison - descending (higher to lower)
       return bVal - aVal
     }
 
-    sorted.sort((a, b) => {
-      // First sort
-      if (sortBy1 !== 'none') {
-        const result1 = compareValues(a, b, sortBy1)
-        if (result1 !== 0) return result1
-      }
+    if (groupBy !== 'none') {
+      filtered.sort((a, b) => {
+        const groupResult = compareValues(a, b, groupBy)
+        if (groupResult !== 0) return groupResult
 
-      // Then sort (second level)
-      if (sortBy2 !== 'none') {
-        const result2 = compareValues(a, b, sortBy2)
-        if (result2 !== 0) return result2
-      }
+        if (sortBy1 !== 'none') {
+          const sortResult = compareValues(a, b, sortBy1)
+          if (sortResult !== 0) return sortResult
+        }
+        return 0
+      })
+    } else {
+      filtered.sort((a, b) => {
+        if (sortBy1 !== 'none') {
+          const result1 = compareValues(a, b, sortBy1)
+          if (result1 !== 0) return result1
+        }
+        return 0
+      })
+    }
 
-      // Then sort (third level)
-      if (sortBy3 !== 'none') {
-        const result3 = compareValues(a, b, sortBy3)
-        if (result3 !== 0) return result3
-      }
-
-      return 0
-    })
-
-    return sorted
+    return filtered
   }
 
   const sortedData = getSortedData()
-
-  // Apply pagination to sorted data
   const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
-  // Pagination handlers
   const handleChangePage = (_: unknown, newPage: number) => {
     setPage(newPage)
   }
@@ -613,6 +532,21 @@ const SalesOrderSummary: React.FC = () => {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10))
     setPage(0)
+  }
+
+  const getStatusColor = (status: string) => {
+    return status === 'received' ? 'success' : 'warning'
+  }
+
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return 'success'
+      case 'partial':
+        return 'warning'
+      default:
+        return 'error'
+    }
   }
 
   return (
@@ -634,16 +568,16 @@ const SalesOrderSummary: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <OrderIcon sx={{
+            <PurchaseOrderIcon sx={{
               fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
               color: TYPOGRAPHY_STYLES.pageHeader.icon.color
             }} />
-            Sales Order Summary
+            Purchase Order Summary
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             {reportData.length > 0
-              ? `Sales order summary report (${reportData.length} orders)`
-              : 'View summary of sales orders with payment and fulfillment status'}
+              ? `${reportData.length} purchase order items`
+              : 'View detailed purchase order line items'}
           </Typography>
         </Box>
         <Box sx={{
@@ -696,24 +630,24 @@ const SalesOrderSummary: React.FC = () => {
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Customer</InputLabel>
+                  <InputLabel>Vendor</InputLabel>
                   <Select
-                    value={selectedCustomer}
-                    label="Customer"
-                    onChange={(e) => setSelectedCustomer(e.target.value)}
+                    value={selectedSupplier}
+                    label="Vendor"
+                    onChange={(e) => setSelectedSupplier(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="">All Customers</MenuItem>
-                    {customers.map((customer) => (
-                      <MenuItem key={customer.id} value={customer.id}>
-                        {customer.name}
+                    <MenuItem value="">All Vendors</MenuItem>
+                    {suppliers.map((supplier) => (
+                      <MenuItem key={supplier.id} value={supplier.id}>
+                        {supplier.companyName}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                  Invoice Date
+                  PO Date
                 </Typography>
                 <TextField
                   label="Date From"
@@ -738,24 +672,24 @@ const SalesOrderSummary: React.FC = () => {
                 />
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Inventory Status</InputLabel>
+                  <InputLabel>PO Inventory Status</InputLabel>
                   <Select
-                    value={inventoryStatus}
-                    label="Inventory Status"
-                    onChange={(e) => setInventoryStatus(e.target.value)}
+                    value={status}
+                    label="PO Inventory Status"
+                    onChange={(e) => setStatus(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="fulfilled">Fulfilled</MenuItem>
-                    <MenuItem value="unfulfilled">Unfulfilled</MenuItem>
+                    <MenuItem value="received">Received</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
                   </Select>
                 </FormControl>
 
                 <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                  <InputLabel>Payment Status</InputLabel>
+                  <InputLabel>PO Payment Status</InputLabel>
                   <Select
                     value={paymentStatus}
-                    label="Payment Status"
+                    label="PO Payment Status"
                     onChange={(e) => setPaymentStatus(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
@@ -763,7 +697,6 @@ const SalesOrderSummary: React.FC = () => {
                     <MenuItem value="unpaid">Unpaid</MenuItem>
                     <MenuItem value="partial">Partial</MenuItem>
                     <MenuItem value="paid">Paid</MenuItem>
-                    <MenuItem value="overpaid">Overpaid</MenuItem>
                   </Select>
                 </FormControl>
                 </Stack>
@@ -794,17 +727,14 @@ const SalesOrderSummary: React.FC = () => {
                     onChange={(e) => {
                       const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
 
-                      // Check if 'all' was clicked
                       if (value.includes('all')) {
-                        const allColumns = ['orderNumber', 'customerName', 'inventoryStatus', 'paymentStatus', 'orderDate', 'totalAmount']
-                        // If all were selected, deselect all; otherwise select all
+                        const allColumns = ['orderNumber', 'status', 'paymentStatus', 'supplierName', 'orderDate', 'totalAmount', 'paidAmount', 'balance', 'shippingAmount']
                         if (selectedColumns.length === allColumns.length) {
                           setSelectedColumns([])
                         } else {
                           setSelectedColumns(allColumns)
                         }
                       } else {
-                        // Normal column selection
                         setSelectedColumns(value as string[])
                       }
                     }}
@@ -812,12 +742,15 @@ const SalesOrderSummary: React.FC = () => {
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="orderNumber">Order No</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
+                    <MenuItem value="orderNumber">PO No</MenuItem>
+                    <MenuItem value="status">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="totalAmount">Total</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
+                    <MenuItem value="orderDate">PO Date</MenuItem>
+                    <MenuItem value="totalAmount">Order Total</MenuItem>
+                    <MenuItem value="paidAmount">Amount Paid</MenuItem>
+                    <MenuItem value="balance">Balance</MenuItem>
+                    <MenuItem value="shippingAmount">Freight</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -830,9 +763,9 @@ const SalesOrderSummary: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
+                    <MenuItem value="supplierName">Vendor</MenuItem>
+                    <MenuItem value="status">Inventory Status</MenuItem>
                     <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -844,12 +777,15 @@ const SalesOrderSummary: React.FC = () => {
                     onChange={(e) => setSortBy1(e.target.value)}
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
-                    <MenuItem value="orderNumber">Order No</MenuItem>
-                    <MenuItem value="customerName">Customer</MenuItem>
-                    <MenuItem value="inventoryStatus">Inventory Status</MenuItem>
-                    <MenuItem value="paymentStatus">Payment Status</MenuItem>
-                    <MenuItem value="orderDate">Order Date</MenuItem>
-                    <MenuItem value="totalAmount">Total</MenuItem>
+                    {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">PO No</MenuItem>}
+                    {selectedColumns.includes('status') && <MenuItem value="status">Inventory Status</MenuItem>}
+                    {selectedColumns.includes('paymentStatus') && <MenuItem value="paymentStatus">Payment Status</MenuItem>}
+                    {selectedColumns.includes('supplierName') && <MenuItem value="supplierName">Vendor</MenuItem>}
+                    {selectedColumns.includes('orderDate') && <MenuItem value="orderDate">PO Date</MenuItem>}
+                    {selectedColumns.includes('totalAmount') && <MenuItem value="totalAmount">Order Total</MenuItem>}
+                    {selectedColumns.includes('paidAmount') && <MenuItem value="paidAmount">Amount Paid</MenuItem>}
+                    {selectedColumns.includes('balance') && <MenuItem value="balance">Balance</MenuItem>}
+                    {selectedColumns.includes('shippingAmount') && <MenuItem value="shippingAmount">Freight</MenuItem>}
                   </Select>
                 </FormControl>
 
@@ -878,12 +814,12 @@ const SalesOrderSummary: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <OrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
+                      <PurchaseOrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Configure the filters on the left and click "Generate Report" to view sales order summary.
+                        Configure the filters on the left and click "Generate Report" to view purchase order details.
                       </Typography>
                     </>
                   )}
@@ -899,7 +835,7 @@ const SalesOrderSummary: React.FC = () => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  Report Preview ({reportData.length} orders)
+                  Report Preview ({reportData.length} records)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
@@ -946,71 +882,51 @@ const SalesOrderSummary: React.FC = () => {
                       top: 0,
                       zIndex: 10
                     } }}>
-                      {selectedColumns.includes('orderNumber') && <TableCell align="center">Order No</TableCell>}
-                      {selectedColumns.includes('customerName') && <TableCell align="center">Customer</TableCell>}
-                      {selectedColumns.includes('inventoryStatus') && <TableCell align="center">Inventory Status</TableCell>}
+                      {selectedColumns.includes('orderNumber') && <TableCell align="center">PO No</TableCell>}
+                      {selectedColumns.includes('status') && <TableCell align="center">Inventory Status</TableCell>}
                       {selectedColumns.includes('paymentStatus') && <TableCell align="center">Payment Status</TableCell>}
-                      {selectedColumns.includes('orderDate') && <TableCell align="center">Order Date</TableCell>}
-                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Total</TableCell>}
+                      {selectedColumns.includes('supplierName') && <TableCell align="center">Vendor</TableCell>}
+                      {selectedColumns.includes('orderDate') && <TableCell align="center">PO Date</TableCell>}
+                      {selectedColumns.includes('totalAmount') && <TableCell align="center">Order Total</TableCell>}
+                      {selectedColumns.includes('paidAmount') && <TableCell align="center">Amount Paid</TableCell>}
+                      {selectedColumns.includes('balance') && <TableCell align="center">Balance</TableCell>}
+                      {selectedColumns.includes('shippingAmount') && <TableCell align="center">Freight</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {paginatedData.map((row, idx) => {
-                      // Check if we need to display a group header
                       const prevRow = idx > 0 ? paginatedData[idx - 1] : null
                       const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
-                      // Determine current group value based on groupBy field
-                      let currentGroupValue: any
-                      let prevGroupValue: any
-                      let nextGroupValue: any
-
-                      if (groupBy === 'customerName') {
-                        currentGroupValue = row.customerName
-                        prevGroupValue = prevRow?.customerName
-                        nextGroupValue = nextRow?.customerName
-                      } else if (groupBy === 'paymentStatus') {
-                        currentGroupValue = row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'
-                        prevGroupValue = prevRow ? (prevRow.isPaidInFull ? 'Paid' : prevRow.paidAmount > 0 ? 'Partial' : 'Unpaid') : null
-                        nextGroupValue = nextRow ? (nextRow.isPaidInFull ? 'Paid' : nextRow.paidAmount > 0 ? 'Partial' : 'Unpaid') : null
-                      } else if (groupBy === 'inventoryStatus') {
-                        currentGroupValue = row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-                        prevGroupValue = prevRow ? (prevRow.isFulfilled ? 'Fulfilled' : 'Unfulfilled') : null
-                        nextGroupValue = nextRow ? (nextRow.isFulfilled ? 'Fulfilled' : 'Unfulfilled') : null
+                      const getGroupKey = (r: any) => {
+                        return r[groupBy]
                       }
 
-                      const showGroupHeader = groupBy !== 'none' && (!prevRow || currentGroupValue !== prevGroupValue)
-                      const showGroupFooter = groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)
+                      const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
+                      const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
-                      const getGroupLabel = (field: string, value: any) => {
-                        if (field === 'customerName') return `Customer: ${value}`
-                        if (field === 'inventoryStatus') return `Inventory: ${value}`
-                        if (field === 'paymentStatus') return `Payment: ${value}`
-                        return value
+                      const getGroupLabel = (field: string, r: any) => {
+                        if (field === 'supplierName') {
+                          return `Vendor: ${r.supplierName}`
+                        } else if (field === 'status') {
+                          return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+                        } else if (field === 'paymentStatus') {
+                          return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+                        }
+                        return r[field]
                       }
 
-                      // Calculate group subtotals
                       const calculateGroupSubtotals = () => {
                         if (groupBy === 'none') return null
 
-                        const groupData = paginatedData.filter(r => {
-                          if (groupBy === 'customerName') return r.customerName === currentGroupValue
-                          if (groupBy === 'paymentStatus') {
-                            const status = r.isPaidInFull ? 'Paid' : r.paidAmount > 0 ? 'Partial' : 'Unpaid'
-                            return status === currentGroupValue
-                          }
-                          if (groupBy === 'inventoryStatus') {
-                            const status = r.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-                            return status === currentGroupValue
-                          }
-                          return false
-                        })
+                        const currentGroupKey = getGroupKey(row)
+                        const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
 
                         return {
-                          itemsCount: groupData.reduce((sum, r) => sum + r.itemsCount, 0),
                           totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
                           paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
-                          balanceDue: groupData.reduce((sum, r) => sum + r.balanceDue, 0),
+                          balance: groupData.reduce((sum, r) => sum + r.balance, 0),
+                          shippingAmount: groupData.reduce((sum, r) => sum + r.shippingAmount, 0),
                         }
                       }
 
@@ -1028,7 +944,7 @@ const SalesOrderSummary: React.FC = () => {
                               }
                             }}>
                               <TableCell colSpan={selectedColumns.length}>
-                                {getGroupLabel(groupBy, currentGroupValue)}
+                                {getGroupLabel(groupBy, row)}
                               </TableCell>
                             </TableRow>
                           )}
@@ -1040,47 +956,79 @@ const SalesOrderSummary: React.FC = () => {
                               height: TABLE_STYLES.row.height
                             }}
                           >
-                            {selectedColumns.includes('orderNumber') && (
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {row.orderNumber}
-                              </TableCell>
-                            )}
-                            {selectedColumns.includes('customerName') && (
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {row.customerName}
-                              </TableCell>
-                            )}
-                            {selectedColumns.includes('inventoryStatus') && (
-                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                <Chip
-                                  label={row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}
-                                  size="small"
-                                  color={row.isFulfilled ? 'success' : 'warning'}
-                                  sx={{ fontSize: '0.7rem', height: '20px' }}
-                                />
-                              </TableCell>
-                            )}
-                            {selectedColumns.includes('paymentStatus') && (
-                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                <Chip
-                                  label={row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'}
-                                  size="small"
-                                  color={row.isPaidInFull ? 'success' : row.paidAmount > 0 ? 'warning' : 'default'}
-                                  sx={{ fontSize: '0.7rem', height: '20px' }}
-                                />
-                              </TableCell>
-                            )}
-                            {selectedColumns.includes('orderDate') && (
-                              <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {new Date(row.orderDate).toLocaleDateString()}
-                              </TableCell>
-                            )}
-                            {selectedColumns.includes('totalAmount') && (
-                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                {formatCurrency(row.totalAmount)}
-                              </TableCell>
-                            )}
-                          </TableRow>
+                        {selectedColumns.includes('orderNumber') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            <Typography
+                              component="span"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                // Navigate to order details - need to get order ID from orderNumber
+                                // For now, we'll need to fetch the order by orderNumber or pass ID in the report data
+                                // As a workaround, we can navigate to the orders page with a search filter
+                                navigate(`/purchasing/orders?search=${encodeURIComponent(row.orderNumber)}`)
+                              }}
+                              sx={{
+                                color: 'primary.main',
+                                cursor: 'pointer',
+                                textDecoration: 'none',
+                                '&:hover': {
+                                  textDecoration: 'underline'
+                                }
+                              }}
+                            >
+                              {row.orderNumber}
+                            </Typography>
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('status') && (
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                            <Chip
+                              label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                              color={getStatusColor(row.status) as any}
+                              size="small"
+                            />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('paymentStatus') && (
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                            <Chip
+                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
+                              color={getPaymentStatusColor(row.paymentStatus) as any}
+                              size="small"
+                            />
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('supplierName') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.supplierName}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('orderDate') && (
+                          <TableCell sx={{ fontSize: '0.8rem' }}>
+                            {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('totalAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.totalAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('paidAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.paidAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('balance') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.balance)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('shippingAmount') && (
+                          <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {formatCurrency(row.shippingAmount)}
+                          </TableCell>
+                        )}
+                      </TableRow>
                           {showGroupFooter && groupSubtotals && (
                             <>
                               <TableRow sx={{
@@ -1097,13 +1045,28 @@ const SalesOrderSummary: React.FC = () => {
                                     Subtotal
                                   </TableCell>
                                 )}
-                                {selectedColumns.includes('customerName') && <TableCell />}
-                                {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                                {selectedColumns.includes('status') && <TableCell />}
                                 {selectedColumns.includes('paymentStatus') && <TableCell />}
+                                {selectedColumns.includes('supplierName') && <TableCell />}
                                 {selectedColumns.includes('orderDate') && <TableCell />}
                                 {selectedColumns.includes('totalAmount') && (
                                   <TableCell align="right" sx={{ fontWeight: 700 }}>
                                     {formatCurrency(groupSubtotals.totalAmount)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('paidAmount') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                    {formatCurrency(groupSubtotals.paidAmount)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('balance') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                    {formatCurrency(groupSubtotals.balance)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('shippingAmount') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                    {formatCurrency(groupSubtotals.shippingAmount)}
                                   </TableCell>
                                 )}
                               </TableRow>
@@ -1134,13 +1097,28 @@ const SalesOrderSummary: React.FC = () => {
                             GRAND TOTAL
                           </TableCell>
                         )}
-                        {selectedColumns.includes('customerName') && <TableCell />}
-                        {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                        {selectedColumns.includes('status') && <TableCell />}
                         {selectedColumns.includes('paymentStatus') && <TableCell />}
+                        {selectedColumns.includes('supplierName') && <TableCell />}
                         {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
                           <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('paidAmount') && (
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
+                            {formatCurrency(totals.paidAmount)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('balance') && (
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
+                            {formatCurrency(totals.balance)}
+                          </TableCell>
+                        )}
+                        {selectedColumns.includes('shippingAmount') && (
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
+                            {formatCurrency(totals.shippingAmount)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -1172,4 +1150,4 @@ const SalesOrderSummary: React.FC = () => {
   )
 }
 
-export default SalesOrderSummary
+export default PurchaseOrderSummary

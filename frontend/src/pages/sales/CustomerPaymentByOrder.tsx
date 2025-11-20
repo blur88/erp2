@@ -213,8 +213,10 @@ const CustomerPaymentByOrder: React.FC = () => {
           balance: groupData.reduce((sum, r) => sum + r.balance, 0),
         }
 
-        csv += '"Subtotal",'
-        const subtotalValues = selectedColumns.slice(1).map(col => {
+        const subtotalValues = selectedColumns.map((col, colIdx) => {
+          if (colIdx === 0) {
+            return '"Subtotal"'
+          }
           const value = (subtotal as any)[col]
           if (typeof value === 'number') {
             return value.toFixed(2)
@@ -222,13 +224,18 @@ const CustomerPaymentByOrder: React.FC = () => {
           return ''
         })
         csv += subtotalValues.join(',') + '\n'
+        // Blank row after subtotal
+        csv += '\n'
       }
     })
 
     // Add totals
     if (totals) {
-      csv += '\n"TOTAL",'
-      const totalValues = selectedColumns.slice(1).map(col => {
+      csv += '\n'
+      const totalValues = selectedColumns.map((col, colIdx) => {
+        if (colIdx === 0) {
+          return '"GRAND TOTAL"'
+        }
         const value = (totals as any)[col]
         if (typeof value === 'number') {
           return value.toFixed(2)
@@ -315,38 +322,34 @@ const CustomerPaymentByOrder: React.FC = () => {
           balance: groupData.reduce((sum, r) => sum + r.balance, 0),
         }
 
-        tableRows += '<tr style="background-color: #e8e8e8; font-weight: 600; font-style: italic; border-bottom: 2px solid #666;">'
+        tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
         selectedColumns.forEach((col, colIdx) => {
           if (colIdx === 0) {
-            tableRows += '<td>Subtotal</td>'
-          } else {
+            tableRows += '<td style="font-weight: bold;">Subtotal</td>'
+          } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balance') {
             const value = (subtotal as any)[col]
-            let displayValue = ''
-            if (typeof value === 'number') {
-              displayValue = formatCurrency(value)
-            }
-            const align = typeof value === 'number' ? 'text-align: right;' : ''
-            tableRows += `<td style="${align}">${displayValue}</td>`
+            tableRows += `<td style="text-align: right; font-weight: bold;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
+          } else {
+            tableRows += '<td></td>'
           }
         })
         tableRows += '</tr>'
+        // Blank row after subtotal
+        tableRows += `<tr style="height: 20px;"><td colspan="${selectedColumns.length}" style="border: none;"></td></tr>`
       }
     })
 
     // Add totals
     if (totals) {
-      tableRows += '<tr style="background-color: #e0e0e0; font-weight: bold;">'
+      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
-          tableRows += '<td>TOTAL</td>'
-        } else {
+          tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
+        } else if (col === 'totalAmount' || col === 'paidAmount' || col === 'balanceDue') {
           const value = (totals as any)[col]
-          let displayValue = ''
-          if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-          }
-          const align = typeof value === 'number' ? 'text-align: right;' : ''
-          tableRows += `<td style="${align}">${displayValue}</td>`
+          tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
+        } else {
+          tableRows += '<td></td>'
         }
       })
       tableRows += '</tr>'
@@ -1033,44 +1036,50 @@ const CustomerPaymentByOrder: React.FC = () => {
                         )}
                       </TableRow>
                           {showGroupFooter && groupSubtotals && (
-                            <TableRow sx={{
-                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                              borderBottom: '2px solid',
-                              borderColor: 'divider',
-                              '& .MuiTableCell-root': {
-                                fontWeight: 600,
-                                fontSize: '0.8rem',
-                                fontStyle: 'italic'
-                              }
-                            }}>
-                              {selectedColumns.includes('orderNumber') && (
-                                <TableCell sx={{ fontWeight: 600 }}>
-                                  Subtotal
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('customerName') && <TableCell />}
-                              {selectedColumns.includes('inventoryStatus') && <TableCell />}
-                              {selectedColumns.includes('paymentStatus') && <TableCell />}
-                              {selectedColumns.includes('orderDate') && <TableCell />}
-                              {selectedColumns.includes('lastPaymentDate') && <TableCell />}
-                              {selectedColumns.includes('totalAmount') && (
-                                <TableCell align="right">
-                                  {formatCurrency(groupSubtotals.totalAmount)}
-                                </TableCell>
-                              )}
-                              {selectedColumns.includes('paidAmount') && (
-                                <TableCell align="right">
+                            <>
+                              <TableRow sx={{
+                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
+                                '& .MuiTableCell-root': {
+                                  fontWeight: 700,
+                                  fontSize: '0.85rem',
+                                  borderTop: '2px solid',
+                                  borderColor: 'primary.main'
+                                }
+                              }}>
+                                {selectedColumns.includes('orderNumber') && (
+                                  <TableCell sx={{ fontWeight: 700 }}>
+                                    Subtotal
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('customerName') && <TableCell />}
+                                {selectedColumns.includes('inventoryStatus') && <TableCell />}
+                                {selectedColumns.includes('paymentStatus') && <TableCell />}
+                                {selectedColumns.includes('orderDate') && <TableCell />}
+                                {selectedColumns.includes('lastPaymentDate') && <TableCell />}
+                                {selectedColumns.includes('totalAmount') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                    {formatCurrency(groupSubtotals.totalAmount)}
+                                  </TableCell>
+                                )}
+                                {selectedColumns.includes('paidAmount') && (
+                                  <TableCell align="right" sx={{ fontWeight: 700 }}>
                                   {formatCurrency(groupSubtotals.paidAmount)}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('balance') && (
                                 <TableCell align="right" sx={{
+                                  fontWeight: 700,
                                   color: groupSubtotals.balance > 0 ? 'error.main' : 'success.main'
                                 }}>
                                   {formatCurrency(groupSubtotals.balance)}
                                 </TableCell>
                               )}
-                            </TableRow>
+                              </TableRow>
+                              {/* Blank row after subtotal */}
+                              <TableRow sx={{ height: TABLE_STYLES.row.height }}>
+                                <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
+                              </TableRow>
+                            </>
                           )}
                         </React.Fragment>
                       )
@@ -1079,18 +1088,18 @@ const CustomerPaymentByOrder: React.FC = () => {
                     {totals && (
                       <TableRow
                         sx={{
-                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.100',
-                          borderTop: '2px solid',
-                          borderColor: 'divider',
+                          backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
                           '& .MuiTableCell-root': {
-                            fontWeight: 700,
-                            fontSize: '0.85rem'
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            borderTop: '3px solid',
+                            borderColor: 'success.main'
                           }
                         }}
                       >
                         {selectedColumns.includes('orderNumber') && (
-                          <TableCell sx={{ fontWeight: 700 }}>
-                            TOTAL
+                          <TableCell sx={{ fontWeight: 800 }}>
+                            GRAND TOTAL
                           </TableCell>
                         )}
                         {selectedColumns.includes('customerName') && <TableCell />}
@@ -1099,17 +1108,17 @@ const CustomerPaymentByOrder: React.FC = () => {
                         {selectedColumns.includes('orderDate') && <TableCell />}
                         {selectedColumns.includes('lastPaymentDate') && <TableCell />}
                         {selectedColumns.includes('totalAmount') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.totalAmount)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('paidAmount') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.paidAmount)}
                           </TableCell>
                         )}
                         {selectedColumns.includes('balance') && (
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>
                             {formatCurrency(totals.balance)}
                           </TableCell>
                         )}

@@ -36,6 +36,17 @@ const CustomerPaymentByOrder = React.lazy(() => import('./pages/sales/CustomerPa
 const CustomerPaymentDetails = React.lazy(() => import('./pages/sales/CustomerPaymentDetails'))
 const CustomerOrderHistory = React.lazy(() => import('./pages/sales/CustomerOrderHistory'))
 const ProductCustomerReport = React.lazy(() => import('./pages/sales/ProductCustomerReport'))
+const PurchaseOrderSummary = React.lazy(() => import('./pages/purchasing/PurchaseOrderSummary'))
+const PurchaseOrderDetails = React.lazy(() => import('./pages/purchasing/PurchaseOrderDetails'))
+const PurchaseOrderDetailsReport = React.lazy(() => import('./pages/purchasing/PurchaseOrderDetailsReport'))
+const PurchaseOrderStatusReport = React.lazy(() => import('./pages/purchasing/PurchaseOrderStatusReport'))
+const VendorPaymentDetailsReport = React.lazy(() => import('./pages/purchasing/VendorPaymentDetailsReport'))
+const VendorProductListReport = React.lazy(() => import('./pages/purchasing/VendorProductListReport'))
+const InventorySummaryReport = React.lazy(() => import('./pages/inventory/InventorySummaryReport'))
+const HistoricalInventoryReport = React.lazy(() => import('./pages/inventory/HistoricalInventoryReport'))
+const MovementSummaryReport = React.lazy(() => import('./pages/inventory/MovementSummaryReport'))
+const PriceListReport = React.lazy(() => import('./pages/inventory/PriceListReport'))
+const ProductCostReport = React.lazy(() => import('./pages/inventory/ProductCostReport'))
 const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
 const UserManagementPage = React.lazy(() => import('./pages/settings/UserManagementPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
@@ -93,11 +104,22 @@ function App() {
                     <Route path="/purchasing/suppliers" element={<SuppliersPage />} />
                     <Route path="/purchasing/orders" element={<PurchaseOrdersPage />} />
                     <Route path="/purchasing/orders/create" element={<CreatePurchaseOrderPage />} />
+                    <Route path="/purchasing/orders/:id" element={<PurchaseOrderDetails />} />
                     <Route path="/purchasing/orders/:id/edit" element={<CreatePurchaseOrderPage />} />
                     <Route path="/purchasing/goods-received" element={<GoodsReceivedPage />} />
                     <Route path="/purchasing/vendor-payments" element={<VendorPaymentsPage />} />
 
                     {/* Reports */}
+                    <Route path="/reports/inventory/summary" element={<InventorySummaryReport />} />
+                    <Route path="/reports/inventory/historical" element={<HistoricalInventoryReport />} />
+                    <Route path="/reports/inventory/movement-summary" element={<MovementSummaryReport />} />
+                    <Route path="/reports/inventory/price-list" element={<PriceListReport />} />
+                    <Route path="/reports/inventory/product-cost" element={<ProductCostReport />} />
+                    <Route path="/reports/purchasing/order-summary" element={<PurchaseOrderSummary />} />
+                    <Route path="/reports/purchasing/order-status" element={<PurchaseOrderStatusReport />} />
+                    <Route path="/reports/purchasing/order-details" element={<PurchaseOrderDetailsReport />} />
+                    <Route path="/reports/purchasing/payment-details" element={<VendorPaymentDetailsReport />} />
+                    <Route path="/reports/purchasing/vendor-purchase-list" element={<VendorProductListReport />} />
                     <Route path="/reports/sales/product-summary" element={<SalesByProductSummary />} />
                     <Route path="/reports/sales/product-details" element={<SalesByProductDetails />} />
                     <Route path="/reports/sales/order-summary" element={<SalesOrderSummary />} />

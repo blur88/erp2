@@ -41,6 +41,11 @@ import {
   MonetizationOn as PaymentDetailIcon,
   History as HistoryIcon,
   PersonSearch as CustomerProductIcon,
+  Inventory2 as InventorySummaryIcon,
+  Timeline as HistoricalInventoryIcon,
+  CompareArrows as MovementSummaryIcon,
+  AttachMoney as PriceListIcon,
+  TrendingDown as CostReportIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -255,13 +260,75 @@ const menuSections: MenuSection[] = [
         id: 'purchasing-reports',
         title: 'Purchasing Reports',
         icon: <PurchasingIcon />,
-        path: '/reports/purchasing',
+        children: [
+          {
+            id: 'purchase-order-summary',
+            title: 'Purchase Order Summary',
+            icon: <SummaryIcon />,
+            path: '/reports/purchasing/order-summary',
+          },
+          {
+            id: 'purchase-order-details',
+            title: 'Purchase Order Details',
+            icon: <DetailIcon />,
+            path: '/reports/purchasing/order-details',
+          },
+          {
+            id: 'purchase-order-status',
+            title: 'Purchase Order Status',
+            icon: <OrdersIcon />,
+            path: '/reports/purchasing/order-status',
+          },
+          {
+            id: 'vendor-payment-details',
+            title: 'Vendor Payment Details',
+            icon: <PaymentDetailIcon />,
+            path: '/reports/purchasing/payment-details',
+          },
+          {
+            id: 'vendor-purchase-list',
+            title: 'Vendor Product List',
+            icon: <SuppliersIcon />,
+            path: '/reports/purchasing/vendor-purchase-list',
+          },
+        ],
       },
       {
         id: 'inventory-reports',
         title: 'Inventory Reports',
         icon: <InventoryIcon />,
-        path: '/reports/inventory',
+        children: [
+          {
+            id: 'inventory-summary',
+            title: 'Inventory Summary',
+            icon: <InventorySummaryIcon />,
+            path: '/reports/inventory/summary',
+          },
+          {
+            id: 'historical-inventory',
+            title: 'Historical Inventory',
+            icon: <HistoricalInventoryIcon />,
+            path: '/reports/inventory/historical',
+          },
+          {
+            id: 'inventory-movement-summary',
+            title: 'Inventory Movement Summary',
+            icon: <MovementSummaryIcon />,
+            path: '/reports/inventory/movement-summary',
+          },
+          {
+            id: 'product-price-list',
+            title: 'Product Price List',
+            icon: <PriceListIcon />,
+            path: '/reports/inventory/price-list',
+          },
+          {
+            id: 'product-cost-report',
+            title: 'Product Cost Report',
+            icon: <CostReportIcon />,
+            path: '/reports/inventory/product-cost',
+          },
+        ],
       },
     ],
   },
@@ -295,7 +362,42 @@ const menuSections: MenuSection[] = [
 const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const [expandedItems, setExpandedItems] = React.useState<string[]>([])
+  const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
+    // Initialize from localStorage
+    const stored = localStorage.getItem('sidebar-expanded')
+    return stored ? JSON.parse(stored) : []
+  })
+
+  // Auto-expand parent items based on current route
+  useEffect(() => {
+    const currentPath = location.pathname
+    const parentItems: string[] = []
+
+    // Find which parent menu item contains the current path
+    menuSections.forEach(section => {
+      section.items.forEach(item => {
+        if (item.children) {
+          const hasActivePath = item.children.some(child => child.path === currentPath)
+          if (hasActivePath) {
+            parentItems.push(item.id)
+          }
+        }
+      })
+    })
+
+    // Only update if the parent has changed
+    if (parentItems.length > 0) {
+      const currentParent = parentItems[0]
+      const isAlreadyExpanded = expandedItems.includes(currentParent)
+      const hasOtherParentsExpanded = expandedItems.some(id => !parentItems.includes(id))
+
+      // If navigating to a different parent, close others and open the new one
+      if (!isAlreadyExpanded || hasOtherParentsExpanded) {
+        setExpandedItems([currentParent])
+        localStorage.setItem('sidebar-expanded', JSON.stringify([currentParent]))
+      }
+    }
+  }, [location.pathname])
 
   // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
@@ -312,11 +414,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   }
 
   const toggleExpanded = (itemId: string) => {
-    setExpandedItems(prev =>
-      prev.includes(itemId)
+    setExpandedItems(prev => {
+      const newExpanded = prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [itemId] // Only keep the newly clicked item expanded
-    )
+
+      // Save to localStorage
+      localStorage.setItem('sidebar-expanded', JSON.stringify(newExpanded))
+      return newExpanded
+    })
   }
 
   const isItemActive = (item: MenuItem): boolean => {
