@@ -373,61 +373,7 @@ const VendorProductListReport: React.FC = () => {
         return `"${value || ''}"`
       })
       csv += values.join(',') + '\n'
-
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
-
-      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
-        const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
-
-        const subtotal = {
-          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-          receivedQuantity: groupData.reduce((sum, r) => sum + r.receivedQuantity, 0),
-          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
-          unitPrice: groupData.reduce((sum, r) => sum + r.unitPrice, 0),
-          sellingPrice: groupData.reduce((sum, r) => {
-            const price = pricingType === 'retailPrice' ? r.retailPrice :
-                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
-                         r.specialPrice
-            return sum + price
-          }, 0),
-          sellingProfit: groupData.reduce((sum, r) => {
-            const price = pricingType === 'retailPrice' ? r.retailPrice :
-                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
-                         r.specialPrice
-            return sum + (price - r.unitPrice)
-          }, 0),
-        }
-
-        const subtotalValues = selectedColumns.map((col, colIdx) => {
-          if (colIdx === 0) {
-            return '"Subtotal"'
-          }
-          const value = (subtotal as any)[col]
-          if (typeof value === 'number') {
-            return value.toFixed(2)
-          }
-          return ''
-        })
-        csv += subtotalValues.join(',') + '\n'
-        csv += '\n'
-      }
     })
-
-    if (totals) {
-      csv += '\n'
-      const totalValues = selectedColumns.map((col, colIdx) => {
-        if (colIdx === 0) {
-          return '"GRAND TOTAL"'
-        }
-        const value = (totals as any)[col]
-        if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return ''
-      })
-      csv += totalValues.join(',') + '\n'
-    }
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -522,62 +468,7 @@ const VendorProductListReport: React.FC = () => {
         tableRows += `<td style="${align}">${displayValue || ''}</td>`
       })
       tableRows += '</tr>'
-
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getPdfGroupKey(nextRow) : null
-
-      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
-        const groupData = sortedData.filter(r => getPdfGroupKey(r) === currentGroupKey)
-
-        const subtotal = {
-          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-          receivedQuantity: groupData.reduce((sum, r) => sum + r.receivedQuantity, 0),
-          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
-          unitPrice: groupData.reduce((sum, r) => sum + r.unitPrice, 0),
-          sellingPrice: groupData.reduce((sum, r) => {
-            const price = pricingType === 'retailPrice' ? r.retailPrice :
-                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
-                         r.specialPrice
-            return sum + price
-          }, 0),
-          sellingProfit: groupData.reduce((sum, r) => {
-            const price = pricingType === 'retailPrice' ? r.retailPrice :
-                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
-                         r.specialPrice
-            return sum + (price - r.unitPrice)
-          }, 0),
-        }
-
-        tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
-        selectedColumns.forEach((col, colIdx) => {
-          if (colIdx === 0) {
-            tableRows += '<td style="font-weight: bold;">Subtotal</td>'
-          } else if (col === 'quantity' || col === 'receivedQuantity' || col === 'totalAmount' || col === 'unitPrice' || col === 'sellingPrice' || col === 'sellingProfit') {
-            const value = (subtotal as any)[col]
-            tableRows += `<td style="text-align: right; font-weight: bold;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
-          } else {
-            tableRows += '<td></td>'
-          }
-        })
-        tableRows += '</tr>'
-        tableRows += `<tr style="height: 20px;"><td colspan="${selectedColumns.length}" style="border: none;"></td></tr>`
-      }
     })
-
-    if (totals) {
-      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
-      selectedColumns.forEach((col, idx) => {
-        if (idx === 0) {
-          tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
-        } else if (col === 'quantity' || col === 'receivedQuantity' || col === 'totalAmount' || col === 'unitPrice' || col === 'sellingPrice' || col === 'sellingProfit') {
-          const value = (totals as any)[col]
-          tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
-        } else {
-          tableRows += '<td></td>'
-        }
-      })
-      tableRows += '</tr>'
-    }
 
     const filterText = []
     if (selectedSupplier) {
@@ -647,40 +538,6 @@ const VendorProductListReport: React.FC = () => {
     printWindow.document.write(html)
     printWindow.document.close()
   }
-
-  const calculateTotals = () => {
-    if (reportData.length === 0) return null
-
-    const totals = reportData.reduce(
-      (acc, item) => {
-        const sellingPrice = pricingType === 'retailPrice' ? item.retailPrice :
-                            pricingType === 'wholesalePrice' ? item.wholesalePrice :
-                            item.specialPrice
-        const sellingProfit = sellingPrice - item.unitPrice
-
-        return {
-          quantity: acc.quantity + item.quantity,
-          receivedQuantity: acc.receivedQuantity + item.receivedQuantity,
-          totalAmount: acc.totalAmount + item.totalAmount,
-          unitPrice: acc.unitPrice + item.unitPrice,
-          sellingPrice: acc.sellingPrice + sellingPrice,
-          sellingProfit: acc.sellingProfit + sellingProfit,
-        }
-      },
-      {
-        quantity: 0,
-        receivedQuantity: 0,
-        totalAmount: 0,
-        unitPrice: 0,
-        sellingPrice: 0,
-        sellingProfit: 0,
-      }
-    )
-
-    return totals
-  }
-
-  const totals = calculateTotals()
 
   const getSortedData = () => {
     if (reportData.length === 0) return []
@@ -1153,7 +1010,6 @@ const VendorProductListReport: React.FC = () => {
                         }
 
                         const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
-                        const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                         const getGroupLabel = (field: string, r: any) => {
                           if (field === 'productName') {
@@ -1165,34 +1021,6 @@ const VendorProductListReport: React.FC = () => {
                           }
                           return r[field]
                         }
-
-                        const calculateGroupSubtotals = () => {
-                          if (groupBy === 'none') return null
-
-                          const currentGroupKey = getGroupKey(row)
-                          const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
-
-                          return {
-                            quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-                            receivedQuantity: groupData.reduce((sum, r) => sum + r.receivedQuantity, 0),
-                            totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
-                            unitPrice: groupData.reduce((sum, r) => sum + r.unitPrice, 0),
-                            sellingPrice: groupData.reduce((sum, r) => {
-                              const price = pricingType === 'retailPrice' ? r.retailPrice :
-                                           pricingType === 'wholesalePrice' ? r.wholesalePrice :
-                                           r.specialPrice
-                              return sum + price
-                            }, 0),
-                            sellingProfit: groupData.reduce((sum, r) => {
-                              const price = pricingType === 'retailPrice' ? r.retailPrice :
-                                           pricingType === 'wholesalePrice' ? r.wholesalePrice :
-                                           r.specialPrice
-                              return sum + (price - r.unitPrice)
-                            }, 0),
-                          }
-                        }
-
-                        const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
 
                         return (
                           <React.Fragment key={`${row.orderNumber}-${row.productName}-${idx}`}>
@@ -1257,115 +1085,9 @@ const VendorProductListReport: React.FC = () => {
                                 </TableCell>
                               )}
                             </TableRow>
-                            {showGroupFooter && groupSubtotals && (
-                              <>
-                                <TableRow sx={{
-                                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
-                                  '& .MuiTableCell-root': {
-                                    fontWeight: 700,
-                                    fontSize: '0.85rem',
-                                    borderTop: '2px solid',
-                                    borderColor: 'primary.main'
-                                  }
-                                }}>
-                                  {selectedColumns.includes('productName') && (
-                                    <TableCell sx={{ fontWeight: 700 }}>
-                                      Subtotal
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('categoryName') && <TableCell />}
-                                  {selectedColumns.includes('supplierName') && <TableCell />}
-                                  {selectedColumns.includes('unitPrice') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {formatCurrency(groupSubtotals.unitPrice)}
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('sellingPrice') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {formatCurrency(groupSubtotals.sellingPrice)}
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('sellingProfit') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {formatCurrency(groupSubtotals.sellingProfit)}
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('quantity') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {groupSubtotals.quantity}
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('receivedQuantity') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {groupSubtotals.receivedQuantity}
-                                    </TableCell>
-                                  )}
-                                  {selectedColumns.includes('totalAmount') && (
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                      {formatCurrency(groupSubtotals.totalAmount)}
-                                    </TableCell>
-                                  )}
-                                </TableRow>
-                                <TableRow sx={{ height: TABLE_STYLES.row.height }}>
-                                  <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
-                                </TableRow>
-                              </>
-                            )}
                           </React.Fragment>
                         )
                       })}
-                      {/* Total Row */}
-                      {totals && (
-                        <TableRow
-                          sx={{
-                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
-                            '& .MuiTableCell-root': {
-                              fontWeight: 800,
-                              fontSize: '0.9rem',
-                              borderTop: '3px solid',
-                              borderColor: 'success.main'
-                            }
-                          }}
-                        >
-                          {selectedColumns.includes('productName') && (
-                            <TableCell sx={{ fontWeight: 800 }}>
-                              GRAND TOTAL
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('categoryName') && <TableCell />}
-                          {selectedColumns.includes('supplierName') && <TableCell />}
-                          {selectedColumns.includes('unitPrice') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {formatCurrency(totals.unitPrice)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('sellingPrice') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {formatCurrency(totals.sellingPrice)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('sellingProfit') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {formatCurrency(totals.sellingProfit)}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('quantity') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {totals.quantity}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('receivedQuantity') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {totals.receivedQuantity}
-                            </TableCell>
-                          )}
-                          {selectedColumns.includes('totalAmount') && (
-                            <TableCell align="right" sx={{ fontWeight: 800 }}>
-                              {formatCurrency(totals.totalAmount)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
