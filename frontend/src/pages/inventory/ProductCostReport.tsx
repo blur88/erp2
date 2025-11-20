@@ -357,46 +357,7 @@ const ProductCostReport: React.FC = () => {
         return '""'
       })
       csv += values.join(',') + '\n'
-
-      // Add subtotal row if this is the last row of a group or last row overall
-      if ((groupBy !== 'none' && nextRow && currentGroupKey !== nextGroupKey) || (groupBy !== 'none' && isLastRow)) {
-        const subtotalValues = selectedColumns.map((col, colIdx) => {
-          if (colIdx === 0) {
-            return '"Subtotal"'
-          } else if (col === 'quantityChange') {
-            return groupSubtotals.quantityChange.toFixed(2)
-          } else if (col === 'costChange') {
-            return groupSubtotals.costChange.toFixed(2)
-          }
-          return '""'
-        })
-        csv += subtotalValues.join(',') + '\n'
-      }
-
-      // Add blank row if this is the last row of a group and there are more rows
-      if (groupBy !== 'none' && nextRow && currentGroupKey !== nextGroupKey) {
-        csv += '\n'
-      }
     })
-
-    // Add grand total
-    const grandTotals = sortedData.reduce((acc, row) => ({
-      quantityChange: acc.quantityChange + (row.quantityChange || 0),
-      costChange: acc.costChange + (row.costChange || 0)
-    }), { quantityChange: 0, costChange: 0 })
-
-    csv += '\n'
-    const grandTotalValues = selectedColumns.map((col, colIdx) => {
-      if (colIdx === 0) {
-        return '"GRAND TOTAL"'
-      } else if (col === 'quantityChange') {
-        return grandTotals.quantityChange.toFixed(2)
-      } else if (col === 'costChange') {
-        return grandTotals.costChange.toFixed(2)
-      }
-      return '""'
-    })
-    csv += grandTotalValues.join(',') + '\n'
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -491,50 +452,7 @@ const ProductCostReport: React.FC = () => {
       })
       tableRows += '</tr>'
 
-      // Add subtotal row if this is the last row of a group or last row overall
-      if ((groupBy !== 'none' && nextRow && currentGroupKey !== nextGroupKey) || (groupBy !== 'none' && isLastRow)) {
-        tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
-        selectedColumns.forEach((col, colIdx) => {
-          if (colIdx === 0) {
-            tableRows += '<td style="font-weight: bold;">Subtotal</td>'
-          } else if (col === 'quantityChange') {
-            const sign = groupSubtotals.quantityChange >= 0 ? '+' : ''
-            tableRows += `<td style="text-align: right; font-weight: bold;">${sign}${groupSubtotals.quantityChange.toFixed(2)}</td>`
-          } else if (col === 'costChange') {
-            tableRows += `<td style="text-align: right; font-weight: bold;">${formatCurrency(groupSubtotals.costChange)}</td>`
-          } else {
-            tableRows += '<td></td>'
-          }
-        })
-        tableRows += '</tr>'
-      }
-
-      // Add blank row if this is the last row of a group and there are more rows
-      if (groupBy !== 'none' && nextRow && currentGroupKey !== nextGroupKey) {
-        tableRows += `<tr style="height: 20px;"><td colspan="${selectedColumns.length}" style="border: none;"></td></tr>`
-      }
     })
-
-    // Add grand total
-    const grandTotals = sortedData.reduce((acc, row) => ({
-      quantityChange: acc.quantityChange + (row.quantityChange || 0),
-      costChange: acc.costChange + (row.costChange || 0)
-    }), { quantityChange: 0, costChange: 0 })
-
-    tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
-    selectedColumns.forEach((col, colIdx) => {
-      if (colIdx === 0) {
-        tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
-      } else if (col === 'quantityChange') {
-        const sign = grandTotals.quantityChange >= 0 ? '+' : ''
-        tableRows += `<td style="text-align: right; font-weight: 800;">${sign}${grandTotals.quantityChange.toFixed(2)}</td>`
-      } else if (col === 'costChange') {
-        tableRows += `<td style="text-align: right; font-weight: 800;">${formatCurrency(grandTotals.costChange)}</td>`
-      } else {
-        tableRows += '<td></td>'
-      }
-    })
-    tableRows += '</tr>'
 
     const filterText = []
     if (selectedProducts.length > 0) {
@@ -1132,90 +1050,7 @@ const ProductCostReport: React.FC = () => {
                             </TableRow>
                           )
 
-                          // Subtotal row
-                          if (showSubtotal || (groupBy !== 'none' && isLastRow)) {
-                            rows.push(
-                              <TableRow key={`subtotal-${idx}`} sx={{
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
-                                '& .MuiTableCell-root': {
-                                  fontWeight: 700,
-                                  fontSize: '0.85rem',
-                                  borderTop: '2px solid',
-                                  borderColor: 'primary.main'
-                                }
-                              }}>
-                                {selectedColumns.map((col, colIdx) => {
-                                  if (colIdx === 0) {
-                                    return <TableCell key={col} sx={{ fontWeight: 700 }}>Subtotal</TableCell>
-                                  } else if (col === 'quantityChange') {
-                                    return (
-                                      <TableCell key={col} align="right" sx={{ fontWeight: 700, color: groupSubtotals.quantityChange >= 0 ? 'success.main' : 'error.main' }}>
-                                        {groupSubtotals.quantityChange >= 0 ? '+' : ''}{groupSubtotals.quantityChange.toFixed(2)}
-                                      </TableCell>
-                                    )
-                                  } else if (col === 'costChange') {
-                                    return (
-                                      <TableCell key={col} align="right" sx={{ fontWeight: 700 }}>
-                                        {formatCurrency(groupSubtotals.costChange)}
-                                      </TableCell>
-                                    )
-                                  } else {
-                                    return <TableCell key={col}></TableCell>
-                                  }
-                                })}
-                              </TableRow>
-                            )
-                          }
-
-                          // Blank row after subtotal
-                          if (showSubtotal) {
-                            rows.push(
-                              <TableRow key={`blank-${idx}`} sx={{ height: TABLE_STYLES.row.height }}>
-                                <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
-                              </TableRow>
-                            )
-                          }
                         })
-
-                        // Grand Total
-                        if (paginatedData.length > 0) {
-                          const grandTotals = paginatedData.reduce((acc, row) => ({
-                            quantityChange: acc.quantityChange + (row.quantityChange || 0),
-                            costChange: acc.costChange + (row.costChange || 0)
-                          }), { quantityChange: 0, costChange: 0 })
-
-                          rows.push(
-                            <TableRow key="grand-total" sx={{
-                              backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
-                              '& .MuiTableCell-root': {
-                                fontWeight: 800,
-                                fontSize: '0.9rem',
-                                borderTop: '3px solid',
-                                borderColor: 'success.main'
-                              }
-                            }}>
-                              {selectedColumns.map((col, colIdx) => {
-                                if (colIdx === 0) {
-                                  return <TableCell key={col} sx={{ fontWeight: 800 }}>GRAND TOTAL</TableCell>
-                                } else if (col === 'quantityChange') {
-                                  return (
-                                    <TableCell key={col} align="right" sx={{ fontWeight: 800, color: grandTotals.quantityChange >= 0 ? 'success.main' : 'error.main' }}>
-                                      {grandTotals.quantityChange >= 0 ? '+' : ''}{grandTotals.quantityChange.toFixed(2)}
-                                    </TableCell>
-                                  )
-                                } else if (col === 'costChange') {
-                                  return (
-                                    <TableCell key={col} align="right" sx={{ fontWeight: 800 }}>
-                                      {formatCurrency(grandTotals.costChange)}
-                                    </TableCell>
-                                  )
-                                } else {
-                                  return <TableCell key={col}></TableCell>
-                                }
-                              })}
-                            </TableRow>
-                          )
-                        }
 
                         return rows
                       })()}
