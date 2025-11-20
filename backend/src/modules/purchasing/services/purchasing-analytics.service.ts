@@ -521,8 +521,14 @@ export class PurchasingAnalyticsService {
       }
     }
 
-    // Convert map to array and sort by product name
-    const data = Array.from(productMap.values()).sort((a, b) =>
+    // Convert map to array, calculate weighted average prices, and sort by product name
+    const data = Array.from(productMap.values()).map((item) => {
+      // Calculate weighted average unit price: totalAmount / totalQuantity
+      if (item.quantity > 0) {
+        item.unitPrice = item.totalAmount / item.quantity;
+      }
+      return item;
+    }).sort((a, b) =>
       a.productName.localeCompare(b.productName)
     );
 
