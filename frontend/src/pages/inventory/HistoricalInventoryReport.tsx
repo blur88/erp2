@@ -524,6 +524,24 @@ const HistoricalInventoryReport: React.FC = () => {
     return filtered
   }
 
+  const calculateTotals = () => {
+    if (reportData.length === 0) return null
+
+    const totals = reportData.reduce(
+      (acc, item) => ({
+        quantity: acc.quantity + item.quantity,
+        totalValue: acc.totalValue + item.totalValue,
+      }),
+      {
+        quantity: 0,
+        totalValue: 0,
+      }
+    )
+
+    return totals
+  }
+
+  const totals = calculateTotals()
   const sortedData = getSortedData()
   const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
@@ -882,12 +900,14 @@ const HistoricalInventoryReport: React.FC = () => {
                     <TableBody>
                       {paginatedData.map((row, idx) => {
                         const prevRow = idx > 0 ? paginatedData[idx - 1] : null
+                        const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                         const getGroupKey = (r: any) => {
                           return r[groupBy]
                         }
 
                         const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
+                        const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                         const getGroupLabel = (field: string, r: any) => {
                           if (field === 'categoryName') {
@@ -895,6 +915,20 @@ const HistoricalInventoryReport: React.FC = () => {
                           }
                           return r[field]
                         }
+
+                        const calculateGroupSubtotals = () => {
+                          if (groupBy === 'none') return null
+
+                          const currentGroupKey = getGroupKey(row)
+                          const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
+
+                          return {
+                            quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
+                            totalValue: groupData.reduce((sum, r) => sum + r.totalValue, 0),
+                          }
+                        }
+
+                        const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
 
                         return (
                           <React.Fragment key={idx}>
@@ -946,9 +980,75 @@ const HistoricalInventoryReport: React.FC = () => {
                                 </TableCell>
                               )}
                             </TableRow>
+                            {showGroupFooter && groupSubtotals && (
+                              <>
+                                <TableRow sx={{
+                                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
+                                  '& .MuiTableCell-root': {
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    borderTop: '2px solid',
+                                    borderColor: 'primary.main'
+                                  }
+                                }}>
+                                  {selectedColumns.includes('productName') && (
+                                    <TableCell sx={{ fontWeight: 700 }}>
+                                      Subtotal
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('categoryName') && <TableCell />}
+                                  {selectedColumns.includes('unitValue') && <TableCell />}
+                                  {selectedColumns.includes('quantity') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {Math.round(groupSubtotals.quantity)}
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('totalValue') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {formatCurrency(groupSubtotals.totalValue)}
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                                <TableRow sx={{ height: TABLE_STYLES.row.height }}>
+                                  <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
+                                </TableRow>
+                              </>
+                            )}
                           </React.Fragment>
                         )
                       })}
+                      {/* Total Row */}
+                      {totals && (
+                        <TableRow
+                          sx={{
+                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
+                            '& .MuiTableCell-root': {
+                              fontWeight: 800,
+                              fontSize: '0.9rem',
+                              borderTop: '3px solid',
+                              borderColor: 'success.main'
+                            }
+                          }}
+                        >
+                          {selectedColumns.includes('productName') && (
+                            <TableCell sx={{ fontWeight: 800 }}>
+                              GRAND TOTAL
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('categoryName') && <TableCell />}
+                          {selectedColumns.includes('unitValue') && <TableCell />}
+                          {selectedColumns.includes('quantity') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {Math.round(totals.quantity)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('totalValue') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {formatCurrency(totals.totalValue)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>

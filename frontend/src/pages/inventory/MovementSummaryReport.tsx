@@ -515,6 +515,26 @@ const MovementSummaryReport: React.FC = () => {
     return filtered
   }
 
+  const calculateTotals = () => {
+    if (reportData.length === 0) return null
+
+    const totals = reportData.reduce(
+      (acc, item) => ({
+        quantityIn: acc.quantityIn + item.quantityIn,
+        quantityOut: acc.quantityOut + item.quantityOut,
+        quantityOnHand: acc.quantityOnHand + item.quantityOnHand,
+      }),
+      {
+        quantityIn: 0,
+        quantityOut: 0,
+        quantityOnHand: 0,
+      }
+    )
+
+    return totals
+  }
+
+  const totals = calculateTotals()
   const sortedData = getSortedData()
   const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
 
@@ -864,12 +884,14 @@ const MovementSummaryReport: React.FC = () => {
                     <TableBody>
                       {paginatedData.map((row, idx) => {
                         const prevRow = idx > 0 ? paginatedData[idx - 1] : null
+                        const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                         const getGroupKey = (r: any) => {
                           return r[groupBy]
                         }
 
                         const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
+                        const showGroupFooter = groupBy !== 'none' && (!nextRow || getGroupKey(row) !== getGroupKey(nextRow))
 
                         const getGroupLabel = (field: string, r: any) => {
                           if (field === 'categoryName') {
@@ -877,6 +899,21 @@ const MovementSummaryReport: React.FC = () => {
                           }
                           return r[field]
                         }
+
+                        const calculateGroupSubtotals = () => {
+                          if (groupBy === 'none') return null
+
+                          const currentGroupKey = getGroupKey(row)
+                          const groupData = paginatedData.filter(r => getGroupKey(r) === currentGroupKey)
+
+                          return {
+                            quantityIn: groupData.reduce((sum, r) => sum + r.quantityIn, 0),
+                            quantityOut: groupData.reduce((sum, r) => sum + r.quantityOut, 0),
+                            quantityOnHand: groupData.reduce((sum, r) => sum + r.quantityOnHand, 0),
+                          }
+                        }
+
+                        const groupSubtotals = showGroupFooter ? calculateGroupSubtotals() : null
 
                         return (
                           <React.Fragment key={idx}>
@@ -928,9 +965,83 @@ const MovementSummaryReport: React.FC = () => {
                                 </TableCell>
                               )}
                             </TableRow>
+                            {showGroupFooter && groupSubtotals && (
+                              <>
+                                <TableRow sx={{
+                                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
+                                  '& .MuiTableCell-root': {
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    borderTop: '2px solid',
+                                    borderColor: 'primary.main'
+                                  }
+                                }}>
+                                  {selectedColumns.includes('productName') && (
+                                    <TableCell sx={{ fontWeight: 700 }}>
+                                      Subtotal
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('categoryName') && <TableCell />}
+                                  {selectedColumns.includes('quantityIn') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {Math.round(groupSubtotals.quantityIn)}
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('quantityOut') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {Math.round(groupSubtotals.quantityOut)}
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('quantityOnHand') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {Math.round(groupSubtotals.quantityOnHand)}
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                                <TableRow sx={{ height: TABLE_STYLES.row.height }}>
+                                  <TableCell colSpan={selectedColumns.length} sx={{ border: 'none', padding: 0 }} />
+                                </TableRow>
+                              </>
+                            )}
                           </React.Fragment>
                         )
                       })}
+                      {/* Total Row */}
+                      {totals && (
+                        <TableRow
+                          sx={{
+                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
+                            '& .MuiTableCell-root': {
+                              fontWeight: 800,
+                              fontSize: '0.9rem',
+                              borderTop: '3px solid',
+                              borderColor: 'success.main'
+                            }
+                          }}
+                        >
+                          {selectedColumns.includes('productName') && (
+                            <TableCell sx={{ fontWeight: 800 }}>
+                              GRAND TOTAL
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('categoryName') && <TableCell />}
+                          {selectedColumns.includes('quantityIn') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {Math.round(totals.quantityIn)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('quantityOut') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {Math.round(totals.quantityOut)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('quantityOnHand') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {Math.round(totals.quantityOnHand)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
