@@ -384,6 +384,19 @@ const VendorProductListReport: React.FC = () => {
           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
           receivedQuantity: groupData.reduce((sum, r) => sum + r.receivedQuantity, 0),
           totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          unitPrice: groupData.reduce((sum, r) => sum + r.unitPrice, 0),
+          sellingPrice: groupData.reduce((sum, r) => {
+            const price = pricingType === 'retailPrice' ? r.retailPrice :
+                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
+                         r.specialPrice
+            return sum + price
+          }, 0),
+          sellingProfit: groupData.reduce((sum, r) => {
+            const price = pricingType === 'retailPrice' ? r.retailPrice :
+                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
+                         r.specialPrice
+            return sum + (price - r.unitPrice)
+          }, 0),
         }
 
         const subtotalValues = selectedColumns.map((col, colIdx) => {
@@ -520,13 +533,26 @@ const VendorProductListReport: React.FC = () => {
           quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
           receivedQuantity: groupData.reduce((sum, r) => sum + r.receivedQuantity, 0),
           totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+          unitPrice: groupData.reduce((sum, r) => sum + r.unitPrice, 0),
+          sellingPrice: groupData.reduce((sum, r) => {
+            const price = pricingType === 'retailPrice' ? r.retailPrice :
+                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
+                         r.specialPrice
+            return sum + price
+          }, 0),
+          sellingProfit: groupData.reduce((sum, r) => {
+            const price = pricingType === 'retailPrice' ? r.retailPrice :
+                         pricingType === 'wholesalePrice' ? r.wholesalePrice :
+                         r.specialPrice
+            return sum + (price - r.unitPrice)
+          }, 0),
         }
 
         tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
         selectedColumns.forEach((col, colIdx) => {
           if (colIdx === 0) {
             tableRows += '<td style="font-weight: bold;">Subtotal</td>'
-          } else if (col === 'quantity' || col === 'receivedQuantity' || col === 'totalAmount') {
+          } else if (col === 'quantity' || col === 'receivedQuantity' || col === 'totalAmount' || col === 'unitPrice' || col === 'sellingPrice' || col === 'sellingProfit') {
             const value = (subtotal as any)[col]
             tableRows += `<td style="text-align: right; font-weight: bold;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
           } else {
@@ -543,17 +569,11 @@ const VendorProductListReport: React.FC = () => {
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
           tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
-        } else if (col === 'quantity' || col === 'receivedQuantity' || col === 'totalAmount') {
+        } else if (col === 'quantity' || col === 'receivedQuantity' || col === 'totalAmount' || col === 'unitPrice' || col === 'sellingPrice' || col === 'sellingProfit') {
           const value = (totals as any)[col]
           tableRows += `<td style="text-align: right; font-weight: 800;">${typeof value === 'number' ? formatCurrency(value) : ''}</td>`
         } else {
-          const value = (totals as any)[col]
-          let displayValue = ''
-          if (typeof value === 'number') {
-            displayValue = formatCurrency(value)
-          }
-          const align = typeof value === 'number' ? 'text-align: right;' : ''
-          tableRows += `<td style="${align}">${displayValue}</td>`
+          tableRows += '<td></td>'
         }
       })
       tableRows += '</tr>'
@@ -632,15 +652,28 @@ const VendorProductListReport: React.FC = () => {
     if (reportData.length === 0) return null
 
     const totals = reportData.reduce(
-      (acc, item) => ({
-        quantity: acc.quantity + item.quantity,
-        receivedQuantity: acc.receivedQuantity + item.receivedQuantity,
-        totalAmount: acc.totalAmount + item.totalAmount,
-      }),
+      (acc, item) => {
+        const sellingPrice = pricingType === 'retailPrice' ? item.retailPrice :
+                            pricingType === 'wholesalePrice' ? item.wholesalePrice :
+                            item.specialPrice
+        const sellingProfit = sellingPrice - item.unitPrice
+
+        return {
+          quantity: acc.quantity + item.quantity,
+          receivedQuantity: acc.receivedQuantity + item.receivedQuantity,
+          totalAmount: acc.totalAmount + item.totalAmount,
+          unitPrice: acc.unitPrice + item.unitPrice,
+          sellingPrice: acc.sellingPrice + sellingPrice,
+          sellingProfit: acc.sellingProfit + sellingProfit,
+        }
+      },
       {
         quantity: 0,
         receivedQuantity: 0,
         totalAmount: 0,
+        unitPrice: 0,
+        sellingPrice: 0,
+        sellingProfit: 0,
       }
     )
 
@@ -1143,6 +1176,19 @@ const VendorProductListReport: React.FC = () => {
                             quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
                             receivedQuantity: groupData.reduce((sum, r) => sum + r.receivedQuantity, 0),
                             totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
+                            unitPrice: groupData.reduce((sum, r) => sum + r.unitPrice, 0),
+                            sellingPrice: groupData.reduce((sum, r) => {
+                              const price = pricingType === 'retailPrice' ? r.retailPrice :
+                                           pricingType === 'wholesalePrice' ? r.wholesalePrice :
+                                           r.specialPrice
+                              return sum + price
+                            }, 0),
+                            sellingProfit: groupData.reduce((sum, r) => {
+                              const price = pricingType === 'retailPrice' ? r.retailPrice :
+                                           pricingType === 'wholesalePrice' ? r.wholesalePrice :
+                                           r.specialPrice
+                              return sum + (price - r.unitPrice)
+                            }, 0),
                           }
                         }
 
@@ -1229,9 +1275,21 @@ const VendorProductListReport: React.FC = () => {
                                   )}
                                   {selectedColumns.includes('categoryName') && <TableCell />}
                                   {selectedColumns.includes('supplierName') && <TableCell />}
-                                  {selectedColumns.includes('unitPrice') && <TableCell />}
-                                  {selectedColumns.includes('sellingPrice') && <TableCell />}
-                                  {selectedColumns.includes('sellingProfit') && <TableCell />}
+                                  {selectedColumns.includes('unitPrice') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {formatCurrency(groupSubtotals.unitPrice)}
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('sellingPrice') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {formatCurrency(groupSubtotals.sellingPrice)}
+                                    </TableCell>
+                                  )}
+                                  {selectedColumns.includes('sellingProfit') && (
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                      {formatCurrency(groupSubtotals.sellingProfit)}
+                                    </TableCell>
+                                  )}
                                   {selectedColumns.includes('quantity') && (
                                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                                       {groupSubtotals.quantity}
@@ -1276,9 +1334,21 @@ const VendorProductListReport: React.FC = () => {
                           )}
                           {selectedColumns.includes('categoryName') && <TableCell />}
                           {selectedColumns.includes('supplierName') && <TableCell />}
-                          {selectedColumns.includes('unitPrice') && <TableCell />}
-                          {selectedColumns.includes('sellingPrice') && <TableCell />}
-                          {selectedColumns.includes('sellingProfit') && <TableCell />}
+                          {selectedColumns.includes('unitPrice') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {formatCurrency(totals.unitPrice)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('sellingPrice') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {formatCurrency(totals.sellingPrice)}
+                            </TableCell>
+                          )}
+                          {selectedColumns.includes('sellingProfit') && (
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                              {formatCurrency(totals.sellingProfit)}
+                            </TableCell>
+                          )}
                           {selectedColumns.includes('quantity') && (
                             <TableCell align="right" sx={{ fontWeight: 800 }}>
                               {totals.quantity}
