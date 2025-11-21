@@ -169,10 +169,7 @@ export class User extends BaseEntity {
   notes?: string;
 
   // Relationships
-  @OneToMany(() => SalesOrder, (salesOrder) => salesOrder.createdByUser, {
-    cascade: false,
-  })
-  salesOrders: SalesOrder[];
+  // salesOrders relationship removed - createdByUser field removed from SalesOrder entity
 
   
   // Virtual fields

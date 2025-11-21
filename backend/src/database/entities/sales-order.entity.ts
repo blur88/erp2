@@ -14,27 +14,12 @@ import {
   IsDecimal,
   Min,
   IsDate,
-  IsEnum,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
-import { User } from './user.entity';
 import { SalesOrderItem } from './sales-order-item.entity';
 import { Invoice } from './invoice.entity';
 
-export enum SalesOrderStatus {
-  DRAFT = 'draft',
-  CONFIRMED = 'confirmed',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
-}
-
-export enum SalesOrderPriority {
-  LOW = 'low',
-  NORMAL = 'normal',
-  HIGH = 'high',
-  URGENT = 'urgent'
-}
 
 /**
  * Sales Order entity for managing customer orders
@@ -44,7 +29,6 @@ export enum SalesOrderPriority {
 @Index(['orderNumber'], { unique: true })
 @Index(['customerId'])
 @Index(['orderDate'])
-@Index(['createdByUserId'])
 export class SalesOrder extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -62,42 +46,6 @@ export class SalesOrder extends BaseEntity {
   })
   @IsDate()
   orderDate: Date;
-
-  @Column({
-    type: 'enum',
-    enum: SalesOrderStatus,
-    default: SalesOrderStatus.DRAFT,
-    comment: 'Order status',
-  })
-  @IsEnum(SalesOrderStatus)
-  status: SalesOrderStatus;
-
-  @Column({
-    type: 'enum',
-    enum: SalesOrderPriority,
-    default: SalesOrderPriority.NORMAL,
-    comment: 'Order priority',
-  })
-  @IsEnum(SalesOrderPriority)
-  priority: SalesOrderPriority;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Actual shipped date',
-  })
-  @IsOptional()
-  @IsDate()
-  shippedDate?: Date;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Actual delivered date',
-  })
-  @IsOptional()
-  @IsDate()
-  deliveredDate?: Date;
 
   // Financial Information
 
@@ -151,92 +99,6 @@ export class SalesOrder extends BaseEntity {
   @IsDate()
   fulfilledDate?: Date;
 
-  // Shipping Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Shipping address',
-  })
-  @IsOptional()
-  @IsString()
-  shippingAddress?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping city',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCity?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping state/province',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingState?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Shipping postal code',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  shippingPostalCode?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping country',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingCountry?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Shipping method',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  shippingMethod?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: true,
-    comment: 'Tracking number',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  trackingNumber?: string;
-
-  // Additional Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Customer purchase order number',
-  })
-  @IsOptional()
-  @IsString()
-  customerPoNumber?: string;
-
   @Column({
     type: 'text',
     nullable: true,
@@ -246,36 +108,12 @@ export class SalesOrder extends BaseEntity {
   @IsString()
   notes?: string;
 
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Internal notes',
-  })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Additional order metadata',
-  })
-  @IsOptional()
-  metadata?: Record<string, any>;
-
   // Foreign Keys
   @Column({
     type: 'uuid',
     comment: 'Customer ID',
   })
   customerId: string;
-
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who created the order',
-  })
-  createdByUserId?: string;
 
   // Relationships
   @ManyToOne(() => Customer, (customer) => customer.salesOrders, {
@@ -284,13 +122,6 @@ export class SalesOrder extends BaseEntity {
   })
   @JoinColumn({ name: 'customerId' })
   customer: Customer;
-
-  @ManyToOne(() => User, (user) => user.salesOrders, {
-    onDelete: 'RESTRICT',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'createdByUserId' })
-  createdByUser?: User;
 
   @OneToMany(() => SalesOrderItem, (item) => item.salesOrder, {
     cascade: true,
@@ -304,25 +135,6 @@ export class SalesOrder extends BaseEntity {
   invoices: Invoice[];
 
   // Computed properties
-  get fullShippingAddress(): string {
-    const parts = [
-      this.shippingAddress,
-      this.shippingCity,
-      this.shippingState,
-      this.shippingPostalCode,
-      this.shippingCountry,
-    ].filter(Boolean);
-    return parts.join(', ');
-  }
-
-  get isShippable(): boolean {
-    return this.shippedDate === null;
-  }
-
-  get isCompleted(): boolean {
-    return this.deliveredDate !== null;
-  }
-
   get isPaidInFull(): boolean {
     return Number(this.paidAmount) >= Number(this.totalAmount);
   }
@@ -345,31 +157,8 @@ export class SalesOrder extends BaseEntity {
   calculateTotals(): void {
     // This should be called after items are loaded
     if (this.items && this.items.length > 0) {
-      this.totalAmount = this.items.reduce((sum, item) => 
+      this.totalAmount = this.items.reduce((sum, item) =>
         sum + Number(item.totalAmount), 0);
-    }
-  }
-
-  canCancel(): boolean {
-    return this.shippedDate === null;
-  }
-
-  canShip(): boolean {
-    return this.shippedDate === null;
-  }
-
-  markAsShipped(trackingNumber?: string): void {
-    if (this.canShip()) {
-      this.shippedDate = new Date();
-      if (trackingNumber) {
-        this.trackingNumber = trackingNumber;
-      }
-    }
-  }
-
-  markAsDelivered(): void {
-    if (this.shippedDate && !this.deliveredDate) {
-      this.deliveredDate = new Date();
     }
   }
 }

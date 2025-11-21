@@ -27,8 +27,6 @@ import {
   QuerySalesOrdersDto,
   SalesOrderResponseDto,
   SalesOrderSummaryDto,
-  ShipOrderDto,
-  CancelOrderDto,
 } from '../dto/sales-order.dto';
 
 @ApiTags('Sales Orders')
@@ -219,82 +217,6 @@ export class SalesOrderController {
         redirect: '/sales-orders'
       };
     }
-  }
-
-  @Put(':id/confirm')
-  @ApiOperation({ summary: 'Confirm sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order confirmed successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot confirm order in current status' })
-  async confirmOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.confirmOrder(id);
-  }
-
-  @Put(':id/ship')
-  @ApiOperation({ summary: 'Ship sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order shipped successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot ship order in current status' })
-  async shipOrder(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() shipOrderDto: ShipOrderDto,
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.shipOrder(id, shipOrderDto);
-  }
-
-  @Put(':id/deliver')
-  @ApiOperation({ summary: 'Mark sales order as delivered' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order marked as delivered successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot deliver order in current status' })
-  async deliverOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.deliverOrder(id);
-  }
-
-  @Put(':id/complete')
-  @ApiOperation({ summary: 'Complete sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order completed successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot complete order in current status' })
-  async completeOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.completeOrder(id);
-  }
-
-  @Put(':id/cancel')
-  @ApiOperation({ summary: 'Cancel sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order cancelled successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot cancel order in current status' })
-  async cancelOrder(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() cancelOrderDto: CancelOrderDto,
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.cancelOrder(id, cancelOrderDto.reason);
   }
 
   @Post(':id/duplicate')

@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+// SalesOrderStatus enum removed - using fulfillment status instead
 
 export enum DateRange {
   TODAY = 'today',
@@ -259,10 +259,10 @@ export class SalesPipelineQueryDto {
 }
 
 export class PipelineStageDto {
-  @ApiProperty({ enum: SalesOrderStatus, example: SalesOrderStatus.PENDING, description: 'Status' })
-  status!: SalesOrderStatus;
+  @ApiProperty({ example: 'fulfilled', description: 'Fulfillment status' })
+  status!: string;
 
-  @ApiProperty({ example: 'Pending', description: 'Status label' })
+  @ApiProperty({ example: 'Fulfilled', description: 'Status label' })
   statusLabel!: string;
 
   @ApiProperty({ example: 15, description: 'Order count' })
