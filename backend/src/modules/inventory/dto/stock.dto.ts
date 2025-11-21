@@ -48,12 +48,6 @@ export class CreateStockMovementDto {
   @IsUUID(4)
   referenceId?: string;
 
-  @ApiPropertyOptional({ description: 'Reference number (order number, etc.)' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  referenceNumber?: string;
-
   @ApiPropertyOptional({ description: 'Reason or notes for this movement' })
   @IsOptional()
   @IsString()
@@ -113,7 +107,7 @@ export class QueryStockMovementsDto {
   @IsUUID(4)
   referenceId?: string;
 
-  @ApiPropertyOptional({ description: 'Search term (product name, SKU, reference number)' })
+  @ApiPropertyOptional({ description: 'Search term (product name, SKU)' })
   @IsOptional()
   @IsString()
   search?: string;
@@ -195,9 +189,6 @@ export class StockMovementResponseDto {
 
   @ApiPropertyOptional({ description: 'Reference ID' })
   referenceId?: string;
-
-  @ApiPropertyOptional({ description: 'Reference number' })
-  referenceNumber?: string;
 
   @ApiPropertyOptional({ description: 'Movement reason' })
   reason?: string;
@@ -345,9 +336,6 @@ export class CreateBulkStockAdjustmentDto {
 }
 
 export class BulkStockAdjustmentResponseDto {
-  @ApiProperty({ description: 'Generated SA reference number' })
-  saNumber: string;
-
   @ApiProperty({ description: 'Number of items adjusted' })
   itemsAdjusted: number;
 

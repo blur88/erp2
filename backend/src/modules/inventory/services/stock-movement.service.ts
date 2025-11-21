@@ -43,33 +43,6 @@ export class StockMovementService {
     private readonly productService: ProductService,
   ) {}
 
-  /**
-   * Generate SA reference number for stock adjustments
-   */
-  private async generateSANumber(): Promise<string> {
-    // Find the maximum SA number and increment it
-    // This ensures sequential numbering even if some numbers were deleted
-    const result = await this.stockMovementRepository
-      .createQueryBuilder('movement')
-      .select('movement.referenceNumber', 'referenceNumber')
-      .where('movement.movementType IN (:...types)', {
-        types: [StockMovementType.ADJUSTMENT_INCREASE, StockMovementType.ADJUSTMENT_DECREASE],
-      })
-      .andWhere('movement.referenceNumber IS NOT NULL')
-      .andWhere('movement.referenceNumber LIKE :pattern', { pattern: 'SA-%' })
-      .orderBy('movement.referenceNumber', 'DESC')
-      .limit(1)
-      .getRawOne();
-
-    let nextNumber = 1;
-    if (result?.referenceNumber) {
-      // Extract number from SA-XXXXXX format
-      const currentNumber = parseInt(result.referenceNumber.replace('SA-', ''), 10);
-      nextNumber = currentNumber + 1;
-    }
-
-    return `SA-${String(nextNumber).padStart(6, '0')}`;
-  }
 
   /**
    * Create a stock movement and update product stock
@@ -120,22 +93,11 @@ export class StockMovementService {
       );
     }
 
-    // Generate SA number for adjustments
-    let referenceNumber = createMovementDto.referenceNumber;
-    const isAdjustment =
-      createMovementDto.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
-      createMovementDto.movementType === StockMovementType.ADJUSTMENT_DECREASE;
-
-    if (isAdjustment && !referenceNumber) {
-      referenceNumber = await this.generateSANumber();
-    }
-
     // Create stock movement
     const stockMovement = this.stockMovementRepository.create({
       ...createMovementDto,
       previousBalance,
       newBalance,
-      referenceNumber,
     });
 
     const savedMovement = await this.stockMovementRepository.save(stockMovement);
@@ -220,7 +182,7 @@ export class StockMovementService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.reason ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -336,7 +298,6 @@ export class StockMovementService {
     quantity: number,
     unitPrice: number,
     referenceId: string,
-    referenceNumber: string,
     userId?: string,
   ): Promise<StockMovementResponseDto> {
     const movementData = StockMovement.createSaleMovement(
@@ -344,8 +305,6 @@ export class StockMovementService {
       quantity,
       unitPrice,
       referenceId,
-      referenceNumber,
-      userId,
     );
 
     return this.create(movementData as CreateStockMovementDto, userId);
@@ -359,7 +318,6 @@ export class StockMovementService {
     quantity: number,
     unitCost: number,
     referenceId: string,
-    referenceNumber: string,
     userId?: string,
   ): Promise<StockMovementResponseDto> {
     const movementData = StockMovement.createPurchaseReceiptMovement(
@@ -367,8 +325,6 @@ export class StockMovementService {
       quantity,
       unitCost,
       referenceId,
-      referenceNumber,
-      userId,
     );
 
     return this.create(movementData as CreateStockMovementDto, userId);
@@ -550,7 +506,6 @@ export class StockMovementService {
       totalValue: movement.totalValue ? Number(movement.totalValue) : undefined,
       referenceType: movement.referenceType,
       referenceId: movement.referenceId,
-      referenceNumber: movement.referenceNumber,
       reason: movement.reason,
       notes: movement.notes,
       product: {
@@ -576,8 +531,6 @@ export class StockMovementService {
   ): Promise<BulkStockAdjustmentResponseDto> {
     this.logger.log(`Creating bulk stock adjustment with ${createBulkDto.items.length} items`);
 
-    // Generate single SA number for the entire batch
-    const saNumber = await this.generateSANumber();
     const movementIds: string[] = [];
 
     // Process each item
@@ -615,14 +568,13 @@ export class StockMovementService {
         );
       }
 
-      // Create stock movement with shared SA number
+      // Create stock movement
       const stockMovement = this.stockMovementRepository.create({
         productId: item.productId,
         movementType,
         quantity: Math.abs(item.difference),
         previousBalance,
         newBalance,
-        referenceNumber: saNumber,
         movementDate: createBulkDto.adjustmentDate,
         reason: 'Stock Adjustment',
         notes: createBulkDto.notes || undefined,
@@ -643,10 +595,9 @@ export class StockMovementService {
       );
     }
 
-    this.logger.log(`Bulk stock adjustment ${saNumber} created successfully with ${movementIds.length} movements`);
+    this.logger.log(`Bulk stock adjustment created successfully with ${movementIds.length} movements`);
 
     return {
-      saNumber,
       itemsAdjusted: movementIds.length,
       adjustmentDate: createBulkDto.adjustmentDate,
       notes: createBulkDto.notes,

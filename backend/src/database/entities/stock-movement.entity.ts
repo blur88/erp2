@@ -139,17 +139,6 @@ export class StockMovement extends BaseEntity {
   @IsUUID(4)
   referenceId?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Reference number (order number, adjustment number, etc.)',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  referenceNumber?: string;
-
   // Additional Information
   @Column({
     type: 'text',
@@ -276,8 +265,7 @@ export class StockMovement extends BaseEntity {
     productId: string,
     quantity: number,
     unitPrice: number,
-    referenceId: string,
-    referenceNumber: string
+    referenceId: string
   ): Partial<StockMovement> {
     return {
       productId,
@@ -286,7 +274,6 @@ export class StockMovement extends BaseEntity {
       unitValue: unitPrice,
       referenceType: 'sales_order',
       referenceId,
-      referenceNumber,
     };
   }
 
@@ -294,8 +281,7 @@ export class StockMovement extends BaseEntity {
     productId: string,
     quantity: number,
     unitCost: number,
-    referenceId: string,
-    referenceNumber: string
+    referenceId: string
   ): Partial<StockMovement> {
     return {
       productId,
@@ -304,7 +290,6 @@ export class StockMovement extends BaseEntity {
       unitValue: unitCost,
       referenceType: 'purchase_order',
       referenceId,
-      referenceNumber,
     };
   }
 

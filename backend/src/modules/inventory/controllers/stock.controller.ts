@@ -186,7 +186,6 @@ export class StockController {
       quantity: number;
       unitPrice: number;
       referenceId: string;
-      referenceNumber: string;
     },
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.recordSale(
@@ -194,7 +193,6 @@ export class StockController {
       body.quantity,
       body.unitPrice,
       body.referenceId,
-      body.referenceNumber,
     );
   }
 
@@ -213,7 +211,6 @@ export class StockController {
       quantity: number;
       unitCost: number;
       referenceId: string;
-      referenceNumber: string;
     },
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.recordPurchaseReceipt(
@@ -221,7 +218,6 @@ export class StockController {
       body.quantity,
       body.unitCost,
       body.referenceId,
-      body.referenceNumber,
     );
   }
 }

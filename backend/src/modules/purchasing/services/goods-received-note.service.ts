@@ -147,7 +147,6 @@ export class GoodsReceivedNoteService {
           reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
           referenceType: 'purchase_order',
           referenceId: purchaseOrder.id,
-          referenceNumber: purchaseOrder.orderNumber,
           unitValue: Number(poItem.unitCost),
         };
 

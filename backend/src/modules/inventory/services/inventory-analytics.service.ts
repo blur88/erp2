@@ -42,7 +42,7 @@ interface HistoricalInventoryItem {
   newBalance: number;
   unitValue: number;
   totalValue: number;
-  referenceNumber: string;
+  orderNumber: string; // Resolved from joins
   referenceType: string;
   reason: string;
   notes: string;
@@ -294,7 +294,7 @@ export class InventoryAnalyticsService {
           newBalance: totalRemainingQty, // Same as quantity for summary
           unitValue,
           totalValue,
-          referenceNumber: '', // Not applicable for summary
+          orderNumber: '', // Not applicable for summary
           referenceType: '', // Not applicable for summary
           reason: '', // Not applicable for summary
           notes: '', // Not applicable for summary
@@ -465,7 +465,7 @@ export class InventoryAnalyticsService {
       .leftJoin('sales_orders', 'so', 'movement.referenceType = \'sales_order\' AND movement.referenceId = so.id')
       .leftJoin('purchase_orders', 'po', 'movement.referenceType = \'purchase_order\' AND movement.referenceId = po.id')
       .leftJoin('stock_adjustments', 'sa', 'movement.referenceType = \'stock_adjustment\' AND movement.referenceId = sa.id')
-      .addSelect('COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, movement.referenceNumber, \'-\')', 'orderNumberResolved')
+      .addSelect('COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, \'-\')', 'orderNumberResolved')
       .where('product.isActive = :isActive', { isActive: true })
       .andWhere('product.deletedAt IS NULL');
 
@@ -597,7 +597,7 @@ export class InventoryAnalyticsService {
         productName: movement.product?.name || 'Unknown',
         categoryName: movement.product?.category?.name || 'Uncategorized',
         transactionType: getTransactionType(movement.movementType),
-        orderNumber: orderNumberMap.get(movement.id) || movement.referenceNumber || '-',
+        orderNumber: orderNumberMap.get(movement.id) || '-',
         orderDate: movement.movementDate,
         quantityChange,
         quantityAfter,
