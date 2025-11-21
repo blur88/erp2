@@ -30,6 +30,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
+import { getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 
 interface AdjustmentItem {
@@ -74,7 +75,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateAdjustmentFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
-      adjustmentDate: new Date().toISOString().split('T')[0],
+      adjustmentDate: getCurrentDate(),
       notes: '',
       items: [
         {
@@ -153,7 +154,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
       reset({
         adjustmentDate: adjustmentToLoad.adjustmentDate
           ? new Date(adjustmentToLoad.adjustmentDate).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0],
+          : getCurrentDate(),
         notes: adjustmentToLoad.notes || '',
         items: itemsToReset || [
           {

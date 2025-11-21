@@ -32,7 +32,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { purchasingApi } from '@/services/purchasingApi'
 import { ApiService } from '@/services/api'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
@@ -93,7 +93,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
     resolver: yupResolver(schema) as any,
     defaultValues: {
       supplierId: '',
-      orderDate: new Date().toISOString().split('T')[0],
+      orderDate: getCurrentDate(),
       notes: '',
       shipping: 0,
       items: [
@@ -192,7 +192,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       // Map order data to form
       reset({
         supplierId: orderToLoad.supplierId || orderToLoad.supplier?.id || '',
-        orderDate: orderToLoad.orderDate ? new Date(orderToLoad.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        orderDate: orderToLoad.orderDate ? new Date(orderToLoad.orderDate).toISOString().split('T')[0] : getCurrentDate(),
         notes: orderToLoad.notes || '',
         shipping: orderToLoad.shippingAmount || 0,
         items: itemsToReset || [
