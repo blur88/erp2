@@ -1251,6 +1251,7 @@ const ProductCustomerReport: React.FC = () => {
                               label={row.inventoryStatus.charAt(0).toUpperCase() + row.inventoryStatus.slice(1)}
                               color={getInventoryStatusColor(row.inventoryStatus) as any}
                               size="small"
+                              sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
                         )}
@@ -1260,6 +1261,7 @@ const ProductCustomerReport: React.FC = () => {
                               label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
                               color={getPaymentStatusColor(row.paymentStatus) as any}
                               size="small"
+                              sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
                         )}
