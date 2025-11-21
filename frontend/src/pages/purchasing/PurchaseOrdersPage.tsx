@@ -1373,7 +1373,14 @@ const PurchaseOrdersPage: React.FC = () => {
                                   color={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "error" : "primary"}
                                   sx={{ minWidth: 110 }}
                                   onClick={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? handleUnpay : handlePay}
-                                  disabled={isLoading}
+                                  disabled={
+                                    isLoading ||
+                                    (selectedOrder.vendorPayments &&
+                                     selectedOrder.vendorPayments.length > 0 &&
+                                     selectedOrder.goodsReceivedNotes &&
+                                     selectedOrder.goodsReceivedNotes.length > 0 &&
+                                     selectedOrder.goodsReceivedNotes[0].status === 'received')
+                                  }
                                 >
                                   {(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "Unpay" : "Pay"}
                                 </Button>
