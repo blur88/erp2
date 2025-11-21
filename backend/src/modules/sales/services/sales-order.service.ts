@@ -1444,7 +1444,7 @@ export class SalesOrderService {
 
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product'],
     });
 
     if (!order) {
@@ -1537,7 +1537,7 @@ export class SalesOrderService {
   async unpayOrder(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product'],
     });
 
     if (!order) {
