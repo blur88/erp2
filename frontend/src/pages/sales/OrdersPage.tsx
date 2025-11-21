@@ -1939,7 +1939,7 @@ const OrdersPage: React.FC = () => {
                                     if (isOverpaid) return handleRefundOrder
                                     return selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment
                                   })()}
-                                  disabled={isLoading}
+                                  disabled={isLoading || (selectedOrder.isFulfilled && selectedOrder.isPaidInFull)}
                                   sx={{ minWidth: 110 }}
                                 >
                                   {(() => {
