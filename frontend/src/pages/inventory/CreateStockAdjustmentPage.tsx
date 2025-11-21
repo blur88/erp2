@@ -255,7 +255,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         const status = adjustment?.status || 'draft'
 
         showSuccess(`Stock adjustment ${saNumber} created successfully (${itemsAdjusted} items) - Status: ${status}`)
-        navigate('/inventory/stock-adjustments')
+        navigate('/inventory/stock-adjustments', { state: { newAdjustmentId: adjustment.id } })
       }
     } catch (err: any) {
       console.error('Error creating stock adjustments:', err)

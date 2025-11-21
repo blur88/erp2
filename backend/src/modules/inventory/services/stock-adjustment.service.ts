@@ -141,8 +141,8 @@ export class StockAdjustmentService {
       fromDate,
       toDate,
       search,
-      sortBy = 'adjustmentDate',
-      sortOrder = 'DESC',
+      sortBy = 'adjustmentNumber',
+      sortOrder = 'ASC',
     } = query;
 
     const queryBuilder = this.stockAdjustmentRepository
