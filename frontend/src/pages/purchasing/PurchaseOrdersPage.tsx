@@ -1397,7 +1397,12 @@ const PurchaseOrdersPage: React.FC = () => {
                                     color="success"
                                     sx={{ minWidth: 110 }}
                                     onClick={handleReceive}
-                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0 || isLoading}
+                                    disabled={
+                                      !selectedOrder?.items ||
+                                      selectedOrder.items.length === 0 ||
+                                      isLoading ||
+                                      !(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0)
+                                    }
                                   >
                                     Receive
                                   </Button>
