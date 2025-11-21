@@ -121,19 +121,11 @@ export enum StockMovementType {
   LOSS = 'loss',
 }
 
-export enum StockMovementStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  REVERSED = 'reversed',
-}
-
 export interface StockMovement {
   id: string;
   productId: string;
   product?: Product;
   movementType: StockMovementType;
-  status: StockMovementStatus;
   movementDate: Date;
   quantity: number;
   previousBalance: number;
@@ -143,20 +135,8 @@ export interface StockMovement {
   referenceType?: string;
   referenceId?: string;
   referenceNumber?: string;
-  locationCode?: string;
-  binLocation?: string;
-  batchNumber?: string;
-  expiryDate?: Date;
   reason?: string;
   notes?: string;
-  metadata?: Record<string, any>;
-  movedByUserId?: string;
-  movedByUser?: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  };
   isInward: boolean;
   isOutward: boolean;
   description: string;
