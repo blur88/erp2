@@ -233,7 +233,6 @@ export const inventoryApi = {
     status?: string
     fromDate?: string
     toDate?: string
-    adjustedByUserId?: string
   }) {
     return ApiService.get<PaginatedResponse<StockAdjustment>>('/inventory/stock-adjustments', { params })
   },

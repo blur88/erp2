@@ -119,11 +119,6 @@ export class QueryStockAdjustmentsDto {
   @IsDate()
   toDate?: Date;
 
-  @ApiPropertyOptional({ description: 'Filter by user who created the adjustment' })
-  @IsOptional()
-  @IsUUID(4)
-  adjustedByUserId?: string;
-
   @ApiPropertyOptional({ description: 'Search term (adjustment number, notes)' })
   @IsOptional()
   @IsString()
@@ -202,14 +197,6 @@ export class StockAdjustmentResponseDto {
   @ApiProperty({ description: 'Total value' })
   totalValue: number;
 
-  @ApiPropertyOptional({ description: 'User who created the adjustment' })
-  adjustedByUser?: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  };
-
   @ApiProperty({ description: 'Adjustment items', type: [StockAdjustmentItemResponseDto] })
   items: StockAdjustmentItemResponseDto[];
 
@@ -247,14 +234,6 @@ export class StockAdjustmentListResponseDto {
 
   @ApiProperty({ description: 'Total value' })
   totalValue: number;
-
-  @ApiPropertyOptional({ description: 'User who created the adjustment' })
-  adjustedByUser?: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  };
 
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;

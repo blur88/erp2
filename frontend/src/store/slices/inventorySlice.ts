@@ -419,7 +419,6 @@ export const fetchStockAdjustments = createAsyncThunk(
     status?: string
     fromDate?: string
     toDate?: string
-    adjustedByUserId?: string
     search?: string
     sortBy?: string
     sortOrder?: string

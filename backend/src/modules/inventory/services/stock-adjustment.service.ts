@@ -70,7 +70,6 @@ export class StockAdjustmentService {
    */
   async create(
     createDto: CreateStockAdjustmentDto,
-    userId?: string,
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Creating stock adjustment with ${createDto.items.length} items`);
 
@@ -122,7 +121,6 @@ export class StockAdjustmentService {
       notes: createDto.notes,
       itemCount: items.length,
       totalValue,
-      adjustedByUserId: userId,
       items,
     });
 
@@ -142,7 +140,6 @@ export class StockAdjustmentService {
       status,
       fromDate,
       toDate,
-      adjustedByUserId,
       search,
       sortBy = 'adjustmentDate',
       sortOrder = 'DESC',
@@ -150,7 +147,6 @@ export class StockAdjustmentService {
 
     const queryBuilder = this.stockAdjustmentRepository
       .createQueryBuilder('adjustment')
-      .leftJoinAndSelect('adjustment.adjustedByUser', 'user')
       .where('adjustment.deletedAt IS NULL');
 
     // Apply filters
@@ -167,12 +163,6 @@ export class StockAdjustmentService {
       queryBuilder.andWhere('adjustment.adjustmentDate >= :fromDate', { fromDate });
     } else if (toDate) {
       queryBuilder.andWhere('adjustment.adjustmentDate <= :toDate', { toDate });
-    }
-
-    if (adjustedByUserId) {
-      queryBuilder.andWhere('adjustment.adjustedByUserId = :adjustedByUserId', {
-        adjustedByUserId,
-      });
     }
 
     if (search) {
@@ -216,7 +206,7 @@ export class StockAdjustmentService {
   async findOne(id: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['adjustedByUser', 'items', 'items.product'],
+      relations: ['items', 'items.product'],
     });
 
     if (!adjustment) {
@@ -232,7 +222,6 @@ export class StockAdjustmentService {
   async update(
     id: string,
     updateDto: UpdateStockAdjustmentDto,
-    userId?: string,
   ): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
@@ -309,7 +298,7 @@ export class StockAdjustmentService {
   /**
    * Complete a stock adjustment (post to stock movements)
    */
-  async complete(id: string, userId?: string): Promise<StockAdjustmentResponseDto> {
+  async complete(id: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       relations: ['items', 'items.product'],
@@ -353,7 +342,6 @@ export class StockAdjustmentService {
             reason: `Stock Adjustment ${adjustment.adjustmentNumber}`,
             notes: item.notes || adjustment.notes,
           },
-          userId,
         );
       }
 
@@ -379,7 +367,7 @@ export class StockAdjustmentService {
    * Uncomplete/revert a completed stock adjustment back to draft
    * This reverses the stock movements that were posted
    */
-  async uncomplete(id: string, userId?: string): Promise<StockAdjustmentResponseDto> {
+  async uncomplete(id: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       relations: ['items', 'items.product'],
@@ -427,7 +415,6 @@ export class StockAdjustmentService {
             reason: `Revert Stock Adjustment ${adjustment.adjustmentNumber}`,
             notes: `Reverting adjustment back to draft: ${item.notes || adjustment.notes || ''}`,
           },
-          userId,
         );
       }
 
@@ -483,7 +470,6 @@ export class StockAdjustmentService {
     let queryBuilder = this.stockAdjustmentRepository
       .createQueryBuilder('adjustment')
       .withDeleted() // Include soft-deleted records
-      .leftJoinAndSelect('adjustment.adjustedByUser', 'user')
       .where('adjustment.deletedAt IS NOT NULL'); // Only get soft-deleted adjustments
 
     if (search) {
@@ -527,7 +513,7 @@ export class StockAdjustmentService {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
-      relations: ['adjustedByUser', 'items', 'items.product'],
+      relations: ['items', 'items.product'],
     });
 
     if (!adjustment) {
@@ -622,12 +608,6 @@ export class StockAdjustmentService {
       notes: adjustment.notes,
       itemCount: adjustment.itemCount,
       totalValue: Number(adjustment.totalValue),
-      adjustedByUser: adjustment.adjustedByUser ? {
-        id: adjustment.adjustedByUser.id,
-        email: adjustment.adjustedByUser.email,
-        firstName: adjustment.adjustedByUser.firstName,
-        lastName: adjustment.adjustedByUser.lastName,
-      } : undefined,
       createdAt: adjustment.createdAt,
     };
   }
@@ -644,12 +624,6 @@ export class StockAdjustmentService {
       notes: adjustment.notes,
       itemCount: adjustment.itemCount,
       totalValue: Number(adjustment.totalValue),
-      adjustedByUser: adjustment.adjustedByUser ? {
-        id: adjustment.adjustedByUser.id,
-        email: adjustment.adjustedByUser.email,
-        firstName: adjustment.adjustedByUser.firstName,
-        lastName: adjustment.adjustedByUser.lastName,
-      } : undefined,
       items: adjustment.items ? adjustment.items.map(item => this.toItemResponseDto(item)) : [],
       isEditable: adjustment.isEditable(),
       canComplete: adjustment.canComplete(),
