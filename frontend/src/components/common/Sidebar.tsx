@@ -85,37 +85,6 @@ const menuSections: MenuSection[] = [
     title: 'Operations',
     items: [
       {
-        id: 'inventory',
-        title: 'Inventory',
-        icon: <InventoryIcon />,
-        children: [
-          {
-            id: 'inventory-overview',
-            title: 'Overview',
-            icon: <InventoryIcon />,
-            path: '/inventory',
-          },
-          {
-            id: 'products',
-            title: 'Products',
-            icon: <ProductIcon />,
-            path: '/inventory/products',
-          },
-          {
-            id: 'categories',
-            title: 'Categories',
-            icon: <CategoryIcon />,
-            path: '/inventory/categories',
-          },
-          {
-            id: 'stock-adjustments',
-            title: 'Stock Adjustments',
-            icon: <StockAdjustmentIcon />,
-            path: '/inventory/stock-adjustments',
-          },
-        ],
-      },
-      {
         id: 'sales',
         title: 'Sales',
         icon: <SalesIcon />,
@@ -186,6 +155,37 @@ const menuSections: MenuSection[] = [
             title: 'Vendor Payments',
             icon: <VendorPaymentsIcon />,
             path: '/purchasing/vendor-payments',
+          },
+        ],
+      },
+      {
+        id: 'inventory',
+        title: 'Inventory',
+        icon: <InventoryIcon />,
+        children: [
+          {
+            id: 'inventory-overview',
+            title: 'Overview',
+            icon: <InventoryIcon />,
+            path: '/inventory',
+          },
+          {
+            id: 'products',
+            title: 'Products',
+            icon: <ProductIcon />,
+            path: '/inventory/products',
+          },
+          {
+            id: 'categories',
+            title: 'Categories',
+            icon: <CategoryIcon />,
+            path: '/inventory/categories',
+          },
+          {
+            id: 'stock-adjustments',
+            title: 'Stock Adjustments',
+            icon: <StockAdjustmentIcon />,
+            path: '/inventory/stock-adjustments',
           },
         ],
       },
