@@ -1201,7 +1201,7 @@ const PurchaseOrdersPage: React.FC = () => {
                               {formatDate(selectedOrder.orderDate)}
                             </TableCell>
                           </TableRow>
-                                                    <TableRow sx={{ backgroundColor: 'inherit' }}>
+                                                    <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               color: 'text.secondary',
@@ -1236,7 +1236,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                 : '-'}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableRow>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               color: 'text.secondary',
