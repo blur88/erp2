@@ -9,7 +9,6 @@ import {
   IsOptional,
   IsEnum,
   MaxLength,
-  IsPhoneNumber,
   IsDecimal,
   Min,
   IsInt,
@@ -25,7 +24,7 @@ export enum SupplierType {
 
 /**
  * Supplier entity for purchasing management
- * Supports comprehensive supplier information
+ * Simplified supplier information
  */
 @Entity('suppliers')
 @Index(['phone'])
@@ -63,132 +62,14 @@ export class Supplier extends BaseEntity {
 
   @Column({
     type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Contact person title/position',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  contactTitle?: string;
-
-  @Column({
-    type: 'varchar',
     length: 20,
     nullable: true,
     comment: 'Primary phone number',
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @IsString()
+  @MaxLength(20)
   phone?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Alternative phone number',
-  })
-  @IsOptional()
-  @IsPhoneNumber()
-  alternativePhone?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Fax number',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  fax?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Website URL',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  website?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 30,
-    nullable: true,
-    comment: 'Tax ID or business registration number',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  taxId?: string;
-
-  // Address Information
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Supplier address',
-  })
-  @IsOptional()
-  @IsString()
-  address?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'City',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  city?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'State/province',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  state?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    comment: 'Postal code',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  postalCode?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Country',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  country?: string;
-
-  // Business Information
-  @Column({
-    type: 'varchar',
-    length: 10,
-    default: 'USD',
-    comment: 'Preferred currency for transactions',
-  })
-  @IsString()
-  @MaxLength(10)
-  currency: string;
 
   // Supplier Metrics
   @Column({
@@ -227,23 +108,6 @@ export class Supplier extends BaseEntity {
   @IsOptional()
   firstPurchaseDate?: Date;
 
-  // Additional Information
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Product categories supplied',
-  })
-  @IsOptional()
-  categories?: string[];
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Certifications and qualifications',
-  })
-  @IsOptional()
-  certifications?: string[];
-
   @Column({
     type: 'text',
     nullable: true,
@@ -252,14 +116,6 @@ export class Supplier extends BaseEntity {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Additional supplier metadata',
-  })
-  @IsOptional()
-  metadata?: Record<string, any>;
 
   // Relationships
   @OneToMany(() => PurchaseOrder, (purchaseOrder) => purchaseOrder.supplier, {
@@ -271,18 +127,6 @@ export class Supplier extends BaseEntity {
     cascade: false,
   })
   goodsReceivedNotes: GoodsReceivedNote[];
-
-  // Computed properties
-  get fullAddress(): string {
-    const parts = [
-      this.address,
-      this.city,
-      this.state,
-      this.postalCode,
-      this.country,
-    ].filter(Boolean);
-    return parts.join(', ');
-  }
 
   get averageOrderValue(): number {
     return this.totalOrders > 0 ? Number(this.totalPurchases) / this.totalOrders : 0;

@@ -342,32 +342,15 @@ export interface Supplier {
   type: SupplierType;
   companyName: string;
   contactPerson?: string;
-  contactTitle?: string;
   phone?: string;
-  alternativePhone?: string;
-  fax?: string;
-  website?: string;
-  taxId?: string;
-  // Address
-  address?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  // Business
-  currency: string;
   // Metrics
   totalPurchases: number;
   totalOrders: number;
   lastPurchaseDate?: Date;
   firstPurchaseDate?: Date;
   // Additional
-  categories?: string[];
-  certifications?: string[];
   notes?: string;
-  metadata?: Record<string, any>;
   // Computed
-  fullAddress?: string;
   averageOrderValue?: number;
   // Timestamps
   createdAt: Date;

@@ -9,12 +9,10 @@ import {
   IsInt,
   MaxLength,
   MinLength,
-  IsPhoneNumber,
   Min,
   Max,
   IsDateString,
   IsUUID,
-  ValidateNested,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -37,95 +35,16 @@ export class CreateSupplierDto {
   @MaxLength(200)
   contactPerson?: string;
 
-  @ApiPropertyOptional({ description: 'Contact person title', maxLength: 100 })
+  @ApiPropertyOptional({ description: 'Primary phone number', maxLength: 20 })
   @IsOptional()
   @IsString()
-  @MaxLength(100)
-  contactTitle?: string;
-
-  @ApiPropertyOptional({ description: 'Primary phone number' })
-  @IsOptional()
-  @IsPhoneNumber()
+  @MaxLength(20)
   phone?: string;
-
-  @ApiPropertyOptional({ description: 'Alternative phone number' })
-  @IsOptional()
-  @IsPhoneNumber()
-  alternativePhone?: string;
-
-  @ApiPropertyOptional({ description: 'Fax number', maxLength: 20 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  fax?: string;
-
-  @ApiPropertyOptional({ description: 'Website URL', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  website?: string;
-
-  @ApiPropertyOptional({ description: 'Tax ID', maxLength: 30 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  taxId?: string;
-
-  @ApiPropertyOptional({ description: 'Address' })
-  @IsOptional()
-  @IsString()
-  address?: string;
-
-  @ApiPropertyOptional({ description: 'City', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  city?: string;
-
-  @ApiPropertyOptional({ description: 'State/province', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  state?: string;
-
-  @ApiPropertyOptional({ description: 'Postal code', maxLength: 20 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  postalCode?: string;
-
-  @ApiPropertyOptional({ description: 'Country', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  country?: string;
-
-  @ApiPropertyOptional({ description: 'Preferred currency', default: 'USD' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  currency?: string;
-
-  @ApiPropertyOptional({ description: 'Product categories', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  categories?: string[];
-
-  @ApiPropertyOptional({ description: 'Certifications', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  certifications?: string[];
 
   @ApiPropertyOptional({ description: 'Internal notes' })
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @ApiPropertyOptional({ description: 'Additional metadata' })
-  @IsOptional()
-  metadata?: Record<string, any>;
 }
 
 export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {
@@ -191,29 +110,8 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Contact person name' })
   contactPerson?: string;
 
-  @ApiProperty({ description: 'Contact person title' })
-  contactTitle?: string;
-
   @ApiProperty({ description: 'Primary phone number' })
   phone?: string;
-
-  @ApiProperty({ description: 'Alternative phone number' })
-  alternativePhone?: string;
-
-  @ApiProperty({ description: 'Fax number' })
-  fax?: string;
-
-  @ApiProperty({ description: 'Website URL' })
-  website?: string;
-
-  @ApiProperty({ description: 'Tax ID' })
-  taxId?: string;
-
-  @ApiProperty({ description: 'Full address' })
-  fullAddress!: string;
-
-  @ApiProperty({ description: 'Currency' })
-  currency!: string;
 
   @ApiProperty({ description: 'Total purchases amount' })
   totalPurchases!: number;
@@ -229,12 +127,6 @@ export class SupplierResponseDto {
 
   @ApiProperty({ description: 'First purchase date' })
   firstPurchaseDate?: Date;
-
-  @ApiProperty({ description: 'Product categories', type: [String] })
-  categories?: string[];
-
-  @ApiProperty({ description: 'Certifications', type: [String] })
-  certifications?: string[];
 
   @ApiProperty({ description: 'Internal notes' })
   notes?: string;
