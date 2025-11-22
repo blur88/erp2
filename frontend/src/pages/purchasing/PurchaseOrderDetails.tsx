@@ -263,7 +263,7 @@ const PurchaseOrderDetails: React.FC = () => {
       <Grid container spacing={3}>
         {/* Order Information */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
               fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
               fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
@@ -302,7 +302,7 @@ const PurchaseOrderDetails: React.FC = () => {
 
         {/* Supplier Information */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
               fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
               fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
