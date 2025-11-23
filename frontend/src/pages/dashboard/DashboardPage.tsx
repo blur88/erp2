@@ -232,7 +232,7 @@ const DashboardPage: React.FC = () => {
         fetch('/api/purchasing/suppliers?limit=100'),
         fetch('/api/inventory/products/dashboard-stats'),
         fetch('/api/inventory/products/out-of-stock'),
-        fetch('/api/payments?limit=100&sortBy=paymentDate&sortOrder=desc')
+        fetch('/api/payments?limit=100')
       ])
 
       // Process Sales Data
