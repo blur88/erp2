@@ -861,10 +861,9 @@ const DashboardPage: React.FC = () => {
         ))}
       </Grid>
 
-      {/* Charts Row */}
+      {/* Business Performance Chart - Full Width */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Sales vs Purchases Trend with Filters */}
-        <Grid item xs={12} lg={8}>
+        <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}>
               Business Performance
@@ -944,25 +943,8 @@ const DashboardPage: React.FC = () => {
               </FormControl>
             </Box>
 
-            <Box sx={{ height: 350 }}>
+            <Box sx={{ height: 450 }}>
               <Line data={chartData} options={chartOptions} />
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Stock Health */}
-        <Grid item xs={12} lg={4}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Stock Health
-            </Typography>
-            <Box sx={{ height: 250 }}>
-              <Doughnut data={stockHealthData} options={doughnutOptions} />
-            </Box>
-            <Box sx={{ mt: 2, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                {dashboardData?.inventory.totalProducts || 0} products • {dashboardData?.inventory.totalCategories || 0} categories
-              </Typography>
             </Box>
           </Paper>
         </Grid>
@@ -1173,10 +1155,10 @@ const DashboardPage: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Bottom Row - Top Products, Top Suppliers, Low Stock */}
+      {/* Bottom Row - Top Products, Top Suppliers, Stock Health, Low Stock */}
       <Grid container spacing={3}>
         {/* Top Products */}
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Top Selling Products
@@ -1229,7 +1211,7 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Top Suppliers */}
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Top Suppliers
@@ -1281,8 +1263,25 @@ const DashboardPage: React.FC = () => {
           </Paper>
         </Grid>
 
+        {/* Stock Health */}
+        <Grid item xs={12} sm={6} lg={3}>
+          <Paper sx={{ p: 3, height: '100%' }}>
+            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}>
+              Stock Health
+            </Typography>
+            <Box sx={{ height: 150 }}>
+              <Doughnut data={stockHealthData} options={doughnutOptions} />
+            </Box>
+            <Box sx={{ mt: 1, textAlign: 'center' }}>
+              <Typography variant="caption" color="text.secondary">
+                {dashboardData?.inventory.totalProducts || 0} products • {dashboardData?.inventory.totalCategories || 0} categories
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+
         {/* Low Stock Alerts */}
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
