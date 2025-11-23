@@ -815,19 +815,20 @@ const DashboardPage: React.FC = () => {
             </Typography>
 
             {/* Chart Filters */}
-            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
               {/* Lines Multi-Select */}
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Lines</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Lines</InputLabel>
                 <Select
                   multiple
                   value={chartFilters.selectedLines}
                   onChange={handleLineChange}
-                  input={<OutlinedInput label="Lines" />}
+                  input={<OutlinedInput label="Lines" sx={{ fontSize: '0.75rem' }} />}
                   renderValue={(selected) => {
                     if (selected.includes('all')) return 'All'
                     return selected.map(s => LINE_OPTIONS.find(o => o.value === s)?.label).join(', ')
                   }}
+                  sx={{ fontSize: '0.75rem', '& .MuiSelect-select': { py: 0.75 } }}
                   MenuProps={{
                     PaperProps: {
                       style: {
@@ -837,9 +838,9 @@ const DashboardPage: React.FC = () => {
                   }}
                 >
                   {LINE_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      <Checkbox checked={chartFilters.selectedLines.includes(option.value)} />
-                      <ListItemText primary={option.label} />
+                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem', py: 0.5 }}>
+                      <Checkbox checked={chartFilters.selectedLines.includes(option.value)} size="small" sx={{ p: 0.5 }} />
+                      <ListItemText primary={option.label} primaryTypographyProps={{ fontSize: '0.75rem' }} />
                     </MenuItem>
                   ))}
                 </Select>
@@ -852,8 +853,9 @@ const DashboardPage: React.FC = () => {
                 size="small"
                 value={chartFilters.startDate}
                 onChange={(e) => setChartFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: 150 }}
+                InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
+                sx={{ minWidth: 130 }}
               />
 
               {/* End Date */}
@@ -863,20 +865,22 @@ const DashboardPage: React.FC = () => {
                 size="small"
                 value={chartFilters.endDate}
                 onChange={(e) => setChartFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: 150 }}
+                InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
+                sx={{ minWidth: 130 }}
               />
 
               {/* Group By */}
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Group By</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Group By</InputLabel>
                 <Select
                   value={chartFilters.groupBy}
                   onChange={(e) => setChartFilters(prev => ({ ...prev, groupBy: e.target.value as any }))}
                   label="Group By"
+                  sx={{ fontSize: '0.75rem', '& .MuiSelect-select': { py: 0.75 } }}
                 >
                   {GROUP_BY_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
+                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
                       {option.label}
                     </MenuItem>
                   ))}
