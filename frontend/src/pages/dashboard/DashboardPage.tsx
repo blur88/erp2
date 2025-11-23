@@ -13,10 +13,8 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Avatar,
   useTheme,
   CircularProgress,
-  LinearProgress,
   Alert,
 } from '@mui/material'
 import {
@@ -675,14 +673,9 @@ const DashboardPage: React.FC = () => {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                              {order.customer?.name?.charAt(0) || 'U'}
-                            </Avatar>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {order.customer?.name || 'Unknown'}
-                            </Typography>
-                          </Box>
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            {order.customer?.name || 'Unknown'}
+                          </Typography>
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="success.main" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
