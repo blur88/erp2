@@ -24,6 +24,7 @@ import {
   Checkbox,
   ListItemText,
   TextField,
+  Divider,
 } from '@mui/material'
 import {
   TrendingUp as TrendingUpIcon,
@@ -143,10 +144,22 @@ interface DashboardData {
 
 interface ChartFilters {
   selectedLines: string[]
-  startDate: string
-  endDate: string
+  dateFilter: string
+  customFromDate: string
+  customToDate: string
   groupBy: 'days' | 'weeks' | 'months' | 'years'
 }
+
+// Date filter options
+const DATE_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'this_year', label: 'This Year' },
+  { value: 'custom', label: 'Custom Date Range' },
+]
 
 const DashboardPage: React.FC = () => {
   const theme = useTheme()
@@ -158,10 +171,43 @@ const DashboardPage: React.FC = () => {
   // Chart filter states
   const [chartFilters, setChartFilters] = useState<ChartFilters>({
     selectedLines: ['sales_completed', 'cogs', 'sales_profit'],
-    startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    endDate: format(new Date(), 'yyyy-MM-dd'),
+    dateFilter: 'this_week',
+    customFromDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    customToDate: format(new Date(), 'yyyy-MM-dd'),
     groupBy: 'days'
   })
+
+  // Get date range based on filter selection
+  const getDateRange = (filter: string) => {
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    // Use Monday as start of week
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const yearStart = new Date(today.getFullYear(), 0, 1)
+
+    const formatDate = (date: Date) => format(date, 'yyyy-MM-dd')
+
+    switch (filter) {
+      case 'today':
+        return { startDate: formatDate(today), endDate: formatDate(today) }
+      case 'yesterday':
+        return { startDate: formatDate(yesterday), endDate: formatDate(yesterday) }
+      case 'this_week':
+        return { startDate: formatDate(weekStart), endDate: formatDate(today) }
+      case 'this_month':
+        return { startDate: formatDate(monthStart), endDate: formatDate(today) }
+      case 'this_year':
+        return { startDate: formatDate(yearStart), endDate: formatDate(today) }
+      case 'custom':
+        return { startDate: chartFilters.customFromDate, endDate: chartFilters.customToDate }
+      default: // 'all'
+        return { startDate: format(subDays(today, 365), 'yyyy-MM-dd'), endDate: formatDate(today) }
+    }
+  }
 
   useEffect(() => {
     fetchDashboardData()
@@ -432,9 +478,10 @@ const DashboardPage: React.FC = () => {
   const chartData = useMemo(() => {
     if (!dashboardData) return { labels: [], datasets: [] }
 
-    const { selectedLines, startDate, endDate, groupBy } = chartFilters
-    const start = new Date(startDate)
-    const end = new Date(endDate)
+    const { selectedLines, groupBy } = chartFilters
+    const dateRange = getDateRange(chartFilters.dateFilter)
+    const start = new Date(dateRange.startDate)
+    const end = new Date(dateRange.endDate)
 
     // If 'all' is selected, use all line types except 'all'
     const linesToShow = selectedLines.includes('all')
@@ -451,7 +498,7 @@ const DashboardPage: React.FC = () => {
         formatPattern = 'MMM dd'
         break
       case 'weeks':
-        periods = eachWeekOfInterval({ start, end })
+        periods = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 })
         formatPattern = "'W'w MMM"
         break
       case 'months':
@@ -475,7 +522,7 @@ const DashboardPage: React.FC = () => {
             periodEnd = endOfDay(periodStart)
             break
           case 'weeks':
-            periodEnd = endOfWeek(periodStart)
+            periodEnd = endOfWeek(periodStart, { weekStartsOn: 1 })
             break
           case 'months':
             periodEnd = endOfMonth(periodStart)
@@ -901,29 +948,52 @@ const DashboardPage: React.FC = () => {
                 </Select>
               </FormControl>
 
-              {/* Start Date */}
-              <TextField
-                label="Start Date"
-                type="date"
-                size="small"
-                value={chartFilters.startDate}
-                onChange={(e) => setChartFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
-                sx={{ minWidth: 130 }}
-              />
+              {/* Date Filter */}
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Date Filter</InputLabel>
+                <Select
+                  value={chartFilters.dateFilter}
+                  onChange={(e) => setChartFilters(prev => ({ ...prev, dateFilter: e.target.value }))}
+                  label="Date Filter"
+                  sx={{ fontSize: '0.75rem', '& .MuiSelect-select': { py: 0.75 } }}
+                >
+                  {DATE_FILTER_OPTIONS.slice(0, 6).map((option) => (
+                    <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem' }}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                  <Divider />
+                  <MenuItem value="custom" sx={{ fontSize: '0.75rem' }}>
+                    Custom Date Range
+                  </MenuItem>
+                </Select>
+              </FormControl>
 
-              {/* End Date */}
-              <TextField
-                label="End Date"
-                type="date"
-                size="small"
-                value={chartFilters.endDate}
-                onChange={(e) => setChartFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
-                sx={{ minWidth: 130 }}
-              />
+              {/* Custom Date Range - only show when custom is selected */}
+              {chartFilters.dateFilter === 'custom' && (
+                <>
+                  <TextField
+                    label="From Date"
+                    type="date"
+                    size="small"
+                    value={chartFilters.customFromDate}
+                    onChange={(e) => setChartFilters(prev => ({ ...prev, customFromDate: e.target.value }))}
+                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                    InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
+                    sx={{ minWidth: 130 }}
+                  />
+                  <TextField
+                    label="To Date"
+                    type="date"
+                    size="small"
+                    value={chartFilters.customToDate}
+                    onChange={(e) => setChartFilters(prev => ({ ...prev, customToDate: e.target.value }))}
+                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
+                    InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
+                    sx={{ minWidth: 130 }}
+                  />
+                </>
+              )}
 
               {/* Group By */}
               <FormControl size="small" sx={{ minWidth: 100 }}>
