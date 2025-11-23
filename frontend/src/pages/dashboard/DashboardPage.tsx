@@ -157,7 +157,7 @@ const DashboardPage: React.FC = () => {
 
   // Chart filter states
   const [chartFilters, setChartFilters] = useState<ChartFilters>({
-    selectedLines: ['sales_completed', 'purchase_orders'],
+    selectedLines: ['sales_completed', 'cogs', 'sales_profit'],
     startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
     groupBy: 'days'
@@ -588,7 +588,13 @@ const DashboardPage: React.FC = () => {
       }
     })
 
-    return { labels, datasets }
+    // Calculate totals for each dataset
+    const datasetsWithTotals = datasets.map(ds => ({
+      ...ds,
+      total: ds.data.reduce((sum: number, val: number) => sum + val, 0)
+    }))
+
+    return { labels, datasets: datasetsWithTotals }
   }, [dashboardData, chartFilters, theme])
 
   const handleLineChange = (event: any) => {
@@ -623,21 +629,71 @@ const DashboardPage: React.FC = () => {
     ]
   }
 
+  // Calculate max value from chart data to determine if we need extra headroom for legend
+  const chartMaxValue = useMemo(() => {
+    if (!chartData.datasets.length) return 0
+    const allValues = chartData.datasets.flatMap((ds: any) => ds.data)
+    return Math.max(...allValues, 0)
+  }, [chartData])
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: {
+      padding: {
+        top: 10,
+        right: 10
+      }
+    },
     plugins: {
       legend: {
-        position: 'top' as const,
+        position: 'chartArea' as const,
+        align: 'start' as const,
+        labels: {
+          boxWidth: 10,
+          boxHeight: 10,
+          padding: 6,
+          font: {
+            size: 10
+          },
+          color: theme.palette.text.primary,
+          generateLabels: (chart: any) => {
+            const datasets = chart.data.datasets
+            return datasets.map((dataset: any, i: number) => ({
+              text: `${dataset.label}: ${formatCurrency(dataset.total || 0)}`,
+              fillStyle: dataset.borderColor,
+              strokeStyle: dataset.borderColor,
+              fontColor: theme.palette.text.primary,
+              lineWidth: 2,
+              hidden: !chart.isDatasetVisible(i),
+              index: i,
+              datasetIndex: i
+            }))
+          }
+        }
       }
     },
     scales: {
       y: {
         beginAtZero: true,
+        // Add 30% headroom above max value to prevent legend overlap
+        max: chartMaxValue > 0 ? Math.ceil(chartMaxValue * 1.3) : undefined,
         ticks: {
+          color: theme.palette.text.secondary,
           callback: function(value: any) {
             return formatCurrency(value)
           }
+        },
+        grid: {
+          color: theme.palette.divider
+        }
+      },
+      x: {
+        ticks: {
+          color: theme.palette.text.secondary
+        },
+        grid: {
+          color: theme.palette.divider
         }
       }
     }
