@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   Grid,
@@ -16,6 +16,14 @@ import {
   useTheme,
   CircularProgress,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  OutlinedInput,
+  Checkbox,
+  ListItemText,
+  TextField,
 } from '@mui/material'
 import {
   TrendingUp as TrendingUpIcon,
@@ -24,8 +32,6 @@ import {
   PointOfSale as SalesIcon,
   Assignment as PurchasingIcon,
   People as CustomersIcon,
-  LocalShipping as SuppliersIcon,
-  Receipt as OrdersIcon,
   Warning as WarningIcon,
   Dashboard as DashboardIcon,
 } from '@mui/icons-material'
@@ -43,7 +49,7 @@ import {
   Filler
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
-import { format } from 'date-fns'
+import { format, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachYearOfInterval, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, subDays } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
@@ -60,6 +66,41 @@ ChartJS.register(
   ArcElement,
   Filler
 )
+
+// Chart line options
+const LINE_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'sales_completed', label: 'Sales Completed' },
+  { value: 'cogs', label: 'Cost of Goods Sold' },
+  { value: 'sales_profit', label: 'Sales Profit' },
+  { value: 'sales_orders', label: 'Sales Orders' },
+  { value: 'purchase_orders', label: 'Purchase Orders' },
+  { value: 'cash_in', label: 'Cash In' },
+  { value: 'cash_out', label: 'Cash Out' },
+  { value: 'net_cash_flow', label: 'Net Cash Flow' },
+  { value: 'inventory_value', label: 'Cost Value of Inventory' },
+]
+
+// Group by options
+const GROUP_BY_OPTIONS = [
+  { value: 'days', label: 'Days' },
+  { value: 'weeks', label: 'Weeks' },
+  { value: 'months', label: 'Months' },
+  { value: 'years', label: 'Years' },
+]
+
+// Line colors mapping
+const LINE_COLORS: { [key: string]: string } = {
+  sales_completed: '#4caf50',
+  cogs: '#f44336',
+  sales_profit: '#2196f3',
+  sales_orders: '#9c27b0',
+  purchase_orders: '#ff9800',
+  cash_in: '#00bcd4',
+  cash_out: '#e91e63',
+  net_cash_flow: '#3f51b5',
+  inventory_value: '#795548',
+}
 
 interface DashboardData {
   sales: {
@@ -92,6 +133,19 @@ interface DashboardData {
       outOfStockPercentage: number
     }
   }
+  rawData: {
+    salesOrders: any[]
+    purchaseOrders: any[]
+    payments: any[]
+    inventoryValue: number
+  }
+}
+
+interface ChartFilters {
+  selectedLines: string[]
+  startDate: string
+  endDate: string
+  groupBy: 'days' | 'weeks' | 'months' | 'years'
 }
 
 const DashboardPage: React.FC = () => {
@@ -100,6 +154,14 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+
+  // Chart filter states
+  const [chartFilters, setChartFilters] = useState<ChartFilters>({
+    selectedLines: ['sales_completed', 'purchase_orders'],
+    startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    endDate: format(new Date(), 'yyyy-MM-dd'),
+    groupBy: 'days'
+  })
 
   useEffect(() => {
     fetchDashboardData()
@@ -116,13 +178,15 @@ const DashboardPage: React.FC = () => {
         purchaseOrdersRes,
         suppliersRes,
         inventoryStatsRes,
-        outOfStockRes
+        outOfStockRes,
+        paymentsRes
       ] = await Promise.all([
-        fetch('/api/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc'),
-        fetch('/api/purchasing/orders?limit=100&sortBy=orderDate&sortOrder=DESC'),
+        fetch('/api/sales-orders?limit=500&sortBy=orderDate&sortOrder=desc'),
+        fetch('/api/purchasing/orders?limit=500&sortBy=orderDate&sortOrder=DESC'),
         fetch('/api/purchasing/suppliers?limit=100'),
         fetch('/api/inventory/products/dashboard-stats'),
-        fetch('/api/inventory/products/out-of-stock')
+        fetch('/api/inventory/products/out-of-stock'),
+        fetch('/api/payments?limit=500&sortBy=paymentDate&sortOrder=desc')
       ])
 
       // Process Sales Data
@@ -156,6 +220,13 @@ const DashboardPage: React.FC = () => {
       let outOfStock: any[] = []
       if (outOfStockRes.ok) {
         outOfStock = await outOfStockRes.json()
+      }
+
+      // Process Payments
+      let payments: any[] = []
+      if (paymentsRes.ok) {
+        const result = await paymentsRes.json()
+        payments = result.data || []
       }
 
       // Calculate Sales Metrics
@@ -341,6 +412,12 @@ const DashboardPage: React.FC = () => {
             inStockPercentage: 100,
             outOfStockPercentage: 0
           }
+        },
+        rawData: {
+          salesOrders,
+          purchaseOrders,
+          payments,
+          inventoryValue: inventoryStats?.inventoryValue || 0
         }
       })
     } catch (err) {
@@ -351,30 +428,181 @@ const DashboardPage: React.FC = () => {
     }
   }
 
-  // Chart configurations
-  const salesVsPurchasingData = {
-    labels: dashboardData?.sales.periodData?.map((item: any) => {
-      const date = new Date(item.period)
-      return format(date, 'MMM dd')
-    }) || [],
-    datasets: [
-      {
-        label: 'Sales',
-        data: dashboardData?.sales.periodData?.map((item: any) => item.revenue) || [],
-        borderColor: theme.palette.success.main,
-        backgroundColor: `${theme.palette.success.main}20`,
+  // Generate chart data based on filters
+  const chartData = useMemo(() => {
+    if (!dashboardData) return { labels: [], datasets: [] }
+
+    const { selectedLines, startDate, endDate, groupBy } = chartFilters
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+
+    // If 'all' is selected, use all line types except 'all'
+    const linesToShow = selectedLines.includes('all')
+      ? LINE_OPTIONS.filter(o => o.value !== 'all').map(o => o.value)
+      : selectedLines
+
+    // Generate periods based on groupBy
+    let periods: Date[] = []
+    let formatPattern = 'MMM dd'
+
+    switch (groupBy) {
+      case 'days':
+        periods = eachDayOfInterval({ start, end })
+        formatPattern = 'MMM dd'
+        break
+      case 'weeks':
+        periods = eachWeekOfInterval({ start, end })
+        formatPattern = "'W'w MMM"
+        break
+      case 'months':
+        periods = eachMonthOfInterval({ start, end })
+        formatPattern = 'MMM yyyy'
+        break
+      case 'years':
+        periods = eachYearOfInterval({ start, end })
+        formatPattern = 'yyyy'
+        break
+    }
+
+    const labels = periods.map(p => format(p, formatPattern))
+
+    // Calculate data for each line type
+    const datasets = linesToShow.map(lineType => {
+      const data = periods.map(periodStart => {
+        let periodEnd: Date
+        switch (groupBy) {
+          case 'days':
+            periodEnd = endOfDay(periodStart)
+            break
+          case 'weeks':
+            periodEnd = endOfWeek(periodStart)
+            break
+          case 'months':
+            periodEnd = endOfMonth(periodStart)
+            break
+          case 'years':
+            periodEnd = endOfYear(periodStart)
+            break
+        }
+
+        const interval = { start: periodStart, end: periodEnd }
+
+        switch (lineType) {
+          case 'sales_completed': {
+            const filteredOrders = dashboardData.rawData.salesOrders.filter((o: any) => {
+              const orderDate = new Date(o.orderDate)
+              return isWithinInterval(orderDate, interval) && o.isFulfilled
+            })
+            return filteredOrders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)
+          }
+          case 'cogs': {
+            // Cost of goods sold - estimate based on sales items
+            const filteredOrders = dashboardData.rawData.salesOrders.filter((o: any) => {
+              const orderDate = new Date(o.orderDate)
+              return isWithinInterval(orderDate, interval)
+            })
+            return filteredOrders.reduce((sum: number, o: any) => {
+              const orderCost = o.items?.reduce((itemSum: number, item: any) => {
+                const cost = parseFloat(item.product?.baseCost || item.costPrice || 0) * (parseInt(item.quantity) || 0)
+                return itemSum + cost
+              }, 0) || 0
+              return sum + orderCost
+            }, 0)
+          }
+          case 'sales_profit': {
+            const filteredOrders = dashboardData.rawData.salesOrders.filter((o: any) => {
+              const orderDate = new Date(o.orderDate)
+              return isWithinInterval(orderDate, interval)
+            })
+            return filteredOrders.reduce((sum: number, o: any) => {
+              const revenue = o.totalAmount || 0
+              const cost = o.items?.reduce((itemSum: number, item: any) => {
+                const itemCost = parseFloat(item.product?.baseCost || item.costPrice || 0) * (parseInt(item.quantity) || 0)
+                return itemSum + itemCost
+              }, 0) || 0
+              return sum + (revenue - cost)
+            }, 0)
+          }
+          case 'sales_orders': {
+            const filteredOrders = dashboardData.rawData.salesOrders.filter((o: any) => {
+              const orderDate = new Date(o.orderDate)
+              return isWithinInterval(orderDate, interval)
+            })
+            return filteredOrders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)
+          }
+          case 'purchase_orders': {
+            const filteredOrders = dashboardData.rawData.purchaseOrders.filter((o: any) => {
+              const orderDate = new Date(o.orderDate)
+              return isWithinInterval(orderDate, interval)
+            })
+            return filteredOrders.reduce((sum: number, o: any) => sum + (parseFloat(o.totalAmount) || 0), 0)
+          }
+          case 'cash_in': {
+            const filteredPayments = dashboardData.rawData.payments.filter((p: any) => {
+              const paymentDate = new Date(p.paymentDate)
+              return isWithinInterval(paymentDate, interval)
+            })
+            return filteredPayments.reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0)
+          }
+          case 'cash_out': {
+            // Cash out - purchase order payments (simplified)
+            const filteredOrders = dashboardData.rawData.purchaseOrders.filter((o: any) => {
+              const orderDate = new Date(o.orderDate)
+              return isWithinInterval(orderDate, interval) && o.isFullyReceived
+            })
+            return filteredOrders.reduce((sum: number, o: any) => sum + (parseFloat(o.totalAmount) || 0), 0)
+          }
+          case 'net_cash_flow': {
+            // Cash in minus cash out
+            const cashIn = dashboardData.rawData.payments.filter((p: any) => {
+              const paymentDate = new Date(p.paymentDate)
+              return isWithinInterval(paymentDate, interval)
+            }).reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0)
+
+            const cashOut = dashboardData.rawData.purchaseOrders.filter((o: any) => {
+              const orderDate = new Date(o.orderDate)
+              return isWithinInterval(orderDate, interval) && o.isFullyReceived
+            }).reduce((sum: number, o: any) => sum + (parseFloat(o.totalAmount) || 0), 0)
+
+            return cashIn - cashOut
+          }
+          case 'inventory_value': {
+            // Show current inventory value (static for each period in this simplified version)
+            return dashboardData.rawData.inventoryValue
+          }
+          default:
+            return 0
+        }
+      })
+
+      const lineOption = LINE_OPTIONS.find(o => o.value === lineType)
+      const color = LINE_COLORS[lineType] || theme.palette.primary.main
+
+      return {
+        label: lineOption?.label || lineType,
+        data,
+        borderColor: color,
+        backgroundColor: `${color}20`,
         tension: 0.4,
-        fill: true
-      },
-      {
-        label: 'Purchases',
-        data: dashboardData?.purchasing.periodData?.map((item: any) => item.spent) || [],
-        borderColor: theme.palette.warning.main,
-        backgroundColor: `${theme.palette.warning.main}20`,
-        tension: 0.4,
-        fill: true
+        fill: false
       }
-    ]
+    })
+
+    return { labels, datasets }
+  }, [dashboardData, chartFilters, theme])
+
+  const handleLineChange = (event: any) => {
+    const value = event.target.value as string[]
+
+    // If 'all' is being selected, clear other selections
+    if (value.includes('all') && !chartFilters.selectedLines.includes('all')) {
+      setChartFilters(prev => ({ ...prev, selectedLines: ['all'] }))
+    } else if (chartFilters.selectedLines.includes('all') && value.length > 1) {
+      // If something else is selected while 'all' is active, remove 'all'
+      setChartFilters(prev => ({ ...prev, selectedLines: value.filter(v => v !== 'all') }))
+    } else {
+      setChartFilters(prev => ({ ...prev, selectedLines: value }))
+    }
   }
 
   const stockHealthData = {
@@ -579,21 +807,92 @@ const DashboardPage: React.FC = () => {
 
       {/* Charts Row */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Sales vs Purchases Trend */}
+        {/* Sales vs Purchases Trend with Filters */}
         <Grid item xs={12} lg={8}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Sales vs Purchases (Last 30 Days)
+          <Paper sx={{ p: 3 }}>
+            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}>
+              Business Performance
             </Typography>
-            <Box sx={{ height: 300 }}>
-              <Line data={salesVsPurchasingData} options={chartOptions} />
+
+            {/* Chart Filters */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+              {/* Lines Multi-Select */}
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Lines</InputLabel>
+                <Select
+                  multiple
+                  value={chartFilters.selectedLines}
+                  onChange={handleLineChange}
+                  input={<OutlinedInput label="Lines" />}
+                  renderValue={(selected) => {
+                    if (selected.includes('all')) return 'All'
+                    return selected.map(s => LINE_OPTIONS.find(o => o.value === s)?.label).join(', ')
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
+                >
+                  {LINE_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      <Checkbox checked={chartFilters.selectedLines.includes(option.value)} />
+                      <ListItemText primary={option.label} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Start Date */}
+              <TextField
+                label="Start Date"
+                type="date"
+                size="small"
+                value={chartFilters.startDate}
+                onChange={(e) => setChartFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 150 }}
+              />
+
+              {/* End Date */}
+              <TextField
+                label="End Date"
+                type="date"
+                size="small"
+                value={chartFilters.endDate}
+                onChange={(e) => setChartFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 150 }}
+              />
+
+              {/* Group By */}
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Group By</InputLabel>
+                <Select
+                  value={chartFilters.groupBy}
+                  onChange={(e) => setChartFilters(prev => ({ ...prev, groupBy: e.target.value as any }))}
+                  label="Group By"
+                >
+                  {GROUP_BY_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Box sx={{ height: 350 }}>
+              <Line data={chartData} options={chartOptions} />
             </Box>
           </Paper>
         </Grid>
 
         {/* Stock Health */}
         <Grid item xs={12} lg={4}>
-          <Paper sx={{ p: 3, height: 400 }}>
+          <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Stock Health
             </Typography>
