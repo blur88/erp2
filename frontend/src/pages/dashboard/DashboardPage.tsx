@@ -227,12 +227,12 @@ const DashboardPage: React.FC = () => {
         outOfStockRes,
         paymentsRes
       ] = await Promise.all([
-        fetch('/api/sales-orders?limit=500&sortBy=orderDate&sortOrder=desc'),
-        fetch('/api/purchasing/orders?limit=500&sortBy=orderDate&sortOrder=DESC'),
+        fetch('/api/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc'),
+        fetch('/api/purchasing/orders?limit=100&sortBy=orderDate&sortOrder=DESC'),
         fetch('/api/purchasing/suppliers?limit=100'),
         fetch('/api/inventory/products/dashboard-stats'),
         fetch('/api/inventory/products/out-of-stock'),
-        fetch('/api/payments?limit=500&sortBy=paymentDate&sortOrder=desc')
+        fetch('/api/payments?limit=100&sortBy=paymentDate&sortOrder=desc')
       ])
 
       // Process Sales Data
