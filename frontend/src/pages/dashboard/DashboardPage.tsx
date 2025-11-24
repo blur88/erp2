@@ -645,7 +645,7 @@ const DashboardPage: React.FC = () => {
         data,
         borderColor: color,
         backgroundColor: `${color}20`,
-        tension: 0.4,
+        tension: 0,
         fill: false
       }
     })
