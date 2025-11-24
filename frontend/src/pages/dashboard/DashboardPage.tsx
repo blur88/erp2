@@ -178,6 +178,7 @@ const DashboardPage: React.FC = () => {
   })
 
   // Get date range based on filter selection
+  // Shows full date range including future dates for this_week, this_month, this_year
   const getDateRange = (filter: string) => {
     const today = new Date()
     const yesterday = new Date(today)
@@ -185,9 +186,13 @@ const DashboardPage: React.FC = () => {
 
     // Use Monday as start of week
     const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1 })
 
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const monthEnd = endOfMonth(today)
+
     const yearStart = new Date(today.getFullYear(), 0, 1)
+    const yearEnd = endOfYear(today)
 
     const formatDate = (date: Date) => format(date, 'yyyy-MM-dd')
 
@@ -197,11 +202,11 @@ const DashboardPage: React.FC = () => {
       case 'yesterday':
         return { startDate: formatDate(yesterday), endDate: formatDate(yesterday) }
       case 'this_week':
-        return { startDate: formatDate(weekStart), endDate: formatDate(today) }
+        return { startDate: formatDate(weekStart), endDate: formatDate(weekEnd) }
       case 'this_month':
-        return { startDate: formatDate(monthStart), endDate: formatDate(today) }
+        return { startDate: formatDate(monthStart), endDate: formatDate(monthEnd) }
       case 'this_year':
-        return { startDate: formatDate(yearStart), endDate: formatDate(today) }
+        return { startDate: formatDate(yearStart), endDate: formatDate(yearEnd) }
       case 'custom':
         return { startDate: chartFilters.customFromDate, endDate: chartFilters.customToDate }
       default: // 'all'
