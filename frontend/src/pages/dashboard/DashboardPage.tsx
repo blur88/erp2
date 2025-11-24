@@ -781,6 +781,7 @@ const DashboardPage: React.FC = () => {
       x: {
         type: 'time' as const,
         time: {
+          unit: chartFilters.groupBy === 'days' ? 'day' : chartFilters.groupBy === 'weeks' ? 'week' : chartFilters.groupBy === 'months' ? 'month' : 'year',
           displayFormats: {
             hour: 'MMM dd HH:mm',
             day: 'MMM dd',
