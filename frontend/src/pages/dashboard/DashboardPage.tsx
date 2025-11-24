@@ -723,6 +723,15 @@ const DashboardPage: React.FC = () => {
             }))
           }
         }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const label = context.dataset.label || ''
+            const value = context.parsed.y
+            return `${label}: ${formatCurrency(value)}`
+          }
+        }
       }
     },
     scales: {
