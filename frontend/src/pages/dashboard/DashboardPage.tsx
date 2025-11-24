@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Box,
   Grid,
@@ -25,6 +25,7 @@ import {
   ListItemText,
   TextField,
   Divider,
+  Button,
 } from '@mui/material'
 import {
   TrendingUp as TrendingUpIcon,
@@ -40,6 +41,7 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   BarElement,
@@ -49,6 +51,8 @@ import {
   ArcElement,
   Filler
 } from 'chart.js'
+import 'chartjs-adapter-date-fns'
+import zoomPlugin from 'chartjs-plugin-zoom'
 import { Line, Doughnut } from 'react-chartjs-2'
 import { format, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachYearOfInterval, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, subDays } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
@@ -58,6 +62,7 @@ import { useNavigate } from 'react-router-dom'
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   BarElement,
@@ -65,7 +70,8 @@ ChartJS.register(
   Tooltip,
   Legend,
   ArcElement,
-  Filler
+  Filler,
+  zoomPlugin
 )
 
 // Chart line options
@@ -176,6 +182,9 @@ const DashboardPage: React.FC = () => {
     customToDate: format(new Date(), 'yyyy-MM-dd'),
     groupBy: 'days'
   })
+
+  // Chart ref for zoom reset
+  const chartRef = useRef<any>(null)
 
   // Get date range based on filter selection
   // Shows full date range including future dates for this_week, this_month, this_year
@@ -516,7 +525,8 @@ const DashboardPage: React.FC = () => {
         break
     }
 
-    const labels = periods.map(p => format(p, formatPattern))
+    // Use Date objects for time scale (enables hour-level zoom)
+    const labels = periods.map(p => p.getTime())
 
     // Calculate data for each line type
     const datasets = linesToShow.map(lineType => {
@@ -732,13 +742,32 @@ const DashboardPage: React.FC = () => {
             return `${label}: ${formatCurrency(value)}`
           }
         }
+      },
+      zoom: {
+        pan: {
+          enabled: true,
+          mode: 'xy' as const,
+        },
+        zoom: {
+          wheel: {
+            enabled: true,
+            speed: 0.1,
+          },
+          pinch: {
+            enabled: true
+          },
+          drag: {
+            enabled: false
+          },
+          mode: 'xy' as const,
+          scaleMode: 'xy' as const,
+          overScaleMode: undefined,
+        },
       }
     },
     scales: {
       y: {
         beginAtZero: true,
-        // Add 30% headroom above max value to prevent legend overlap
-        max: chartMaxValue > 0 ? Math.ceil(chartMaxValue * 1.3) : undefined,
         ticks: {
           color: theme.palette.text.secondary,
           callback: function(value: any) {
@@ -750,8 +779,20 @@ const DashboardPage: React.FC = () => {
         }
       },
       x: {
+        type: 'time' as const,
+        time: {
+          displayFormats: {
+            hour: 'MMM dd HH:mm',
+            day: 'MMM dd',
+            week: "'W'w MMM",
+            month: 'MMM yyyy',
+            year: 'yyyy'
+          }
+        },
         ticks: {
-          color: theme.palette.text.secondary
+          color: theme.palette.text.secondary,
+          maxRotation: 45,
+          minRotation: 0
         },
         grid: {
           color: theme.palette.divider
@@ -1027,8 +1068,26 @@ const DashboardPage: React.FC = () => {
               </FormControl>
             </Box>
 
-            <Box sx={{ height: 450 }}>
-              <Line data={chartData} options={chartOptions} />
+            <Box sx={{ height: 450, position: 'relative' }}>
+              <Line ref={chartRef} data={chartData} options={chartOptions} />
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => chartRef.current?.resetZoom()}
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  fontSize: '0.7rem',
+                  py: 0.25,
+                  px: 1,
+                  minWidth: 'auto',
+                  opacity: 0.8,
+                  '&:hover': { opacity: 1 }
+                }}
+              >
+                Reset Zoom
+              </Button>
             </Box>
           </Paper>
         </Grid>
