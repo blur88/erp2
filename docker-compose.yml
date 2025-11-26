@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: erp_db
       POSTGRES_USER: erp_user
       POSTGRES_PASSWORD: erp_password
+      TZ: Asia/Kuala_Lumpur
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
@@ -21,6 +22,8 @@ services:
     image: redis:8-alpine3.22
     container_name: erp_redis
     restart: unless-stopped
+    environment:
+      TZ: Asia/Kuala_Lumpur
     command: redis-server --requirepass redis_password
     volumes:
       - redis_data:/data
@@ -49,6 +52,7 @@ services:
       - REDIS_PASSWORD=redis_password
       - JWT_SECRET=your_jwt_secret_key_change_in_production
       - PORT=3001
+      - TZ=Asia/Kuala_Lumpur
     ports:
       - "3001:3001"
     depends_on:
@@ -71,6 +75,7 @@ services:
       # Use relative URLs for VPN compatibility - NGINX will proxy
       - VITE_API_BASE_URL=/api
       - VITE_SOCKET_URL=/
+      - TZ=Asia/Kuala_Lumpur
     ports:
       - "3000:80"
     depends_on:
@@ -83,6 +88,8 @@ services:
     image: nginx:alpine
     container_name: erp_nginx
     restart: unless-stopped
+    environment:
+      TZ: Asia/Kuala_Lumpur
     ports:
       - "80:80"
       - "443:443"

@@ -37,7 +37,6 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
-  Visibility as ViewIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -1105,18 +1104,6 @@ const PurchaseOrdersPage: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                   <IconButton
                     size="small"
-                    title="View Full Details"
-                    onClick={() => navigate(`/purchasing/orders/${selectedOrder.id}`)}
-                    sx={{
-                      height: `${TABLE_STYLES.row.height * 0.75}px`,
-                      width: `${TABLE_STYLES.row.height * 0.75}px`,
-                      color: 'info.main',
-                    }}
-                  >
-                    <ViewIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
                     title="Edit Order"
                     onClick={handleEditClick}
                     sx={{
@@ -1201,7 +1188,7 @@ const PurchaseOrdersPage: React.FC = () => {
                               {formatDate(selectedOrder.orderDate)}
                             </TableCell>
                           </TableRow>
-                                                    <TableRow sx={{ backgroundColor: 'inherit' }}>
+                                                    <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               color: 'text.secondary',
@@ -1236,7 +1223,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                 : '-'}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableRow>
                             <TableCell sx={{
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
                               color: 'text.secondary',
@@ -1373,7 +1360,14 @@ const PurchaseOrdersPage: React.FC = () => {
                                   color={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "error" : "primary"}
                                   sx={{ minWidth: 110 }}
                                   onClick={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? handleUnpay : handlePay}
-                                  disabled={isLoading}
+                                  disabled={
+                                    isLoading ||
+                                    (selectedOrder.vendorPayments &&
+                                     selectedOrder.vendorPayments.length > 0 &&
+                                     selectedOrder.goodsReceivedNotes &&
+                                     selectedOrder.goodsReceivedNotes.length > 0 &&
+                                     selectedOrder.goodsReceivedNotes[0].status === 'received')
+                                  }
                                 >
                                   {(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "Unpay" : "Pay"}
                                 </Button>
@@ -1397,7 +1391,12 @@ const PurchaseOrdersPage: React.FC = () => {
                                     color="success"
                                     sx={{ minWidth: 110 }}
                                     onClick={handleReceive}
-                                    disabled={!selectedOrder?.items || selectedOrder.items.length === 0 || isLoading}
+                                    disabled={
+                                      !selectedOrder?.items ||
+                                      selectedOrder.items.length === 0 ||
+                                      isLoading ||
+                                      !(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0)
+                                    }
                                   >
                                     Receive
                                   </Button>

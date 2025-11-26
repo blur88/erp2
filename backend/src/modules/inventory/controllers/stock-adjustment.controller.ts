@@ -79,7 +79,6 @@ export class StockAdjustmentController {
   @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
   @ApiQuery({ name: 'fromDate', required: false, description: 'Filter from date' })
   @ApiQuery({ name: 'toDate', required: false, description: 'Filter to date' })
-  @ApiQuery({ name: 'adjustedByUserId', required: false, description: 'Filter by user' })
   @ApiQuery({ name: 'search', required: false, description: 'Search term' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, description: 'Sort order (ASC/DESC)' })

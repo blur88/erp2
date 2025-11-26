@@ -1939,7 +1939,7 @@ const OrdersPage: React.FC = () => {
                                     if (isOverpaid) return handleRefundOrder
                                     return selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment
                                   })()}
-                                  disabled={isLoading}
+                                  disabled={isLoading || selectedOrder.isFulfilled}
                                   sx={{ minWidth: 110 }}
                                 >
                                   {(() => {
@@ -2076,7 +2076,7 @@ const OrdersPage: React.FC = () => {
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                             }}>
-                              {item.product?.name || item.productName || 'Unknown Product'}
+                              {item.product?.name || 'Unknown Product'}
                               {item.description && (
                                 <Typography sx={{
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
@@ -2311,7 +2311,7 @@ const OrdersPage: React.FC = () => {
                                   fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
                                 }}>
-                                  {item.product?.name || item.productName || 'Unknown Product'}
+                                  {item.product?.name || 'Unknown Product'}
                                   {item.description && (
                                     <Typography sx={{
                                       fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,

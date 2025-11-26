@@ -855,7 +855,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                           onDelete={() => {
                             setSelectedProducts(prev => prev.filter(id => id !== productId))
                           }}
-                          sx={{ fontSize: '0.7rem' }}
+                          sx={{ fontSize: '0.7rem', height: '20px' }}
                         />
                       )
                     })}
@@ -1202,6 +1202,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                               label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                               color={getStatusColor(row.status) as any}
                               size="small"
+                              sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
                         )}
@@ -1211,6 +1212,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                               label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
                               color={getPaymentStatusColor(row.paymentStatus) as any}
                               size="small"
+                              sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
                         )}

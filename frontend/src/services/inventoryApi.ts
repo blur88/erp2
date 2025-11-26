@@ -206,10 +206,9 @@ export const inventoryApi = {
     }>(`/inventory/categories/${id}/stats`)
   },
 
-  async moveCategory(id: string, newParentId: string | null, sortOrder?: number) {
+  async moveCategory(id: string, newParentId: string | null) {
     return ApiService.patch<Category>(`/inventory/categories/${id}/move`, {
-      newParentId,
-      sortOrder
+      newParentId
     })
   },
 
@@ -217,7 +216,6 @@ export const inventoryApi = {
     id: string
     name?: string
     isActive?: boolean
-    sortOrder?: number
     parentId?: string
   }>) {
     return ApiService.post<{ message: string }>('/inventory/categories/bulk-update', {
@@ -235,7 +233,6 @@ export const inventoryApi = {
     status?: string
     fromDate?: string
     toDate?: string
-    adjustedByUserId?: string
   }) {
     return ApiService.get<PaginatedResponse<StockAdjustment>>('/inventory/stock-adjustments', { params })
   },

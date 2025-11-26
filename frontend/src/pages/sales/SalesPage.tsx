@@ -89,7 +89,7 @@ const SalesPage: React.FC = () => {
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach((item: any) => {
             const productId = item.product?.id || item.productId
-            const productName = item.product?.name || item.productName || 'Unknown Product'
+            const productName = item.product?.name || 'Unknown Product'
             const revenue = parseFloat(item.totalAmount) || (parseFloat(item.quantity) * parseFloat(item.unitPrice)) || 0
             const quantity = parseInt(item.quantity) || 0
 

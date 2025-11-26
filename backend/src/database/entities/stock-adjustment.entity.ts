@@ -32,7 +32,6 @@ export enum StockAdjustmentStatus {
 @Index(['adjustmentNumber'])
 @Index(['status'])
 @Index(['adjustmentDate'])
-@Index(['adjustedByUserId'])
 export class StockAdjustment extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -87,24 +86,7 @@ export class StockAdjustment extends BaseEntity {
   @Min(0)
   totalValue: number;
 
-  // Foreign Keys
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who created this adjustment',
-  })
-  @IsOptional()
-  @IsUUID(4)
-  adjustedByUserId?: string;
-
   // Relationships
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'adjustedByUserId' })
-  adjustedByUser?: User;
-
   @OneToMany(() => StockAdjustmentItem, (item) => item.stockAdjustment, {
     cascade: true,
   })

@@ -17,7 +17,6 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Product } from './product.entity';
-import { User } from './user.entity';
 
 export enum StockMovementType {
   // Inward movements (increase stock)
@@ -41,13 +40,6 @@ export enum StockMovementType {
   LOSS = 'loss',
 }
 
-export enum StockMovementStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  REVERSED = 'reversed',
-}
-
 /**
  * Stock Movement entity for tracking all inventory movements
  * Provides comprehensive audit trail for stock changes
@@ -55,10 +47,8 @@ export enum StockMovementStatus {
 @Entity('stock_movements')
 @Index(['productId'])
 @Index(['movementType'])
-@Index(['status'])
 @Index(['movementDate'])
 @Index(['referenceType', 'referenceId'])
-@Index(['movedByUserId'])
 @Index(['quantity'])
 export class StockMovement extends BaseEntity {
   @Column({
@@ -68,15 +58,6 @@ export class StockMovement extends BaseEntity {
   })
   @IsEnum(StockMovementType)
   movementType: StockMovementType;
-
-  @Column({
-    type: 'enum',
-    enum: StockMovementStatus,
-    default: StockMovementStatus.COMPLETED,
-    comment: 'Movement status',
-  })
-  @IsEnum(StockMovementStatus)
-  status: StockMovementStatus;
 
   @Column({
     type: 'timestamptz',
@@ -158,59 +139,6 @@ export class StockMovement extends BaseEntity {
   @IsUUID(4)
   referenceId?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Reference number (order number, adjustment number, etc.)',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  referenceNumber?: string;
-
-  // Location Information (for multi-warehouse future extension)
-  @Column({
-    type: 'varchar',
-    length: 50,
-    default: 'MAIN',
-    comment: 'Warehouse/location code',
-  })
-  @IsString()
-  @MaxLength(50)
-  locationCode: string;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-    comment: 'Bin/shelf location within warehouse',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  binLocation?: string;
-
-  // Batch/Lot Tracking
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: true,
-    comment: 'Batch or lot number',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  batchNumber?: string;
-
-  @Column({
-    type: 'date',
-    nullable: true,
-    comment: 'Expiry date for batch/lot',
-  })
-  @IsOptional()
-  expiryDate?: Date;
-
   // Additional Information
   @Column({
     type: 'text',
@@ -230,28 +158,12 @@ export class StockMovement extends BaseEntity {
   @IsString()
   notes?: string;
 
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Additional metadata for the movement',
-  })
-  @IsOptional()
-  metadata?: Record<string, any>;
-
   // Foreign Keys
   @Column({
     type: 'uuid',
     comment: 'Product ID',
   })
   productId: string;
-
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'User who initiated this movement',
-  })
-  @IsOptional()
-  movedByUserId?: string;
 
   // Relationships
   @ManyToOne(() => Product, (product) => product.stockMovements, {
@@ -260,13 +172,6 @@ export class StockMovement extends BaseEntity {
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
-
-  @ManyToOne(() => User, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  @JoinColumn({ name: 'movedByUserId' })
-  movedByUser?: User;
 
   // Computed properties
   get isInward(): boolean {
@@ -315,32 +220,19 @@ export class StockMovement extends BaseEntity {
   }
 
   // Helper methods
-  reverse(reason: string, reversedByUserId: string): StockMovement {
-    if (this.status !== StockMovementStatus.COMPLETED) {
-      throw new Error('Can only reverse completed movements');
-    }
-
+  reverse(reason: string): StockMovement {
     const reversal = new StockMovement();
     reversal.movementType = this.getReversalType();
-    reversal.status = StockMovementStatus.COMPLETED;
     reversal.movementDate = new Date();
     reversal.quantity = -Number(this.quantity);
     reversal.previousBalance = Number(this.newBalance);
     reversal.newBalance = Number(this.previousBalance);
     reversal.unitValue = this.unitValue;
     reversal.totalValue = this.totalValue;
-    reversal.locationCode = this.locationCode;
-    reversal.binLocation = this.binLocation;
-    reversal.batchNumber = this.batchNumber;
-    reversal.expiryDate = this.expiryDate;
     reversal.reason = `Reversal of movement ${this.id}: ${reason}`;
     reversal.referenceType = 'stock_movement_reversal';
     reversal.referenceId = this.id;
     reversal.productId = this.productId;
-    reversal.movedByUserId = reversedByUserId;
-
-    // Mark original as reversed
-    this.status = StockMovementStatus.REVERSED;
 
     return reversal;
   }
@@ -373,9 +265,7 @@ export class StockMovement extends BaseEntity {
     productId: string,
     quantity: number,
     unitPrice: number,
-    referenceId: string,
-    referenceNumber: string,
-    movedByUserId?: string
+    referenceId: string
   ): Partial<StockMovement> {
     return {
       productId,
@@ -384,8 +274,6 @@ export class StockMovement extends BaseEntity {
       unitValue: unitPrice,
       referenceType: 'sales_order',
       referenceId,
-      referenceNumber,
-      movedByUserId,
     };
   }
 
@@ -393,9 +281,7 @@ export class StockMovement extends BaseEntity {
     productId: string,
     quantity: number,
     unitCost: number,
-    referenceId: string,
-    referenceNumber: string,
-    movedByUserId?: string
+    referenceId: string
   ): Partial<StockMovement> {
     return {
       productId,
@@ -404,8 +290,6 @@ export class StockMovement extends BaseEntity {
       unitValue: unitCost,
       referenceType: 'purchase_order',
       referenceId,
-      referenceNumber,
-      movedByUserId,
     };
   }
 
@@ -413,11 +297,10 @@ export class StockMovement extends BaseEntity {
     productId: string,
     quantityAdjustment: number,
     reason: string,
-    adjustmentId: string,
-    movedByUserId?: string
+    adjustmentId: string
   ): Partial<StockMovement> {
-    const movementType = quantityAdjustment >= 0 
-      ? StockMovementType.ADJUSTMENT_INCREASE 
+    const movementType = quantityAdjustment >= 0
+      ? StockMovementType.ADJUSTMENT_INCREASE
       : StockMovementType.ADJUSTMENT_DECREASE;
 
     return {
@@ -427,17 +310,7 @@ export class StockMovement extends BaseEntity {
       reason,
       referenceType: 'stock_adjustment',
       referenceId: adjustmentId,
-      movedByUserId,
     };
-  }
-
-  // Validation methods
-  canReverse(): boolean {
-    return this.status === StockMovementStatus.COMPLETED;
-  }
-
-  canCancel(): boolean {
-    return this.status === StockMovementStatus.PENDING;
   }
 
   // Get movement description for reporting

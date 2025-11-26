@@ -20,7 +20,6 @@ import {
   CreateStockMovementDto,
   QueryStockMovementsDto,
   StockMovementResponseDto,
-  StockTransferDto,
   StockSummaryDto,
   LowStockAlertDto,
   CreateBulkStockAdjustmentDto,
@@ -80,7 +79,6 @@ export class StockController {
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
   @ApiQuery({ name: 'productId', required: false, description: 'Filter by product' })
   @ApiQuery({ name: 'movementType', required: false, description: 'Filter by movement type' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
   @ApiQuery({ name: 'fromDate', required: false, description: 'Filter from date' })
   @ApiQuery({ name: 'toDate', required: false, description: 'Filter to date' })
   @ApiQuery({ name: 'search', required: false, description: 'Search term' })
@@ -116,21 +114,6 @@ export class StockController {
     @Body() body: { reason: string },
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.reverseMovement(id, body.reason);
-  }
-
-  @Post('transfer')
-  @ApiOperation({ summary: 'Transfer stock between locations' })
-  @ApiResponse({
-    status: 201,
-    description: 'Stock transferred successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid transfer data or insufficient stock' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiBody({ type: StockTransferDto })
-  async transferStock(
-    @Body() transferDto: StockTransferDto,
-  ) {
-    return this.stockMovementService.transferStock(transferDto);
   }
 
   // Stock Summary and Reports
@@ -203,7 +186,6 @@ export class StockController {
       quantity: number;
       unitPrice: number;
       referenceId: string;
-      referenceNumber: string;
     },
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.recordSale(
@@ -211,7 +193,6 @@ export class StockController {
       body.quantity,
       body.unitPrice,
       body.referenceId,
-      body.referenceNumber,
     );
   }
 
@@ -230,7 +211,6 @@ export class StockController {
       quantity: number;
       unitCost: number;
       referenceId: string;
-      referenceNumber: string;
     },
   ): Promise<StockMovementResponseDto> {
     return this.stockMovementService.recordPurchaseReceipt(
@@ -238,7 +218,6 @@ export class StockController {
       body.quantity,
       body.unitCost,
       body.referenceId,
-      body.referenceNumber,
     );
   }
 }

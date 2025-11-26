@@ -80,7 +80,6 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  sortOrder: number;
   path?: string | null;
   level: number;
   parentId?: string | null;
@@ -122,19 +121,11 @@ export enum StockMovementType {
   LOSS = 'loss',
 }
 
-export enum StockMovementStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  REVERSED = 'reversed',
-}
-
 export interface StockMovement {
   id: string;
   productId: string;
   product?: Product;
   movementType: StockMovementType;
-  status: StockMovementStatus;
   movementDate: Date;
   quantity: number;
   previousBalance: number;
@@ -144,20 +135,8 @@ export interface StockMovement {
   referenceType?: string;
   referenceId?: string;
   referenceNumber?: string;
-  locationCode?: string;
-  binLocation?: string;
-  batchNumber?: string;
-  expiryDate?: Date;
   reason?: string;
   notes?: string;
-  metadata?: Record<string, any>;
-  movedByUserId?: string;
-  movedByUser?: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  };
   isInward: boolean;
   isOutward: boolean;
   description: string;
@@ -363,32 +342,15 @@ export interface Supplier {
   type: SupplierType;
   companyName: string;
   contactPerson?: string;
-  contactTitle?: string;
   phone?: string;
-  alternativePhone?: string;
-  fax?: string;
-  website?: string;
-  taxId?: string;
-  // Address
-  address?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  // Business
-  currency: string;
   // Metrics
   totalPurchases: number;
   totalOrders: number;
   lastPurchaseDate?: Date;
   firstPurchaseDate?: Date;
   // Additional
-  categories?: string[];
-  certifications?: string[];
   notes?: string;
-  metadata?: Record<string, any>;
   // Computed
-  fullAddress?: string;
   averageOrderValue?: number;
   // Timestamps
   createdAt: Date;

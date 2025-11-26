@@ -958,26 +958,7 @@ const PurchaseOrderSummary: React.FC = () => {
                           >
                         {selectedColumns.includes('orderNumber') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            <Typography
-                              component="span"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                // Navigate to order details - need to get order ID from orderNumber
-                                // For now, we'll need to fetch the order by orderNumber or pass ID in the report data
-                                // As a workaround, we can navigate to the orders page with a search filter
-                                navigate(`/purchasing/orders?search=${encodeURIComponent(row.orderNumber)}`)
-                              }}
-                              sx={{
-                                color: 'primary.main',
-                                cursor: 'pointer',
-                                textDecoration: 'none',
-                                '&:hover': {
-                                  textDecoration: 'underline'
-                                }
-                              }}
-                            >
-                              {row.orderNumber}
-                            </Typography>
+                            {row.orderNumber}
                           </TableCell>
                         )}
                         {selectedColumns.includes('status') && (
@@ -986,6 +967,7 @@ const PurchaseOrderSummary: React.FC = () => {
                               label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                               color={getStatusColor(row.status) as any}
                               size="small"
+                              sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
                         )}
@@ -995,6 +977,7 @@ const PurchaseOrderSummary: React.FC = () => {
                               label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
                               color={getPaymentStatusColor(row.paymentStatus) as any}
                               size="small"
+                              sx={{ fontSize: '0.7rem', height: '20px' }}
                             />
                           </TableCell>
                         )}

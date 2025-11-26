@@ -6,11 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike } from 'typeorm';
-import {
-  SalesOrder,
-  SalesOrderStatus,
-  SalesOrderPriority
-} from '../../../database/entities/sales-order.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
@@ -23,7 +19,6 @@ import {
   QuerySalesOrdersDto,
   SalesOrderResponseDto,
   SalesOrderSummaryDto,
-  ShipOrderDto,
 } from '../dto/sales-order.dto';
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
@@ -123,7 +118,7 @@ export class SalesOrderService {
     // Check if the previous order exists in database and get full details
     const previousOrder = await this.salesOrderRepository.findOne({
       where: { orderNumber: previousOrderNumber },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product'],
       withDeleted: true // Include soft-deleted orders
     });
 
@@ -176,11 +171,9 @@ export class SalesOrderService {
           ...orderData,
           orderNumber,
           customerId,
-          createdByUserId: userId,
           orderDate: new Date(),
           shippingAmount,
           totalAmount,
-          status: SalesOrderStatus.DRAFT,
         });
 
         savedOrder = await this.salesOrderRepository.save(salesOrder);
@@ -316,7 +309,6 @@ export class SalesOrderService {
       .select([
         'order.id',
         'order.orderNumber',
-        'order.status',
         'order.orderDate',
         'order.totalAmount',
         'order.paidAmount',
@@ -441,7 +433,6 @@ export class SalesOrderService {
       data: orders.map(order => ({
         id: order.id,
         orderNumber: order.orderNumber,
-        status: order.status,
         orderDate: order.orderDate,
         totalAmount: Number(order.totalAmount),
         paidAmount: Number(order.paidAmount || 0),
@@ -491,7 +482,7 @@ export class SalesOrderService {
 
     // Build find options with filters using TypeORM operators
     let findOptions: any = {
-      relations: ['customer', 'items', 'invoices'],
+      relations: ['customer', 'items', 'items.product', 'invoices'],
       where: { deletedAt: null },
       order: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
@@ -531,7 +522,6 @@ export class SalesOrderService {
       return {
         id: order.id,
         orderNumber: order.orderNumber,
-        status: order.status,
         orderDate: order.orderDate,
         totalAmount: totalAmount,
         paidAmount: paidAmount,
@@ -547,7 +537,11 @@ export class SalesOrderService {
           name: order.customer.name
         } : null,
         customerName: order.customer?.name || 'Unknown Customer',
-        items: order.items || [],
+        items: order.items?.map(item => ({
+          ...item,
+          product: item.product || null,
+          productId: item.productId
+        })) || [],
         itemsCount: order.items?.length || 0,
         invoices: order.invoices?.map(invoice => ({
           id: invoice.id,
@@ -580,22 +574,14 @@ export class SalesOrderService {
 
     const [
       totalOrders,
-      pendingOrders,
-      shippedOrders,
-      overdueOrders,
+      fulfilledOrders,
+      unfulfilledOrders,
       thisMonthOrders,
       thisWeekOrders,
     ] = await Promise.all([
       this.salesOrderRepository.count(),
-      this.salesOrderRepository.count({ where: { status: SalesOrderStatus.CONFIRMED } }),
-      this.salesOrderRepository.count({ where: { status: SalesOrderStatus.COMPLETED } }),
-      this.salesOrderRepository
-        .createQueryBuilder('order')
-        .where('order.orderDate < :thirtyDaysAgo', { thirtyDaysAgo: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) })
-        .andWhere('order.status NOT IN (:...completedStatuses)', {
-          completedStatuses: [SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED],
-        })
-        .getCount(),
+      this.salesOrderRepository.count({ where: { isFulfilled: true } }),
+      this.salesOrderRepository.count({ where: { isFulfilled: false } }),
       this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisMonth) } }),
       this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisWeek) } }),
     ]);
@@ -603,22 +589,19 @@ export class SalesOrderService {
     const totalSalesResult = await this.salesOrderRepository
       .createQueryBuilder('order')
       .select('COALESCE(SUM(order.totalAmount), 0)', 'total')
-      .where('order.status != :cancelled', { cancelled: SalesOrderStatus.CANCELLED })
       .getRawOne();
 
     const thisMonthSalesResult = await this.salesOrderRepository
       .createQueryBuilder('order')
       .select('COALESCE(SUM(order.totalAmount), 0)', 'total')
       .where('order.orderDate >= :startDate', { startDate: thisMonth })
-      .andWhere('order.status != :cancelled', { cancelled: SalesOrderStatus.CANCELLED })
       .getRawOne();
 
     return {
       orders: {
         total: totalOrders,
-        pending: pendingOrders,
-        shipped: shippedOrders,
-        overdue: overdueOrders,
+        fulfilled: fulfilledOrders,
+        unfulfilled: unfulfilledOrders,
         thisMonth: thisMonthOrders,
         thisWeek: thisWeekOrders,
       },
@@ -632,11 +615,25 @@ export class SalesOrderService {
   async findById(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices', 'invoices.payments'],
+      relations: ['customer', 'items', 'items.product', 'invoices', 'invoices.payments'],
     });
 
     if (!order) {
       throw new NotFoundException('Sales order not found');
+    }
+
+    // Manually load products for items if not already loaded
+    if (order.items && order.items.length > 0) {
+      console.log(`[findById] Loading products for ${order.items.length} items`);
+      for (const item of order.items) {
+        console.log(`[findById] Item ${item.id}: productId=${item.productId}, product=${item.product ? 'loaded' : 'null'}`);
+        if (!item.product && item.productId) {
+          item.product = await this.productRepository.findOne({
+            where: { id: item.productId }
+          });
+          console.log(`[findById] Manually loaded product: ${item.product?.name || 'FAILED'}`);
+        }
+      }
     }
 
     // Also fetch payments directly associated with this order (not through invoice)
@@ -666,7 +663,7 @@ export class SalesOrderService {
   async findByOrderNumber(orderNumber: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { orderNumber },
-      relations: ['customer', 'createdByUser', 'items', 'items.product', 'invoices'],
+      relations: ['customer', 'items', 'items.product', 'invoices'],
     });
 
     if (!order) {
@@ -696,11 +693,6 @@ export class SalesOrderService {
       throw new BadRequestException(
         'Cannot edit sales order that has been paid. Please unpay first.'
       );
-    }
-
-    // Check if order can be updated
-    if ([SalesOrderStatus.COMPLETED, SalesOrderStatus.CANCELLED].includes(order.status)) {
-      throw new ConflictException('Cannot update order in current status');
     }
 
     const { items, customerId, notes } = updateSalesOrderDto;
@@ -747,8 +739,6 @@ export class SalesOrderService {
         await this.salesOrderItemRepository.insert({
           lineNumber: itemData.lineNumber || 1,
           productId: itemData.productId,
-          productName: itemData.productName || 'Unknown Product',
-          unit: itemData.unit || 'pcs',
           quantity: itemData.quantity || 1,
           unitPrice: itemData.unitPrice || 0,
           unitCost: itemData.unitCost || 0,
@@ -801,11 +791,6 @@ export class SalesOrderService {
       throw new BadRequestException(
         'Cannot delete sales order that has been paid. Please unpay first.'
       );
-    }
-
-    // Allow deletion of orders that haven't been completed yet
-    if (order.status === SalesOrderStatus.COMPLETED) {
-      throw new ConflictException('Cannot delete order that has been completed');
     }
 
     // Find previous order details before deletion
@@ -866,124 +851,6 @@ export class SalesOrderService {
     };
   }
 
-  async confirmOrder(id: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({ 
-      where: { id },
-      relations: ['customer', 'items'],
-    });
-    
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (order.status !== SalesOrderStatus.DRAFT) {
-      throw new ConflictException('Cannot confirm order in current status');
-    }
-
-    // Update customer metrics
-    const customer = await this.customerRepository.findOne({ where: { id: order.customerId } });
-    if (customer) {
-      // Update sales metrics (assuming these properties exist)
-      customer.totalSales = Number(customer.totalSales || 0) + Number(order.totalAmount);
-      customer.totalOrders = (customer.totalOrders || 0) + 1;
-      await this.customerRepository.save(customer);
-    }
-
-    order.status = SalesOrderStatus.CONFIRMED;
-    const savedOrder = await this.salesOrderRepository.save(order);
-    
-    return this.findById(savedOrder.id);
-  }
-
-  async shipOrder(id: string, shipOrderDto: ShipOrderDto): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (!order.canShip()) {
-      throw new ConflictException('Cannot ship order in current status');
-    }
-
-    order.markAsShipped(shipOrderDto.trackingNumber);
-    if (shipOrderDto.shippingMethod) {
-      order.shippingMethod = shipOrderDto.shippingMethod;
-    }
-    if (shipOrderDto.notes) {
-      order.internalNotes = `${order.internalNotes || ''}\nShipping: ${shipOrderDto.notes}`;
-    }
-
-    // Reduce actual inventory
-    await this.inventoryIntegrationService.fulfillOrder(id);
-
-    const savedOrder = await this.salesOrderRepository.save(order);
-    return this.findById(savedOrder.id);
-  }
-
-  async deliverOrder(id: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (order.status !== SalesOrderStatus.CONFIRMED) {
-      throw new ConflictException('Cannot deliver order in current status');
-    }
-
-    order.markAsDelivered();
-    const savedOrder = await this.salesOrderRepository.save(order);
-    return this.findById(savedOrder.id);
-  }
-
-  async completeOrder(id: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (order.status !== SalesOrderStatus.CONFIRMED) {
-      throw new ConflictException('Cannot complete order in current status');
-    }
-
-    order.status = SalesOrderStatus.COMPLETED;
-    const savedOrder = await this.salesOrderRepository.save(order);
-    return this.findById(savedOrder.id);
-  }
-
-  async cancelOrder(id: string, reason: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({ 
-      where: { id },
-      relations: ['customer'],
-    });
-    
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (!order.canCancel()) {
-      throw new ConflictException('Cannot cancel order in current status');
-    }
-
-    // Revert customer balance if order was confirmed
-    if (order.status === SalesOrderStatus.CONFIRMED) {
-      const customer = order.customer;
-      if (customer) {
-        // Update customer metrics (assuming these methods exist in Customer entity)
-        customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
-        customer.totalOrders = Math.max(0, customer.totalOrders - 1);
-        await this.customerRepository.save(customer);
-      }
-    }
-
-    // Release reserved inventory
-    await this.inventoryIntegrationService.releaseReservation(id);
-
-    order.status = SalesOrderStatus.CANCELLED;
-    order.internalNotes = `${order.internalNotes || ''}\nCancellation reason: ${reason}`;
-    const savedOrder = await this.salesOrderRepository.save(order);
-    return this.findById(savedOrder.id);
-  }
-
   async duplicateOrder(id: string, userId: string): Promise<SalesOrderResponseDto> {
     const originalOrder = await this.salesOrderRepository.findOne({
       where: { id },
@@ -996,13 +863,8 @@ export class SalesOrderService {
 
     const duplicateData: CreateSalesOrderDto = {
       customerId: originalOrder.customerId,
-      shippingAddress: originalOrder.shippingAddress,
-      shippingCity: originalOrder.shippingCity,
-      shippingState: originalOrder.shippingState,
-      shippingPostalCode: originalOrder.shippingPostalCode,
-      shippingCountry: originalOrder.shippingCountry,
-      shippingMethod: originalOrder.shippingMethod,
       notes: originalOrder.notes,
+      shippingAmount: Number(originalOrder.shippingAmount || 0),
       items: originalOrder.items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -1030,11 +892,8 @@ export class SalesOrderService {
     return {
       orderId: id,
       orderNumber: order.orderNumber,
-      status: order.status,
       totalItems: order.items?.length || 0,
       inventory: inventoryStatus,
-      canShip: order.canShip(),
-      isShippable: order.isShippable,
     };
   }
 
@@ -1049,7 +908,6 @@ export class SalesOrderService {
     return orders.map(order => ({
       id: order.id,
       orderNumber: order.orderNumber,
-      status: order.status,
       orderDate: order.orderDate,
       totalAmount: Number(order.totalAmount),
       itemsCount: order.items?.length || 0,
@@ -1090,10 +948,6 @@ export class SalesOrderService {
 
     if (!order) {
       throw new NotFoundException('Sales order not found');
-    }
-
-    if (order.status !== SalesOrderStatus.CONFIRMED) {
-      throw new ConflictException('Cannot create invoice for order in current status');
     }
 
     // Create invoice using the Invoice service (would need to inject)
@@ -1155,8 +1009,6 @@ export class SalesOrderService {
       processedItems.push({
         lineNumber: lineNumber++,
         productId: item.productId,
-        productName: product.name || 'Unknown Product',
-        unit: 'pcs', // Default unit since Product entity doesn't have unit field
         quantity: Number(item.quantity) || 1,
         unitPrice: Number(unitPrice) || 0,
         unitCost: Number(product.baseCost) || 0,
@@ -1330,7 +1182,7 @@ export class SalesOrderService {
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
 
-    const isCompleted = order.status === SalesOrderStatus.COMPLETED;
+    const isCompleted = order.isFulfilled; // Use fulfillment status instead of order status
 
     // Check for invoices with payments - cannot delete if invoices have payments
     const invoices = await this.invoiceRepository.find({
@@ -1358,8 +1210,8 @@ export class SalesOrderService {
       }
     }
 
-    // Revert customer metrics if order was confirmed
-    if (order.status === SalesOrderStatus.CONFIRMED && order.customer) {
+    // Revert customer metrics if order had payment
+    if (Number(order.paidAmount) > 0 && order.customer) {
       const customer = order.customer;
       customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
       customer.totalOrders = Math.max(0, customer.totalOrders - 1);
@@ -1420,7 +1272,7 @@ export class SalesOrderService {
           continue;
         }
 
-        const isCompleted = order.status === SalesOrderStatus.COMPLETED;
+        const isCompleted = order.isFulfilled; // Use fulfillment status instead of order status
 
         // Check for invoices with payments - cannot delete if invoices have payments
         const invoices = await this.invoiceRepository.find({
@@ -1463,8 +1315,8 @@ export class SalesOrderService {
           }
         }
 
-        // Revert customer metrics if order was confirmed
-        if (order.status === SalesOrderStatus.CONFIRMED && order.customer) {
+        // Revert customer metrics if order had payment
+        if (Number(order.paidAmount) > 0 && order.customer) {
           const customer = order.customer;
           customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
           customer.totalOrders = Math.max(0, customer.totalOrders - 1);
@@ -1549,7 +1401,6 @@ export class SalesOrderService {
             invoiceId: invoice.id,
             lineNumber: soItem.lineNumber,
             productId: soItem.productId,
-            productName: soItem.productName,
             quantity: Number(soItem.quantity),
             unitPrice: Number(soItem.unitPrice),
             discount: Number(soItem.discountAmount),
@@ -1593,7 +1444,7 @@ export class SalesOrderService {
 
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product'],
     });
 
     if (!order) {
@@ -1686,7 +1537,7 @@ export class SalesOrderService {
   async unpayOrder(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product'],
     });
 
     if (!order) {
@@ -1750,7 +1601,7 @@ export class SalesOrderService {
   async fulfillOrder(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product'],
     });
 
     if (!order) {
@@ -1779,10 +1630,9 @@ export class SalesOrderService {
       }
     }
 
-    // Mark as fulfilled and completed
+    // Mark as fulfilled
     order.isFulfilled = true;
     order.fulfilledDate = new Date();
-    order.status = SalesOrderStatus.COMPLETED;
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
@@ -1792,7 +1642,7 @@ export class SalesOrderService {
   async unfulfillOrder(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'createdByUser', 'items', 'items.product'],
+      relations: ['customer', 'items', 'items.product'],
     });
 
     if (!order) {
@@ -1828,10 +1678,9 @@ export class SalesOrderService {
       // Don't throw error - unfulfillment should still succeed
     }
 
-    // Mark as unfulfilled and revert to confirmed status
+    // Mark as unfulfilled
     order.isFulfilled = false;
     order.fulfilledDate = null;
-    order.status = SalesOrderStatus.CONFIRMED;
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
@@ -1843,8 +1692,6 @@ export class SalesOrderService {
       id: order.id,
       orderNumber: order.orderNumber,
       orderDate: order.orderDate,
-      shippedDate: order.shippedDate,
-      deliveredDate: order.deliveredDate,
       fulfilledDate: order.fulfilledDate,
       shippingAmount: Number(order.shippingAmount || 0),
       totalAmount: Number(order.totalAmount),
@@ -1854,33 +1701,22 @@ export class SalesOrderService {
       balanceDue: order.balanceDue,
       canFulfill: order.canFulfill,
       canUnfulfill: order.canUnfulfill,
-      shippingAddress: order.shippingAddress,
-      shippingCity: order.shippingCity,
-      shippingState: order.shippingState,
-      shippingPostalCode: order.shippingPostalCode,
-      shippingCountry: order.shippingCountry,
-      shippingMethod: order.shippingMethod,
-      trackingNumber: order.trackingNumber,
-      customerPoNumber: order.customerPoNumber,
       notes: order.notes,
-      internalNotes: order.internalNotes,
       customerId: order.customerId,
-      createdByUserId: order.createdByUserId,
       customer: order.customer ? {
         id: order.customer.id,
         name: order.customer.name,
         phone: order.customer.phone,
       } : undefined,
-      createdByUser: order.createdByUser ? {
-        id: order.createdByUser.id,
-        username: order.createdByUser.username,
-        firstName: order.createdByUser.firstName,
-        lastName: order.createdByUser.lastName,
-      } : undefined,
       items: order.items?.map(item => ({
         id: item.id,
         productId: item.productId,
-        productName: item.product?.name || 'Unknown Product',
+        product: item.product ? {
+          id: item.product.id,
+          name: item.product.name,
+          description: item.product.description,
+          barcode: item.product.barcode,
+        } : null,
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
         discountType: item.discountType || DiscountType.PERCENTAGE,
@@ -1910,9 +1746,6 @@ export class SalesOrderService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       deletedAt: order.deletedAt,
-      fullShippingAddress: order.fullShippingAddress,
-      isShippable: order.isShippable,
-      isCompleted: order.isCompleted,
     };
   }
 }

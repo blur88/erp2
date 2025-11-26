@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product, ProductType } from '../../../database/entities/product.entity';
-import { StockMovement, StockMovementType, StockMovementStatus } from '../../../database/entities/stock-movement.entity';
+import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
@@ -488,7 +488,6 @@ export class InventoryIntegrationService {
         productId,
         movementType: StockMovementType.SALE,
         referenceId: salesOrderId,
-        status: StockMovementStatus.COMPLETED,
       },
     });
 
@@ -545,9 +544,7 @@ export class InventoryIntegrationService {
       reason,
       referenceId,
       referenceType: referenceId ? 'sales_order' : null, // Set referenceType if referenceId is provided
-      movedByUserId: userId,
       movementDate: new Date(),
-      status: StockMovementStatus.COMPLETED,
     });
 
     return await this.stockMovementRepository.save(movement);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -128,8 +128,12 @@ const StockAdjustmentsPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
+  const location = useLocation()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
+
+  // Check for newly created adjustment ID from navigation state
+  const newAdjustmentId = (location.state as any)?.newAdjustmentId
 
   const adjustments = useAppSelector(selectStockAdjustments) || []
   const loading = useAppSelector(selectInventoryLoading)?.stockAdjustments || false
@@ -141,8 +145,8 @@ const StockAdjustmentsPage: React.FC = () => {
     page: 0,
     rowsPerPage: 20,
     search: '',
-    sortBy: 'adjustmentDate',
-    sortOrder: 'desc',
+    sortBy: 'adjustmentNumber',
+    sortOrder: 'asc',
     statusFilter: 'all',
     dateFilter: 'all',
     customFromDate: '',
@@ -237,9 +241,24 @@ const StockAdjustmentsPage: React.FC = () => {
     dispatch(fetchStockAdjustment(adjustment.id))
   }, [dispatch, adjustments])
 
-  // Auto-focus first adjustment when adjustments load
+  // Auto-select newly created adjustment when navigating back from create page
   useEffect(() => {
-    if (adjustments.length > 0 && focusedAdjustmentIndex === -1) {
+    if (newAdjustmentId && adjustments.length > 0) {
+      const newAdjustment = adjustments.find(a => a.id === newAdjustmentId)
+      if (newAdjustment) {
+        const newIndex = adjustments.indexOf(newAdjustment)
+        setFocusedAdjustmentIndex(newIndex)
+        dispatch(setSelectedStockAdjustment(newAdjustment))
+        dispatch(fetchStockAdjustment(newAdjustmentId))
+        // Clear the navigation state to prevent re-selection on subsequent renders
+        window.history.replaceState({}, document.title)
+      }
+    }
+  }, [newAdjustmentId, adjustments, dispatch])
+
+  // Auto-focus first adjustment when adjustments load (only if no new adjustment to select)
+  useEffect(() => {
+    if (adjustments.length > 0 && focusedAdjustmentIndex === -1 && !newAdjustmentId) {
       if (!selectedAdjustment && searchInputRef.current !== document.activeElement) {
         setFocusedAdjustmentIndex(0)
         dispatch(setSelectedStockAdjustment(adjustments[0]))
@@ -247,7 +266,7 @@ const StockAdjustmentsPage: React.FC = () => {
         dispatch(fetchStockAdjustment(adjustments[0].id))
       }
     }
-  }, [adjustments, focusedAdjustmentIndex, selectedAdjustment, dispatch])
+  }, [adjustments, focusedAdjustmentIndex, selectedAdjustment, dispatch, newAdjustmentId])
 
   // Clear selection when no adjustments exist
   useEffect(() => {

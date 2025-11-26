@@ -16,15 +16,12 @@ import {
 import {
   StockMovement,
   StockMovementType,
-  StockMovementStatus,
 } from '../../../database/entities/stock-movement.entity';
 import { Product } from '../../../database/entities/product.entity';
-import { User } from '../../../database/entities/user.entity';
 import {
   CreateStockMovementDto,
   QueryStockMovementsDto,
   StockMovementResponseDto,
-  StockTransferDto,
   StockReservationDto,
   StockSummaryDto,
   LowStockAlertDto,
@@ -42,39 +39,10 @@ export class StockMovementService {
     private readonly stockMovementRepository: Repository<StockMovement>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
   ) {}
 
-  /**
-   * Generate SA reference number for stock adjustments
-   */
-  private async generateSANumber(): Promise<string> {
-    // Find the maximum SA number and increment it
-    // This ensures sequential numbering even if some numbers were deleted
-    const result = await this.stockMovementRepository
-      .createQueryBuilder('movement')
-      .select('movement.referenceNumber', 'referenceNumber')
-      .where('movement.movementType IN (:...types)', {
-        types: [StockMovementType.ADJUSTMENT_INCREASE, StockMovementType.ADJUSTMENT_DECREASE],
-      })
-      .andWhere('movement.referenceNumber IS NOT NULL')
-      .andWhere('movement.referenceNumber LIKE :pattern', { pattern: 'SA-%' })
-      .orderBy('movement.referenceNumber', 'DESC')
-      .limit(1)
-      .getRawOne();
-
-    let nextNumber = 1;
-    if (result?.referenceNumber) {
-      // Extract number from SA-XXXXXX format
-      const currentNumber = parseInt(result.referenceNumber.replace('SA-', ''), 10);
-      nextNumber = currentNumber + 1;
-    }
-
-    return `SA-${String(nextNumber).padStart(6, '0')}`;
-  }
 
   /**
    * Create a stock movement and update product stock
@@ -125,25 +93,11 @@ export class StockMovementService {
       );
     }
 
-    // Generate SA number for adjustments
-    let referenceNumber = createMovementDto.referenceNumber;
-    const isAdjustment =
-      createMovementDto.movementType === StockMovementType.ADJUSTMENT_INCREASE ||
-      createMovementDto.movementType === StockMovementType.ADJUSTMENT_DECREASE;
-
-    if (isAdjustment && !referenceNumber) {
-      referenceNumber = await this.generateSANumber();
-    }
-
     // Create stock movement
     const stockMovement = this.stockMovementRepository.create({
       ...createMovementDto,
       previousBalance,
       newBalance,
-      status: StockMovementStatus.COMPLETED,
-      movedByUserId: userId,
-      locationCode: createMovementDto.locationCode || 'MAIN',
-      referenceNumber,
     });
 
     const savedMovement = await this.stockMovementRepository.save(stockMovement);
@@ -162,7 +116,7 @@ export class StockMovementService {
     // Reload with relations for response DTO
     const movementWithRelations = await this.stockMovementRepository.findOne({
       where: { id: savedMovement.id },
-      relations: ['product', 'movedByUser'],
+      relations: ['product'],
     });
 
     return this.toResponseDto(movementWithRelations);
@@ -177,14 +131,10 @@ export class StockMovementService {
       limit = 20,
       productId,
       movementType,
-      status,
       fromDate,
       toDate,
       referenceType,
       referenceId,
-      locationCode,
-      batchNumber,
-      movedByUserId,
       search,
       sortBy = 'movementDate',
       sortOrder = 'DESC',
@@ -194,7 +144,6 @@ export class StockMovementService {
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('movement.movedByUser', 'user')
       .where('movement.deletedAt IS NULL');
 
     // Apply filters
@@ -206,10 +155,6 @@ export class StockMovementService {
       queryBuilder.andWhere('movement.movementType = :movementType', {
         movementType,
       });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('movement.status = :status', { status });
     }
 
     if (fromDate && toDate) {
@@ -235,27 +180,9 @@ export class StockMovementService {
       });
     }
 
-    if (locationCode) {
-      queryBuilder.andWhere('movement.locationCode = :locationCode', {
-        locationCode,
-      });
-    }
-
-    if (batchNumber) {
-      queryBuilder.andWhere('movement.batchNumber = :batchNumber', {
-        batchNumber,
-      });
-    }
-
-    if (movedByUserId) {
-      queryBuilder.andWhere('movement.movedByUserId = :movedByUserId', {
-        movedByUserId,
-      });
-    }
-
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.referenceNumber ILIKE :search OR movement.reason ILIKE :search)',
+        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.reason ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -325,16 +252,9 @@ export class StockMovementService {
       throw new NotFoundException(`Stock movement with ID '${id}' not found`);
     }
 
-    if (!movement.canReverse()) {
-      throw new BadRequestException('Stock movement cannot be reversed');
-    }
-
     // Create reversal movement
-    const reversalMovement = movement.reverse(reason, userId);
+    const reversalMovement = movement.reverse(reason);
     const savedReversal = await this.stockMovementRepository.save(reversalMovement);
-
-    // Update original movement status
-    await this.stockMovementRepository.save(movement);
 
     // Update product stock
     await this.productService.updateStockQuantity(
@@ -378,7 +298,6 @@ export class StockMovementService {
     quantity: number,
     unitPrice: number,
     referenceId: string,
-    referenceNumber: string,
     userId?: string,
   ): Promise<StockMovementResponseDto> {
     const movementData = StockMovement.createSaleMovement(
@@ -386,8 +305,6 @@ export class StockMovementService {
       quantity,
       unitPrice,
       referenceId,
-      referenceNumber,
-      userId,
     );
 
     return this.create(movementData as CreateStockMovementDto, userId);
@@ -401,7 +318,6 @@ export class StockMovementService {
     quantity: number,
     unitCost: number,
     referenceId: string,
-    referenceNumber: string,
     userId?: string,
   ): Promise<StockMovementResponseDto> {
     const movementData = StockMovement.createPurchaseReceiptMovement(
@@ -409,80 +325,9 @@ export class StockMovementService {
       quantity,
       unitCost,
       referenceId,
-      referenceNumber,
-      userId,
     );
 
     return this.create(movementData as CreateStockMovementDto, userId);
-  }
-
-  /**
-   * Transfer stock between locations
-   */
-  async transferStock(
-    transferDto: StockTransferDto,
-    userId?: string,
-  ): Promise<{ outMovement: StockMovementResponseDto; inMovement: StockMovementResponseDto }> {
-    this.logger.log(
-      `Transferring ${transferDto.quantity} units of product ${transferDto.productId} from ${transferDto.fromLocationCode} to ${transferDto.toLocationCode}`,
-    );
-
-    const product = await this.productRepository.findOne({
-      where: { id: transferDto.productId },
-    });
-
-    if (!product) {
-      throw new NotFoundException(
-        `Product with ID '${transferDto.productId}' not found`,
-      );
-    }
-
-    // Check available stock at source location
-    if (product.stockQuantity < transferDto.quantity) {
-      throw new BadRequestException(
-        `Insufficient stock at source location. Available: ${product.stockQuantity}, Requested: ${transferDto.quantity}`,
-      );
-    }
-
-    // Create outward movement (from source)
-    const outMovementDto: CreateStockMovementDto = {
-      productId: transferDto.productId,
-      movementType: StockMovementType.TRANSFER_OUT,
-      quantity: -transferDto.quantity,
-      locationCode: transferDto.fromLocationCode,
-      binLocation: transferDto.fromBinLocation,
-      batchNumber: transferDto.batchNumber,
-      reason: transferDto.reason,
-      notes: transferDto.notes,
-      referenceType: 'stock_transfer',
-      referenceNumber: transferDto.referenceNumber,
-    };
-
-    const outMovement = await this.create(outMovementDto, userId);
-
-    // Create inward movement (to destination)
-    const inMovementDto: CreateStockMovementDto = {
-      productId: transferDto.productId,
-      movementType: StockMovementType.TRANSFER_IN,
-      quantity: transferDto.quantity,
-      locationCode: transferDto.toLocationCode,
-      binLocation: transferDto.toBinLocation,
-      batchNumber: transferDto.batchNumber,
-      reason: transferDto.reason,
-      notes: transferDto.notes,
-      referenceType: 'stock_transfer',
-      referenceNumber: transferDto.referenceNumber,
-    };
-
-    const inMovement = await this.create(inMovementDto, userId);
-
-    // Audit logging removed with authentication system
-
-    this.logger.log(
-      `Stock transfer completed: ${outMovement.id} -> ${inMovement.id}`,
-    );
-
-    return { outMovement, inMovement };
   }
 
   /**
@@ -505,8 +350,7 @@ export class StockMovementService {
     // Base query for movements within date range
     const movementsQuery = this.stockMovementRepository
       .createQueryBuilder('movement')
-      .where('movement.productId = :productId', { productId })
-      .andWhere('movement.status = :status', { status: StockMovementStatus.COMPLETED });
+      .where('movement.productId = :productId', { productId });
 
     if (fromDate && toDate) {
       movementsQuery.andWhere('movement.movementDate BETWEEN :fromDate AND :toDate', {
@@ -654,7 +498,6 @@ export class StockMovementService {
     return {
       id: movement.id,
       movementType: movement.movementType,
-      status: movement.status,
       movementDate: movement.movementDate,
       quantity: Number(movement.quantity),
       previousBalance: Number(movement.previousBalance),
@@ -663,11 +506,6 @@ export class StockMovementService {
       totalValue: movement.totalValue ? Number(movement.totalValue) : undefined,
       referenceType: movement.referenceType,
       referenceId: movement.referenceId,
-      referenceNumber: movement.referenceNumber,
-      locationCode: movement.locationCode,
-      binLocation: movement.binLocation,
-      batchNumber: movement.batchNumber,
-      expiryDate: movement.expiryDate,
       reason: movement.reason,
       notes: movement.notes,
       product: {
@@ -676,12 +514,6 @@ export class StockMovementService {
         name: movement.product.name,
         unit: 'pcs',
       },
-      movedByUser: movement.movedByUser ? {
-        id: movement.movedByUser.id,
-        email: movement.movedByUser.email,
-        firstName: movement.movedByUser.firstName,
-        lastName: movement.movedByUser.lastName,
-      } : undefined,
       isInward: movement.isInward,
       isOutward: movement.isOutward,
       description: movement.getDescription(),
@@ -699,8 +531,6 @@ export class StockMovementService {
   ): Promise<BulkStockAdjustmentResponseDto> {
     this.logger.log(`Creating bulk stock adjustment with ${createBulkDto.items.length} items`);
 
-    // Generate single SA number for the entire batch
-    const saNumber = await this.generateSANumber();
     const movementIds: string[] = [];
 
     // Process each item
@@ -738,17 +568,13 @@ export class StockMovementService {
         );
       }
 
-      // Create stock movement with shared SA number
+      // Create stock movement
       const stockMovement = this.stockMovementRepository.create({
         productId: item.productId,
         movementType,
         quantity: Math.abs(item.difference),
         previousBalance,
         newBalance,
-        status: StockMovementStatus.COMPLETED,
-        movedByUserId: userId,
-        locationCode: 'MAIN',
-        referenceNumber: saNumber,
         movementDate: createBulkDto.adjustmentDate,
         reason: 'Stock Adjustment',
         notes: createBulkDto.notes || undefined,
@@ -769,10 +595,9 @@ export class StockMovementService {
       );
     }
 
-    this.logger.log(`Bulk stock adjustment ${saNumber} created successfully with ${movementIds.length} movements`);
+    this.logger.log(`Bulk stock adjustment created successfully with ${movementIds.length} movements`);
 
     return {
-      saNumber,
       itemsAdjusted: movementIds.length,
       adjustmentDate: createBulkDto.adjustmentDate,
       notes: createBulkDto.notes,

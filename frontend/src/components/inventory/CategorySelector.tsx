@@ -80,7 +80,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           isActive: true,
           isRoot: true,
           hasChildren: false,
-          sortOrder: -1,
           fullPath: '',
           createdAt: new Date(),
           updatedAt: new Date()

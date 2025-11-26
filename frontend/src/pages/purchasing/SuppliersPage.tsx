@@ -554,6 +554,17 @@ const SuppliersPage: React.FC = () => {
                     Contact
                   </Typography>
                 </TableCell>
+                {!isMobile && (
+                  <TableCell sx={{ width: '12%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}>
+                      Phone
+                    </Typography>
+                  </TableCell>
+                )}
                 <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
                   <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                     fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
@@ -568,13 +579,13 @@ const SuppliersPage: React.FC = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={5} align="center">
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : suppliers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={5} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No suppliers found
                     </Typography>
@@ -639,19 +650,29 @@ const SuppliersPage: React.FC = () => {
                     )}
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                        {supplier.phone && (
+                        {supplier.contactPerson && (
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            {supplier.contactPerson}
+                          </Typography>
+                        )}
+                        {isMobile && supplier.phone && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
                             <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>{supplier.phone}</Typography>
                           </Box>
                         )}
-                        {supplier.contactPerson && (
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                            {supplier.contactPerson}
-                          </Typography>
-                        )}
                       </Box>
                     </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        {supplier.phone && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{supplier.phone}</Typography>
+                          </Box>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell align="right">
                       <Box
                         className="supplier-actions"

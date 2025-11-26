@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
-import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -86,35 +86,35 @@ export class SalesAnalyticsService {
       queryBuilder = queryBuilder.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
     }
 
-    // Get pipeline stages
+    // Get pipeline data (status column removed, so we show fulfillment status instead)
     const stagesData = await queryBuilder
       .select([
-        'order.status',
+        'order.isFulfilled',
         'COUNT(*) as orderCount',
         'COALESCE(SUM(order.totalAmount), 0) as totalValue',
         'COALESCE(AVG(order.totalAmount), 0) as averageValue',
       ])
-      .groupBy('order.status')
+      .groupBy('order.isFulfilled')
       .getRawMany();
 
     const totalOrders = stagesData.reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
     const totalValue = stagesData.reduce((sum, stage) => sum + parseFloat(stage.totalValue), 0);
 
     const stages: PipelineStageDto[] = stagesData.map(stage => ({
-      status: stage.order_status,
-      statusLabel: this.formatStatusLabel(stage.order_status),
+      status: stage.order_isFulfilled ? 'fulfilled' : 'pending',
+      statusLabel: stage.order_isFulfilled ? 'Fulfilled' : 'Pending Fulfillment',
       orderCount: parseInt(stage.orderCount),
       totalValue: parseFloat(stage.totalValue),
       averageValue: parseFloat(stage.averageValue),
       percentage: totalOrders > 0 ? (parseInt(stage.orderCount) / totalOrders) * 100 : 0,
     }));
 
-    // Calculate conversion rate (completed orders / total orders)
-    const completedOrders = stagesData
-      .filter(stage => stage.order_status === SalesOrderStatus.COMPLETED)
+    // Calculate conversion rate (fulfilled orders / total orders)
+    const fulfilledOrders = stagesData
+      .filter(stage => stage.order_isFulfilled === true)
       .reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
 
-    const conversionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+    const conversionRate = totalOrders > 0 ? (fulfilledOrders / totalOrders) * 100 : 0;
 
     return {
       stages,
@@ -322,21 +322,16 @@ export class SalesAnalyticsService {
     }
 
     const [orderStats, invoiceStats, customerStats, paymentStats] = await Promise.all([
-      // Order statistics
+      // Order statistics (status column removed, using fulfillment status)
       orderQuery
         .select([
           'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
           'COUNT(*) as totalOrders',
           'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
-          'COUNT(CASE WHEN order.status = :completed THEN 1 END) as completedOrders',
-          'COUNT(CASE WHEN order.status = :confirmed THEN 1 END) as confirmedOrders',
-          'COUNT(CASE WHEN order.status = :draft THEN 1 END) as draftOrders',
+          'COUNT(CASE WHEN order.isFulfilled = true THEN 1 END) as completedOrders',
+          'COUNT(CASE WHEN order.isFulfilled = false THEN 1 END) as confirmedOrders',
+          '0 as draftOrders',
         ])
-        .setParameters({
-          completed: SalesOrderStatus.COMPLETED,
-          confirmed: SalesOrderStatus.CONFIRMED,
-          draft: SalesOrderStatus.DRAFT,
-        })
         .getRawOne(),
 
       // Invoice statistics
@@ -614,21 +609,6 @@ export class SalesAnalyticsService {
     return { startDate, endDate };
   }
 
-  private formatStatusLabel(status: SalesOrderStatus): string {
-    switch (status) {
-      case SalesOrderStatus.DRAFT:
-        return 'Draft';
-      case SalesOrderStatus.CONFIRMED:
-        return 'Confirmed';
-      case SalesOrderStatus.COMPLETED:
-        return 'Completed';
-      case SalesOrderStatus.CANCELLED:
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  }
-
   async getProductSummary(query: {
     dateFrom?: Date;
     dateTo?: Date;
@@ -669,10 +649,7 @@ export class SalesAnalyticsService {
         const salesItemsQuery = this.salesOrderItemRepository
           .createQueryBuilder('item')
           .leftJoinAndSelect('item.salesOrder', 'order')
-          .where('item.productId = :productId', { productId: product.id })
-          .andWhere('order.status NOT IN (:...excludedStatuses)', {
-            excludedStatuses: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT],
-          });
+          .where('item.productId = :productId', { productId: product.id });
 
         if (query.dateFrom) {
           salesItemsQuery.andWhere('order.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
@@ -770,10 +747,7 @@ export class SalesAnalyticsService {
         .leftJoinAndSelect('item.salesOrder', 'order')
         .leftJoinAndSelect('order.customer', 'customer')
         .leftJoin('order.invoices', 'invoice')
-        .where('item.productId = :productId', { productId: product.id })
-        .andWhere('order.status NOT IN (:...excludedStatuses)', {
-          excludedStatuses: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT],
-        });
+        .where('item.productId = :productId', { productId: product.id });
 
       if (query.dateFrom) {
         salesItemsQuery.andWhere('invoice.invoiceDate >= :dateFrom', { dateFrom: query.dateFrom });

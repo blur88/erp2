@@ -20,14 +20,6 @@ import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
 import { Product } from './product.entity';
 
-export enum SalesOrderItemStatus {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  SHIPPED = 'shipped',
-  DELIVERED = 'delivered',
-  CANCELLED = 'cancelled',
-}
-
 export enum DiscountType {
   PERCENTAGE = 'percentage',
   AMOUNT = 'amount',
@@ -40,7 +32,6 @@ export enum DiscountType {
 @Entity('sales_order_items')
 @Index(['salesOrderId'])
 @Index(['productId'])
-@Index(['status'])
 export class SalesOrderItem extends BaseEntity {
   @Column({
     type: 'int',
@@ -50,37 +41,6 @@ export class SalesOrderItem extends BaseEntity {
   @Min(1)
   lineNumber: number;
 
-  @Column({
-    type: 'enum',
-    enum: SalesOrderItemStatus,
-    default: SalesOrderItemStatus.PENDING,
-    comment: 'Item status',
-  })
-  @IsEnum(SalesOrderItemStatus)
-  status: SalesOrderItemStatus;
-
-  // Product Information (captured at time of order)
-  @Column({
-    type: 'varchar',
-    length: 200,
-    comment: 'Product name at time of order',
-  })
-  @IsString()
-  @MaxLength(200)
-  productName: string;
-
-  // Product description is retrieved from product relationship
-  // No need to store product description separately as it's available via product.description
-
-  @Column({
-    type: 'varchar',
-    length: 20,
-    comment: 'Unit of measurement',
-  })
-  @IsString()
-  @MaxLength(20)
-  unit: string;
-
   // Quantity and Pricing
   @Column({
     type: 'int',
@@ -89,28 +49,6 @@ export class SalesOrderItem extends BaseEntity {
   @IsInt()
   @Min(1)
   quantity: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Shipped quantity',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  shippedQuantity: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Delivered quantity',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  deliveredQuantity: number;
 
   @Column({
     type: 'decimal',
@@ -185,14 +123,6 @@ export class SalesOrderItem extends BaseEntity {
   @IsString()
   notes?: string;
 
-  @Column({
-    type: 'json',
-    nullable: true,
-    comment: 'Item-specific attributes or customizations',
-  })
-  @IsOptional()
-  attributes?: Record<string, any>;
-
   // Foreign Keys
   @Column({
     type: 'uuid',
@@ -215,24 +145,12 @@ export class SalesOrderItem extends BaseEntity {
 
   @ManyToOne(() => Product, { // Removed back-reference to avoid circular relation issues
     onDelete: 'RESTRICT',
-    eager: false, // Disabled eager loading to prevent automatic relation resolution
+    eager: true, // Eager load product relationship to get product name
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
 
   // Computed properties
-  get remainingQuantity(): number {
-    return Number(this.quantity) - Number(this.shippedQuantity);
-  }
-
-  get isFullyShipped(): boolean {
-    return Number(this.shippedQuantity) >= Number(this.quantity);
-  }
-
-  get isFullyDelivered(): boolean {
-    return Number(this.deliveredQuantity) >= Number(this.quantity);
-  }
-
   get lineTotal(): number {
     return Number(this.quantity) * Number(this.unitPrice);
   }
@@ -270,33 +188,6 @@ export class SalesOrderItem extends BaseEntity {
     this.totalAmount = lineTotal - Number(this.discountAmount);
   }
 
-  // Helper methods
-  updateShippedQuantity(quantity: number): void {
-    this.shippedQuantity = Math.min(Number(quantity), Number(this.quantity));
-    
-    if (this.isFullyShipped) {
-      this.status = SalesOrderItemStatus.SHIPPED;
-    }
-  }
-
-  updateDeliveredQuantity(quantity: number): void {
-    this.deliveredQuantity = Math.min(Number(quantity), Number(this.shippedQuantity));
-    
-    if (this.isFullyDelivered) {
-      this.status = SalesOrderItemStatus.DELIVERED;
-    }
-  }
-
-  cancel(): void {
-    this.status = SalesOrderItemStatus.CANCELLED;
-  }
-
-  confirm(): void {
-    if (this.status === SalesOrderItemStatus.PENDING) {
-      this.status = SalesOrderItemStatus.CONFIRMED;
-    }
-  }
-
   // Static method to create from product
   static fromProduct(
     product: Product,
@@ -307,8 +198,6 @@ export class SalesOrderItem extends BaseEntity {
 
     return {
       productId: product.id,
-      productName: product.name,
-      unit: 'pcs',
       quantity,
       unitPrice,
       unitCost: Number(product.baseCost),

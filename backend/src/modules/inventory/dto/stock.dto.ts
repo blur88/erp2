@@ -16,7 +16,6 @@ import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   StockMovementType,
-  StockMovementStatus,
 } from '../../../database/entities/stock-movement.entity';
 
 export class CreateStockMovementDto {
@@ -49,36 +48,6 @@ export class CreateStockMovementDto {
   @IsUUID(4)
   referenceId?: string;
 
-  @ApiPropertyOptional({ description: 'Reference number (order number, etc.)' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  referenceNumber?: string;
-
-  @ApiPropertyOptional({ description: 'Warehouse/location code', maxLength: 50, default: 'MAIN' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  locationCode?: string;
-
-  @ApiPropertyOptional({ description: 'Bin/shelf location within warehouse' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  binLocation?: string;
-
-  @ApiPropertyOptional({ description: 'Batch or lot number' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  batchNumber?: string;
-
-  @ApiPropertyOptional({ description: 'Expiry date for batch/lot' })
-  @IsOptional()
-  @Transform(({ value }) => value ? new Date(value) : undefined)
-  @IsDate()
-  expiryDate?: Date;
-
   @ApiPropertyOptional({ description: 'Reason or notes for this movement' })
   @IsOptional()
   @IsString()
@@ -88,10 +57,6 @@ export class CreateStockMovementDto {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @ApiPropertyOptional({ description: 'Additional metadata', type: 'object' })
-  @IsOptional()
-  metadata?: Record<string, any>;
 }
 
 export class QueryStockMovementsDto {
@@ -120,11 +85,6 @@ export class QueryStockMovementsDto {
   @IsEnum(StockMovementType)
   movementType?: StockMovementType;
 
-  @ApiPropertyOptional({ description: 'Filter by movement status', enum: StockMovementStatus })
-  @IsOptional()
-  @IsEnum(StockMovementStatus)
-  status?: StockMovementStatus;
-
   @ApiPropertyOptional({ description: 'Filter movements from this date' })
   @IsOptional()
   @Transform(({ value }) => value ? new Date(value) : undefined)
@@ -147,22 +107,7 @@ export class QueryStockMovementsDto {
   @IsUUID(4)
   referenceId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by location code' })
-  @IsOptional()
-  @IsString()
-  locationCode?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by batch number' })
-  @IsOptional()
-  @IsString()
-  batchNumber?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by user who made the movement' })
-  @IsOptional()
-  @IsUUID(4)
-  movedByUserId?: string;
-
-  @ApiPropertyOptional({ description: 'Search term (product name, SKU, reference number)' })
+  @ApiPropertyOptional({ description: 'Search term (product name, SKU)' })
   @IsOptional()
   @IsString()
   search?: string;
@@ -181,60 +126,6 @@ export class QueryStockMovementsDto {
 
 
 
-
-export class StockTransferDto {
-  @ApiProperty({ description: 'Product ID' })
-  @IsUUID(4)
-  productId: string;
-
-  @ApiProperty({ description: 'Transfer quantity' })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0.0001)
-  quantity: number;
-
-  @ApiProperty({ description: 'Source location code' })
-  @IsString()
-  @MaxLength(50)
-  fromLocationCode: string;
-
-  @ApiProperty({ description: 'Target location code' })
-  @IsString()
-  @MaxLength(50)
-  toLocationCode: string;
-
-  @ApiPropertyOptional({ description: 'Source bin location' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  fromBinLocation?: string;
-
-  @ApiPropertyOptional({ description: 'Target bin location' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  toBinLocation?: string;
-
-  @ApiPropertyOptional({ description: 'Batch number to transfer' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  batchNumber?: string;
-
-  @ApiProperty({ description: 'Reason for transfer' })
-  @IsString()
-  reason: string;
-
-  @ApiPropertyOptional({ description: 'Transfer notes' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({ description: 'Transfer reference number' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  referenceNumber?: string;
-}
 
 export class StockReservationDto {
   @ApiProperty({ description: 'Product ID' })
@@ -266,10 +157,6 @@ export class StockReservationDto {
   @Transform(({ value }) => value ? new Date(value) : undefined)
   @IsDate()
   expiryDate?: Date;
-
-  @ApiPropertyOptional({ description: 'Additional metadata', type: 'object' })
-  @IsOptional()
-  metadata?: Record<string, any>;
 }
 
 export class StockMovementResponseDto {
@@ -278,9 +165,6 @@ export class StockMovementResponseDto {
 
   @ApiProperty({ description: 'Movement type', enum: StockMovementType })
   movementType: StockMovementType;
-
-  @ApiProperty({ description: 'Movement status', enum: StockMovementStatus })
-  status: StockMovementStatus;
 
   @ApiProperty({ description: 'Movement date' })
   movementDate: Date;
@@ -306,21 +190,6 @@ export class StockMovementResponseDto {
   @ApiPropertyOptional({ description: 'Reference ID' })
   referenceId?: string;
 
-  @ApiPropertyOptional({ description: 'Reference number' })
-  referenceNumber?: string;
-
-  @ApiProperty({ description: 'Location code' })
-  locationCode: string;
-
-  @ApiPropertyOptional({ description: 'Bin location' })
-  binLocation?: string;
-
-  @ApiPropertyOptional({ description: 'Batch number' })
-  batchNumber?: string;
-
-  @ApiPropertyOptional({ description: 'Expiry date' })
-  expiryDate?: Date;
-
   @ApiPropertyOptional({ description: 'Movement reason' })
   reason?: string;
 
@@ -333,14 +202,6 @@ export class StockMovementResponseDto {
     sku: string;
     name: string;
     unit: string;
-  };
-
-  @ApiPropertyOptional({ description: 'User who made the movement' })
-  movedByUser?: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
   };
 
   @ApiProperty({ description: 'Movement direction' })
@@ -475,9 +336,6 @@ export class CreateBulkStockAdjustmentDto {
 }
 
 export class BulkStockAdjustmentResponseDto {
-  @ApiProperty({ description: 'Generated SA reference number' })
-  saNumber: string;
-
   @ApiProperty({ description: 'Number of items adjusted' })
   itemsAdjusted: number;
 

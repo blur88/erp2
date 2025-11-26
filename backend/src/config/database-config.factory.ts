@@ -56,22 +56,25 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
     extra: {
       // Validated connection pool settings
       connectionLimit: validateAndParseInt(
-        configService.get<string>('DB_MAX_CONNECTIONS'), 
+        configService.get<string>('DB_MAX_CONNECTIONS'),
         '10', 1, 100, 'DB_MAX_CONNECTIONS'
       ),
-      
+
       // Network configuration
       family: 4, // Force IPv4 for Docker compatibility
-      
+
       // Timeout configurations with reasonable limits
       connectionTimeoutMillis: validateAndParseInt(
-        configService.get<string>('DB_CONNECTION_TIMEOUT'), 
+        configService.get<string>('DB_CONNECTION_TIMEOUT'),
         '60000', 5000, 300000, 'DB_CONNECTION_TIMEOUT'
       ),
       idleTimeoutMillis: validateAndParseInt(
-        configService.get<string>('DB_IDLE_TIMEOUT'), 
+        configService.get<string>('DB_IDLE_TIMEOUT'),
         '10000', 1000, 3600000, 'DB_IDLE_TIMEOUT'
       ),
+
+      // Timezone configuration for PostgreSQL
+      timezone: 'Asia/Kuala_Lumpur',
     },
   };
 }
