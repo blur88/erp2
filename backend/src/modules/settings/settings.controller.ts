@@ -106,9 +106,9 @@ export class SettingsController {
         },
       }),
       fileFilter: (req, file, callback) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
           return callback(
-            new BadRequestException('Only image files are allowed (jpg, jpeg, png, gif)'),
+            new BadRequestException('Only image files are allowed (jpg, jpeg, png, gif, webp)'),
             false,
           );
         }
@@ -122,7 +122,7 @@ export class SettingsController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Upload company logo',
-    description: 'Upload company logo image (max 5MB, jpg/png/gif)',
+    description: 'Upload company logo image (max 5MB, jpg/jpeg/png/gif/webp)',
   })
   @ApiBody({
     schema: {

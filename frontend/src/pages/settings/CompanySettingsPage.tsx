@@ -210,22 +210,45 @@ const CompanySettingsPage: React.FC = () => {
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Company Logo
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <Avatar
-                  src={logoPreview || undefined}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Logo Preview */}
+                <Box
                   sx={{
-                    width: 120,
-                    height: 120,
-                    bgcolor: 'primary.light',
+                    width: '100%',
+                    maxWidth: 600,
+                    minHeight: 200,
+                    maxHeight: 400,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     border: '2px dashed',
                     borderColor: 'divider',
+                    borderRadius: 2,
+                    bgcolor: logoPreview ? 'transparent' : 'primary.light',
+                    overflow: 'hidden',
+                    position: 'relative',
                   }}
                 >
-                  <CompanyIcon sx={{ fontSize: 60, color: 'primary.main' }} />
-                </Avatar>
-                <Box>
+                  {logoPreview ? (
+                    <Box
+                      component="img"
+                      src={logoPreview}
+                      alt="Company Logo"
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  ) : (
+                    <CompanyIcon sx={{ fontSize: 80, color: 'primary.main', opacity: 0.5 }} />
+                  )}
+                </Box>
+
+                {/* Upload Controls */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <input
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
                     style={{ display: 'none' }}
                     id="logo-upload"
                     type="file"
@@ -236,24 +259,25 @@ const CompanySettingsPage: React.FC = () => {
                       variant="outlined"
                       component="span"
                       startIcon={<UploadIcon />}
-                      sx={{ mr: 1 }}
                     >
                       Upload Logo
                     </Button>
                   </label>
                   {logoPreview && (
-                    <IconButton
+                    <Button
+                      variant="outlined"
                       color="error"
                       onClick={handleRemoveLogo}
-                      size="small"
+                      startIcon={<DeleteIcon />}
                     >
-                      <DeleteIcon />
-                    </IconButton>
+                      Remove Logo
+                    </Button>
                   )}
-                  <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
-                    Recommended: Square image, max 5MB (JPG, PNG, GIF)
-                  </Typography>
                 </Box>
+
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Accepted formats: JPG, PNG, GIF, WEBP • Max size: 5MB • Rectangular preview auto-adjusts to image size
+                </Typography>
               </Box>
             </Grid>
 
