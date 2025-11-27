@@ -49,6 +49,19 @@ const schema = yup.object({
   miscInfo: yup.string(),
 })
 
+// Helper to get full logo URL
+const getLogoUrl = (logoPath: string | null | undefined): string | null => {
+  if (!logoPath) return null
+  // If it's already a full URL, return it
+  if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+    return logoPath
+  }
+  // For uploaded files, we need to access them directly via the backend
+  // Don't use the API base URL, just use the path directly
+  // The NGINX proxy will handle routing /uploads to the backend
+  return logoPath
+}
+
 const CompanySettingsPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -100,7 +113,10 @@ const CompanySettingsPage: React.FC = () => {
 
       // Set logo preview if exists
       if (settings.logoUrl) {
-        setLogoPreview(settings.logoUrl)
+        const fullLogoUrl = getLogoUrl(settings.logoUrl)
+        console.log('Logo URL from API:', settings.logoUrl)
+        console.log('Full Logo URL:', fullLogoUrl)
+        setLogoPreview(fullLogoUrl)
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load company settings'
