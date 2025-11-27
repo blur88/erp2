@@ -34,6 +34,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { DashboardModule } from './modules/dashboard/dashboard-module';
+import { SettingsModule } from './modules/settings/settings.module';
 // import { PluginsModule } from './modules/plugins/plugins.module'; // Disabled due to auth compilation issues
 
 // Controllers
@@ -59,6 +60,7 @@ import { AppService } from './app.service';
     SalesModule,
     PurchasingModule,
     DashboardModule, // Re-enabled - WebSocket support
+    SettingsModule, // Company settings
     // PluginsModule, // Re-enable after fixing compilation issues
   ],
   controllers: [AppController],

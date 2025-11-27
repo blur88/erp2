@@ -1,0 +1,184 @@
+import {
+  Controller,
+  Get,
+  Put,
+  Body,
+  Post,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+  ValidationPipe,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBadRequestResponse,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { SettingsService } from './settings.service';
+import {
+  UpdateCompanySettingsDto,
+  CompanySettingsResponseDto,
+} from './dto';
+
+/**
+ * Settings Controller
+ * Handles company settings operations
+ */
+@ApiTags('Settings')
+@Controller('settings')
+export class SettingsController {
+  private readonly logger = new Logger(SettingsController.name);
+
+  constructor(private readonly settingsService: SettingsService) {}
+
+  /**
+   * Get company settings
+   */
+  @Get('company')
+  @ApiOperation({
+    summary: 'Get company settings',
+    description: 'Retrieve current company settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings retrieved successfully',
+    type: CompanySettingsResponseDto,
+  })
+  async getCompanySettings(): Promise<CompanySettingsResponseDto> {
+    try {
+      this.logger.log('Fetching company settings');
+      return await this.settingsService.getCompanySettings();
+    } catch (error) {
+      this.logger.error(`Failed to get company settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Update company settings
+   */
+  @Put('company')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update company settings',
+    description: 'Update company settings information',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings updated successfully',
+    type: CompanySettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async updateCompanySettings(
+    @Body(ValidationPipe) updateDto: UpdateCompanySettingsDto,
+  ): Promise<CompanySettingsResponseDto> {
+    try {
+      this.logger.log('Updating company settings');
+      return await this.settingsService.updateCompanySettings(updateDto, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to update company settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload company logo
+   */
+  @Post('company/logo')
+  @UseInterceptors(
+    FileInterceptor('logo', {
+      storage: diskStorage({
+        destination: './uploads/logos',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `logo-${uniqueSuffix}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+          return callback(
+            new BadRequestException('Only image files are allowed (jpg, jpeg, png, gif)'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload company logo',
+    description: 'Upload company logo image (max 5MB, jpg/png/gif)',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        logo: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Logo uploaded successfully',
+    type: CompanySettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid file type or size' })
+  async uploadLogo(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<CompanySettingsResponseDto> {
+    try {
+      if (!file) {
+        throw new BadRequestException('No file uploaded');
+      }
+
+      this.logger.log(`Uploading company logo: ${file.filename}`);
+      const logoUrl = `/uploads/logos/${file.filename}`;
+      return await this.settingsService.updateLogoUrl(logoUrl, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to upload logo: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete company logo
+   */
+  @Delete('company/logo')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete company logo',
+    description: 'Remove company logo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logo deleted successfully',
+    type: CompanySettingsResponseDto,
+  })
+  async deleteLogo(): Promise<CompanySettingsResponseDto> {
+    try {
+      this.logger.log('Deleting company logo');
+      return await this.settingsService.deleteLogoUrl('system');
+    } catch (error) {
+      this.logger.error(`Failed to delete logo: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+}
