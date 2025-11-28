@@ -31,6 +31,27 @@ export interface UpdateCompanySettingsDto {
   miscInfo?: string
 }
 
+export interface PricingScheme {
+  name: string
+  currency: string
+}
+
+export interface PriceCostingSettings {
+  id: string
+  currency: string
+  costingMethod: string
+  customerPricingSchemes: PricingScheme[]
+  createdAt: string
+  updatedAt: string
+  isActive: boolean
+}
+
+export interface UpdatePriceCostingSettingsDto {
+  currency?: string
+  costingMethod?: string
+  customerPricingSchemes?: PricingScheme[]
+}
+
 class SettingsApi {
   /**
    * Get company settings
@@ -65,6 +86,20 @@ class SettingsApi {
    */
   async deleteLogo(): Promise<ApiResponse<CompanySettings>> {
     return ApiService.delete<CompanySettings>('/settings/company/logo')
+  }
+
+  /**
+   * Get price and costing settings
+   */
+  async getPriceCostingSettings(): Promise<ApiResponse<PriceCostingSettings>> {
+    return ApiService.get<PriceCostingSettings>('/settings/price-costing')
+  }
+
+  /**
+   * Update price and costing settings
+   */
+  async updatePriceCostingSettings(data: UpdatePriceCostingSettingsDto): Promise<ApiResponse<PriceCostingSettings>> {
+    return ApiService.put<PriceCostingSettings>('/settings/price-costing', data)
   }
 }
 

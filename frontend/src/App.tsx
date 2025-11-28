@@ -47,6 +47,7 @@ const MovementSummaryReport = React.lazy(() => import('./pages/inventory/Movemen
 const PriceListReport = React.lazy(() => import('./pages/inventory/PriceListReport'))
 const ProductCostReport = React.lazy(() => import('./pages/inventory/ProductCostReport'))
 const CompanySettingsPage = React.lazy(() => import('./pages/settings/CompanySettingsPage'))
+const PriceCostingPage = React.lazy(() => import('./pages/settings/PriceCostingPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
 // Loading component
@@ -129,6 +130,7 @@ function App() {
 
                     {/* Settings */}
                     <Route path="/settings/company" element={<CompanySettingsPage />} />
+                    <Route path="/settings/price-costing" element={<PriceCostingPage />} />
 
                     {/* Default redirect */}
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />

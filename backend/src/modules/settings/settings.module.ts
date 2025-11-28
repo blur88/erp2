@@ -5,6 +5,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { SettingsService } from './settings.service';
 import { SettingsController } from './settings.controller';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
+import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
 
 /**
  * Settings Module
@@ -12,8 +13,8 @@ import { CompanySettings } from '../../database/entities/company-settings.entity
  */
 @Module({
   imports: [
-    // TypeORM for CompanySettings entity
-    TypeOrmModule.forFeature([CompanySettings]),
+    // TypeORM for Settings entities
+    TypeOrmModule.forFeature([CompanySettings, PriceCostingSettings]),
 
     // Multer for file upload
     MulterModule.register({

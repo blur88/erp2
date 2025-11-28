@@ -7,9 +7,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
+import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
+  UpdatePriceCostingSettingsDto,
+  PriceCostingSettingsResponseDto,
 } from './dto';
 import { plainToInstance } from 'class-transformer';
 import * as fs from 'fs';
@@ -27,6 +30,8 @@ export class SettingsService {
   constructor(
     @InjectRepository(CompanySettings)
     private companySettingsRepository: Repository<CompanySettings>,
+    @InjectRepository(PriceCostingSettings)
+    private priceCostingSettingsRepository: Repository<PriceCostingSettings>,
   ) {}
 
   /**
@@ -222,6 +227,99 @@ export class SettingsService {
    */
   private mapToResponseDto(settings: CompanySettings): CompanySettingsResponseDto {
     return plainToInstance(CompanySettingsResponseDto, settings, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  /**
+   * Get price and costing settings (creates default if not exists)
+   */
+  async getPriceCostingSettings(): Promise<PriceCostingSettingsResponseDto> {
+    try {
+      let settings = await this.priceCostingSettingsRepository.findOne({
+        where: { isActive: true },
+      });
+
+      // Create default settings if none exist
+      if (!settings) {
+        settings = await this.createDefaultPriceCostingSettings();
+      }
+
+      return this.mapToPriceCostingResponseDto(settings);
+    } catch (error) {
+      this.logger.error(
+        `Failed to get price and costing settings: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to retrieve price and costing settings');
+    }
+  }
+
+  /**
+   * Update price and costing settings
+   */
+  async updatePriceCostingSettings(
+    updateDto: UpdatePriceCostingSettingsDto,
+    updatedBy = 'system',
+  ): Promise<PriceCostingSettingsResponseDto> {
+    try {
+      let settings = await this.priceCostingSettingsRepository.findOne({
+        where: { isActive: true },
+      });
+
+      if (!settings) {
+        // Create new settings if none exist
+        settings = this.priceCostingSettingsRepository.create({
+          ...updateDto,
+          isActive: true,
+        });
+      } else {
+        // Update existing settings
+        Object.assign(settings, updateDto);
+      }
+
+      const savedSettings = await this.priceCostingSettingsRepository.save(settings);
+
+      this.logger.log(
+        `Price and costing settings updated by ${updatedBy}`,
+      );
+
+      return this.mapToPriceCostingResponseDto(savedSettings);
+    } catch (error) {
+      this.logger.error(
+        `Failed to update price and costing settings: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to update price and costing settings');
+    }
+  }
+
+  /**
+   * Create default price and costing settings
+   */
+  private async createDefaultPriceCostingSettings(): Promise<PriceCostingSettings> {
+    const defaultSettings = this.priceCostingSettingsRepository.create({
+      currency: 'USD',
+      costingMethod: 'AVERAGE',
+      customerPricingSchemes: [
+        { name: 'Retail', currency: 'USD' },
+        { name: 'Wholesale', currency: 'USD' },
+        { name: 'Special', currency: 'USD' },
+      ],
+      isActive: true,
+    });
+
+    const savedSettings = await this.priceCostingSettingsRepository.save(defaultSettings);
+    this.logger.log('Default price and costing settings created');
+
+    return savedSettings;
+  }
+
+  /**
+   * Map entity to price costing response DTO
+   */
+  private mapToPriceCostingResponseDto(settings: PriceCostingSettings): PriceCostingSettingsResponseDto {
+    return plainToInstance(PriceCostingSettingsResponseDto, settings, {
       excludeExtraneousValues: true,
     });
   }

@@ -28,6 +28,8 @@ import { SettingsService } from './settings.service';
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
+  UpdatePriceCostingSettingsDto,
+  PriceCostingSettingsResponseDto,
 } from './dto';
 
 /**
@@ -178,6 +180,56 @@ export class SettingsController {
       return await this.settingsService.deleteLogoUrl('system');
     } catch (error) {
       this.logger.error(`Failed to delete logo: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get price and costing settings
+   */
+  @Get('price-costing')
+  @ApiOperation({
+    summary: 'Get price and costing settings',
+    description: 'Retrieve current price and costing settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Price and costing settings retrieved successfully',
+    type: PriceCostingSettingsResponseDto,
+  })
+  async getPriceCostingSettings(): Promise<PriceCostingSettingsResponseDto> {
+    try {
+      this.logger.log('Fetching price and costing settings');
+      return await this.settingsService.getPriceCostingSettings();
+    } catch (error) {
+      this.logger.error(`Failed to get price and costing settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Update price and costing settings
+   */
+  @Put('price-costing')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update price and costing settings',
+    description: 'Update price and costing settings information',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Price and costing settings updated successfully',
+    type: PriceCostingSettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async updatePriceCostingSettings(
+    @Body(ValidationPipe) updateDto: UpdatePriceCostingSettingsDto,
+  ): Promise<PriceCostingSettingsResponseDto> {
+    try {
+      this.logger.log('Updating price and costing settings');
+      return await this.settingsService.updatePriceCostingSettings(updateDto, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to update price and costing settings: ${error.message}`, error.stack);
       throw error;
     }
   }
