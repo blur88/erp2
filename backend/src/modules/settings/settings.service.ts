@@ -12,6 +12,8 @@ import {
   CompanySettingsResponseDto,
 } from './dto';
 import { plainToInstance } from 'class-transformer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Settings Service
@@ -106,6 +108,11 @@ export class SettingsService {
         throw new NotFoundException('Company settings not found');
       }
 
+      // Delete old logo file if it exists
+      if (settings.logoUrl) {
+        this.deleteLogoFile(settings.logoUrl);
+      }
+
       settings.logoUrl = logoUrl;
       const savedSettings = await this.companySettingsRepository.save(settings);
 
@@ -136,6 +143,11 @@ export class SettingsService {
 
       if (!settings) {
         throw new NotFoundException('Company settings not found');
+      }
+
+      // Delete the logo file if it exists
+      if (settings.logoUrl) {
+        this.deleteLogoFile(settings.logoUrl);
       }
 
       settings.logoUrl = null;
@@ -178,6 +190,31 @@ export class SettingsService {
     this.logger.log('Default company settings created');
 
     return savedSettings;
+  }
+
+  /**
+   * Delete logo file from filesystem
+   */
+  private deleteLogoFile(logoUrl: string): void {
+    try {
+      // Extract the file path from the URL
+      // logoUrl format: /uploads/logos/logo-123456789.png
+      const filePath = path.join(process.cwd(), logoUrl.replace(/^\//, ''));
+
+      // Check if file exists before attempting to delete
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        this.logger.log(`Deleted logo file: ${filePath}`);
+      } else {
+        this.logger.warn(`Logo file not found: ${filePath}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to delete logo file: ${error.message}`,
+        error.stack,
+      );
+      // Don't throw error - continue even if file deletion fails
+    }
   }
 
   /**

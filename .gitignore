@@ -52,6 +52,11 @@ postgres-data/
 mongo-data/
 redis-data/
 
+# Uploaded files
+uploads/
+backend/uploads/
+frontend/uploads/
+
 # Coverage and test outputs
 coverage/
 *.coverage
