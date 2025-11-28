@@ -84,7 +84,7 @@ export class Product extends BaseEntity {
   @IsBoolean()
   isActive: boolean;
 
-  
+
   // Pricing - Multi-level pricing support
   @Column({
     type: 'decimal',
@@ -101,7 +101,7 @@ export class Product extends BaseEntity {
     precision: 15,
     scale: 4,
     nullable: true,
-    comment: 'Retail selling price',
+    comment: 'Retail selling price (deprecated - use pricingTiers)',
   })
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
@@ -113,7 +113,7 @@ export class Product extends BaseEntity {
     precision: 15,
     scale: 4,
     nullable: true,
-    comment: 'Wholesale selling price',
+    comment: 'Wholesale selling price (deprecated - use pricingTiers)',
   })
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
@@ -125,12 +125,19 @@ export class Product extends BaseEntity {
     precision: 15,
     scale: 4,
     nullable: true,
-    comment: 'Special/promotional selling price',
+    comment: 'Special/promotional selling price (deprecated - use pricingTiers)',
   })
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   specialPrice?: number;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    comment: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+  })
+  pricingTiers?: Record<string, number>;
 
   // Current stock quantity
   @Column({
@@ -223,5 +230,39 @@ export class Product extends BaseEntity {
       default:
         return Number(this.retailPrice || 0);
     }
+  }
+
+  /**
+   * Get price for a specific pricing scheme (supports dynamic schemes)
+   * Falls back to legacy fields if pricingTiers not available
+   */
+  getPriceByScheme(schemeName: string): number {
+    // First try to get from dynamic pricing tiers
+    if (this.pricingTiers && this.pricingTiers[schemeName]) {
+      return Number(this.pricingTiers[schemeName]);
+    }
+
+    // Fallback to legacy fields for backward compatibility
+    const lowerScheme = schemeName.toLowerCase();
+    if (lowerScheme === 'retail') {
+      return Number(this.retailPrice || 0);
+    } else if (lowerScheme === 'wholesale') {
+      return Number(this.wholesalePrice || 0);
+    } else if (lowerScheme === 'special') {
+      return Number(this.specialPrice || 0);
+    }
+
+    // Default to retail price if scheme not found
+    return Number(this.retailPrice || 0);
+  }
+
+  /**
+   * Set price for a specific pricing scheme
+   */
+  setPriceForScheme(schemeName: string, price: number): void {
+    if (!this.pricingTiers) {
+      this.pricingTiers = {};
+    }
+    this.pricingTiers[schemeName] = price;
   }
 }

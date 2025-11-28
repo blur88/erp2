@@ -25,7 +25,10 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-
+/**
+ * @deprecated Use pricingScheme string field instead
+ * Kept for backward compatibility during migration
+ */
 export enum PriceLevel {
   RETAIL = 'retail',
   WHOLESALE = 'wholesale',
@@ -40,7 +43,7 @@ export enum PriceLevel {
 @Entity('customers')
 @Index(['phone'])
 @Index(['type'])
-@Index(['priceLevel'])
+@Index(['pricingScheme'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
 
@@ -89,13 +92,14 @@ export class Customer extends BaseEntity {
   isActive: boolean;
 
   @Column({
-    type: 'enum',
-    enum: PriceLevel,
-    default: PriceLevel.RETAIL,
-    comment: 'Default price level for this customer',
+    type: 'varchar',
+    length: 100,
+    default: 'Retail',
+    comment: 'Default pricing scheme name for this customer',
   })
-  @IsEnum(PriceLevel)
-  priceLevel: PriceLevel;
+  @IsString()
+  @MaxLength(100)
+  pricingScheme: string;
 
 
   // Customer Metrics

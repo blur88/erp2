@@ -101,6 +101,20 @@ class SettingsApi {
   async updatePriceCostingSettings(data: UpdatePriceCostingSettingsDto): Promise<ApiResponse<PriceCostingSettings>> {
     return ApiService.put<PriceCostingSettings>('/settings/price-costing', data)
   }
+
+  /**
+   * Get active pricing schemes (for use in other modules)
+   */
+  async getActivePricingSchemes(): Promise<ApiResponse<PricingScheme[]>> {
+    return ApiService.get<PricingScheme[]>('/settings/pricing-schemes')
+  }
+
+  /**
+   * Get default currency
+   */
+  async getDefaultCurrency(): Promise<ApiResponse<{ currency: string }>> {
+    return ApiService.get<{ currency: string }>('/settings/default-currency')
+  }
 }
 
 export const settingsApi = new SettingsApi()

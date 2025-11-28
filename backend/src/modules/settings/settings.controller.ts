@@ -233,4 +233,65 @@ export class SettingsController {
       throw error;
     }
   }
+
+  /**
+   * Get active pricing schemes (for use by other modules)
+   */
+  @Get('pricing-schemes')
+  @ApiOperation({
+    summary: 'Get active pricing schemes',
+    description: 'Retrieve active pricing schemes for use in other modules',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pricing schemes retrieved successfully',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          currency: { type: 'string' },
+        },
+      },
+    },
+  })
+  async getActivePricingSchemes(): Promise<Array<{ name: string; currency: string }>> {
+    try {
+      this.logger.log('Fetching active pricing schemes');
+      return await this.settingsService.getActivePricingSchemes();
+    } catch (error) {
+      this.logger.error(`Failed to get pricing schemes: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get default currency
+   */
+  @Get('default-currency')
+  @ApiOperation({
+    summary: 'Get default currency',
+    description: 'Retrieve the default currency from settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Default currency retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        currency: { type: 'string' },
+      },
+    },
+  })
+  async getDefaultCurrency(): Promise<{ currency: string }> {
+    try {
+      this.logger.log('Fetching default currency');
+      const currency = await this.settingsService.getDefaultCurrency();
+      return { currency };
+    } catch (error) {
+      this.logger.error(`Failed to get default currency: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
 }

@@ -47,6 +47,16 @@ export class SalesOrder extends BaseEntity {
   @IsDate()
   orderDate: Date;
 
+  @Column({
+    type: 'varchar',
+    length: 10,
+    default: 'USD',
+    comment: 'Transaction currency',
+  })
+  @IsString()
+  @MaxLength(10)
+  currency: string;
+
   // Financial Information
 
   @Column({

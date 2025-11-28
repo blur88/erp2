@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
 import { Customer, PriceLevel } from '../../../database/entities/customer.entity';
-import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateCustomerDto,
@@ -41,7 +41,7 @@ export class CustomerService {
 
     const customer = this.customerRepository.create({
       ...createCustomerDto,
-      priceLevel: createCustomerDto.priceLevel || PriceLevel.RETAIL,
+      pricingScheme: createCustomerDto.pricingScheme || createCustomerDto.priceLevel || 'Retail',
     });
 
     const savedCustomer = await this.customerRepository.save(customer);
@@ -52,7 +52,7 @@ export class CustomerService {
     const {
       search,
       type,
-      priceLevel,
+      pricingScheme,
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
@@ -63,7 +63,7 @@ export class CustomerService {
     const where: FindOptionsWhere<Customer> = {};
 
     if (type) where.type = type;
-    if (priceLevel) where.priceLevel = priceLevel;
+    if (pricingScheme) where.pricingScheme = pricingScheme;
     if (isActive !== undefined) where.isActive = isActive;
 
 
@@ -826,7 +826,7 @@ export class CustomerService {
       name: customer.name,
       phone: customer.phone,
       isActive: customer.isActive,
-      priceLevel: customer.priceLevel,
+      pricingScheme: customer.pricingScheme,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,

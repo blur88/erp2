@@ -45,13 +45,22 @@ export class CreateCustomerDto {
 
 
   @ApiPropertyOptional({
-    description: 'Default price level for this customer',
+    description: 'Default price level for this customer (deprecated, use pricingScheme)',
     enum: PriceLevel,
     example: PriceLevel.WHOLESALE,
   })
   @IsOptional()
   @IsEnum(PriceLevel)
   priceLevel?: PriceLevel;
+
+  @ApiPropertyOptional({
+    description: 'Default pricing scheme for this customer (recommended)',
+    example: 'Wholesale',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  pricingScheme?: string;
 
 
   @ApiPropertyOptional({
@@ -97,13 +106,13 @@ export class UpdateCustomerDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Default price level for this customer',
-    enum: PriceLevel,
-    example: PriceLevel.WHOLESALE,
+    description: 'Default pricing scheme for this customer',
+    example: 'Wholesale',
   })
   @IsOptional()
-  @IsEnum(PriceLevel)
-  priceLevel?: PriceLevel;
+  @IsString()
+  @MaxLength(100)
+  pricingScheme?: string;
 
 
   @ApiPropertyOptional({
@@ -135,15 +144,13 @@ export class QueryCustomersDto {
 
 
   @ApiPropertyOptional({
-    description: 'Filter by price level',
-    enum: PriceLevel,
-    example: PriceLevel.WHOLESALE,
+    description: 'Filter by pricing scheme',
+    example: 'Wholesale',
   })
   @IsOptional()
-  @Transform(({ value }) => value === '' ? undefined : value)
-  @ValidateIf(o => o.priceLevel !== '' && o.priceLevel !== undefined)
-  @IsEnum(PriceLevel, { message: 'priceLevel must be one of: retail, wholesale, special' })
-  priceLevel?: PriceLevel;
+  @IsString()
+  @MaxLength(100)
+  pricingScheme?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by active status',
@@ -209,8 +216,8 @@ export class CustomerResponseDto {
   @ApiProperty({ example: true })
   isActive: boolean;
 
-  @ApiProperty({ enum: PriceLevel, example: PriceLevel.WHOLESALE })
-  priceLevel: PriceLevel;
+  @ApiProperty({ example: 'Wholesale' })
+  pricingScheme: string;
 
   @ApiProperty({ example: 50000.00 })
   totalSales: number;
@@ -252,4 +259,3 @@ export class CustomerSummaryDto {
   phone?: string;
 
 }
-

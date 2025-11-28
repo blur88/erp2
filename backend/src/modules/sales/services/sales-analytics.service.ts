@@ -771,10 +771,10 @@ export class SalesAnalyticsService {
         const profit = totalAmount - totalCost;
 
         // Determine price level from customer or default to retail
-        let priceLevel = 'Retail';
-        if (order.customer?.priceLevel) {
-          const level = order.customer.priceLevel;
-          priceLevel = level.charAt(0).toUpperCase() + level.slice(1);
+        let pricingScheme = 'Retail';
+        if (order.customer?.pricingScheme) {
+          const level = order.customer.pricingScheme;
+          pricingScheme = level.charAt(0).toUpperCase() + level.slice(1);
         }
 
         productDetails.push({
@@ -787,7 +787,7 @@ export class SalesAnalyticsService {
           category: product.category?.name || 'Uncategorized',
           quantity: quantity,
           unitPrice: unitPrice,
-          priceLevel: priceLevel,
+          pricingScheme: pricingScheme,
           totalAmount: totalAmount,
           cost: totalCost,
           profit: profit,

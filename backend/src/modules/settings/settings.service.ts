@@ -323,4 +323,77 @@ export class SettingsService {
       excludeExtraneousValues: true,
     });
   }
+
+  /**
+   * Get active pricing scheme names (for use by other modules)
+   */
+  async getActivePricingSchemeNames(): Promise<string[]> {
+    try {
+      const settings = await this.priceCostingSettingsRepository.findOne({
+        where: { isActive: true },
+      });
+
+      if (!settings || !settings.customerPricingSchemes) {
+        return ['Retail', 'Wholesale', 'Special']; // Fallback defaults
+      }
+
+      return settings.customerPricingSchemes.map((scheme: any) => scheme.name);
+    } catch (error) {
+      this.logger.error(
+        `Failed to get pricing scheme names: ${error.message}`,
+        error.stack,
+      );
+      return ['Retail', 'Wholesale', 'Special']; // Fallback on error
+    }
+  }
+
+  /**
+   * Get pricing schemes with their currencies (for use by other modules)
+   */
+  async getActivePricingSchemes(): Promise<Array<{ name: string; currency: string }>> {
+    try {
+      const settings = await this.priceCostingSettingsRepository.findOne({
+        where: { isActive: true },
+      });
+
+      if (!settings || !settings.customerPricingSchemes) {
+        return [
+          { name: 'Retail', currency: 'USD' },
+          { name: 'Wholesale', currency: 'USD' },
+          { name: 'Special', currency: 'USD' },
+        ];
+      }
+
+      return settings.customerPricingSchemes;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get pricing schemes: ${error.message}`,
+        error.stack,
+      );
+      return [
+        { name: 'Retail', currency: 'USD' },
+        { name: 'Wholesale', currency: 'USD' },
+        { name: 'Special', currency: 'USD' },
+      ];
+    }
+  }
+
+  /**
+   * Get default currency
+   */
+  async getDefaultCurrency(): Promise<string> {
+    try {
+      const settings = await this.priceCostingSettingsRepository.findOne({
+        where: { isActive: true },
+      });
+
+      return settings?.currency || 'USD';
+    } catch (error) {
+      this.logger.error(
+        `Failed to get default currency: ${error.message}`,
+        error.stack,
+      );
+      return 'USD';
+    }
+  }
 }
