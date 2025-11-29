@@ -36,6 +36,7 @@ import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { updateOrderInPlace, createOrder as createOrderAction } from '@/store/slices/salesSlice'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface OrderItem {
   productId: string
@@ -85,6 +86,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
+  const { currency } = useCurrency()
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -683,7 +685,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                         style: { textAlign: 'right', fontSize: '0.875rem' }
                                       }}
                                       InputProps={{
-                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                                       }}
                                       error={!!errors.items?.[index]?.unitPrice}
                                     />
@@ -762,7 +764,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                       }}
                                     >
                                       <MenuItem value="percentage">%</MenuItem>
-                                      <MenuItem value="amount">RM</MenuItem>
+                                      <MenuItem value="amount">{currency}</MenuItem>
                                     </TextField>
                                   )}
                                 />
@@ -891,7 +893,7 @@ const CreateSalesOrderPage: React.FC = () => {
                               },
                             }}
                             InputProps={{
-                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                             }}
                           />
                         )

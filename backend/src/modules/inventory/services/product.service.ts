@@ -38,6 +38,7 @@ import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class ProductService {
@@ -67,6 +68,7 @@ export class ProductService {
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -125,12 +127,35 @@ export class ProductService {
     // Validate pricing logic
     this.validatePricing(createProductDto);
 
+    // Get pricing schemes from settings to initialize pricingTiers
+    const pricingSchemes = await this.settingsService.getActivePricingSchemes();
+
+    // Initialize pricingTiers from settings and DTO
+    const pricingTiers: Record<string, number> = {};
+    pricingSchemes.forEach((scheme) => {
+      const schemeName = scheme.name;
+      const lowerScheme = schemeName.toLowerCase();
+
+      // Map legacy fields to pricing tiers
+      if (lowerScheme === 'retail' && createProductDto.retailPrice !== undefined) {
+        pricingTiers[schemeName] = createProductDto.retailPrice;
+      } else if (lowerScheme === 'wholesale' && createProductDto.wholesalePrice !== undefined) {
+        pricingTiers[schemeName] = createProductDto.wholesalePrice;
+      } else if (lowerScheme === 'special' && createProductDto.specialPrice !== undefined) {
+        pricingTiers[schemeName] = createProductDto.specialPrice;
+      } else {
+        // Default pricing for new schemes (use baseCost * 1.3 as default)
+        pricingTiers[schemeName] = createProductDto.baseCost * 1.3;
+      }
+    });
+
     // Create product
     const product = this.productRepository.create({
       ...createProductDto,
       stockQuantity: createProductDto.stockQuantity || 0,
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
+      pricingTiers, // Add dynamic pricing tiers
     });
 
     const savedProduct = await this.productRepository.save(product);
@@ -778,11 +803,34 @@ export class ProductService {
 
     // Transform DTO fields to match entity fields FIRST
     const updateData: any = { ...updateProductDto };
-    
+
     // stockQuantity is handled directly in the DTO
 
-    // Validate pricing if being updated (use transformed data)
+    // Update pricingTiers if any pricing fields are being updated
     if (this.hasPricingChanges(updateData)) {
+      // Get pricing schemes from settings
+      const pricingSchemes = await this.settingsService.getActivePricingSchemes();
+
+      // Update pricingTiers based on changes
+      const currentPricingTiers = product.pricingTiers || {};
+      pricingSchemes.forEach((scheme) => {
+        const schemeName = scheme.name;
+        const lowerScheme = schemeName.toLowerCase();
+
+        // Update pricing tier if corresponding field is being updated
+        if (lowerScheme === 'retail' && updateData.retailPrice !== undefined) {
+          currentPricingTiers[schemeName] = updateData.retailPrice;
+        } else if (lowerScheme === 'wholesale' && updateData.wholesalePrice !== undefined) {
+          currentPricingTiers[schemeName] = updateData.wholesalePrice;
+        } else if (lowerScheme === 'special' && updateData.specialPrice !== undefined) {
+          currentPricingTiers[schemeName] = updateData.specialPrice;
+        }
+      });
+
+      // Add updated pricingTiers to updateData
+      updateData.pricingTiers = currentPricingTiers;
+
+      // Validate pricing (use transformed data)
       this.validatePricing({ ...product, ...updateData } as any);
     }
 

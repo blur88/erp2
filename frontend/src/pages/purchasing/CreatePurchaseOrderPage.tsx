@@ -37,6 +37,7 @@ import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction, fetchGoodsReceivedNotes } from '@/store/slices/purchasingSlice'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface PurchaseOrderItem {
   productId: string
@@ -76,6 +77,7 @@ const schema = yup.object({
 })
 
 const CreatePurchaseOrderPage: React.FC = () => {
+  const {currency} = useCurrency()
   const theme = useTheme()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
@@ -694,7 +696,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                         style: { textAlign: 'right', fontSize: '0.875rem' }
                                       }}
                                       InputProps={{
-                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                                       }}
                                       error={!!errors.items?.[index]?.unitPrice}
                                     />
@@ -773,7 +775,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                       }}
                                     >
                                       <MenuItem value="percent">%</MenuItem>
-                                      <MenuItem value="amount">RM</MenuItem>
+                                      <MenuItem value="amount">{currency}</MenuItem>
                                     </TextField>
                                   )}
                                 />
@@ -781,7 +783,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             </TableCell>
                             <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
                               <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
-                                {formatCurrency(watchedItems[index]?.totalPrice || 0)}
+                                {currency}
                               </Typography>
                             </TableCell>
                             <TableCell align="center" sx={{ padding: '2px !important' }}>
@@ -852,7 +854,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
-                    <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
+                    <Typography sx={{ fontSize: '0.875rem' }}>{currency}</Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -905,7 +907,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                               },
                             }}
                             InputProps={{
-                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                             }}
                           />
                         )

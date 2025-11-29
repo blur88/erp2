@@ -58,6 +58,7 @@ import { format, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, each
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
+import { useCurrency } from '@/hooks/useCurrency'
 
 ChartJS.register(
   CategoryScale,
@@ -170,6 +171,7 @@ const DATE_FILTER_OPTIONS = [
 const DashboardPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
+  const { currency } = useCurrency() // Initialize currency cache
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)

@@ -26,6 +26,7 @@ import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface ProductFormData {
   name: string
@@ -70,6 +71,9 @@ const CreateProductPage: React.FC = () => {
   const [loadingProduct, setLoadingProduct] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+
+  // Currency hook
+  const { currency } = useCurrency()
 
   // Duplicate detection hook
   const {
@@ -488,7 +492,7 @@ const CreateProductPage: React.FC = () => {
                                 fullWidth
                                 size="small"
                                 InputProps={{
-                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                                 }}
                                 sx={{
                                   '& .MuiInputBase-input': {

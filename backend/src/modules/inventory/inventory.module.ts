@@ -35,6 +35,7 @@ import { InventoryAnalyticsService } from './services/inventory-analytics.servic
 
 // Other modules
 import { UsersModule } from '../users/users.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -58,6 +59,8 @@ import { UsersModule } from '../users/users.module';
     ]),
     // Import users module for user-related operations
     forwardRef(() => UsersModule),
+    // Import settings module for price/costing settings
+    SettingsModule,
   ],
   controllers: [
     ProductController,

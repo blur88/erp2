@@ -21,7 +21,8 @@ export interface ExportData {
 // Format currency for export
 const formatCurrencyForExport = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return ''
-  return `RM ${value.toFixed(2)}`
+  const currency = localStorage.getItem('defaultCurrency') || 'RM'
+  return `${currency} ${value.toFixed(2)}`
 }
 
 // Format date for export

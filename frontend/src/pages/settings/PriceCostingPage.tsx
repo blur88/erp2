@@ -24,6 +24,7 @@ import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
 import { settingsApi, type PricingScheme } from '@/services/settingsApi'
+import { refreshCurrencyCache } from '@/hooks/useCurrency'
 
 interface PriceCostingFormData {
   currency: string
@@ -123,7 +124,11 @@ const PriceCostingPage: React.FC = () => {
       setSubmitting(true)
 
       await settingsApi.updatePriceCostingSettings(data)
-      showSuccess('Price and costing settings saved successfully')
+
+      // Refresh currency cache immediately after saving
+      await refreshCurrencyCache()
+
+      showSuccess('Price and costing settings saved successfully. Please refresh pages to see currency changes.')
 
       // Reload settings to get updated data
       await fetchSettings()

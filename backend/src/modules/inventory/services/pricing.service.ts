@@ -10,9 +10,10 @@ import { Product } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { BulkUpdatePricesDto, ProductPriceUpdateDto } from '../dto/product.dto';
+import { SettingsService } from '../../settings/settings.service';
 
 export interface PriceCalculationOptions {
-  customerType?: 'retail' | 'wholesale' | 'special';
+  customerType?: string; // Dynamic price type from settings (e.g., 'Retail', 'Wholesale', 'VIP')
   customerId?: string;
   quantity?: number;
   categoryId?: string;
@@ -25,7 +26,7 @@ export interface PriceBreakdown {
   discountAmount: number;
   discountPercentage: number;
   finalPrice: number;
-  priceType: 'retail' | 'wholesale' | 'special';
+  priceType: string; // Dynamic price type from settings
   appliedDiscounts: Array<{
     type: string;
     description: string;
@@ -78,6 +79,7 @@ export class PricingService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -98,32 +100,39 @@ export class PricingService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    // Determine base price type
-    let priceType: 'retail' | 'wholesale' | 'special' = 'retail';
-    let basePrice = Number(product.retailPrice);
+    // Determine base price type (use dynamic pricing from settings)
+    let priceType = 'Retail'; // Default to Retail
+    let basePrice = 0;
 
     // Determine price type based on customer or explicit type
     if (options.customerId) {
       const customer = await this.customerRepository.findOne({
         where: { id: options.customerId },
       });
-      if (customer) {
-        priceType = this.getCustomerPriceType(customer);
+      if (customer && customer.priceLevel) {
+        // Capitalize first letter to match scheme names
+        priceType = customer.priceLevel.charAt(0).toUpperCase() + customer.priceLevel.slice(1).toLowerCase();
       }
     } else if (options.customerType) {
       priceType = options.customerType;
     }
 
-    // Set base price based on type
-    switch (priceType) {
-      case 'wholesale':
-        basePrice = Number(product.wholesalePrice);
-        break;
-      case 'special':
-        basePrice = Number(product.specialPrice);
-        break;
-      default:
-        basePrice = Number(product.retailPrice);
+    // Get price from pricingTiers if available, otherwise fall back to legacy fields
+    if (product.pricingTiers && product.pricingTiers[priceType]) {
+      basePrice = Number(product.pricingTiers[priceType]);
+    } else {
+      // Fallback to legacy pricing fields
+      const lowerType = priceType.toLowerCase();
+      if (lowerType === 'retail') {
+        basePrice = Number(product.retailPrice || 0);
+      } else if (lowerType === 'wholesale') {
+        basePrice = Number(product.wholesalePrice || 0);
+      } else if (lowerType === 'special') {
+        basePrice = Number(product.specialPrice || 0);
+      } else {
+        // For custom pricing schemes, default to retail price
+        basePrice = Number(product.retailPrice || 0);
+      }
     }
 
     // Apply quantity-based pricing adjustments
@@ -450,15 +459,13 @@ export class PricingService {
   /**
    * Get customer price type based on customer properties
    */
-  private getCustomerPriceType(customer: Customer): 'retail' | 'wholesale' | 'special' {
+  private getCustomerPriceType(customer: Customer): string {
     // Use the customer's price level from the entity
-    if (customer.priceLevel === 'wholesale') {
-      return 'wholesale';
+    if (customer.priceLevel) {
+      // Capitalize first letter to match scheme names (e.g., 'retail' -> 'Retail')
+      return customer.priceLevel.charAt(0).toUpperCase() + customer.priceLevel.slice(1).toLowerCase();
     }
-    if (customer.priceLevel === 'special') {
-      return 'special';
-    }
-    return 'retail';
+    return 'Retail'; // Default
   }
 
   /**
