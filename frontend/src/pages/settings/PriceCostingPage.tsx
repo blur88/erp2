@@ -18,12 +18,14 @@ import {
   PriceChange as PriceCostingIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  Calculate as CalculateIcon,
 } from '@mui/icons-material'
 import { useForm, Controller, useFieldArray } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
 import { settingsApi, type PricingScheme } from '@/services/settingsApi'
+import { inventoryApi } from '@/services/inventoryApi'
 import { refreshCurrencyCache } from '@/hooks/useCurrency'
 
 interface PriceCostingFormData {
@@ -70,6 +72,7 @@ const PriceCostingPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [recalculating, setRecalculating] = useState(false)
 
   const { control, handleSubmit, formState: { errors }, reset, setValue } = useForm<PriceCostingFormData>({
     resolver: yupResolver(schema) as any,
@@ -154,6 +157,33 @@ const PriceCostingPage: React.FC = () => {
       remove(index)
     } else {
       showError('At least one pricing scheme is required')
+    }
+  }
+
+  const handleRecalculateCosts = async () => {
+    try {
+      setRecalculating(true)
+      const result = await inventoryApi.recalculateAllProductCosts()
+
+      // ApiService returns response.data directly, so result is the data itself
+      if (result.errors > 0) {
+        showError(
+          `Recalculation completed with errors: ${result.updated} updated, ${result.errors} errors. Check console for details.`
+        )
+        console.error('Recalculation errors:', result.results.filter((r: any) => !r.success))
+      } else {
+        showSuccess(
+          `Successfully recalculated ${result.updated} product(s) using ${result.costingMethod} method`
+        )
+      }
+
+      console.log('Recalculation results:', result)
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to recalculate costs'
+      showError(errorMessage)
+      console.error('Recalculation error:', error)
+    } finally {
+      setRecalculating(false)
     }
   }
 
@@ -250,6 +280,30 @@ const PriceCostingPage: React.FC = () => {
                   </TextField>
                 )}
               />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Alert severity="info" sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ width: '100%' }}>
+                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
+                    Costing Method Changed?
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mb: 2 }}>
+                    After saving a new costing method, click "Recalculate" to update all product costs
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    startIcon={recalculating ? <CircularProgress size={16} color="inherit" /> : <CalculateIcon />}
+                    onClick={handleRecalculateCosts}
+                    disabled={recalculating}
+                    fullWidth
+                  >
+                    {recalculating ? 'Recalculating...' : 'Recalculate All Product Costs'}
+                  </Button>
+                </Box>
+              </Alert>
             </Grid>
 
             <Grid item xs={12}>
