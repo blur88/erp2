@@ -20,7 +20,7 @@ import {
   Delete as DeleteIcon,
   Calculate as CalculateIcon,
 } from '@mui/icons-material'
-import { useForm, Controller, useFieldArray } from 'react-hook-form'
+import { useForm, Controller, useFieldArray, useWatch } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
@@ -73,6 +73,8 @@ const PriceCostingPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [recalculating, setRecalculating] = useState(false)
+  const [savedCostingMethod, setSavedCostingMethod] = useState<string>('')
+  const [currentCostingMethod, setCurrentCostingMethod] = useState<string>('')
 
   const { control, handleSubmit, formState: { errors }, reset, setValue } = useForm<PriceCostingFormData>({
     resolver: yupResolver(schema) as any,
@@ -90,6 +92,19 @@ const PriceCostingPage: React.FC = () => {
     name: 'customerPricingSchemes',
   })
 
+  // Watch costing method changes
+  const watchedCostingMethod = useWatch({
+    control,
+    name: 'costingMethod',
+    defaultValue: currentCostingMethod,
+  })
+
+  useEffect(() => {
+    if (watchedCostingMethod) {
+      setCurrentCostingMethod(watchedCostingMethod)
+    }
+  }, [watchedCostingMethod])
+
   // Fetch settings on mount
   useEffect(() => {
     fetchSettings()
@@ -105,6 +120,10 @@ const PriceCostingPage: React.FC = () => {
       // Set form values
       setValue('currency', settings.currency || 'USD')
       setValue('costingMethod', settings.costingMethod || 'AVERAGE')
+
+      // Track saved costing method
+      setSavedCostingMethod(settings.costingMethod || 'AVERAGE')
+      setCurrentCostingMethod(settings.costingMethod || 'AVERAGE')
 
       // Set pricing schemes
       if (settings.customerPricingSchemes && settings.customerPricingSchemes.length > 0) {
@@ -130,6 +149,9 @@ const PriceCostingPage: React.FC = () => {
 
       // Refresh currency cache immediately after saving
       await refreshCurrencyCache()
+
+      // Update saved costing method after successful save
+      setSavedCostingMethod(data.costingMethod)
 
       showSuccess('Price and costing settings saved successfully. Please refresh pages to see currency changes.')
 
@@ -282,30 +304,6 @@ const PriceCostingPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <Alert severity="info" sx={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ width: '100%' }}>
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Costing Method Changed?
-                  </Typography>
-                  <Typography variant="caption" sx={{ display: 'block', mb: 2 }}>
-                    After saving a new costing method, click "Recalculate" to update all product costs
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    startIcon={recalculating ? <CircularProgress size={16} color="inherit" /> : <CalculateIcon />}
-                    onClick={handleRecalculateCosts}
-                    disabled={recalculating}
-                    fullWidth
-                  >
-                    {recalculating ? 'Recalculating...' : 'Recalculate All Product Costs'}
-                  </Button>
-                </Box>
-              </Alert>
-            </Grid>
-
             <Grid item xs={12}>
               <Divider sx={{ my: 2 }} />
             </Grid>
@@ -399,24 +397,48 @@ const PriceCostingPage: React.FC = () => {
 
             {/* Action Buttons */}
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  onClick={handleCancel}
-                  disabled={submitting}
-                  size="large"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  disabled={submitting}
-                  size="large"
-                >
-                  {submitting ? 'Saving...' : 'Save Changes'}
-                </Button>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mt: 2 }}>
+                {/* Recalculate Button - Left Side */}
+                <Box>
+                  {currentCostingMethod !== savedCostingMethod && (
+                    <Alert severity="warning" sx={{ py: 0.5, px: 2 }}>
+                      <Typography variant="caption">
+                        Save changes first to enable recalculation
+                      </Typography>
+                    </Alert>
+                  )}
+                </Box>
+
+                {/* Action Buttons - Right Side */}
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleCancel}
+                    disabled={submitting || recalculating}
+                    size="large"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    disabled={submitting || recalculating}
+                    size="large"
+                  >
+                    {submitting ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={recalculating ? <CircularProgress size={20} color="inherit" /> : <CalculateIcon />}
+                    onClick={handleRecalculateCosts}
+                    disabled={recalculating || submitting || currentCostingMethod !== savedCostingMethod}
+                    size="large"
+                  >
+                    {recalculating ? 'Recalculating...' : 'Recalculate Costs'}
+                  </Button>
+                </Box>
               </Box>
             </Grid>
           </Grid>
