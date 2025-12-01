@@ -130,24 +130,31 @@ export class ProductService {
     // Get pricing schemes from settings to initialize pricingTiers
     const pricingSchemes = await this.settingsService.getActivePricingSchemes();
 
-    // Initialize pricingTiers from settings and DTO
-    const pricingTiers: Record<string, number> = {};
-    pricingSchemes.forEach((scheme) => {
-      const schemeName = scheme.name;
-      const lowerScheme = schemeName.toLowerCase();
+    // Initialize pricingTiers - prioritize direct pricingTiers if provided
+    let pricingTiers: Record<string, number> = {};
 
-      // Map legacy fields to pricing tiers
-      if (lowerScheme === 'retail' && createProductDto.retailPrice !== undefined) {
-        pricingTiers[schemeName] = createProductDto.retailPrice;
-      } else if (lowerScheme === 'wholesale' && createProductDto.wholesalePrice !== undefined) {
-        pricingTiers[schemeName] = createProductDto.wholesalePrice;
-      } else if (lowerScheme === 'special' && createProductDto.specialPrice !== undefined) {
-        pricingTiers[schemeName] = createProductDto.specialPrice;
-      } else {
-        // Default pricing for new schemes (use baseCost * 1.3 as default)
-        pricingTiers[schemeName] = createProductDto.baseCost * 1.3;
-      }
-    });
+    if (createProductDto.pricingTiers && Object.keys(createProductDto.pricingTiers).length > 0) {
+      // Use directly provided pricingTiers (from new UI)
+      pricingTiers = { ...createProductDto.pricingTiers };
+    } else {
+      // Fallback to legacy pricing fields (for backward compatibility)
+      pricingSchemes.forEach((scheme) => {
+        const schemeName = scheme.name;
+        const lowerScheme = schemeName.toLowerCase();
+
+        // Map legacy fields to pricing tiers
+        if (lowerScheme === 'retail' && createProductDto.retailPrice !== undefined) {
+          pricingTiers[schemeName] = createProductDto.retailPrice;
+        } else if (lowerScheme === 'wholesale' && createProductDto.wholesalePrice !== undefined) {
+          pricingTiers[schemeName] = createProductDto.wholesalePrice;
+        } else if (lowerScheme === 'special' && createProductDto.specialPrice !== undefined) {
+          pricingTiers[schemeName] = createProductDto.specialPrice;
+        } else {
+          // Default pricing for new schemes (use baseCost * 1.3 as default)
+          pricingTiers[schemeName] = createProductDto.baseCost * 1.3;
+        }
+      });
+    }
 
     // Create product
     const product = this.productRepository.create({
@@ -806,9 +813,12 @@ export class ProductService {
 
     // stockQuantity is handled directly in the DTO
 
-    // Update pricingTiers if any pricing fields are being updated
-    if (this.hasPricingChanges(updateData)) {
-      // Get pricing schemes from settings
+    // Update pricingTiers - prioritize direct pricingTiers if provided
+    if (updateData.pricingTiers && Object.keys(updateData.pricingTiers).length > 0) {
+      // Direct pricingTiers provided (from new UI) - use as-is
+      this.logger.log('Using directly provided pricingTiers from DTO');
+    } else if (this.hasPricingChanges(updateData)) {
+      // Legacy pricing fields provided - convert to pricingTiers
       const pricingSchemes = await this.settingsService.getActivePricingSchemes();
 
       // Update pricingTiers based on changes
@@ -829,8 +839,10 @@ export class ProductService {
 
       // Add updated pricingTiers to updateData
       updateData.pricingTiers = currentPricingTiers;
+    }
 
-      // Validate pricing (use transformed data)
+    // Validate pricing if any pricing changes
+    if (updateData.pricingTiers || this.hasPricingChanges(updateData)) {
       this.validatePricing({ ...product, ...updateData } as any);
     }
 
@@ -1308,6 +1320,7 @@ export class ProductService {
       retailPrice: product.retailPrice ? Number(product.retailPrice) : undefined,
       wholesalePrice: product.wholesalePrice ? Number(product.wholesalePrice) : undefined,
       specialPrice: product.specialPrice ? Number(product.specialPrice) : undefined,
+      pricingTiers: product.pricingTiers || {}, // Include dynamic pricing tiers
       stockQuantity: Number(product.stockQuantity),
       notes: product.notes,
       categoryId: product.categoryId,

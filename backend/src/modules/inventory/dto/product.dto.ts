@@ -66,6 +66,14 @@ export class CreateProductDto {
   @Min(0)
   specialPrice?: number;
 
+  @ApiPropertyOptional({
+    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+    type: 'object',
+    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
+  })
+  @IsOptional()
+  pricingTiers?: Record<string, number>;
+
   @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -224,6 +232,13 @@ export class ProductResponseDto {
 
   @ApiPropertyOptional({ description: 'Special selling price' })
   specialPrice?: number;
+
+  @ApiPropertyOptional({
+    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+    type: 'object',
+    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
+  })
+  pricingTiers?: Record<string, number>;
 
   @ApiProperty({ description: 'Current stock quantity' })
   stockQuantity: number;

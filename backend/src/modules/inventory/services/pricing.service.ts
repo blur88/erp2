@@ -109,9 +109,8 @@ export class PricingService {
       const customer = await this.customerRepository.findOne({
         where: { id: options.customerId },
       });
-      if (customer && customer.priceLevel) {
-        // Capitalize first letter to match scheme names
-        priceType = customer.priceLevel.charAt(0).toUpperCase() + customer.priceLevel.slice(1).toLowerCase();
+      if (customer && customer.pricingScheme) {
+        priceType = customer.pricingScheme;
       }
     } else if (options.customerType) {
       priceType = options.customerType;
@@ -460,10 +459,9 @@ export class PricingService {
    * Get customer price type based on customer properties
    */
   private getCustomerPriceType(customer: Customer): string {
-    // Use the customer's price level from the entity
-    if (customer.priceLevel) {
-      // Capitalize first letter to match scheme names (e.g., 'retail' -> 'Retail')
-      return customer.priceLevel.charAt(0).toUpperCase() + customer.priceLevel.slice(1).toLowerCase();
+    // Use the customer's pricing scheme from the entity
+    if (customer.pricingScheme) {
+      return customer.pricingScheme;
     }
     return 'Retail'; // Default
   }
@@ -513,11 +511,12 @@ export class PricingService {
       return { amount: 0, percentage: 0 };
     }
 
-    // Implementation based on customer price level
+    // Implementation based on customer pricing scheme
     let discountPercentage = 0;
-    if (customer.priceLevel === 'special') {
+    const lowerScheme = customer.pricingScheme?.toLowerCase() || '';
+    if (lowerScheme === 'special') {
       discountPercentage = 0.1; // 10% special price discount
-    } else if (customer.priceLevel === 'wholesale') {
+    } else if (lowerScheme === 'wholesale') {
       discountPercentage = 0.05; // 5% wholesale discount
     }
 

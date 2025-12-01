@@ -198,6 +198,10 @@ export enum CustomerType {
 }
 
 
+/**
+ * @deprecated Use pricingScheme string instead
+ * Kept for backward compatibility
+ */
 export enum PriceLevel {
   RETAIL = 'retail',
   WHOLESALE = 'wholesale',
@@ -211,7 +215,7 @@ export interface Customer {
   phone?: string;
   // Business Information
   isActive: boolean;
-  priceLevel: PriceLevel;
+  pricingScheme: string; // Dynamic pricing scheme name (e.g., "Retail", "Wholesale", "VIP")
   // Customer Metrics
   totalSales: number;
   totalOrders: number;

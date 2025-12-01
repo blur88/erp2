@@ -139,8 +139,8 @@ export class SalesOrderService {
       throw new ConflictException('Customer is not active');
     }
 
-    // Validate and calculate order totals
-    const orderItems = await this.validateAndProcessItems(items);
+    // Validate and calculate order totals with customer pricing scheme
+    const orderItems = await this.validateAndProcessItems(items, customer);
     const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
     const shippingAmount = Number(createSalesOrderDto.shippingAmount || 0);
     const totalAmount = subtotal + shippingAmount;
@@ -700,13 +700,19 @@ export class SalesOrderService {
     // Prepare update data for the sales order
     const updateData: any = {};
 
+    // Get customer for pricing (either new customer or existing)
+    let customerForPricing: Customer | null = null;
+
     // Update customer if provided
     if (customerId) {
-      const customer = await this.customerRepository.findOne({ where: { id: customerId } });
-      if (!customer) {
+      customerForPricing = await this.customerRepository.findOne({ where: { id: customerId } });
+      if (!customerForPricing) {
         throw new NotFoundException('Customer not found');
       }
       updateData.customerId = customerId;
+    } else {
+      // Load existing customer for pricing
+      customerForPricing = await this.customerRepository.findOne({ where: { id: order.customerId } });
     }
 
     // Update notes if provided (including empty string to clear notes)
@@ -719,8 +725,8 @@ export class SalesOrderService {
       // Delete existing items from database
       await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
-      // Validate and process new items
-      const orderItems = await this.validateAndProcessItems(items);
+      // Validate and process new items with customer pricing
+      const orderItems = await this.validateAndProcessItems(items, customerForPricing);
 
       const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
       const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
@@ -981,7 +987,7 @@ export class SalesOrderService {
     }
   }
 
-  private async validateAndProcessItems(items: any[]) {
+  private async validateAndProcessItems(items: any[], customer?: Customer) {
     const processedItems = [];
     let lineNumber = 1;
 
@@ -991,7 +997,13 @@ export class SalesOrderService {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      const unitPrice = Number(item.unitPrice) || Number(product.retailPrice) || 0;
+      // Determine unit price based on customer's pricing scheme
+      let defaultPrice = Number(product.retailPrice) || 0;
+      if (customer && customer.pricingScheme) {
+        // Use customer's pricing scheme to get the correct price
+        defaultPrice = product.getPriceByScheme(customer.pricingScheme);
+      }
+      const unitPrice = Number(item.unitPrice) || defaultPrice;
       const discountPercent = Number(item.discountPercent) || 0;
       const discountAmount = Number(item.discountAmount) || 0;
 

@@ -63,8 +63,9 @@ import {
   clearError,
 } from '@/store/slices/customerSlice'
 import type { Customer } from '@/types'
-import { CustomerType, PriceLevel } from '@/types'
+import { CustomerType } from '@/types'
 import { salesApi } from '@/services/salesApi'
+import { settingsApi } from '@/services/settingsApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -75,7 +76,7 @@ const customerSchema = yup.object({
   name: yup.string().required('Name is required').max(200, 'Name must be less than 200 characters'),
   type: yup.string().oneOf(['individual', 'business']).required('Type is required'),
   phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
-  priceLevel: yup.string().oneOf(['retail', 'wholesale', 'special']).optional(),
+  pricingScheme: yup.string().required('Pricing scheme is required'),
   notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
@@ -83,7 +84,7 @@ interface CustomerFormData {
   name: string
   type: CustomerType
   phone?: string | null
-  priceLevel: PriceLevel
+  pricingScheme: string
   notes?: string | null
 }
 
@@ -109,6 +110,8 @@ const CustomersPage: React.FC = () => {
   const [phoneValue, setPhoneValue] = useState<string>('')
   const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [pricingSchemes, setPricingSchemes] = useState<Array<{ name: string; currency: string }>>([])
+  const [loadingPricingSchemes, setLoadingPricingSchemes] = useState(false)
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
@@ -116,11 +119,36 @@ const CustomersPage: React.FC = () => {
     defaultValues: {
       name: '',
       type: CustomerType.BUSINESS,
-      priceLevel: PriceLevel.RETAIL,
+      pricingScheme: 'Retail',
       phone: null,
       notes: null,
     }
   })
+
+  // Fetch pricing schemes on mount
+  useEffect(() => {
+    const loadPricingSchemes = async () => {
+      try {
+        setLoadingPricingSchemes(true)
+        const response = await settingsApi.getActivePricingSchemes()
+        // Handle response - could be direct array or wrapped in data
+        const schemes = Array.isArray(response) ? response : (response.data || [])
+        console.log('Loaded pricing schemes:', schemes)
+        setPricingSchemes(schemes)
+      } catch (error) {
+        console.error('Failed to load pricing schemes:', error)
+        // Fallback to default schemes
+        setPricingSchemes([
+          { name: 'Retail', currency: 'USD' },
+          { name: 'Wholesale', currency: 'USD' },
+          { name: 'Special', currency: 'USD' },
+        ])
+      } finally {
+        setLoadingPricingSchemes(false)
+      }
+    }
+    loadPricingSchemes()
+  }, [])
 
   // Search and filter functionality
   const searchHookInitialized = useRef(false)
@@ -210,7 +238,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.priceLevel, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.pricingScheme, filters.sortBy, filters.sortOrder])
 
   // Handle pagination
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -262,7 +290,7 @@ const CustomersPage: React.FC = () => {
         limit: pagination.limit,
         search: filters.search || undefined,
         type: filters.type || undefined,
-        priceLevel: filters.priceLevel || undefined,
+        pricingScheme: filters.pricingScheme || undefined,
         isActive: filters.isActive,
         sortBy: filters.sortBy || undefined,
         sortOrder: filters.sortOrder || undefined
@@ -316,7 +344,7 @@ const CustomersPage: React.FC = () => {
       reset({
         name: customer.name,
         type: customer.type,
-        priceLevel: customer.priceLevel,
+        pricingScheme: customer.pricingScheme,
         phone: customer.phone || null,
         notes: customer.notes || null,
       })
@@ -326,7 +354,7 @@ const CustomersPage: React.FC = () => {
       reset({
         name: '',
         type: CustomerType.BUSINESS,
-        priceLevel: PriceLevel.RETAIL,
+        pricingScheme: 'Retail',
         phone: null,
         notes: null,
       })
@@ -528,12 +556,13 @@ const CustomersPage: React.FC = () => {
               }
             }}
           >
-            Price Level
+            Pricing Scheme
           </InputLabel>
           <Select
-            value={filters.priceLevel || 'all'}
-            label="Price Level"
-            onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value === 'all' ? undefined : e.target.value as PriceLevel }))}
+            value={filters.pricingScheme || 'all'}
+            label="Pricing Scheme"
+            onChange={(e) => dispatch(setFilters({ pricingScheme: e.target.value === 'all' ? undefined : e.target.value }))}
+            disabled={loadingPricingSchemes}
             sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
@@ -558,9 +587,11 @@ const CustomersPage: React.FC = () => {
             }}
           >
             <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
-            <MenuItem value={PriceLevel.RETAIL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Retail</MenuItem>
-            <MenuItem value={PriceLevel.WHOLESALE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Wholesale</MenuItem>
-            <MenuItem value={PriceLevel.SPECIAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Special</MenuItem>
+            {pricingSchemes.map((scheme) => (
+              <MenuItem key={scheme.name} value={scheme.name} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
+                {scheme.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Box>
@@ -703,11 +734,10 @@ const CustomersPage: React.FC = () => {
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                           <Chip
-                            label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
-                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                            label={customer.pricingScheme}
                             size="small"
-                            color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
-                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
+                            color={customer.pricingScheme.toLowerCase() === 'retail' ? 'primary' :
+                                  customer.pricingScheme.toLowerCase() === 'wholesale' ? 'secondary' : 'warning'}
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                           {getActiveStatusChip(customer.isActive)}
@@ -745,11 +775,10 @@ const CustomersPage: React.FC = () => {
                     {!isMobile && (
                       <TableCell>
                         <Chip
-                          label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
-                                customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                          label={customer.pricingScheme}
                           size="small"
-                          color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
-                                customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
+                          color={customer.pricingScheme.toLowerCase() === 'retail' ? 'primary' :
+                                customer.pricingScheme.toLowerCase() === 'wholesale' ? 'secondary' : 'warning'}
                           sx={{
                             fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                             fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
@@ -924,16 +953,23 @@ const CustomersPage: React.FC = () => {
 
               <Grid item xs={12} md={6}>
                 <Controller
-                  name="priceLevel"
+                  name="pricingScheme"
                   control={control}
                   render={({ field }) => (
-                    <FormControl fullWidth>
-                      <InputLabel>Price Level</InputLabel>
-                      <Select {...field} label="Price Level">
-                        <MenuItem value={PriceLevel.RETAIL}>Retail</MenuItem>
-                        <MenuItem value={PriceLevel.WHOLESALE}>Wholesale</MenuItem>
-                        <MenuItem value={PriceLevel.SPECIAL}>Special</MenuItem>
+                    <FormControl fullWidth error={!!errors.pricingScheme}>
+                      <InputLabel>Pricing Scheme</InputLabel>
+                      <Select {...field} label="Pricing Scheme" disabled={loadingPricingSchemes}>
+                        {pricingSchemes.map((scheme) => (
+                          <MenuItem key={scheme.name} value={scheme.name}>
+                            {scheme.name}
+                          </MenuItem>
+                        ))}
                       </Select>
+                      {errors.pricingScheme && (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                          {errors.pricingScheme.message}
+                        </Typography>
+                      )}
                     </FormControl>
                   )}
                 />

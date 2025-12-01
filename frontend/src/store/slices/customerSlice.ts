@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { salesApi } from '@/services/salesApi'
-import type { Customer, CustomerType, PriceLevel, PaginatedResponse } from '@/types'
+import type { Customer, CustomerType, PaginatedResponse } from '@/types'
 
 interface CustomerState {
   customers: Customer[]
@@ -17,7 +17,7 @@ interface CustomerState {
   filters: {
     search?: string
     type?: CustomerType
-    priceLevel?: PriceLevel
+    pricingScheme?: string
     isActive?: boolean
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'
@@ -47,7 +47,7 @@ export const fetchCustomers = createAsyncThunk(
     limit?: number
     search?: string
     type?: CustomerType
-    priceLevel?: PriceLevel
+    pricingScheme?: string
     isActive?: boolean
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'
