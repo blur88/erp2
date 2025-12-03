@@ -93,6 +93,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -186,6 +187,12 @@ const CreateSalesOrderPage: React.FC = () => {
         }
       })
 
+      // Set selected customer for pricing scheme
+      const customer = customers.find(c => c.id === (orderToLoad.customerId || orderToLoad.customer?.id))
+      if (customer) {
+        setSelectedCustomer(customer)
+      }
+
       // Map order data to form
       reset({
         customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
@@ -210,7 +217,7 @@ const CreateSalesOrderPage: React.FC = () => {
       setOrderToLoad(null)
       setLoadingOrder(false)
     }
-  }, [orderToLoad, products, reset])
+  }, [orderToLoad, products, customers, reset])
 
   // Recalculate totals when items change
   useEffect(() => {
@@ -319,7 +326,26 @@ const CreateSalesOrderPage: React.FC = () => {
   const handleProductSelect = (index: number, product: any) => {
     if (product) {
       setValue(`items.${index}.productId`, product.id)
-      setValue(`items.${index}.unitPrice`, Number(product.retailPrice || 0))
+
+      // Use customer's pricing scheme to determine the price
+      let productPrice = Number(product.retailPrice || 0)
+
+      if (selectedCustomer && selectedCustomer.pricingScheme) {
+        // Try to get price from dynamic pricing tiers first
+        if (product.pricingTiers && product.pricingTiers[selectedCustomer.pricingScheme]) {
+          productPrice = Number(product.pricingTiers[selectedCustomer.pricingScheme])
+        } else {
+          // Fallback to legacy fields for backward compatibility
+          const schemeLower = selectedCustomer.pricingScheme.toLowerCase()
+          if (schemeLower === 'wholesale' && product.wholesalePrice) {
+            productPrice = Number(product.wholesalePrice)
+          } else if (schemeLower === 'special' && product.specialPrice) {
+            productPrice = Number(product.specialPrice)
+          }
+        }
+      }
+
+      setValue(`items.${index}.unitPrice`, productPrice)
       setValue(`items.${index}.product`, product)
     }
   }
@@ -405,7 +431,10 @@ const CreateSalesOrderPage: React.FC = () => {
                             options={customers}
                             getOptionLabel={(option) => option.name}
                             value={customers.find(c => c.id === field.value) || null}
-                            onChange={(_, value) => field.onChange(value?.id || '')}
+                            onChange={(_, value) => {
+                              field.onChange(value?.id || '')
+                              setSelectedCustomer(value)
+                            }}
                             size="small"
                             renderInput={(params) => (
                               <TextField
