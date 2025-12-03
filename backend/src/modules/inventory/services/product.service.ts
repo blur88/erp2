@@ -137,20 +137,10 @@ export class ProductService {
       // Use directly provided pricingTiers (from new UI)
       pricingTiers = { ...createProductDto.pricingTiers };
     } else {
-      // Fallback to legacy pricing fields (for backward compatibility)
+      // Set default pricing for schemes not provided (use baseCost * 1.3 as default)
       pricingSchemes.forEach((scheme) => {
         const schemeName = scheme.name;
-        const lowerScheme = schemeName.toLowerCase();
-
-        // Map legacy fields to pricing tiers
-        if (lowerScheme === 'retail' && createProductDto.retailPrice !== undefined) {
-          pricingTiers[schemeName] = createProductDto.retailPrice;
-        } else if (lowerScheme === 'wholesale' && createProductDto.wholesalePrice !== undefined) {
-          pricingTiers[schemeName] = createProductDto.wholesalePrice;
-        } else if (lowerScheme === 'special' && createProductDto.specialPrice !== undefined) {
-          pricingTiers[schemeName] = createProductDto.specialPrice;
-        } else {
-          // Default pricing for new schemes (use baseCost * 1.3 as default)
+        if (pricingTiers[schemeName] === undefined || pricingTiers[schemeName] === null) {
           pricingTiers[schemeName] = createProductDto.baseCost * 1.3;
         }
       });
@@ -269,16 +259,12 @@ export class ProductService {
       queryBuilder.andWhere('product.stockQuantity <= :maxStock', { maxStock });
     }
 
-    if (minPrice !== undefined) {
-      queryBuilder.andWhere('product.retailPrice >= :minPrice', { minPrice });
-    }
-
-    if (maxPrice !== undefined) {
-      queryBuilder.andWhere('product.retailPrice <= :maxPrice', { maxPrice });
-    }
+    // Note: minPrice and maxPrice filters removed - pricing is now in JSONB pricingTiers field
+    // To filter by price, you would need to use JSONB query operators which is complex
+    // Consider implementing price range filtering at the application level if needed
 
     // Apply sorting
-    const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'];
+    const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -474,7 +460,7 @@ export class ProductService {
     }
 
     // Sorting
-    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt', 'retailPrice', 'stockQuantity'];
+    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt', 'stockQuantity'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     // Use case-insensitive sorting for text fields
@@ -817,28 +803,6 @@ export class ProductService {
     if (updateData.pricingTiers && Object.keys(updateData.pricingTiers).length > 0) {
       // Direct pricingTiers provided (from new UI) - use as-is
       this.logger.log('Using directly provided pricingTiers from DTO');
-    } else if (this.hasPricingChanges(updateData)) {
-      // Legacy pricing fields provided - convert to pricingTiers
-      const pricingSchemes = await this.settingsService.getActivePricingSchemes();
-
-      // Update pricingTiers based on changes
-      const currentPricingTiers = product.pricingTiers || {};
-      pricingSchemes.forEach((scheme) => {
-        const schemeName = scheme.name;
-        const lowerScheme = schemeName.toLowerCase();
-
-        // Update pricing tier if corresponding field is being updated
-        if (lowerScheme === 'retail' && updateData.retailPrice !== undefined) {
-          currentPricingTiers[schemeName] = updateData.retailPrice;
-        } else if (lowerScheme === 'wholesale' && updateData.wholesalePrice !== undefined) {
-          currentPricingTiers[schemeName] = updateData.wholesalePrice;
-        } else if (lowerScheme === 'special' && updateData.specialPrice !== undefined) {
-          currentPricingTiers[schemeName] = updateData.specialPrice;
-        }
-      });
-
-      // Add updated pricingTiers to updateData
-      updateData.pricingTiers = currentPricingTiers;
     }
 
     // Validate pricing if any pricing changes
@@ -1036,19 +1000,17 @@ export class ProductService {
       // Track price changes
       const priceChanges: Record<string, { from: number; to: number }> = {};
 
-      if (priceUpdate.retailPrice !== undefined && priceUpdate.retailPrice !== product.retailPrice) {
-        updateData.retailPrice = priceUpdate.retailPrice;
-        priceChanges.retailPrice = { from: Number(product.retailPrice), to: priceUpdate.retailPrice };
-      }
-
-      if (priceUpdate.wholesalePrice !== undefined && priceUpdate.wholesalePrice !== product.wholesalePrice) {
-        updateData.wholesalePrice = priceUpdate.wholesalePrice;
-        priceChanges.wholesalePrice = { from: Number(product.wholesalePrice), to: priceUpdate.wholesalePrice };
-      }
-
-      if (priceUpdate.specialPrice !== undefined && priceUpdate.specialPrice !== product.specialPrice) {
-        updateData.specialPrice = priceUpdate.specialPrice;
-        priceChanges.specialPrice = { from: Number(product.specialPrice), to: priceUpdate.specialPrice };
+      // Update pricingTiers if provided
+      if (priceUpdate.pricingTiers && Object.keys(priceUpdate.pricingTiers).length > 0) {
+        updateData.pricingTiers = { ...product.pricingTiers, ...priceUpdate.pricingTiers };
+        // Track changes for each tier
+        Object.keys(priceUpdate.pricingTiers).forEach(tierName => {
+          const oldPrice = product.pricingTiers?.[tierName] || 0;
+          const newPrice = priceUpdate.pricingTiers![tierName];
+          if (oldPrice !== newPrice) {
+            priceChanges[tierName] = { from: Number(oldPrice), to: newPrice };
+          }
+        });
       }
 
       if (priceUpdate.baseCost !== undefined && priceUpdate.baseCost !== product.baseCost) {
@@ -1238,10 +1200,11 @@ export class ProductService {
 
     products.forEach(product => {
       const stock = Number(product.stockQuantity) || 0;
-      const price = Number(product.retailPrice) || 0;
-      
-      // Calculate inventory value
-      inventoryValue += stock * price;
+      // Use baseCost for inventory valuation (standard accounting practice)
+      const cost = Number(product.baseCost) || 0;
+
+      // Calculate inventory value at cost
+      inventoryValue += stock * cost;
 
       // Count low stock and out of stock (using simple threshold of 10)
       if (stock <= 0) {
@@ -1317,10 +1280,7 @@ export class ProductService {
       type: product.type,
       isActive: product.isActive,
       baseCost: Number(product.baseCost),
-      retailPrice: product.retailPrice ? Number(product.retailPrice) : undefined,
-      wholesalePrice: product.wholesalePrice ? Number(product.wholesalePrice) : undefined,
-      specialPrice: product.specialPrice ? Number(product.specialPrice) : undefined,
-      pricingTiers: product.pricingTiers || {}, // Include dynamic pricing tiers
+      pricingTiers: product.pricingTiers || {}, // Dynamic pricing tiers from settings
       stockQuantity: Number(product.stockQuantity),
       notes: product.notes,
       categoryId: product.categoryId,
@@ -1330,13 +1290,10 @@ export class ProductService {
         fullPath: product.category.fullPath,
       } : null,
       isOutOfStock: product.isOutOfStock,
-      grossMarginRetail: product.grossMarginRetail,
-      grossMarginWholesale: product.grossMarginWholesale,
-      grossMarginSpecial: product.grossMarginSpecial,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt,
-    };
+    } as any;
   }
 
   /**
@@ -1351,7 +1308,7 @@ export class ProductService {
    * Check if the update contains pricing changes
    */
   private hasPricingChanges(_updateDto: UpdateProductDto): boolean {
-    return ['baseCost', 'retailPrice', 'wholesalePrice', 'specialPrice'].some(
+    return ['baseCost', 'pricingTiers'].some(
       field => _updateDto.hasOwnProperty(field)
     );
   }
@@ -1710,7 +1667,29 @@ export class ProductService {
     const baseCost = parseNumber(row.basecost, 'baseCost');
     if (baseCost === undefined) return null;
 
-    // Build product data (Note: unit field is handled by entity defaults)
+    // Build pricingTiers from CSV columns (map to pricing schemes from settings)
+    const pricingTiers: Record<string, number> = {};
+    const retailPrice = parseNumber(row.retailprice, 'retailPrice');
+    const wholesalePrice = parseNumber(row.wholesaleprice, 'wholesalePrice');
+    const specialPrice = parseNumber(row.specialprice, 'specialPrice');
+
+    // Get active pricing schemes to map CSV columns
+    const pricingSchemes = await this.settingsService.getActivePricingSchemes();
+    pricingSchemes.forEach((scheme) => {
+      const lowerScheme = scheme.name.toLowerCase();
+      if (lowerScheme === 'retail' && retailPrice !== undefined) {
+        pricingTiers[scheme.name] = retailPrice;
+      } else if (lowerScheme === 'wholesale' && wholesalePrice !== undefined) {
+        pricingTiers[scheme.name] = wholesalePrice;
+      } else if (lowerScheme === 'special' && specialPrice !== undefined) {
+        pricingTiers[scheme.name] = specialPrice;
+      } else {
+        // Default pricing for schemes not in CSV (use baseCost * 1.3)
+        pricingTiers[scheme.name] = baseCost * 1.3;
+      }
+    });
+
+    // Build product data
     const productData: any = {
       name: row.name.trim(),
       description: row.description?.trim() || undefined,
@@ -1718,9 +1697,7 @@ export class ProductService {
       type: normalizedType,
       categoryId,
       baseCost,
-      retailPrice: parseNumber(row.retailprice, 'retailPrice'),
-      wholesalePrice: parseNumber(row.wholesaleprice, 'wholesalePrice'),
-      specialPrice: parseNumber(row.specialprice, 'specialPrice'),
+      pricingTiers, // Use dynamic pricing tiers instead of fixed fields
       stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
       notes: row.notes?.trim() || undefined,
       isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true
