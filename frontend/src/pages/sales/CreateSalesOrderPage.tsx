@@ -125,11 +125,44 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const watchedItems = watch('items')
   const watchedShipping = watch('shipping')
+  const watchedCustomerId = watch('customerId')
 
   useEffect(() => {
     loadCustomers()
     loadProducts()
   }, [])
+
+  // Update all product prices when customer changes
+  useEffect(() => {
+    if (selectedCustomer && watchedItems && watchedItems.length > 0) {
+      watchedItems.forEach((item, index) => {
+        if (item.productId && item.product) {
+          // Recalculate price based on new customer's pricing scheme
+          let productPrice = Number(item.product.retailPrice || 0)
+
+          if (selectedCustomer.pricingScheme) {
+            // Try to get price from dynamic pricing tiers first
+            if (item.product.pricingTiers && item.product.pricingTiers[selectedCustomer.pricingScheme]) {
+              productPrice = Number(item.product.pricingTiers[selectedCustomer.pricingScheme])
+            } else {
+              // Fallback to legacy fields for backward compatibility
+              const schemeLower = selectedCustomer.pricingScheme.toLowerCase()
+              if (schemeLower === 'wholesale' && item.product.wholesalePrice) {
+                productPrice = Number(item.product.wholesalePrice)
+              } else if (schemeLower === 'special' && item.product.specialPrice) {
+                productPrice = Number(item.product.specialPrice)
+              }
+            }
+          }
+
+          // Only update if price changed
+          if (Number(item.unitPrice) !== productPrice) {
+            setValue(`items.${index}.unitPrice`, productPrice)
+          }
+        }
+      })
+    }
+  }, [selectedCustomer, setValue])
 
   // Load sales order data in edit mode
   useEffect(() => {
