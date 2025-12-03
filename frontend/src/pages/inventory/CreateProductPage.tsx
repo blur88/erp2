@@ -292,14 +292,8 @@ const CreateProductPage: React.FC = () => {
         setSelectedCategory(product.category)
       }
 
-      // Load pricing tiers, fallback to legacy fields
+      // Load pricing tiers
       const pricingTiers = product.pricingTiers || {}
-      if (!product.pricingTiers) {
-        // Migrate legacy pricing to tiers
-        if (product.retailPrice) pricingTiers['Retail'] = product.retailPrice
-        if (product.wholesalePrice) pricingTiers['Wholesale'] = product.wholesalePrice
-        if (product.specialPrice) pricingTiers['Special'] = product.specialPrice
-      }
 
       reset({
         name: product.name || '',

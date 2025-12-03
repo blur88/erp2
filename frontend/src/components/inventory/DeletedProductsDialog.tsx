@@ -417,17 +417,17 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                           <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
                             {product.name}
                           </Typography>
-                          {isMobile && product.retailPrice && (
+                          {isMobile && product.pricingTiers && Object.keys(product.pricingTiers).length > 0 && (
                             <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500, mt: 0.25, display: 'block' }}>
-                              {formatCurrency(product.retailPrice)}
+                              {formatCurrency(Object.values(product.pricingTiers)[0] as number)}
                             </Typography>
                           )}
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={product.category?.name || 'No Category'} 
-                          size="small" 
+                        <Chip
+                          label={product.category?.name || 'No Category'}
+                          size="small"
                           variant="outlined"
                           color={product.category ? 'primary' : 'default'}
                           sx={{
@@ -440,7 +440,9 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       {!isMobile && (
                         <TableCell align="right">
                           <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
-                            {formatCurrency(product.retailPrice)}
+                            {product.pricingTiers && Object.keys(product.pricingTiers).length > 0
+                              ? formatCurrency(Object.values(product.pricingTiers)[0] as number)
+                              : '-'}
                           </Typography>
                         </TableCell>
                       )}

@@ -46,27 +46,34 @@ const getStockStatusText = (product: Product): string => {
 
 // Prepare data for export
 const prepareExportData = (products: Product[]) => {
-  return products.map((product, index) => ({
-    '#': index + 1,
-    'Product Name': product.name || '',
-    'Barcode': product.barcode || '',
-    'Type': product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
-    'Category': product.category?.name || 'No Category',
-    'Description': product.description || '',
-    'Base Cost': formatCurrencyForExport(product.baseCost),
-    'Retail Price': formatCurrencyForExport(product.retailPrice),
-    'Wholesale Price': formatCurrencyForExport(product.wholesalePrice),
-    'Special Price': formatCurrencyForExport(product.specialPrice),
-    'Current Stock': product.stockQuantity || 0,
-    'Stock Status': getStockStatusText(product),
-    'Retail Margin (%)': product.grossMarginRetail?.toFixed(1) || '',
-    'Wholesale Margin (%)': product.grossMarginWholesale?.toFixed(1) || '',
-    'Special Margin (%)': product.grossMarginSpecial?.toFixed(1) || '',
-    'Status': product.isActive ? 'Active' : 'Inactive',
-    'Notes': product.notes || '',
-    'Created Date': formatDateForExport(product.createdAt),
-    'Updated Date': formatDateForExport(product.updatedAt)
-  }))
+  return products.map((product, index) => {
+    const row: any = {
+      '#': index + 1,
+      'Product Name': product.name || '',
+      'Barcode': product.barcode || '',
+      'Type': product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
+      'Category': product.category?.name || 'No Category',
+      'Description': product.description || '',
+      'Base Cost': formatCurrencyForExport(product.baseCost),
+    }
+
+    // Add dynamic pricing tiers if available
+    if (product.pricingTiers) {
+      Object.entries(product.pricingTiers).forEach(([tierName, price]) => {
+        row[`${tierName} Price`] = formatCurrencyForExport(price)
+      })
+    }
+
+    // Add stock and status info
+    row['Current Stock'] = product.stockQuantity || 0
+    row['Stock Status'] = getStockStatusText(product)
+    row['Status'] = product.isActive ? 'Active' : 'Inactive'
+    row['Notes'] = product.notes || ''
+    row['Created Date'] = formatDateForExport(product.createdAt)
+    row['Updated Date'] = formatDateForExport(product.updatedAt)
+
+    return row
+  })
 }
 
 // Generate filename with timestamp
@@ -243,7 +250,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
     
     yPos += 5
     
-    // Prepare table data
+    // Prepare table data - simplified for PDF
     const tableData = products.map((product, index) => [
       index + 1,
       product.name || '',
@@ -251,15 +258,14 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
       product.type === 'Stocked Product' ? 'Product' : 'Service',
       product.category?.name || 'No Category',
       formatCurrencyForExport(product.baseCost),
-      formatCurrencyForExport(product.retailPrice),
       product.stockQuantity || 0,
       getStockStatusText(product),
       product.isActive ? 'Active' : 'Inactive'
     ])
-    
+
     // Table
     doc.autoTable({
-      head: [['#', 'Name', 'Barcode', 'Type', 'Category', 'Cost', 'Price', 'Stock', 'Status', 'Active']],
+      head: [['#', 'Name', 'Barcode', 'Type', 'Category', 'Cost', 'Stock', 'Status', 'Active']],
       body: tableData,
       startY: yPos,
       styles: { 

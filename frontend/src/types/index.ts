@@ -31,48 +31,15 @@ export interface Product {
   type: 'Stocked Product' | 'Service';
   category?: Category;
   categoryId?: string;
-  // Multi-level pricing
+  // Pricing
   baseCost: number;
-  retailPrice: number;
-  wholesalePrice: number;
-  specialPrice: number;
-  // Legacy price fields for backwards compatibility
-  price?: number;
-  cost?: number;
+  pricingTiers?: Record<string, number>; // Dynamic pricing tiers: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
   // Stock management
   stockQuantity: number;
-  reservedQuantity: number;
-  availableQuantity: number;
-  reorderLevel: number;
-  optimalStockLevel: number;
-  stockStatus: string;
-  // Legacy stock fields for backwards compatibility
-  stock?: number;
-  minStock?: number;
-  maxStock?: number;
-  unit: string;
   isActive: boolean;
-  // Additional properties
-  weight?: number;
-  dimensions?: {
-    length?: number;
-    width?: number;
-    height?: number;
-  };
-  brand?: string;
-  model?: string;
-  imageUrl?: string;
-  images?: string[];
-  additionalImages?: string[];
-  attributes?: ProductAttribute[] | Record<string, any>;
   notes?: string;
   // Stock status indicators
-  isLowStock: boolean;
   isOutOfStock: boolean;
-  // Margin calculations
-  grossMarginRetail: number;
-  grossMarginWholesale: number;
-  grossMarginSpecial: number;
   createdAt: Date;
   updatedAt: Date;
 }

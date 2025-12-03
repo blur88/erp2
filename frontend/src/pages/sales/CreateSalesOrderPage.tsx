@@ -138,21 +138,10 @@ const CreateSalesOrderPage: React.FC = () => {
       watchedItems.forEach((item, index) => {
         if (item.productId && item.product) {
           // Recalculate price based on new customer's pricing scheme
-          let productPrice = Number(item.product.retailPrice || 0)
+          let productPrice = 0
 
-          if (selectedCustomer.pricingScheme) {
-            // Try to get price from dynamic pricing tiers first
-            if (item.product.pricingTiers && item.product.pricingTiers[selectedCustomer.pricingScheme]) {
-              productPrice = Number(item.product.pricingTiers[selectedCustomer.pricingScheme])
-            } else {
-              // Fallback to legacy fields for backward compatibility
-              const schemeLower = selectedCustomer.pricingScheme.toLowerCase()
-              if (schemeLower === 'wholesale' && item.product.wholesalePrice) {
-                productPrice = Number(item.product.wholesalePrice)
-              } else if (schemeLower === 'special' && item.product.specialPrice) {
-                productPrice = Number(item.product.specialPrice)
-              }
-            }
+          if (selectedCustomer.pricingScheme && item.product.pricingTiers) {
+            productPrice = Number(item.product.pricingTiers[selectedCustomer.pricingScheme] || 0)
           }
 
           // Only update if price changed
@@ -361,21 +350,10 @@ const CreateSalesOrderPage: React.FC = () => {
       setValue(`items.${index}.productId`, product.id)
 
       // Use customer's pricing scheme to determine the price
-      let productPrice = Number(product.retailPrice || 0)
+      let productPrice = 0
 
-      if (selectedCustomer && selectedCustomer.pricingScheme) {
-        // Try to get price from dynamic pricing tiers first
-        if (product.pricingTiers && product.pricingTiers[selectedCustomer.pricingScheme]) {
-          productPrice = Number(product.pricingTiers[selectedCustomer.pricingScheme])
-        } else {
-          // Fallback to legacy fields for backward compatibility
-          const schemeLower = selectedCustomer.pricingScheme.toLowerCase()
-          if (schemeLower === 'wholesale' && product.wholesalePrice) {
-            productPrice = Number(product.wholesalePrice)
-          } else if (schemeLower === 'special' && product.specialPrice) {
-            productPrice = Number(product.specialPrice)
-          }
-        }
+      if (selectedCustomer && selectedCustomer.pricingScheme && product.pricingTiers) {
+        productPrice = Number(product.pricingTiers[selectedCustomer.pricingScheme] || 0)
       }
 
       setValue(`items.${index}.unitPrice`, productPrice)
