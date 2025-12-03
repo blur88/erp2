@@ -38,13 +38,13 @@ const PricingField: React.FC<{
   disabled: boolean
   onChange: (value: number) => void
 }> = ({ schemeName, currency, value, baseCost, disabled, onChange }) => {
-  const [localValue, setLocalValue] = useState(value?.toString() || '')
+  const [localValue, setLocalValue] = useState(value > 0 ? value.toFixed(2) : '')
   const [isFocused, setIsFocused] = useState(false)
 
   // Update local value when external value changes (but not when focused)
   useEffect(() => {
     if (!isFocused) {
-      setLocalValue(value ? value.toString() : '')
+      setLocalValue(value > 0 ? value.toFixed(2) : '')
     }
   }, [value, isFocused])
 
@@ -73,6 +73,14 @@ const PricingField: React.FC<{
     }
   }
 
+  const handleBlur = () => {
+    setIsFocused(false)
+    // Format to 2 decimal places when losing focus
+    if (value > 0) {
+      setLocalValue(value.toFixed(2))
+    }
+  }
+
   const calculateMargin = (price: number, cost: number): number => {
     if (!price || !cost || price <= 0 || cost <= 0) return 0
     return ((price - cost) / price) * 100
@@ -87,7 +95,7 @@ const PricingField: React.FC<{
           value={localValue}
           onChange={handleChange}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onBlur={handleBlur}
           label={`${schemeName} Price`}
           fullWidth
           size="small"
