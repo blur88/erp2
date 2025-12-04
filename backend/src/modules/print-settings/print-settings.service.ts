@@ -26,6 +26,10 @@ export class PrintSettingsService {
       settings = this.printSettingsRepository.create({
         companyName: '',
         address: '',
+        city: '',
+        state: '',
+        postalCode: '',
+        country: '',
         phone: '',
         email: '',
         website: '',
@@ -93,6 +97,10 @@ export class PrintSettingsService {
     const importData = {
       companyName: companySettings.name || '',
       address: companySettings.address || '',
+      city: companySettings.city || '',
+      state: companySettings.state || '',
+      postalCode: companySettings.postalCode || '',
+      country: companySettings.country || '',
       phone: companySettings.phone || '',
       email: companySettings.email || '',
       website: companySettings.website || '',

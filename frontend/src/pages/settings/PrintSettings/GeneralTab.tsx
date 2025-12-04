@@ -27,6 +27,10 @@ import { settingsApi } from '@/services/settingsApi'
 interface GeneralFormData {
   companyName?: string
   address?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
   phone?: string
   email?: string
   website?: string
@@ -44,6 +48,10 @@ interface GeneralFormData {
 const schema = yup.object({
   companyName: yup.string(),
   address: yup.string(),
+  city: yup.string(),
+  state: yup.string(),
+  postalCode: yup.string(),
+  country: yup.string(),
   phone: yup.string(),
   email: yup.string().email('Invalid email format'),
   website: yup.string().url('Invalid URL format'),
@@ -85,6 +93,10 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
     defaultValues: {
       companyName: '',
       address: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: '',
       phone: '',
       email: '',
       website: '',
@@ -105,6 +117,10 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
       reset({
         companyName: settings.companyName || '',
         address: settings.address || '',
+        city: settings.city || '',
+        state: settings.state || '',
+        postalCode: settings.postalCode || '',
+        country: settings.country || '',
         phone: settings.phone || '',
         email: settings.email || '',
         website: settings.website || '',
@@ -280,12 +296,76 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
               render={({ field }) => (
                 <TextField
                   {...field}
-                  label="Address"
+                  label="Street Address"
                   fullWidth
                   multiline
                   rows={2}
                   error={!!errors.address}
                   helperText={errors.address?.message}
+                />
+              )}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Controller
+              name="city"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="City"
+                  fullWidth
+                  error={!!errors.city}
+                  helperText={errors.city?.message}
+                />
+              )}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Controller
+              name="state"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="State/Province"
+                  fullWidth
+                  error={!!errors.state}
+                  helperText={errors.state?.message}
+                />
+              )}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Controller
+              name="postalCode"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Postal Code"
+                  fullWidth
+                  error={!!errors.postalCode}
+                  helperText={errors.postalCode?.message}
+                />
+              )}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Controller
+              name="country"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Country"
+                  fullWidth
+                  error={!!errors.country}
+                  helperText={errors.country?.message}
                 />
               )}
             />

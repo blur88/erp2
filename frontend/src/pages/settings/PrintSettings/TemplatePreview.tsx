@@ -89,10 +89,16 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#000000' }}>
               {settings?.companyName || 'Company Name'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', lineHeight: 1.6 }}>
-              {settings?.address || 'Company Full Address Line 1\nCompany Address Line 2\nCity, State, ZIP Code'}
+            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+              {settings?.address || '123 Business Street'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', mt: 1 }}>
+            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+              {settings?.city || 'City'}, {settings?.state || 'State'} {settings?.postalCode || '12345'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#000000', mb: 1 }}>
+              {settings?.country || 'Country'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
               {settings?.phone && `Tel: ${settings.phone}`}
               {settings?.email && ` | Email: ${settings.email}`}
             </Typography>
@@ -137,17 +143,20 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#000000' }}>
                 Customer Information:
               </Typography>
-              <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-                <strong>Name:</strong> Sample Company Ltd.
+              <Typography variant="body2" sx={{ color: '#000000', fontWeight: 600, mb: 0.5 }}>
+                Sample Company Ltd.
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-                <strong>Address:</strong> 123 Customer Street
+                123 Customer Street
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-                Customer City, State 12345
+                New York, NY 10001
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                United States
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000' }}>
-                <strong>Phone:</strong> +1 (555) 123-4567
+                Phone: +1 (555) 123-4567
               </Typography>
             </Box>
           </Grid>

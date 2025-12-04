@@ -15,6 +15,18 @@ export class PrintSettingsResponseDto {
   address: string;
 
   @ApiProperty()
+  city: string;
+
+  @ApiProperty()
+  state: string;
+
+  @ApiProperty()
+  postalCode: string;
+
+  @ApiProperty()
+  country: string;
+
+  @ApiProperty()
   phone: string;
 
   @ApiProperty()
@@ -80,6 +92,10 @@ export class PrintSettingsResponseDto {
     dto.logoUrl = entity.logoUrl;
     dto.companyName = entity.companyName;
     dto.address = entity.address;
+    dto.city = entity.city;
+    dto.state = entity.state;
+    dto.postalCode = entity.postalCode;
+    dto.country = entity.country;
     dto.phone = entity.phone;
     dto.email = entity.email;
     dto.website = entity.website;

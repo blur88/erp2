@@ -13,6 +13,18 @@ export class PrintSettings extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   address: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  city: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  state: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  postalCode: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  country: string;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   phone: string;
 

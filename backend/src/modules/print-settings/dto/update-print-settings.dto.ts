@@ -18,6 +18,26 @@ export class UpdatePrintSettingsDto {
   @IsString()
   address?: string;
 
+  @ApiProperty({ description: 'City', required: false })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiProperty({ description: 'State/Province', required: false })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiProperty({ description: 'Postal code', required: false })
+  @IsOptional()
+  @IsString()
+  postalCode?: string;
+
+  @ApiProperty({ description: 'Country', required: false })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
   @ApiProperty({ description: 'Phone number', required: false })
   @IsOptional()
   @IsString()
