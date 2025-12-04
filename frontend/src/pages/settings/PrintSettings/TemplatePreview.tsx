@@ -131,11 +131,8 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
             <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
               <strong>Document No:</strong> DOC-2024-001
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-              <strong>Date:</strong> {new Date().toLocaleDateString()}
-            </Typography>
             <Typography variant="body2" sx={{ color: '#000000' }}>
-              <strong>Reference:</strong> REF-001
+              <strong>Date:</strong> {new Date().toLocaleDateString()}
             </Typography>
           </Grid>
           <Grid item xs={6}>
