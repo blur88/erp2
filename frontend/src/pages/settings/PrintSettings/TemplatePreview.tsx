@@ -140,9 +140,6 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
           </Grid>
           <Grid item xs={6}>
             <Box sx={{ border: '1px solid #000000', p: 2, borderRadius: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#000000' }}>
-                Customer Information:
-              </Typography>
               <Typography variant="body2" sx={{ color: '#000000', fontWeight: 600, mb: 0.5 }}>
                 ABC Trading Sdn Bhd
               </Typography>
