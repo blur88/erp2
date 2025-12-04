@@ -90,16 +90,16 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               {settings?.companyName || 'Company Name'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-              {settings?.address || '123 Business Street'}
+              {settings?.address || 'No. 123, Jalan Perdana 1/2'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-              {settings?.city || 'City'}, {settings?.state || 'State'} {settings?.postalCode || '12345'}
+              {settings?.postalCode || '47650'}, {settings?.city || 'Subang Jaya'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000', mb: 1 }}>
-              {settings?.country || 'Country'}
+              {settings?.state || 'Selangor'}, {settings?.country || 'Malaysia'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-              {settings?.phone && `Tel: ${settings.phone}`}
+              {settings?.phone ? `Tel: ${settings.phone}` : 'Tel: +60 3-1234 5678'}
               {settings?.email && ` | Email: ${settings.email}`}
             </Typography>
             {settings?.website && (
@@ -144,19 +144,19 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 Customer Information:
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000', fontWeight: 600, mb: 0.5 }}>
-                Sample Company Ltd.
+                ABC Trading Sdn Bhd
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-                123 Customer Street
+                No. 45, Jalan SS15/4D
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-                New York, NY 10001
+                47500, Subang Jaya
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-                United States
+                Selangor, Malaysia
               </Typography>
               <Typography variant="body2" sx={{ color: '#000000' }}>
-                Phone: +1 (555) 123-4567
+                Phone: +60 3-5632 8888
               </Typography>
             </Box>
           </Grid>
