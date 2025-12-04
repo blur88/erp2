@@ -28,7 +28,8 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
 
   const subtotal = 575.00
   const tax = 57.50
-  const total = 632.50
+  const shipping = 25.00
+  const total = 657.50
 
   // Get footer text based on template type
   const getFooterText = () => {
@@ -55,8 +56,21 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
   const footers = getFooterText()
 
   return (
-    <Box sx={{ bgcolor: 'grey.100', p: 2 }}>
-      <Paper sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ bgcolor: '#f5f5f5', p: 2 }}>
+      <Paper
+        sx={{
+          p: 4,
+          width: '210mm', // A4 width
+          minHeight: '297mm', // A4 height
+          mx: 'auto',
+          bgcolor: '#ffffff', // Pure white for printing
+          color: '#000000', // Black text for printing
+          '@media print': {
+            boxShadow: 'none',
+            p: 2,
+          }
+        }}
+      >
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3 }}>
           {settings?.logoUrl && (
@@ -64,38 +78,33 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               component="img"
               src={settings.logoUrl}
               sx={{
-                width: 80,
-                height: 80,
+                width: 100,
+                height: 100,
                 objectFit: 'contain',
                 mr: 3,
               }}
             />
           )}
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#000000' }}>
               {settings?.companyName || 'Company Name'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {settings?.address || 'Company Address'}
+            <Typography variant="body2" sx={{ color: '#000000', lineHeight: 1.6 }}>
+              {settings?.address || 'Company Full Address Line 1\nCompany Address Line 2\nCity, State, ZIP Code'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {settings?.phone && `Phone: ${settings.phone}`}
+            <Typography variant="body2" sx={{ color: '#000000', mt: 1 }}>
+              {settings?.phone && `Tel: ${settings.phone}`}
               {settings?.email && ` | Email: ${settings.email}`}
             </Typography>
             {settings?.website && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: '#000000' }}>
                 Website: {settings.website}
-              </Typography>
-            )}
-            {settings?.miscInfo && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {settings.miscInfo}
               </Typography>
             )}
           </Box>
         </Box>
 
-        <Divider sx={{ mb: 3 }} />
+        <Divider sx={{ mb: 3, borderColor: '#000000' }} />
 
         {/* Document Title */}
         <Typography
@@ -104,52 +113,66 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
             fontWeight: 700,
             textAlign: 'center',
             mb: 3,
-            color: 'primary.main',
+            color: '#000000',
           }}
         >
           {template.title.toUpperCase()}
         </Typography>
 
-        {/* Document Info */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        {/* Document Info and Customer Details */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
               <strong>Document No:</strong> DOC-2024-001
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
               <strong>Date:</strong> {new Date().toLocaleDateString()}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#000000' }}>
+              <strong>Reference:</strong> REF-001
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary" align="right">
-              <strong>Customer/Vendor:</strong> Sample Company Ltd.
-            </Typography>
-            <Typography variant="body2" color="text.secondary" align="right">
-              <strong>Reference:</strong> REF-001
-            </Typography>
+            <Box sx={{ border: '1px solid #000000', p: 2, borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#000000' }}>
+                Customer Information:
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                <strong>Name:</strong> Sample Company Ltd.
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                <strong>Address:</strong> 123 Customer Street
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                Customer City, State 12345
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>
+                <strong>Phone:</strong> +1 (555) 123-4567
+              </Typography>
+            </Box>
           </Grid>
         </Grid>
 
         {/* Items Table */}
-        <TableContainer sx={{ mb: 3 }}>
+        <TableContainer sx={{ mb: 3, border: '1px solid #000000' }}>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ bgcolor: 'grey.200' }}>
-                <TableCell sx={{ fontWeight: 600 }}>No</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>Qty</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>Unit Price</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>Amount</TableCell>
+              <TableRow sx={{ bgcolor: '#f0f0f0' }}>
+                <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>No</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Description</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Qty</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Unit Price</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Amount</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {sampleItems.map((item) => (
                 <TableRow key={item.no}>
-                  <TableCell>{item.no}</TableCell>
-                  <TableCell>{item.description}</TableCell>
-                  <TableCell align="right">{item.quantity}</TableCell>
-                  <TableCell align="right">${item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell align="right">${item.amount.toFixed(2)}</TableCell>
+                  <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>{item.no}</TableCell>
+                  <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>{item.description}</TableCell>
+                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{item.quantity}</TableCell>
+                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.amount.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -158,21 +181,25 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
 
         {/* Totals */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-          <Box sx={{ width: 300 }}>
+          <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2">Subtotal:</Typography>
-              <Typography variant="body2">${subtotal.toFixed(2)}</Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>${subtotal.toFixed(2)}</Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2">Tax (10%):</Typography>
-              <Typography variant="body2">${tax.toFixed(2)}</Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>${tax.toFixed(2)}</Typography>
             </Box>
-            <Divider sx={{ my: 1 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" sx={{ color: '#000000' }}>Shipping Cost:</Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>${shipping.toFixed(2)}</Typography>
+            </Box>
+            <Divider sx={{ my: 1, borderColor: '#000000' }} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body1" sx={{ fontWeight: 700 }}>
+              <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
                 Total:
               </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 700 }}>
+              <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
                 ${total.toFixed(2)}
               </Typography>
             </Box>
@@ -181,10 +208,10 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
 
         {/* Notes */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#000000' }}>
             Notes:
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: '#000000' }}>
             Thank you for your business. Please contact us if you have any questions.
           </Typography>
         </Box>
@@ -192,8 +219,8 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
         {/* Per-page footer */}
         {footers.perPage && (
           <>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="caption" color="text.secondary" align="center" display="block">
+            <Divider sx={{ my: 2, borderColor: '#000000' }} />
+            <Typography variant="caption" sx={{ color: '#000000' }} align="center" display="block">
               {footers.perPage}
             </Typography>
           </>
@@ -202,9 +229,9 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
         {/* End of document footer */}
         {footers.endOfDoc && (
           <>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1 }}>
-              <Typography variant="body2" color="text.secondary" align="center">
+            <Divider sx={{ my: 2, borderColor: '#000000' }} />
+            <Box sx={{ bgcolor: '#f0f0f0', p: 2, borderRadius: 1, border: '1px solid #000000' }}>
+              <Typography variant="body2" sx={{ color: '#000000' }} align="center">
                 {footers.endOfDoc}
               </Typography>
             </Box>
