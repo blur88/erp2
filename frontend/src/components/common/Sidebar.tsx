@@ -46,6 +46,7 @@ import {
   CompareArrows as MovementSummaryIcon,
   AttachMoney as PriceListIcon,
   TrendingDown as CostReportIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -352,6 +353,12 @@ const menuSections: MenuSection[] = [
             title: 'Price & Costing',
             icon: <PriceCostingIcon />,
             path: '/settings/price-costing',
+          },
+          {
+            id: 'print-settings',
+            title: 'Print Settings',
+            icon: <PrintIcon />,
+            path: '/settings/print',
           },
         ],
       },
