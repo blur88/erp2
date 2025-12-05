@@ -134,6 +134,11 @@ const CreateSalesOrderPage: React.FC = () => {
 
   // Update all product prices when customer changes
   useEffect(() => {
+    // Skip price recalculation if in edit mode and still loading
+    if (loadingOrder || orderToLoad) {
+      return
+    }
+
     if (selectedCustomer && watchedItems && watchedItems.length > 0) {
       watchedItems.forEach((item, index) => {
         if (item.productId && item.product) {
@@ -144,14 +149,14 @@ const CreateSalesOrderPage: React.FC = () => {
             productPrice = Number(item.product.pricingTiers[selectedCustomer.pricingScheme] || 0)
           }
 
-          // Only update if price changed
-          if (Number(item.unitPrice) !== productPrice) {
+          // Only update if price changed and product has pricing tiers
+          if (item.product.pricingTiers && Number(item.unitPrice) !== productPrice) {
             setValue(`items.${index}.unitPrice`, productPrice)
           }
         }
       })
     }
-  }, [selectedCustomer, setValue])
+  }, [selectedCustomer, setValue, loadingOrder, orderToLoad])
 
   // Load sales order data in edit mode
   useEffect(() => {
