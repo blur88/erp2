@@ -1624,6 +1624,27 @@ const OrdersPage: React.FC = () => {
                 }}>
                   <IconButton
                     size="small"
+                    title="Print PDF"
+                    onClick={handlePrintPDF}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                      width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                      minHeight: 20, // Reduced minimum size for better scaling
+                      minWidth: 20,
+                      p: 0.125, // Reduced padding for better proportion
+                      color: 'success.main',
+                      '&:hover': {
+                        backgroundColor: 'success.light',
+                        color: 'success.dark'
+                      }
+                    }}
+                  >
+                    <PdfIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                    }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
                     title="Edit Order"
                     onClick={handleEditOrder}
                     sx={{
@@ -1661,27 +1682,6 @@ const OrdersPage: React.FC = () => {
                     }}
                   >
                     <DeleteIcon sx={{
-                      fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
-                    }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    title="Print PDF"
-                    onClick={handlePrintPDF}
-                    sx={{
-                      height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
-                      width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
-                      minHeight: 20, // Reduced minimum size for better scaling
-                      minWidth: 20,
-                      p: 0.125, // Reduced padding for better proportion
-                      color: 'success.main',
-                      '&:hover': {
-                        backgroundColor: 'success.light',
-                        color: 'success.dark'
-                      }
-                    }}
-                  >
-                    <PdfIcon sx={{
                       fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                     }} />
                   </IconButton>
