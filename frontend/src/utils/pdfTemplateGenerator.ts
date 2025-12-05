@@ -16,10 +16,10 @@ export interface PDFTemplateOptions {
     email?: string
   }
   items: Array<{
-    no: number
     description: string
     quantity: number
     unitPrice: number
+    discount?: number
     amount: number
   }>
   subtotal: number
@@ -82,15 +82,19 @@ export function generatePDFTemplate(options: PDFTemplateOptions): string {
   const footers = getFooterText()
   const documentTitle = DOCUMENT_TITLES[documentType]
 
+  // Check if any item has a discount (only for sales orders and invoices)
+  const hasAnyDiscount = (documentType === 'salesOrder' || documentType === 'invoice') &&
+    items.some(item => item.discount && item.discount > 0)
+
   // Build item rows
   let itemRows = ''
   items.forEach((item) => {
     itemRows += `
       <tr>
-        <td style="padding: 8px; border: 1px solid #000000; color: #000000;">${item.no}</td>
         <td style="padding: 8px; border: 1px solid #000000; color: #000000;">${item.description}</td>
         <td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${item.quantity}</td>
         <td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${formatCurrency(item.unitPrice)}</td>
+        ${hasAnyDiscount ? `<td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${formatCurrency(item.discount || 0)}</td>` : ''}
         <td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${formatCurrency(item.amount)}</td>
       </tr>
     `
@@ -391,10 +395,10 @@ export function generatePDFTemplate(options: PDFTemplateOptions): string {
         <table class="items-table">
           <thead>
             <tr>
-              <th style="width: 50px;">No</th>
-              <th>Description</th>
+              <th>Product</th>
               <th style="width: 80px; text-align: right;">Qty</th>
               <th style="width: 120px; text-align: right;">Unit Price</th>
+              ${hasAnyDiscount ? '<th style="width: 100px; text-align: right;">Discount</th>' : ''}
               <th style="width: 120px; text-align: right;">Amount</th>
             </tr>
           </thead>

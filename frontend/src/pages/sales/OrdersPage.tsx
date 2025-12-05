@@ -398,11 +398,11 @@ const OrdersPage: React.FC = () => {
       const totalAmount = selectedOrder.totalAmount || 0
 
       // Prepare items for PDF template
-      const items = (selectedOrder.items || []).map((item: any, index: number) => ({
-        no: index + 1,
+      const items = (selectedOrder.items || []).map((item: any) => ({
         description: item.product?.name || 'Unknown Product',
         quantity: item.quantity || 0,
         unitPrice: item.unitPrice || 0,
+        discount: item.discountAmount || 0,
         amount: item.totalAmount || 0,
       }))
 

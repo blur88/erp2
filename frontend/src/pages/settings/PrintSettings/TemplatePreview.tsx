@@ -21,15 +21,19 @@ interface TemplatePreviewProps {
 const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings }) => {
   // Sample data for preview
   const sampleItems = [
-    { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, amount: 200.00 },
-    { no: 2, description: 'Sample Product 2', quantity: 1, unitPrice: 150.00, amount: 150.00 },
-    { no: 3, description: 'Sample Product 3', quantity: 3, unitPrice: 75.00, amount: 225.00 },
+    { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, discount: 0, amount: 200.00 },
+    { no: 2, description: 'Sample Product 2', quantity: 1, unitPrice: 150.00, discount: 0, amount: 150.00 },
+    { no: 3, description: 'Sample Product 3', quantity: 3, unitPrice: 75.00, discount: 0, amount: 225.00 },
   ]
 
   const subtotal = 575.00
   const tax = 57.50
   const shipping = 25.00
   const total = 657.50
+
+  // Check if any item has a discount (only for sales orders and invoices)
+  const hasAnyDiscount = (template.id === 'salesOrder' || template.id === 'invoice') &&
+    sampleItems.some(item => item.discount && item.discount > 0)
 
   // Get footer text based on template type
   const getFooterText = () => {
@@ -161,20 +165,24 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f0f0f0' }}>
-                <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>No</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Product</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Qty</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Unit Price</TableCell>
+                {hasAnyDiscount && (
+                  <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Discount</TableCell>
+                )}
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Amount</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {sampleItems.map((item) => (
                 <TableRow key={item.no}>
-                  <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>{item.no}</TableCell>
                   <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>{item.description}</TableCell>
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{item.quantity}</TableCell>
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.unitPrice.toFixed(2)}</TableCell>
+                  {hasAnyDiscount && (
+                    <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.discount.toFixed(2)}</TableCell>
+                  )}
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.amount.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
