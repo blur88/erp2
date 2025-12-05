@@ -306,15 +306,22 @@ const CreateSalesOrderPage: React.FC = () => {
         orderDate: data.orderDate,
         notes: data.notes || undefined,
         shippingAmount: Number(data.shipping) || 0,
-        items: data.items.map((item) => ({
-          productId: item.productId,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-          discountType: item.discountType,
-          discountPercent: Number(item.discountPercent) || 0,
-          discountAmount: Number(item.discountAmount) || 0,
-          notes: item.description || undefined,
-        })),
+        items: data.items.map((item) => {
+          // Calculate discountPercent and discountAmount based on discountType and discountValue
+          const discountValue = Number(item.discountValue) || 0
+          const discountPercent = item.discountType === 'percentage' ? discountValue : 0
+          const discountAmount = item.discountType === 'amount' ? discountValue : 0
+
+          return {
+            productId: item.productId,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unitPrice),
+            discountType: item.discountType,
+            discountPercent: discountPercent,
+            discountAmount: discountAmount,
+            notes: item.description || undefined,
+          }
+        }),
       }
 
       console.log('Sending order data:', JSON.stringify(orderData, null, 2))
