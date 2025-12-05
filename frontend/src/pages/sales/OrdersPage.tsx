@@ -46,13 +46,16 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
+import { printSettingsApi } from '@/services/printSettingsApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import { generatePDFTemplate, printPDF } from '@/utils/pdfTemplateGenerator'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -379,6 +382,61 @@ const OrdersPage: React.FC = () => {
         return
       }
       navigate(`/sales/orders/${selectedOrder.id}/edit`)
+    }
+  }
+
+  const handlePrintPDF = async () => {
+    if (!selectedOrder) return
+
+    try {
+      // Fetch print settings
+      const printSettings = await printSettingsApi.getPrintSettings()
+
+      // Calculate subtotal
+      const subtotal = selectedOrder.items?.reduce((sum: number, item: any) => sum + (Number(item.totalAmount) || 0), 0) || 0
+      const shippingAmount = selectedOrder.shippingAmount || 0
+      const totalAmount = selectedOrder.totalAmount || 0
+
+      // Prepare items for PDF template
+      const items = (selectedOrder.items || []).map((item: any, index: number) => ({
+        no: index + 1,
+        description: item.product?.name || 'Unknown Product',
+        quantity: item.quantity || 0,
+        unitPrice: item.unitPrice || 0,
+        amount: item.totalAmount || 0,
+      }))
+
+      // Prepare customer info
+      const customerInfo = selectedOrder.customer ? {
+        name: selectedOrder.customer.name || 'Unknown Customer',
+        address: selectedOrder.shippingAddress || selectedOrder.customer.address,
+        city: selectedOrder.customer.city,
+        state: selectedOrder.customer.state,
+        postalCode: selectedOrder.customer.postalCode,
+        country: selectedOrder.customer.country,
+        phone: selectedOrder.customer.phone,
+        email: selectedOrder.customer.email,
+      } : undefined
+
+      // Generate PDF HTML using the template
+      const html = generatePDFTemplate({
+        documentType: 'salesOrder',
+        documentNumber: selectedOrder.orderNumber,
+        documentDate: selectedOrder.orderDate,
+        printSettings,
+        customerInfo,
+        items,
+        subtotal,
+        shipping: shippingAmount,
+        total: totalAmount,
+        notes: selectedOrder.notes,
+      })
+
+      // Print the PDF
+      printPDF(html, showError)
+    } catch (error) {
+      console.error('Failed to generate PDF:', error)
+      showError('Failed to generate PDF. Please try again.')
     }
   }
 
@@ -1603,6 +1661,27 @@ const OrdersPage: React.FC = () => {
                     }}
                   >
                     <DeleteIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
+                    }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    title="Print PDF"
+                    onClick={handlePrintPDF}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`, // Scale to 75% of row height
+                      width: `${TABLE_STYLES.row.height * 0.75}px`, // Square aspect ratio
+                      minHeight: 20, // Reduced minimum size for better scaling
+                      minWidth: 20,
+                      p: 0.125, // Reduced padding for better proportion
+                      color: 'success.main',
+                      '&:hover': {
+                        backgroundColor: 'success.light',
+                        color: 'success.dark'
+                      }
+                    }}
+                  >
+                    <PdfIcon sx={{
                       fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                     }} />
                   </IconButton>

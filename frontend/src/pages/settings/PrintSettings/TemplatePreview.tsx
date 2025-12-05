@@ -108,32 +108,32 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               </Typography>
             )}
           </Box>
-        </Box>
-
-        <Divider sx={{ mb: 3, borderColor: '#000000' }} />
-
-        {/* Document Title */}
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 700,
-            textAlign: 'center',
-            mb: 3,
-            color: '#000000',
-          }}
-        >
-          {template.title.toUpperCase()}
-        </Typography>
-
-        {/* Document Info and Customer Details */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={6}>
+          <Box sx={{ textAlign: 'right', minWidth: 200 }}>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                color: '#000000',
+                mb: 1,
+              }}
+            >
+              {template.title.toUpperCase()}
+            </Typography>
             <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
               <strong>Document No:</strong> DOC-2024-001
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000' }}>
               <strong>Date:</strong> {new Date().toLocaleDateString()}
             </Typography>
+          </Box>
+        </Box>
+
+        <Divider sx={{ mb: 3, borderColor: '#000000' }} />
+
+        {/* Customer Details */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid item xs={6}>
+            {/* Empty space for alignment */}
           </Grid>
           <Grid item xs={6}>
             <Box sx={{ border: '1px solid #000000', p: 2, borderRadius: 1 }}>
