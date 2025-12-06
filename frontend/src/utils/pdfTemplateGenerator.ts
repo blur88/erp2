@@ -20,6 +20,8 @@ export interface PDFTemplateOptions {
     quantity: number
     unitPrice: number
     discount?: number
+    discountType?: 'percentage' | 'amount'
+    discountPercent?: number
     amount: number
   }>
   subtotal: number
@@ -84,17 +86,25 @@ export function generatePDFTemplate(options: PDFTemplateOptions): string {
 
   // Check if any item has a discount (only for sales orders and invoices)
   const hasAnyDiscount = (documentType === 'salesOrder' || documentType === 'invoice') &&
-    items.some(item => item.discount && item.discount > 0)
+    items.some(item => (item.discount && item.discount > 0) || (item.discountPercent && item.discountPercent > 0))
 
   // Build item rows
   let itemRows = ''
   items.forEach((item) => {
+    // Format discount display based on type
+    let discountDisplay = '-'
+    if (item.discountType === 'percentage' && item.discountPercent && item.discountPercent > 0) {
+      discountDisplay = `${item.discountPercent}%`
+    } else if (item.discount && item.discount > 0) {
+      discountDisplay = formatCurrency(item.discount)
+    }
+
     itemRows += `
       <tr>
         <td style="padding: 8px; border: 1px solid #000000; color: #000000;">${item.description}</td>
         <td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${item.quantity}</td>
         <td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${formatCurrency(item.unitPrice)}</td>
-        ${hasAnyDiscount ? `<td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${formatCurrency(item.discount || 0)}</td>` : ''}
+        ${hasAnyDiscount ? `<td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${discountDisplay}</td>` : ''}
         <td style="padding: 8px; border: 1px solid #000000; text-align: right; color: #000000;">${formatCurrency(item.amount)}</td>
       </tr>
     `

@@ -403,6 +403,8 @@ const OrdersPage: React.FC = () => {
         quantity: item.quantity || 0,
         unitPrice: item.unitPrice || 0,
         discount: item.discountAmount || 0,
+        discountType: item.discountType || 'percentage',
+        discountPercent: item.discountPercent || 0,
         amount: item.totalAmount || 0,
       }))
 
