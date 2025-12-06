@@ -1168,7 +1168,13 @@ const InvoicesPage: React.FC = () => {
                                 {formatCurrency(item.unitPrice)}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                {item.discount ? `-${formatCurrency(item.discount)}` : '-'}
+                                {(item as any).discountType === 'percentage' && (item as any).discountPercent ? (
+                                  `${(item as any).discountPercent}%`
+                                ) : item.discount ? (
+                                  `-${formatCurrency(item.discount)}`
+                                ) : (
+                                  '-'
+                                )}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                 {formatCurrency((item as any).totalAmount || item.total)}

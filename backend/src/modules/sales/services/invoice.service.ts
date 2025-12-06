@@ -119,6 +119,8 @@ export class InvoiceService {
         productId: soItem.productId,
         quantity: Number(soItem.quantity),
         unitPrice: Number(soItem.unitPrice),
+        discountType: soItem.discountType,
+        discountPercent: Number(soItem.discountPercent || 0),
         discount: Number(soItem.discountAmount),
         totalAmount: Number(soItem.totalAmount),
       }));
@@ -371,6 +373,8 @@ export class InvoiceService {
       productId: soItem.productId,
       quantity: Number(soItem.quantity),
       unitPrice: Number(soItem.unitPrice),
+      discountType: soItem.discountType,
+      discountPercent: Number(soItem.discountPercent || 0),
       discount: Number(soItem.discountAmount),
       totalAmount: Number(soItem.totalAmount),
     }));
@@ -881,6 +885,8 @@ export class InvoiceService {
         productId: item.productId,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
+        discountType: item.discountType,
+        discountPercent: Number(item.discountPercent || 0),
         discount: Number(item.discount),
         totalAmount: Number(item.totalAmount),
         product: item.product ? {

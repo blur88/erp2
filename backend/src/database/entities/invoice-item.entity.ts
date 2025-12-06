@@ -10,6 +10,7 @@ import {
 import {
   IsString,
   IsOptional,
+  IsEnum,
   MaxLength,
   IsDecimal,
   Min,
@@ -18,6 +19,11 @@ import {
 import { BaseEntity } from './base.entity';
 import { Invoice } from './invoice.entity';
 import { Product } from './product.entity';
+
+export enum DiscountType {
+  PERCENTAGE = 'percentage',
+  AMOUNT = 'amount',
+}
 
 /**
  * Invoice Item entity for individual line items in invoices
@@ -58,6 +64,30 @@ export class InvoiceItem extends BaseEntity {
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   unitPrice: number;
+
+  @Column({
+    type: 'enum',
+    enum: DiscountType,
+    default: DiscountType.PERCENTAGE,
+    nullable: true,
+    comment: 'Type of discount: percentage or fixed amount',
+  })
+  @IsOptional()
+  @IsEnum(DiscountType)
+  discountType?: DiscountType;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    default: 0,
+    nullable: true,
+    comment: 'Line item discount percentage (0-100)',
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,2' })
+  @Min(0)
+  discountPercent?: number;
 
   @Column({
     type: 'decimal',
@@ -131,9 +161,9 @@ export class InvoiceItem extends BaseEntity {
   static fromProduct(
     product: Product,
     quantity: number,
-    priceType: 'retail' | 'wholesale' | 'special' = 'retail'
+    priceScheme: string = 'retail'
   ): Partial<InvoiceItem> {
-    const unitPrice = product.getPriceByType(priceType);
+    const unitPrice = product.getPriceByScheme(priceScheme);
 
     return {
       productId: product.id,

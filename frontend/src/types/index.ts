@@ -276,6 +276,8 @@ export interface InvoiceItem {
   product: Product;
   quantity: number;
   unitPrice: number;
+  discountType?: 'percentage' | 'amount';
+  discountPercent?: number;
   discount: number;
   taxRate: number;
   total: number;

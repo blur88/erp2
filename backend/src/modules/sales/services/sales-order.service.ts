@@ -271,6 +271,8 @@ export class SalesOrderService {
           productId: soItem.productId,
           quantity: Number(soItem.quantity),
           unitPrice: Number(soItem.unitPrice),
+          discountType: soItem.discountType,
+          discountPercent: Number(soItem.discountPercent || 0),
           discount: Number(soItem.discountAmount || 0),
           totalAmount: Number(soItem.totalAmount),
         }));
@@ -1007,16 +1009,18 @@ export class SalesOrderService {
       const discountPercent = Number(item.discountPercent) || 0;
       const discountAmount = Number(item.discountAmount) || 0;
 
-      // Discount is applied to unit price first, then multiplied by quantity
-      let unitDiscount = 0;
+      // Calculate line total before discount
+      const lineTotal = unitPrice * item.quantity;
+
+      // Calculate total discount for the line (not per unit)
+      let calculatedDiscountAmount = 0;
       if (item.discountType === DiscountType.PERCENTAGE && discountPercent > 0) {
-        unitDiscount = (unitPrice * discountPercent) / 100;
+        calculatedDiscountAmount = (lineTotal * discountPercent) / 100;
       } else if (item.discountType === DiscountType.AMOUNT && discountAmount > 0) {
-        unitDiscount = discountAmount;
+        calculatedDiscountAmount = discountAmount;
       }
 
-      const discountedUnitPrice = unitPrice - unitDiscount;
-      const totalAmount = discountedUnitPrice * item.quantity;
+      const totalAmount = lineTotal - calculatedDiscountAmount;
 
       processedItems.push({
         lineNumber: lineNumber++,
@@ -1026,7 +1030,7 @@ export class SalesOrderService {
         unitCost: Number(product.baseCost) || 0,
         discountType: item.discountType || DiscountType.PERCENTAGE,
         discountPercent: Number(discountPercent) || 0,
-        discountAmount: Number(discountAmount) || 0,
+        discountAmount: Number(calculatedDiscountAmount) || 0,
         totalAmount: Number(totalAmount) || 0,
         notes: item.notes || null,
       });
