@@ -41,6 +41,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -48,6 +49,8 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchInvoices, selectInvoicesState, setSelectedInvoice, selectSelectedInvoice } from '@/store/slices/salesSlice'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
+import { printSettingsApi } from '@/services/printSettingsApi'
+import { generatePDFTemplate, printPDF } from '@/utils/pdfTemplateGenerator'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
 import type { InvoiceItem } from '@/types'
 
@@ -514,6 +517,61 @@ const InvoicesPage: React.FC = () => {
     }
   }, [focusedInvoiceIndex, paginatedInvoices])
 
+  const handlePrintPDF = async () => {
+    if (!selectedInvoice) return
+
+    try {
+      // Fetch print settings
+      const printSettings = await printSettingsApi.getPrintSettings()
+
+      // Calculate subtotal from items
+      const subtotal = selectedInvoice.items?.reduce((sum: number, item: any) => sum + (Number(item.totalAmount) || 0), 0) || 0
+      const totalAmount = selectedInvoice.totalAmount || 0
+
+      // Prepare items for PDF template
+      const items = (selectedInvoice.items || []).map((item: any) => ({
+        description: item.product?.name || 'Unknown Product',
+        quantity: item.quantity || 0,
+        unitPrice: item.unitPrice || 0,
+        discount: item.discount || 0,
+        discountType: item.discountType || 'percentage',
+        discountPercent: item.discountPercent || 0,
+        amount: item.totalAmount || 0,
+      }))
+
+      // Customer info
+      const customerInfo = selectedInvoice.customer ? {
+        name: selectedInvoice.customer.name,
+        address: selectedInvoice.customer.address,
+        city: selectedInvoice.customer.city,
+        state: selectedInvoice.customer.state,
+        postalCode: selectedInvoice.customer.postalCode,
+        country: selectedInvoice.customer.country,
+        phone: selectedInvoice.customer.phone,
+        email: selectedInvoice.customer.email,
+      } : undefined
+
+      // Generate PDF HTML using the template
+      const html = generatePDFTemplate({
+        documentType: 'invoice',
+        documentNumber: selectedInvoice.invoiceNumber,
+        documentDate: selectedInvoice.invoiceDate,
+        printSettings,
+        customerInfo,
+        items,
+        subtotal,
+        total: totalAmount,
+        notes: selectedInvoice.notes,
+      })
+
+      // Print the PDF
+      printPDF(html, showError)
+    } catch (error) {
+      console.error('Failed to generate PDF:', error)
+      showError('Failed to generate PDF. Please try again.')
+    }
+  }
+
   const handleEditAction = () => {
     if (selectedInvoice) {
       setEditDialog(true)
@@ -923,6 +981,20 @@ const InvoicesPage: React.FC = () => {
                     )
                   })()}
                 </Box>
+                <IconButton
+                  size="small"
+                  title="Print PDF"
+                  onClick={handlePrintPDF}
+                  sx={{
+                    color: 'success.main',
+                    '&:hover': {
+                      backgroundColor: 'success.light',
+                      color: 'success.dark'
+                    }
+                  }}
+                >
+                  <PdfIcon />
+                </IconButton>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
