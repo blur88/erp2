@@ -1154,30 +1154,6 @@ const InvoicesPage: React.FC = () => {
                   </Grid>
                 </Grid>
 
-                {/* Invoice Notes Section */}
-                {selectedInvoice.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <TableContainer>
-                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
-                                Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                              {selectedInvoice.notes}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
-
                 {/* Page Break */}
                 <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
 
@@ -1260,6 +1236,33 @@ const InvoicesPage: React.FC = () => {
                     <Alert severity="info">No items in this invoice</Alert>
                   )}
                 </Box>
+
+                {/* NOTES Section - below items */}
+                {selectedInvoice.notes && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      mb: 1
+                    }}>
+                      NOTES
+                    </Typography>
+
+                    <Box sx={{
+                      p: 2,
+                      backgroundColor: 'grey.50',
+                      borderRadius: 1,
+                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}>
+                      {selectedInvoice.notes}
+                    </Box>
+                  </Box>
+                )}
+
               </Box>
             </Paper>
           ) : (
