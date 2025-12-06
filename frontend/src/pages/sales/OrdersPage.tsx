@@ -2185,15 +2185,12 @@ const OrdersPage: React.FC = () => {
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
                             }}>
-                              {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                              {item.discountType === 'percentage' && item.discountPercent && (
-                                <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                  color: 'text.secondary',
-                                  display: 'block'
-                                }}>
-                                  ({item.discountPercent}%)
-                                </Typography>
+                              {item.discountType === 'percentage' && item.discountPercent ? (
+                                `${item.discountPercent}%`
+                              ) : item.discountAmount ? (
+                                `-${formatCurrency(item.discountAmount)}`
+                              ) : (
+                                '-'
                               )}
                             </TableCell>
                             <TableCell align="right" sx={{
@@ -2427,24 +2424,12 @@ const OrdersPage: React.FC = () => {
                                   fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
                                 }}>
-                                  {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                                  {item.discountType === 'percentage' && item.discountPercent && (
-                                    <Typography sx={{
-                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary',
-                                      display: 'block'
-                                    }}>
-                                      ({item.discountPercent}%)
-                                    </Typography>
-                                  )}
-                                  {item.discountType === 'amount' && item.discountAmount && (
-                                    <Typography sx={{
-                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary',
-                                      display: 'block'
-                                    }}>
-                                      (Fixed)
-                                    </Typography>
+                                  {item.discountType === 'percentage' && item.discountPercent ? (
+                                    `${item.discountPercent}%`
+                                  ) : item.discountAmount ? (
+                                    `-${formatCurrency(item.discountAmount)}`
+                                  ) : (
+                                    '-'
                                   )}
                                 </TableCell>
                                 <TableCell align="right" sx={{
