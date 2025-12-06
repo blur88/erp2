@@ -1419,6 +1419,8 @@ export class SalesOrderService {
             productId: soItem.productId,
             quantity: Number(soItem.quantity),
             unitPrice: Number(soItem.unitPrice),
+            discountType: soItem.discountType,
+            discountPercent: Number(soItem.discountPercent || 0),
             discount: Number(soItem.discountAmount),
             totalAmount: Number(soItem.totalAmount),
           }));
@@ -1432,6 +1434,9 @@ export class SalesOrderService {
           const shippingAmount = Number(updatedOrder.shippingAmount || 0);
           invoice.totalAmount = newSubtotal + shippingAmount;
         }
+
+        // Sync notes from sales order
+        invoice.notes = updatedOrder.notes;
 
         // Preserve existing paidAmount and recalculate balance due
         const currentPaidAmount = Number(invoice.paidAmount);

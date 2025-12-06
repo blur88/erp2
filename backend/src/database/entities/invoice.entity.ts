@@ -112,6 +112,15 @@ export class Invoice extends BaseEntity {
   @Min(0)
   balanceDue: number;
 
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'Invoice notes (synced from sales order)',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
     // Foreign Keys
   @Column({
     type: 'uuid',
@@ -230,6 +239,7 @@ export class Invoice extends BaseEntity {
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
+      notes: salesOrder.notes, // Copy notes from sales order
     };
   }
 }

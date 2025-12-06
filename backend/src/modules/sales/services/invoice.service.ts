@@ -382,11 +382,12 @@ export class InvoiceService {
     // Insert all items directly
     await this.invoiceItemRepository.insert(invoiceItemsData);
 
-    // Update invoice total amount from sales order
-    // IMPORTANT: Preserve existing paidAmount - only update totalAmount and recalculate balanceDue
+    // Update invoice total amount and notes from sales order
+    // IMPORTANT: Preserve existing paidAmount - only update totalAmount, notes, and recalculate balanceDue
     const currentPaidAmount = Number(invoice.paidAmount);
     invoice.totalAmount = Number(salesOrder.totalAmount);
     invoice.balanceDue = Number(salesOrder.totalAmount) - currentPaidAmount;
+    invoice.notes = salesOrder.notes; // Sync notes from sales order
 
     // Update status based on payment state
     invoice.calculateTotals();
@@ -895,6 +896,7 @@ export class InvoiceService {
           barcode: item.product.barcode,
         } : undefined,
       })) : undefined,
+      notes: invoice.notes,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
       deletedAt: invoice.deletedAt,
