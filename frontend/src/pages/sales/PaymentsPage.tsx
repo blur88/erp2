@@ -42,6 +42,7 @@ import {
   Receipt as InvoiceIcon,
   ShoppingCart as OrderIcon,
   RestoreFromTrash as RestoreIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -49,6 +50,8 @@ import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { salesApi } from '@/services/salesApi'
+import { printSettingsApi } from '@/services/printSettingsApi'
+import { generatePDFTemplate, printPDF } from '@/utils/pdfTemplateGenerator'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
 
@@ -472,6 +475,80 @@ const PaymentsPage: React.FC = () => {
     }
   }
 
+  const handlePrintPDF = async () => {
+    if (!selectedPayment) return
+
+    try {
+      // Fetch print settings
+      const printSettings = await printSettingsApi.getPrintSettings()
+
+      // Prepare customer info
+      const customerInfo = selectedPayment.customer ? {
+        name: selectedPayment.customer.name || selectedPayment.customerName || 'Unknown Customer',
+        phone: selectedPayment.customer.phone,
+        email: selectedPayment.customer.email,
+      } : {
+        name: selectedPayment.customerName || 'Unknown Customer',
+      }
+
+      // Prepare additional info for payment details
+      const additionalInfo = []
+
+      if (selectedPayment.paymentMethod) {
+        additionalInfo.push({
+          label: 'Payment Method',
+          value: getPaymentMethodLabel(selectedPayment.paymentMethod)
+        })
+      }
+
+      if (selectedPayment.reference) {
+        additionalInfo.push({
+          label: 'Reference',
+          value: selectedPayment.reference
+        })
+      }
+
+      if (selectedPayment.relatedOrderNumber) {
+        additionalInfo.push({
+          label: 'Sales Order',
+          value: selectedPayment.relatedOrderNumber
+        })
+      }
+
+      if (selectedPayment.relatedInvoiceNumber) {
+        additionalInfo.push({
+          label: 'Invoice',
+          value: selectedPayment.relatedInvoiceNumber
+        })
+      }
+
+      // Generate PDF HTML using the template
+      const html = generatePDFTemplate({
+        documentType: 'paymentReceipt',
+        documentNumber: selectedPayment.paymentNumber,
+        documentDate: selectedPayment.paymentDate,
+        printSettings,
+        customerInfo,
+        items: [{
+          description: `Payment received from ${selectedPayment.customerName}`,
+          quantity: 1,
+          unitPrice: selectedPayment.amount,
+          amount: selectedPayment.amount,
+        }],
+        subtotal: selectedPayment.amount,
+        total: selectedPayment.amount,
+        notes: selectedPayment.notes,
+        additionalInfo,
+      })
+
+      // Print the PDF
+      printPDF(html, showError)
+    } catch (error) {
+      console.error('Failed to generate PDF:', error)
+      showError('Failed to generate PDF. Please try again.')
+    }
+  }
+
   return (
     <Box>
       {/* Header */}
@@ -817,6 +894,25 @@ const PaymentsPage: React.FC = () => {
                     }}
                   />
                 </Box>
+                <IconButton
+                  size="small"
+                  title="Print PDF"
+                  onClick={handlePrintPDF}
+                  sx={{
+                    height: `${TABLE_STYLES.row.height * 0.75}px`,
+                    width: `${TABLE_STYLES.row.height * 0.75}px`,
+                    minHeight: 20,
+                    minWidth: 20,
+                    p: 0.125,
+                    color: 'success.main',
+                    '&:hover': {
+                      backgroundColor: 'success.light',
+                      color: 'success.dark'
+                    }
+                  }}
+                >
+                  <PdfIcon sx={{ fontSize: '1.2rem' }} />
+                </IconButton>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
