@@ -562,6 +562,9 @@ const InvoicesPage: React.FC = () => {
         subtotal,
         total: totalAmount,
         notes: selectedInvoice.notes,
+        paidAmount: selectedInvoice.paidAmount || 0,
+        balanceDue: selectedInvoice.balanceDue || 0,
+        salesOrderNumber: selectedInvoice.salesOrder?.orderNumber,
       })
 
       // Print the PDF

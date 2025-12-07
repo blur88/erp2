@@ -31,6 +31,10 @@ export interface PDFTemplateOptions {
   total: number
   notes?: string
   additionalInfo?: Array<{ label: string; value: string }>
+  // Invoice-specific fields
+  paidAmount?: number
+  balanceDue?: number
+  salesOrderNumber?: string
 }
 
 const DOCUMENT_TITLES: Record<PDFTemplateOptions['documentType'], string> = {
@@ -57,6 +61,9 @@ export function generatePDFTemplate(options: PDFTemplateOptions): string {
     total,
     notes,
     additionalInfo,
+    paidAmount,
+    balanceDue,
+    salesOrderNumber,
   } = options
 
   // Get footer text based on document type
@@ -178,6 +185,25 @@ export function generatePDFTemplate(options: PDFTemplateOptions): string {
         <span>${formatCurrency(total)}</span>
       </div>
     `
+
+    // Add paid amount and balance for invoices
+    if (documentType === 'invoice' && paidAmount !== undefined) {
+      rows += `
+        <div class="totals-row">
+          <span>Paid Amount:</span>
+          <span>${formatCurrency(paidAmount)}</span>
+        </div>
+      `
+
+      if (balanceDue !== undefined) {
+        rows += `
+          <div class="totals-row" style="font-weight: 600;">
+            <span>Balance Due:</span>
+            <span>${formatCurrency(balanceDue)}</span>
+          </div>
+        `
+      }
+    }
 
     return rows
   }
@@ -384,6 +410,7 @@ export function generatePDFTemplate(options: PDFTemplateOptions): string {
             <div class="document-header-info">
               <div><span class="info-label">Document No:</span> ${documentNumber}</div>
               <div><span class="info-label">Date:</span> ${formatDate(documentDate)}</div>
+              ${documentType === 'invoice' && salesOrderNumber ? `<div><span class="info-label">SO No:</span> ${salesOrderNumber}</div>` : ''}
               ${buildAdditionalInfo()}
             </div>
           </div>
