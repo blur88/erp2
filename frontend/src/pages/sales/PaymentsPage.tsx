@@ -1088,7 +1088,7 @@ const PaymentsPage: React.FC = () => {
                 {/* Page Break */}
                 <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
 
-                {/* Purchase Items Section */}
+                {/* Payment Items Section */}
                 <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                     fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
@@ -1097,7 +1097,7 @@ const PaymentsPage: React.FC = () => {
                     letterSpacing: '0.5px',
                     mb: 1
                   }}>
-                    Purchase Items
+                    Payment Items
                   </Typography>
 
                   {selectedPayment.invoice?.items && selectedPayment.invoice.items.length > 0 ? (
@@ -1164,7 +1164,7 @@ const PaymentsPage: React.FC = () => {
                       </Table>
                     </TableContainer>
                   ) : (
-                    <Alert severity="info">No purchase items available</Alert>
+                    <Alert severity="info">No payment items available</Alert>
                   )}
                 </Box>
 
