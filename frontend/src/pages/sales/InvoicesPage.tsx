@@ -387,19 +387,35 @@ const InvoicesPage: React.FC = () => {
     }
   }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice, dispatch])
 
-  // Handle navigation from orders page with highlightInvoiceId
+  // Handle navigation from orders page with highlightInvoice object
   useEffect(() => {
-    const state = location.state as { highlightInvoiceId?: string }
-    if (state?.highlightInvoiceId && paginatedInvoices.length > 0) {
-      const invoiceIndex = paginatedInvoices.findIndex(i => i.id === state.highlightInvoiceId)
+    const state = location.state as { highlightInvoice?: any, highlightInvoiceId?: string }
+
+    // Handle new format: full invoice object
+    if (state?.highlightInvoice) {
+      dispatch(setSelectedInvoice(state.highlightInvoice as any))
+      // Try to find in paginated list for focus highlight
+      const invoiceIndex = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === state.highlightInvoice.id)
       if (invoiceIndex >= 0) {
-        dispatch(setSelectedInvoice(paginatedInvoices[invoiceIndex] as any))
         setFocusedInvoiceIndex(invoiceIndex)
+      }
+      // Clear the state to prevent repeated highlighting
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+    // Handle old format: just invoice ID (for backward compatibility)
+    else if (state?.highlightInvoiceId && invoices && invoices.length > 0) {
+      const invoice = invoices.find((i: any) => i.id === state.highlightInvoiceId)
+      if (invoice) {
+        dispatch(setSelectedInvoice(invoice as any))
+        const invoiceIndex = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === state.highlightInvoiceId)
+        if (invoiceIndex >= 0) {
+          setFocusedInvoiceIndex(invoiceIndex)
+        }
         // Clear the state to prevent repeated highlighting
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
     }
-  }, [paginatedInvoices, location.state, dispatch])
+  }, [invoices, paginatedInvoices, location.state, dispatch])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {

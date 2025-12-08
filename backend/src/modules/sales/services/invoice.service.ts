@@ -219,6 +219,7 @@ export class InvoiceService {
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
       customerName: invoice.customer?.name,
+      shippingAmount: Number(invoice.shippingAmount || 0),
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
     }));
@@ -854,6 +855,7 @@ export class InvoiceService {
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
       paidDate: invoice.paidDate,
+      shippingAmount: Number(invoice.shippingAmount || 0),
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
       balanceDue: Number(invoice.balanceDue),

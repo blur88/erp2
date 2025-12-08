@@ -1104,11 +1104,12 @@ const OrdersPage: React.FC = () => {
     navigate('/sales/orders/create')
   }
 
-  const handleNavigateToInvoice = useCallback((invoiceId: string, event?: React.MouseEvent) => {
+  const handleNavigateToInvoice = useCallback((invoice: any, event?: React.MouseEvent) => {
     if (event) {
       event.stopPropagation() // Prevent triggering parent row click
     }
-    navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
+    // Pass the full invoice object to avoid lookup issues with pagination
+    navigate('/sales/invoices', { state: { highlightInvoice: invoice } })
   }, [navigate])
 
   const handleNavigateToPayment = useCallback((paymentId: string, event?: React.MouseEvent) => {
@@ -1757,7 +1758,7 @@ const OrdersPage: React.FC = () => {
                                   <Box key={invoice.id} component="span">
                                     <Typography
                                       component="button"
-                                      onClick={(event) => handleNavigateToInvoice(invoice.id, event)}
+                                      onClick={(event) => handleNavigateToInvoice(invoice, event)}
                                       sx={{
                                         fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                         color: 'primary.main',

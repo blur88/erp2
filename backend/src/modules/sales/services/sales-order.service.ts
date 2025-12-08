@@ -550,8 +550,19 @@ export class SalesOrderService {
           invoiceNumber: invoice.invoiceNumber,
           status: invoice.status,
           invoiceDate: invoice.invoiceDate,
+          shippingAmount: Number(invoice.shippingAmount || 0),
           totalAmount: Number(invoice.totalAmount),
           paidAmount: Number(invoice.paidAmount),
+          balanceDue: Number(invoice.balanceDue),
+          customerName: invoice.customer?.name,
+          customerId: invoice.customerId,
+          salesOrderId: invoice.salesOrderId,
+          salesOrder: {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            orderDate: order.orderDate,
+          },
+          orderNumber: order.orderNumber,
         })) || [],
         isOverdue: false, // Placeholder since no requiredDate property exists
         notes: order.notes, // Include notes field in summary response
@@ -617,7 +628,7 @@ export class SalesOrderService {
   async findById(id: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product', 'invoices', 'invoices.payments'],
+      relations: ['customer', 'items', 'items.product', 'invoices', 'invoices.payments', 'invoices.items', 'invoices.items.product'],
     });
 
     if (!order) {
@@ -941,9 +952,19 @@ export class SalesOrderService {
         invoiceNumber: invoice.invoiceNumber,
         status: invoice.status,
         invoiceDate: invoice.invoiceDate,
+        shippingAmount: Number(invoice.shippingAmount || 0),
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
         balanceDue: Number(invoice.balanceDue),
+        customerName: invoice.customer?.name,
+        customerId: invoice.customerId,
+        salesOrderId: invoice.salesOrderId,
+        salesOrder: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+        },
+        orderNumber: order.orderNumber,
       })),
     };
   }
@@ -1753,8 +1774,19 @@ export class SalesOrderService {
         invoiceNumber: invoice.invoiceNumber,
         status: invoice.status,
         invoiceDate: invoice.invoiceDate,
+        shippingAmount: Number(invoice.shippingAmount || 0),
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
+        balanceDue: Number(invoice.balanceDue),
+        customerName: invoice.customer?.name,
+        customerId: invoice.customerId,
+        salesOrderId: invoice.salesOrderId,
+        salesOrder: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+        },
+        orderNumber: order.orderNumber,
         payments: invoice.payments?.map(payment => ({
           id: payment.id,
           paymentNumber: payment.paymentNumber,
@@ -1762,6 +1794,22 @@ export class SalesOrderService {
           amount: Number(payment.amount),
           paymentMethod: payment.paymentMethod,
           status: payment.status,
+        })) || [],
+        items: invoice.items?.map(item => ({
+          id: item.id,
+          lineNumber: item.lineNumber,
+          productId: item.productId,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          discountType: item.discountType,
+          discountPercent: Number(item.discountPercent || 0),
+          discount: Number(item.discount),
+          totalAmount: Number(item.totalAmount),
+          product: item.product ? {
+            id: item.product.id,
+            name: item.product.name,
+            barcode: item.product.barcode,
+          } : undefined,
         })) || [],
       })) || [],
       createdAt: order.createdAt,
