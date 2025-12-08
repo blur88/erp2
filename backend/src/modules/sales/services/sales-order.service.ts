@@ -478,17 +478,13 @@ export class SalesOrderService {
       fulfillmentStatus,
       sortBy = 'orderNumber',
       sortOrder = 'ASC',
-      page = 1,
-      limit = 20,
     } = query;
 
-    // Build find options with filters using TypeORM operators
+    // Build find options with filters using TypeORM operators - no pagination
     let findOptions: any = {
       relations: ['customer', 'items', 'items.product', 'invoices'],
       where: { deletedAt: null },
       order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit
     };
 
     // Apply filters to where clause
@@ -574,9 +570,6 @@ export class SalesOrderService {
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
     };
   }
 

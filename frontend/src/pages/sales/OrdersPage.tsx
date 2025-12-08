@@ -13,7 +13,6 @@ import {
   Button,
   Chip,
   IconButton,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -62,11 +61,6 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-
-interface OrdersPageState {
-  page: number
-  rowsPerPage: number
-}
 
 // Memoized Order Row Component to prevent unnecessary re-renders
 interface OrderRowProps {
@@ -156,11 +150,6 @@ const OrdersPage: React.FC = () => {
     customerId: 'all',
   }
 
-  const [state, setState] = useState<OrdersPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
-
   const [viewDialog, setViewDialog] = useState(false)
   const [blockedDialogOpen, setBlockedDialogOpen] = useState(false)
   const [blockedDialogAction, setBlockedDialogAction] = useState<'edit' | 'delete'>('edit')
@@ -213,8 +202,6 @@ const OrdersPage: React.FC = () => {
   const loadOrders = useCallback(() => {
     const dateRange = getDateRange(orderFilters.dateFilter)
     dispatch(fetchOrders({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       sortBy: orderFilters.sortBy,
       sortOrder: orderFilters.sortOrder,
       search: orderFilters.search,
@@ -224,7 +211,7 @@ const OrdersPage: React.FC = () => {
       paymentStatus: orderFilters.paymentStatus,
       fulfillmentStatus: orderFilters.fulfillmentStatus,
     }))
-  }, [dispatch, state.page, state.rowsPerPage, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
+  }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
 
   useEffect(() => {
     loadOrders()
@@ -274,7 +261,6 @@ const OrdersPage: React.FC = () => {
       sortBy: field,
       sortOrder: newSortOrder
     }))
-    setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
   }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder])
 
   // Select order when clicked - memoized to prevent re-renders
@@ -526,8 +512,6 @@ const OrdersPage: React.FC = () => {
         dispatch(fetchInvoices({ page: 1, limit: 20 }))
         // Refresh the orders list to show updated state
         dispatch(fetchOrders({
-          page: state.page + 1,
-          limit: state.rowsPerPage,
           search: orderFilters.search || '',
           paymentStatus: orderFilters.paymentStatus || 'all',
           fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
@@ -1063,20 +1047,22 @@ const OrdersPage: React.FC = () => {
   }, [orders, dispatch])
 
   const handlePageUpNavigation = useCallback(() => {
-    const newIndex = Math.max(0, focusedOrderIndex - state.rowsPerPage)
+    const rowsPerPage = 20 // Default value previously used
+    const newIndex = Math.max(0, focusedOrderIndex - rowsPerPage)
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
     }
-  }, [focusedOrderIndex, state.rowsPerPage, orders])
+  }, [focusedOrderIndex, orders, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
-    const newIndex = Math.min(orders.length - 1, focusedOrderIndex + state.rowsPerPage)
+    const rowsPerPage = 20 // Default value previously used
+    const newIndex = Math.min(orders.length - 1, focusedOrderIndex + rowsPerPage)
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
     }
-  }, [focusedOrderIndex, state.rowsPerPage, orders])
+  }, [focusedOrderIndex, orders, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedOrderIndex >= 0 && orders[focusedOrderIndex]) {
@@ -1276,7 +1262,6 @@ const OrdersPage: React.FC = () => {
             label="Date Filter"
             onChange={(e) => {
               dispatch(setOrderFilters({ dateFilter: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1363,7 +1348,6 @@ const OrdersPage: React.FC = () => {
             label="Customer"
             onChange={(e) => {
               dispatch(setOrderFilters({ customerId: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1406,7 +1390,6 @@ const OrdersPage: React.FC = () => {
             label="Payment Status"
             onChange={(e) => {
               dispatch(setOrderFilters({ paymentStatus: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1448,7 +1431,6 @@ const OrdersPage: React.FC = () => {
             label="Fulfillment"
             onChange={(e) => {
               dispatch(setOrderFilters({ fulfillmentStatus: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1485,7 +1467,6 @@ const OrdersPage: React.FC = () => {
                 paymentStatus: 'all',
                 fulfillmentStatus: 'all'
               }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -1586,22 +1567,6 @@ const OrdersPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              {/* Pagination */}
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev: OrdersPageState) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: OrdersPageState) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>
