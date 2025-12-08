@@ -61,6 +61,7 @@ interface InvoiceListItem {
   customerName?: string
   orderNumber?: string
   invoiceDate?: string
+  shippingAmount?: number
   totalAmount?: number
   paidAmount: number
   balanceDue?: number
@@ -260,14 +261,17 @@ const InvoicesPage: React.FC = () => {
 
   // Consolidated invoice fetching - handles all refresh scenarios
   const fetchInvoicesData = useCallback(() => {
+    const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchInvoices({
       page: state.page + 1,
       limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as any
+      sortOrder: filters.sortOrder.toUpperCase() as any,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate
     }))
-  }, [dispatch, state.page, state.rowsPerPage, filters])
+  }, [dispatch, state.page, state.rowsPerPage, filters, getDateRange])
 
   // Main effect: Load invoices on mount and when filters/pagination change
   useEffect(() => {
@@ -321,63 +325,17 @@ const InvoicesPage: React.FC = () => {
     })
   }, [invoices])
 
-  // Filter and sort invoices
+  // Backend handles filtering, sorting, and pagination
+  // No need for client-side filtering/sorting since backend already does it
   const filteredInvoices = useMemo(() => {
-    let filtered = [...normalizedInvoices]
+    return normalizedInvoices
+  }, [normalizedInvoices])
 
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filtered = filtered.filter(invoice =>
-        invoice.invoiceNumber.toLowerCase().includes(searchLower) ||
-        (invoice.customerName && invoice.customerName.toLowerCase().includes(searchLower)) ||
-        (invoice.salesOrder?.orderNumber && invoice.salesOrder.orderNumber.toLowerCase().includes(searchLower))
-      )
-    }
-
-
-    // Date filter
-    if (filters.dateFilter !== 'all') {
-      const dateRange = getDateRange(filters.dateFilter)
-      if (dateRange.fromDate || dateRange.toDate) {
-        filtered = filtered.filter(invoice => {
-          if (!invoice.invoiceDate) return false
-
-          const invoiceDate = new Date(invoice.invoiceDate).toISOString().split('T')[0]
-
-          if (dateRange.fromDate && invoiceDate < dateRange.fromDate) return false
-          if (dateRange.toDate && invoiceDate > dateRange.toDate) return false
-
-          return true
-        })
-      }
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue: any = a[filters.sortBy as keyof InvoiceListItem]
-      let bValue: any = b[filters.sortBy as keyof InvoiceListItem]
-
-      if (filters.sortBy === 'invoiceDate') {
-        aValue = new Date(aValue || 0).getTime()
-        bValue = new Date(bValue || 0).getTime()
-      }
-
-      if (filters.sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-
-    return filtered
-  }, [normalizedInvoices, filters, getDateRange])
-
-  // Pagination
+  // No client-side pagination needed - backend handles pagination
+  // Just use filteredInvoices directly since backend already paginated
   const paginatedInvoices = useMemo(() => {
-    const startIndex = state.page * state.rowsPerPage
-    return filteredInvoices.slice(startIndex, startIndex + state.rowsPerPage)
-  }, [filteredInvoices, state.page, state.rowsPerPage])
+    return filteredInvoices
+  }, [filteredInvoices])
 
   const handleSort = useCallback((field: string) => {
     const newSortOrder = filters.sortBy === field && filters.sortOrder === 'desc' ? 'asc' : 'desc'
@@ -1123,6 +1081,22 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                              Sub-total
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency((selectedInvoice.totalAmount || 0) - (selectedInvoice.shippingAmount || 0))}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Shipping
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(selectedInvoice.shippingAmount || 0)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Total Amount
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
