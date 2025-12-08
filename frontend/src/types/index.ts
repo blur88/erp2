@@ -286,7 +286,11 @@ export interface InvoiceItem {
 export interface Payment {
   id: string;
   paymentNumber: string;
-  invoice?: Invoice;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    items?: InvoiceItem[];
+  };
   invoiceId?: string;
   customer?: Customer;
   customerId?: string;

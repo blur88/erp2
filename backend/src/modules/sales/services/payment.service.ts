@@ -105,6 +105,8 @@ export class PaymentService {
       .leftJoinAndSelect('payment.customer', 'customer')
       .leftJoinAndSelect('payment.invoice', 'invoice')
       .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('invoice.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
       .where(where)
       .orderBy(`payment.${sortBy}`, sortOrder)
       .skip((page - 1) * limit)
@@ -254,7 +256,7 @@ export class PaymentService {
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['customer', 'invoice', 'invoice.salesOrder'],
+      relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product'],
     });
 
     if (!payment) {
@@ -415,6 +417,7 @@ export class PaymentService {
       invoice: payment.invoice ? {
         id: payment.invoice.id,
         invoiceNumber: payment.invoice.invoiceNumber,
+        items: payment.invoice.items,
       } : undefined,
       relatedInvoiceId: payment.invoice?.id,
       relatedInvoiceNumber: payment.invoice?.invoiceNumber,

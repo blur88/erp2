@@ -54,6 +54,7 @@ import { printSettingsApi } from '@/services/printSettingsApi'
 import { generatePDFTemplate, printPDF } from '@/utils/pdfTemplateGenerator'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
+import type { InvoiceItem } from '@/types'
 
 // Payment types and interfaces
 interface Payment {
@@ -83,6 +84,7 @@ interface Payment {
   invoice?: {
     id: string
     invoiceNumber: string
+    items?: InvoiceItem[]
   }
 }
 
@@ -1083,27 +1085,112 @@ const PaymentsPage: React.FC = () => {
                   </Grid>
                 </Grid>
 
-                {/* Payment Notes Section */}
-                {selectedPayment.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <TableContainer>
-                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
+                {/* Page Break */}
+                <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
+
+                {/* Purchase Items Section */}
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    mb: 1
+                  }}>
+                    Purchase Items
+                  </Typography>
+
+                  {selectedPayment.invoice?.items && selectedPayment.invoice.items.length > 0 ? (
+                    <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          '& .MuiTableCell-root': {
+                            borderBottom: TABLE_STYLES.cell.border,
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px
+                          }
+                        }}
+                      >
+                        <TableHead>
+                          <TableRow sx={{ '& .MuiTableCell-head': {
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            backgroundColor: 'grey.50',
+                            color: TYPOGRAPHY_STYLES.tableHeader.color,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                          } }}>
+                            <TableCell sx={{ width: '40%' }}>Product</TableCell>
+                            <TableCell align="center" sx={{ width: '12%' }}>Quantity</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Unit Price</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Discount</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Total</TableCell>
+                          </TableRow>
+                        </TableHead>
                         <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
-                                Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                              {selectedPayment.notes}
-                            </TableCell>
-                          </TableRow>
+                          {selectedPayment.invoice.items.map((item: any, index: number) => (
+                            <TableRow
+                              key={item.id || index}
+                              hover
+                              sx={{
+                                '&:hover': { backgroundColor: 'action.hover' },
+                                transition: 'background-color 0.2s ease',
+                                height: TABLE_STYLES.row.height
+                              }}
+                            >
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {item.product?.name || 'Unknown Product'}
+                              </TableCell>
+                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                {item.quantity}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(item.unitPrice)}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {item.discountType === 'percentage' && item.discountPercent ? (
+                                  `${item.discountPercent}%`
+                                ) : item.discount ? (
+                                  `-${formatCurrency(item.discount)}`
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(item.totalAmount || item.total)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
                         </TableBody>
                       </Table>
                     </TableContainer>
+                  ) : (
+                    <Alert severity="info">No purchase items available</Alert>
+                  )}
+                </Box>
+
+                {/* Payment Notes Section */}
+                {selectedPayment.notes && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      mb: 1
+                    }}>
+                      NOTES
+                    </Typography>
+
+                    <Box sx={{
+                      p: 2,
+                      backgroundColor: 'grey.50',
+                      borderRadius: 1,
+                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}>
+                      {selectedPayment.notes}
+                    </Box>
                   </Box>
                 )}
               </Box>
