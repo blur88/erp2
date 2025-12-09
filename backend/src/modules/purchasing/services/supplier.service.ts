@@ -61,14 +61,12 @@ export class SupplierService {
   }
 
   /**
-   * Get all suppliers with filtering and pagination
+   * Get all suppliers with filtering (no pagination)
    */
   async findAll(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
     this.logger.log(`Finding suppliers with query: ${JSON.stringify(query)}`);
 
     const {
-      page = 1,
-      limit = 10,
       search,
       type,
       isActive,
@@ -76,7 +74,6 @@ export class SupplierService {
       sortOrder = 'ASC',
     } = query;
 
-    const skip = (page - 1) * limit;
     const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
 
     // Apply search filter
@@ -114,24 +111,20 @@ export class SupplierService {
       queryBuilder.addOrderBy('supplier.companyName', 'ASC');
     }
 
-    // Get total count
-    const total = await queryBuilder.getCount();
-
-    // Apply pagination
-    queryBuilder.skip(skip).take(limit);
-
+    // Get all suppliers without pagination
     const suppliers = await queryBuilder.getMany();
+    const total = suppliers.length;
 
     const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
 
     return {
       suppliers: supplierDtos,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 

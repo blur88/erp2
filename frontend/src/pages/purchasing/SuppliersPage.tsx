@@ -23,7 +23,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   Alert,
   CircularProgress,
   useTheme,
@@ -95,7 +94,6 @@ const SuppliersPage: React.FC = () => {
   const suppliers = useAppSelector(selectSuppliers)
   const loading = useAppSelector(selectSuppliersLoading)
   const error = useAppSelector(selectSuppliersError)
-  const pagination = useAppSelector(selectSuppliersPagination)
   const filters = useAppSelector(selectSuppliersFilters)
 
   // Local state
@@ -151,7 +149,7 @@ const SuppliersPage: React.FC = () => {
 
   // Load suppliers on mount and when filters change
   useEffect(() => {
-    dispatch(fetchSuppliers({ ...filters }))
+    dispatch(fetchSuppliers(filters))
   }, [dispatch, filters.search, filters.type, filters.sortBy, filters.sortOrder])
 
   // Debounced duplicate check for company name
@@ -212,15 +210,6 @@ const SuppliersPage: React.FC = () => {
     }
   }, [companyName, selectedSupplier?.id, isFormOpen])
 
-  // Handle pagination
-  const handleChangePage = (event: unknown, newPage: number) => {
-    dispatch(fetchSuppliers({ ...filters, page: newPage + 1 }))
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(fetchSuppliers({ ...filters, page: 1, limit: parseInt(event.target.value) }))
-  }
-
   // Handle form submit
   const handleFormSubmit = async (data: SupplierFormData) => {
     // Prevent submission if duplicate exists
@@ -245,11 +234,7 @@ const SuppliersPage: React.FC = () => {
         showSuccess('Supplier created successfully')
       }
       handleCloseForm()
-      dispatch(fetchSuppliers({
-        ...filters,
-        page: pagination.page,
-        limit: pagination.limit,
-      }))
+      dispatch(fetchSuppliers(filters))
     } catch (error: any) {
       // Extract error message from the response
       let errorMessage = `Failed to ${selectedSupplier ? 'update' : 'create'} supplier`
@@ -270,7 +255,6 @@ const SuppliersPage: React.FC = () => {
     console.log('🗑️ Starting delete for supplier:', selectedSupplier.id)
     console.log('📊 Current suppliers count:', suppliers.length)
     console.log('📊 Current filters:', filters)
-    console.log('📊 Current pagination:', pagination)
 
     try {
       console.log('🔄 Calling deleteSupplier...')
@@ -297,17 +281,8 @@ const SuppliersPage: React.FC = () => {
       showError(errorMessage)
     } finally {
       console.log('🔄 Starting refetch...')
-      console.log('🔄 Refetch params:', {
-        ...filters,
-        page: pagination.page,
-        limit: pagination.limit,
-      })
       // Always refetch to ensure UI is in sync with backend
-      await dispatch(fetchSuppliers({
-        ...filters,
-        page: pagination.page,
-        limit: pagination.limit,
-      }))
+      await dispatch(fetchSuppliers(filters))
       console.log('✅ Refetch complete')
       console.log('📊 New suppliers count:', suppliers.length)
     }
@@ -770,17 +745,6 @@ const SuppliersPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-
-        {/* Pagination */}
-        <TablePagination
-          rowsPerPageOptions={[10, 20, 50]}
-          component="div"
-          count={pagination.total}
-          rowsPerPage={pagination.limit}
-          page={pagination.page - 1}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
       </Paper>
 
       {/* Supplier Form Dialog */}
