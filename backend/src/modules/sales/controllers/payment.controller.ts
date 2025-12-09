@@ -49,7 +49,7 @@ export class PaymentController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all payments with filtering and pagination' })
+  @ApiOperation({ summary: 'Get all payments with filtering' })
   @ApiResponse({
     status: 200,
     description: 'List of payments retrieved successfully',
@@ -65,8 +65,6 @@ export class PaymentController {
   @ApiQuery({ name: 'referenceNumber', required: false, description: 'Search by reference number' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getAllPayments(@Query() query: QueryPaymentsDto) {
     return this.paymentService.findAll(query);
   }

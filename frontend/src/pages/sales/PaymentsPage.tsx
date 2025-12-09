@@ -13,7 +13,6 @@ import {
   Button,
   Chip,
   IconButton,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -86,11 +85,6 @@ interface Payment {
     invoiceNumber: string
     items?: InvoiceItem[]
   }
-}
-
-interface PaymentsPageState {
-  page: number
-  rowsPerPage: number
 }
 
 interface PaymentFilters {
@@ -176,11 +170,6 @@ const PaymentsPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalPayments, setTotalPayments] = useState(0)
-
-  const [state, setState] = useState<PaymentsPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
 
   const [filters, setFilters] = useState<PaymentFilters>({
     search: '',
@@ -281,7 +270,6 @@ const PaymentsPage: React.FC = () => {
       sortBy: field,
       sortOrder: newSortOrder
     }))
-    setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
   }, [filters.sortBy, filters.sortOrder])
 
   const handlePaymentSelect = useCallback((payment: Payment) => {
@@ -297,8 +285,6 @@ const PaymentsPage: React.FC = () => {
     try {
       const dateRange = getDateRange(filters.dateFilter)
       const response = await salesApi.getPayments({
-        page: state.page + 1,
-        limit: state.rowsPerPage,
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
         search: filters.search,
@@ -307,11 +293,11 @@ const PaymentsPage: React.FC = () => {
         toDate: dateRange.toDate,
       } as any)
 
-      // Backend returns { data: Payment[], total, page, limit, totalPages }
+      // Backend returns { data: Payment[], meta: { total } }
       const paymentsData = (response as any)
       if (paymentsData) {
         setPayments(paymentsData.data || [])
-        setTotalPayments(paymentsData.total || 0)
+        setTotalPayments(paymentsData.meta?.total || 0)
       }
     } catch (err: any) {
       console.error('Failed to load payments:', err)
@@ -320,7 +306,7 @@ const PaymentsPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [state.page, state.rowsPerPage, filters, getDateRange, showError])
+  }, [filters, getDateRange, showError])
 
   // Load payments on mount and when filters change
   useEffect(() => {
@@ -407,20 +393,22 @@ const PaymentsPage: React.FC = () => {
   }, [paginatedPayments, dispatch])
 
   const handlePageUpNavigation = useCallback(() => {
-    const newIndex = Math.max(0, focusedPaymentIndex - state.rowsPerPage)
+    const pageSize = 20
+    const newIndex = Math.max(0, focusedPaymentIndex - pageSize)
     setFocusedPaymentIndex(newIndex)
     if (paginatedPayments[newIndex]) {
       dispatch(setSelectedPayment(paginatedPayments[newIndex] as any))
     }
-  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments, dispatch])
+  }, [focusedPaymentIndex, paginatedPayments, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
-    const newIndex = Math.min(paginatedPayments.length - 1, focusedPaymentIndex + state.rowsPerPage)
+    const pageSize = 20
+    const newIndex = Math.min(paginatedPayments.length - 1, focusedPaymentIndex + pageSize)
     setFocusedPaymentIndex(newIndex)
     if (paginatedPayments[newIndex]) {
       dispatch(setSelectedPayment(paginatedPayments[newIndex] as any))
     }
-  }, [focusedPaymentIndex, state.rowsPerPage, paginatedPayments, dispatch])
+  }, [focusedPaymentIndex, paginatedPayments, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedPaymentIndex >= 0 && paginatedPayments[focusedPaymentIndex]) {
@@ -661,7 +649,6 @@ const PaymentsPage: React.FC = () => {
             label="Date Filter"
             onChange={(e) => {
               setFilters((prev: PaymentFilters) => ({ ...prev, dateFilter: e.target.value }))
-              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -749,7 +736,6 @@ const PaymentsPage: React.FC = () => {
                 customToDate: '',
                 customerId: 'all'
               })
-              setState((prev: PaymentsPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -845,21 +831,6 @@ const PaymentsPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={totalPayments}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev: PaymentsPageState) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: PaymentsPageState) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>

@@ -83,8 +83,6 @@ export class PaymentService {
       toDate,
       sortBy = 'paymentDate',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     const where: FindOptionsWhere<Payment> = {};
@@ -108,18 +106,15 @@ export class PaymentService {
       .leftJoinAndSelect('invoice.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .where(where)
-      .orderBy(`payment.${sortBy}`, sortOrder)
-      .skip((page - 1) * limit)
-      .take(limit);
+      .orderBy(`payment.${sortBy}`, sortOrder);
 
     const [payments, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: payments.map(payment => this.mapToResponseDto(payment)),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: {
+        total,
+      },
     };
   }
 
@@ -300,8 +295,6 @@ export class PaymentService {
       customerId,
       sortBy = 'deletedAt',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     let queryBuilder = this.paymentRepository
@@ -325,20 +318,15 @@ export class PaymentService {
     // Add sorting
     queryBuilder = queryBuilder.orderBy(`payment.${sortBy}`, sortOrder as 'ASC' | 'DESC');
 
-    // Add pagination
-    const offset = (page - 1) * limit;
-    queryBuilder = queryBuilder.skip(offset).take(limit);
-
     const [payments, total] = await queryBuilder.getManyAndCount();
 
     const data = payments.map(payment => this.mapToResponseDto(payment));
 
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: {
+        total,
+      },
     };
   }
 
