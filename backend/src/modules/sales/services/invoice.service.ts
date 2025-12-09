@@ -143,8 +143,6 @@ export class InvoiceService {
       unpaid,
       sortBy = 'invoiceDate',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     const where: FindOptionsWhere<Invoice> = {};
@@ -152,7 +150,7 @@ export class InvoiceService {
     if (customerId) where.customerId = customerId;
     if (salesOrderId) where.salesOrderId = salesOrderId;
     if (status) where.status = status;
-    
+
     if (fromDate) {
       where.invoiceDate = MoreThanOrEqual(new Date(fromDate));
     }
@@ -180,8 +178,6 @@ export class InvoiceService {
       where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
       relations: ['customer', 'salesOrder', 'payments', 'items', 'items.product'],
       order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
     };
 
     let [invoices, total] = await this.invoiceRepository.findAndCount(findOptions);
@@ -199,10 +195,9 @@ export class InvoiceService {
 
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: {
+        total,
+      },
     };
   }
 
@@ -740,8 +735,6 @@ export class InvoiceService {
       salesOrderId,
       sortBy = 'deletedAt',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     let queryBuilder = this.invoiceRepository
@@ -769,10 +762,6 @@ export class InvoiceService {
     // Add sorting
     queryBuilder = queryBuilder.orderBy(`invoice.${sortBy}`, sortOrder as 'ASC' | 'DESC');
 
-    // Add pagination
-    const offset = (page - 1) * limit;
-    queryBuilder = queryBuilder.skip(offset).take(limit);
-
     const [invoices, total] = await queryBuilder.getManyAndCount();
 
     // Map invoices to response DTOs with product information
@@ -784,9 +773,6 @@ export class InvoiceService {
       data,
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
       },
     };
   }

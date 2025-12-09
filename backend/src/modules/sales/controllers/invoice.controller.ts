@@ -51,7 +51,7 @@ export class InvoiceController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all invoices with filtering and pagination' })
+  @ApiOperation({ summary: 'Get all invoices with filtering' })
   @ApiResponse({
     status: 200,
     description: 'List of invoices retrieved successfully',
@@ -61,14 +61,12 @@ export class InvoiceController {
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
   @ApiQuery({ name: 'salesOrderId', required: false, description: 'Filter by sales order ID' })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by invoice status' })
-    @ApiQuery({ name: 'fromDate', required: false, description: 'Filter invoices from date' })
+  @ApiQuery({ name: 'fromDate', required: false, description: 'Filter invoices from date' })
   @ApiQuery({ name: 'toDate', required: false, description: 'Filter invoices to date' })
   @ApiQuery({ name: 'overdue', required: false, type: Boolean, description: 'Filter overdue invoices' })
   @ApiQuery({ name: 'unpaid', required: false, type: Boolean, description: 'Filter unpaid invoices' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getAllInvoices(@Query() query: QueryInvoicesDto) {
     return this.invoiceService.findAll(query);
   }

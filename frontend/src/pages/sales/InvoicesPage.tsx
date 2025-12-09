@@ -13,7 +13,6 @@ import {
   Button,
   Chip,
   IconButton,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -83,11 +82,6 @@ interface InvoiceListItem {
   issueDate?: Date | string
   dueAmount?: number
   items?: InvoiceItem[]
-}
-
-interface InvoicesPageState {
-  page: number
-  rowsPerPage: number
 }
 
 interface InvoiceFilters {
@@ -163,11 +157,6 @@ const InvoicesPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { invoices, loading, error, pagination } = useAppSelector(selectInvoicesState)
   const selectedInvoice = useAppSelector(selectSelectedInvoice) as InvoiceListItem | null
-
-  const [state, setState] = useState<InvoicesPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
 
   const [filters, setFilters] = useState<InvoiceFilters>({
     search: '',
@@ -263,15 +252,13 @@ const InvoicesPage: React.FC = () => {
   const fetchInvoicesData = useCallback(() => {
     const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchInvoices({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder.toUpperCase() as any,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate
     }))
-  }, [dispatch, state.page, state.rowsPerPage, filters, getDateRange])
+  }, [dispatch, filters, getDateRange])
 
   // Main effect: Load invoices on mount and when filters/pagination change
   useEffect(() => {
@@ -344,7 +331,6 @@ const InvoicesPage: React.FC = () => {
       sortBy: field,
       sortOrder: newSortOrder
     }))
-    setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
   }, [filters.sortBy, filters.sortOrder])
 
   const handleInvoiceSelect = useCallback((invoice: InvoiceListItem) => {
@@ -470,20 +456,22 @@ const InvoicesPage: React.FC = () => {
   }, [navigate])
 
   const handlePageUpNavigation = useCallback(() => {
-    const newIndex = Math.max(0, focusedInvoiceIndex - state.rowsPerPage)
+    const pageSize = 20
+    const newIndex = Math.max(0, focusedInvoiceIndex - pageSize)
     setFocusedInvoiceIndex(newIndex)
     if (paginatedInvoices[newIndex]) {
       dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices, dispatch])
+  }, [focusedInvoiceIndex, paginatedInvoices, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
-    const newIndex = Math.min(paginatedInvoices.length - 1, focusedInvoiceIndex + state.rowsPerPage)
+    const pageSize = 20
+    const newIndex = Math.min(paginatedInvoices.length - 1, focusedInvoiceIndex + pageSize)
     setFocusedInvoiceIndex(newIndex)
     if (paginatedInvoices[newIndex]) {
       dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices, dispatch])
+  }, [focusedInvoiceIndex, paginatedInvoices, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedInvoiceIndex >= 0 && paginatedInvoices[focusedInvoiceIndex]) {
@@ -700,7 +688,6 @@ const InvoicesPage: React.FC = () => {
             label="Date Filter"
             onChange={(e) => {
               setFilters((prev: InvoiceFilters) => ({ ...prev, dateFilter: e.target.value }))
-              setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -787,7 +774,6 @@ const InvoicesPage: React.FC = () => {
                 customToDate: '',
                 customerId: 'all'
               })
-              setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -884,21 +870,6 @@ const InvoicesPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev: InvoicesPageState) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: InvoicesPageState) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>
