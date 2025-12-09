@@ -23,7 +23,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   Alert,
   CircularProgress,
   useTheme,
@@ -57,7 +56,6 @@ import {
   selectCustomers,
   selectCustomersLoading,
   selectCustomersError,
-  selectCustomersPagination,
   selectCustomersFilters,
   setFilters,
   clearError,
@@ -98,7 +96,6 @@ const CustomersPage: React.FC = () => {
   const customers = useAppSelector(selectCustomers)
   const loading = useAppSelector(selectCustomersLoading)
   const error = useAppSelector(selectCustomersError)
-  const pagination = useAppSelector(selectCustomersPagination)
   const filters = useAppSelector(selectCustomersFilters)
 
   // Local state
@@ -240,15 +237,6 @@ const CustomersPage: React.FC = () => {
     dispatch(fetchCustomers({ ...filters }))
   }, [dispatch, filters.search, filters.type, filters.pricingScheme, filters.sortBy, filters.sortOrder])
 
-  // Handle pagination
-  const handleChangePage = (event: unknown, newPage: number) => {
-    dispatch(fetchCustomers({ ...filters, page: newPage + 1 }))
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(fetchCustomers({ ...filters, page: 1, limit: parseInt(event.target.value) }))
-  }
-
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
     try {
@@ -285,16 +273,7 @@ const CustomersPage: React.FC = () => {
       setSelectedCustomer(null)
 
       // Refresh the customer list to ensure consistency
-      dispatch(fetchCustomers({
-        page: pagination.page,
-        limit: pagination.limit,
-        search: filters.search || undefined,
-        type: filters.type || undefined,
-        pricingScheme: filters.pricingScheme || undefined,
-        isActive: filters.isActive,
-        sortBy: filters.sortBy || undefined,
-        sortOrder: filters.sortOrder || undefined
-      }))
+      dispatch(fetchCustomers({ ...filters }))
     } catch (error: any) {
       // Handle error responses with detailed information
       let errorTitle = 'Failed to Delete Customer'
@@ -900,17 +879,6 @@ const CustomersPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-        
-        {/* Pagination */}
-        <TablePagination
-          rowsPerPageOptions={[10, 20, 50]}
-          component="div"
-          count={pagination.total}
-          rowsPerPage={pagination.limit}
-          page={pagination.page - 1}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
       </Paper>
 
 

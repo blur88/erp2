@@ -219,7 +219,7 @@ const OrdersPage: React.FC = () => {
 
   // Fetch customers on component mount - memoized to prevent re-fetching
   useEffect(() => {
-    dispatch(fetchCustomers({ limit: 1000 })) // Get all customers for dropdown
+    dispatch(fetchCustomers({})) // Get all customers for dropdown
   }, [dispatch])
 
   // Helper function to calculate date ranges - memoized for performance
