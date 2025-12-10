@@ -176,14 +176,12 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Get all GRNs with filtering and pagination
+   * Get all GRNs with filtering (no pagination)
    */
   async findAll(query: GoodsReceivedNoteQueryDto): Promise<GoodsReceivedNoteListResponseDto> {
     this.logger.log(`Finding GRNs with query: ${JSON.stringify(query)}`);
 
     const {
-      page = 1,
-      limit = 10,
       search,
       status,
       supplierId,
@@ -192,7 +190,6 @@ export class GoodsReceivedNoteService {
       sortOrder = 'ASC',
     } = query;
 
-    const skip = (page - 1) * limit;
     const queryBuilder = this.grnRepository
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.supplier', 'supplier')
@@ -231,24 +228,19 @@ export class GoodsReceivedNoteService {
       queryBuilder.orderBy('grn.grnNumber', 'ASC');
     }
 
-    // Get total count
-    const total = await queryBuilder.getCount();
-
-    // Apply pagination
-    queryBuilder.skip(skip).take(limit);
-
     const grns = await queryBuilder.getMany();
+    const total = grns.length;
 
     const grnDtos = grns.map(grn => this.mapToResponseDto(grn));
 
     return {
       grns: grnDtos,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
@@ -348,21 +340,16 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Get all soft-deleted GRNs
+   * Get all soft-deleted GRNs (no pagination)
    */
   async findDeleted(query: GoodsReceivedNoteQueryDto): Promise<GoodsReceivedNoteListResponseDto> {
     this.logger.log('Finding deleted GRNs');
 
     const {
-      page = 1,
-      limit = 10,
       search,
       sortBy = 'receivedDate',
       sortOrder = 'DESC',
     } = query;
-
-    const skip = (page - 1) * Math.min(limit, 100);
-    const take = Math.min(limit, 100);
 
     const queryBuilder = this.grnRepository
       .createQueryBuilder('grn')
@@ -379,27 +366,22 @@ export class GoodsReceivedNoteService {
       );
     }
 
-    // Count total
-    const total = await queryBuilder.getCount();
-
-    // Apply sorting and pagination
+    // Apply sorting
     const validSortFields = ['grnNumber', 'receivedDate', 'deletedAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'receivedDate';
     queryBuilder.orderBy(`grn.${sortField}`, sortOrder as 'ASC' | 'DESC');
-    queryBuilder.skip(skip).take(take);
 
     const grns = await queryBuilder.getMany();
-
-    const totalPages = Math.ceil(total / take);
+    const total = grns.length;
 
     return {
       grns: grns.map(grn => this.mapToResponseDto(grn)),
       total,
-      page,
-      limit: take,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
