@@ -20,7 +20,6 @@ import {
   TableCell,
   TableContainer,
   TableRow,
-  TablePagination,
   CircularProgress,
   useTheme,
   useMediaQuery,
@@ -85,8 +84,6 @@ const ProductsPage: React.FC = () => {
   const pagination = useSelector(selectInventoryPagination)?.products
   const productFilters = useSelector(selectProductFilters) || { search: '', categoryId: '', lowStock: false, inStock: true }
   const selectedProductForDetails = useSelector(selectSelectedProduct)
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
@@ -133,12 +130,12 @@ const ProductsPage: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchProducts({
-      page: page + 1, // API expects 1-based page numbers
-      limit: rowsPerPage,
+      page: 1,
+      limit: 9999, // Fetch all products
       search: productFilters.search || undefined,
       categoryId: productFilters.categoryId || undefined
     }))
-  }, [dispatch, productFilters.search, productFilters.categoryId, page, rowsPerPage])
+  }, [dispatch, productFilters.search, productFilters.categoryId])
 
   // Update selectedProductForDetails when products change (to reflect updates in detail view)
   useEffect(() => {
@@ -196,10 +193,9 @@ const ProductsPage: React.FC = () => {
             setFocusedProductIndex(-1) // No index since it's not in the list
 
             // Also refresh the products list to get the latest data
-            setPage(0)
             dispatch(fetchProducts({
               page: 1,
-              limit: rowsPerPage,
+              limit: 9999,
               search: undefined,
               categoryId: undefined
             }))
@@ -214,15 +210,15 @@ const ProductsPage: React.FC = () => {
           })
       }
     }
-  }, [pendingProductId, products, dispatch, rowsPerPage, showError])
+  }, [pendingProductId, products, dispatch, showError])
 
-  // Reset focused index when products change or page changes (but not on initial mount if we have a persisted selection)
+  // Reset focused index when products change (but not on initial mount if we have a persisted selection)
   useEffect(() => {
     // Don't reset if we haven't restored the persisted selection yet
     if (hasRestoredSelection.current || !selectedProductForDetails) {
       setFocusedProductIndex(-1)
     }
-  }, [page, rowsPerPage, productFilters.search, productFilters.categoryId, selectedProductForDetails])
+  }, [productFilters.search, productFilters.categoryId, selectedProductForDetails])
 
   // Auto-focus the first product when the list becomes available OR restore focus for persisted selection
   useEffect(() => {
@@ -294,20 +290,20 @@ const ProductsPage: React.FC = () => {
   }, [products, dispatch])
 
   const handlePageUpNavigation = useCallback(() => {
-    const newIndex = Math.max(0, focusedProductIndex - rowsPerPage)
+    const newIndex = Math.max(0, focusedProductIndex - 10)
     setFocusedProductIndex(newIndex)
     if (products[newIndex]) {
       dispatch(setSelectedProduct(products[newIndex]))
     }
-  }, [focusedProductIndex, rowsPerPage, products, dispatch])
+  }, [focusedProductIndex, products, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
-    const newIndex = Math.min(products.length - 1, focusedProductIndex + rowsPerPage)
+    const newIndex = Math.min(products.length - 1, focusedProductIndex + 10)
     setFocusedProductIndex(newIndex)
     if (products[newIndex]) {
       dispatch(setSelectedProduct(products[newIndex]))
     }
-  }, [focusedProductIndex, rowsPerPage, products, dispatch])
+  }, [focusedProductIndex, products, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
@@ -362,8 +358,8 @@ const ProductsPage: React.FC = () => {
 
           // Refresh the product list to ensure consistency
           dispatch(fetchProducts({
-            page: page + 1, // API expects 1-based page numbers
-            limit: rowsPerPage,
+            page: 1,
+            limit: 9999,
             search: productFilters.search || undefined,
             categoryId: productFilters.categoryId || undefined
           }))
@@ -803,19 +799,6 @@ const ProductsPage: React.FC = () => {
                       </TableBody>
                     </Table>
                   </TableContainer>
-                  <TablePagination
-                    rowsPerPageOptions={[10, 20, 50]}
-                    component="div"
-                    count={pagination?.total || 0}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={(_, newPage) => setPage(newPage)}
-                    onRowsPerPageChange={(e) => {
-                      setRowsPerPage(parseInt(e.target.value, 10))
-                      setPage(0)
-                    }}
-                    size="small"
-                  />
                 </>
               )}
             </Box>
@@ -1023,8 +1006,8 @@ const ProductsPage: React.FC = () => {
         onClose={() => setImportDialogOpen(false)}
         onImportSuccess={() => {
           dispatch(fetchProducts({
-            page: page + 1,
-            limit: rowsPerPage,
+            page: 1,
+            limit: 9999,
             search: productFilters.search || undefined,
             categoryId: productFilters.categoryId || undefined
           }))
