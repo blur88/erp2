@@ -52,7 +52,7 @@ export class StockAdjustmentController {
   }
 
   @Get('deleted')
-  @ApiOperation({ summary: 'Get deleted stock adjustments with filtering and pagination' })
+  @ApiOperation({ summary: 'Get deleted stock adjustments with filtering (no pagination)' })
   @ApiResponse({
     status: 200,
     description: 'List of deleted stock adjustments retrieved successfully',
@@ -61,21 +61,17 @@ export class StockAdjustmentController {
   @ApiQuery({ name: 'search', required: false, description: 'Search term' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, description: 'Sort order (ASC/DESC)' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getDeletedStockAdjustments(@Query() query: QueryStockAdjustmentsDto) {
     const data = await this.stockAdjustmentService.findDeleted(query);
     return data;
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all stock adjustments with filtering and pagination' })
+  @ApiOperation({ summary: 'Get all stock adjustments with filtering (no pagination)' })
   @ApiResponse({
     status: 200,
     description: 'Stock adjustments retrieved successfully',
   })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
   @ApiQuery({ name: 'fromDate', required: false, description: 'Filter from date' })
   @ApiQuery({ name: 'toDate', required: false, description: 'Filter to date' })

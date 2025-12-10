@@ -12,7 +12,6 @@ import {
   TableRow,
   Button,
   Chip,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -61,8 +60,6 @@ import { StockAdjustmentStatus } from '@/types'
 import type { StockAdjustment } from '@/types'
 
 interface StockAdjustmentsPageState {
-  page: number
-  rowsPerPage: number
   search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
@@ -142,8 +139,6 @@ const StockAdjustmentsPage: React.FC = () => {
   const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
 
   const [state, setState] = useState<StockAdjustmentsPageState>({
-    page: 0,
-    rowsPerPage: 20,
     search: '',
     sortBy: 'adjustmentNumber',
     sortOrder: 'asc',
@@ -207,8 +202,6 @@ const StockAdjustmentsPage: React.FC = () => {
     const dateRange = getDateRange(state.dateFilter)
 
     dispatch(fetchStockAdjustments({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       status: state.statusFilter !== 'all' ? state.statusFilter : undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
@@ -227,7 +220,6 @@ const StockAdjustmentsPage: React.FC = () => {
       ...prev,
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
-      page: 0
     }))
   }, [])
 
@@ -510,7 +502,7 @@ const StockAdjustmentsPage: React.FC = () => {
           inputRef={searchInputRef}
           placeholder="Search adjustments..."
           value={state.search}
-          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value, page: 0 }))}
+          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
           size="medium"
           sx={{
             minWidth: isMobile ? 'auto' : 250,
@@ -544,7 +536,7 @@ const StockAdjustmentsPage: React.FC = () => {
           <Select
             value={state.dateFilter}
             label="Date Filter"
-            onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value, page: 0 }))}
+            onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value }))}
             sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
@@ -607,7 +599,7 @@ const StockAdjustmentsPage: React.FC = () => {
           <Select
             value={state.statusFilter}
             label="Status"
-            onChange={(e) => setState(prev => ({ ...prev, statusFilter: e.target.value, page: 0 }))}
+            onChange={(e) => setState(prev => ({ ...prev, statusFilter: e.target.value }))}
             sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
@@ -627,7 +619,6 @@ const StockAdjustmentsPage: React.FC = () => {
               customFromDate: '',
               customToDate: '',
               statusFilter: 'all',
-              page: 0
             }))}
             sx={{
               minWidth: 'auto',
@@ -723,21 +714,6 @@ const StockAdjustmentsPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_, newPage) => setState(prev => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e) => setState(prev => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>

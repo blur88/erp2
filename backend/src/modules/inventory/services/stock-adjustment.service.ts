@@ -131,12 +131,10 @@ export class StockAdjustmentService {
   }
 
   /**
-   * Find all stock adjustments with filtering and pagination
+   * Find all stock adjustments with filtering (no pagination)
    */
   async findAll(query: QueryStockAdjustmentsDto) {
     const {
-      page = 1,
-      limit = 20,
       status,
       fromDate,
       toDate,
@@ -179,10 +177,6 @@ export class StockAdjustmentService {
     queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
     queryBuilder.addOrderBy('adjustment.createdAt', normalizedSortOrder);
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
-
     const [adjustments, total] = await queryBuilder.getManyAndCount();
 
     const data = adjustments.map(adjustment => this.toListResponseDto(adjustment));
@@ -190,12 +184,7 @@ export class StockAdjustmentService {
     return {
       data,
       meta: {
-        page,
-        limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
       },
     };
   }
@@ -454,15 +443,13 @@ export class StockAdjustmentService {
   }
 
   /**
-   * Find all deleted stock adjustments
+   * Find all deleted stock adjustments (no pagination)
    */
   async findDeleted(query: QueryStockAdjustmentsDto = {}): Promise<any> {
     const {
       search,
       sortBy = 'deletedAt',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     let queryBuilder = this.stockAdjustmentRepository
@@ -483,10 +470,6 @@ export class StockAdjustmentService {
     const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
-
     const [adjustments, total] = await queryBuilder.getManyAndCount();
 
     const data = adjustments.map(adjustment => this.toListResponseDto(adjustment));
@@ -494,12 +477,7 @@ export class StockAdjustmentService {
     return {
       data,
       meta: {
-        page,
-        limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
       },
     };
   }
