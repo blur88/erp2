@@ -12,7 +12,6 @@ import {
   TableRow,
   Button,
   Chip,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -45,11 +44,6 @@ import {
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
-
-interface VendorPaymentsPageState {
-  page: number
-  rowsPerPage: number
-}
 
 interface VendorPaymentFilters {
   search: string
@@ -125,11 +119,6 @@ const VendorPaymentsPage: React.FC = () => {
   const selectedPaymentFromRedux = useAppSelector(selectSelectedVendorPayment)
   const [selectedPayment, setSelectedPaymentLocal] = useState<any | null>(null)
 
-  const [state, setState] = useState<VendorPaymentsPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
-
   const [filters, setFilters] = useState<VendorPaymentFilters>({
     search: '',
     sortBy: 'paymentNumber',
@@ -182,8 +171,6 @@ const VendorPaymentsPage: React.FC = () => {
   useEffect(() => {
     const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchVendorPayments({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
@@ -192,19 +179,14 @@ const VendorPaymentsPage: React.FC = () => {
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
     } as any))
-  }, [dispatch, state.page, state.rowsPerPage, filters, getDateRange])
-
-  // Pagination
-  const paginatedPayments = useMemo(() => {
-    return vendorPayments || []
-  }, [vendorPayments])
+  }, [dispatch, filters, getDateRange])
 
   const handlePaymentSelect = useCallback((payment: any) => {
     setSelectedPaymentLocal(payment)
     dispatch(setSelectedVendorPayment(payment))
-    const paymentIndex = paginatedPayments.findIndex(p => p.id === payment.id)
+    const paymentIndex = vendorPayments.findIndex(p => p.id === payment.id)
     setFocusedPaymentIndex(paymentIndex)
-  }, [dispatch, paginatedPayments])
+  }, [dispatch, vendorPayments])
 
   // Restore selected payment from Redux on mount
   useEffect(() => {
@@ -243,26 +225,26 @@ const VendorPaymentsPage: React.FC = () => {
 
   // Auto-select first payment when payments load
   useEffect(() => {
-    if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
+    if (vendorPayments.length > 0 && focusedPaymentIndex === -1) {
       if (!selectedPayment && searchInputRef.current !== document.activeElement) {
         // Don't auto-select if we have a vpId query parameter or a persisted selection
         const vpId = searchParams.get('vpId')
         if (!vpId && !selectedPaymentFromRedux) {
           setFocusedPaymentIndex(0)
-          handlePaymentSelect(paginatedPayments[0])
+          handlePaymentSelect(vendorPayments[0])
         }
       }
     }
-  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams, selectedPaymentFromRedux])
+  }, [vendorPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams, selectedPaymentFromRedux])
 
   // Clear selection when no payments exist
   useEffect(() => {
-    if (paginatedPayments.length === 0 && selectedPayment) {
+    if (vendorPayments.length === 0 && selectedPayment) {
       setSelectedPaymentLocal(null)
       dispatch(setSelectedVendorPayment(null))
       setFocusedPaymentIndex(-1)
     }
-  }, [paginatedPayments.length, selectedPayment, dispatch])
+  }, [vendorPayments.length, selectedPayment, dispatch])
 
   const handleSort = useCallback((field: string) => {
     setFilters(prev => ({
@@ -270,7 +252,6 @@ const VendorPaymentsPage: React.FC = () => {
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
     }))
-    setState(prev => ({ ...prev, page: 0 }))
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -301,17 +282,17 @@ const VendorPaymentsPage: React.FC = () => {
     if (focusedPaymentIndex > 0) {
       const newIndex = focusedPaymentIndex - 1
       setFocusedPaymentIndex(newIndex)
-      handlePaymentSelect(paginatedPayments[newIndex])
+      handlePaymentSelect(vendorPayments[newIndex])
     }
-  }, [focusedPaymentIndex, paginatedPayments, handlePaymentSelect])
+  }, [focusedPaymentIndex, vendorPayments, handlePaymentSelect])
 
   const handleNavigateDown = useCallback(() => {
-    if (focusedPaymentIndex < paginatedPayments.length - 1) {
+    if (focusedPaymentIndex < vendorPayments.length - 1) {
       const newIndex = focusedPaymentIndex + 1
       setFocusedPaymentIndex(newIndex)
-      handlePaymentSelect(paginatedPayments[newIndex])
+      handlePaymentSelect(vendorPayments[newIndex])
     }
-  }, [focusedPaymentIndex, paginatedPayments, handlePaymentSelect])
+  }, [focusedPaymentIndex, vendorPayments, handlePaymentSelect])
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus()
@@ -349,7 +330,7 @@ const VendorPaymentsPage: React.FC = () => {
             Vendor Payments
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Track and manage payments to suppliers ({pagination?.total || 0} total)
+            Track and manage payments to suppliers ({vendorPayments.length} total)
           </Typography>
         </Box>
         <Box sx={{
@@ -558,7 +539,6 @@ const VendorPaymentsPage: React.FC = () => {
                 customFromDate: '',
                 customToDate: '',
               })
-              setState((prev) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -606,62 +586,45 @@ const VendorPaymentsPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                VP List ({pagination?.total || 0})
+                VP List ({vendorPayments.length})
               </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={paymentListRef}>
-              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table
-                  size={TABLE_STYLES.size}
-                  sx={{
-                    '& .MuiTableCell-root': {
-                      borderBottom: TABLE_STYLES.cell.border,
-                      py: TABLE_STYLES.cell.padding.py * 0.75,
-                      px: TABLE_STYLES.cell.padding.px * 0.75
-                    }
-                  }}
-                >
-                  <TableBody>
-                    {loading && paginatedPayments.length === 0 ? (
-                      [...Array(10)].map((_, i) => (
-                        <TableRow key={`skeleton-${i}`}>
-                          <TableCell>
-                            <Skeleton height={40} />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      paginatedPayments.map((payment: any, index: number) => (
-                        <PaymentRow
-                          key={payment.id}
-                          payment={payment}
-                          index={index}
-                          selectedPaymentId={selectedPayment?.id}
-                          focusedPaymentIndex={focusedPaymentIndex}
-                          onPaymentSelect={handlePaymentSelect}
-                        />
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e) => setState((prev) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
-            </Box>
+            <TableContainer sx={{ flex: 1, overflow: 'auto' }} ref={paymentListRef}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  '& .MuiTableCell-root': {
+                    borderBottom: TABLE_STYLES.cell.border,
+                    py: TABLE_STYLES.cell.padding.py * 0.75,
+                    px: TABLE_STYLES.cell.padding.px * 0.75
+                  }
+                }}
+              >
+                <TableBody>
+                  {loading && vendorPayments.length === 0 ? (
+                    [...Array(10)].map((_, i) => (
+                      <TableRow key={`skeleton-${i}`}>
+                        <TableCell>
+                          <Skeleton height={40} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    vendorPayments.map((payment: any, index: number) => (
+                      <PaymentRow
+                        key={payment.id}
+                        payment={payment}
+                        index={index}
+                        selectedPaymentId={selectedPayment?.id}
+                        focusedPaymentIndex={focusedPaymentIndex}
+                        onPaymentSelect={handlePaymentSelect}
+                      />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
 

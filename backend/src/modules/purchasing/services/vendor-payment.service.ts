@@ -58,7 +58,7 @@ export class VendorPaymentService {
   }
 
   /**
-   * Find all vendor payments with filters and pagination
+   * Find all vendor payments with filters (no pagination)
    */
   async findAll(
     query: QueryVendorPaymentsDto,
@@ -69,8 +69,6 @@ export class VendorPaymentService {
       paymentMethod,
       startDate,
       endDate,
-      page = 1,
-      limit = 20,
       sortBy = 'paymentDate',
       sortOrder = 'DESC',
       search,
@@ -123,24 +121,21 @@ export class VendorPaymentService {
       });
     }
 
-    // Pagination
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
     // Dynamic sorting
     const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     queryBuilder.orderBy(`vendorPayment.${sortBy}`, order);
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    const data = await queryBuilder.getMany();
+    const total = data.length;
 
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
@@ -187,7 +182,7 @@ export class VendorPaymentService {
   }
 
   /**
-   * Find deleted vendor payments with filters and pagination
+   * Find deleted vendor payments with filters (no pagination)
    */
   async findDeleted(
     query: QueryVendorPaymentsDto,
@@ -198,8 +193,6 @@ export class VendorPaymentService {
       paymentMethod,
       startDate,
       endDate,
-      page = 1,
-      limit = 20,
     } = query;
 
     const queryBuilder = this.vendorPaymentRepository
@@ -241,23 +234,20 @@ export class VendorPaymentService {
       });
     }
 
-    // Pagination
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
     // Order by payment date descending
     queryBuilder.orderBy('vendorPayment.paymentDate', 'DESC');
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    const data = await queryBuilder.getMany();
+    const total = data.length;
 
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
