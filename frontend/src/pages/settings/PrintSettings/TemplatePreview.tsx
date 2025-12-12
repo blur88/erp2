@@ -21,19 +21,18 @@ interface TemplatePreviewProps {
 const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings }) => {
   // Sample data for preview
   const sampleItems = [
-    { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, discount: 0, amount: 200.00 },
+    { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, discount: 10.00, amount: 190.00 },
     { no: 2, description: 'Sample Product 2', quantity: 1, unitPrice: 150.00, discount: 0, amount: 150.00 },
-    { no: 3, description: 'Sample Product 3', quantity: 3, unitPrice: 75.00, discount: 0, amount: 225.00 },
+    { no: 3, description: 'Sample Product 3', quantity: 3, unitPrice: 75.00, discount: 15.00, amount: 210.00 },
   ]
 
-  const subtotal = 575.00
-  const tax = 57.50
+  const subtotal = 550.00
+  const tax = 55.00
   const shipping = 25.00
-  const total = 657.50
+  const total = 575.00
 
-  // Check if any item has a discount (only for sales orders and invoices)
-  const hasAnyDiscount = (template.id === 'salesOrder' || template.id === 'invoice') &&
-    sampleItems.some(item => item.discount && item.discount > 0)
+  // Always show discount column for sales orders and invoices
+  const showDiscountColumn = template.id === 'salesOrder' || template.id === 'invoice'
 
   // Get footer text based on template type
   const getFooterText = () => {
@@ -168,7 +167,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Product</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Qty</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Unit Price</TableCell>
-                {hasAnyDiscount && (
+                {showDiscountColumn && (
                   <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Discount</TableCell>
                 )}
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Amount</TableCell>
@@ -180,7 +179,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                   <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>{item.description}</TableCell>
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{item.quantity}</TableCell>
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.unitPrice.toFixed(2)}</TableCell>
-                  {hasAnyDiscount && (
+                  {showDiscountColumn && (
                     <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.discount.toFixed(2)}</TableCell>
                   )}
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.amount.toFixed(2)}</TableCell>
@@ -197,10 +196,12 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
               <Typography variant="body2" sx={{ color: '#000000' }}>${subtotal.toFixed(2)}</Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
-              <Typography variant="body2" sx={{ color: '#000000' }}>${tax.toFixed(2)}</Typography>
-            </Box>
+            {template.id !== 'salesOrder' && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>${tax.toFixed(2)}</Typography>
+              </Box>
+            )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" sx={{ color: '#000000' }}>Shipping Cost:</Typography>
               <Typography variant="body2" sx={{ color: '#000000' }}>${shipping.toFixed(2)}</Typography>
