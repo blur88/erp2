@@ -1722,6 +1722,190 @@ export class SalesOrderService {
     return this.findById(savedOrder.id);
   }
 
+  async generatePdf(id: string): Promise<Buffer> {
+    const PDFDocument = require('pdfkit');
+    const order = await this.findById(id);
+
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        // Header - Company Info
+        doc.fontSize(20).font('Helvetica-Bold').text('SALES ORDER', { align: 'center' });
+        doc.moveDown(0.5);
+        doc.fontSize(10).font('Helvetica').text(`Order Number: ${order.orderNumber}`, { align: 'center' });
+        doc.text(`Order Date: ${new Date(order.orderDate).toLocaleDateString()}`, { align: 'center' });
+        doc.moveDown(1);
+
+        // Customer Information Section with Address and Phone
+        doc.fontSize(12).font('Helvetica-Bold').text('BILL TO:', 50, doc.y);
+        doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica');
+
+        const customer = order.customer;
+        if (customer) {
+          doc.text(customer.name, 50, doc.y);
+
+          // Add phone number if available
+          if (customer.phone) {
+            doc.text(`Phone: ${customer.phone}`, 50, doc.y);
+          }
+
+          // Add address if available
+          if (customer.streetAddress) {
+            doc.text(customer.streetAddress, 50, doc.y);
+          }
+
+          // Add city, state, postal code on one line if available
+          const cityStateLine: string[] = [];
+          if (customer.city) cityStateLine.push(customer.city);
+          if (customer.state) cityStateLine.push(customer.state);
+          if (customer.postalCode) cityStateLine.push(customer.postalCode);
+
+          if (cityStateLine.length > 0) {
+            doc.text(cityStateLine.join(', '), 50, doc.y);
+          }
+
+          // Add country if available
+          if (customer.country) {
+            doc.text(customer.country, 50, doc.y);
+          }
+        } else {
+          doc.text('Customer information not available', 50, doc.y);
+        }
+
+        doc.moveDown(1.5);
+
+        // Order Items Table
+        const tableTop = doc.y;
+        const itemX = 50;
+        const qtyX = 280;
+        const priceX = 340;
+        const discountX = 400;
+        const totalX = 470;
+
+        // Table Header
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Item', itemX, tableTop);
+        doc.text('Qty', qtyX, tableTop, { width: 50, align: 'right' });
+        doc.text('Price', priceX, tableTop, { width: 50, align: 'right' });
+        doc.text('Disc.', discountX, tableTop, { width: 60, align: 'right' });
+        doc.text('Total', totalX, tableTop, { width: 75, align: 'right' });
+
+        // Horizontal line under header
+        doc.moveTo(50, tableTop + 15).lineTo(545, tableTop + 15).stroke();
+
+        // Table Rows
+        let yPosition = tableTop + 25;
+        doc.font('Helvetica').fontSize(9);
+
+        for (const item of order.items || []) {
+          const productName = item.product?.name || 'Unknown Product';
+          const quantity = Number(item.quantity);
+          const unitPrice = Number(item.unitPrice);
+          const discountAmount = Number(item.discountAmount || 0);
+          const totalAmount = Number(item.totalAmount);
+
+          // Check if we need a new page
+          if (yPosition > 700) {
+            doc.addPage();
+            yPosition = 50;
+          }
+
+          doc.text(productName, itemX, yPosition, { width: 220 });
+          doc.text(quantity.toString(), qtyX, yPosition, { width: 50, align: 'right' });
+          doc.text(unitPrice.toFixed(2), priceX, yPosition, { width: 50, align: 'right' });
+          doc.text(discountAmount.toFixed(2), discountX, yPosition, { width: 60, align: 'right' });
+          doc.text(totalAmount.toFixed(2), totalX, yPosition, { width: 75, align: 'right' });
+
+          yPosition += 20;
+        }
+
+        // Horizontal line before totals
+        doc.moveTo(50, yPosition).lineTo(545, yPosition).stroke();
+        yPosition += 15;
+
+        // Subtotal, Shipping, and Total
+        doc.fontSize(10).font('Helvetica');
+        const subtotal = (order.items || []).reduce((sum, item) => sum + Number(item.totalAmount), 0);
+        const shippingAmount = Number(order.shippingAmount || 0);
+        const totalAmount = Number(order.totalAmount);
+
+        doc.text('Subtotal:', 400, yPosition);
+        doc.text(subtotal.toFixed(2), totalX, yPosition, { width: 75, align: 'right' });
+        yPosition += 20;
+
+        if (shippingAmount > 0) {
+          doc.text('Shipping:', 400, yPosition);
+          doc.text(shippingAmount.toFixed(2), totalX, yPosition, { width: 75, align: 'right' });
+          yPosition += 20;
+        }
+
+        doc.fontSize(12).font('Helvetica-Bold');
+        doc.text('Total:', 400, yPosition);
+        doc.text(totalAmount.toFixed(2), totalX, yPosition, { width: 75, align: 'right' });
+        yPosition += 30;
+
+        // Payment Status
+        doc.fontSize(10).font('Helvetica');
+        const paidAmount = Number(order.paidAmount || 0);
+        const balanceDue = totalAmount - paidAmount;
+
+        if (paidAmount > 0) {
+          doc.text('Paid Amount:', 400, yPosition);
+          doc.text(paidAmount.toFixed(2), totalX, yPosition, { width: 75, align: 'right' });
+          yPosition += 20;
+        }
+
+        if (balanceDue > 0) {
+          doc.font('Helvetica-Bold');
+          doc.text('Balance Due:', 400, yPosition);
+          doc.text(balanceDue.toFixed(2), totalX, yPosition, { width: 75, align: 'right' });
+        } else if (order.isPaidInFull) {
+          doc.fillColor('green').text('PAID IN FULL', 400, yPosition);
+          doc.fillColor('black');
+        }
+
+        // Order Status
+        yPosition += 30;
+        if (order.isFulfilled) {
+          doc.fillColor('green').text(`Fulfilled on: ${order.fulfilledDate ? new Date(order.fulfilledDate).toLocaleDateString() : 'N/A'}`, 50, yPosition);
+          doc.fillColor('black');
+        } else {
+          doc.fillColor('orange').text('Order Status: Pending Fulfillment', 50, yPosition);
+          doc.fillColor('black');
+        }
+
+        // Notes Section
+        if (order.notes) {
+          yPosition += 30;
+          doc.fontSize(10).font('Helvetica-Bold').text('Notes:', 50, yPosition);
+          yPosition += 15;
+          doc.fontSize(9).font('Helvetica').text(order.notes, 50, yPosition, { width: 495 });
+        }
+
+        // Footer
+        const bottomMargin = 50;
+        doc.fontSize(8).font('Helvetica')
+          .text(
+            'Thank you for your business!',
+            50,
+            doc.page.height - bottomMargin,
+            { align: 'center', width: doc.page.width - 100 }
+          );
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
   private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {
     return {
       id: order.id,
@@ -1742,6 +1926,11 @@ export class SalesOrderService {
         id: order.customer.id,
         name: order.customer.name,
         phone: order.customer.phone,
+        streetAddress: order.customer.streetAddress,
+        city: order.customer.city,
+        state: order.customer.state,
+        postalCode: order.customer.postalCode,
+        country: order.customer.country,
       } : undefined,
       items: order.items?.map(item => ({
         id: item.id,

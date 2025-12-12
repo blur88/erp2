@@ -11,7 +11,9 @@ import {
   HttpCode,
   HttpStatus,
   Request,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -458,5 +460,37 @@ export class SalesOrderController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<void> {
     await this.salesOrderService.permanentDelete(id);
+  }
+
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'Generate and download sales order PDF with customer address and phone' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF generated successfully',
+    headers: {
+      'Content-Type': {
+        description: 'application/pdf',
+      },
+      'Content-Disposition': {
+        description: 'attachment; filename="sales-order.pdf"',
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  async downloadSalesOrderPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const pdfBuffer = await this.salesOrderService.generatePdf(id);
+    const order = await this.salesOrderService.findById(id);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="sales-order-${order.orderNumber}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+
+    res.send(pdfBuffer);
   }
 }
