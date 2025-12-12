@@ -522,6 +522,7 @@ const InvoicesPage: React.FC = () => {
         customerInfo,
         items,
         subtotal,
+        shipping: selectedInvoice.shippingAmount || 0,
         total: totalAmount,
         notes: selectedInvoice.notes,
         paidAmount: selectedInvoice.paidAmount || 0,
