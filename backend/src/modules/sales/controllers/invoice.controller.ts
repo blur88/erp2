@@ -273,37 +273,6 @@ export class InvoiceController {
     return this.invoiceService.duplicateInvoice(id);
   }
 
-  @Get(':id/pdf')
-  @ApiOperation({ summary: 'Generate and download invoice PDF' })
-  @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'PDF generated successfully',
-    headers: {
-      'Content-Type': {
-        description: 'application/pdf',
-      },
-      'Content-Disposition': {
-        description: 'attachment; filename="invoice.pdf"',
-      },
-    },
-  })
-  @ApiResponse({ status: 404, description: 'Invoice not found' })
-  async downloadInvoicePdf(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Res() res: Response,
-  ): Promise<void> {
-    const pdfBuffer = await this.invoiceService.generatePdf(id);
-    const invoice = await this.invoiceService.findById(id);
-    
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`,
-      'Content-Length': pdfBuffer.length.toString(),
-    });
-    
-    res.send(pdfBuffer);
-  }
 
   @Get(':id/payments')
   @ApiOperation({ summary: 'Get payments for invoice' })

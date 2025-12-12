@@ -544,14 +544,6 @@ export class InvoiceService {
     return this.create(duplicateData);
   }
 
-  async generatePdf(id: string): Promise<Buffer> {
-    const invoice = await this.findById(id);
-    
-    // This is a placeholder - implement actual PDF generation using a library like PDFKit or Puppeteer
-    // For now, return a simple buffer
-    const pdfContent = `Invoice: ${invoice.invoiceNumber}\nCustomer: ${invoice.customer?.name || 'Unknown'}\nAmount: ${invoice.totalAmount}`;
-    return Buffer.from(pdfContent, 'utf-8');
-  }
 
   async getInvoicePayments(id: string) {
     const invoice = await this.invoiceRepository.findOne({ where: { id } });
