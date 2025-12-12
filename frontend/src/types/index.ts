@@ -180,6 +180,12 @@ export interface Customer {
   type: CustomerType;
   name: string;
   phone?: string;
+  // Address Information
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
   // Business Information
   isActive: boolean;
   pricingScheme: string; // Dynamic pricing scheme name (e.g., "Retail", "Wholesale", "VIP")

@@ -41,6 +41,7 @@ import {
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
   TrendingUp as SalesIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -74,6 +75,11 @@ const customerSchema = yup.object({
   name: yup.string().required('Name is required').max(200, 'Name must be less than 200 characters'),
   type: yup.string().oneOf(['individual', 'business']).required('Type is required'),
   phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
+  streetAddress: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255, 'Street address must be less than 255 characters'),
+  city: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'City must be less than 100 characters'),
+  state: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'State must be less than 100 characters'),
+  postalCode: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Postal code must be less than 20 characters'),
+  country: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'Country must be less than 100 characters'),
   pricingScheme: yup.string().required('Pricing scheme is required'),
   notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
@@ -82,6 +88,11 @@ interface CustomerFormData {
   name: string
   type: CustomerType
   phone?: string | null
+  streetAddress?: string | null
+  city?: string | null
+  state?: string | null
+  postalCode?: string | null
+  country?: string | null
   pricingScheme: string
   notes?: string | null
 }
@@ -118,6 +129,11 @@ const CustomersPage: React.FC = () => {
       type: CustomerType.BUSINESS,
       pricingScheme: 'Retail',
       phone: null,
+      streetAddress: null,
+      city: null,
+      state: null,
+      postalCode: null,
+      country: null,
       notes: null,
     }
   })
@@ -244,6 +260,11 @@ const CustomersPage: React.FC = () => {
       const cleanedData = {
         ...data,
         phone: data.phone?.trim() || null,
+        streetAddress: data.streetAddress?.trim() || null,
+        city: data.city?.trim() || null,
+        state: data.state?.trim() || null,
+        postalCode: data.postalCode?.trim() || null,
+        country: data.country?.trim() || null,
         notes: data.notes?.trim() || null,
       }
 
@@ -325,6 +346,11 @@ const CustomersPage: React.FC = () => {
         type: customer.type,
         pricingScheme: customer.pricingScheme,
         phone: customer.phone || null,
+        streetAddress: (customer as any).streetAddress || null,
+        city: (customer as any).city || null,
+        state: (customer as any).state || null,
+        postalCode: (customer as any).postalCode || null,
+        country: (customer as any).country || null,
         notes: customer.notes || null,
       })
     } else {
@@ -335,6 +361,11 @@ const CustomersPage: React.FC = () => {
         type: CustomerType.BUSINESS,
         pricingScheme: 'Retail',
         phone: null,
+        streetAddress: null,
+        city: null,
+        state: null,
+        postalCode: null,
+        country: null,
         notes: null,
       })
     }
@@ -988,6 +1019,97 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
+              {/* Address Information */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Address Information
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Controller
+                  name="streetAddress"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Street Address"
+                      error={!!errors.streetAddress}
+                      helperText={errors.streetAddress?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="city"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="City"
+                      error={!!errors.city}
+                      helperText={errors.city?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="state"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="State"
+                      error={!!errors.state}
+                      helperText={errors.state?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="postalCode"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Postal Code"
+                      error={!!errors.postalCode}
+                      helperText={errors.postalCode?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="country"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Country"
+                      error={!!errors.country}
+                      helperText={errors.country?.message}
+                    />
+                  )}
+                />
+              </Grid>
 
               {/* Notes */}
               <Grid item xs={12}>
@@ -1049,6 +1171,34 @@ const CustomersPage: React.FC = () => {
                       <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                       <Typography>{selectedCustomer.phone}</Typography>
                     </Box>
+                  )}
+                </Stack>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom>Address</Typography>
+                <Stack spacing={1}>
+                  {((selectedCustomer as any).streetAddress || (selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode || (selectedCustomer as any).country) ? (
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
+                      <Box>
+                        {(selectedCustomer as any).streetAddress && (
+                          <Typography>{(selectedCustomer as any).streetAddress}</Typography>
+                        )}
+                        {((selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode) && (
+                          <Typography>
+                            {[(selectedCustomer as any).city, (selectedCustomer as any).state, (selectedCustomer as any).postalCode]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </Typography>
+                        )}
+                        {(selectedCustomer as any).country && (
+                          <Typography>{(selectedCustomer as any).country}</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Typography color="text.secondary" variant="body2">No address provided</Typography>
                   )}
                 </Stack>
               </Grid>
