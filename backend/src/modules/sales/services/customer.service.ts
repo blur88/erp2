@@ -818,13 +818,18 @@ export class CustomerService {
     return customer;
   }
 
-  
+
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
     return {
       id: customer.id,
       type: customer.type,
       name: customer.name,
       phone: customer.phone,
+      streetAddress: customer.streetAddress,
+      city: customer.city,
+      state: customer.state,
+      postalCode: customer.postalCode,
+      country: customer.country,
       isActive: customer.isActive,
       pricingScheme: customer.pricingScheme,
       totalSales: Number(customer.totalSales),
