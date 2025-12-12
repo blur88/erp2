@@ -30,6 +30,8 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
   const tax = 55.00
   const shipping = 25.00
   const total = 575.00
+  const paid = 300.00
+  const balance = 275.00
 
   // Always show discount column for sales orders and invoices
   const showDiscountColumn = template.id === 'salesOrder' || template.id === 'invoice'
@@ -196,7 +198,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
               <Typography variant="body2" sx={{ color: '#000000' }}>${subtotal.toFixed(2)}</Typography>
             </Box>
-            {template.id !== 'salesOrder' && (
+            {template.id !== 'salesOrder' && template.id !== 'invoice' && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
                 <Typography variant="body2" sx={{ color: '#000000' }}>${tax.toFixed(2)}</Typography>
@@ -207,7 +209,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               <Typography variant="body2" sx={{ color: '#000000' }}>${shipping.toFixed(2)}</Typography>
             </Box>
             <Divider sx={{ my: 1, borderColor: '#000000' }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
                 Total:
               </Typography>
@@ -215,6 +217,23 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 ${total.toFixed(2)}
               </Typography>
             </Box>
+            {template.id === 'invoice' && (
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" sx={{ color: '#000000' }}>Paid:</Typography>
+                  <Typography variant="body2" sx={{ color: '#000000' }}>${paid.toFixed(2)}</Typography>
+                </Box>
+                <Divider sx={{ my: 1, borderColor: '#000000' }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                    Balance:
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                    ${balance.toFixed(2)}
+                  </Typography>
+                </Box>
+              </>
+            )}
           </Box>
         </Box>
 
