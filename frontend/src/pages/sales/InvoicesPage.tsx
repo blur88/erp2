@@ -503,14 +503,14 @@ const InvoicesPage: React.FC = () => {
 
       // Customer info
       const customerInfo = selectedInvoice.customer ? {
-        name: selectedInvoice.customer.name,
-        address: selectedInvoice.customer.address,
-        city: selectedInvoice.customer.city,
-        state: selectedInvoice.customer.state,
-        postalCode: selectedInvoice.customer.postalCode,
-        country: selectedInvoice.customer.country,
+        name: selectedInvoice.customer.name || 'Unknown Customer',
+        address: (selectedInvoice as any).shippingAddress || (selectedInvoice.customer as any).address,
+        city: (selectedInvoice.customer as any).city,
+        state: (selectedInvoice.customer as any).state,
+        postalCode: (selectedInvoice.customer as any).postalCode,
+        country: (selectedInvoice.customer as any).country,
         phone: selectedInvoice.customer.phone,
-        email: selectedInvoice.customer.email,
+        email: (selectedInvoice.customer as any).email,
       } : undefined
 
       // Generate PDF HTML using the template
