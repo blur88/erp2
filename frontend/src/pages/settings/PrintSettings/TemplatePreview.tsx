@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Paper,
@@ -12,6 +12,7 @@ import {
   Divider,
   Grid,
 } from '@mui/material'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface TemplatePreviewProps {
   template: any
@@ -19,6 +20,26 @@ interface TemplatePreviewProps {
 }
 
 const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings }) => {
+  const { currency } = useCurrency()
+  const [displayCurrency, setDisplayCurrency] = useState(currency)
+
+  // Listen for currency changes
+  useEffect(() => {
+    const handleCurrencyChange = () => {
+      const newCurrency = localStorage.getItem('defaultCurrency') || 'RM'
+      setDisplayCurrency(newCurrency)
+    }
+
+    window.addEventListener('currencyChanged', handleCurrencyChange)
+    return () => {
+      window.removeEventListener('currencyChanged', handleCurrencyChange)
+    }
+  }, [])
+
+  // Update when currency from hook changes
+  useEffect(() => {
+    setDisplayCurrency(currency)
+  }, [currency])
   // Sample data for preview
   const sampleItems = [
     { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, discount: 10.00, amount: 190.00 },
@@ -205,11 +226,11 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 <TableRow key={item.no}>
                   <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>{item.description}</TableCell>
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{item.quantity}</TableCell>
-                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.unitPrice.toFixed(2)}</TableCell>
                   {showDiscountColumn && (
-                    <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.discount.toFixed(2)}</TableCell>
+                    <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.discount.toFixed(2)}</TableCell>
                   )}
-                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>${item.amount.toFixed(2)}</TableCell>
+                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.amount.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -221,17 +242,17 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
           <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
-              <Typography variant="body2" sx={{ color: '#000000' }}>${subtotal.toFixed(2)}</Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {subtotal.toFixed(2)}</Typography>
             </Box>
             {template.id !== 'salesOrder' && template.id !== 'invoice' && template.id !== 'paymentReceipt' && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
-                <Typography variant="body2" sx={{ color: '#000000' }}>${tax.toFixed(2)}</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {tax.toFixed(2)}</Typography>
               </Box>
             )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" sx={{ color: '#000000' }}>Shipping Cost:</Typography>
-              <Typography variant="body2" sx={{ color: '#000000' }}>${shipping.toFixed(2)}</Typography>
+              <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {shipping.toFixed(2)}</Typography>
             </Box>
             <Divider sx={{ my: 1, borderColor: '#000000' }} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -239,14 +260,14 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 Total:
               </Typography>
               <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
-                ${total.toFixed(2)}
+                {displayCurrency} {total.toFixed(2)}
               </Typography>
             </Box>
             {(template.id === 'invoice' || template.id === 'paymentReceipt') && (
               <>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2" sx={{ color: '#000000' }}>Paid:</Typography>
-                  <Typography variant="body2" sx={{ color: '#000000' }}>${paid.toFixed(2)}</Typography>
+                  <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {paid.toFixed(2)}</Typography>
                 </Box>
                 <Divider sx={{ my: 1, borderColor: '#000000' }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -254,7 +275,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                     Balance:
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
-                    ${balance.toFixed(2)}
+                    {displayCurrency} {balance.toFixed(2)}
                   </Typography>
                 </Box>
               </>
