@@ -77,20 +77,9 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
         }}
       >
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3 }}>
-          {settings?.logoUrl && (
-            <Box
-              component="img"
-              src={settings.logoUrl}
-              sx={{
-                width: 100,
-                height: 100,
-                objectFit: 'contain',
-                mr: 3,
-              }}
-            />
-          )}
-          <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3, gap: 2 }}>
+          {/* Company Info */}
+          <Box sx={{ flex: 1 }}>
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#000000' }}>
               {settings?.companyName || 'Company Name'}
             </Typography>
@@ -113,7 +102,31 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               </Typography>
             )}
           </Box>
-          <Box sx={{ textAlign: 'right', minWidth: 200 }}>
+
+          {/* Logo - Center */}
+          {settings?.logoUrl && (
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Box
+                component="img"
+                src={settings.logoUrl}
+                sx={{
+                  width: 150,
+                  height: 150,
+                  objectFit: 'contain',
+                }}
+              />
+            </Box>
+          )}
+
+          {/* Document Info */}
+          <Box sx={{ flex: 1, textAlign: 'right' }}>
             <Typography
               variant="h4"
               sx={{
@@ -198,7 +211,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
               <Typography variant="body2" sx={{ color: '#000000' }}>${subtotal.toFixed(2)}</Typography>
             </Box>
-            {template.id !== 'salesOrder' && template.id !== 'invoice' && (
+            {template.id !== 'salesOrder' && template.id !== 'invoice' && template.id !== 'paymentReceipt' && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
                 <Typography variant="body2" sx={{ color: '#000000' }}>${tax.toFixed(2)}</Typography>
@@ -217,7 +230,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 ${total.toFixed(2)}
               </Typography>
             </Box>
-            {template.id === 'invoice' && (
+            {(template.id === 'invoice' || template.id === 'paymentReceipt') && (
               <>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2" sx={{ color: '#000000' }}>Paid:</Typography>
