@@ -134,7 +134,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               sx={{
                 flex: 1,
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 justifyContent: 'center',
               }}
             >
