@@ -94,8 +94,12 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
               {settings?.phone ? `Tel: ${settings.phone}` : 'Tel: +60 3-1234 5678'}
-              {settings?.email && ` | Email: ${settings.email}`}
             </Typography>
+            {settings?.email && (
+              <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                Email: {settings.email}
+              </Typography>
+            )}
             {settings?.website && (
               <Typography variant="body2" sx={{ color: '#000000' }}>
                 Website: {settings.website}
