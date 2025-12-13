@@ -142,7 +142,15 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               {template.title.toUpperCase()}
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
-              <strong>Document No:</strong> DOC-2024-001
+              <strong>Document No:</strong> {
+                template.id === 'salesOrder' ? 'SO-000001' :
+                template.id === 'invoice' ? 'INV-000001' :
+                template.id === 'paymentReceipt' ? 'INV-000001' :
+                template.id === 'purchaseOrder' ? 'PO-000001' :
+                template.id === 'grn' ? 'PO-000001' :
+                template.id === 'vendorPayment' ? 'PO-000001' :
+                'DOC-000001'
+              }
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000' }}>
               <strong>Date:</strong> {new Date().toLocaleDateString()}
