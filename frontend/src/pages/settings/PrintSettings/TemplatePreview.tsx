@@ -40,23 +40,38 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
   useEffect(() => {
     setDisplayCurrency(currency)
   }, [currency])
-  // Sample data for preview
-  const sampleItems = [
-    { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, discount: 10.00, amount: 190.00 },
+  // Separate sample data for sales and purchasing
+  const isSalesTemplate = template.id === 'salesOrder' || template.id === 'invoice' || template.id === 'paymentReceipt'
+  const isPurchasingTemplate = template.id === 'purchaseOrder' || template.id === 'grn' || template.id === 'vendorPayment'
+
+  // Sales templates: with discounts (Amount = Qty × Unit Price - Qty × Discount)
+  const salesItems = [
+    { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, discount: 10.00, amount: 180.00 },
     { no: 2, description: 'Sample Product 2', quantity: 1, unitPrice: 150.00, discount: 0, amount: 150.00 },
-    { no: 3, description: 'Sample Product 3', quantity: 3, unitPrice: 75.00, discount: 15.00, amount: 210.00 },
+    { no: 3, description: 'Sample Product 3', quantity: 3, unitPrice: 75.00, discount: 15.00, amount: 180.00 },
   ]
 
-  const subtotal = 550.00
-  const tax = 55.00
+  // Purchasing templates: no discounts (Amount = Qty × Unit Price)
+  const purchasingItems = [
+    { no: 1, description: 'Sample Product 1', quantity: 2, unitPrice: 100.00, discount: 0, amount: 200.00 },
+    { no: 2, description: 'Sample Product 2', quantity: 1, unitPrice: 150.00, discount: 0, amount: 150.00 },
+    { no: 3, description: 'Sample Product 3', quantity: 3, unitPrice: 75.00, discount: 0, amount: 225.00 },
+  ]
+
+  // Use appropriate sample data based on template type
+  const sampleItems = isPurchasingTemplate ? purchasingItems : salesItems
+
+  // Calculate totals based on template type
+  const subtotal = isPurchasingTemplate ? 575.00 : 510.00
+  const tax = isPurchasingTemplate ? 57.50 : 51.00
   const shipping = 25.00
-  const total = 575.00
+  const total = isPurchasingTemplate ? 600.00 : 535.00
   const paid = 300.00
-  const balance = 275.00
+  const balance = isPurchasingTemplate ? 300.00 : 235.00
   const totalQuantity = sampleItems.reduce((sum, item) => sum + item.quantity, 0)
 
   // Always show discount column for sales orders, invoices, and payment receipts
-  const showDiscountColumn = template.id === 'salesOrder' || template.id === 'invoice' || template.id === 'paymentReceipt'
+  const showDiscountColumn = isSalesTemplate
 
   // GRN only shows product and quantity
   const isGRN = template.id === 'grn'
