@@ -53,9 +53,13 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
   const total = 575.00
   const paid = 300.00
   const balance = 275.00
+  const totalQuantity = sampleItems.reduce((sum, item) => sum + item.quantity, 0)
 
   // Always show discount column for sales orders and invoices
   const showDiscountColumn = template.id === 'salesOrder' || template.id === 'invoice'
+
+  // GRN only shows product and quantity
+  const isGRN = template.id === 'grn'
 
   // Get footer text based on template type
   const getFooterText = () => {
@@ -214,11 +218,15 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               <TableRow sx={{ bgcolor: '#f0f0f0' }}>
                 <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Product</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Qty</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Unit Price</TableCell>
-                {showDiscountColumn && (
-                  <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Discount</TableCell>
+                {!isGRN && (
+                  <>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Unit Price</TableCell>
+                    {showDiscountColumn && (
+                      <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Discount</TableCell>
+                    )}
+                    <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Amount</TableCell>
+                  </>
                 )}
-                <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>Amount</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -226,11 +234,15 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 <TableRow key={item.no}>
                   <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>{item.description}</TableCell>
                   <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{item.quantity}</TableCell>
-                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.unitPrice.toFixed(2)}</TableCell>
-                  {showDiscountColumn && (
-                    <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.discount.toFixed(2)}</TableCell>
+                  {!isGRN && (
+                    <>
+                      <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.unitPrice.toFixed(2)}</TableCell>
+                      {showDiscountColumn && (
+                        <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.discount.toFixed(2)}</TableCell>
+                      )}
+                      <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.amount.toFixed(2)}</TableCell>
+                    </>
                   )}
-                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>{displayCurrency} {item.amount.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -238,50 +250,67 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
         </TableContainer>
 
         {/* Totals */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-          <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
-              <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {subtotal.toFixed(2)}</Typography>
-            </Box>
-            {template.id !== 'salesOrder' && template.id !== 'invoice' && template.id !== 'paymentReceipt' && template.id !== 'purchaseOrder' && (
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
-                <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {tax.toFixed(2)}</Typography>
+        {isGRN ? (
+          // GRN: Show only total quantity
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+            <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                  Total Quantity:
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                  {totalQuantity}
+                </Typography>
               </Box>
-            )}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2" sx={{ color: '#000000' }}>Shipping Cost:</Typography>
-              <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {shipping.toFixed(2)}</Typography>
             </Box>
-            <Divider sx={{ my: 1, borderColor: '#000000' }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
-                Total:
-              </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
-                {displayCurrency} {total.toFixed(2)}
-              </Typography>
-            </Box>
-            {(template.id === 'invoice' || template.id === 'paymentReceipt') && (
-              <>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" sx={{ color: '#000000' }}>Paid:</Typography>
-                  <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {paid.toFixed(2)}</Typography>
-                </Box>
-                <Divider sx={{ my: 1, borderColor: '#000000' }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
-                    Balance:
-                  </Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
-                    {displayCurrency} {balance.toFixed(2)}
-                  </Typography>
-                </Box>
-              </>
-            )}
           </Box>
-        </Box>
+        ) : (
+          // Other templates: Show standard totals
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+            <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {subtotal.toFixed(2)}</Typography>
+              </Box>
+              {template.id !== 'salesOrder' && template.id !== 'invoice' && template.id !== 'paymentReceipt' && template.id !== 'purchaseOrder' && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
+                  <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {tax.toFixed(2)}</Typography>
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: '#000000' }}>Shipping Cost:</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {shipping.toFixed(2)}</Typography>
+              </Box>
+              <Divider sx={{ my: 1, borderColor: '#000000' }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                  Total:
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                  {displayCurrency} {total.toFixed(2)}
+                </Typography>
+              </Box>
+              {(template.id === 'invoice' || template.id === 'paymentReceipt') && (
+                <>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#000000' }}>Paid:</Typography>
+                    <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {paid.toFixed(2)}</Typography>
+                  </Box>
+                  <Divider sx={{ my: 1, borderColor: '#000000' }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                      Balance:
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                      {displayCurrency} {balance.toFixed(2)}
+                    </Typography>
+                  </Box>
+                </>
+              )}
+            </Box>
+          </Box>
+        )}
 
         {/* Notes */}
         <Box sx={{ mb: 3 }}>
