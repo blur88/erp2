@@ -55,8 +55,8 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
   const balance = 275.00
   const totalQuantity = sampleItems.reduce((sum, item) => sum + item.quantity, 0)
 
-  // Always show discount column for sales orders and invoices
-  const showDiscountColumn = template.id === 'salesOrder' || template.id === 'invoice'
+  // Always show discount column for sales orders, invoices, and payment receipts
+  const showDiscountColumn = template.id === 'salesOrder' || template.id === 'invoice' || template.id === 'paymentReceipt'
 
   // GRN only shows product and quantity
   const isGRN = template.id === 'grn'
