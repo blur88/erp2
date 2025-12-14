@@ -244,7 +244,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
               <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {subtotal.toFixed(2)}</Typography>
             </Box>
-            {template.id !== 'salesOrder' && template.id !== 'invoice' && template.id !== 'paymentReceipt' && (
+            {template.id !== 'salesOrder' && template.id !== 'invoice' && template.id !== 'paymentReceipt' && template.id !== 'purchaseOrder' && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" sx={{ color: '#000000' }}>Tax (10%):</Typography>
                 <Typography variant="body2" sx={{ color: '#000000' }}>{displayCurrency} {tax.toFixed(2)}</Typography>
