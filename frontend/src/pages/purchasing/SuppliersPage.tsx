@@ -39,6 +39,7 @@ import {
   RestoreFromTrash as RestoreIcon,
   Business as BusinessIcon,
   Phone as PhoneIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -73,6 +74,11 @@ const supplierSchema = yup.object({
   type: yup.string().oneOf(['local', 'international']).required('Type is required'),
   contactPerson: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(200, 'Name must be less than 200 characters'),
   phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
+  streetAddress: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255, 'Street address must be less than 255 characters'),
+  city: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'City must be less than 100 characters'),
+  state: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'State must be less than 100 characters'),
+  postalCode: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Postal code must be less than 20 characters'),
+  country: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'Country must be less than 100 characters'),
   notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
@@ -81,6 +87,11 @@ interface SupplierFormData {
   type: SupplierType
   contactPerson?: string | null
   phone?: string | null
+  streetAddress?: string | null
+  city?: string | null
+  state?: string | null
+  postalCode?: string | null
+  country?: string | null
   notes?: string | null
 }
 
@@ -122,6 +133,11 @@ const SuppliersPage: React.FC = () => {
       type: SupplierType.LOCAL,
       contactPerson: null,
       phone: null,
+      streetAddress: null,
+      city: null,
+      state: null,
+      postalCode: null,
+      country: null,
       notes: null,
     }
   })
@@ -223,6 +239,11 @@ const SuppliersPage: React.FC = () => {
         ...data,
         contactPerson: data.contactPerson?.trim() || null,
         phone: data.phone?.trim() || null,
+        streetAddress: data.streetAddress?.trim() || null,
+        city: data.city?.trim() || null,
+        state: data.state?.trim() || null,
+        postalCode: data.postalCode?.trim() || null,
+        country: data.country?.trim() || null,
         notes: data.notes?.trim() || null,
       }
 
@@ -300,6 +321,11 @@ const SuppliersPage: React.FC = () => {
         type: supplier.type,
         contactPerson: supplier.contactPerson || null,
         phone: supplier.phone || null,
+        streetAddress: (supplier as any).streetAddress || null,
+        city: (supplier as any).city || null,
+        state: (supplier as any).state || null,
+        postalCode: (supplier as any).postalCode || null,
+        country: (supplier as any).country || null,
         notes: supplier.notes || null,
       })
     } else {
@@ -309,6 +335,11 @@ const SuppliersPage: React.FC = () => {
         type: SupplierType.LOCAL,
         contactPerson: null,
         phone: null,
+        streetAddress: null,
+        city: null,
+        state: null,
+        postalCode: null,
+        country: null,
         notes: null,
       })
     }
@@ -838,6 +869,99 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
+              {/* Address Information */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Address Information
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Controller
+                  name="streetAddress"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Street Address"
+                      error={!!errors.streetAddress}
+                      helperText={errors.streetAddress?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="city"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="City"
+                      error={!!errors.city}
+                      helperText={errors.city?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="state"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="State"
+                      error={!!errors.state}
+                      helperText={errors.state?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="postalCode"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Postal Code"
+                      error={!!errors.postalCode}
+                      helperText={errors.postalCode?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="country"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Country"
+                      error={!!errors.country}
+                      helperText={errors.country?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Notes */}
               <Grid item xs={12}>
                 <Controller
                   name="notes"
@@ -913,6 +1037,34 @@ const SuppliersPage: React.FC = () => {
                       <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                       <Typography>{selectedSupplier.phone}</Typography>
                     </Box>
+                  )}
+                </Stack>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom>Address</Typography>
+                <Stack spacing={1}>
+                  {((selectedSupplier as any).streetAddress || (selectedSupplier as any).city || (selectedSupplier as any).state || (selectedSupplier as any).postalCode || (selectedSupplier as any).country) ? (
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
+                      <Box>
+                        {(selectedSupplier as any).streetAddress && (
+                          <Typography>{(selectedSupplier as any).streetAddress}</Typography>
+                        )}
+                        {((selectedSupplier as any).city || (selectedSupplier as any).state || (selectedSupplier as any).postalCode) && (
+                          <Typography>
+                            {[(selectedSupplier as any).city, (selectedSupplier as any).state, (selectedSupplier as any).postalCode]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </Typography>
+                        )}
+                        {(selectedSupplier as any).country && (
+                          <Typography>{(selectedSupplier as any).country}</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Typography color="text.secondary" variant="body2">No address provided</Typography>
                   )}
                 </Stack>
               </Grid>
