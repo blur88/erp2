@@ -218,8 +218,8 @@ export class PurchaseOrderService {
     this.logger.log(`Finding purchase orders with query: ${JSON.stringify(query)}`);
 
     const {
-      page = 1,
-      limit = 10,
+      page,
+      limit,
       search,
       supplierId,
       orderDateFrom,
@@ -228,7 +228,8 @@ export class PurchaseOrderService {
       sortOrder = 'DESC',
     } = query;
 
-    const skip = (page - 1) * limit;
+    // If no pagination params provided, fetch all records
+    const skip = page && limit ? (page - 1) * limit : 0;
     const queryBuilder = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
@@ -282,8 +283,10 @@ export class PurchaseOrderService {
     // Get total count
     const total = await queryBuilder.getCount();
 
-    // Apply pagination
-    queryBuilder.skip(skip).take(limit);
+    // Apply pagination only if page and limit are provided
+    if (page && limit) {
+      queryBuilder.skip(skip).take(limit);
+    }
 
     const purchaseOrders = await queryBuilder.getMany();
     const orderDtos = purchaseOrders.map(order => this.mapToResponseDto(order));
@@ -291,11 +294,11 @@ export class PurchaseOrderService {
     return {
       orders: orderDtos,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: page || 1,
+      limit: limit || total,
+      totalPages: limit ? Math.ceil(total / limit) : 1,
+      hasNext: limit ? page < Math.ceil(total / limit) : false,
+      hasPrev: page ? page > 1 : false,
     };
   }
 
@@ -1175,6 +1178,94 @@ export class PurchaseOrderService {
   }
 
   /**
+   * Record payment for purchase order with specified amount
+   */
+  async recordPayment(id: string, amount: number): Promise<PurchaseOrderResponseDto> {
+    this.logger.log(`Recording payment of ${amount} for purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: ['supplier'], // Removed 'vendorPayments' to prevent TypeORM from trying to manage the relation
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Calculate the amount to add as a new vendor payment
+    const currentPaidAmount = purchaseOrder.paidAmount || 0;
+    const paymentAmount = amount - currentPaidAmount;
+
+    if (paymentAmount <= 0) {
+      throw new BadRequestException('Payment amount must be greater than current paid amount');
+    }
+
+    // Find GRN for this purchase order (optional)
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+    });
+
+    // Generate payment number by finding the highest number
+    const payments = await this.vendorPaymentRepository
+      .createQueryBuilder('payment')
+      .select('payment.paymentNumber')
+      .where('payment.paymentNumber LIKE :pattern', { pattern: 'VP-%' })
+      .andWhere('payment.paymentNumber ~ :regex', { regex: '^VP-[0-9]+$' }) // Only numeric suffixes
+      .getMany();
+
+    let nextNumber = 1;
+    if (payments && payments.length > 0) {
+      // Find the highest number
+      const numbers = payments
+        .map(p => {
+          const match = p.paymentNumber.match(/VP-(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(n => n > 0);
+
+      if (numbers.length > 0) {
+        nextNumber = Math.max(...numbers) + 1;
+      }
+    }
+    const paymentNumber = `VP-${String(nextNumber).padStart(6, '0')}`;
+
+    // Create vendor payment using raw query (TypeORM's entity save was clearing purchaseOrderId)
+    await this.purchaseOrderRepository.manager.query(`
+      INSERT INTO vendor_payments (
+        "paymentNumber",
+        "supplierId",
+        "purchaseOrderId",
+        "grnId",
+        amount,
+        "paymentDate",
+        "paymentMethod",
+        status,
+        notes
+      ) VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8)
+    `, [
+      paymentNumber,
+      purchaseOrder.supplierId,
+      id,
+      grn?.id || null,
+      paymentAmount,
+      'cash',
+      'completed',
+      'Payment recorded via system'
+    ]);
+
+    this.logger.log(`Vendor payment ${paymentNumber} created for purchase order ${purchaseOrder.orderNumber}`);
+
+    // Update the paidAmount field
+    purchaseOrder.paidAmount = amount;
+    await this.purchaseOrderRepository.save(purchaseOrder);
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${amount}, vendor payment ${paymentNumber} created for ${paymentAmount}`);
+
+    // Return updated order
+    return this.findOne(id);
+  }
+
+  /**
    * Mark purchase order as paid by creating a vendor payment
    */
   async markAsPaid(id: string): Promise<{ order: PurchaseOrderResponseDto; payment: VendorPayment }> {
@@ -1239,9 +1330,9 @@ export class PurchaseOrderService {
     // Hard delete the vendor payment
     await this.vendorPaymentService.permanentDelete(existingPayment.id);
 
-    // Touch the purchase order to update its updatedAt timestamp
-    // Force TypeORM to update by using the update query
-    await this.purchaseOrderRepository.update(id, {});
+    // Reset paidAmount to 0
+    purchaseOrder.paidAmount = 0;
+    await this.purchaseOrderRepository.save(purchaseOrder);
 
     // Get updated order
     const updatedOrder = await this.findOne(id);
@@ -1286,20 +1377,25 @@ export class PurchaseOrderService {
     return {
       id: purchaseOrder.id,
       orderNumber: purchaseOrder.orderNumber,
-      supplier: {
+      supplier: purchaseOrder.supplier ? {
         id: purchaseOrder.supplier.id,
         supplierCode: purchaseOrder.supplier.id.slice(0, 8).toUpperCase(),
         companyName: purchaseOrder.supplier.companyName,
         contactPerson: purchaseOrder.supplier.contactPerson,
-        email: undefined,
         phone: purchaseOrder.supplier.phone,
-      },
+        address: purchaseOrder.supplier.streetAddress,
+        city: purchaseOrder.supplier.city,
+        state: purchaseOrder.supplier.state,
+        postalCode: purchaseOrder.supplier.postalCode,
+        country: purchaseOrder.supplier.country,
+      } : undefined,
       orderDate: purchaseOrder.orderDate,
       subtotal: Number(purchaseOrder.subtotal),
       discountPercent: Number(purchaseOrder.discountPercent),
       discountAmount: Number(purchaseOrder.discountAmount),
       shippingAmount: Number(purchaseOrder.shippingAmount),
       totalAmount: Number(purchaseOrder.totalAmount),
+      paidAmount: Number(purchaseOrder.paidAmount || 0),
       notes: purchaseOrder.notes,
       isFullyReceived: purchaseOrder.isFullyReceived(),
       totalReceivedQuantity: purchaseOrder.getTotalReceivedQuantity(),

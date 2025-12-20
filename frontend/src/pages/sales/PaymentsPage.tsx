@@ -41,10 +41,12 @@ import {
   Receipt as InvoiceIcon,
   ShoppingCart as OrderIcon,
   RestoreFromTrash as RestoreIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
+import { PaymentReceiptPrint } from '@/components/print'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { salesApi } from '@/services/salesApi'
@@ -182,6 +184,7 @@ const PaymentsPage: React.FC = () => {
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const paymentListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
@@ -309,6 +312,39 @@ const PaymentsPage: React.FC = () => {
   useEffect(() => {
     loadPayments()
   }, [loadPayments])
+
+  // Refresh on route navigation (when coming back from another page)
+  const previousPathnameRef = useRef(location.pathname)
+  useEffect(() => {
+    // Only refresh if we navigated TO payments page FROM somewhere else
+    if (previousPathnameRef.current !== '/sales/payments' && location.pathname === '/sales/payments') {
+      loadPayments()
+      // Also refresh the selected payment to get updated customer data
+      if (selectedPaymentRef.current) {
+        salesApi.getPayment(selectedPaymentRef.current.id).then(response => {
+          const freshPayment = response.data as Payment
+          dispatch(setSelectedPayment(freshPayment as any))
+        }).catch(err => {
+          console.error('Failed to refresh selected payment:', err)
+        })
+      }
+    }
+    previousPathnameRef.current = location.pathname
+  }, [location.pathname, loadPayments])
+
+  // Update selected payment when fresh data arrives (to reflect customer changes)
+  useEffect(() => {
+    if (payments && payments.length > 0 && selectedPaymentRef.current) {
+      const freshPayment = payments.find((payment: any) => payment.id === selectedPaymentRef.current?.id)
+      if (freshPayment) {
+        // Only update if the data actually changed (to avoid infinite loops)
+        const hasChanged = JSON.stringify(freshPayment) !== JSON.stringify(selectedPaymentRef.current)
+        if (hasChanged) {
+          dispatch(setSelectedPayment(freshPayment as any))
+        }
+      }
+    }
+  }, [payments, dispatch])
 
   const handleOrderClick = useCallback((orderId: string, event: React.MouseEvent) => {
     event.stopPropagation()
@@ -791,6 +827,29 @@ const PaymentsPage: React.FC = () => {
                     }}
                   />
                 </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    title="Print Receipt"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -818,27 +877,13 @@ const PaymentsPage: React.FC = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                              Phone No
-                            </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {selectedPayment.customer?.phone ? (
-                                selectedPayment.customer.phone
-                              ) : (
-                                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                                  N/A
-                                </Typography>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Amount
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatCurrency(selectedPayment.amount)}
                             </TableCell>
                           </TableRow>
-                          <TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Payment Date
                             </TableCell>
@@ -846,7 +891,7 @@ const PaymentsPage: React.FC = () => {
                               {formatDate(selectedPayment.paymentDate)}
                             </TableCell>
                           </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Method
                             </TableCell>
@@ -855,7 +900,7 @@ const PaymentsPage: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           {selectedPayment.reference && (
-                            <TableRow>
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 Reference
                               </TableCell>
@@ -1098,6 +1143,15 @@ const PaymentsPage: React.FC = () => {
         open={deletedPaymentsDialogOpen}
         onClose={() => setDeletedPaymentsDialogOpen(false)}
       />
+
+      {/* Print Dialog */}
+      {selectedPayment && (
+        <PaymentReceiptPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          payment={selectedPayment}
+        />
+      )}
     </Box>
   )
 }

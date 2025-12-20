@@ -783,7 +783,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             </TableCell>
                             <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
                               <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
-                                {currency}
+                                {formatCurrency(watchedItems[index]?.totalPrice || 0)}
                               </Typography>
                             </TableCell>
                             <TableCell align="center" sx={{ padding: '2px !important' }}>
@@ -854,7 +854,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
-                    <Typography sx={{ fontSize: '0.875rem' }}>{currency}</Typography>
+                    <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

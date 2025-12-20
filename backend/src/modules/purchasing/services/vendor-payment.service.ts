@@ -78,6 +78,8 @@ export class VendorPaymentService {
       .createQueryBuilder('vendorPayment')
       .leftJoinAndSelect('vendorPayment.supplier', 'supplier')
       .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('purchaseOrder.items', 'purchaseOrderItems')
+      .leftJoinAndSelect('purchaseOrderItems.product', 'product')
       .leftJoinAndSelect('vendorPayment.grn', 'grn')
       .where('vendorPayment.isActive = :isActive', { isActive: true });
 
@@ -145,7 +147,7 @@ export class VendorPaymentService {
   async findOne(id: string): Promise<VendorPayment> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id, isActive: true },
-      relations: ['supplier', 'purchaseOrder', 'grn'],
+      relations: ['supplier', 'purchaseOrder', 'purchaseOrder.items', 'purchaseOrder.items.product', 'grn'],
     });
 
     if (!vendorPayment) {

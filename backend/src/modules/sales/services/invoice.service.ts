@@ -447,7 +447,8 @@ export class InvoiceService {
       `Please find attached your invoice.`;
 
     // Generate PDF (implement PDF generation service)
-    const pdfBuffer = await this.generatePdf(id);
+    // TODO: Implement PDF generation
+    // const pdfBuffer = await this.generatePdf(id);
 
     // Send email with PDF attachment
     for (const email of emailAddresses) {
@@ -569,7 +570,6 @@ export class InvoiceService {
         amount: Number(payment.amount),
         paymentMethod: payment.paymentMethod,
         status: payment.status,
-        referenceNumber: payment.referenceNumber,
       })),
     };
   }
@@ -623,7 +623,7 @@ export class InvoiceService {
             event: 'payment',
             description: `Payment received: ${payment.paymentMethod}`,
             amount: Number(payment.amount),
-            reference: payment.referenceNumber,
+            reference: payment.paymentNumber,
           });
         }
       });
@@ -845,12 +845,16 @@ export class InvoiceService {
         name: invoice.customer.name,
         email: undefined, // Customer email field removed from entity
         phone: invoice.customer.phone,
+        streetAddress: invoice.customer.streetAddress,
+        city: invoice.customer.city,
+        state: invoice.customer.state,
+        postalCode: invoice.customer.postalCode,
+        country: invoice.customer.country,
       } : undefined,
       salesOrder: invoice.salesOrder ? {
         id: invoice.salesOrder.id,
         orderNumber: invoice.salesOrder.orderNumber,
         orderDate: invoice.salesOrder.orderDate,
-        status: invoice.salesOrder.status,
       } : undefined,
       payments: invoice.payments ? invoice.payments.map(payment => ({
         id: payment.id,

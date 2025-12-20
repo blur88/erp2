@@ -96,20 +96,20 @@ export class CreatePurchaseOrderDto {
 export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {}
 
 export class PurchaseOrderQueryDto {
-  @ApiPropertyOptional({ description: 'Page number', default: 1 })
+  @ApiPropertyOptional({ description: 'Page number' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number = 1;
+  page?: number;
 
-  @ApiPropertyOptional({ description: 'Items per page', default: 10 })
+  @ApiPropertyOptional({ description: 'Items per page' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 10;
+  limit?: number;
 
   @ApiPropertyOptional({ description: 'Search term (order number, supplier name)' })
   @IsOptional()
@@ -192,13 +192,18 @@ export class PurchaseOrderResponseDto {
   orderNumber: string;
 
   @ApiProperty({ description: 'Supplier information' })
-  supplier: {
+  supplier?: {
     id: string;
     supplierCode: string;
     companyName: string;
     contactPerson?: string;
     email?: string;
     phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
   };
 
   @ApiProperty({ description: 'Order date' })
@@ -218,6 +223,9 @@ export class PurchaseOrderResponseDto {
 
   @ApiProperty({ description: 'Total amount' })
   totalAmount: number;
+
+  @ApiProperty({ description: 'Total amount paid' })
+  paidAmount: number;
 
   @ApiProperty({ description: 'Notes' })
   notes?: string;

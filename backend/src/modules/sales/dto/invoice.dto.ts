@@ -232,6 +232,11 @@ export class InvoiceResponseDto {
     name: string;
     email?: string;
     phone?: string;
+    streetAddress?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
   };
 
   @ApiProperty({ nullable: true })
@@ -239,8 +244,10 @@ export class InvoiceResponseDto {
     id: string;
     orderNumber: string;
     orderDate: Date;
-    status: string;
   };
+
+  @ApiProperty({ example: 'Special delivery instructions', nullable: true })
+  notes?: string;
 
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   createdAt: Date;

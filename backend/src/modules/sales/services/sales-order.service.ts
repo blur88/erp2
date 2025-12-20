@@ -308,6 +308,7 @@ export class SalesOrderService {
     // Use QueryBuilder to avoid metadata issues
     let queryBuilder = this.salesOrderRepository
       .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
       .select([
         'order.id',
         'order.orderNumber',
@@ -317,7 +318,15 @@ export class SalesOrderService {
         'order.isFulfilled',
         'order.customerId',
         'order.createdAt',
-        'order.updatedAt'
+        'order.updatedAt',
+        'customer.id',
+        'customer.name',
+        'customer.phone',
+        'customer.streetAddress',
+        'customer.city',
+        'customer.state',
+        'customer.postalCode',
+        'customer.country'
       ])
       .where('order.deletedAt IS NULL'); // Only get non-deleted orders
 
@@ -442,6 +451,7 @@ export class SalesOrderService {
         isPaidInFull: Number(order.paidAmount || 0) >= Number(order.totalAmount),
         isFulfilled: order.isFulfilled,
         customerId: order.customerId,
+        customer: order.customer,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
       })),
@@ -466,9 +476,6 @@ export class SalesOrderService {
   }
 
   async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
-    console.log('🚀 findSummaries called with query:', JSON.stringify(query, null, 2));
-    console.log('🚀 paymentStatus:', query.paymentStatus, 'fulfillmentStatus:', query.fulfillmentStatus);
-
     const {
       search,
       customerId,
@@ -515,8 +522,6 @@ export class SalesOrderService {
       const balanceDue = Math.max(0, totalAmount - paidAmount);
       const isPaidInFull = paidAmount >= totalAmount;
 
-      console.log(`Order ${order.orderNumber}: totalAmount=${totalAmount}, paidAmount=${paidAmount}, balanceDue=${balanceDue}, isPaidInFull=${isPaidInFull}`);
-
       return {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -532,7 +537,13 @@ export class SalesOrderService {
         customerId: order.customerId,
         customer: order.customer ? {
           id: order.customer.id,
-          name: order.customer.name
+          name: order.customer.name,
+          phone: order.customer.phone,
+          streetAddress: order.customer.streetAddress,
+          city: order.customer.city,
+          state: order.customer.state,
+          postalCode: order.customer.postalCode,
+          country: order.customer.country
         } : null,
         customerName: order.customer?.name || 'Unknown Customer',
         items: order.items?.map(item => ({
@@ -1014,10 +1025,14 @@ export class SalesOrderService {
       }
 
       // Determine unit price based on customer's pricing scheme
-      let defaultPrice = Number(product.retailPrice) || 0;
+      let defaultPrice = 0;
       if (customer && customer.pricingScheme) {
         // Use customer's pricing scheme to get the correct price
         defaultPrice = product.getPriceByScheme(customer.pricingScheme);
+      }
+      // If no pricing scheme or price not found, try to get 'Retail' price from tiers
+      if (defaultPrice === 0 && product.pricingTiers) {
+        defaultPrice = Number(product.pricingTiers['Retail']) || Number(product.baseCost) || 0;
       }
       const unitPrice = Number(item.unitPrice) || defaultPrice;
       const discountPercent = Number(item.discountPercent) || 0;

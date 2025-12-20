@@ -45,6 +45,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
@@ -55,6 +56,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { SalesOrderPrint } from '@/components/print'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -156,6 +158,7 @@ const OrdersPage: React.FC = () => {
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -213,6 +216,34 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  // Refresh on route navigation (when coming back from another page)
+  const previousPathnameRef = useRef(location.pathname)
+  useEffect(() => {
+    // Only refresh if we navigated TO orders page FROM somewhere else
+    if (previousPathnameRef.current !== '/sales/orders' && location.pathname === '/sales/orders') {
+      loadOrders()
+      // Also refresh the selected order to get updated customer data
+      if (selectedOrder) {
+        dispatch(fetchOrderById(selectedOrder.id) as any)
+      }
+    }
+    previousPathnameRef.current = location.pathname
+  }, [location.pathname, loadOrders, selectedOrder, dispatch])
+
+  // Update selected order when fresh data arrives (to reflect customer changes)
+  useEffect(() => {
+    if (orders && orders.length > 0 && selectedOrder) {
+      const freshOrder = orders.find((order: any) => order.id === selectedOrder.id)
+      if (freshOrder) {
+        // Only update if the data actually changed (to avoid infinite loops)
+        const hasChanged = JSON.stringify(freshOrder) !== JSON.stringify(selectedOrder)
+        if (hasChanged) {
+          dispatch(setSelectedOrder(freshOrder))
+        }
+      }
+    }
+  }, [orders, selectedOrder, dispatch])
 
   // Fetch customers on component mount - memoized to prevent re-fetching
   useEffect(() => {
@@ -1573,6 +1604,27 @@ const OrdersPage: React.FC = () => {
                       fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                     }} />
                   </IconButton>
+                  <IconButton
+                    size="small"
+                    title="Print Order"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
                 </Box>
               </Box>
 
@@ -2395,6 +2447,15 @@ const OrdersPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="warning"
       />
+
+      {/* Print Dialog */}
+      {selectedOrder && (
+        <SalesOrderPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          salesOrder={selectedOrder}
+        />
+      )}
     </Box>
   )
 }

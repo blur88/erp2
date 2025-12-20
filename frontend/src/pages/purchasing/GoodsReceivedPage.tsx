@@ -22,6 +22,7 @@ import {
   Skeleton,
   Alert,
   Grid,
+  IconButton,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -32,6 +33,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -44,6 +46,7 @@ import {
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
+import { GRNPrint } from '@/components/print'
 
 
 interface GRNFilters {
@@ -129,6 +132,7 @@ const GoodsReceivedPage: React.FC = () => {
   })
 
   const [deletedGRNsDialogOpen, setDeletedGRNsDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
   const grnListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -209,15 +213,30 @@ const GoodsReceivedPage: React.FC = () => {
   // Handle grnId query parameter to auto-select GRN from PO page
   useEffect(() => {
     const grnId = searchParams.get('grnId')
-    if (grnId && goodsReceivedNotes.length > 0) {
-      const grn = goodsReceivedNotes.find((g: any) => g.id === grnId)
-      if (grn) {
-        handleGRNSelect(grn)
-        // Remove the query parameter after selection
-        setSearchParams({})
-      }
+    if (grnId) {
+      // Force refresh the GRN list to ensure we have the latest data
+      const dateRange = getDateRange(filters.dateFilter)
+      dispatch(fetchGoodsReceivedNotes({
+        search: filters.search,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        receivedDateFrom: dateRange.fromDate,
+        receivedDateTo: dateRange.toDate,
+      } as any)).then((result: any) => {
+        // Use the data from the fetch result, not the Redux state
+        // API returns { grns: [], total: 3, page: 1, ... }
+        if (result.payload && result.payload.grns) {
+          const grns = result.payload.grns
+          const grn = grns.find((g: any) => g.id === grnId)
+          if (grn) {
+            handleGRNSelect(grn)
+            // Remove the query parameter after selection
+            setSearchParams({})
+          }
+        }
+      })
     }
-  }, [searchParams, goodsReceivedNotes, handleGRNSelect, setSearchParams])
+  }, [searchParams.get('grnId')]) // Only run when grnId changes
 
   // Auto-refresh selected GRN when the list updates (e.g., after PO edit/return/receive)
   useEffect(() => {
@@ -623,6 +642,29 @@ const GoodsReceivedPage: React.FC = () => {
                     }}
                   />
                 </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    title="Print GRN"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -838,6 +880,15 @@ const GoodsReceivedPage: React.FC = () => {
         open={deletedGRNsDialogOpen}
         onClose={() => setDeletedGRNsDialogOpen(false)}
       />
+
+      {/* Print Dialog */}
+      {selectedGRN && (
+        <GRNPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          grn={selectedGRN}
+        />
+      )}
     </Box>
   )
 }

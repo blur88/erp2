@@ -36,6 +36,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -43,11 +44,13 @@ import {
   fetchSuppliers,
   fetchGoodsReceivedNotes,
   setSelectedPurchaseOrder,
+  updatePurchaseOrderInPlace,
   selectPurchaseOrders,
   selectSelectedPurchaseOrder,
   selectPurchasingLoading,
   selectPurchasingError,
   selectPurchasingPagination,
+  selectSupplierUpdateTimestamp,
 } from '@/store/slices/purchasingSlice'
 import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -57,6 +60,7 @@ import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
 import BlockedPurchaseOrderDialog from '@/components/purchasing/BlockedPurchaseOrderDialog'
+import { PurchaseOrderPrint } from '@/components/print'
 
 interface PurchaseOrdersPageState {
   search: string
@@ -134,11 +138,12 @@ const PurchaseOrdersPage: React.FC = () => {
   const error = useAppSelector(selectPurchasingError)
   const pagination = useAppSelector(selectPurchasingPagination)?.purchaseOrders
   const selectedOrder = useAppSelector(selectSelectedPurchaseOrder)
+  const supplierUpdateTimestamp = useAppSelector(selectSupplierUpdateTimestamp)
 
   const [state, setState] = useState<PurchaseOrdersPageState>({
     search: '',
     sortBy: 'orderNumber',
-    sortOrder: 'asc',
+    sortOrder: 'asc', // ASC so lower numbers appear first
     supplierFilter: 'all',
     dateFilter: 'all',
     customFromDate: '',
@@ -150,9 +155,11 @@ const PurchaseOrdersPage: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [blockedDialogType, setBlockedDialogType] = useState<'edit' | 'delete'>('edit')
   const [isLoading, setIsLoading] = useState(false)
   const [paymentStatus, setPaymentStatus] = useState<Record<string, boolean>>({})
+  const [paymentAmount, setPaymentAmount] = useState('')
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -209,6 +216,13 @@ const PurchaseOrdersPage: React.FC = () => {
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  // Refetch purchase orders when a supplier is updated
+  useEffect(() => {
+    if (supplierUpdateTimestamp) {
+      loadOrders()
+    }
+  }, [supplierUpdateTimestamp])
 
   // Handle poId query parameter to auto-select PO from GRN page
   useEffect(() => {
@@ -267,10 +281,22 @@ const PurchaseOrdersPage: React.FC = () => {
     }))
   }, [])
 
-  const handleOrderSelect = useCallback((order: any) => {
-    dispatch(setSelectedPurchaseOrder(order))
+  const handleOrderSelect = useCallback(async (order: any) => {
     const orderIndex = purchaseOrders.findIndex(o => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
+
+    try {
+      // Fetch fresh data from server to ensure supplier name is current
+      const response = await purchasingApi.getPurchaseOrder(order.id)
+      const freshOrder = response.data
+
+      // Update both the selected order and the order in the list
+      dispatch(updatePurchaseOrderInPlace(freshOrder))
+    } catch (error) {
+      console.error('Error fetching purchase order:', error)
+      // Fallback to cached order if fetch fails
+      dispatch(setSelectedPurchaseOrder(order))
+    }
   }, [dispatch, purchaseOrders])
 
   const handleApprove = async () => {
@@ -649,13 +675,14 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Payment deleted successfully')
 
       // Update the selected order with the new data
-      // ApiService wraps response, check both response.data.data and response.data
+      // ApiService wraps response, check both response.data.data || response.data
       const updatedOrder = response.data.data || response.data
       if (updatedOrder && (updatedOrder as any).id) {
         // Clear vendorPayments array when unpaying
         const orderWithoutPayment = {
           ...(updatedOrder as any),
-          vendorPayments: []
+          vendorPayments: [],
+          paidAmount: 0
         }
         dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
       }
@@ -668,6 +695,70 @@ const PurchaseOrdersPage: React.FC = () => {
       } else {
         showError(err?.response?.data?.message || 'Failed to delete payment')
       }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRecordPayment = async () => {
+    if (!selectedOrder) return
+
+    // Calculate the new total paid amount
+    let newPaidAmount
+    let paymentToAdd = 0
+
+    if (paymentAmount) {
+      // If user entered an amount, add it to existing paid amount
+      paymentToAdd = parseFloat(paymentAmount)
+      newPaidAmount = (selectedOrder.paidAmount || 0) + paymentToAdd
+    } else {
+      // Auto-fill behavior: if payment field is blank, pay the remaining balance
+      const remainingBalance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))
+      paymentToAdd = remainingBalance
+      newPaidAmount = (selectedOrder.paidAmount || 0) + remainingBalance
+    }
+
+    if (paymentToAdd <= 0) return
+
+    setIsLoading(true)
+    try {
+      // Optimistically update the UI
+      const optimisticUpdate = {
+        ...selectedOrder,
+        paidAmount: newPaidAmount
+      }
+      dispatch(setSelectedPurchaseOrder(optimisticUpdate))
+      setPaymentAmount('')
+
+      const response = await fetch(`/api/purchasing/orders/${selectedOrder.id}/record-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: newPaidAmount }),
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(setSelectedPurchaseOrder(updatedOrder.data))
+        showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+
+        // Reload orders to update the list with new vendor payments
+        loadOrders()
+      } else {
+        // Revert optimistic update on error
+        dispatch(setSelectedPurchaseOrder(selectedOrder))
+        setPaymentAmount(paymentToAdd.toString())
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to record payment'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      dispatch(setSelectedPurchaseOrder(selectedOrder))
+      setPaymentAmount(paymentToAdd.toString())
+      console.error('Error recording payment:', error)
+      showError('Error recording payment. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -1099,6 +1190,18 @@ const PurchaseOrdersPage: React.FC = () => {
                   >
                     <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
                   </IconButton>
+                  <IconButton
+                    size="small"
+                    title="Print Purchase Order"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      color: 'info.main',
+                    }}
+                  >
+                    <PrintIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                  </IconButton>
                 </Box>
               </Box>
 
@@ -1210,7 +1313,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                     <Box key={payment.id} component="span">
                                       {index > 0 && ', '}
                                       <Link
-                                        to={`/purchasing/vendor-payments?paymentId=${payment.id}`}
+                                        to={`/purchasing/vendor-payments?vpId=${payment.id}`}
                                         style={{
                                           color: '#1976d2',
                                           textDecoration: 'none',
@@ -1309,19 +1412,101 @@ const PurchaseOrdersPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              Total Amount
+                              Total
                             </TableCell>
                             <TableCell sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              {formatCurrency(
-                                selectedOrder.totalAmount ||
-                                ((selectedOrder.items?.reduce((sum: number, item: any) =>
-                                  sum + (item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0))), 0
-                                ) || 0) + (selectedOrder.shippingAmount || 0)) ||
-                                (selectedOrder as any).total ||
-                                0
-                              )}
+                              {formatCurrency(selectedOrder.totalAmount || 0)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Paid
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                                }}>
+                                  {formatCurrency(selectedOrder.paidAmount || 0)}
+                                </Typography>
+                                <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                                  +
+                                </Typography>
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  value={paymentAmount}
+                                  onChange={(e) => setPaymentAmount(e.target.value)}
+                                  placeholder={`Add: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
+                                  inputProps={{ min: 0, step: 0.01 }}
+                                  sx={{
+                                    width: '120px',
+                                    '& .MuiInputBase-root': {
+                                      height: '24px',
+                                      fontSize: '0.75rem'
+                                    },
+                                    '& .MuiInputBase-input': {
+                                      padding: '4px 6px',
+                                      fontSize: '0.75rem'
+                                    },
+                                    '& input[type=number]': {
+                                      MozAppearance: 'textfield'
+                                    },
+                                    '& input[type=number]::-webkit-outer-spin-button': {
+                                      WebkitAppearance: 'none',
+                                      margin: 0
+                                    },
+                                    '& input[type=number]::-webkit-inner-spin-button': {
+                                      WebkitAppearance: 'none',
+                                      margin: 0
+                                    }
+                                  }}
+                                />
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Balance
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: (() => {
+                                    const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
+                                    const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
+                                    const balance = (selectedOrder.totalAmount || 0) - currentPaid
+                                    return balance < 0 ? 'error.main' : 'inherit'
+                                  })()
+                                }}>
+                                  {(() => {
+                                    const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
+                                    const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
+                                    const balance = (selectedOrder.totalAmount || 0) - currentPaid
+                                    return balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)
+                                  })()}
+                                </Typography>
+                                {paymentAmount && !isNaN(parseFloat(paymentAmount)) && parseFloat(paymentAmount) > 0 && (
+                                  <Typography sx={{
+                                    fontSize: '0.75rem',
+                                    color: 'text.secondary',
+                                    fontStyle: 'italic'
+                                  }}>
+                                    (after payment)
+                                  </Typography>
+                                )}
+                              </Box>
                             </TableCell>
                           </TableRow>
                           <TableRow>
@@ -1330,19 +1515,23 @@ const PurchaseOrdersPage: React.FC = () => {
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  color={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "error" : "primary"}
+                                  color={(() => {
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    return isPaidInFull ? "warning" : "primary"
+                                  })()}
+                                  onClick={(() => {
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    return isPaidInFull ? handleUnpay : handleRecordPayment
+                                  })()}
+                                  disabled={isLoading}
                                   sx={{ minWidth: 110 }}
-                                  onClick={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? handleUnpay : handlePay}
-                                  disabled={
-                                    isLoading ||
-                                    (selectedOrder.vendorPayments &&
-                                     selectedOrder.vendorPayments.length > 0 &&
-                                     selectedOrder.goodsReceivedNotes &&
-                                     selectedOrder.goodsReceivedNotes.length > 0 &&
-                                     selectedOrder.goodsReceivedNotes[0].status === 'received')
-                                  }
                                 >
-                                  {(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "Unpay" : "Pay"}
+                                  {(() => {
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    return isPaidInFull
+                                      ? "Unpay"
+                                      : (selectedOrder.paidAmount > 0 ? "Pay Remaining" : "Pay")
+                                  })()}
                                 </Button>
                                 {selectedOrder.goodsReceivedNotes &&
                                  selectedOrder.goodsReceivedNotes.length > 0 &&
@@ -1368,7 +1557,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                       !selectedOrder?.items ||
                                       selectedOrder.items.length === 0 ||
                                       isLoading ||
-                                      !(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0)
+                                      !((selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0)
                                     }
                                   >
                                     Receive
@@ -1557,6 +1746,15 @@ const PurchaseOrdersPage: React.FC = () => {
           onReturnAndDelete={handleReturnAndDelete}
           onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}
+        />
+      )}
+
+      {/* Print Dialog */}
+      {selectedOrder && (
+        <PurchaseOrderPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          purchaseOrder={selectedOrder}
         />
       )}
     </Box>

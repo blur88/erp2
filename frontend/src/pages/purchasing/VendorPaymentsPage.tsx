@@ -22,6 +22,7 @@ import {
   Skeleton,
   Alert,
   Grid,
+  IconButton,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -32,6 +33,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatDate, formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -44,6 +46,7 @@ import {
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
+import { VendorPaymentPrint } from '@/components/print'
 
 interface VendorPaymentFilters {
   search: string
@@ -131,6 +134,7 @@ const VendorPaymentsPage: React.FC = () => {
   })
 
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const paymentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -201,15 +205,32 @@ const VendorPaymentsPage: React.FC = () => {
   // Handle vpId query parameter to auto-select payment
   useEffect(() => {
     const vpId = searchParams.get('vpId')
-    if (vpId && vendorPayments.length > 0) {
-      const payment = vendorPayments.find((p: any) => p.id === vpId)
-      if (payment) {
-        handlePaymentSelect(payment)
-        // Remove the query parameter after selection
-        setSearchParams({})
-      }
+    if (vpId) {
+      // Force refresh the vendor payments list to ensure we have the latest data
+      const dateRange = getDateRange(filters.dateFilter)
+      dispatch(fetchVendorPayments({
+        search: filters.search,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        status: filters.status !== 'all' ? filters.status : undefined,
+        paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } as any)).then((result: any) => {
+        // Use the data from the fetch result, not the Redux state
+        // API returns { data: [] } or { payments: [] }
+        if (result.payload) {
+          const payments = result.payload.data || result.payload.payments || []
+          const payment = payments.find((p: any) => p.id === vpId)
+          if (payment) {
+            handlePaymentSelect(payment)
+            // Remove the query parameter after selection
+            setSearchParams({})
+          }
+        }
+      })
     }
-  }, [searchParams, vendorPayments, handlePaymentSelect, setSearchParams])
+  }, [searchParams.get('vpId')]) // Only run when vpId changes
 
   // Auto-refresh selected payment when the list updates
   useEffect(() => {
@@ -660,6 +681,29 @@ const VendorPaymentsPage: React.FC = () => {
                     }}
                   />
                 </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    title="Print Payment"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -685,8 +729,16 @@ const VendorPaymentsPage: React.FC = () => {
                               {selectedPayment.supplier?.companyName || 'Unknown'}
                             </TableCell>
                           </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              VP Amount
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+                              {formatCurrency(selectedPayment.amount)}
+                            </TableCell>
+                          </TableRow>
                           {selectedPayment.purchaseOrder && (
-                            <TableRow>
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 PO Amount
                               </TableCell>
@@ -695,7 +747,7 @@ const VendorPaymentsPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Payment Date
                             </TableCell>
@@ -831,6 +883,15 @@ const VendorPaymentsPage: React.FC = () => {
         open={deletedPaymentsDialogOpen}
         onClose={() => setDeletedPaymentsDialogOpen(false)}
       />
+
+      {/* Print Dialog */}
+      {selectedPayment && (
+        <VendorPaymentPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          payment={selectedPayment}
+        />
+      )}
     </Box>
   )
 }

@@ -162,6 +162,12 @@ export class GoodsReceivedNoteResponseDto {
     supplierCode: string;
     companyName: string;
     contactPerson?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
   };
 
   @ApiProperty({ description: 'Received date' })

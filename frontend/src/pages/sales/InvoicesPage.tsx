@@ -40,6 +40,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -48,6 +49,7 @@ import { fetchInvoices, selectInvoicesState, setSelectedInvoice, selectSelectedI
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
+import { InvoicePrint } from '@/components/print'
 import type { InvoiceItem } from '@/types'
 
 // Adapter types to match the backend API response structure
@@ -170,6 +172,7 @@ const InvoicesPage: React.FC = () => {
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const invoiceListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
@@ -869,6 +872,29 @@ const InvoicesPage: React.FC = () => {
                     )
                   })()}
                 </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    title="Print Invoice"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -1193,6 +1219,15 @@ const InvoicesPage: React.FC = () => {
         open={deletedInvoicesDialogOpen}
         onClose={() => setDeletedInvoicesDialogOpen(false)}
       />
+
+      {/* Print Dialog */}
+      {selectedInvoice && (
+        <InvoicePrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          invoice={selectedInvoice}
+        />
+      )}
     </Box>
   )
 }

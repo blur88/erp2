@@ -106,6 +106,17 @@ export class PurchaseOrder extends BaseEntity {
   @Min(0)
   totalAmount: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    default: 0,
+    comment: 'Total amount paid',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  paidAmount: number;
+
   // Additional Information
   @Column({
     type: 'text',

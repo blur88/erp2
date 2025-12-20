@@ -242,7 +242,7 @@ export const permanentDeleteOrder = createAsyncThunk(
 
 export const fetchInvoices = createAsyncThunk(
   'sales/fetchInvoices',
-  async (params: { customerId?: string; status?: string; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; fromDate?: string; toDate?: string }, { rejectWithValue }) => {
+  async (params: { customerId?: string; status?: string; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; fromDate?: string; toDate?: string; page?: number; limit?: number }, { rejectWithValue }) => {
     try {
       const response = await salesApi.getInvoices(params)
       return response

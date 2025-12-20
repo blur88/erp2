@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, FindOptionsWhere, Between } from 'typeorm';
-import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
+import { Payment, PaymentStatus, PaymentMethod } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import {
@@ -57,7 +57,7 @@ export class PaymentService {
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
       status: PaymentStatus.COMPLETED,
-      paymentMethod: 'cash',
+      paymentMethod: PaymentMethod.CASH,
     });
 
     const savedPayment = await this.paymentRepository.save(payment);
@@ -102,6 +102,7 @@ export class PaymentService {
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.customer', 'customer')
       .leftJoinAndSelect('payment.invoice', 'invoice')
+      .leftJoinAndSelect('invoice.customer', 'invoiceCustomer')
       .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
       .leftJoinAndSelect('invoice.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
@@ -405,7 +406,29 @@ export class PaymentService {
       invoice: payment.invoice ? {
         id: payment.invoice.id,
         invoiceNumber: payment.invoice.invoiceNumber,
-        items: payment.invoice.items,
+        totalAmount: Number(payment.invoice.totalAmount),
+        shippingAmount: Number(payment.invoice.shippingAmount),
+        items: payment.invoice.items?.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          discount: Number(item.discount),
+          totalAmount: Number(item.totalAmount),
+          product: item.product ? {
+            id: item.product.id,
+            name: item.product.name,
+          } : undefined,
+        })),
+        customer: payment.invoice.customer || payment.customer ? {
+          id: (payment.invoice.customer || payment.customer).id,
+          name: (payment.invoice.customer || payment.customer).name,
+          phone: (payment.invoice.customer || payment.customer).phone,
+          streetAddress: (payment.invoice.customer || payment.customer).streetAddress,
+          city: (payment.invoice.customer || payment.customer).city,
+          state: (payment.invoice.customer || payment.customer).state,
+          postalCode: (payment.invoice.customer || payment.customer).postalCode,
+          country: (payment.invoice.customer || payment.customer).country,
+        } : undefined,
       } : undefined,
       relatedInvoiceId: payment.invoice?.id,
       relatedInvoiceNumber: payment.invoice?.invoiceNumber,
