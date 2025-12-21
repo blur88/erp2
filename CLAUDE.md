@@ -257,11 +257,11 @@ When enabling disabled modules:
 
 ### Recent Updates (October-November 2025)
 
-### 🚀 Redis 8 Upgrade (October 2025)
-- ✅ **COMPLETE**: Upgraded Redis from 7-alpine to 8-alpine3.22
+### 🚀 Redis 8.4 Upgrade (December 2025)
+- ✅ **COMPLETE**: Upgraded Redis from 8.2.2 to 8.4.0-alpine3.22
 - **New Features**: Built-in Redis modules now available - Search, JSON, TimeSeries, Bloom, and VectorSet
 - **Compatibility**: All existing Redis client operations remain functional
-- **Performance**: Enhanced performance and security with Redis 8.2.2
+- **Performance**: Enhanced performance and security with Redis 8.4.0
 - **License**: Redis 8 uses RSALv2/SSPLv1/AGPLv3 tri-license model
 - **Benefits**: Access to advanced data structures and query capabilities without external modules
 

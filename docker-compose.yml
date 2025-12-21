@@ -19,7 +19,7 @@ services:
 
   # Redis for caching and sessions
   redis:
-    image: redis:8-alpine3.22
+    image: redis:8.4.0-alpine3.22
     container_name: erp_redis
     restart: unless-stopped
     environment:
