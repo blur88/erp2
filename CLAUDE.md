@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Comprehensive ERP system with modern full-stack architecture:
 - **Backend**: NestJS 11 + TypeORM (PostgreSQL) + MongoDB + Redis 8 + Bull Queue
 - **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit + Vite
-- **Infrastructure**: Docker + NGINX + Node.js 22
+- **Infrastructure**: Docker + NGINX + Node.js 24
 - **Testing**: Jest (backend) + Vitest (frontend)
 
 **Last Updated**: December 2025
@@ -324,7 +324,7 @@ When enabling disabled modules:
 
 ### 🏗️ Platform Upgrades (September-October 2025)
 - ✅ **NestJS v11 Upgrade**: Complete upgrade to NestJS 11 with all dependencies
-- ✅ **Node.js 22**: Updated Docker base images to Node.js 22 for better performance
+- ✅ **Node.js 24**: Updated Docker base images to Node.js 24 LTS for better performance
 - ✅ **Frontend Dependencies**: Comprehensive updates to all Alpine packages and OpenSSL
 - ✅ **Container Health**: Added curl to frontend nginx container for health checks
 - ✅ **Security Enhancements**: Payment numbers now clickable in invoice details
