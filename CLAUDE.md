@@ -10,13 +10,13 @@ Comprehensive ERP system with modern full-stack architecture:
 - **Infrastructure**: Docker + NGINX + Node.js 22
 - **Testing**: Jest (backend) + Vitest (frontend)
 
-**Last Updated**: November 2025
+**Last Updated**: December 2025
 
 ## Current System Status
 
 **⚠️ CRITICAL: Authentication system completely removed**
 
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule` (5 active)
+**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule` (7 active)
 **Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 **Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
@@ -123,6 +123,7 @@ docker compose logs backend # Check specific service logs
 - **Core**: `users/` - User management
 - **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
 - **Analytics**: `dashboard/` (✅ with WebSocket)
+- **Configuration**: `settings/` (✅ company settings), `print-settings/` (✅ print templates and settings)
 - **System**: `plugins/` (❌ disabled)
 
 ### Architecture Patterns
@@ -489,6 +490,8 @@ const { control, handleSubmit } = useForm<FormData>({
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
 - Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
 - Purchasing: `/api/purchasing/suppliers`, `/api/purchasing/purchase-orders`, `/api/purchasing/overview`
+- Settings: `/api/settings` (company settings and configuration)
+- Print Settings: `/api/print-settings` (print templates and printing configuration)
 - Module Info: `/api/info`
 
 ### 📊 Report Export Endpoints
@@ -500,6 +503,7 @@ const { control, handleSubmit } = useForm<FormData>({
 
 ### Common Issues
 - **README.md outdated**: Use CLAUDE.md instead - README mentions authentication features that were completely removed
+- **deploy.sh mentions demo accounts**: Ignore demo account credentials in deploy.sh output - authentication system was completely removed
 - **TypeScript**: Uses `"strict": false`, use `as any` assertions for TypeORM when needed
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
 - **Icons**: Use `Inventory2` instead of non-existent `Product` icon
@@ -541,7 +545,7 @@ For disabled modules (Plugins):
 ## Key Files
 
 ### Core Configuration
-- `backend/src/app.module.ts` - Main module (5 active modules)
+- `backend/src/app.module.ts` - Main module (7 active modules)
 - `docker-compose.yml` - Service orchestration with NGINX proxy
 - `deploy.sh` - Production deployment
 - `frontend/src/App.tsx` - Main React component
@@ -551,6 +555,8 @@ For disabled modules (Plugins):
 - `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes with integrated reports
 - `backend/src/modules/dashboard/` - ✅ WebSocket support for real-time updates
 - `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025) with integrated reports (5 report types)
+- `backend/src/modules/settings/` - ✅ Company settings management
+- `backend/src/modules/print-settings/` - ✅ Print templates and printing configuration
 
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products
