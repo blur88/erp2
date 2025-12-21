@@ -116,15 +116,6 @@ const SuppliersPage: React.FC = () => {
   const [companyNameError, setCompanyNameError] = useState<string | null>(null)
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false)
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('🔴 companyNameError changed:', companyNameError)
-  }, [companyNameError])
-
-  useEffect(() => {
-    console.log('🔵 isCheckingDuplicate changed:', isCheckingDuplicate)
-  }, [isCheckingDuplicate])
-
   // Form setup
   const { control, handleSubmit, reset, formState: { errors }, watch } = useForm<SupplierFormData>({
     resolver: yupResolver(supplierSchema) as any,
@@ -172,22 +163,22 @@ const SuppliersPage: React.FC = () => {
   useEffect(() => {
     // Skip check if dialog is not open
     if (!isFormOpen) {
-      console.log('Form is not open, skipping duplicate check')
+      return
+    }
+
+    // Skip check if company name hasn't changed from original (when editing)
+    if (selectedSupplier && companyName === selectedSupplier.companyName) {
+      setCompanyNameError(null)
+      setIsCheckingDuplicate(false)
       return
     }
 
     const checkDuplicate = async () => {
-      console.log('=== Duplicate Check ===')
-      console.log('Company name:', companyName)
-      console.log('Selected supplier ID:', selectedSupplier?.id)
-
       if (!companyName || companyName.trim().length < 2) {
-        console.log('Company name too short, clearing error')
         setCompanyNameError(null)
         return
       }
 
-      console.log('Starting API call...')
       setIsCheckingDuplicate(true)
       try {
         const response = await purchasingApi.checkDuplicateCompanyName(
@@ -195,28 +186,19 @@ const SuppliersPage: React.FC = () => {
           selectedSupplier?.id
         )
 
-        console.log('API Response:', response)
-        console.log('Response.data:', response.data)
-
         // ApiResponse wraps the data in a data property
         const result = response.data || response as any
 
-        console.log('Extracted result:', result)
-
         if (result?.exists) {
           const errorMsg = result.message || 'This company name already exists'
-          console.log('❌ DUPLICATE FOUND! Setting error:', errorMsg)
           setCompanyNameError(errorMsg)
         } else {
-          console.log('✅ No duplicate, clearing error')
           setCompanyNameError(null)
         }
       } catch (error) {
-        console.error('❌ API Error:', error)
         setCompanyNameError(null)
       } finally {
         setIsCheckingDuplicate(false)
-        console.log('=== Check Complete ===')
       }
     }
 
@@ -990,13 +972,6 @@ const SuppliersPage: React.FC = () => {
               type="submit"
               variant="contained"
               disabled={loading || isCheckingDuplicate || !!companyNameError}
-              onClick={() => {
-                console.log('🔘 Submit button clicked')
-                console.log('  loading:', loading)
-                console.log('  isCheckingDuplicate:', isCheckingDuplicate)
-                console.log('  companyNameError:', companyNameError)
-                console.log('  disabled:', loading || isCheckingDuplicate || !!companyNameError)
-              }}
             >
               {loading ? <CircularProgress size={20} /> : (selectedSupplier ? 'Update' : 'Create')}
             </Button>
