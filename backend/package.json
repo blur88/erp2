@@ -53,7 +53,7 @@
     "helmet": "^8.1.0",
     "mongoose": "^8.18.0",
     "multer": "^2.0.0",
-    "nodemailer": "^7.0.7",
+    "nodemailer": "^7.0.11",
     "pdfkit": "^0.17.2",
     "pg": "^8.8.0",
     "redis": "^5.8.3",
@@ -90,7 +90,9 @@
   },
   "overrides": {
     "glob": "11.1.0",
-    "body-parser": "2.2.1"
+    "body-parser": "2.2.1",
+    "tar": "7.5.2",
+    "js-yaml": "4.1.1"
   },
   "jest": {
     "moduleFileExtensions": [

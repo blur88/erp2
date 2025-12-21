@@ -7,6 +7,9 @@ RUN apk update && apk upgrade
 # Install curl for health checks
 RUN apk add --no-cache curl
 
+# Update npm to latest version (includes tar 7.5.2)
+RUN npm install -g npm@latest
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nestjs -u 1001
