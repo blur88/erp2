@@ -89,7 +89,8 @@
     "typescript": "5.9.3"
   },
   "overrides": {
-    "glob": "11.1.0"
+    "glob": "11.1.0",
+    "body-parser": "2.2.1"
   },
   "jest": {
     "moduleFileExtensions": [
