@@ -20,7 +20,7 @@ export const useCurrency = () => {
         const response = await settingsApi.getDefaultCurrency()
 
         // Handle both wrapped and direct response formats
-        const newCurrency = response?.data?.currency || response?.currency || 'RM'
+        const newCurrency = (response as any)?.data?.currency || (response as any)?.currency || 'RM'
 
         console.log('Fetched currency:', newCurrency, 'from response:', response)
 
@@ -56,7 +56,7 @@ export const refreshCurrencyCache = async (): Promise<string> => {
   try {
     const response = await settingsApi.getDefaultCurrency()
     // Handle both wrapped and direct response formats
-    const currency = response?.data?.currency || response?.currency || 'RM'
+    const currency = (response as any)?.data?.currency || (response as any)?.currency || 'RM'
     console.log('Refreshed currency cache:', currency)
     localStorage.setItem('defaultCurrency', currency)
 

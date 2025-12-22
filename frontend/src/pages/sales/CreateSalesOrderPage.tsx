@@ -385,7 +385,7 @@ const CreateSalesOrderPage: React.FC = () => {
   }
 
   const parseFormattedNumber = (value: string): number => {
-    return parseFloat(value.replace(/,/g, '')) || 0
+    return parseFloat(value.replace(/,/g, '')) || 0;
   }
 
   const calculateOrderTotals = () => {
@@ -440,12 +440,16 @@ const CreateSalesOrderPage: React.FC = () => {
 
           <Grid container spacing={3}>
             {/* SO Information Card */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>SO Information</Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                      size={{
+                        xs: 12,
+                        md: 6
+                      }}>
                       <Controller
                         name="customerId"
                         control={control}
@@ -491,7 +495,11 @@ const CreateSalesOrderPage: React.FC = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                      size={{
+                        xs: 12,
+                        md: 6
+                      }}>
                       <Controller
                         name="orderDate"
                         control={control}
@@ -524,7 +532,7 @@ const CreateSalesOrderPage: React.FC = () => {
             </Grid>
 
             {/* SO Items Card */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -661,7 +669,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                     if (value === '' || value === null || value === undefined) return ''
                                     const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
                                     if (isNaN(num)) return ''
-                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
                                   }
 
                                   const [displayValue, setDisplayValue] = React.useState(formatQuantity(qtyField.value))
@@ -698,7 +706,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                       error={!!errors.items?.[index]?.quantity}
                                       helperText={errors.items?.[index]?.quantity?.message}
                                     />
-                                  )
+                                  );
                                 }}
                               />
                             </TableCell>
@@ -741,7 +749,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                       }}
                                       error={!!errors.items?.[index]?.unitPrice}
                                     />
-                                  )
+                                  );
                                 }}
                               />
                             </TableCell>
@@ -785,7 +793,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                           flex: 1,
                                         }}
                                       />
-                                    )
+                                    );
                                   }}
                                 />
                                 <Controller
@@ -856,7 +864,11 @@ const CreateSalesOrderPage: React.FC = () => {
             </Grid>
 
             {/* Notes and Summary */}
-            <Grid item xs={12} md={8}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 8
+              }}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Controller
@@ -888,7 +900,11 @@ const CreateSalesOrderPage: React.FC = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 4
+              }}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" gutterBottom>SO Summary</Typography>
@@ -948,7 +964,7 @@ const CreateSalesOrderPage: React.FC = () => {
                               startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                             }}
                           />
-                        )
+                        );
                       }}
                     />
                   </Box>
@@ -987,7 +1003,7 @@ const CreateSalesOrderPage: React.FC = () => {
         )}
       </Box>
     </Container>
-  )
+  );
 }
 
 export default CreateSalesOrderPage

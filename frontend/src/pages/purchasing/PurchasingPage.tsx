@@ -322,11 +322,16 @@ const PurchasingPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} lg={3} key={index}>
+          <Grid
+            key={index}
+            size={{
+              xs: 12,
+              sm: 6,
+              lg: 3
+            }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -372,10 +377,13 @@ const PurchasingPage: React.FC = () => {
           </Grid>
         ))}
       </Grid>
-
       {/* Charts and Analytics */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} lg={8}>
+        <Grid
+          size={{
+            xs: 12,
+            lg: 8
+          }}>
           <Paper sx={{ p: 3, height: 400 }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Purchasing Trend
@@ -386,7 +394,11 @@ const PurchasingPage: React.FC = () => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
+        <Grid
+          size={{
+            xs: 12,
+            lg: 4
+          }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Top Suppliers
@@ -436,10 +448,9 @@ const PurchasingPage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
-
       {/* Recent Orders */}
       <Grid container spacing={3}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper sx={{ overflow: 'hidden' }}>
             <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
@@ -568,7 +579,7 @@ const PurchasingPage: React.FC = () => {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }
 
 export default PurchasingPage

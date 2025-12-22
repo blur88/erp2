@@ -37,10 +37,9 @@ const formatDateForExport = (date: string | Date): string => {
 // Get stock status text
 const getStockStatusText = (product: Product): string => {
   const stock = product.stockQuantity || 0
-  const reorderLevel = product.reorderLevel || 0
-  
+
   if (stock <= 0) return 'Out of Stock'
-  if (stock <= reorderLevel) return 'Low Stock'
+  if (stock <= 10) return 'Low Stock'
   return 'In Stock'
 }
 
@@ -109,7 +108,7 @@ export const exportToCSV = ({ products, filters }: ExportData): void => {
           const value = row[header as keyof typeof row]
           // Escape commas and quotes in CSV
           if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            return `"${value.replace(/"/g, '""')}"`
+            return `"${value.replace(/"/g, '""')}"`;
           }
           return value
         }).join(',')
@@ -187,8 +186,7 @@ export const exportToExcel = ({ products, filters }: ExportData): void => {
       { Metric: 'Out of Stock Items', Value: products.filter(p => (p.stockQuantity || 0) <= 0).length },
       { Metric: 'Low Stock Items', Value: products.filter(p => {
         const stock = p.stockQuantity || 0
-        const reorder = p.reorderLevel || 0
-        return stock > 0 && stock <= reorder
+        return stock > 0 && stock <= 10
       }).length },
       { Metric: 'Export Date', Value: formatDateForExport(new Date()) },
       { Metric: 'Export Time', Value: new Date().toLocaleTimeString() }
@@ -334,8 +332,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
       `Out of Stock: ${products.filter(p => (p.stockQuantity || 0) <= 0).length}`,
       `Low Stock: ${products.filter(p => {
         const stock = p.stockQuantity || 0
-        const reorder = p.reorderLevel || 0
-        return stock > 0 && stock <= reorder
+        return stock > 0 && stock <= 10
       }).length}`
     ]
     

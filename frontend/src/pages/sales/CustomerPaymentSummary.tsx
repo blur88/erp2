@@ -529,11 +529,15 @@ const CustomerPaymentSummary: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}
-        <Grid item xs={12} md={3} sx={{ display: 'flex', height: '100%' }}>
+        <Grid
+          sx={{ display: 'flex', height: '100%' }}
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Stack spacing={2} sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
             {/* Filters Section */}
             <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -726,7 +730,12 @@ const CustomerPaymentSummary: React.FC = () => {
         </Grid>
 
         {/* Right Side - Report Preview */}
-        <Grid item xs={12} md={9} sx={{ display: 'flex', height: '100%' }}>
+        <Grid
+          sx={{ display: 'flex', height: '100%' }}
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {reportData.length === 0 ? (
             <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
@@ -915,7 +924,7 @@ const CustomerPaymentSummary: React.FC = () => {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }
 
 export default CustomerPaymentSummary

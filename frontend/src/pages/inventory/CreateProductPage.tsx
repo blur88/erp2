@@ -89,7 +89,11 @@ const PricingField: React.FC<{
   const margin = calculateMargin(value, baseCost)
 
   return (
-    <Grid item xs={12} md={6}>
+    <Grid
+      size={{
+        xs: 12,
+        md: 6
+      }}>
       <Box>
         <TextField
           value={localValue}
@@ -135,7 +139,7 @@ const PricingField: React.FC<{
         )}
       </Box>
     </Grid>
-  )
+  );
 }
 
 interface ProductFormData {
@@ -392,7 +396,7 @@ const CreateProductPage: React.FC = () => {
     if (value === '' || value === null || value === undefined) return ''
     const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
     if (isNaN(num)) return ''
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
   return (
@@ -434,12 +438,16 @@ const CreateProductPage: React.FC = () => {
 
             <Grid container spacing={3}>
               {/* Product Information Card */}
-              <Grid item xs={12} md={8}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 8
+                }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Product Information</Typography>
                     <Grid container spacing={2}>
-                      <Grid item xs={12}>
+                      <Grid size={12}>
                         <Controller
                           name="name"
                           control={control}
@@ -475,7 +483,7 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12}>
+                      <Grid size={12}>
                         <Controller
                           name="description"
                           control={control}
@@ -500,7 +508,11 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12} md={6}>
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
                         <Controller
                           name="barcode"
                           control={control}
@@ -534,7 +546,11 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12} md={6}>
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
                         <Controller
                           name="type"
                           control={control}
@@ -564,7 +580,7 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12}>
+                      <Grid size={12}>
                         <Controller
                           name="categoryId"
                           control={control}
@@ -591,7 +607,11 @@ const CreateProductPage: React.FC = () => {
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Pricing</Typography>
                     <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
                         <Controller
                           name="baseCost"
                           control={control}
@@ -639,7 +659,7 @@ const CreateProductPage: React.FC = () => {
                                   }
                                 }}
                               />
-                            )
+                            );
                           }}
                         />
                       </Grid>
@@ -666,7 +686,11 @@ const CreateProductPage: React.FC = () => {
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Stock Information</Typography>
                       <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                          size={{
+                            xs: 12,
+                            md: 6
+                          }}>
                           <Controller
                             name="stockQuantity"
                             control={control}
@@ -715,7 +739,7 @@ const CreateProductPage: React.FC = () => {
                                     }
                                   }}
                                 />
-                              )
+                              );
                             }}
                           />
                           {isEditMode && (
@@ -731,7 +755,11 @@ const CreateProductPage: React.FC = () => {
               </Grid>
 
               {/* Notes and Actions */}
-              <Grid item xs={12} md={4}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 4
+                }}>
                 <Card sx={{ height: '100%' }}>
                   <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <Typography variant="h6" gutterBottom>Additional Information</Typography>
@@ -800,7 +828,7 @@ const CreateProductPage: React.FC = () => {
         )}
       </Box>
     </Container>
-  )
+  );
 }
 
 export default CreateProductPage

@@ -486,7 +486,6 @@ const StockAdjustmentsPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -646,18 +645,20 @@ const StockAdjustmentsPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout */}
       <Grid container spacing={3}>
         {/* Left Side - Adjustment List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -719,7 +720,11 @@ const StockAdjustmentsPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - SA Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedAdjustment ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -803,7 +808,11 @@ const StockAdjustmentsPage: React.FC = () => {
               <Box>
                 <Grid container spacing={3}>
                   {/* Adjustment Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -861,7 +870,11 @@ const StockAdjustmentsPage: React.FC = () => {
                   </Grid>
 
                   {/* SA Confirmation */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1130,13 +1143,11 @@ const StockAdjustmentsPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Deleted Stock Adjustments Dialog */}
       <DeletedStockAdjustmentsDialog
         open={showDeletedDialog}
         onClose={() => setShowDeletedDialog(false)}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -1148,7 +1159,6 @@ const StockAdjustmentsPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="warning"
       />
-
       {/* Complete Confirmation Dialog */}
       <ConfirmationDialog
         open={completeConfirmOpen}
@@ -1160,7 +1170,6 @@ const StockAdjustmentsPage: React.FC = () => {
         onCancel={handleCancelComplete}
         severity="info"
       />
-
       {/* Cancel Confirmation Dialog */}
       <ConfirmationDialog
         open={cancelConfirmOpen}
@@ -1173,7 +1182,7 @@ const StockAdjustmentsPage: React.FC = () => {
         severity="warning"
       />
     </Box>
-  )
+  );
 }
 
 export default StockAdjustmentsPage

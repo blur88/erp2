@@ -374,7 +374,6 @@ const GoodsReceivedPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -548,18 +547,20 @@ const GoodsReceivedPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout: GRN List and GRN Details */}
       <Grid container spacing={3}>
         {/* Left Side - GRN List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -611,7 +612,11 @@ const GoodsReceivedPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - GRN Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedGRN ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with GRN Info */}
@@ -671,7 +676,11 @@ const GoodsReceivedPage: React.FC = () => {
                 {/* GRN Details Section */}
                 <Grid container spacing={3}>
                   {/* Left Column - GRN Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -762,7 +771,11 @@ const GoodsReceivedPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Quantity Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -874,13 +887,11 @@ const GoodsReceivedPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Deleted GRNs Dialog */}
       <DeletedGRNsDialog
         open={deletedGRNsDialogOpen}
         onClose={() => setDeletedGRNsDialogOpen(false)}
       />
-
       {/* Print Dialog */}
       {selectedGRN && (
         <GRNPrint
@@ -890,7 +901,7 @@ const GoodsReceivedPage: React.FC = () => {
         />
       )}
     </Box>
-  )
+  );
 }
 
 export default GoodsReceivedPage

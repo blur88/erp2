@@ -296,11 +296,11 @@ const CreateStockAdjustmentPage: React.FC = () => {
     if (value === '' || value === null || value === undefined) return ''
     const num = typeof value === 'string' ? parseFloat(value) : value
     if (isNaN(num)) return ''
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
   const parseFormattedNumber = (value: string): number => {
-    return parseFloat(value.replace(/,/g, '')) || 0
+    return parseFloat(value.replace(/,/g, '')) || 0;
   }
 
   const addItem = () => {
@@ -334,12 +334,16 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
           <Grid container spacing={3}>
             {/* Date Field */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Adjustment Information</Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                      size={{
+                        xs: 12,
+                        md: 6
+                      }}>
                       <Controller
                         name="adjustmentDate"
                         control={control}
@@ -372,7 +376,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             </Grid>
 
             {/* Items Table */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -538,7 +542,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                       error={!!errors.items?.[index]?.newQuantity}
                                       helperText={errors.items?.[index]?.newQuantity?.message}
                                     />
-                                  )
+                                  );
                                 }}
                               />
                             </TableCell>
@@ -593,7 +597,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             </Grid>
 
             {/* Notes */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Controller
@@ -622,7 +626,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             </Grid>
 
             {/* Action Buttons */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                 <Button
                   variant="outlined"
@@ -644,7 +648,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         </form>
       </Box>
     </Container>
-  )
+  );
 }
 
 export default CreateStockAdjustmentPage

@@ -645,11 +645,15 @@ const ProductCostReport: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}
-        <Grid item xs={12} md={3} sx={{ display: 'flex', height: '100%' }}>
+        <Grid
+          sx={{ display: 'flex', height: '100%' }}
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Stack spacing={2} sx={{ flex: 1, height: '100%', overflow: 'hidden' }}>
             {/* Filters Section */}
             <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -831,7 +835,12 @@ const ProductCostReport: React.FC = () => {
         </Grid>
 
         {/* Right Side - Report Preview */}
-        <Grid item xs={12} md={9} sx={{ display: 'flex', height: '100%' }}>
+        <Grid
+          sx={{ display: 'flex', height: '100%' }}
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {reportData.length === 0 ? (
             <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
@@ -1077,7 +1086,6 @@ const ProductCostReport: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Product Selection Dialog */}
       <Dialog
         open={productDialogOpen}
@@ -1109,7 +1117,9 @@ const ProductCostReport: React.FC = () => {
         <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
             {/* Left Side - Product List */}
-            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Grid
+              sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+              size={5.25}>
               <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -1165,7 +1175,9 @@ const ProductCostReport: React.FC = () => {
             </Grid>
 
             {/* Middle - Action Buttons */}
-            <Grid item xs={1.5} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
+            <Grid
+              sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}
+              size={1.5}>
               <IconButton
                 color="primary"
                 onClick={handleAddSelectedProducts}
@@ -1228,7 +1240,9 @@ const ProductCostReport: React.FC = () => {
             </Grid>
 
             {/* Right Side - Selected Products */}
-            <Grid item xs={5.25} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Grid
+              sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+              size={5.25}>
               <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -1290,7 +1304,7 @@ const ProductCostReport: React.FC = () => {
               Filter Products
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <TextField
                   size="small"
                   placeholder="Search by product name..."
@@ -1299,7 +1313,7 @@ const ProductCostReport: React.FC = () => {
                   fullWidth
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <FormControl size="small" fullWidth>
                   <InputLabel>Filter by Category</InputLabel>
                   <Select
@@ -1335,7 +1349,7 @@ const ProductCostReport: React.FC = () => {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }
 
 export default ProductCostReport

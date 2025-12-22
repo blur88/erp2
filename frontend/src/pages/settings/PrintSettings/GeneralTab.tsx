@@ -273,7 +273,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
 
         {/* Company Info Fields */}
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Controller
               name="companyName"
               control={control}
@@ -289,7 +289,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Controller
               name="address"
               control={control}
@@ -307,7 +307,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="city"
               control={control}
@@ -323,7 +327,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="state"
               control={control}
@@ -339,7 +347,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="postalCode"
               control={control}
@@ -355,7 +367,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="country"
               control={control}
@@ -371,7 +387,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="phone"
               control={control}
@@ -387,7 +407,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="email"
               control={control}
@@ -403,7 +427,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Controller
               name="website"
               control={control}
@@ -419,7 +443,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Controller
               name="miscInfo"
               control={control}
@@ -438,7 +462,6 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
           </Grid>
         </Grid>
       </Paper>
-
       {/* Document Footers Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -451,7 +474,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
           Sales Documents
         </Typography>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="salesPerPageFooter"
               control={control}
@@ -467,7 +494,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
               )}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="salesEndOfDocFooter"
               control={control}
@@ -490,7 +521,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
           Purchasing Documents
         </Typography>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="purchasingPerPageFooter"
               control={control}
@@ -506,7 +541,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
               )}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="purchasingEndOfDocFooter"
               control={control}
@@ -529,7 +568,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
           Inventory Documents
         </Typography>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="inventoryPerPageFooter"
               control={control}
@@ -545,7 +588,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
               )}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="inventoryEndOfDocFooter"
               control={control}
@@ -568,7 +615,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
           Report Documents
         </Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="reportPerPageFooter"
               control={control}
@@ -584,7 +635,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
               )}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 6
+            }}>
             <Controller
               name="reportEndOfDocFooter"
               control={control}
@@ -602,7 +657,6 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
           </Grid>
         </Grid>
       </Paper>
-
       {/* Submit Button */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
         <Button
@@ -616,7 +670,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
         </Button>
       </Box>
     </Box>
-  )
+  );
 }
 
 export default GeneralTab

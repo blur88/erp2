@@ -202,10 +202,10 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
 
         {/* Customer Details */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={6}>
+          <Grid size={6}>
             {/* Empty space for alignment */}
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={6}>
             <Box sx={{ border: '1px solid #000000', p: 2, borderRadius: 1 }}>
               <Typography variant="body2" sx={{ color: '#000000', fontWeight: 600, mb: 0.5 }}>
                 ABC Trading Sdn Bhd
@@ -267,7 +267,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
         {/* Totals */}
         {isGRN ? (
           // GRN: Show only total quantity
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+          (<Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
             <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
@@ -278,10 +278,10 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 </Typography>
               </Box>
             </Box>
-          </Box>
+          </Box>)
         ) : (
           // Other templates: Show standard totals
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+          (<Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
             <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" sx={{ color: '#000000' }}>Subtotal:</Typography>
@@ -318,7 +318,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                 </>
               )}
             </Box>
-          </Box>
+          </Box>)
         )}
 
         {/* Notes */}
@@ -354,7 +354,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
         )}
       </Paper>
     </Box>
-  )
+  );
 }
 
 export default TemplatePreview

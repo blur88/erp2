@@ -873,7 +873,6 @@ const PurchaseOrdersPage: React.FC = () => {
           Debug: PurchaseOrdersPage loaded | Orders: {purchaseOrders.length} | Loading: {loading} | Error: {error || 'None'}
         </Alert>
       )}
-
       {/* Header */}
       <Box sx={{
         display: 'flex',
@@ -935,7 +934,6 @@ const PurchaseOrdersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -1097,18 +1095,20 @@ const PurchaseOrdersPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout */}
       <Grid container spacing={3}>
         {/* Left Side - Order List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -1153,7 +1153,11 @@ const PurchaseOrdersPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - Order Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedOrder ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1208,7 +1212,12 @@ const PurchaseOrdersPage: React.FC = () => {
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 <Grid container spacing={3}>
                   {/* Left Column - PO Information */}
-                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
+                  <Grid
+                    sx={{ pb: '0 !important' }}
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1340,7 +1349,12 @@ const PurchaseOrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - PO Summary */}
-                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
+                  <Grid
+                    sx={{ pb: '0 !important' }}
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1572,7 +1586,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Order Items Section */}
-                  <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                  <Grid sx={{ pt: '0 !important' }} size={12}>
                     {/* Page Break */}
                     <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
 
@@ -1665,7 +1679,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
                   {/* Notes Section */}
                   {selectedOrder.notes && (
-                    <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                    <Grid sx={{ pt: '0 !important' }} size={12}>
                       {/* Page Break */}
                       <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
 
@@ -1705,7 +1719,6 @@ const PurchaseOrdersPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -1719,13 +1732,11 @@ const PurchaseOrdersPage: React.FC = () => {
         confirmText="Delete"
         severity="error"
       />
-
       {/* Deleted Purchase Orders Dialog */}
       <DeletedPurchaseOrdersDialog
         open={deletedOrdersDialogOpen}
         onClose={() => setDeletedOrdersDialogOpen(false)}
       />
-
       {/* Blocked Purchase Order Dialog */}
       {selectedOrder && (
         <BlockedPurchaseOrderDialog
@@ -1748,7 +1759,6 @@ const PurchaseOrdersPage: React.FC = () => {
           loading={isLoading}
         />
       )}
-
       {/* Print Dialog */}
       {selectedOrder && (
         <PurchaseOrderPrint
@@ -1758,7 +1768,7 @@ const PurchaseOrdersPage: React.FC = () => {
         />
       )}
     </Box>
-  )
+  );
 }
 
 export default PurchaseOrdersPage

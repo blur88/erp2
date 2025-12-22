@@ -1173,7 +1173,6 @@ const OrdersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -1465,18 +1464,20 @@ const OrdersPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout: Order List and SO Details */}
       <Grid container spacing={3}>
         {/* Left Side - Order List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1517,13 +1518,13 @@ const OrdersPage: React.FC = () => {
                   <TableBody>
                     {loading && orders.length === 0 ? (
                       // Show skeleton rows when loading with no existing orders
-                      [...Array(10)].map((_, i) => (
+                      ([...Array(10)].map((_, i) => (
                         <TableRow key={`skeleton-${i}`}>
                           <TableCell>
                             <Skeleton height={40} />
                           </TableCell>
                         </TableRow>
-                      ))
+                      )))
                     ) : (
                       orders.map((order: any, index: number) => (
                         <OrderRow
@@ -1544,7 +1545,11 @@ const OrdersPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - SO Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedOrder ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Order Info and Actions */}
@@ -1633,7 +1638,11 @@ const OrdersPage: React.FC = () => {
               <Box>
                 <Grid container spacing={3}>
                   {/* Left Column - SO Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1799,7 +1808,11 @@ const OrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Payment & Fulfillment */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     {/* Payment and Fulfillment Section */}
                     <TableContainer>
                       <Table
@@ -2197,8 +2210,6 @@ const OrdersPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
-
       {/* SO Details Dialog */}
       <Dialog
         open={viewDialog}
@@ -2214,7 +2225,11 @@ const OrdersPage: React.FC = () => {
         <DialogContent>
           {selectedOrder && (
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>SO Information</Typography>
@@ -2246,7 +2261,11 @@ const OrdersPage: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Customer Information</Typography>
@@ -2267,7 +2286,7 @@ const OrdersPage: React.FC = () => {
               </Grid>
               
               {/* SO Items */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>SO Items</Typography>
@@ -2391,7 +2410,7 @@ const OrdersPage: React.FC = () => {
               </Grid>
 
               {/* Order Summary */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Order Summary</Typography>
@@ -2409,7 +2428,6 @@ const OrdersPage: React.FC = () => {
           <Button onClick={() => setViewDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-
       {/* Blocked Sales Order Dialog */}
       {selectedOrder && (
         <BlockedSalesOrderDialog
@@ -2429,13 +2447,11 @@ const OrdersPage: React.FC = () => {
           loading={isLoading}
         />
       )}
-
       {/* Deleted Orders Dialog */}
       <DeletedOrdersDialog
         open={deletedOrdersDialogOpen}
         onClose={() => setDeletedOrdersDialogOpen(false)}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -2447,7 +2463,6 @@ const OrdersPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="warning"
       />
-
       {/* Print Dialog */}
       {selectedOrder && (
         <SalesOrderPrint
@@ -2457,7 +2472,7 @@ const OrdersPage: React.FC = () => {
         />
       )}
     </Box>
-  )
+  );
 }
 
 export default OrdersPage

@@ -405,7 +405,6 @@ const SuppliersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -489,14 +488,12 @@ const SuppliersPage: React.FC = () => {
           </Select>
         </FormControl>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(clearError())}>
           {error}
         </Alert>
       )}
-
       {/* Supplier Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -759,7 +756,6 @@ const SuppliersPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-
       {/* Supplier Form Dialog */}
       <Dialog
         open={isFormOpen}
@@ -774,13 +770,13 @@ const SuppliersPage: React.FC = () => {
         <form onSubmit={handleSubmit(handleFormSubmit)}>
           <DialogContent dividers>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="h6" gutterBottom>
                   Basic Information
                 </Typography>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="type"
                   control={control}
@@ -796,7 +792,7 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="companyName"
                   control={control}
@@ -817,7 +813,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="contactPerson"
                   control={control}
@@ -834,7 +834,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="phone"
                   control={control}
@@ -852,13 +856,13 @@ const SuppliersPage: React.FC = () => {
               </Grid>
 
               {/* Address Information */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                   Address Information
                 </Typography>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="streetAddress"
                   control={control}
@@ -875,7 +879,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="city"
                   control={control}
@@ -892,7 +900,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="state"
                   control={control}
@@ -909,7 +921,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="postalCode"
                   control={control}
@@ -926,7 +942,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="country"
                   control={control}
@@ -944,7 +964,7 @@ const SuppliersPage: React.FC = () => {
               </Grid>
 
               {/* Notes */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="notes"
                   control={control}
@@ -978,7 +998,6 @@ const SuppliersPage: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
-
       {/* Supplier Details Dialog */}
       <Dialog
         open={isViewOpen}
@@ -990,7 +1009,7 @@ const SuppliersPage: React.FC = () => {
         <DialogContent dividers>
           {selectedSupplier && (
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
                     {selectedSupplier.companyName}
@@ -998,7 +1017,11 @@ const SuppliersPage: React.FC = () => {
                 </Box>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Contact Information</Typography>
                 <Stack spacing={1}>
                   {selectedSupplier.contactPerson && (
@@ -1016,7 +1039,11 @@ const SuppliersPage: React.FC = () => {
                 </Stack>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Address</Typography>
                 <Stack spacing={1}>
                   {((selectedSupplier as any).streetAddress || (selectedSupplier as any).city || (selectedSupplier as any).state || (selectedSupplier as any).postalCode || (selectedSupplier as any).country) ? (
@@ -1044,7 +1071,11 @@ const SuppliersPage: React.FC = () => {
                 </Stack>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Purchase Statistics</Typography>
                 <Stack spacing={1}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1071,7 +1102,7 @@ const SuppliersPage: React.FC = () => {
               </Grid>
 
               {selectedSupplier.notes && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="h6" gutterBottom>Notes</Typography>
                   <Typography>{selectedSupplier.notes}</Typography>
                 </Grid>
@@ -1095,7 +1126,6 @@ const SuppliersPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={isDeleteConfirmOpen}
@@ -1108,14 +1138,13 @@ const SuppliersPage: React.FC = () => {
         severity="warning"
         loading={loading}
       />
-
       {/* Deleted Suppliers Dialog */}
       <DeletedSuppliersDialog
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
       />
     </Box>
-  )
+  );
 }
 
 export default SuppliersPage

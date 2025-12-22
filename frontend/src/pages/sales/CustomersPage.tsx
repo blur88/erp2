@@ -458,7 +458,6 @@ const CustomersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -605,14 +604,12 @@ const CustomersPage: React.FC = () => {
           </Select>
         </FormControl>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(clearError())}>
           {error}
         </Alert>
       )}
-
       {/* Customer Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -911,8 +908,6 @@ const CustomersPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-
-
       {/* Customer Form Dialog */}
       <Dialog 
         open={isFormOpen} 
@@ -928,13 +923,17 @@ const CustomersPage: React.FC = () => {
           <DialogContent dividers>
             <Grid container spacing={2}>
               {/* Basic Information */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="h6" gutterBottom>
                   Basic Information
                 </Typography>
               </Grid>
               
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="type"
                   control={control}
@@ -950,7 +949,11 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="pricingScheme"
                   control={control}
@@ -974,7 +977,7 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="name"
                   control={control}
@@ -990,7 +993,11 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="phone"
                   control={control}
@@ -1020,13 +1027,13 @@ const CustomersPage: React.FC = () => {
               </Grid>
 
               {/* Address Information */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                   Address Information
                 </Typography>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="streetAddress"
                   control={control}
@@ -1043,7 +1050,11 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="city"
                   control={control}
@@ -1060,7 +1071,11 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="state"
                   control={control}
@@ -1077,7 +1092,11 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="postalCode"
                   control={control}
@@ -1094,7 +1113,11 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="country"
                   control={control}
@@ -1112,7 +1135,7 @@ const CustomersPage: React.FC = () => {
               </Grid>
 
               {/* Notes */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="notes"
                   control={control}
@@ -1142,7 +1165,6 @@ const CustomersPage: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
-
       {/* Customer Details Dialog */}
       <Dialog
         open={isViewOpen}
@@ -1154,7 +1176,7 @@ const CustomersPage: React.FC = () => {
         <DialogContent dividers>
           {selectedCustomer && (
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
                     {selectedCustomer.name}
@@ -1163,7 +1185,11 @@ const CustomersPage: React.FC = () => {
                 </Box>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Contact Information</Typography>
                 <Stack spacing={1}>
                   {selectedCustomer.phone && (
@@ -1175,7 +1201,11 @@ const CustomersPage: React.FC = () => {
                 </Stack>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Address</Typography>
                 <Stack spacing={1}>
                   {((selectedCustomer as any).streetAddress || (selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode || (selectedCustomer as any).country) ? (
@@ -1203,7 +1233,11 @@ const CustomersPage: React.FC = () => {
                 </Stack>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Sales Statistics</Typography>
                 <Stack spacing={1}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1230,7 +1264,7 @@ const CustomersPage: React.FC = () => {
               </Grid>
 
               {selectedCustomer.notes && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="h6" gutterBottom>Notes</Typography>
                   <Typography>{selectedCustomer.notes}</Typography>
                 </Grid>
@@ -1254,7 +1288,6 @@ const CustomersPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={isDeleteConfirmOpen}
@@ -1267,14 +1300,13 @@ const CustomersPage: React.FC = () => {
         severity="warning"
         loading={loading}
       />
-
       {/* Deleted Customers Dialog */}
       <DeletedCustomersDialog
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
       />
     </Box>
-  )
+  );
 }
 
 export default CustomersPage

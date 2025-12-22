@@ -146,9 +146,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{ 
+          ModalProps={{
             keepMounted: false,
-            onBackdropClick: handleDrawerToggle,
           }}
           sx={{
             display: { xs: 'block', lg: 'none' },

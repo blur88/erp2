@@ -3,6 +3,7 @@ import {
   Popover,
   Box,
   Typography,
+  ListItemButton,
   List,
   ListItem,
   ListItemText,
@@ -175,8 +176,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
           <List sx={{ p: 0 }}>
             {recentNotifications.map((notification, index) => (
               <React.Fragment key={notification.id}>
-                <ListItem
-                  button
+                <ListItemButton
                   onClick={() => handleNotificationClick(notification)}
                   sx={{
                     py: 2,
@@ -252,8 +252,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Box>
-                </ListItem>
-                
+                </ListItemButton>
+
                 {index < recentNotifications.length - 1 && <Divider />}
               </React.Fragment>
             ))}

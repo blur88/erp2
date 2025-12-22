@@ -87,7 +87,6 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
           </Box>
         </Box>
       </DialogTitle>
-
       <DialogContent>
         <Stack spacing={3}>
           {/* Warning message */}
@@ -151,7 +150,6 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
           </Box>
         </Stack>
       </DialogContent>
-
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button
           onClick={onClose}
@@ -164,7 +162,7 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
         {/* Show appropriate action buttons based on status */}
         {blockingReasons.length === 2 ? (
           // Both received and paid - unpay & return together
-          <>
+          (<>
             <Button
               onClick={onUnpayOnly}
               variant="outlined"
@@ -183,10 +181,10 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
             >
               Unpay, Return & {actionVerbCap}
             </Button>
-          </>
+          </>)
         ) : isReceived ? (
           // Only received
-          <>
+          (<>
             <Button
               onClick={onReturnOnly}
               variant="outlined"
@@ -205,10 +203,10 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
             >
               Return & {actionVerbCap}
             </Button>
-          </>
+          </>)
         ) : (
           // Only paid
-          <>
+          (<>
             <Button
               onClick={onUnpayOnly}
               variant="outlined"
@@ -227,11 +225,11 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
             >
               Unpay & {actionVerbCap}
             </Button>
-          </>
+          </>)
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }
 
 export default BlockedPurchaseOrderDialog

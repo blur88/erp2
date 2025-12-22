@@ -21,11 +21,10 @@ interface ProductDetailsTabProps {
 
 const getStockStatus = (product: Product) => {
   const stock = product.stockQuantity || 0
-  const reorderLevel = product.reorderLevel || 0
 
   if (stock <= 0) {
     return { label: 'Out of Stock', color: 'error' as const }
-  } else if (stock <= reorderLevel) {
+  } else if (stock <= 10) {
     return { label: 'Low Stock', color: 'warning' as const }
   } else {
     return { label: 'In Stock', color: 'success' as const }
@@ -68,7 +67,11 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
     <Box>
       <Grid container spacing={3}>
         {/* Left Column - Basic Information */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -149,7 +152,11 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
         </Grid>
 
         {/* Right Column - Pricing Information */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -227,17 +234,19 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
           </TableContainer>
         </Grid>
       </Grid>
-
       {/* Page Break - Full Width */}
       <Box sx={{
         borderTop: '2px solid',
         borderColor: 'divider',
         my: TABLE_STYLES.cell.padding.py * 2
       }} />
-
       <Grid container spacing={3}>
         {/* Left Column - Notes */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -302,7 +311,11 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
         </Grid>
 
         {/* Right Column - Stock Information */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -363,7 +376,7 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }
 
 export default ProductDetailsTab

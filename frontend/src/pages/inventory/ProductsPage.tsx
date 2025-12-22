@@ -493,7 +493,6 @@ const ProductsPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -683,7 +682,6 @@ const ProductsPage: React.FC = () => {
           {calculatorPanelOpen ? "Close Calculator" : "Calculator"}
         </Button>
       </Box>
-
       {/* Split Layout: Active Products and Product Details */}
       <Box
         sx={{
@@ -693,7 +691,11 @@ const ProductsPage: React.FC = () => {
       >
         <Grid container spacing={3}>
           {/* Left Side - Active Products List */}
-          <Grid item xs={12} md={3}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 3
+            }}>
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -806,7 +808,11 @@ const ProductsPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - Product Details View with Tabs */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             {!selectedProductForDetails ? (
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -912,7 +918,6 @@ const ProductsPage: React.FC = () => {
         </Grid>
       </Grid>
       </Box>
-
       {/* Export Menu */}
       <Menu
         anchorEl={exportMenuAnchor}
@@ -986,20 +991,16 @@ const ProductsPage: React.FC = () => {
           </Box>
         )}
       </Menu>
-
-
       {/* Sliding Calculator Panel */}
       <SlidingCalculatorPanel
         isOpen={calculatorPanelOpen}
         onClose={() => setCalculatorPanelOpen(false)}
       />
-
       {/* Deleted Products Dialog */}
       <DeletedProductsDialog
         open={deletedProductsDialogOpen}
         onClose={() => setDeletedProductsDialogOpen(false)}
       />
-
       {/* Product Import Dialog */}
       <ProductImportDialog
         open={importDialogOpen}
@@ -1014,7 +1015,6 @@ const ProductsPage: React.FC = () => {
           dispatch(fetchCategories({ includeProductCount: true }))
         }}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -1027,7 +1027,7 @@ const ProductsPage: React.FC = () => {
         severity="warning"
       />
     </Box>
-  )
+  );
 }
 
 export default ProductsPage

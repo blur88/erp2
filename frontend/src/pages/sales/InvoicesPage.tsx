@@ -574,7 +574,6 @@ const InvoicesPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -744,18 +743,20 @@ const InvoicesPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout: Invoice List and Invoice Details */}
       <Grid container spacing={3}>
         {/* Left Side - Invoice List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -818,7 +819,11 @@ const InvoicesPage: React.FC = () => {
         </Grid>
 
         {/* Right Side - Invoice Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedInvoice ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Invoice Info and Actions */}
@@ -901,7 +906,11 @@ const InvoicesPage: React.FC = () => {
                 {/* Invoice Details Section */}
                 <Grid container spacing={3}>
                   {/* Left Column - Invoice Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -1007,7 +1016,11 @@ const InvoicesPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Payment Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -1190,7 +1203,6 @@ const InvoicesPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Placeholder Dialogs */}
       <Dialog open={createDialog} onClose={() => setCreateDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Create New Invoice</DialogTitle>
@@ -1202,7 +1214,6 @@ const InvoicesPage: React.FC = () => {
           <Button variant="contained">Create</Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Edit Invoice</DialogTitle>
         <DialogContent>
@@ -1213,13 +1224,11 @@ const InvoicesPage: React.FC = () => {
           <Button variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>
-
       {/* Deleted Invoices Dialog */}
       <DeletedInvoicesDialog
         open={deletedInvoicesDialogOpen}
         onClose={() => setDeletedInvoicesDialogOpen(false)}
       />
-
       {/* Print Dialog */}
       {selectedInvoice && (
         <InvoicePrint
@@ -1229,7 +1238,7 @@ const InvoicesPage: React.FC = () => {
         />
       )}
     </Box>
-  )
+  );
 }
 
 export default InvoicesPage

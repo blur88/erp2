@@ -11,6 +11,7 @@ import {
   Alert,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   ListItemIcon,
   Collapse
@@ -128,8 +129,7 @@ const CategoryTreeView: React.FC<CategoryTreeViewProps> = ({
 
     return (
       <Box key={category.id}>
-        <ListItem
-          button
+        <ListItemButton
           onClick={() => handleSelect(category)}
           sx={{
             pl: level * 2 + 1,
@@ -229,7 +229,7 @@ const CategoryTreeView: React.FC<CategoryTreeViewProps> = ({
               <MoreVert fontSize="small" />
             </IconButton>
           )}
-        </ListItem>
+        </ListItemButton>
 
         {/* Children */}
         {hasChildren && (

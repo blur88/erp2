@@ -192,10 +192,10 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
 
         {/* Recipient Details */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={6}>
+          <Grid size={6}>
             {/* Empty space for alignment */}
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={6}>
             <Box sx={{ border: '1px solid #000000', p: 2, borderRadius: 1 }}>
               <Typography variant="body2" sx={{ color: '#000000', fontWeight: 600, mb: 0.5 }}>
                 {recipient.name}
@@ -386,7 +386,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         )}
       </Paper>
     </Box>
-  )
+  );
 }
 
 export default BasePrintTemplate

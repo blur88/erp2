@@ -423,7 +423,6 @@ const CategoriesPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -468,7 +467,6 @@ const CategoriesPage: React.FC = () => {
           }}
         />
       </Box>
-
       {/* Categories Content */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {loading?.categories ? (
@@ -670,7 +668,6 @@ const CategoriesPage: React.FC = () => {
           </TableContainer>
         )}
       </Paper>
-
       {/* Category Form Dialog */}
       <Dialog
         open={dialogOpen}
@@ -689,7 +686,7 @@ const CategoriesPage: React.FC = () => {
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogContent>
             <Grid container spacing={3} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="name"
                   control={control}
@@ -711,7 +708,7 @@ const CategoriesPage: React.FC = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="parentId"
                   control={control}
@@ -743,7 +740,6 @@ const CategoriesPage: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
-
       {/* Deleted Categories Dialog */}
       <DeletedCategoriesDialog
         open={deletedCategoriesDialogOpen}
@@ -753,7 +749,6 @@ const CategoriesPage: React.FC = () => {
           search: categoryFilters.search || undefined
         }))}
       />
-
       {/* Smart Delete Dialog */}
       <SmartCategoryDeleteDialog
         open={smartDeleteOpen}
@@ -762,7 +757,6 @@ const CategoriesPage: React.FC = () => {
         onClose={handleSmartDeleteClose}
         onConfirm={handleSmartDelete}
       />
-
       {/* Fallback Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -775,7 +769,7 @@ const CategoriesPage: React.FC = () => {
         severity="warning"
       />
     </Box>
-  )
+  );
 }
 
 export default CategoriesPage

@@ -96,7 +96,13 @@ const TemplatesTab: React.FC<TemplatesTabProps> = ({ settings, onUpdate }) => {
 
         <Grid container spacing={3}>
           {templates.map((template) => (
-            <Grid item xs={12} sm={6} md={4} key={template.id}>
+            <Grid
+              key={template.id}
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 4
+              }}>
               <Card
                 sx={{
                   height: '100%',
@@ -140,7 +146,6 @@ const TemplatesTab: React.FC<TemplatesTabProps> = ({ settings, onUpdate }) => {
           </Typography>
         </Box>
       </Paper>
-
       {/* Preview Dialog */}
       <Dialog
         open={previewOpen}
@@ -164,7 +169,7 @@ const TemplatesTab: React.FC<TemplatesTabProps> = ({ settings, onUpdate }) => {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }
 
 export default TemplatesTab

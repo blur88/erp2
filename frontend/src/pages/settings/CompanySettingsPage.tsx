@@ -210,19 +210,17 @@ const CompanySettingsPage: React.FC = () => {
           Company Settings
         </Typography>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
             {/* Logo Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Company Logo
               </Typography>
@@ -297,19 +295,19 @@ const CompanySettingsPage: React.FC = () => {
               </Box>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }} />
             </Grid>
 
             {/* Company Information Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Company Information
               </Typography>
             </Grid>
 
             {/* Company Name */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="name"
                 control={control}
@@ -327,19 +325,19 @@ const CompanySettingsPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }} />
             </Grid>
 
             {/* Address Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Address
               </Typography>
             </Grid>
 
             {/* Street Address */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="address"
                 control={control}
@@ -360,7 +358,11 @@ const CompanySettingsPage: React.FC = () => {
             </Grid>
 
             {/* City */}
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="city"
                 control={control}
@@ -379,7 +381,11 @@ const CompanySettingsPage: React.FC = () => {
             </Grid>
 
             {/* State */}
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="state"
                 control={control}
@@ -397,7 +403,11 @@ const CompanySettingsPage: React.FC = () => {
             </Grid>
 
             {/* Postal Code */}
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="postalCode"
                 control={control}
@@ -415,7 +425,11 @@ const CompanySettingsPage: React.FC = () => {
             </Grid>
 
             {/* Country */}
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="country"
                 control={control}
@@ -433,19 +447,23 @@ const CompanySettingsPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }} />
             </Grid>
 
             {/* Contact Information Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Contact Information
               </Typography>
             </Grid>
 
             {/* Phone */}
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="phone"
                 control={control}
@@ -463,7 +481,11 @@ const CompanySettingsPage: React.FC = () => {
             </Grid>
 
             {/* Email */}
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="email"
                 control={control}
@@ -482,7 +504,7 @@ const CompanySettingsPage: React.FC = () => {
             </Grid>
 
             {/* Website */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="website"
                 control={control}
@@ -499,19 +521,19 @@ const CompanySettingsPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }} />
             </Grid>
 
             {/* Additional Information Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Additional Information
               </Typography>
             </Grid>
 
             {/* Misc Info */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Controller
                 name="miscInfo"
                 control={control}
@@ -531,7 +553,7 @@ const CompanySettingsPage: React.FC = () => {
             </Grid>
 
             {/* Action Buttons */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
                 <Button
                   variant="outlined"
@@ -556,7 +578,7 @@ const CompanySettingsPage: React.FC = () => {
         </form>
       </Paper>
     </Box>
-  )
+  );
 }
 
 export default CompanySettingsPage

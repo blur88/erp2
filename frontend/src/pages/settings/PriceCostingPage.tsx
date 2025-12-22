@@ -188,14 +188,15 @@ const PriceCostingPage: React.FC = () => {
       const result = await inventoryApi.recalculateAllProductCosts()
 
       // ApiService returns response.data directly, so result is the data itself
-      if (result.errors > 0) {
+      const data = result as any
+      if (data.errors > 0) {
         showError(
-          `Recalculation completed with errors: ${result.updated} updated, ${result.errors} errors. Check console for details.`
+          `Recalculation completed with errors: ${data.updated} updated, ${data.errors} errors. Check console for details.`
         )
-        console.error('Recalculation errors:', result.results.filter((r: any) => !r.success))
+        console.error('Recalculation errors:', data.results.filter((r: any) => !r.success))
       } else {
         showSuccess(
-          `Successfully recalculated ${result.updated} product(s) using ${result.costingMethod} method`
+          `Successfully recalculated ${data.updated} product(s) using ${data.costingMethod} method`
         )
       }
 
@@ -227,25 +228,27 @@ const PriceCostingPage: React.FC = () => {
           Price & Costing Settings
         </Typography>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
             {/* Currency Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Currency
               </Typography>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="currency"
                 control={control}
@@ -269,18 +272,22 @@ const PriceCostingPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }} />
             </Grid>
 
             {/* Costing Method Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Costing Method
               </Typography>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Controller
                 name="costingMethod"
                 control={control}
@@ -304,12 +311,12 @@ const PriceCostingPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Divider sx={{ my: 2 }} />
             </Grid>
 
             {/* Customer Pricing Schemes Section */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -331,14 +338,18 @@ const PriceCostingPage: React.FC = () => {
             </Grid>
 
             {/* Pricing Schemes List */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Grid container spacing={2}>
                 {fields.map((field, index) => (
-                  <Grid item xs={12} key={field.id}>
+                  <Grid key={field.id} size={12}>
                     <Card variant="outlined">
                       <CardContent>
                         <Grid container spacing={2} alignItems="center">
-                          <Grid item xs={12} md={5}>
+                          <Grid
+                            size={{
+                              xs: 12,
+                              md: 5
+                            }}>
                             <Controller
                               name={`customerPricingSchemes.${index}.name`}
                               control={control}
@@ -355,7 +366,11 @@ const PriceCostingPage: React.FC = () => {
                               )}
                             />
                           </Grid>
-                          <Grid item xs={12} md={5}>
+                          <Grid
+                            size={{
+                              xs: 12,
+                              md: 5
+                            }}>
                             <Controller
                               name={`customerPricingSchemes.${index}.currency`}
                               control={control}
@@ -378,7 +393,12 @@ const PriceCostingPage: React.FC = () => {
                               )}
                             />
                           </Grid>
-                          <Grid item xs={12} md={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <Grid
+                            sx={{ display: 'flex', justifyContent: 'flex-end' }}
+                            size={{
+                              xs: 12,
+                              md: 2
+                            }}>
                             <IconButton
                               onClick={() => handleRemovePricingScheme(index)}
                               color="error"
@@ -396,7 +416,7 @@ const PriceCostingPage: React.FC = () => {
             </Grid>
 
             {/* Action Buttons */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mt: 2 }}>
                 {/* Recalculate Button - Left Side */}
                 <Box>
@@ -445,7 +465,7 @@ const PriceCostingPage: React.FC = () => {
         </form>
       </Paper>
     </Box>
-  )
+  );
 }
 
 export default PriceCostingPage
