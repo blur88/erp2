@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Comprehensive ERP system with modern full-stack architecture:
 - **Backend**: NestJS 11 + TypeORM (PostgreSQL) + MongoDB + Redis 8 + Bull Queue
-- **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit + Vite
+- **Frontend**: React 18.3.1 + TypeScript + Material-UI v7 + Redux Toolkit + Vite
 - **Infrastructure**: Docker + NGINX + Node.js 24
 - **Testing**: Jest (backend) + Vitest (frontend)
 
@@ -146,7 +146,7 @@ docker compose logs backend # Check specific service logs
 
 ### Frontend Architecture
 - **State**: Redux Toolkit with persistence
-- **UI**: Material-UI v5, React Router
+- **UI**: Material-UI v7, React Router v6
 - **Build**: Vite with TypeScript and path aliases
 - **Real-time**: Socket.IO WebSocket integration
 - **Environment**: Runtime `window.__ENV__` configuration
@@ -256,7 +256,14 @@ When enabling disabled modules:
 - **Data Export**: ExcelJS for Excel exports, jsPDF for PDF generation
 - **Report Removed**: Count Sheet Report and Inventory Details Report removed from navigation
 
-### Recent Updates (October-November 2025)
+### Recent Updates (October-December 2025)
+
+### 🎨 Material-UI v7 Upgrade (December 2025)
+- ✅ **COMPLETE**: Upgraded Material-UI from v5 to v7.3.6
+- **Breaking Changes**: Updated component APIs and theme structure
+- **React Compatibility**: Requires React 18.3.1 (upgraded simultaneously)
+- **Benefits**: Enhanced performance, improved TypeScript support, new component features
+- **Migration**: All existing components tested and working with new MUI v7 API
 
 ### 🚀 Redis 8.4 Upgrade (December 2025)
 - ✅ **COMPLETE**: Upgraded Redis from 8.2.2 to 8.4.0-alpine3.22
@@ -324,7 +331,7 @@ When enabling disabled modules:
 
 ### 🏗️ Platform Upgrades (September-October 2025)
 - ✅ **NestJS v11 Upgrade**: Complete upgrade to NestJS 11 with all dependencies
-- ✅ **Node.js 24**: Updated Docker base images to Node.js 24 LTS for better performance
+- ✅ **Node.js 24**: Updated Docker base images to Node.js 24 Alpine for better performance
 - ✅ **Frontend Dependencies**: Comprehensive updates to all Alpine packages and OpenSSL
 - ✅ **Container Health**: Added curl to frontend nginx container for health checks
 - ✅ **Security Enhancements**: Payment numbers now clickable in invoice details
