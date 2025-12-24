@@ -25,6 +25,7 @@ import {
 } from '../dto/stock-adjustment.dto';
 import { StockMovementService } from './stock-movement.service';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class StockAdjustmentService {
@@ -42,27 +43,39 @@ export class StockAdjustmentService {
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
     private readonly dataSource: DataSource,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
    * Generate SA reference number for stock adjustments
    */
   private async generateSANumber(): Promise<string> {
-    const result = await this.stockAdjustmentRepository
-      .createQueryBuilder('adjustment')
-      .select('adjustment.adjustmentNumber', 'adjustmentNumber')
-      .where('adjustment.adjustmentNumber LIKE :pattern', { pattern: 'SA-%' })
-      .orderBy('adjustment.adjustmentNumber', 'DESC')
-      .limit(1)
-      .getRawOne();
+    // Use document number settings to generate SA number
+    try {
+      const saNumber = await this.settingsService.generateDocumentNumber('Stock Adjustment');
+      this.logger.log(`Generated stock adjustment number: ${saNumber}`);
+      return saNumber;
+    } catch (error) {
+      this.logger.error(`Error generating SA number: ${error.message}`);
+      // Fallback to legacy method
+      const result = await this.stockAdjustmentRepository
+        .createQueryBuilder('adjustment')
+        .select('adjustment.adjustmentNumber', 'adjustmentNumber')
+        .where('adjustment.adjustmentNumber LIKE :pattern', { pattern: 'SA-%' })
+        .orderBy('adjustment.adjustmentNumber', 'DESC')
+        .limit(1)
+        .getRawOne();
 
-    let nextNumber = 1;
-    if (result?.adjustmentNumber) {
-      const currentNumber = parseInt(result.adjustmentNumber.replace('SA-', ''), 10);
-      nextNumber = currentNumber + 1;
+      let nextNumber = 1;
+      if (result?.adjustmentNumber) {
+        const currentNumber = parseInt(result.adjustmentNumber.replace('SA-', ''), 10);
+        nextNumber = currentNumber + 1;
+      }
+
+      const fallbackNumber = `SA-${String(nextNumber).padStart(6, '0')}`;
+      this.logger.log(`Fallback stock adjustment number: ${fallbackNumber}`);
+      return fallbackNumber;
     }
-
-    return `SA-${String(nextNumber).padStart(6, '0')}`;
   }
 
   /**

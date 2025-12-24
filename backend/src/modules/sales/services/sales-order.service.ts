@@ -25,6 +25,7 @@ import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class SalesOrderService {
@@ -47,56 +48,71 @@ export class SalesOrderService {
     private readonly inventoryIntegrationService: InventoryIntegrationService,
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
-    // Use a query builder to get the latest order number (including soft-deleted orders)
-    const lastOrder = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .withDeleted() // IMPORTANT: Include soft-deleted records to avoid number reuse
-      .select('order.orderNumber')
-      .where('order.orderNumber LIKE :prefix', { prefix: 'SO-%' })
-      .orderBy('order.orderNumber', 'DESC')
-      .limit(1)
-      .getOne();
+    // Use document number settings to generate order number
+    try {
+      const orderNumber = await this.settingsService.generateDocumentNumber('Sales Orders');
+      console.log('[generateSequentialOrderNumber] Generated order number:', orderNumber);
+      return orderNumber;
+    } catch (error) {
+      console.error('[generateSequentialOrderNumber] Error generating order number:', error.message);
+      // Fallback to legacy method if settings service fails
+      const lastOrder = await this.salesOrderRepository
+        .createQueryBuilder('order')
+        .withDeleted()
+        .select('order.orderNumber')
+        .where('order.orderNumber LIKE :prefix', { prefix: 'SO-%' })
+        .orderBy('order.orderNumber', 'DESC')
+        .limit(1)
+        .getOne();
 
-    let nextNumber = 1;
-    if (lastOrder) {
-      console.log('[generateSequentialOrderNumber] Last order found:', lastOrder.orderNumber);
-      const match = lastOrder.orderNumber.match(/^SO-(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
+      let nextNumber = 1;
+      if (lastOrder) {
+        const match = lastOrder.orderNumber.match(/^SO-(\d+)$/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
       }
-    } else {
-      console.log('[generateSequentialOrderNumber] No existing orders found, starting from 1');
-    }
 
-    const newOrderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
-    console.log('[generateSequentialOrderNumber] Generated new order number:', newOrderNumber);
-    return newOrderNumber;
+      const newOrderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
+      console.log('[generateSequentialOrderNumber] Fallback order number:', newOrderNumber);
+      return newOrderNumber;
+    }
   }
 
   private async generateInvoiceNumber(): Promise<string> {
-    // Use a query builder to get the latest invoice number (including soft-deleted invoices)
-    const lastInvoice = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .withDeleted() // IMPORTANT: Include soft-deleted records to avoid number reuse
-      .select('invoice.invoiceNumber')
-      .where('invoice.invoiceNumber LIKE :prefix', { prefix: 'INV-%' })
-      .orderBy('invoice.invoiceNumber', 'DESC')
-      .limit(1)
-      .getOne();
+    // Use document number settings to generate invoice number
+    try {
+      const invoiceNumber = await this.settingsService.generateDocumentNumber('Invoices');
+      console.log('[generateInvoiceNumber] Generated invoice number:', invoiceNumber);
+      return invoiceNumber;
+    } catch (error) {
+      console.error('[generateInvoiceNumber] Error generating invoice number:', error.message);
+      // Fallback to legacy method
+      const lastInvoice = await this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .withDeleted()
+        .select('invoice.invoiceNumber')
+        .where('invoice.invoiceNumber LIKE :prefix', { prefix: 'INV-%' })
+        .orderBy('invoice.invoiceNumber', 'DESC')
+        .limit(1)
+        .getOne();
 
-    let nextNumber = 1;
-    if (lastInvoice) {
-      const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
+      let nextNumber = 1;
+      if (lastInvoice) {
+        const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
       }
-    }
 
-    // Format with leading zeros (6 digits)
-    return `INV-${nextNumber.toString().padStart(6, '0')}`;
+      const newInvoiceNumber = `INV-${nextNumber.toString().padStart(6, '0')}`;
+      console.log('[generateInvoiceNumber] Fallback invoice number:', newInvoiceNumber);
+      return newInvoiceNumber;
+    }
   }
 
   private async findPreviousOrder(currentOrderNumber: string): Promise<SalesOrderResponseDto | null> {
@@ -1549,17 +1565,23 @@ export class SalesOrderService {
         await paymentRepository.save(existingPayment);
         console.log(`✅ Updated payment ${existingPayment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
       } else {
-        // Generate payment number
-        const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
-        let maxNumber = 0;
-        for (const payment of allPayments) {
-          const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
-          if (match) {
-            const num = parseInt(match[1]);
-            if (num > maxNumber) maxNumber = num;
+        // Generate payment number using document settings
+        let paymentNumber: string;
+        try {
+          paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
+        } catch (error) {
+          // Fallback to legacy method
+          const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
+          let maxNumber = 0;
+          for (const payment of allPayments) {
+            const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
+            if (match) {
+              const num = parseInt(match[1]);
+              if (num > maxNumber) maxNumber = num;
+            }
           }
+          paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
         }
-        const paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
 
         // Create new payment record with sales order details
         const payment = paymentRepository.create({

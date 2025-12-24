@@ -30,6 +30,10 @@ import {
   CompanySettingsResponseDto,
   UpdatePriceCostingSettingsDto,
   PriceCostingSettingsResponseDto,
+  UpdateDocumentNumberSettingsDto,
+  DocumentNumberSettingsResponseDto,
+  GenerateDocumentNumberDto,
+  GenerateDocumentNumberResponseDto,
 } from './dto';
 
 /**
@@ -291,6 +295,110 @@ export class SettingsController {
       return { currency };
     } catch (error) {
       this.logger.error(`Failed to get default currency: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get document number settings
+   */
+  @Get('document-numbers')
+  @ApiOperation({
+    summary: 'Get document number settings',
+    description: 'Retrieve current document number configurations',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Document number settings retrieved successfully',
+    type: DocumentNumberSettingsResponseDto,
+  })
+  async getDocumentNumberSettings(): Promise<DocumentNumberSettingsResponseDto> {
+    try {
+      this.logger.log('Fetching document number settings');
+      return await this.settingsService.getDocumentNumberSettings();
+    } catch (error) {
+      this.logger.error(`Failed to get document number settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Update document number settings
+   */
+  @Put('document-numbers')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update document number settings',
+    description: 'Update document number configurations',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Document number settings updated successfully',
+    type: DocumentNumberSettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async updateDocumentNumberSettings(
+    @Body(ValidationPipe) updateDto: UpdateDocumentNumberSettingsDto,
+  ): Promise<DocumentNumberSettingsResponseDto> {
+    try {
+      this.logger.log('Updating document number settings');
+      return await this.settingsService.updateDocumentNumberSettings(updateDto, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to update document number settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate next document number
+   */
+  @Post('document-numbers/generate')
+  @ApiOperation({
+    summary: 'Generate next document number',
+    description: 'Generate the next document number for a specific document type',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Document number generated successfully',
+    type: GenerateDocumentNumberResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async generateDocumentNumber(
+    @Body(ValidationPipe) dto: GenerateDocumentNumberDto,
+  ): Promise<GenerateDocumentNumberResponseDto> {
+    try {
+      this.logger.log(`Generating document number for ${dto.documentName}`);
+      const documentNumber = await this.settingsService.generateDocumentNumber(dto.documentName);
+      return {
+        documentNumber,
+        documentName: dto.documentName,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to generate document number: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync document number settings with database
+   */
+  @Post('document-numbers/sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Sync document numbers with database',
+    description: 'Synchronize document number settings with existing database records to prevent conflicts',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Document numbers synchronized successfully',
+  })
+  async syncDocumentNumbers(): Promise<{ message: string }> {
+    try {
+      this.logger.log('Syncing document numbers with database');
+      await this.settingsService.syncDocumentNumbersWithDatabase();
+      return { message: 'Document numbers synchronized successfully' };
+    } catch (error) {
+      this.logger.error(`Failed to sync document numbers: ${error.message}`, error.stack);
       throw error;
     }
   }

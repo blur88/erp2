@@ -52,6 +52,24 @@ export interface UpdatePriceCostingSettingsDto {
   customerPricingSchemes?: PricingScheme[]
 }
 
+export interface DocumentNumberConfig {
+  documentName: string
+  prefix: string
+  numberFormat: string
+  nextNumber: number
+}
+
+export interface DocumentNumberSettings {
+  id: string
+  configurations: DocumentNumberConfig[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UpdateDocumentNumberSettingsDto {
+  configurations: DocumentNumberConfig[]
+}
+
 class SettingsApi {
   /**
    * Get company settings
@@ -114,6 +132,20 @@ class SettingsApi {
    */
   async getDefaultCurrency(): Promise<ApiResponse<{ currency: string }>> {
     return ApiService.get<{ currency: string }>('/settings/default-currency')
+  }
+
+  /**
+   * Get document number settings
+   */
+  async getDocumentNumberSettings(): Promise<ApiResponse<DocumentNumberSettings>> {
+    return ApiService.get<DocumentNumberSettings>('/settings/document-numbers')
+  }
+
+  /**
+   * Update document number settings
+   */
+  async updateDocumentNumberSettings(data: UpdateDocumentNumberSettingsDto): Promise<ApiResponse<DocumentNumberSettings>> {
+    return ApiService.put<DocumentNumberSettings>('/settings/document-numbers', data)
   }
 }
 

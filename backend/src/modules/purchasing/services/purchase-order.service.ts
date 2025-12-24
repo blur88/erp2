@@ -25,6 +25,7 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -48,6 +49,7 @@ export class PurchaseOrderService {
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -55,30 +57,35 @@ export class PurchaseOrderService {
    * Checks both active and soft-deleted orders to ensure unique numbering
    */
   private async generateSequentialOrderNumber(): Promise<string> {
-    // Get all existing order numbers that match the sequential format
-    // Include soft-deleted records to avoid number collision
-    const orders = await this.purchaseOrderRepository.find({
-      select: ['orderNumber'],
-      withDeleted: true, // Include soft-deleted records
-    });
+    // Use document number settings to generate order number
+    try {
+      const orderNumber = await this.settingsService.generateDocumentNumber('Purchase Orders');
+      this.logger.log(`Generated purchase order number: ${orderNumber}`);
+      return orderNumber;
+    } catch (error) {
+      this.logger.error(`Error generating order number: ${error.message}`);
+      // Fallback to legacy method
+      const orders = await this.purchaseOrderRepository.find({
+        select: ['orderNumber'],
+        withDeleted: true,
+      });
 
-    let maxNumber = 0;
-    for (const order of orders) {
-      // Extract number from format PO-000001 (only sequential format)
-      const match = order.orderNumber.match(/^PO-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) {
-          maxNumber = num;
+      let maxNumber = 0;
+      for (const order of orders) {
+        const match = order.orderNumber.match(/^PO-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
         }
       }
+
+      const nextNumber = maxNumber + 1;
+      const fallbackNumber = `PO-${nextNumber.toString().padStart(6, '0')}`;
+      this.logger.log(`Fallback purchase order number: ${fallbackNumber}`);
+      return fallbackNumber;
     }
-
-    // Next sequential number
-    const nextNumber = maxNumber + 1;
-
-    // Format with leading zeros (6 digits)
-    return `PO-${nextNumber.toString().padStart(6, '0')}`;
   }
 
   /**
@@ -1205,29 +1212,34 @@ export class PurchaseOrderService {
       where: { purchaseOrderId: id },
     });
 
-    // Generate payment number by finding the highest number
-    const payments = await this.vendorPaymentRepository
-      .createQueryBuilder('payment')
-      .select('payment.paymentNumber')
-      .where('payment.paymentNumber LIKE :pattern', { pattern: 'VP-%' })
-      .andWhere('payment.paymentNumber ~ :regex', { regex: '^VP-[0-9]+$' }) // Only numeric suffixes
-      .getMany();
+    // Generate payment number using document settings
+    let paymentNumber: string;
+    try {
+      paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
+    } catch (error) {
+      // Fallback to legacy method
+      const payments = await this.vendorPaymentRepository
+        .createQueryBuilder('payment')
+        .select('payment.paymentNumber')
+        .where('payment.paymentNumber LIKE :pattern', { pattern: 'VP-%' })
+        .andWhere('payment.paymentNumber ~ :regex', { regex: '^VP-[0-9]+$' })
+        .getMany();
 
-    let nextNumber = 1;
-    if (payments && payments.length > 0) {
-      // Find the highest number
-      const numbers = payments
-        .map(p => {
-          const match = p.paymentNumber.match(/VP-(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        })
-        .filter(n => n > 0);
+      let nextNumber = 1;
+      if (payments && payments.length > 0) {
+        const numbers = payments
+          .map(p => {
+            const match = p.paymentNumber.match(/VP-(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter(n => n > 0);
 
-      if (numbers.length > 0) {
-        nextNumber = Math.max(...numbers) + 1;
+        if (numbers.length > 0) {
+          nextNumber = Math.max(...numbers) + 1;
+        }
       }
+      paymentNumber = `VP-${String(nextNumber).padStart(6, '0')}`;
     }
-    const paymentNumber = `VP-${String(nextNumber).padStart(6, '0')}`;
 
     // Create vendor payment using raw query (TypeORM's entity save was clearing purchaseOrderId)
     await this.purchaseOrderRepository.manager.query(`

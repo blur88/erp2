@@ -49,6 +49,7 @@ const ProductCostReport = React.lazy(() => import('./pages/inventory/ProductCost
 const CompanySettingsPage = React.lazy(() => import('./pages/settings/CompanySettingsPage'))
 const PriceCostingPage = React.lazy(() => import('./pages/settings/PriceCostingPage'))
 const PrintSettingsPage = React.lazy(() => import('./pages/settings/PrintSettingsPage'))
+const DocumentNumbersPage = React.lazy(() => import('./pages/settings/DocumentNumbersPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
 // Loading component
@@ -133,6 +134,7 @@ function App() {
                     <Route path="/settings/company" element={<CompanySettingsPage />} />
                     <Route path="/settings/price-costing" element={<PriceCostingPage />} />
                     <Route path="/settings/print" element={<PrintSettingsPage />} />
+                    <Route path="/settings/document-numbers" element={<DocumentNumbersPage />} />
 
                     {/* Default redirect */}
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />

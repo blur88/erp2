@@ -47,6 +47,7 @@ import {
   AttachMoney as PriceListIcon,
   TrendingDown as CostReportIcon,
   Print as PrintIcon,
+  FormatListNumbered as DocumentNumberIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -359,6 +360,12 @@ const menuSections: MenuSection[] = [
             title: 'Print Settings',
             icon: <PrintIcon />,
             path: '/settings/print',
+          },
+          {
+            id: 'document-numbers',
+            title: 'Document Numbers',
+            icon: <DocumentNumberIcon />,
+            path: '/settings/document-numbers',
           },
         ],
       },

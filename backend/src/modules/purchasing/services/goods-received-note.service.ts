@@ -19,6 +19,7 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class GoodsReceivedNoteService {
@@ -37,6 +38,7 @@ export class GoodsReceivedNoteService {
     private readonly productRepository: Repository<Product>,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -44,30 +46,35 @@ export class GoodsReceivedNoteService {
    * Checks both active and soft-deleted GRNs to ensure unique numbering
    */
   private async generateSequentialGrnNumber(): Promise<string> {
-    // Get all existing GRN numbers that match the sequential format
-    // Include soft-deleted records to avoid number collision
-    const grns = await this.grnRepository.find({
-      select: ['grnNumber'],
-      withDeleted: true, // Include soft-deleted records
-    });
+    // Use document number settings to generate GRN number
+    try {
+      const grnNumber = await this.settingsService.generateDocumentNumber('Goods Received');
+      this.logger.log(`Generated GRN number: ${grnNumber}`);
+      return grnNumber;
+    } catch (error) {
+      this.logger.error(`Error generating GRN number: ${error.message}`);
+      // Fallback to legacy method
+      const grns = await this.grnRepository.find({
+        select: ['grnNumber'],
+        withDeleted: true,
+      });
 
-    let maxNumber = 0;
-    for (const grn of grns) {
-      // Extract number from format GRN-000001 (only sequential format)
-      const match = grn.grnNumber.match(/^GRN-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) {
-          maxNumber = num;
+      let maxNumber = 0;
+      for (const grn of grns) {
+        const match = grn.grnNumber.match(/^GRN-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
         }
       }
+
+      const nextNumber = maxNumber + 1;
+      const fallbackNumber = `GRN-${nextNumber.toString().padStart(6, '0')}`;
+      this.logger.log(`Fallback GRN number: ${fallbackNumber}`);
+      return fallbackNumber;
     }
-
-    // Next sequential number
-    const nextNumber = maxNumber + 1;
-
-    // Format with leading zeros (6 digits)
-    return `GRN-${nextNumber.toString().padStart(6, '0')}`;
   }
 
   /**
