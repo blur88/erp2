@@ -4,8 +4,8 @@ FROM node:24-alpine
 # Install security updates
 RUN apk update && apk upgrade
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install curl for health checks and backup tools
+RUN apk add --no-cache curl postgresql-client mongodb-tools
 
 # Update npm to latest version (includes tar 7.5.2)
 RUN npm install -g npm@latest
@@ -27,7 +27,7 @@ RUN npm install && npm cache clean --force
 COPY --chown=nestjs:nodejs . .
 
 # Create necessary directories
-RUN mkdir -p uploads logs dist
+RUN mkdir -p uploads logs dist backups/postgresql backups/mongodb backups/redis backups/settings backups/archives backups/temp
 
 # Note: Running as root for development - not recommended for production
 

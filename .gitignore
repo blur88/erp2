@@ -57,6 +57,21 @@ uploads/
 backend/uploads/
 frontend/uploads/
 
+# Backup files and archives
+backups/
+backend/backups/
+*.tar.gz
+*.sql
+*.sql.gz
+*.dump
+backup-*/
+backup_*/
+
+# Application logs
+logs/
+backend/logs/
+frontend/logs/
+
 # Coverage and test outputs
 coverage/
 *.coverage

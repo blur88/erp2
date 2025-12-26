@@ -48,6 +48,7 @@ import {
   TrendingDown as CostReportIcon,
   Print as PrintIcon,
   FormatListNumbered as DocumentNumberIcon,
+  Backup as BackupIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -366,6 +367,12 @@ const menuSections: MenuSection[] = [
             title: 'Document Numbers',
             icon: <DocumentNumberIcon />,
             path: '/settings/document-numbers',
+          },
+          {
+            id: 'backup-restore',
+            title: 'Backup & Restore',
+            icon: <BackupIcon />,
+            path: '/settings/backup',
           },
         ],
       },
