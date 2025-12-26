@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -11,8 +11,11 @@ import * as os from 'os';
 const archiver = require('archiver');
 import * as crypto from 'crypto';
 import { BackupLog } from '@database/entities/backup-log.entity';
+import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
 import { BackupMetadata } from './interfaces/backup-metadata.interface';
+import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
+import { plainToInstance } from 'class-transformer';
 
 const execAsync = promisify(exec);
 
@@ -25,6 +28,8 @@ export class BackupService {
   constructor(
     @InjectRepository(BackupLog)
     private readonly backupLogRepository: Repository<BackupLog>,
+    @InjectRepository(BackupRetentionSettings)
+    private readonly backupSettingsRepository: Repository<BackupRetentionSettings>,
     private readonly configService: ConfigService,
   ) {
     this.backupDir = this.configService.get<string>(
@@ -905,6 +910,186 @@ export class BackupService {
         this.logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
       }
 
+      throw error;
+    }
+  }
+
+  /**
+   * Get backup settings (creates default if not exists)
+   */
+  async getBackupSettings(): Promise<BackupSettingsResponseDto> {
+    try {
+      let settings = await this.backupSettingsRepository.findOne({
+        where: { isActive: true },
+      });
+
+      // Create default settings if none exist
+      if (!settings) {
+        settings = await this.createDefaultBackupSettings();
+      }
+
+      return this.mapToBackupSettingsResponseDto(settings);
+    } catch (error) {
+      this.logger.error(
+        `Failed to get backup settings: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to retrieve backup settings');
+    }
+  }
+
+  /**
+   * Update backup settings
+   */
+  async updateBackupSettings(
+    updateDto: UpdateBackupSettingsDto,
+    updatedBy = 'system',
+  ): Promise<BackupSettingsResponseDto> {
+    try {
+      let settings = await this.backupSettingsRepository.findOne({
+        where: { isActive: true },
+      });
+
+      if (!settings) {
+        // Create new settings if none exist
+        settings = this.backupSettingsRepository.create({
+          ...updateDto,
+          isActive: true,
+        });
+      } else {
+        // Update existing settings
+        Object.assign(settings, updateDto);
+      }
+
+      const savedSettings = await this.backupSettingsRepository.save(settings);
+
+      this.logger.log(`Backup settings updated by ${updatedBy}`);
+
+      return this.mapToBackupSettingsResponseDto(savedSettings);
+    } catch (error) {
+      this.logger.error(
+        `Failed to update backup settings: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to update backup settings');
+    }
+  }
+
+  /**
+   * Create default backup settings
+   */
+  private async createDefaultBackupSettings(): Promise<BackupRetentionSettings> {
+    const defaultSettings = this.backupSettingsRepository.create({
+      retentionDays: 30,
+      autoCleanupEnabled: true,
+      cleanupTime: '02:00',
+      maximumBackupsToKeep: null,
+      maximumTotalSize: null,
+      isActive: true,
+    });
+
+    const savedSettings = await this.backupSettingsRepository.save(defaultSettings);
+    this.logger.log('Default backup settings created');
+
+    return savedSettings;
+  }
+
+  /**
+   * Map entity to backup settings response DTO
+   */
+  private mapToBackupSettingsResponseDto(
+    settings: BackupRetentionSettings,
+  ): BackupSettingsResponseDto {
+    return plainToInstance(BackupSettingsResponseDto, settings, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  /**
+   * Cleanup old backups based on retention settings
+   */
+  async cleanupBackupsWithSettings(): Promise<number> {
+    try {
+      const settings = await this.getBackupSettings();
+
+      if (!settings.autoCleanupEnabled) {
+        this.logger.log('Auto cleanup is disabled, skipping cleanup');
+        return 0;
+      }
+
+      // Get all backups (completed, failed, or stuck in_progress) ordered by creation date (oldest first)
+      // We include all statuses because stuck/failed backups should also be cleaned up
+      const allBackups = await this.backupLogRepository.find({
+        order: { createdAt: 'ASC' },
+      });
+
+      let deletedCount = 0;
+      const now = new Date();
+      const retentionCutoff = new Date();
+      retentionCutoff.setDate(retentionCutoff.getDate() - settings.retentionDays);
+
+      this.logger.log(
+        `Running cleanup with settings: retentionDays=${settings.retentionDays}, ` +
+        `maximumBackupsToKeep=${settings.maximumBackupsToKeep}, ` +
+        `maximumTotalSize=${settings.maximumTotalSize}`,
+      );
+
+      // Calculate total size
+      let totalSize = allBackups.reduce((sum, b) => sum + (b.size || 0), 0);
+
+      // First, delete backups older than retention period
+      const backupsToKeep = [];
+      const backupsToDelete = [];
+
+      for (const backup of allBackups) {
+        const isOld = backup.createdAt < retentionCutoff;
+
+        if (isOld) {
+          backupsToDelete.push(backup);
+        } else {
+          backupsToKeep.push(backup);
+        }
+      }
+
+      // Delete backups exceeding maximum count
+      if (settings.maximumBackupsToKeep && backupsToKeep.length > settings.maximumBackupsToKeep) {
+        const excess = backupsToKeep.length - settings.maximumBackupsToKeep;
+        // Add oldest backups to delete list
+        backupsToDelete.push(...backupsToKeep.slice(0, excess));
+        backupsToKeep.splice(0, excess);
+      }
+
+      // Delete backups if total size exceeds maximum (delete oldest first)
+      if (settings.maximumTotalSize && totalSize > settings.maximumTotalSize) {
+        while (
+          backupsToKeep.length > 0 &&
+          totalSize > settings.maximumTotalSize
+        ) {
+          const oldestBackup = backupsToKeep.shift();
+          if (oldestBackup) {
+            backupsToDelete.push(oldestBackup);
+            totalSize -= oldestBackup.size || 0;
+          }
+        }
+      }
+
+      // Perform the deletions
+      for (const backup of backupsToDelete) {
+        try {
+          await this.remove(backup.id);
+          deletedCount++;
+        } catch (error) {
+          this.logger.warn(`Failed to delete backup ${backup.id}: ${error.message}`);
+        }
+      }
+
+      this.logger.log(
+        `Cleanup completed: ${deletedCount} backups deleted, ${backupsToKeep.length} backups retained`,
+      );
+
+      return deletedCount;
+    } catch (error) {
+      this.logger.error(`Cleanup with settings failed: ${error.message}`, error.stack);
       throw error;
     }
   }

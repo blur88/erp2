@@ -71,4 +71,25 @@ export class BackupProcessor {
       throw error;
     }
   }
+
+  @Process('cleanup-with-settings')
+  async handleCleanupWithSettingsJob(job: Job<{}>) {
+    this.logger.log(`Processing cleanup with settings job ${job.id}`);
+
+    try {
+      const deletedCount = await this.backupService.cleanupBackupsWithSettings();
+
+      this.logger.log(
+        `Cleanup with settings job ${job.id} completed: ${deletedCount} backups deleted`,
+      );
+
+      return { success: true, deletedCount };
+    } catch (error) {
+      this.logger.error(
+        `Cleanup with settings job ${job.id} failed: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
 }

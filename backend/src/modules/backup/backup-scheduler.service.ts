@@ -9,6 +9,7 @@ import {
   CreateBackupScheduleDto,
   UpdateBackupScheduleDto,
 } from './dto/backup-schedule.dto';
+import { BackupService } from './backup.service';
 
 @Injectable()
 export class BackupSchedulerService {
@@ -18,6 +19,7 @@ export class BackupSchedulerService {
     @InjectRepository(BackupSchedule)
     private readonly scheduleRepository: Repository<BackupSchedule>,
     @InjectQueue('backup-queue') private readonly backupQueue: Queue,
+    private readonly backupService: BackupService,
   ) {}
 
   async onModuleInit() {
@@ -235,36 +237,33 @@ export class BackupSchedulerService {
     return next;
   }
 
-  // Cron job to trigger cleanup of old backups daily at 3 AM
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
-  async handleDailyCleanup() {
-    this.logger.log('Running daily backup cleanup job');
+  /**
+   * Scheduled cleanup job - runs based on configured cleanup time
+   * Checks every hour and triggers cleanup if time matches
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleScheduledCleanup() {
+    try {
+      const settings = await this.backupService.getBackupSettings();
 
-    const schedules = await this.scheduleRepository.find({
-      where: { enabled: true },
-    });
-
-    // Cleanup based on schedule-specific retention policies
-    const retentionPolicies = new Set<number>();
-    for (const schedule of schedules) {
-      if (schedule.retentionDays > 0) {
-        retentionPolicies.add(schedule.retentionDays);
+      if (!settings.autoCleanupEnabled) {
+        return; // Skip if auto-cleanup is disabled
       }
-    }
 
-    // Add cleanup jobs for each unique retention period
-    for (const retentionDays of retentionPolicies) {
-      await this.backupQueue.add('cleanup-old-backups', {
-        retentionDays,
-      });
-      this.logger.log(`Added cleanup job for ${retentionDays}-day retention policy`);
-    }
+      // Check if current time matches the configured cleanup time
+      const now = new Date();
+      const [cleanupHour, cleanupMinute] = settings.cleanupTime.split(':').map(Number);
 
-    // Global default cleanup: Remove backups older than 90 days (not associated with any schedule)
-    const DEFAULT_RETENTION_DAYS = 90;
-    await this.backupQueue.add('cleanup-old-backups', {
-      retentionDays: DEFAULT_RETENTION_DAYS,
-    });
-    this.logger.log(`Added default cleanup job for ${DEFAULT_RETENTION_DAYS}-day retention policy`);
+      // Run cleanup if we're within the cleanup hour
+      if (now.getHours() === cleanupHour) {
+        this.logger.log('Running scheduled backup cleanup job');
+
+        await this.backupQueue.add('cleanup-with-settings', {});
+
+        this.logger.log('Backup cleanup job added to queue');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to schedule cleanup job: ${error.message}`, error.stack);
+    }
   }
 }

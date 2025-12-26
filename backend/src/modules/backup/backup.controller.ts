@@ -57,6 +57,16 @@ export class BackupController {
     return this.backupService.findAll();
   }
 
+  @Get('settings')
+  @ApiOperation({ summary: 'Get backup retention settings' })
+  @ApiResponse({
+    status: 200,
+    description: 'Backup settings retrieved successfully',
+  })
+  async getSettings() {
+    return this.backupService.getBackupSettings();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get backup by ID' })
   @ApiResponse({ status: 200, description: 'Backup found', type: BackupLog })
@@ -260,6 +270,29 @@ export class BackupController {
     );
     return {
       message: 'Cleanup completed successfully',
+      deletedCount,
+    };
+  }
+
+  // Backup Settings Endpoints
+
+  @Post('settings')
+  @ApiOperation({ summary: 'Update backup retention settings' })
+  @ApiResponse({
+    status: 200,
+    description: 'Backup settings updated successfully',
+  })
+  async updateSettings(@Body() updateDto: any) {
+    return this.backupService.updateBackupSettings(updateDto);
+  }
+
+  @Post('cleanup-with-settings')
+  @ApiOperation({ summary: 'Run cleanup using configured retention settings' })
+  @ApiResponse({ status: 200, description: 'Cleanup completed successfully' })
+  async cleanupWithSettings(): Promise<{ message: string; deletedCount: number }> {
+    const deletedCount = await this.backupService.cleanupBackupsWithSettings();
+    return {
+      message: 'Cleanup completed successfully using retention settings',
       deletedCount,
     };
   }

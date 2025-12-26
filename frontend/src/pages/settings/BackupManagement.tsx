@@ -21,6 +21,7 @@ import {
 } from '@/store/slices/backupSlice';
 import BackupList from '@/components/backup/BackupList';
 import BackupScheduleList from '@/components/backup/BackupScheduleList';
+import BackupSettingsPanel from '@/components/backup/BackupSettingsPanel';
 import CreateBackupDialog from '@/components/backup/CreateBackupDialog';
 import BackupScheduleDialog from '@/components/backup/BackupScheduleDialog';
 import UploadBackupDialog from '@/components/backup/UploadBackupDialog';
@@ -135,6 +136,7 @@ const BackupManagement: React.FC = () => {
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="backup tabs">
             <Tab label="Backups" id="backup-tab-0" aria-controls="backup-tabpanel-0" />
             <Tab label="Schedules" id="backup-tab-1" aria-controls="backup-tabpanel-1" />
+            <Tab label="Settings" id="backup-tab-2" aria-controls="backup-tabpanel-2" />
           </Tabs>
         </Box>
 
@@ -156,6 +158,10 @@ const BackupManagement: React.FC = () => {
           ) : (
             <BackupScheduleList />
           )}
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={2}>
+          <BackupSettingsPanel />
         </TabPanel>
       </Paper>
 

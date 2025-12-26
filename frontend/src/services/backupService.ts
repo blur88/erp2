@@ -6,7 +6,7 @@ export interface BackupLog {
   filepath: string;
   backupType: 'manual' | 'scheduled';
   status: 'in_progress' | 'completed' | 'failed';
-  size: number | null;
+  size: number | string | null; // bigint from PostgreSQL is serialized as string
   databases: string[];
   startedAt: string;
   completedAt: string | null;
@@ -77,6 +77,25 @@ export interface CreateScheduleDto {
 }
 
 export interface UpdateScheduleDto extends Partial<CreateScheduleDto> {}
+
+export interface BackupSettings {
+  id: string;
+  retentionDays: number;
+  autoCleanupEnabled: boolean;
+  cleanupTime: string;
+  maximumBackupsToKeep: number | null;
+  maximumTotalSize: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateBackupSettingsDto {
+  retentionDays?: number;
+  autoCleanupEnabled?: boolean;
+  cleanupTime?: string;
+  maximumBackupsToKeep?: number | null;
+  maximumTotalSize?: number | null;
+}
 
 class BackupService {
   // Backup operations
@@ -189,6 +208,22 @@ class BackupService {
         'Content-Type': 'multipart/form-data',
       },
     });
+  }
+
+  // Backup Settings operations
+  async getBackupSettings() {
+    return await ApiService.get<BackupSettings>('/backup/settings');
+  }
+
+  async updateBackupSettings(dto: UpdateBackupSettingsDto) {
+    return await ApiService.post<BackupSettings>('/backup/settings', dto);
+  }
+
+  async cleanupWithSettings() {
+    return await ApiService.post<{ message: string; deletedCount: number }>(
+      '/backup/cleanup-with-settings',
+      {}
+    );
   }
 }
 
