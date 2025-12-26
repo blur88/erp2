@@ -145,6 +145,17 @@ export const triggerSchedule = createAsyncThunk(
   }
 );
 
+export const uploadBackup = createAsyncThunk(
+  'backup/upload',
+  async (file: File, { rejectWithValue }) => {
+    try {
+      return await backupService.uploadBackup(file);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to upload backup');
+    }
+  }
+);
+
 const backupSlice = createSlice({
   name: 'backup',
   initialState,
@@ -284,6 +295,25 @@ const backupSlice = createSlice({
         // Optionally refresh backups list
       })
       .addCase(triggerSchedule.rejected, (state, action) => {
+        state.error = action.payload as string;
+      });
+
+    // Upload backup
+    builder
+      .addCase(uploadBackup.pending, (state) => {
+        state.backupInProgress = true;
+        state.error = null;
+      })
+      .addCase(uploadBackup.fulfilled, (state, action) => {
+        state.backupInProgress = false;
+        if (state.backups) {
+          state.backups.unshift(action.payload);
+        } else {
+          state.backups = [action.payload];
+        }
+      })
+      .addCase(uploadBackup.rejected, (state, action) => {
+        state.backupInProgress = false;
         state.error = action.payload as string;
       });
   },

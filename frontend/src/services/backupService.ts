@@ -179,6 +179,17 @@ class BackupService {
       {}
     );
   }
+
+  async uploadBackup(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return await ApiService.post<BackupLog>('/backup/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
 }
 
 export default new BackupService();

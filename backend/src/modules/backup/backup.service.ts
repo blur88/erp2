@@ -170,6 +170,7 @@ export class BackupService {
       path.join(this.backupDir, 'settings'),
       path.join(this.backupDir, 'archives'),
       path.join(this.backupDir, 'temp'),
+      path.join(this.backupDir, 'uploads'),
     ];
 
     for (const dir of dirs) {
@@ -487,6 +488,15 @@ export class BackupService {
       const metadataContent = await fs.readFile(metadataPath, 'utf-8');
       const metadata: BackupMetadata = JSON.parse(metadataContent);
 
+      // IMPORTANT: Save all current backup logs BEFORE restoring PostgreSQL
+      // because restore will overwrite the backup_logs table
+      let allCurrentBackups: BackupLog[] = [];
+      if (backup.databases.includes('postgresql')) {
+        this.logger.log('Saving current backup records before PostgreSQL restore...');
+        allCurrentBackups = await this.backupLogRepository.find();
+        this.logger.log(`Saved ${allCurrentBackups.length} backup records`);
+      }
+
       // Restore databases in order
       if (backup.databases.includes('postgresql')) {
         this.logger.log('Restoring PostgreSQL database...');
@@ -514,20 +524,47 @@ export class BackupService {
 
       this.logger.log(`Restore completed successfully from: ${backup.filename}`);
 
-      // Fix backup record - restore overwrites backup_logs table, so we need to restore all metadata
-      // The backup was validated as 'completed' before restore started, so restore it to that state
-      await this.backupLogRepository.update(backup.id, {
-        filename: backup.filename,
-        filepath: backup.filepath,
-        backupType: backup.backupType,
-        status: 'completed',
-        databases: backup.databases,
-        createdBy: backup.createdBy,
-        startedAt: backup.startedAt,
-        completedAt: backup.completedAt,
-        size: backup.size,
-        metadata: backup.metadata,
-      });
+      // Restore all backup records that existed before the restore
+      if (allCurrentBackups.length > 0) {
+        this.logger.log('Restoring backup records after PostgreSQL restore...');
+
+        for (const backupRecord of allCurrentBackups) {
+          try {
+            // Check if record already exists in restored database
+            const existing = await this.backupLogRepository.findOne({
+              where: { id: backupRecord.id },
+            });
+
+            if (existing) {
+              // Update existing record to preserve current data
+              await this.backupLogRepository.update(backupRecord.id, {
+                filename: backupRecord.filename,
+                filepath: backupRecord.filepath,
+                backupType: backupRecord.backupType,
+                status: backupRecord.status,
+                databases: backupRecord.databases,
+                createdBy: backupRecord.createdBy,
+                startedAt: backupRecord.startedAt,
+                completedAt: backupRecord.completedAt,
+                size: backupRecord.size,
+                metadata: backupRecord.metadata,
+                error: backupRecord.error,
+                createdAt: backupRecord.createdAt,
+                updatedAt: backupRecord.updatedAt,
+              });
+            } else {
+              // Insert new record (backup created after the backup being restored)
+              await this.backupLogRepository.save(backupRecord);
+            }
+          } catch (error) {
+            this.logger.warn(
+              `Failed to restore backup record ${backupRecord.id}: ${error.message}`,
+            );
+          }
+        }
+
+        this.logger.log(`Restored ${allCurrentBackups.length} backup records`);
+      }
 
       return backup;
     } catch (error) {
@@ -778,5 +815,97 @@ export class BackupService {
 
     this.logger.log(`Cleanup completed: ${deletedCount} backups deleted`);
     return deletedCount;
+  }
+
+  async processUploadedBackup(file: Express.Multer.File): Promise<BackupLog> {
+    this.logger.log(`Processing uploaded backup: ${file.originalname}`);
+
+    const uploadPath = file.path;
+    const archivePath = path.join(this.backupDir, 'archives', file.originalname);
+
+    try {
+      // Ensure archives directory exists
+      await fs.mkdir(path.join(this.backupDir, 'archives'), { recursive: true });
+
+      // Move file from uploads to archives
+      await fs.rename(uploadPath, archivePath);
+
+      // Extract and verify the backup to read metadata
+      const tempDir = path.join(this.backupDir, 'temp', `verify_${Date.now()}`);
+      await this.extractArchive(archivePath, tempDir);
+
+      // Read metadata
+      const metadataPath = path.join(tempDir, 'metadata.json');
+      let metadata: BackupMetadata;
+
+      try {
+        const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+        metadata = JSON.parse(metadataContent);
+      } catch (error) {
+        this.logger.warn('Could not read metadata from backup file, using defaults');
+        metadata = {
+          description: 'Uploaded backup',
+          settingsIncluded: false,
+        } as any;
+      }
+
+      // Calculate file size and checksum
+      const stats = await fs.stat(archivePath);
+      const checksum = await this.calculateChecksum(archivePath);
+
+      // Determine databases included
+      const files = await fs.readdir(tempDir);
+      const databases: string[] = [];
+
+      if (files.some((f) => f.endsWith('.sql.gz'))) {
+        databases.push('postgresql');
+      }
+      if (files.some((f) => f.startsWith('erp_analytics_'))) {
+        databases.push('mongodb');
+      }
+      if (files.some((f) => f.startsWith('redis_'))) {
+        databases.push('redis');
+      }
+
+      // Cleanup temp directory
+      await fs.rm(tempDir, { recursive: true, force: true });
+
+      // Create backup log entry
+      const backupLog = this.backupLogRepository.create({
+        filename: file.originalname,
+        filepath: archivePath,
+        backupType: 'manual',
+        status: 'completed',
+        databases,
+        createdBy: 'uploaded',
+        startedAt: new Date(),
+        completedAt: new Date(),
+        size: stats.size,
+        metadata: {
+          ...metadata,
+          checksum,
+          uploadedAt: new Date().toISOString(),
+        },
+      });
+
+      await this.backupLogRepository.save(backupLog);
+
+      this.logger.log(
+        `Uploaded backup processed successfully: ${file.originalname} (${this.formatBytes(stats.size)})`,
+      );
+
+      return backupLog;
+    } catch (error) {
+      this.logger.error(`Failed to process uploaded backup: ${error.message}`, error.stack);
+
+      // Cleanup on error
+      try {
+        await fs.unlink(archivePath);
+      } catch (cleanupError) {
+        this.logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
+      }
+
+      throw error;
+    }
   }
 }

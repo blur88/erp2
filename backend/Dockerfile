@@ -27,7 +27,7 @@ RUN npm install && npm cache clean --force
 COPY --chown=nestjs:nodejs . .
 
 # Create necessary directories
-RUN mkdir -p uploads logs dist backups/postgresql backups/mongodb backups/redis backups/settings backups/archives backups/temp
+RUN mkdir -p uploads logs dist backups/postgresql backups/mongodb backups/redis backups/settings backups/archives backups/temp backups/uploads
 
 # Note: Running as root for development - not recommended for production
 

@@ -186,13 +186,14 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
                     fontFamily: 'monospace',
                     fontSize: '0.875rem',
                     backgroundColor: 'grey.100',
+                    color: 'grey.900',
                     p: 2,
                     borderRadius: 1,
                     overflow: 'auto',
                     maxHeight: 200,
                   }}
                 >
-                  <pre style={{ margin: 0 }}>
+                  <pre style={{ margin: 0, color: 'inherit' }}>
                     {JSON.stringify(currentBackup.metadata, null, 2)}
                   </pre>
                 </Box>

@@ -7,9 +7,13 @@ import {
   Delete,
   Res,
   StreamableFile,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { Response } from 'express';
+import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import { BackupService } from './backup.service';
 import { BackupSchedulerService } from './backup-scheduler.service';
@@ -108,6 +112,45 @@ export class BackupController {
       message: 'Restore completed successfully',
       backup,
     };
+  }
+
+  @Post('upload')
+  @ApiOperation({ summary: 'Upload a backup file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({
+    status: 201,
+    description: 'Backup uploaded successfully',
+    type: BackupLog,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file upload' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadPath = '/app/backups/uploads';
+          cb(null, uploadPath);
+        },
+        filename: (_req, file, cb) => {
+          cb(null, file.originalname);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        if (file.originalname.endsWith('.tar.gz') || file.originalname.endsWith('.tgz')) {
+          cb(null, true);
+        } else {
+          cb(new Error('Only .tar.gz or .tgz files are allowed'), false);
+        }
+      },
+    }),
+  )
+  async uploadBackup(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<BackupLog> {
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+
+    return this.backupService.processUploadedBackup(file);
   }
 
   @Delete(':id')

@@ -11,7 +11,7 @@ import {
   Snackbar,
   CircularProgress,
 } from '@mui/material';
-import { Add as AddIcon, Backup as BackupIcon } from '@mui/icons-material';
+import { Add as AddIcon, Backup as BackupIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import {
   fetchBackups,
@@ -23,6 +23,7 @@ import BackupList from '@/components/backup/BackupList';
 import BackupScheduleList from '@/components/backup/BackupScheduleList';
 import CreateBackupDialog from '@/components/backup/CreateBackupDialog';
 import BackupScheduleDialog from '@/components/backup/BackupScheduleDialog';
+import UploadBackupDialog from '@/components/backup/UploadBackupDialog';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -52,6 +53,7 @@ const BackupManagement: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [createBackupOpen, setCreateBackupOpen] = useState(false);
   const [createScheduleOpen, setCreateScheduleOpen] = useState(false);
+  const [uploadBackupOpen, setUploadBackupOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   useEffect(() => {
@@ -77,6 +79,10 @@ const BackupManagement: React.FC = () => {
     setCreateScheduleOpen(true);
   };
 
+  const handleUploadBackup = () => {
+    setUploadBackupOpen(true);
+  };
+
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
     dispatch(clearError());
@@ -91,15 +97,26 @@ const BackupManagement: React.FC = () => {
           </Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
             {tabValue === 0 && (
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={backupInProgress ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
-                onClick={handleCreateBackup}
-                disabled={backupInProgress}
-              >
-                {backupInProgress ? 'Creating Backup...' : 'Create Backup'}
-              </Button>
+              <>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<UploadIcon />}
+                  onClick={handleUploadBackup}
+                  disabled={backupInProgress}
+                >
+                  Upload Backup
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={backupInProgress ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
+                  onClick={handleCreateBackup}
+                  disabled={backupInProgress}
+                >
+                  {backupInProgress ? 'Creating Backup...' : 'Create Backup'}
+                </Button>
+              </>
             )}
             {tabValue === 1 && (
               <Button
@@ -150,6 +167,11 @@ const BackupManagement: React.FC = () => {
       <BackupScheduleDialog
         open={createScheduleOpen}
         onClose={() => setCreateScheduleOpen(false)}
+      />
+
+      <UploadBackupDialog
+        open={uploadBackupOpen}
+        onClose={() => setUploadBackupOpen(false)}
       />
 
       <Snackbar
