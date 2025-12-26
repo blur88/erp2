@@ -8,6 +8,7 @@ import {
   QueryVendorPaymentsDto,
   PaginatedResponse,
 } from '../dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class VendorPaymentService {
@@ -18,6 +19,7 @@ export class VendorPaymentService {
     private purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(GoodsReceivedNote)
     private grnRepository: Repository<GoodsReceivedNote>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -53,6 +55,22 @@ export class VendorPaymentService {
       // Force TypeORM to update by using the update query
       await this.purchaseOrderRepository.update(createDto.purchaseOrderId, {});
     }
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'VendorPayment',
+      `Created vendor payment: ${savedPayment.paymentNumber}`,
+      {
+        entityId: savedPayment.id,
+        userId: user,
+        newValues: {
+          paymentNumber: savedPayment.paymentNumber,
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
 
     return savedPayment;
   }
@@ -179,6 +197,22 @@ export class VendorPaymentService {
       // Force TypeORM to update by using the update query
       await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
     }
+
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'VendorPayment',
+      `Updated vendor payment: ${savedPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: user,
+        newValues: {
+          paymentNumber: savedPayment.paymentNumber,
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
 
     return savedPayment;
   }
@@ -386,6 +420,23 @@ export class VendorPaymentService {
     if (!vendorPayment) {
       throw new NotFoundException('Vendor payment not found');
     }
+
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'VendorPayment',
+      `Permanently deleted vendor payment: ${vendorPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          paymentNumber: vendorPayment.paymentNumber,
+          amount: vendorPayment.amount,
+          status: vendorPayment.status,
+          paymentMethod: vendorPayment.paymentMethod,
+        },
+      }
+    );
 
     await this.vendorPaymentRepository.remove(vendorPayment);
     return { message: 'Vendor payment permanently deleted successfully' };

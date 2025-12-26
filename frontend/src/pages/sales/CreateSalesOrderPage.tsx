@@ -365,7 +365,12 @@ const CreateSalesOrderPage: React.FC = () => {
       let productPrice = 0
 
       if (selectedCustomer && selectedCustomer.pricingScheme && product.pricingTiers) {
+        // Use customer's pricing scheme
         productPrice = Number(product.pricingTiers[selectedCustomer.pricingScheme] || 0)
+      } else if (product.pricingTiers) {
+        // If no customer selected, use first available pricing tier
+        const firstTier = Object.values(product.pricingTiers)[0]
+        productPrice = Number(firstTier || 0)
       }
 
       setValue(`items.${index}.unitPrice`, productPrice)

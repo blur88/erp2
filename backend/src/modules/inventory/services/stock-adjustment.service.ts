@@ -26,6 +26,7 @@ import {
 import { StockMovementService } from './stock-movement.service';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class StockAdjustmentService {
@@ -44,6 +45,7 @@ export class StockAdjustmentService {
     private readonly stockMovementService: StockMovementService,
     private readonly dataSource: DataSource,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -139,6 +141,23 @@ export class StockAdjustmentService {
 
     const saved = await this.stockAdjustmentRepository.save(adjustment);
     this.logger.log(`Stock adjustment ${adjustmentNumber} created successfully`);
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'StockAdjustment',
+      `Created stock adjustment: ${adjustmentNumber} (${items.length} items, RM ${totalValue.toFixed(2)})`,
+      {
+        entityId: saved.id,
+        userId: 'system',
+        newValues: {
+          adjustmentNumber,
+          itemCount: items.length,
+          totalValue,
+          status: StockAdjustmentStatus.DRAFT,
+        },
+      }
+    );
 
     return this.findOne(saved.id);
   }
@@ -294,6 +313,22 @@ export class StockAdjustmentService {
     const saved = await this.stockAdjustmentRepository.save(adjustment);
     this.logger.log(`Stock adjustment ${saved.adjustmentNumber} updated successfully`);
 
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'StockAdjustment',
+      `Updated stock adjustment: ${saved.adjustmentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          adjustmentNumber: saved.adjustmentNumber,
+          itemCount: saved.itemCount,
+          totalValue: saved.totalValue,
+        },
+      }
+    );
+
     return this.findOne(saved.id);
   }
 
@@ -349,6 +384,19 @@ export class StockAdjustmentService {
       // Update adjustment status
       adjustment.status = StockAdjustmentStatus.COMPLETED;
       await queryRunner.manager.save(adjustment);
+
+      // Log audit trail for complete
+      await this.auditLogService.log(
+        'UPDATE',
+        'StockAdjustment',
+        `Completed stock adjustment: ${adjustment.adjustmentNumber}`,
+        {
+          entityId: adjustment.id,
+          userId: 'system',
+          oldValues: { status: StockAdjustmentStatus.DRAFT },
+          newValues: { status: StockAdjustmentStatus.COMPLETED },
+        }
+      );
 
       await queryRunner.commitTransaction();
       this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} completed successfully`);
@@ -452,6 +500,23 @@ export class StockAdjustmentService {
     }
 
     await this.stockAdjustmentRepository.softDelete(id);
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'StockAdjustment',
+      `Deleted stock adjustment: ${adjustment.adjustmentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          adjustmentNumber: adjustment.adjustmentNumber,
+          status: adjustment.status,
+          totalValue: adjustment.totalValue,
+        },
+      }
+    );
+
     this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} deleted successfully`);
   }
 
@@ -558,6 +623,23 @@ export class StockAdjustmentService {
         adjustment.items.map(item => item.id)
       );
     }
+
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'StockAdjustment',
+      `Permanently deleted stock adjustment: ${adjustment.adjustmentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          adjustmentNumber: adjustment.adjustmentNumber,
+          itemCount: adjustment.itemCount,
+          totalValue: adjustment.totalValue,
+          status: adjustment.status,
+        },
+      }
+    );
 
     // Hard delete the adjustment
     await this.stockAdjustmentRepository.delete(id);

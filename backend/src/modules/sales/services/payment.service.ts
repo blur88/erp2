@@ -1,3 +1,4 @@
+import { AuditLogService } from '../../audit-logs/services';
 import {
   Injectable,
   NotFoundException,
@@ -28,6 +29,7 @@ export class PaymentService {
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<PaymentResponseDto> {
@@ -71,6 +73,22 @@ export class PaymentService {
     if (savedPayment.status === PaymentStatus.COMPLETED) {
       await this.updateCustomerBalance(customer, savedPayment);
     }
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'Payment',
+      `Created payment: ${savedPayment.amount} for ${customer.name}`,
+      {
+        entityId: savedPayment.id,
+        userId: 'system',
+        newValues: {
+          amount: savedPayment.amount,
+          paymentMethod: savedPayment.paymentMethod,
+          status: savedPayment.status,
+        },
+      }
+    );
 
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
@@ -129,6 +147,21 @@ export class PaymentService {
 
     Object.assign(payment, updatePaymentDto);
     const savedPayment = await this.paymentRepository.save(payment);
+
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'Payment',
+      `Updated payment for ${payment.customer?.name || 'customer'}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
 
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }

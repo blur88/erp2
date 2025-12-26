@@ -11,6 +11,9 @@
 // Base entity (used by all entities)
 export { BaseEntity } from './base.entity';
 
+// Audit Logging (System-wide)
+export { AuditLog } from './audit-log.entity';
+
 // User Management (UsersModule)
 export { User, UserRole, UserStatus } from './user.entity';
 
@@ -30,7 +33,7 @@ export { Customer, CustomerType, PriceLevel } from './customer.entity';
 // export { Payment, PaymentMethod, PaymentStatus, PaymentType } from './payment.entity';
 
 // Inventory Management (InventoryModule)
-export { StockMovement, StockMovementType, StockMovementStatus } from './stock-movement.entity';
+export { StockMovement, StockMovementType } from './stock-movement.entity';
 
 // Purchasing Management (PurchasingModule)
 export { Supplier, SupplierType } from './supplier.entity';
@@ -41,6 +44,7 @@ export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 export { VendorPayment } from './vendor-payment.entity';
 
 // Import entities for array construction
+import { AuditLog } from './audit-log.entity';
 import { User } from './user.entity';
 import { Category } from './category.entity';
 import { Product } from './product.entity';
@@ -56,6 +60,9 @@ import { StockMovement } from './stock-movement.entity';
  * Use this array when configuring TypeORM in your application
  */
 export const ACTIVE_ENTITIES = [
+  // System entities
+  AuditLog,
+
   // Core entities
   User,
   Category,

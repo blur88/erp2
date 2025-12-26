@@ -39,6 +39,7 @@ import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ProductService {
@@ -69,6 +70,7 @@ export class ProductService {
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -196,7 +198,22 @@ export class ProductService {
       }
     }
 
-    // Audit logging removed with authentication system
+    // Log audit trail
+    await this.auditLogService.log(
+      'CREATE',
+      'Product',
+      `Created product: ${savedProduct.name} (${savedProduct.barcode})`,
+      {
+        entityId: savedProduct.id,
+        userId: userId || 'system',
+        newValues: {
+          name: savedProduct.name,
+          barcode: savedProduct.barcode,
+          baseCost: savedProduct.baseCost,
+          stockQuantity: savedProduct.stockQuantity,
+        },
+      }
+    );
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
     return this.toResponseDto(savedProduct);
@@ -534,6 +551,23 @@ export class ProductService {
       relations: ['category'],
     });
 
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'Product',
+      `Restored product: ${restoredProduct.name} (${restoredProduct.barcode})`,
+      {
+        entityId: restoredProduct.id,
+        userId: _userId || 'system',
+        newValues: {
+          name: restoredProduct.name,
+          barcode: restoredProduct.barcode,
+          baseCost: restoredProduct.baseCost,
+          stockQuantity: restoredProduct.stockQuantity,
+        },
+      }
+    );
+
     return this.toResponseDto(restoredProduct!);
   }
 
@@ -643,10 +677,25 @@ export class ProductService {
       );
     }
 
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'Product',
+      `Permanently deleted product: ${product.name} (${product.barcode})`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        oldValues: {
+          name: product.name,
+          barcode: product.barcode,
+          baseCost: product.baseCost,
+          stockQuantity: product.stockQuantity,
+        },
+      }
+    );
+
     // Hard delete the product from database
     await this.productRepository.delete(id);
-
-    // Audit logging removed with authentication system
 
     this.logger.log(`Product permanently deleted: ${id}`);
   }
@@ -855,7 +904,24 @@ export class ProductService {
     console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
     console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
-    // Audit logging removed with authentication system
+    // Log audit trail for update
+    if (Object.keys(changes).length > 0) {
+      await this.auditLogService.log(
+        'UPDATE',
+        'Product',
+        `Updated product: ${productWithCategory.name} (${productWithCategory.barcode})`,
+        {
+          entityId: productWithCategory.id,
+          userId: userId || 'system',
+          oldValues: Object.fromEntries(
+            Object.entries(changes).map(([key, val]) => [key, val.from])
+          ),
+          newValues: Object.fromEntries(
+            Object.entries(changes).map(([key, val]) => [key, val.to])
+          ),
+        }
+      );
+    }
 
     this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
     return this.toResponseDto(productWithCategory!);
@@ -970,7 +1036,22 @@ export class ProductService {
     // Use TypeORM soft delete (sets deletedAt timestamp)
     await this.productRepository.softDelete(id);
 
-    // Audit logging removed with authentication system
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'Product',
+      `Deleted product: ${product.name} (${product.barcode})`,
+      {
+        entityId: product.id,
+        userId: 'system',
+        oldValues: {
+          name: product.name,
+          barcode: product.barcode,
+          baseCost: product.baseCost,
+          stockQuantity: product.stockQuantity,
+        },
+      }
+    );
 
     this.logger.log(`Product soft-deleted successfully: ${id}`);
   }
@@ -1217,7 +1298,7 @@ export class ProductService {
       const categoryName = product.category?.name || 'Uncategorized';
       const existing = categoryMap.get(categoryName) || { count: 0, value: 0 };
       existing.count += 1;
-      existing.value += stock * price;
+      existing.value += stock * cost;
       categoryMap.set(categoryName, existing);
     });
 

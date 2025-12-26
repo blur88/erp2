@@ -20,6 +20,7 @@ import { StockMovementService } from '../../inventory/services/stock-movement.se
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class GoodsReceivedNoteService {
@@ -39,6 +40,7 @@ export class GoodsReceivedNoteService {
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -173,6 +175,22 @@ export class GoodsReceivedNoteService {
 
       this.logger.log(`GRN created successfully with ${grnItems.length} items: ${savedGrn.id}`);
 
+      // Log audit trail for create
+      await this.auditLogService.log(
+        'CREATE',
+        'GoodsReceivedNote',
+        `Created GRN: ${savedGrn.grnNumber}`,
+        {
+          entityId: savedGrn.id,
+          userId: 'system',
+          newValues: {
+            grnNumber: savedGrn.grnNumber,
+            purchaseOrderId: savedGrn.purchaseOrderId,
+            status: savedGrn.status,
+          },
+        }
+      );
+
       return this.findOne(savedGrn.id);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -288,6 +306,21 @@ export class GoodsReceivedNoteService {
       });
 
       const updatedGrn = await this.grnRepository.save(grn);
+
+      // Log audit trail for update
+      await this.auditLogService.log(
+        'UPDATE',
+        'GoodsReceivedNote',
+        `Updated GRN: ${updatedGrn.grnNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            grnNumber: updatedGrn.grnNumber,
+            status: updatedGrn.status,
+          },
+        }
+      );
 
       this.logger.log(`GRN updated successfully: ${updatedGrn.id}`);
       return this.findOne(updatedGrn.id);
@@ -492,6 +525,22 @@ export class GoodsReceivedNoteService {
     if (!grn.deletedAt) {
       throw new BadRequestException('GRN must be soft-deleted before permanent deletion');
     }
+
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'GoodsReceivedNote',
+      `Permanently deleted GRN: ${grn.grnNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          grnNumber: grn.grnNumber,
+          purchaseOrderId: grn.purchaseOrderId,
+          status: grn.status,
+        },
+      }
+    );
 
     try {
       await this.grnRepository.remove(grn);

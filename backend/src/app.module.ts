@@ -31,6 +31,7 @@ import {
 } from './common/filters';
 
 // Modules
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
@@ -75,6 +76,7 @@ import { AppService } from './app.service';
     ScheduleModule.forRoot(),
 
     // Core Modules
+    AuditLogsModule, // Audit logging (global)
     UsersModule,
     InventoryModule,
     SalesModule,

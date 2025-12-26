@@ -508,3 +508,34 @@ export interface RealtimeUpdate {
   action: 'created' | 'updated' | 'deleted';
   data: any;
 }
+
+// Audit Log types
+export enum AuditAction {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  RESTORE = 'RESTORE',
+  BULK_DELETE = 'BULK_DELETE',
+  BULK_RESTORE = 'BULK_RESTORE',
+  EXPORT = 'EXPORT',
+  IMPORT = 'IMPORT',
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  username?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  description: string;
+  oldValues?: any;
+  newValues?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: any;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+  isActive: boolean;
+}

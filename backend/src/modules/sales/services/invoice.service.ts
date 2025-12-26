@@ -1,3 +1,4 @@
+import { AuditLogService } from '../../audit-logs/services';
 import {
   Injectable,
   NotFoundException,
@@ -41,6 +42,7 @@ export class InvoiceService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(InvoiceItem)
     private readonly invoiceItemRepository: Repository<InvoiceItem>,
+    private readonly auditLogService: AuditLogService,
     // private readonly emailService: EmailService, // Temporarily disabled
   ) {}
 
@@ -127,6 +129,23 @@ export class InvoiceService {
 
       await this.invoiceItemRepository.insert(invoiceItemsData);
     }
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'Invoice',
+      `Created invoice: ${savedInvoice.invoiceNumber}`,
+      {
+        entityId: savedInvoice.id,
+        userId: 'system',
+        newValues: {
+          invoiceNumber: savedInvoice.invoiceNumber,
+          customerId,
+          totalAmount,
+          status: savedInvoice.status,
+        },
+      }
+    );
 
     return this.findById(savedInvoice.id);
   }
@@ -391,6 +410,21 @@ export class InvoiceService {
 
     await this.invoiceRepository.save(invoice);
 
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'Invoice',
+      `Updated invoice: ${invoice.invoiceNumber}`,
+      {
+        entityId: invoice.id,
+        userId: 'system',
+        newValues: {
+          status: invoice.status,
+          totalAmount: invoice.totalAmount,
+        },
+      }
+    );
+
     return this.findById(invoice.id);
   }
 
@@ -418,6 +452,22 @@ export class InvoiceService {
 
     // Soft delete using TypeORM
     await this.invoiceRepository.softDelete(id);
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'Invoice',
+      `Deleted invoice: ${invoice.invoiceNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
+          totalAmount: invoice.totalAmount,
+        },
+      }
+    );
   }
 
   async sendInvoice(id: string, sendInvoiceDto: SendInvoiceDto): Promise<InvoiceResponseDto> {

@@ -49,6 +49,7 @@ import {
   Print as PrintIcon,
   FormatListNumbered as DocumentNumberIcon,
   Backup as BackupIcon,
+  ManageSearch as AuditIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -375,6 +376,12 @@ const menuSections: MenuSection[] = [
             path: '/settings/backup',
           },
         ],
+      },
+      {
+        id: 'audit-logs',
+        title: 'Audit Logs',
+        icon: <AuditIcon />,
+        path: '/audit-logs',
       },
     ],
   },

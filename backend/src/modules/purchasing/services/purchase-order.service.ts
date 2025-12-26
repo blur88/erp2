@@ -26,6 +26,7 @@ import { StockMovementService } from '../../inventory/services/stock-movement.se
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -50,6 +51,7 @@ export class PurchaseOrderService {
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -205,15 +207,31 @@ export class PurchaseOrderService {
       // Auto-create GRN in draft status
       await this.createDraftGrn(savedPurchaseOrder);
 
+      // Log audit trail for create
+      await this.auditLogService.log(
+        'CREATE',
+        'PurchaseOrder',
+        `Created purchase order: ${savedPurchaseOrder.orderNumber}`,
+        {
+          entityId: savedPurchaseOrder.id,
+          userId: 'system',
+          newValues: {
+            orderNumber: savedPurchaseOrder.orderNumber,
+            supplierId: supplier.id,
+            totalAmount: savedPurchaseOrder.totalAmount,
+          },
+        }
+      );
+
       this.logger.log(`Purchase order created successfully: ${savedPurchaseOrder.orderNumber}`);
       return await this.findOne(savedPurchaseOrder.id);
     } catch (error) {
       this.logger.error(`Error creating purchase order: ${error.message}`, error.stack);
-      
+
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
-      
+
       throw new BadRequestException('Failed to create purchase order');
     }
   }
@@ -467,6 +485,21 @@ export class PurchaseOrderService {
         await this.syncGrnDate(updatedPurchaseOrder.id, new Date(updatePurchaseOrderDto.orderDate));
       }
 
+      // Log audit trail for update
+      await this.auditLogService.log(
+        'UPDATE',
+        'PurchaseOrder',
+        `Updated purchase order: ${updatedPurchaseOrder.orderNumber}`,
+        {
+          entityId: updatedPurchaseOrder.id,
+          userId: 'system',
+          newValues: {
+            orderNumber: updatedPurchaseOrder.orderNumber,
+            totalAmount: updatedPurchaseOrder.totalAmount,
+          },
+        }
+      );
+
       this.logger.log(`Purchase order updated successfully: ${updatedPurchaseOrder.orderNumber}`);
       return await this.findOne(updatedPurchaseOrder.id);
     } catch (error) {
@@ -708,6 +741,23 @@ export class PurchaseOrderService {
       this.logger.log(`Associated GRN ${grn.grnNumber} permanently deleted`);
     }
 
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'PurchaseOrder',
+      `Permanently deleted purchase order: ${purchaseOrder.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          orderNumber: purchaseOrder.orderNumber,
+          supplierId: purchaseOrder.supplierId,
+          totalAmount: purchaseOrder.totalAmount,
+          isFullyReceived: purchaseOrder.isFullyReceived,
+        },
+      }
+    );
+
     // Hard delete - remove from database completely
     await this.purchaseOrderRepository.remove(purchaseOrder);
 
@@ -791,6 +841,21 @@ export class PurchaseOrderService {
       .set({ deletedAt })
       .where('id = :id', { id })
       .execute();
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'PurchaseOrder',
+      `Deleted purchase order: ${purchaseOrder.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          orderNumber: purchaseOrder.orderNumber,
+          totalAmount: purchaseOrder.totalAmount,
+        },
+      }
+    );
 
     this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
   }

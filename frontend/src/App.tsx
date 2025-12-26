@@ -51,6 +51,7 @@ const PriceCostingPage = React.lazy(() => import('./pages/settings/PriceCostingP
 const PrintSettingsPage = React.lazy(() => import('./pages/settings/PrintSettingsPage'))
 const DocumentNumbersPage = React.lazy(() => import('./pages/settings/DocumentNumbersPage'))
 const BackupManagement = React.lazy(() => import('./pages/settings/BackupManagement'))
+const AuditLogsPage = React.lazy(() => import('./pages/audit-logs/AuditLogsPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
 // Loading component
@@ -137,6 +138,9 @@ function App() {
                     <Route path="/settings/print" element={<PrintSettingsPage />} />
                     <Route path="/settings/document-numbers" element={<DocumentNumbersPage />} />
                     <Route path="/settings/backup" element={<BackupManagement />} />
+
+                    {/* Audit Logs */}
+                    <Route path="/audit-logs" element={<AuditLogsPage />} />
 
                     {/* Default redirect */}
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />

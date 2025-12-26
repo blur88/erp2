@@ -217,6 +217,17 @@ const OrdersPage: React.FC = () => {
     loadOrders()
   }, [loadOrders])
 
+  // Refresh persisted selectedOrder on component mount (after browser refresh)
+  const hasRefreshedPersistedOrder = useRef(false)
+  useEffect(() => {
+    // Only run once on mount
+    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
+      console.log('Refreshing persisted selectedOrder:', selectedOrder.id)
+      dispatch(fetchOrderById(selectedOrder.id) as any)
+      hasRefreshedPersistedOrder.current = true
+    }
+  }, []) // Empty deps - only run on mount
+
   // Refresh on route navigation (when coming back from another page)
   const previousPathnameRef = useRef(location.pathname)
   useEffect(() => {

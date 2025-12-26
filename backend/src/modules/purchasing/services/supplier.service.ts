@@ -12,6 +12,7 @@ import {
   SupplierResponseDto,
   SupplierListResponseDto,
 } from '../dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class SupplierService {
@@ -20,6 +21,7 @@ export class SupplierService {
   constructor(
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -50,6 +52,23 @@ export class SupplierService {
 
       const savedSupplier = await this.supplierRepository.save(supplier);
       this.logger.log(`Supplier created successfully: ${savedSupplier.id}`);
+
+      // Log audit trail for create
+      await this.auditLogService.log(
+        'CREATE',
+        'Supplier',
+        `Created supplier: ${savedSupplier.companyName}`,
+        {
+          entityId: savedSupplier.id,
+          userId: 'system',
+          newValues: {
+            companyName: savedSupplier.companyName,
+            contactPerson: savedSupplier.contactPerson,
+            phone: savedSupplier.phone,
+            type: savedSupplier.type,
+          },
+        }
+      );
 
       return this.mapToResponseDto(savedSupplier);
     } catch (error) {
@@ -173,8 +192,35 @@ export class SupplierService {
     }
 
     try {
+      // Track changes for audit
+      const changes: Record<string, { from: any; to: any }> = {};
+      Object.keys(updateSupplierDto).forEach(key => {
+        if (updateSupplierDto[key] !== supplier[key]) {
+          changes[key] = { from: supplier[key], to: updateSupplierDto[key] };
+        }
+      });
+
       Object.assign(supplier, updateSupplierDto);
       const updatedSupplier = await this.supplierRepository.save(supplier);
+
+      // Log audit trail for update
+      if (Object.keys(changes).length > 0) {
+        await this.auditLogService.log(
+          'UPDATE',
+          'Supplier',
+          `Updated supplier: ${updatedSupplier.companyName}`,
+          {
+            entityId: id,
+            userId: 'system',
+            oldValues: Object.fromEntries(
+              Object.entries(changes).map(([key, val]) => [key, val.from])
+            ),
+            newValues: Object.fromEntries(
+              Object.entries(changes).map(([key, val]) => [key, val.to])
+            ),
+          }
+        );
+      }
 
       this.logger.log(`Supplier updated successfully: ${updatedSupplier.id}`);
       return this.mapToResponseDto(updatedSupplier);
@@ -243,6 +289,23 @@ export class SupplierService {
     try {
       // Soft delete the supplier using TypeORM's soft delete
       await this.supplierRepository.softDelete(id);
+
+      // Log audit trail for delete
+      await this.auditLogService.log(
+        'DELETE',
+        'Supplier',
+        `Deleted supplier: ${supplier.companyName}`,
+        {
+          entityId: id,
+          userId: 'system',
+          oldValues: {
+            companyName: supplier.companyName,
+            contactPerson: supplier.contactPerson,
+            phone: supplier.phone,
+            type: supplier.type,
+          },
+        }
+      );
 
       this.logger.log(`Supplier soft deleted successfully: ${id}`);
     } catch (error) {
@@ -534,6 +597,23 @@ export class SupplierService {
 
       // No need to update status as it was removed
 
+      // Log audit trail for restore
+      await this.auditLogService.log(
+        'RESTORE',
+        'Supplier',
+        `Restored supplier: ${restoredSupplier.companyName}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            companyName: restoredSupplier.companyName,
+            contactPerson: restoredSupplier.contactPerson,
+            phone: restoredSupplier.phone,
+            type: restoredSupplier.type,
+          },
+        }
+      );
+
       this.logger.log(`Supplier restored successfully: ${id}`);
       return this.mapToResponseDto(restoredSupplier);
     } catch (error) {
@@ -562,6 +642,23 @@ export class SupplierService {
     if (!supplier.deletedAt) {
       throw new BadRequestException('Supplier must be soft-deleted before permanent deletion');
     }
+
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'Supplier',
+      `Permanently deleted supplier: ${supplier.companyName}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          companyName: supplier.companyName,
+          contactPerson: supplier.contactPerson,
+          phone: supplier.phone,
+          type: supplier.type,
+        },
+      }
+    );
 
     try {
       await this.supplierRepository.remove(supplier);
