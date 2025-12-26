@@ -42,8 +42,13 @@ export class BackupService {
   }
 
   async createBackup(createBackupDto: CreateBackupDto): Promise<BackupLog> {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `full_backup_${timestamp}.tar.gz`;
+    // Use shorter timestamp format: YYYYMMDD_HHMMSS
+    const now = new Date();
+    const timestamp = now.toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/T/, '_')
+      .substring(0, 15); // YYYYMMDD_HHMMSS
+    const filename = `backup_${timestamp}.tar.gz`;
     const filepath = path.join(this.backupDir, 'archives', filename);
 
     // Create backup log entry
@@ -509,11 +514,19 @@ export class BackupService {
 
       this.logger.log(`Restore completed successfully from: ${backup.filename}`);
 
-      // Fix backup status - restore overwrites backup_logs table, so we need to update the status
+      // Fix backup record - restore overwrites backup_logs table, so we need to restore all metadata
       // The backup was validated as 'completed' before restore started, so restore it to that state
       await this.backupLogRepository.update(backup.id, {
+        filename: backup.filename,
+        filepath: backup.filepath,
+        backupType: backup.backupType,
         status: 'completed',
-        completedAt: backup.completedAt
+        databases: backup.databases,
+        createdBy: backup.createdBy,
+        startedAt: backup.startedAt,
+        completedAt: backup.completedAt,
+        size: backup.size,
+        metadata: backup.metadata,
       });
 
       return backup;
