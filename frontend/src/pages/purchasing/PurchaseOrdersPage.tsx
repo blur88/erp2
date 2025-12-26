@@ -291,6 +291,7 @@ const PurchaseOrdersPage: React.FC = () => {
       const freshOrder = response.data
 
       // Update both the selected order and the order in the list
+      dispatch(setSelectedPurchaseOrder(freshOrder))
       dispatch(updatePurchaseOrderInPlace(freshOrder))
     } catch (error) {
       console.error('Error fetching purchase order:', error)
