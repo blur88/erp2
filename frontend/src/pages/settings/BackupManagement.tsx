@@ -161,7 +161,7 @@ const BackupManagement: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <BackupSettingsPanel />
+          <BackupSettingsPanel onCleanupComplete={() => dispatch(fetchBackups())} />
         </TabPanel>
       </Paper>
 

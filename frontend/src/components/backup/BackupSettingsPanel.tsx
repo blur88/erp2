@@ -17,7 +17,11 @@ import {
 import { Save as SaveIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import backupService, { BackupSettings, UpdateBackupSettingsDto } from '@/services/backupService';
 
-const BackupSettingsPanel: React.FC = () => {
+interface BackupSettingsPanelProps {
+  onCleanupComplete?: () => void;
+}
+
+const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComplete }) => {
   const [settings, setSettings] = useState<BackupSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,6 +102,10 @@ const BackupSettingsPanel: React.FC = () => {
         severity: 'success',
       });
       await loadSettings();
+      // Notify parent component to refresh backup list
+      if (onCleanupComplete) {
+        onCleanupComplete();
+      }
     } catch (error: any) {
       setSnackbar({
         open: true,
@@ -152,7 +160,7 @@ const BackupSettingsPanel: React.FC = () => {
 
           <Grid container spacing={3}>
             {/* Auto Cleanup Toggle */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -169,7 +177,7 @@ const BackupSettingsPanel: React.FC = () => {
             </Grid>
 
             {/* Cleanup Time */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Cleanup Time"
@@ -183,7 +191,7 @@ const BackupSettingsPanel: React.FC = () => {
             </Grid>
 
             {/* Retention Days */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Retention Days"
@@ -197,7 +205,7 @@ const BackupSettingsPanel: React.FC = () => {
             </Grid>
 
             {/* Maximum Backups to Keep */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Maximum Backups to Keep"
@@ -214,7 +222,7 @@ const BackupSettingsPanel: React.FC = () => {
             </Grid>
 
             {/* Maximum Total Size */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Maximum Total Size (MB)"
@@ -237,10 +245,10 @@ const BackupSettingsPanel: React.FC = () => {
             </Grid>
 
             {/* Current Usage and Limit Display */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="caption" color="text.secondary">
                       Current Total Size (Usage)
                     </Typography>
@@ -248,7 +256,7 @@ const BackupSettingsPanel: React.FC = () => {
                       {currentTotalSize > 0 ? `${(currentTotalSize / (1024 * 1024)).toFixed(2)} MB` : '0 MB'}
                     </Typography>
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="caption" color="text.secondary">
                       Maximum Allowed Size (Limit)
                     </Typography>
@@ -257,7 +265,7 @@ const BackupSettingsPanel: React.FC = () => {
                     </Typography>
                   </Grid>
                   {settings.maximumTotalSize && currentTotalSize > 0 && (
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Box sx={{ position: 'relative', pt: 1 }}>
                         <Box
                           sx={{
@@ -288,7 +296,7 @@ const BackupSettingsPanel: React.FC = () => {
             </Grid>
 
             {/* Action Buttons */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                 <Button
                   variant="outlined"
