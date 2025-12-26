@@ -221,76 +221,68 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
               />
             </Grid>
 
-            {/* Maximum Total Size */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Maximum Total Size (MB)"
-                type="number"
-                value={settings.maximumTotalSize ? (settings.maximumTotalSize / (1024 * 1024)).toFixed(2) : ''}
-                onChange={(e) => {
-                  const mb = parseFloat(e.target.value);
-                  setSettings({
-                    ...settings,
-                    maximumTotalSize: mb > 0 ? Math.round(mb * 1024 * 1024) : null
-                  });
-                }}
-                disabled={!settings.autoCleanupEnabled}
-                helperText="Maximum total size of all backups in MB (max 100 MB, leave empty for unlimited)"
-                InputProps={{
-                  inputProps: { min: 1, max: 100, step: 1 },
-                  endAdornment: <InputAdornment position="end">MB</InputAdornment>,
-                }}
-              />
-            </Grid>
-
-            {/* Current Usage and Limit Display */}
+            {/* Current Usage Display */}
             <Grid size={{ xs: 12 }}>
               <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
                 <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Current Total Size (Usage)
+                      Current Total Size
                     </Typography>
                     <Typography variant="h6" color={currentTotalSize > 0 ? 'primary' : 'text.secondary'}>
                       {currentTotalSize > 0 ? `${(currentTotalSize / (1024 * 1024)).toFixed(2)} MB` : '0 MB'}
                     </Typography>
                   </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Maximum Allowed Size (Limit)
+                      Maximum Limit
                     </Typography>
                     <Typography variant="h6" color="primary">
-                      {settings.maximumTotalSize ? `${(settings.maximumTotalSize / (1024 * 1024)).toFixed(2)} MB` : 'Unlimited'}
+                      10.00 MB
                     </Typography>
                   </Grid>
-                  {settings.maximumTotalSize && currentTotalSize > 0 && (
-                    <Grid size={{ xs: 12 }}>
-                      <Box sx={{ position: 'relative', pt: 1 }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Space Left
+                    </Typography>
+                    <Typography
+                      variant="h6"
+                      color={
+                        (10 * 1024 * 1024 - currentTotalSize) > (2 * 1024 * 1024)
+                          ? 'success.main'
+                          : (10 * 1024 * 1024 - currentTotalSize) > 0
+                            ? 'warning.main'
+                            : 'error.main'
+                      }
+                    >
+                      {((10 * 1024 * 1024 - currentTotalSize) / (1024 * 1024)).toFixed(2)} MB
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <Box sx={{ position: 'relative', pt: 1 }}>
+                      <Box
+                        sx={{
+                          height: 8,
+                          bgcolor: 'grey.300',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                        }}
+                      >
                         <Box
                           sx={{
-                            height: 8,
-                            bgcolor: 'grey.300',
-                            borderRadius: 1,
-                            overflow: 'hidden',
+                            height: '100%',
+                            width: `${Math.min((currentTotalSize / (10 * 1024 * 1024)) * 100, 100)}%`,
+                            bgcolor: currentTotalSize > (10 * 1024 * 1024) ? 'error.main' : 'primary.main',
+                            transition: 'width 0.3s ease',
                           }}
-                        >
-                          <Box
-                            sx={{
-                              height: '100%',
-                              width: `${Math.min((currentTotalSize / settings.maximumTotalSize) * 100, 100)}%`,
-                              bgcolor: currentTotalSize > settings.maximumTotalSize ? 'error.main' : 'primary.main',
-                              transition: 'width 0.3s ease',
-                            }}
-                          />
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                          {((currentTotalSize / settings.maximumTotalSize) * 100).toFixed(1)}% used
-                          {currentTotalSize > settings.maximumTotalSize && ' - Over limit!'}
-                        </Typography>
+                        />
                       </Box>
-                    </Grid>
-                  )}
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {((currentTotalSize / (10 * 1024 * 1024)) * 100).toFixed(1)}% used
+                        {currentTotalSize > (10 * 1024 * 1024) && ' - Over limit!'}
+                      </Typography>
+                    </Box>
+                  </Grid>
                 </Grid>
               </Box>
             </Grid>

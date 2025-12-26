@@ -53,14 +53,14 @@ export class UpdateBackupSettingsDto {
   maximumBackupsToKeep?: number | null;
 
   @ApiProperty({
-    description: 'Maximum total size of all backups in bytes (null for unlimited, max 104857600 = 100MB)',
-    example: 104857600,
-    maximum: 104857600,
+    description: 'Maximum total size of all backups in bytes (null for unlimited, max 10485760 = 10MB)',
+    example: 10485760,
+    maximum: 10485760,
     required: false,
   })
   @IsInt()
   @Min(1)
-  @Max(104857600)
+  @Max(10485760)
   @IsOptional()
   maximumTotalSize?: number | null;
 }
