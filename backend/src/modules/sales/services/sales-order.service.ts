@@ -695,12 +695,19 @@ export class SalesOrderService {
       .leftJoinAndSelect('invoices.items', 'invoiceItems')
       .leftJoinAndSelect('invoiceItems.product', 'invoiceItemProduct')
       .where('salesOrder.id = :id', { id })
-      .andWhere('(payments.isActive = :isActive OR payments.id IS NULL)', { isActive: true })
-      .andWhere('(payments.deletedAt IS NULL OR payments.id IS NULL)')
       .getOne();
 
     if (!order) {
       throw new NotFoundException('Sales order not found');
+    }
+
+    // Filter out soft-deleted and inactive payments in application layer
+    if (order.invoices && order.invoices.length > 0) {
+      order.invoices.forEach(invoice => {
+        if (invoice.payments && invoice.payments.length > 0) {
+          invoice.payments = invoice.payments.filter(p => p.isActive && !p.deletedAt);
+        }
+      });
     }
 
     console.log(`[findById] Order ${order.orderNumber}: ${order.invoices?.length || 0} invoices`);
@@ -923,6 +930,24 @@ export class SalesOrderService {
           associatedInvoices.map(invoice => invoice.id)
         );
         console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each deleted invoice
+        for (const invoice of associatedInvoices) {
+          await this.auditLogService.log(
+            'DELETE',
+            'Invoice',
+            `Deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: invoice.id,
+              userId: 'system',
+              oldValues: {
+                invoiceNumber: invoice.invoiceNumber,
+                salesOrderId: id,
+                totalAmount: invoice.totalAmount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
@@ -948,6 +973,24 @@ export class SalesOrderService {
           associatedPayments.map(payment => payment.id)
         );
         console.log(`✅ Auto-deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each deleted payment
+        for (const payment of associatedPayments) {
+          await this.auditLogService.log(
+            'DELETE',
+            'Payment',
+            `Deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: payment.id,
+              userId: 'system',
+              oldValues: {
+                paymentNumber: payment.paymentNumber,
+                salesOrderId: id,
+                amount: payment.amount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-delete payments for sales order ${order.orderNumber}:`, error.message);
@@ -1253,6 +1296,24 @@ export class SalesOrderService {
           softDeletedInvoices.map(invoice => invoice.id)
         );
         console.log(`✅ Auto-restored ${softDeletedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each restored invoice
+        for (const invoice of softDeletedInvoices) {
+          await this.auditLogService.log(
+            'RESTORE',
+            'Invoice',
+            `Restored invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: invoice.id,
+              userId: 'system',
+              newValues: {
+                invoiceNumber: invoice.invoiceNumber,
+                salesOrderId: id,
+                totalAmount: invoice.totalAmount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-restore invoices for sales order ${order.orderNumber}:`, error.message);
@@ -1281,6 +1342,24 @@ export class SalesOrderService {
           softDeletedPayments.map(payment => payment.id)
         );
         console.log(`✅ Auto-restored ${softDeletedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each restored payment
+        for (const payment of softDeletedPayments) {
+          await this.auditLogService.log(
+            'RESTORE',
+            'Payment',
+            `Restored payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: payment.id,
+              userId: 'system',
+              newValues: {
+                paymentNumber: payment.paymentNumber,
+                salesOrderId: id,
+                amount: payment.amount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-restore payments for sales order ${order.orderNumber}:`, error.message);
@@ -1365,6 +1444,25 @@ export class SalesOrderService {
     // Automatically hard delete associated invoices (if they have no payments)
     if (invoices.length > 0) {
       try {
+        // Log audit trail for each invoice BEFORE permanent deletion
+        for (const invoice of invoices) {
+          await this.auditLogService.log(
+            'PERMANENT_DELETE',
+            'Invoice',
+            `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: invoice.id,
+              userId: 'system',
+              oldValues: {
+                invoiceNumber: invoice.invoiceNumber,
+                salesOrderId: id,
+                totalAmount: invoice.totalAmount,
+                paidAmount: invoice.paidAmount,
+              },
+            }
+          );
+        }
+
         // Hard delete all associated invoices
         await this.invoiceRepository.delete(
           invoices.map(invoice => invoice.id)
@@ -1481,6 +1579,25 @@ export class SalesOrderService {
         // Automatically hard delete associated invoices (if they have no payments)
         if (invoices.length > 0) {
           try {
+            // Log audit trail for each invoice BEFORE permanent deletion
+            for (const invoice of invoices) {
+              await this.auditLogService.log(
+                'PERMANENT_DELETE',
+                'Invoice',
+                `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+                {
+                  entityId: invoice.id,
+                  userId: 'system',
+                  oldValues: {
+                    invoiceNumber: invoice.invoiceNumber,
+                    salesOrderId: id,
+                    totalAmount: invoice.totalAmount,
+                    paidAmount: invoice.paidAmount,
+                  },
+                }
+              );
+            }
+
             // Hard delete all associated invoices
             await this.invoiceRepository.delete(
               invoices.map(invoice => invoice.id)
@@ -1825,20 +1942,12 @@ export class SalesOrderService {
       });
 
       if (associatedPayments.length > 0) {
-        // Soft delete the payment records (mark as inactive and set deletedAt)
-        for (const payment of associatedPayments) {
-          payment.isActive = false;
-          await paymentRepository.save(payment);
-          await paymentRepository.softDelete(payment.id);
-        }
-        console.log(`✅ Soft-deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
-
-        // Log audit trail for payment deletion
+        // Log audit trail for payment deletion BEFORE deleting
         for (const payment of associatedPayments) {
           await this.auditLogService.log(
             'DELETE',
             'Payment',
-            `Deleted payment: ${payment.paymentNumber} (unpaid sales order ${order.orderNumber})`,
+            `Permanently deleted payment: ${payment.paymentNumber} (unpaid sales order ${order.orderNumber})`,
             {
               entityId: payment.id,
               userId: 'system',
@@ -1850,6 +1959,10 @@ export class SalesOrderService {
             }
           );
         }
+
+        // Permanently delete the payment records (hard delete)
+        await paymentRepository.remove(associatedPayments);
+        console.log(`✅ Permanently deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
       }
     } catch (error) {
       console.error(`⚠️ Failed to delete payment records for order ${order.orderNumber}:`, error.message);

@@ -837,6 +837,22 @@ export class InvoiceService {
     // Restore the invoice
     await this.invoiceRepository.restore(id);
 
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'Invoice',
+      `Restored invoice: ${invoice.invoiceNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
+          totalAmount: invoice.totalAmount,
+        },
+      }
+    );
+
     // Return the restored invoice
     const restoredInvoice = await this.invoiceRepository.findOne({
       where: { id },
