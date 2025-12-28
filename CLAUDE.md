@@ -16,7 +16,7 @@ Comprehensive ERP system with modern full-stack architecture:
 
 **⚠️ CRITICAL: Authentication system completely removed**
 
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule` (7 active)
+**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `AuditLogsModule`, `BackupModule` (9 active)
 **Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 **Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
@@ -124,7 +124,7 @@ docker compose logs backend # Check specific service logs
 - **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
 - **Analytics**: `dashboard/` (✅ with WebSocket)
 - **Configuration**: `settings/` (✅ company settings), `print-settings/` (✅ print templates and settings)
-- **System**: `plugins/` (❌ disabled)
+- **System**: `audit-logs/` (✅ comprehensive audit logging), `backup/` (✅ backup and restore), `plugins/` (❌ disabled)
 
 ### Architecture Patterns
 - **Controllers**: Handle HTTP with Swagger decorators
@@ -257,6 +257,13 @@ When enabling disabled modules:
 - **Report Removed**: Count Sheet Report and Inventory Details Report removed from navigation
 
 ### Recent Updates (October-December 2025)
+
+### 📋 Comprehensive Audit Logging (December 2025)
+- ✅ **COMPLETE**: System-wide audit logging for all CRUD operations
+- **Coverage**: Automatic logging for inventory, sales, purchasing, and all module operations
+- **Details**: Captures user actions, entity changes, timestamps, and operation context
+- **API Access**: `/api/audit-logs` endpoint with filtering and pagination
+- **Backend Implementation**: `AuditLogsModule` integrated into all business modules
 
 ### 🎨 Material-UI v7 Upgrade (December 2025)
 - ✅ **COMPLETE**: Upgraded Material-UI from v5 to v7.3.6
@@ -499,6 +506,8 @@ const { control, handleSubmit } = useForm<FormData>({
 - Purchasing: `/api/purchasing/suppliers`, `/api/purchasing/purchase-orders`, `/api/purchasing/overview`
 - Settings: `/api/settings` (company settings and configuration)
 - Print Settings: `/api/print-settings` (print templates and printing configuration)
+- Audit Logs: `/api/audit-logs` (audit trail for all operations)
+- Backup: `/api/backup` (database backup and restore)
 - Module Info: `/api/info`
 
 ### 📊 Report Export Endpoints
@@ -512,6 +521,7 @@ const { control, handleSubmit } = useForm<FormData>({
 - **README.md outdated**: Use CLAUDE.md instead - README mentions authentication features that were completely removed
 - **deploy.sh mentions demo accounts**: Ignore demo account credentials in deploy.sh output - authentication system was completely removed
 - **TypeScript**: Uses `"strict": false`, use `as any` assertions for TypeORM when needed
+- **Backend tsconfig.json excludes active modules**: Backend `tsconfig.json` excludes `purchasing` and `reports` directories but both are actually active - this is a configuration artifact that doesn't affect runtime
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
 - **Icons**: Use `Inventory2` instead of non-existent `Product` icon
 - **Form validation fails silently**: Check yup schema allows `null` for optional foreign keys (use `.nullable()`)
@@ -552,7 +562,7 @@ For disabled modules (Plugins):
 ## Key Files
 
 ### Core Configuration
-- `backend/src/app.module.ts` - Main module (7 active modules)
+- `backend/src/app.module.ts` - Main module (9 active modules)
 - `docker-compose.yml` - Service orchestration with NGINX proxy
 - `deploy.sh` - Production deployment
 - `frontend/src/App.tsx` - Main React component
@@ -564,6 +574,8 @@ For disabled modules (Plugins):
 - `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025) with integrated reports (5 report types)
 - `backend/src/modules/settings/` - ✅ Company settings management
 - `backend/src/modules/print-settings/` - ✅ Print templates and printing configuration
+- `backend/src/modules/audit-logs/` - ✅ Comprehensive audit logging for all operations
+- `backend/src/modules/backup/` - ✅ Database backup and restore functionality
 
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products
