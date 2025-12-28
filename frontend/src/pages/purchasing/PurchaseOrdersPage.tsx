@@ -1538,7 +1538,14 @@ const PurchaseOrdersPage: React.FC = () => {
                                     const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
                                     return isPaidInFull ? handleUnpay : handleRecordPayment
                                   })()}
-                                  disabled={isLoading}
+                                  disabled={(() => {
+                                    const isReceived = selectedOrder.goodsReceivedNotes &&
+                                      selectedOrder.goodsReceivedNotes.length > 0 &&
+                                      selectedOrder.goodsReceivedNotes[0].status === 'received'
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    // Disable unpay button if order is received, or if loading
+                                    return (isPaidInFull && isReceived) || isLoading
+                                  })()}
                                   sx={{ minWidth: 110 }}
                                 >
                                   {(() => {
@@ -1737,6 +1744,7 @@ const PurchaseOrdersPage: React.FC = () => {
       <DeletedPurchaseOrdersDialog
         open={deletedOrdersDialogOpen}
         onClose={() => setDeletedOrdersDialogOpen(false)}
+        onRefresh={loadOrders}
       />
       {/* Blocked Purchase Order Dialog */}
       {selectedOrder && (

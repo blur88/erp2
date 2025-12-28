@@ -659,6 +659,23 @@ export class PurchaseOrderService {
         .set({ deletedAt: null })
         .where('id = :id', { id: grn.id })
         .execute();
+
+      // Log audit trail for automatic GRN restoration
+      await this.auditLogService.log(
+        'RESTORE',
+        'GoodsReceivedNote',
+        `Restored GRN: ${grn.grnNumber} (auto-restored with PO)`,
+        {
+          entityId: grn.id,
+          userId,
+          newValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       this.logger.log(`Associated GRN ${grn.grnNumber} restored (deletedAt set to null)`);
     }
 
@@ -675,6 +692,21 @@ export class PurchaseOrderService {
       where: { id },
       relations: ['supplier', 'items', 'items.product'],
     });
+
+    // Log audit trail for PO restoration
+    await this.auditLogService.log(
+      'RESTORE',
+      'PurchaseOrder',
+      `Restored purchase order: ${purchaseOrder.orderNumber}`,
+      {
+        entityId: id,
+        userId,
+        newValues: {
+          orderNumber: purchaseOrder.orderNumber,
+          totalAmount: purchaseOrder.totalAmount,
+        },
+      }
+    );
 
     this.logger.log(`Purchase order ${purchaseOrder.orderNumber} restored successfully (deletedAt set to null)`);
     return this.mapToResponseDto(restoredOrder);
@@ -737,11 +769,27 @@ export class PurchaseOrderService {
     });
 
     if (grn) {
+      // Log audit trail for GRN permanent delete
+      await this.auditLogService.log(
+        'PERMANENT_DELETE',
+        'GoodsReceivedNote',
+        `Permanently deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
+        {
+          entityId: grn.id,
+          userId: 'system',
+          oldValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       await this.grnRepository.remove(grn);
       this.logger.log(`Associated GRN ${grn.grnNumber} permanently deleted`);
     }
 
-    // Log audit trail for permanent delete
+    // Log audit trail for PO permanent delete
     await this.auditLogService.log(
       'PERMANENT_DELETE',
       'PurchaseOrder',
@@ -831,6 +879,23 @@ export class PurchaseOrderService {
         .set({ deletedAt })
         .where('id = :id', { id: grn.id })
         .execute();
+
+      // Log audit trail for automatic GRN deletion
+      await this.auditLogService.log(
+        'DELETE',
+        'GoodsReceivedNote',
+        `Deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
+        {
+          entityId: grn.id,
+          userId: 'system',
+          oldValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       this.logger.log(`Associated GRN ${grn.grnNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
     }
 
@@ -1017,6 +1082,23 @@ export class PurchaseOrderService {
 
       const savedGrn = await this.grnRepository.save(grn);
 
+      // Log audit trail for GRN creation immediately after successful save
+      // Do this BEFORE creating items to ensure logging happens even if item creation fails
+      await this.auditLogService.log(
+        'CREATE',
+        'GoodsReceivedNote',
+        `Created GRN: ${savedGrn.grnNumber}`,
+        {
+          entityId: savedGrn.id,
+          userId: 'system',
+          newValues: {
+            grnNumber: savedGrn.grnNumber,
+            purchaseOrderId: savedGrn.purchaseOrderId,
+            status: savedGrn.status,
+          },
+        }
+      );
+
       // Create GRN items using relational table
       const grnItems: any[] = [];
       let lineNumber = 1;
@@ -1147,6 +1229,22 @@ export class PurchaseOrderService {
       // Force TypeORM to update by using the update query
       await this.purchaseOrderRepository.update(id, {});
 
+      // Log audit trail for receiving goods
+      await this.auditLogService.log(
+        'UPDATE',
+        'PurchaseOrder',
+        `Received goods for PO: ${purchaseOrder.orderNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            orderNumber: purchaseOrder.orderNumber,
+            status: 'received',
+            grnStatus: GrnStatus.RECEIVED,
+          },
+        }
+      );
+
       this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
     } catch (error) {
@@ -1241,6 +1339,22 @@ export class PurchaseOrderService {
       // Force TypeORM to update by using the update query
       await this.purchaseOrderRepository.update(id, {});
 
+      // Log audit trail for returning goods
+      await this.auditLogService.log(
+        'UPDATE',
+        'PurchaseOrder',
+        `Returned goods for PO: ${purchaseOrder.orderNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            orderNumber: purchaseOrder.orderNumber,
+            status: 'draft',
+            grnStatus: GrnStatus.DRAFT,
+          },
+        }
+      );
+
       this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
     } catch (error) {
@@ -1272,71 +1386,24 @@ export class PurchaseOrderService {
       throw new BadRequestException('Payment amount must be greater than current paid amount');
     }
 
-    // Find GRN for this purchase order (optional)
-    const grn = await this.grnRepository.findOne({
-      where: { purchaseOrderId: id },
+    // Create vendor payment using the vendor payment service to ensure audit logging
+    const vendorPayment = await this.vendorPaymentService.create({
+      supplierId: purchaseOrder.supplierId,
+      purchaseOrderId: id,
+      amount: paymentAmount,
+      paymentDate: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
+      paymentMethod: 'cash',
+      status: 'completed',
+      notes: 'Payment recorded via system',
     });
 
-    // Generate payment number using document settings
-    let paymentNumber: string;
-    try {
-      paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
-    } catch (error) {
-      // Fallback to legacy method
-      const payments = await this.vendorPaymentRepository
-        .createQueryBuilder('payment')
-        .select('payment.paymentNumber')
-        .where('payment.paymentNumber LIKE :pattern', { pattern: 'VP-%' })
-        .andWhere('payment.paymentNumber ~ :regex', { regex: '^VP-[0-9]+$' })
-        .getMany();
-
-      let nextNumber = 1;
-      if (payments && payments.length > 0) {
-        const numbers = payments
-          .map(p => {
-            const match = p.paymentNumber.match(/VP-(\d+)/);
-            return match ? parseInt(match[1], 10) : 0;
-          })
-          .filter(n => n > 0);
-
-        if (numbers.length > 0) {
-          nextNumber = Math.max(...numbers) + 1;
-        }
-      }
-      paymentNumber = `VP-${String(nextNumber).padStart(6, '0')}`;
-    }
-
-    // Create vendor payment using raw query (TypeORM's entity save was clearing purchaseOrderId)
-    await this.purchaseOrderRepository.manager.query(`
-      INSERT INTO vendor_payments (
-        "paymentNumber",
-        "supplierId",
-        "purchaseOrderId",
-        "grnId",
-        amount,
-        "paymentDate",
-        "paymentMethod",
-        status,
-        notes
-      ) VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8)
-    `, [
-      paymentNumber,
-      purchaseOrder.supplierId,
-      id,
-      grn?.id || null,
-      paymentAmount,
-      'cash',
-      'completed',
-      'Payment recorded via system'
-    ]);
-
-    this.logger.log(`Vendor payment ${paymentNumber} created for purchase order ${purchaseOrder.orderNumber}`);
+    this.logger.log(`Vendor payment ${vendorPayment.paymentNumber} created for purchase order ${purchaseOrder.orderNumber}`);
 
     // Update the paidAmount field
     purchaseOrder.paidAmount = amount;
     await this.purchaseOrderRepository.save(purchaseOrder);
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${amount}, vendor payment ${paymentNumber} created for ${paymentAmount}`);
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${amount}, vendor payment ${vendorPayment.paymentNumber} created for ${paymentAmount}`);
 
     // Return updated order
     return this.findOne(id);

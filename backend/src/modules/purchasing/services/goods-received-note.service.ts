@@ -370,6 +370,22 @@ export class GoodsReceivedNoteService {
         this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} soft deleted with timestamp ${deletedAt.toISOString()}`);
       }
 
+      // Log audit trail for soft delete
+      await this.auditLogService.log(
+        'DELETE',
+        'GoodsReceivedNote',
+        `Deleted GRN: ${grn.grnNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          oldValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       this.logger.log(`GRN soft deleted successfully with timestamp ${deletedAt.toISOString()}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -473,6 +489,22 @@ export class GoodsReceivedNoteService {
       if (!restoredGrn) {
         throw new NotFoundException(`Goods Received Note with ID ${id} not found after restore`);
       }
+
+      // Log audit trail for restore
+      await this.auditLogService.log(
+        'RESTORE',
+        'GoodsReceivedNote',
+        `Restored GRN: ${restoredGrn.grnNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            grnNumber: restoredGrn.grnNumber,
+            purchaseOrderId: restoredGrn.purchaseOrderId,
+            status: restoredGrn.status,
+          },
+        }
+      );
 
       this.logger.log(`GRN restored successfully (deletedAt set to null)`);
       return this.mapToResponseDto(restoredGrn);

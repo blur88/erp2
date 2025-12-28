@@ -303,7 +303,25 @@ export class VendorPaymentService {
     vendorPayment.isActive = true;
 
     await this.vendorPaymentRepository.restore(id);
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const restoredPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'VendorPayment',
+      `Restored vendor payment: ${restoredPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: user,
+        newValues: {
+          paymentNumber: restoredPayment.paymentNumber,
+          amount: restoredPayment.amount,
+          status: restoredPayment.status,
+        },
+      }
+    );
+
+    return restoredPayment;
   }
 
   /**
@@ -338,6 +356,22 @@ export class VendorPaymentService {
 
     await this.vendorPaymentRepository.save(vendorPayment);
     await this.vendorPaymentRepository.softDelete(id);
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'VendorPayment',
+      `Deleted vendor payment: ${vendorPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: user,
+        oldValues: {
+          paymentNumber: vendorPayment.paymentNumber,
+          amount: vendorPayment.amount,
+          status: vendorPayment.status,
+        },
+      }
+    );
 
     // Touch the purchase order to update its updatedAt timestamp
     if (vendorPayment.purchaseOrderId) {
@@ -392,7 +426,26 @@ export class VendorPaymentService {
       notes: `Auto-generated payment for PO ${purchaseOrder.orderNumber}`,
     });
 
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'VendorPayment',
+      `Created vendor payment: ${savedPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`,
+      {
+        entityId: savedPayment.id,
+        userId: user,
+        newValues: {
+          paymentNumber: savedPayment.paymentNumber,
+          purchaseOrderId: poId,
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
+
+    return savedPayment;
   }
 
   /**
