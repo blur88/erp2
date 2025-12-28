@@ -247,17 +247,7 @@ const PurchaseOrdersPage: React.FC = () => {
       console.log('Payment status response:', response)
 
       // Handle both direct response and wrapped response structure
-      let paymentData
-      if (response.data && typeof response.data === 'object' && 'isPaid' in response.data) {
-        // Direct response structure: { isPaid: boolean, payment?: any }
-        paymentData = response.data
-      } else if (response && typeof response === 'object' && 'isPaid' in response) {
-        // Direct response structure: { isPaid: boolean, payment?: any }
-        paymentData = response
-      } else {
-        // Fallback - assume unpaid if structure is unexpected
-        paymentData = { isPaid: false }
-      }
+      const paymentData: any = (response as any).data || response
 
       setPaymentStatus(prev => ({
         ...prev,
@@ -288,7 +278,7 @@ const PurchaseOrdersPage: React.FC = () => {
     try {
       // Fetch fresh data from server to ensure supplier name is current
       const response = await purchasingApi.getPurchaseOrder(order.id)
-      const freshOrder = response.data
+      const freshOrder = (response as any).data || response
 
       // Update both the selected order and the order in the list
       dispatch(setSelectedPurchaseOrder(freshOrder))
@@ -342,8 +332,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods received successfully. Product quantities updated.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       loadOrders() // Reload to update the list
@@ -373,8 +364,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods returned successfully. Product quantities reverted.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       loadOrders() // Reload to update the list
@@ -415,8 +407,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods returned successfully. You can now edit the order.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       setUnreturnDialogOpen(false)
@@ -443,8 +436,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods returned successfully. Product quantities reverted.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       setUnreturnDialogOpen(false)
@@ -478,8 +472,9 @@ const PurchaseOrdersPage: React.FC = () => {
         showSuccess('Payment deleted and goods returned successfully. You can now edit the order.')
 
         // Update with returned goods data
-        if (returnResponse.data) {
-          dispatch(setSelectedPurchaseOrder(returnResponse.data))
+        const returnedOrder = (returnResponse as any).data || returnResponse
+        if (returnedOrder) {
+          dispatch(setSelectedPurchaseOrder(returnedOrder))
         }
 
         // Refetch GRNs to update the GRN page with latest data
@@ -488,8 +483,9 @@ const PurchaseOrdersPage: React.FC = () => {
         showSuccess('Payment deleted successfully. You can now edit the order.')
 
         // Update the selected order with the unpay data
-        const updatedOrder = unpayResponse.data.data || unpayResponse.data
-        if (updatedOrder && (updatedOrder as any).id) {
+        const unpayData: any = (unpayResponse as any).data || unpayResponse
+        const updatedOrder = unpayData.data || unpayData
+        if (updatedOrder && updatedOrder.id) {
           const orderWithoutPayment = {
             ...(updatedOrder as any),
             vendorPayments: []
@@ -520,8 +516,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Payment deleted successfully.')
 
       // Update the selected order with the new data
-      const updatedOrder = response.data.data || response.data
-      if (updatedOrder && (updatedOrder as any).id) {
+      const responseData: any = (response as any).data || response
+      const updatedOrder = responseData.data || responseData
+      if (updatedOrder && updatedOrder.id) {
         const orderWithoutPayment = {
           ...(updatedOrder as any),
           vendorPayments: []
@@ -640,7 +637,8 @@ const PurchaseOrdersPage: React.FC = () => {
       const response = await purchasingApi.markPurchaseOrderAsPaid(selectedOrder.id)
 
       // Response structure: { data: { data: PO, payment: Payment } }
-      const updatedPO = response.data?.data || response.data as any
+      const responseData: any = (response as any).data || response
+      const updatedPO = responseData?.data || responseData
 
       // Show success message using the vendorPayments from the updated PO
       if (updatedPO.vendorPayments && updatedPO.vendorPayments.length > 0) {
@@ -677,8 +675,9 @@ const PurchaseOrdersPage: React.FC = () => {
 
       // Update the selected order with the new data
       // ApiService wraps response, check both response.data.data || response.data
-      const updatedOrder = response.data.data || response.data
-      if (updatedOrder && (updatedOrder as any).id) {
+      const responseData: any = (response as any).data || response
+      const updatedOrder = responseData.data || responseData
+      if (updatedOrder && updatedOrder.id) {
         // Clear vendorPayments array when unpaying
         const orderWithoutPayment = {
           ...(updatedOrder as any),
