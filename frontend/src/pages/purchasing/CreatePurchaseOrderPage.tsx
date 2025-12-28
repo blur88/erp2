@@ -37,6 +37,7 @@ import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction, fetchGoodsReceivedNotes } from '@/store/slices/purchasingSlice'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface PurchaseOrderItem {
   productId: string
@@ -76,6 +77,7 @@ const schema = yup.object({
 })
 
 const CreatePurchaseOrderPage: React.FC = () => {
+  const {currency} = useCurrency()
   const theme = useTheme()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
@@ -346,7 +348,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   }
 
   const parseFormattedNumber = (value: string): number => {
-    return parseFloat(value.replace(/,/g, '')) || 0
+    return parseFloat(value.replace(/,/g, '')) || 0;
   }
 
   const calculateOrderTotals = () => {
@@ -405,12 +407,16 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
           <Grid container spacing={3}>
             {/* PO Information Card */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>PO Information</Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                      size={{
+                        xs: 12,
+                        md: 6
+                      }}>
                       <Controller
                         name="supplierId"
                         control={control}
@@ -453,7 +459,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                      size={{
+                        xs: 12,
+                        md: 6
+                      }}>
                       <Controller
                         name="orderDate"
                         control={control}
@@ -486,7 +496,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             </Grid>
 
             {/* PO Items Card */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -623,7 +633,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                     if (value === '' || value === null || value === undefined) return ''
                                     const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
                                     if (isNaN(num)) return ''
-                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
                                   }
 
                                   const [displayValue, setDisplayValue] = React.useState(formatQuantity(qtyField.value))
@@ -655,7 +665,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                       inputProps={{ style: { textAlign: 'center', fontSize: '0.875rem' } }}
                                       error={!!errors.items?.[index]?.quantity}
                                     />
-                                  )
+                                  );
                                 }}
                               />
                             </TableCell>
@@ -694,11 +704,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                         style: { textAlign: 'right', fontSize: '0.875rem' }
                                       }}
                                       InputProps={{
-                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                                       }}
                                       error={!!errors.items?.[index]?.unitPrice}
                                     />
-                                  )
+                                  );
                                 }}
                               />
                             </TableCell>
@@ -742,7 +752,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                           flex: 1,
                                         }}
                                       />
-                                    )
+                                    );
                                   }}
                                 />
                                 <Controller
@@ -773,7 +783,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                       }}
                                     >
                                       <MenuItem value="percent">%</MenuItem>
-                                      <MenuItem value="amount">RM</MenuItem>
+                                      <MenuItem value="amount">{currency}</MenuItem>
                                     </TextField>
                                   )}
                                 />
@@ -813,7 +823,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
             </Grid>
 
             {/* Notes and Summary */}
-            <Grid item xs={12} md={8}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 8
+              }}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Controller
@@ -845,7 +859,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 4
+              }}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" gutterBottom>PO Summary</Typography>
@@ -905,10 +923,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
                               },
                             }}
                             InputProps={{
-                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                             }}
                           />
-                        )
+                        );
                       }}
                     />
                   </Box>
@@ -947,7 +965,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         )}
       </Box>
     </Container>
-  )
+  );
 }
 
 export default CreatePurchaseOrderPage

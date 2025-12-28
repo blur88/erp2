@@ -58,6 +58,7 @@ import { format, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, each
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
+import { useCurrency } from '@/hooks/useCurrency'
 
 ChartJS.register(
   CategoryScale,
@@ -170,6 +171,7 @@ const DATE_FILTER_OPTIONS = [
 const DashboardPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
+  const { currency } = useCurrency() // Initialize currency cache
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
@@ -896,18 +898,22 @@ const DashboardPage: React.FC = () => {
           </Typography>
         </Box>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 4 }}>
           {error}
         </Alert>
       )}
-
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} lg={3} key={index}>
+          <Grid
+            key={index}
+            size={{
+              xs: 12,
+              sm: 6,
+              lg: 3
+            }}>
             <Card
               sx={{
                 cursor: 'pointer',
@@ -963,10 +969,9 @@ const DashboardPage: React.FC = () => {
           </Grid>
         ))}
       </Grid>
-
       {/* Business Performance Chart - Full Width */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}>
               Business Performance
@@ -1070,7 +1075,7 @@ const DashboardPage: React.FC = () => {
             </Box>
 
             <Box sx={{ height: 450, position: 'relative' }}>
-              <Line ref={chartRef} data={chartData} options={chartOptions} />
+              <Line ref={chartRef} data={chartData} options={chartOptions as any} />
               <Button
                 size="small"
                 variant="outlined"
@@ -1093,11 +1098,14 @@ const DashboardPage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
-
       {/* Tables Row */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* Recent Sales Orders */}
-        <Grid item xs={12} lg={6}>
+        <Grid
+          size={{
+            xs: 12,
+            lg: 6
+          }}>
           <Paper sx={{ overflow: 'hidden' }}>
             <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
@@ -1198,7 +1206,11 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Recent Purchase Orders */}
-        <Grid item xs={12} lg={6}>
+        <Grid
+          size={{
+            xs: 12,
+            lg: 6
+          }}>
           <Paper sx={{ overflow: 'hidden' }}>
             <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
@@ -1298,11 +1310,15 @@ const DashboardPage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
-
       {/* Bottom Row - Top Products, Top Suppliers, Stock Health, Low Stock */}
       <Grid container spacing={3}>
         {/* Top Products */}
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            lg: 3
+          }}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Top Selling Products
@@ -1355,7 +1371,12 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Top Suppliers */}
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            lg: 3
+          }}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
               Top Suppliers
@@ -1408,7 +1429,12 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Stock Health */}
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            lg: 3
+          }}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}>
               Stock Health
@@ -1425,7 +1451,12 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Low Stock Alerts */}
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            lg: 3
+          }}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
@@ -1482,7 +1513,7 @@ const DashboardPage: React.FC = () => {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }
 
 export default DashboardPage

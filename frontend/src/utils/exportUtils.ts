@@ -21,7 +21,8 @@ export interface ExportData {
 // Format currency for export
 const formatCurrencyForExport = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return ''
-  return `RM ${value.toFixed(2)}`
+  const currency = localStorage.getItem('defaultCurrency') || 'RM'
+  return `${currency} ${value.toFixed(2)}`
 }
 
 // Format date for export
@@ -36,36 +37,42 @@ const formatDateForExport = (date: string | Date): string => {
 // Get stock status text
 const getStockStatusText = (product: Product): string => {
   const stock = product.stockQuantity || 0
-  const reorderLevel = product.reorderLevel || 0
-  
+
   if (stock <= 0) return 'Out of Stock'
-  if (stock <= reorderLevel) return 'Low Stock'
+  if (stock <= 10) return 'Low Stock'
   return 'In Stock'
 }
 
 // Prepare data for export
 const prepareExportData = (products: Product[]) => {
-  return products.map((product, index) => ({
-    '#': index + 1,
-    'Product Name': product.name || '',
-    'Barcode': product.barcode || '',
-    'Type': product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
-    'Category': product.category?.name || 'No Category',
-    'Description': product.description || '',
-    'Base Cost': formatCurrencyForExport(product.baseCost),
-    'Retail Price': formatCurrencyForExport(product.retailPrice),
-    'Wholesale Price': formatCurrencyForExport(product.wholesalePrice),
-    'Special Price': formatCurrencyForExport(product.specialPrice),
-    'Current Stock': product.stockQuantity || 0,
-    'Stock Status': getStockStatusText(product),
-    'Retail Margin (%)': product.grossMarginRetail?.toFixed(1) || '',
-    'Wholesale Margin (%)': product.grossMarginWholesale?.toFixed(1) || '',
-    'Special Margin (%)': product.grossMarginSpecial?.toFixed(1) || '',
-    'Status': product.isActive ? 'Active' : 'Inactive',
-    'Notes': product.notes || '',
-    'Created Date': formatDateForExport(product.createdAt),
-    'Updated Date': formatDateForExport(product.updatedAt)
-  }))
+  return products.map((product, index) => {
+    const row: any = {
+      '#': index + 1,
+      'Product Name': product.name || '',
+      'Barcode': product.barcode || '',
+      'Type': product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
+      'Category': product.category?.name || 'No Category',
+      'Description': product.description || '',
+      'Base Cost': formatCurrencyForExport(product.baseCost),
+    }
+
+    // Add dynamic pricing tiers if available
+    if (product.pricingTiers) {
+      Object.entries(product.pricingTiers).forEach(([tierName, price]) => {
+        row[`${tierName} Price`] = formatCurrencyForExport(price)
+      })
+    }
+
+    // Add stock and status info
+    row['Current Stock'] = product.stockQuantity || 0
+    row['Stock Status'] = getStockStatusText(product)
+    row['Status'] = product.isActive ? 'Active' : 'Inactive'
+    row['Notes'] = product.notes || ''
+    row['Created Date'] = formatDateForExport(product.createdAt)
+    row['Updated Date'] = formatDateForExport(product.updatedAt)
+
+    return row
+  })
 }
 
 // Generate filename with timestamp
@@ -101,7 +108,7 @@ export const exportToCSV = ({ products, filters }: ExportData): void => {
           const value = row[header as keyof typeof row]
           // Escape commas and quotes in CSV
           if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            return `"${value.replace(/"/g, '""')}"`
+            return `"${value.replace(/"/g, '""')}"`;
           }
           return value
         }).join(',')
@@ -179,8 +186,7 @@ export const exportToExcel = ({ products, filters }: ExportData): void => {
       { Metric: 'Out of Stock Items', Value: products.filter(p => (p.stockQuantity || 0) <= 0).length },
       { Metric: 'Low Stock Items', Value: products.filter(p => {
         const stock = p.stockQuantity || 0
-        const reorder = p.reorderLevel || 0
-        return stock > 0 && stock <= reorder
+        return stock > 0 && stock <= 10
       }).length },
       { Metric: 'Export Date', Value: formatDateForExport(new Date()) },
       { Metric: 'Export Time', Value: new Date().toLocaleTimeString() }
@@ -242,7 +248,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
     
     yPos += 5
     
-    // Prepare table data
+    // Prepare table data - simplified for PDF
     const tableData = products.map((product, index) => [
       index + 1,
       product.name || '',
@@ -250,15 +256,14 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
       product.type === 'Stocked Product' ? 'Product' : 'Service',
       product.category?.name || 'No Category',
       formatCurrencyForExport(product.baseCost),
-      formatCurrencyForExport(product.retailPrice),
       product.stockQuantity || 0,
       getStockStatusText(product),
       product.isActive ? 'Active' : 'Inactive'
     ])
-    
+
     // Table
     doc.autoTable({
-      head: [['#', 'Name', 'Barcode', 'Type', 'Category', 'Cost', 'Price', 'Stock', 'Status', 'Active']],
+      head: [['#', 'Name', 'Barcode', 'Type', 'Category', 'Cost', 'Stock', 'Status', 'Active']],
       body: tableData,
       startY: yPos,
       styles: { 
@@ -327,8 +332,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
       `Out of Stock: ${products.filter(p => (p.stockQuantity || 0) <= 0).length}`,
       `Low Stock: ${products.filter(p => {
         const stock = p.stockQuantity || 0
-        const reorder = p.reorderLevel || 0
-        return stock > 0 && stock <= reorder
+        return stock > 0 && stock <= 10
       }).length}`
     ]
     

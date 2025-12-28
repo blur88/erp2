@@ -23,7 +23,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   Alert,
   CircularProgress,
   useTheme,
@@ -42,6 +41,7 @@ import {
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
   TrendingUp as SalesIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -57,14 +57,14 @@ import {
   selectCustomers,
   selectCustomersLoading,
   selectCustomersError,
-  selectCustomersPagination,
   selectCustomersFilters,
   setFilters,
   clearError,
 } from '@/store/slices/customerSlice'
 import type { Customer } from '@/types'
-import { CustomerType, PriceLevel } from '@/types'
+import { CustomerType } from '@/types'
 import { salesApi } from '@/services/salesApi'
+import { settingsApi } from '@/services/settingsApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -75,7 +75,12 @@ const customerSchema = yup.object({
   name: yup.string().required('Name is required').max(200, 'Name must be less than 200 characters'),
   type: yup.string().oneOf(['individual', 'business']).required('Type is required'),
   phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
-  priceLevel: yup.string().oneOf(['retail', 'wholesale', 'special']).optional(),
+  streetAddress: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255, 'Street address must be less than 255 characters'),
+  city: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'City must be less than 100 characters'),
+  state: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'State must be less than 100 characters'),
+  postalCode: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Postal code must be less than 20 characters'),
+  country: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'Country must be less than 100 characters'),
+  pricingScheme: yup.string().required('Pricing scheme is required'),
   notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
@@ -83,7 +88,12 @@ interface CustomerFormData {
   name: string
   type: CustomerType
   phone?: string | null
-  priceLevel: PriceLevel
+  streetAddress?: string | null
+  city?: string | null
+  state?: string | null
+  postalCode?: string | null
+  country?: string | null
+  pricingScheme: string
   notes?: string | null
 }
 
@@ -97,7 +107,6 @@ const CustomersPage: React.FC = () => {
   const customers = useAppSelector(selectCustomers)
   const loading = useAppSelector(selectCustomersLoading)
   const error = useAppSelector(selectCustomersError)
-  const pagination = useAppSelector(selectCustomersPagination)
   const filters = useAppSelector(selectCustomersFilters)
 
   // Local state
@@ -109,6 +118,8 @@ const CustomersPage: React.FC = () => {
   const [phoneValue, setPhoneValue] = useState<string>('')
   const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [pricingSchemes, setPricingSchemes] = useState<Array<{ name: string; currency: string }>>([])
+  const [loadingPricingSchemes, setLoadingPricingSchemes] = useState(false)
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
@@ -116,11 +127,41 @@ const CustomersPage: React.FC = () => {
     defaultValues: {
       name: '',
       type: CustomerType.BUSINESS,
-      priceLevel: PriceLevel.RETAIL,
+      pricingScheme: 'Retail',
       phone: null,
+      streetAddress: null,
+      city: null,
+      state: null,
+      postalCode: null,
+      country: null,
       notes: null,
     }
   })
+
+  // Fetch pricing schemes on mount
+  useEffect(() => {
+    const loadPricingSchemes = async () => {
+      try {
+        setLoadingPricingSchemes(true)
+        const response = await settingsApi.getActivePricingSchemes()
+        // Handle response - could be direct array or wrapped in data
+        const schemes = Array.isArray(response) ? response : (response.data || [])
+        console.log('Loaded pricing schemes:', schemes)
+        setPricingSchemes(schemes)
+      } catch (error) {
+        console.error('Failed to load pricing schemes:', error)
+        // Fallback to default schemes
+        setPricingSchemes([
+          { name: 'Retail', currency: 'USD' },
+          { name: 'Wholesale', currency: 'USD' },
+          { name: 'Special', currency: 'USD' },
+        ])
+      } finally {
+        setLoadingPricingSchemes(false)
+      }
+    }
+    loadPricingSchemes()
+  }, [])
 
   // Search and filter functionality
   const searchHookInitialized = useRef(false)
@@ -210,16 +251,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.priceLevel, filters.sortBy, filters.sortOrder])
-
-  // Handle pagination
-  const handleChangePage = (event: unknown, newPage: number) => {
-    dispatch(fetchCustomers({ ...filters, page: newPage + 1 }))
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(fetchCustomers({ ...filters, page: 1, limit: parseInt(event.target.value) }))
-  }
+  }, [dispatch, filters.search, filters.type, filters.pricingScheme, filters.sortBy, filters.sortOrder])
 
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
@@ -228,6 +260,11 @@ const CustomersPage: React.FC = () => {
       const cleanedData = {
         ...data,
         phone: data.phone?.trim() || null,
+        streetAddress: data.streetAddress?.trim() || null,
+        city: data.city?.trim() || null,
+        state: data.state?.trim() || null,
+        postalCode: data.postalCode?.trim() || null,
+        country: data.country?.trim() || null,
         notes: data.notes?.trim() || null,
       }
 
@@ -257,16 +294,7 @@ const CustomersPage: React.FC = () => {
       setSelectedCustomer(null)
 
       // Refresh the customer list to ensure consistency
-      dispatch(fetchCustomers({
-        page: pagination.page,
-        limit: pagination.limit,
-        search: filters.search || undefined,
-        type: filters.type || undefined,
-        priceLevel: filters.priceLevel || undefined,
-        isActive: filters.isActive,
-        sortBy: filters.sortBy || undefined,
-        sortOrder: filters.sortOrder || undefined
-      }))
+      dispatch(fetchCustomers({ ...filters }))
     } catch (error: any) {
       // Handle error responses with detailed information
       let errorTitle = 'Failed to Delete Customer'
@@ -316,8 +344,13 @@ const CustomersPage: React.FC = () => {
       reset({
         name: customer.name,
         type: customer.type,
-        priceLevel: customer.priceLevel,
+        pricingScheme: customer.pricingScheme,
         phone: customer.phone || null,
+        streetAddress: (customer as any).streetAddress || null,
+        city: (customer as any).city || null,
+        state: (customer as any).state || null,
+        postalCode: (customer as any).postalCode || null,
+        country: (customer as any).country || null,
         notes: customer.notes || null,
       })
     } else {
@@ -326,8 +359,13 @@ const CustomersPage: React.FC = () => {
       reset({
         name: '',
         type: CustomerType.BUSINESS,
-        priceLevel: PriceLevel.RETAIL,
+        pricingScheme: 'Retail',
         phone: null,
+        streetAddress: null,
+        city: null,
+        state: null,
+        postalCode: null,
+        country: null,
         notes: null,
       })
     }
@@ -420,7 +458,6 @@ const CustomersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -528,12 +565,13 @@ const CustomersPage: React.FC = () => {
               }
             }}
           >
-            Price Level
+            Pricing Scheme
           </InputLabel>
           <Select
-            value={filters.priceLevel || 'all'}
-            label="Price Level"
-            onChange={(e) => dispatch(setFilters({ priceLevel: e.target.value === 'all' ? undefined : e.target.value as PriceLevel }))}
+            value={filters.pricingScheme || 'all'}
+            label="Pricing Scheme"
+            onChange={(e) => dispatch(setFilters({ pricingScheme: e.target.value === 'all' ? undefined : e.target.value }))}
+            disabled={loadingPricingSchemes}
             sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
@@ -558,20 +596,20 @@ const CustomersPage: React.FC = () => {
             }}
           >
             <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
-            <MenuItem value={PriceLevel.RETAIL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Retail</MenuItem>
-            <MenuItem value={PriceLevel.WHOLESALE} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Wholesale</MenuItem>
-            <MenuItem value={PriceLevel.SPECIAL} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Special</MenuItem>
+            {pricingSchemes.map((scheme) => (
+              <MenuItem key={scheme.name} value={scheme.name} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
+                {scheme.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(clearError())}>
           {error}
         </Alert>
       )}
-
       {/* Customer Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -703,11 +741,10 @@ const CustomersPage: React.FC = () => {
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                           <Chip
-                            label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
-                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                            label={customer.pricingScheme}
                             size="small"
-                            color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
-                                  customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
+                            color={customer.pricingScheme.toLowerCase() === 'retail' ? 'primary' :
+                                  customer.pricingScheme.toLowerCase() === 'wholesale' ? 'secondary' : 'warning'}
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
                           {getActiveStatusChip(customer.isActive)}
@@ -745,11 +782,10 @@ const CustomersPage: React.FC = () => {
                     {!isMobile && (
                       <TableCell>
                         <Chip
-                          label={customer.priceLevel === PriceLevel.RETAIL ? 'Retail' :
-                                customer.priceLevel === PriceLevel.WHOLESALE ? 'Wholesale' : 'Special'}
+                          label={customer.pricingScheme}
                           size="small"
-                          color={customer.priceLevel === PriceLevel.RETAIL ? 'primary' :
-                                customer.priceLevel === PriceLevel.WHOLESALE ? 'secondary' : 'warning'}
+                          color={customer.pricingScheme.toLowerCase() === 'retail' ? 'primary' :
+                                customer.pricingScheme.toLowerCase() === 'wholesale' ? 'secondary' : 'warning'}
                           sx={{
                             fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
                             fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
@@ -871,20 +907,7 @@ const CustomersPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-        
-        {/* Pagination */}
-        <TablePagination
-          rowsPerPageOptions={[10, 20, 50]}
-          component="div"
-          count={pagination.total}
-          rowsPerPage={pagination.limit}
-          page={pagination.page - 1}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
       </Paper>
-
-
       {/* Customer Form Dialog */}
       <Dialog 
         open={isFormOpen} 
@@ -900,13 +923,17 @@ const CustomersPage: React.FC = () => {
           <DialogContent dividers>
             <Grid container spacing={2}>
               {/* Basic Information */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="h6" gutterBottom>
                   Basic Information
                 </Typography>
               </Grid>
               
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="type"
                   control={control}
@@ -922,24 +949,35 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
-                  name="priceLevel"
+                  name="pricingScheme"
                   control={control}
                   render={({ field }) => (
-                    <FormControl fullWidth>
-                      <InputLabel>Price Level</InputLabel>
-                      <Select {...field} label="Price Level">
-                        <MenuItem value={PriceLevel.RETAIL}>Retail</MenuItem>
-                        <MenuItem value={PriceLevel.WHOLESALE}>Wholesale</MenuItem>
-                        <MenuItem value={PriceLevel.SPECIAL}>Special</MenuItem>
+                    <FormControl fullWidth error={!!errors.pricingScheme}>
+                      <InputLabel>Pricing Scheme</InputLabel>
+                      <Select {...field} label="Pricing Scheme" disabled={loadingPricingSchemes}>
+                        {pricingSchemes.map((scheme) => (
+                          <MenuItem key={scheme.name} value={scheme.name}>
+                            {scheme.name}
+                          </MenuItem>
+                        ))}
                       </Select>
+                      {errors.pricingScheme && (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                          {errors.pricingScheme.message}
+                        </Typography>
+                      )}
                     </FormControl>
                   )}
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="name"
                   control={control}
@@ -955,7 +993,11 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="phone"
                   control={control}
@@ -984,9 +1026,116 @@ const CustomersPage: React.FC = () => {
                 />
               </Grid>
 
+              {/* Address Information */}
+              <Grid size={12}>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Address Information
+                </Typography>
+              </Grid>
+
+              <Grid size={12}>
+                <Controller
+                  name="streetAddress"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Street Address"
+                      error={!!errors.streetAddress}
+                      helperText={errors.streetAddress?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="city"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="City"
+                      error={!!errors.city}
+                      helperText={errors.city?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="state"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="State"
+                      error={!!errors.state}
+                      helperText={errors.state?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="postalCode"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Postal Code"
+                      error={!!errors.postalCode}
+                      helperText={errors.postalCode?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="country"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Country"
+                      error={!!errors.country}
+                      helperText={errors.country?.message}
+                    />
+                  )}
+                />
+              </Grid>
 
               {/* Notes */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="notes"
                   control={control}
@@ -1016,7 +1165,6 @@ const CustomersPage: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
-
       {/* Customer Details Dialog */}
       <Dialog
         open={isViewOpen}
@@ -1028,7 +1176,7 @@ const CustomersPage: React.FC = () => {
         <DialogContent dividers>
           {selectedCustomer && (
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
                     {selectedCustomer.name}
@@ -1037,7 +1185,11 @@ const CustomersPage: React.FC = () => {
                 </Box>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Contact Information</Typography>
                 <Stack spacing={1}>
                   {selectedCustomer.phone && (
@@ -1049,7 +1201,43 @@ const CustomersPage: React.FC = () => {
                 </Stack>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Typography variant="h6" gutterBottom>Address</Typography>
+                <Stack spacing={1}>
+                  {((selectedCustomer as any).streetAddress || (selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode || (selectedCustomer as any).country) ? (
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
+                      <Box>
+                        {(selectedCustomer as any).streetAddress && (
+                          <Typography>{(selectedCustomer as any).streetAddress}</Typography>
+                        )}
+                        {((selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode) && (
+                          <Typography>
+                            {[(selectedCustomer as any).city, (selectedCustomer as any).state, (selectedCustomer as any).postalCode]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </Typography>
+                        )}
+                        {(selectedCustomer as any).country && (
+                          <Typography>{(selectedCustomer as any).country}</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Typography color="text.secondary" variant="body2">No address provided</Typography>
+                  )}
+                </Stack>
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Sales Statistics</Typography>
                 <Stack spacing={1}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1076,7 +1264,7 @@ const CustomersPage: React.FC = () => {
               </Grid>
 
               {selectedCustomer.notes && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="h6" gutterBottom>Notes</Typography>
                   <Typography>{selectedCustomer.notes}</Typography>
                 </Grid>
@@ -1100,7 +1288,6 @@ const CustomersPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={isDeleteConfirmOpen}
@@ -1113,14 +1300,13 @@ const CustomersPage: React.FC = () => {
         severity="warning"
         loading={loading}
       />
-
       {/* Deleted Customers Dialog */}
       <DeletedCustomersDialog
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
       />
     </Box>
-  )
+  );
 }
 
 export default CustomersPage

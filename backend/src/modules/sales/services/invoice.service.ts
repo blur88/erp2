@@ -1,3 +1,4 @@
+import { AuditLogService } from '../../audit-logs/services';
 import {
   Injectable,
   NotFoundException,
@@ -41,6 +42,7 @@ export class InvoiceService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(InvoiceItem)
     private readonly invoiceItemRepository: Repository<InvoiceItem>,
+    private readonly auditLogService: AuditLogService,
     // private readonly emailService: EmailService, // Temporarily disabled
   ) {}
 
@@ -119,12 +121,31 @@ export class InvoiceService {
         productId: soItem.productId,
         quantity: Number(soItem.quantity),
         unitPrice: Number(soItem.unitPrice),
+        discountType: soItem.discountType,
+        discountPercent: Number(soItem.discountPercent || 0),
         discount: Number(soItem.discountAmount),
         totalAmount: Number(soItem.totalAmount),
       }));
 
       await this.invoiceItemRepository.insert(invoiceItemsData);
     }
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'Invoice',
+      `Created invoice: ${savedInvoice.invoiceNumber}`,
+      {
+        entityId: savedInvoice.id,
+        userId: 'system',
+        newValues: {
+          invoiceNumber: savedInvoice.invoiceNumber,
+          customerId,
+          totalAmount,
+          status: savedInvoice.status,
+        },
+      }
+    );
 
     return this.findById(savedInvoice.id);
   }
@@ -141,8 +162,6 @@ export class InvoiceService {
       unpaid,
       sortBy = 'invoiceDate',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     const where: FindOptionsWhere<Invoice> = {};
@@ -150,7 +169,7 @@ export class InvoiceService {
     if (customerId) where.customerId = customerId;
     if (salesOrderId) where.salesOrderId = salesOrderId;
     if (status) where.status = status;
-    
+
     if (fromDate) {
       where.invoiceDate = MoreThanOrEqual(new Date(fromDate));
     }
@@ -178,8 +197,6 @@ export class InvoiceService {
       where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
       relations: ['customer', 'salesOrder', 'payments', 'items', 'items.product'],
       order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
     };
 
     let [invoices, total] = await this.invoiceRepository.findAndCount(findOptions);
@@ -197,10 +214,9 @@ export class InvoiceService {
 
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: {
+        total,
+      },
     };
   }
 
@@ -217,6 +233,7 @@ export class InvoiceService {
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
       customerName: invoice.customer?.name,
+      shippingAmount: Number(invoice.shippingAmount || 0),
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
     }));
@@ -371,6 +388,8 @@ export class InvoiceService {
       productId: soItem.productId,
       quantity: Number(soItem.quantity),
       unitPrice: Number(soItem.unitPrice),
+      discountType: soItem.discountType,
+      discountPercent: Number(soItem.discountPercent || 0),
       discount: Number(soItem.discountAmount),
       totalAmount: Number(soItem.totalAmount),
     }));
@@ -378,17 +397,33 @@ export class InvoiceService {
     // Insert all items directly
     await this.invoiceItemRepository.insert(invoiceItemsData);
 
-    // Update invoice total amount from sales order
-    // IMPORTANT: Preserve existing paidAmount - only update totalAmount and recalculate balanceDue
+    // Update invoice total amount and notes from sales order
+    // IMPORTANT: Preserve existing paidAmount - only update totalAmount, notes, and recalculate balanceDue
     const currentPaidAmount = Number(invoice.paidAmount);
     invoice.totalAmount = Number(salesOrder.totalAmount);
     invoice.balanceDue = Number(salesOrder.totalAmount) - currentPaidAmount;
+    invoice.notes = salesOrder.notes; // Sync notes from sales order
 
     // Update status based on payment state
     invoice.calculateTotals();
     invoice.updateStatus();
 
     await this.invoiceRepository.save(invoice);
+
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'Invoice',
+      `Updated invoice: ${invoice.invoiceNumber}`,
+      {
+        entityId: invoice.id,
+        userId: 'system',
+        newValues: {
+          status: invoice.status,
+          totalAmount: invoice.totalAmount,
+        },
+      }
+    );
 
     return this.findById(invoice.id);
   }
@@ -417,6 +452,22 @@ export class InvoiceService {
 
     // Soft delete using TypeORM
     await this.invoiceRepository.softDelete(id);
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'Invoice',
+      `Deleted invoice: ${invoice.invoiceNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
+          totalAmount: invoice.totalAmount,
+        },
+      }
+    );
   }
 
   async sendInvoice(id: string, sendInvoiceDto: SendInvoiceDto): Promise<InvoiceResponseDto> {
@@ -446,7 +497,8 @@ export class InvoiceService {
       `Please find attached your invoice.`;
 
     // Generate PDF (implement PDF generation service)
-    const pdfBuffer = await this.generatePdf(id);
+    // TODO: Implement PDF generation
+    // const pdfBuffer = await this.generatePdf(id);
 
     // Send email with PDF attachment
     for (const email of emailAddresses) {
@@ -543,14 +595,6 @@ export class InvoiceService {
     return this.create(duplicateData);
   }
 
-  async generatePdf(id: string): Promise<Buffer> {
-    const invoice = await this.findById(id);
-    
-    // This is a placeholder - implement actual PDF generation using a library like PDFKit or Puppeteer
-    // For now, return a simple buffer
-    const pdfContent = `Invoice: ${invoice.invoiceNumber}\nCustomer: ${invoice.customer?.name || 'Unknown'}\nAmount: ${invoice.totalAmount}`;
-    return Buffer.from(pdfContent, 'utf-8');
-  }
 
   async getInvoicePayments(id: string) {
     const invoice = await this.invoiceRepository.findOne({ where: { id } });
@@ -576,7 +620,6 @@ export class InvoiceService {
         amount: Number(payment.amount),
         paymentMethod: payment.paymentMethod,
         status: payment.status,
-        referenceNumber: payment.referenceNumber,
       })),
     };
   }
@@ -630,7 +673,7 @@ export class InvoiceService {
             event: 'payment',
             description: `Payment received: ${payment.paymentMethod}`,
             amount: Number(payment.amount),
-            reference: payment.referenceNumber,
+            reference: payment.paymentNumber,
           });
         }
       });
@@ -734,8 +777,6 @@ export class InvoiceService {
       salesOrderId,
       sortBy = 'deletedAt',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     let queryBuilder = this.invoiceRepository
@@ -763,10 +804,6 @@ export class InvoiceService {
     // Add sorting
     queryBuilder = queryBuilder.orderBy(`invoice.${sortBy}`, sortOrder as 'ASC' | 'DESC');
 
-    // Add pagination
-    const offset = (page - 1) * limit;
-    queryBuilder = queryBuilder.skip(offset).take(limit);
-
     const [invoices, total] = await queryBuilder.getManyAndCount();
 
     // Map invoices to response DTOs with product information
@@ -778,9 +815,6 @@ export class InvoiceService {
       data,
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
       },
     };
   }
@@ -802,6 +836,22 @@ export class InvoiceService {
 
     // Restore the invoice
     await this.invoiceRepository.restore(id);
+
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'Invoice',
+      `Restored invoice: ${invoice.invoiceNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
+          totalAmount: invoice.totalAmount,
+        },
+      }
+    );
 
     // Return the restored invoice
     const restoredInvoice = await this.invoiceRepository.findOne({
@@ -849,6 +899,7 @@ export class InvoiceService {
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
       paidDate: invoice.paidDate,
+      shippingAmount: Number(invoice.shippingAmount || 0),
       totalAmount: Number(invoice.totalAmount),
       paidAmount: Number(invoice.paidAmount),
       balanceDue: Number(invoice.balanceDue),
@@ -860,12 +911,16 @@ export class InvoiceService {
         name: invoice.customer.name,
         email: undefined, // Customer email field removed from entity
         phone: invoice.customer.phone,
+        streetAddress: invoice.customer.streetAddress,
+        city: invoice.customer.city,
+        state: invoice.customer.state,
+        postalCode: invoice.customer.postalCode,
+        country: invoice.customer.country,
       } : undefined,
       salesOrder: invoice.salesOrder ? {
         id: invoice.salesOrder.id,
         orderNumber: invoice.salesOrder.orderNumber,
         orderDate: invoice.salesOrder.orderDate,
-        status: invoice.salesOrder.status,
       } : undefined,
       payments: invoice.payments ? invoice.payments.map(payment => ({
         id: payment.id,
@@ -881,6 +936,8 @@ export class InvoiceService {
         productId: item.productId,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
+        discountType: item.discountType,
+        discountPercent: Number(item.discountPercent || 0),
         discount: Number(item.discount),
         totalAmount: Number(item.totalAmount),
         product: item.product ? {
@@ -889,6 +946,7 @@ export class InvoiceService {
           barcode: item.product.barcode,
         } : undefined,
       })) : undefined,
+      notes: invoice.notes,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
       deletedAt: invoice.deletedAt,

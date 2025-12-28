@@ -31,6 +31,7 @@ import {
 
 // Import InventoryModule for BaseCostCalculatorService
 import { InventoryModule } from '../inventory/inventory.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { InventoryModule } from '../inventory/inventory.module';
       User,
     ]),
     InventoryModule, // Import to access BaseCostCalculatorService
+    SettingsModule, // Import for price/costing settings
   ],
 
   controllers: [

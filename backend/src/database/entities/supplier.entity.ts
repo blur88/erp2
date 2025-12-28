@@ -71,6 +71,61 @@ export class Supplier extends BaseEntity {
   @MaxLength(20)
   phone?: string;
 
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Street address',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  streetAddress?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'City',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'State/Province',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    comment: 'Postal/ZIP code',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  postalCode?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'Country',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
+
   // Supplier Metrics
   @Column({
     type: 'decimal',

@@ -89,7 +89,6 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
           </Box>
         </Box>
       </DialogTitle>
-
       <DialogContent>
         <Stack spacing={3}>
           {/* Warning message */}
@@ -153,7 +152,6 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
           </Box>
         </Stack>
       </DialogContent>
-
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button
           onClick={onClose}
@@ -166,7 +164,7 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
         {/* Show appropriate action buttons based on status */}
         {blockingReasons.length === 2 ? (
           // Both fulfilled and paid - unpay & unfulfill together
-          <>
+          (<>
             <Button
               onClick={onUnpayOnly}
               variant="outlined"
@@ -185,10 +183,10 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
             >
               Unpay, Unfulfill & {actionVerbCap}
             </Button>
-          </>
+          </>)
         ) : isFulfilled ? (
           // Only fulfilled
-          <>
+          (<>
             <Button
               onClick={onUnfulfillOnly}
               variant="outlined"
@@ -207,10 +205,10 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
             >
               Unfulfill & {actionVerbCap}
             </Button>
-          </>
+          </>)
         ) : (
           // Only paid
-          <>
+          (<>
             <Button
               onClick={onUnpayOnly}
               variant="outlined"
@@ -229,11 +227,11 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
             >
               Unpay & {actionVerbCap}
             </Button>
-          </>
+          </>)
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }
 
 export default BlockedSalesOrderDialog

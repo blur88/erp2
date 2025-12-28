@@ -47,6 +47,16 @@ export class CreateInvoiceDto {
 
   
   
+  @ApiPropertyOptional({
+    description: 'Shipping amount',
+    example: 50.00,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Transform(({ value }) => parseFloat(value))
+  shippingAmount?: number;
+
   @ApiProperty({
     description: 'Total invoice amount',
     example: 1000.00,
@@ -195,6 +205,9 @@ export class InvoiceResponseDto {
   @ApiProperty({ example: '2024-01-30', nullable: true })
   paidDate?: Date;
 
+  @ApiProperty({ example: 50.00 })
+  shippingAmount: number;
+
   @ApiProperty({ example: 1000.00 })
   totalAmount: number;
 
@@ -219,6 +232,11 @@ export class InvoiceResponseDto {
     name: string;
     email?: string;
     phone?: string;
+    streetAddress?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
   };
 
   @ApiProperty({ nullable: true })
@@ -226,8 +244,10 @@ export class InvoiceResponseDto {
     id: string;
     orderNumber: string;
     orderDate: Date;
-    status: string;
   };
+
+  @ApiProperty({ example: 'Special delivery instructions', nullable: true })
+  notes?: string;
 
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   createdAt: Date;
@@ -291,6 +311,9 @@ export class InvoiceSummaryDto {
 
   @ApiProperty({ example: 'Acme Corporation' })
   customerName: string;
+
+  @ApiProperty({ example: 50.00 })
+  shippingAmount: number;
 
   @ApiProperty({ example: 991.50 })
   totalAmount: number;

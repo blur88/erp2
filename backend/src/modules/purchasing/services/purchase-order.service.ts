@@ -25,6 +25,8 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -48,6 +50,8 @@ export class PurchaseOrderService {
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
+    private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -55,30 +59,35 @@ export class PurchaseOrderService {
    * Checks both active and soft-deleted orders to ensure unique numbering
    */
   private async generateSequentialOrderNumber(): Promise<string> {
-    // Get all existing order numbers that match the sequential format
-    // Include soft-deleted records to avoid number collision
-    const orders = await this.purchaseOrderRepository.find({
-      select: ['orderNumber'],
-      withDeleted: true, // Include soft-deleted records
-    });
+    // Use document number settings to generate order number
+    try {
+      const orderNumber = await this.settingsService.generateDocumentNumber('Purchase Orders');
+      this.logger.log(`Generated purchase order number: ${orderNumber}`);
+      return orderNumber;
+    } catch (error) {
+      this.logger.error(`Error generating order number: ${error.message}`);
+      // Fallback to legacy method
+      const orders = await this.purchaseOrderRepository.find({
+        select: ['orderNumber'],
+        withDeleted: true,
+      });
 
-    let maxNumber = 0;
-    for (const order of orders) {
-      // Extract number from format PO-000001 (only sequential format)
-      const match = order.orderNumber.match(/^PO-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) {
-          maxNumber = num;
+      let maxNumber = 0;
+      for (const order of orders) {
+        const match = order.orderNumber.match(/^PO-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
         }
       }
+
+      const nextNumber = maxNumber + 1;
+      const fallbackNumber = `PO-${nextNumber.toString().padStart(6, '0')}`;
+      this.logger.log(`Fallback purchase order number: ${fallbackNumber}`);
+      return fallbackNumber;
     }
-
-    // Next sequential number
-    const nextNumber = maxNumber + 1;
-
-    // Format with leading zeros (6 digits)
-    return `PO-${nextNumber.toString().padStart(6, '0')}`;
   }
 
   /**
@@ -198,15 +207,31 @@ export class PurchaseOrderService {
       // Auto-create GRN in draft status
       await this.createDraftGrn(savedPurchaseOrder);
 
+      // Log audit trail for create
+      await this.auditLogService.log(
+        'CREATE',
+        'PurchaseOrder',
+        `Created purchase order: ${savedPurchaseOrder.orderNumber}`,
+        {
+          entityId: savedPurchaseOrder.id,
+          userId: 'system',
+          newValues: {
+            orderNumber: savedPurchaseOrder.orderNumber,
+            supplierId: supplier.id,
+            totalAmount: savedPurchaseOrder.totalAmount,
+          },
+        }
+      );
+
       this.logger.log(`Purchase order created successfully: ${savedPurchaseOrder.orderNumber}`);
       return await this.findOne(savedPurchaseOrder.id);
     } catch (error) {
       this.logger.error(`Error creating purchase order: ${error.message}`, error.stack);
-      
+
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
-      
+
       throw new BadRequestException('Failed to create purchase order');
     }
   }
@@ -218,8 +243,8 @@ export class PurchaseOrderService {
     this.logger.log(`Finding purchase orders with query: ${JSON.stringify(query)}`);
 
     const {
-      page = 1,
-      limit = 10,
+      page,
+      limit,
       search,
       supplierId,
       orderDateFrom,
@@ -228,7 +253,8 @@ export class PurchaseOrderService {
       sortOrder = 'DESC',
     } = query;
 
-    const skip = (page - 1) * limit;
+    // If no pagination params provided, fetch all records
+    const skip = page && limit ? (page - 1) * limit : 0;
     const queryBuilder = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
@@ -282,8 +308,10 @@ export class PurchaseOrderService {
     // Get total count
     const total = await queryBuilder.getCount();
 
-    // Apply pagination
-    queryBuilder.skip(skip).take(limit);
+    // Apply pagination only if page and limit are provided
+    if (page && limit) {
+      queryBuilder.skip(skip).take(limit);
+    }
 
     const purchaseOrders = await queryBuilder.getMany();
     const orderDtos = purchaseOrders.map(order => this.mapToResponseDto(order));
@@ -291,11 +319,11 @@ export class PurchaseOrderService {
     return {
       orders: orderDtos,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: page || 1,
+      limit: limit || total,
+      totalPages: limit ? Math.ceil(total / limit) : 1,
+      hasNext: limit ? page < Math.ceil(total / limit) : false,
+      hasPrev: page ? page > 1 : false,
     };
   }
 
@@ -457,6 +485,21 @@ export class PurchaseOrderService {
         await this.syncGrnDate(updatedPurchaseOrder.id, new Date(updatePurchaseOrderDto.orderDate));
       }
 
+      // Log audit trail for update
+      await this.auditLogService.log(
+        'UPDATE',
+        'PurchaseOrder',
+        `Updated purchase order: ${updatedPurchaseOrder.orderNumber}`,
+        {
+          entityId: updatedPurchaseOrder.id,
+          userId: 'system',
+          newValues: {
+            orderNumber: updatedPurchaseOrder.orderNumber,
+            totalAmount: updatedPurchaseOrder.totalAmount,
+          },
+        }
+      );
+
       this.logger.log(`Purchase order updated successfully: ${updatedPurchaseOrder.orderNumber}`);
       return await this.findOne(updatedPurchaseOrder.id);
     } catch (error) {
@@ -616,6 +659,23 @@ export class PurchaseOrderService {
         .set({ deletedAt: null })
         .where('id = :id', { id: grn.id })
         .execute();
+
+      // Log audit trail for automatic GRN restoration
+      await this.auditLogService.log(
+        'RESTORE',
+        'GoodsReceivedNote',
+        `Restored GRN: ${grn.grnNumber} (auto-restored with PO)`,
+        {
+          entityId: grn.id,
+          userId,
+          newValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       this.logger.log(`Associated GRN ${grn.grnNumber} restored (deletedAt set to null)`);
     }
 
@@ -632,6 +692,21 @@ export class PurchaseOrderService {
       where: { id },
       relations: ['supplier', 'items', 'items.product'],
     });
+
+    // Log audit trail for PO restoration
+    await this.auditLogService.log(
+      'RESTORE',
+      'PurchaseOrder',
+      `Restored purchase order: ${purchaseOrder.orderNumber}`,
+      {
+        entityId: id,
+        userId,
+        newValues: {
+          orderNumber: purchaseOrder.orderNumber,
+          totalAmount: purchaseOrder.totalAmount,
+        },
+      }
+    );
 
     this.logger.log(`Purchase order ${purchaseOrder.orderNumber} restored successfully (deletedAt set to null)`);
     return this.mapToResponseDto(restoredOrder);
@@ -694,9 +769,42 @@ export class PurchaseOrderService {
     });
 
     if (grn) {
+      // Log audit trail for GRN permanent delete
+      await this.auditLogService.log(
+        'PERMANENT_DELETE',
+        'GoodsReceivedNote',
+        `Permanently deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
+        {
+          entityId: grn.id,
+          userId: 'system',
+          oldValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       await this.grnRepository.remove(grn);
       this.logger.log(`Associated GRN ${grn.grnNumber} permanently deleted`);
     }
+
+    // Log audit trail for PO permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'PurchaseOrder',
+      `Permanently deleted purchase order: ${purchaseOrder.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          orderNumber: purchaseOrder.orderNumber,
+          supplierId: purchaseOrder.supplierId,
+          totalAmount: purchaseOrder.totalAmount,
+          isFullyReceived: purchaseOrder.isFullyReceived,
+        },
+      }
+    );
 
     // Hard delete - remove from database completely
     await this.purchaseOrderRepository.remove(purchaseOrder);
@@ -771,6 +879,23 @@ export class PurchaseOrderService {
         .set({ deletedAt })
         .where('id = :id', { id: grn.id })
         .execute();
+
+      // Log audit trail for automatic GRN deletion
+      await this.auditLogService.log(
+        'DELETE',
+        'GoodsReceivedNote',
+        `Deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
+        {
+          entityId: grn.id,
+          userId: 'system',
+          oldValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       this.logger.log(`Associated GRN ${grn.grnNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
     }
 
@@ -781,6 +906,21 @@ export class PurchaseOrderService {
       .set({ deletedAt })
       .where('id = :id', { id })
       .execute();
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'PurchaseOrder',
+      `Deleted purchase order: ${purchaseOrder.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          orderNumber: purchaseOrder.orderNumber,
+          totalAmount: purchaseOrder.totalAmount,
+        },
+      }
+    );
 
     this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
   }
@@ -942,6 +1082,23 @@ export class PurchaseOrderService {
 
       const savedGrn = await this.grnRepository.save(grn);
 
+      // Log audit trail for GRN creation immediately after successful save
+      // Do this BEFORE creating items to ensure logging happens even if item creation fails
+      await this.auditLogService.log(
+        'CREATE',
+        'GoodsReceivedNote',
+        `Created GRN: ${savedGrn.grnNumber}`,
+        {
+          entityId: savedGrn.id,
+          userId: 'system',
+          newValues: {
+            grnNumber: savedGrn.grnNumber,
+            purchaseOrderId: savedGrn.purchaseOrderId,
+            status: savedGrn.status,
+          },
+        }
+      );
+
       // Create GRN items using relational table
       const grnItems: any[] = [];
       let lineNumber = 1;
@@ -1072,6 +1229,22 @@ export class PurchaseOrderService {
       // Force TypeORM to update by using the update query
       await this.purchaseOrderRepository.update(id, {});
 
+      // Log audit trail for receiving goods
+      await this.auditLogService.log(
+        'UPDATE',
+        'PurchaseOrder',
+        `Received goods for PO: ${purchaseOrder.orderNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            orderNumber: purchaseOrder.orderNumber,
+            status: 'received',
+            grnStatus: GrnStatus.RECEIVED,
+          },
+        }
+      );
+
       this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
     } catch (error) {
@@ -1166,12 +1339,74 @@ export class PurchaseOrderService {
       // Force TypeORM to update by using the update query
       await this.purchaseOrderRepository.update(id, {});
 
+      // Log audit trail for returning goods
+      await this.auditLogService.log(
+        'UPDATE',
+        'PurchaseOrder',
+        `Returned goods for PO: ${purchaseOrder.orderNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            orderNumber: purchaseOrder.orderNumber,
+            status: 'draft',
+            grnStatus: GrnStatus.DRAFT,
+          },
+        }
+      );
+
       this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
       return await this.findOne(id);
     } catch (error) {
       this.logger.error(`Error returning goods: ${error.message}`, error.stack);
       throw new BadRequestException('Failed to return goods');
     }
+  }
+
+  /**
+   * Record payment for purchase order with specified amount
+   */
+  async recordPayment(id: string, amount: number): Promise<PurchaseOrderResponseDto> {
+    this.logger.log(`Recording payment of ${amount} for purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: ['supplier'], // Removed 'vendorPayments' to prevent TypeORM from trying to manage the relation
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Calculate the amount to add as a new vendor payment
+    const currentPaidAmount = purchaseOrder.paidAmount || 0;
+    const paymentAmount = amount - currentPaidAmount;
+
+    if (paymentAmount <= 0) {
+      throw new BadRequestException('Payment amount must be greater than current paid amount');
+    }
+
+    // Create vendor payment using the vendor payment service to ensure audit logging
+    const vendorPayment = await this.vendorPaymentService.create({
+      supplierId: purchaseOrder.supplierId,
+      purchaseOrderId: id,
+      amount: paymentAmount,
+      paymentDate: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
+      paymentMethod: 'cash',
+      status: 'completed',
+      notes: 'Payment recorded via system',
+    });
+
+    this.logger.log(`Vendor payment ${vendorPayment.paymentNumber} created for purchase order ${purchaseOrder.orderNumber}`);
+
+    // Update the paidAmount field
+    purchaseOrder.paidAmount = amount;
+    await this.purchaseOrderRepository.save(purchaseOrder);
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${amount}, vendor payment ${vendorPayment.paymentNumber} created for ${paymentAmount}`);
+
+    // Return updated order
+    return this.findOne(id);
   }
 
   /**
@@ -1239,9 +1474,9 @@ export class PurchaseOrderService {
     // Hard delete the vendor payment
     await this.vendorPaymentService.permanentDelete(existingPayment.id);
 
-    // Touch the purchase order to update its updatedAt timestamp
-    // Force TypeORM to update by using the update query
-    await this.purchaseOrderRepository.update(id, {});
+    // Reset paidAmount to 0
+    purchaseOrder.paidAmount = 0;
+    await this.purchaseOrderRepository.save(purchaseOrder);
 
     // Get updated order
     const updatedOrder = await this.findOne(id);
@@ -1286,20 +1521,25 @@ export class PurchaseOrderService {
     return {
       id: purchaseOrder.id,
       orderNumber: purchaseOrder.orderNumber,
-      supplier: {
+      supplier: purchaseOrder.supplier ? {
         id: purchaseOrder.supplier.id,
         supplierCode: purchaseOrder.supplier.id.slice(0, 8).toUpperCase(),
         companyName: purchaseOrder.supplier.companyName,
         contactPerson: purchaseOrder.supplier.contactPerson,
-        email: undefined,
         phone: purchaseOrder.supplier.phone,
-      },
+        address: purchaseOrder.supplier.streetAddress,
+        city: purchaseOrder.supplier.city,
+        state: purchaseOrder.supplier.state,
+        postalCode: purchaseOrder.supplier.postalCode,
+        country: purchaseOrder.supplier.country,
+      } : undefined,
       orderDate: purchaseOrder.orderDate,
       subtotal: Number(purchaseOrder.subtotal),
       discountPercent: Number(purchaseOrder.discountPercent),
       discountAmount: Number(purchaseOrder.discountAmount),
       shippingAmount: Number(purchaseOrder.shippingAmount),
       totalAmount: Number(purchaseOrder.totalAmount),
+      paidAmount: Number(purchaseOrder.paidAmount || 0),
       notes: purchaseOrder.notes,
       isFullyReceived: purchaseOrder.isFullyReceived(),
       totalReceivedQuantity: purchaseOrder.getTotalReceivedQuantity(),

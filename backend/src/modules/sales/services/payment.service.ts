@@ -1,3 +1,4 @@
+import { AuditLogService } from '../../audit-logs/services';
 import {
   Injectable,
   NotFoundException,
@@ -6,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, FindOptionsWhere, Between } from 'typeorm';
-import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
+import { Payment, PaymentStatus, PaymentMethod } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import {
@@ -28,6 +29,7 @@ export class PaymentService {
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<PaymentResponseDto> {
@@ -57,7 +59,7 @@ export class PaymentService {
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
       status: PaymentStatus.COMPLETED,
-      paymentMethod: 'cash',
+      paymentMethod: PaymentMethod.CASH,
     });
 
     const savedPayment = await this.paymentRepository.save(payment);
@@ -72,6 +74,22 @@ export class PaymentService {
       await this.updateCustomerBalance(customer, savedPayment);
     }
 
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'Payment',
+      `Created payment: ${savedPayment.amount} for ${customer.name}`,
+      {
+        entityId: savedPayment.id,
+        userId: 'system',
+        newValues: {
+          amount: savedPayment.amount,
+          paymentMethod: savedPayment.paymentMethod,
+          status: savedPayment.status,
+        },
+      }
+    );
+
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
 
@@ -83,8 +101,6 @@ export class PaymentService {
       toDate,
       sortBy = 'paymentDate',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     const where: FindOptionsWhere<Payment> = {};
@@ -104,20 +120,20 @@ export class PaymentService {
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.customer', 'customer')
       .leftJoinAndSelect('payment.invoice', 'invoice')
+      .leftJoinAndSelect('invoice.customer', 'invoiceCustomer')
       .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('invoice.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
       .where(where)
-      .orderBy(`payment.${sortBy}`, sortOrder)
-      .skip((page - 1) * limit)
-      .take(limit);
+      .orderBy(`payment.${sortBy}`, sortOrder);
 
     const [payments, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: payments.map(payment => this.mapToResponseDto(payment)),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: {
+        total,
+      },
     };
   }
 
@@ -131,6 +147,21 @@ export class PaymentService {
 
     Object.assign(payment, updatePaymentDto);
     const savedPayment = await this.paymentRepository.save(payment);
+
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'Payment',
+      `Updated payment for ${payment.customer?.name || 'customer'}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
 
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
@@ -254,7 +285,7 @@ export class PaymentService {
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['customer', 'invoice', 'invoice.salesOrder'],
+      relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product'],
     });
 
     if (!payment) {
@@ -298,8 +329,6 @@ export class PaymentService {
       customerId,
       sortBy = 'deletedAt',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     let queryBuilder = this.paymentRepository
@@ -323,20 +352,15 @@ export class PaymentService {
     // Add sorting
     queryBuilder = queryBuilder.orderBy(`payment.${sortBy}`, sortOrder as 'ASC' | 'DESC');
 
-    // Add pagination
-    const offset = (page - 1) * limit;
-    queryBuilder = queryBuilder.skip(offset).take(limit);
-
     const [payments, total] = await queryBuilder.getManyAndCount();
 
     const data = payments.map(payment => this.mapToResponseDto(payment));
 
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: {
+        total,
+      },
     };
   }
 
@@ -415,6 +439,29 @@ export class PaymentService {
       invoice: payment.invoice ? {
         id: payment.invoice.id,
         invoiceNumber: payment.invoice.invoiceNumber,
+        totalAmount: Number(payment.invoice.totalAmount),
+        shippingAmount: Number(payment.invoice.shippingAmount),
+        items: payment.invoice.items?.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          discount: Number(item.discount),
+          totalAmount: Number(item.totalAmount),
+          product: item.product ? {
+            id: item.product.id,
+            name: item.product.name,
+          } : undefined,
+        })),
+        customer: payment.invoice.customer || payment.customer ? {
+          id: (payment.invoice.customer || payment.customer).id,
+          name: (payment.invoice.customer || payment.customer).name,
+          phone: (payment.invoice.customer || payment.customer).phone,
+          streetAddress: (payment.invoice.customer || payment.customer).streetAddress,
+          city: (payment.invoice.customer || payment.customer).city,
+          state: (payment.invoice.customer || payment.customer).state,
+          postalCode: (payment.invoice.customer || payment.customer).postalCode,
+          country: (payment.invoice.customer || payment.customer).country,
+        } : undefined,
       } : undefined,
       relatedInvoiceId: payment.invoice?.id,
       relatedInvoiceNumber: payment.invoice?.invoiceNumber,

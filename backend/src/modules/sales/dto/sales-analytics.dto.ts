@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-// SalesOrderStatus enum removed - using fulfillment status instead
+//  enum removed - using fulfillment status instead
 
 export enum DateRange {
   TODAY = 'today',

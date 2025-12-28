@@ -192,9 +192,9 @@ export class SalesOrderItem extends BaseEntity {
   static fromProduct(
     product: Product,
     quantity: number,
-    priceType: 'retail' | 'wholesale' | 'special' = 'retail'
+    priceScheme: string = 'retail'
   ): Partial<SalesOrderItem> {
-    const unitPrice = product.getPriceByType(priceType);
+    const unitPrice = product.getPriceByScheme(priceScheme);
 
     return {
       productId: product.id,

@@ -66,33 +66,33 @@ api.interceptors.response.use(
 
 // Generic API methods
 export class ApiService {
-  static async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  static async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await api.get(url, config)
     return response.data
   }
 
-  static async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  static async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await api.post(url, data, config)
     return response.data
   }
 
-  static async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  static async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await api.put(url, data, config)
     return response.data
   }
 
-  static async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  static async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await api.patch(url, data, config)
     return response.data
   }
 
-  static async delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  static async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await api.delete(url, config)
     return response.data
   }
 
   // File upload helper
-  static async uploadFile<T>(url: string, file: File, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  static async uploadFile<T>(url: string, file: File, config?: AxiosRequestConfig): Promise<T> {
     const formData = new FormData()
     formData.append('file', file)
 

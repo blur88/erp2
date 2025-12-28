@@ -245,6 +245,36 @@ export class PurchaseOrderController {
     return { data: result.order, payment: result.payment };
   }
 
+  @Post(':id/record-payment')
+  @ApiOperation({ summary: 'Record payment for purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        amount: {
+          type: 'number',
+          description: 'Payment amount to record',
+        },
+      },
+      required: ['amount'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment recorded successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  @HttpCode(HttpStatus.OK)
+  async recordPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { amount: number },
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const result = await this.purchaseOrderService.recordPayment(id, body.amount);
+    return { data: result };
+  }
+
   @Post(':id/unpay')
   @ApiOperation({ summary: 'Unmark purchase order as paid - hard deletes vendor payment' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })

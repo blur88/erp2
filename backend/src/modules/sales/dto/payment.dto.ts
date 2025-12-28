@@ -206,6 +206,29 @@ export class PaymentResponseDto {
   invoice?: {
     id: string;
     invoiceNumber: string;
+    totalAmount: number;
+    shippingAmount: number;
+    items?: Array<{
+      id: string;
+      quantity: number;
+      unitPrice: number;
+      discount: number;
+      totalAmount: number;
+      product?: {
+        id: string;
+        name: string;
+      };
+    }>;
+    customer?: {
+      id: string;
+      name: string;
+      phone?: string;
+      streetAddress?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    };
   };
 
   @ApiProperty({ example: 'uuid-string', nullable: true })

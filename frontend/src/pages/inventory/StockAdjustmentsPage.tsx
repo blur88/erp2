@@ -12,7 +12,6 @@ import {
   TableRow,
   Button,
   Chip,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -61,8 +60,6 @@ import { StockAdjustmentStatus } from '@/types'
 import type { StockAdjustment } from '@/types'
 
 interface StockAdjustmentsPageState {
-  page: number
-  rowsPerPage: number
   search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
@@ -142,8 +139,6 @@ const StockAdjustmentsPage: React.FC = () => {
   const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
 
   const [state, setState] = useState<StockAdjustmentsPageState>({
-    page: 0,
-    rowsPerPage: 20,
     search: '',
     sortBy: 'adjustmentNumber',
     sortOrder: 'asc',
@@ -207,8 +202,6 @@ const StockAdjustmentsPage: React.FC = () => {
     const dateRange = getDateRange(state.dateFilter)
 
     dispatch(fetchStockAdjustments({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       status: state.statusFilter !== 'all' ? state.statusFilter : undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
@@ -227,7 +220,6 @@ const StockAdjustmentsPage: React.FC = () => {
       ...prev,
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
-      page: 0
     }))
   }, [])
 
@@ -494,7 +486,6 @@ const StockAdjustmentsPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -510,7 +501,7 @@ const StockAdjustmentsPage: React.FC = () => {
           inputRef={searchInputRef}
           placeholder="Search adjustments..."
           value={state.search}
-          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value, page: 0 }))}
+          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
           size="medium"
           sx={{
             minWidth: isMobile ? 'auto' : 250,
@@ -544,7 +535,7 @@ const StockAdjustmentsPage: React.FC = () => {
           <Select
             value={state.dateFilter}
             label="Date Filter"
-            onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value, page: 0 }))}
+            onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value }))}
             sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
@@ -607,7 +598,7 @@ const StockAdjustmentsPage: React.FC = () => {
           <Select
             value={state.statusFilter}
             label="Status"
-            onChange={(e) => setState(prev => ({ ...prev, statusFilter: e.target.value, page: 0 }))}
+            onChange={(e) => setState(prev => ({ ...prev, statusFilter: e.target.value }))}
             sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
@@ -627,7 +618,6 @@ const StockAdjustmentsPage: React.FC = () => {
               customFromDate: '',
               customToDate: '',
               statusFilter: 'all',
-              page: 0
             }))}
             sx={{
               minWidth: 'auto',
@@ -655,18 +645,20 @@ const StockAdjustmentsPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout */}
       <Grid container spacing={3}>
         {/* Left Side - Adjustment List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -723,27 +715,16 @@ const StockAdjustmentsPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_, newPage) => setState(prev => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e) => setState(prev => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>
 
         {/* Right Side - SA Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedAdjustment ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -827,7 +808,11 @@ const StockAdjustmentsPage: React.FC = () => {
               <Box>
                 <Grid container spacing={3}>
                   {/* Adjustment Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -885,7 +870,11 @@ const StockAdjustmentsPage: React.FC = () => {
                   </Grid>
 
                   {/* SA Confirmation */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1154,13 +1143,11 @@ const StockAdjustmentsPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Deleted Stock Adjustments Dialog */}
       <DeletedStockAdjustmentsDialog
         open={showDeletedDialog}
         onClose={() => setShowDeletedDialog(false)}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -1172,7 +1159,6 @@ const StockAdjustmentsPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="warning"
       />
-
       {/* Complete Confirmation Dialog */}
       <ConfirmationDialog
         open={completeConfirmOpen}
@@ -1184,7 +1170,6 @@ const StockAdjustmentsPage: React.FC = () => {
         onCancel={handleCancelComplete}
         severity="info"
       />
-
       {/* Cancel Confirmation Dialog */}
       <ConfirmationDialog
         open={cancelConfirmOpen}
@@ -1197,7 +1182,7 @@ const StockAdjustmentsPage: React.FC = () => {
         severity="warning"
       />
     </Box>
-  )
+  );
 }
 
 export default StockAdjustmentsPage

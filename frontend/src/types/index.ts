@@ -31,48 +31,15 @@ export interface Product {
   type: 'Stocked Product' | 'Service';
   category?: Category;
   categoryId?: string;
-  // Multi-level pricing
+  // Pricing
   baseCost: number;
-  retailPrice: number;
-  wholesalePrice: number;
-  specialPrice: number;
-  // Legacy price fields for backwards compatibility
-  price?: number;
-  cost?: number;
+  pricingTiers?: Record<string, number>; // Dynamic pricing tiers: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
   // Stock management
   stockQuantity: number;
-  reservedQuantity: number;
-  availableQuantity: number;
-  reorderLevel: number;
-  optimalStockLevel: number;
-  stockStatus: string;
-  // Legacy stock fields for backwards compatibility
-  stock?: number;
-  minStock?: number;
-  maxStock?: number;
-  unit: string;
   isActive: boolean;
-  // Additional properties
-  weight?: number;
-  dimensions?: {
-    length?: number;
-    width?: number;
-    height?: number;
-  };
-  brand?: string;
-  model?: string;
-  imageUrl?: string;
-  images?: string[];
-  additionalImages?: string[];
-  attributes?: ProductAttribute[] | Record<string, any>;
   notes?: string;
   // Stock status indicators
-  isLowStock: boolean;
   isOutOfStock: boolean;
-  // Margin calculations
-  grossMarginRetail: number;
-  grossMarginWholesale: number;
-  grossMarginSpecial: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -198,6 +165,10 @@ export enum CustomerType {
 }
 
 
+/**
+ * @deprecated Use pricingScheme string instead
+ * Kept for backward compatibility
+ */
 export enum PriceLevel {
   RETAIL = 'retail',
   WHOLESALE = 'wholesale',
@@ -209,9 +180,15 @@ export interface Customer {
   type: CustomerType;
   name: string;
   phone?: string;
+  // Address Information
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
   // Business Information
   isActive: boolean;
-  priceLevel: PriceLevel;
+  pricingScheme: string; // Dynamic pricing scheme name (e.g., "Retail", "Wholesale", "VIP")
   // Customer Metrics
   totalSales: number;
   totalOrders: number;
@@ -305,6 +282,8 @@ export interface InvoiceItem {
   product: Product;
   quantity: number;
   unitPrice: number;
+  discountType?: 'percentage' | 'amount';
+  discountPercent?: number;
   discount: number;
   taxRate: number;
   total: number;
@@ -313,7 +292,11 @@ export interface InvoiceItem {
 export interface Payment {
   id: string;
   paymentNumber: string;
-  invoice?: Invoice;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    items?: InvoiceItem[];
+  };
   invoiceId?: string;
   customer?: Customer;
   customerId?: string;
@@ -524,4 +507,35 @@ export interface RealtimeUpdate {
   entity: string;
   action: 'created' | 'updated' | 'deleted';
   data: any;
+}
+
+// Audit Log types
+export enum AuditAction {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  RESTORE = 'RESTORE',
+  BULK_DELETE = 'BULK_DELETE',
+  BULK_RESTORE = 'BULK_RESTORE',
+  EXPORT = 'EXPORT',
+  IMPORT = 'IMPORT',
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  username?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  description: string;
+  oldValues?: any;
+  newValues?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: any;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+  isActive: boolean;
 }

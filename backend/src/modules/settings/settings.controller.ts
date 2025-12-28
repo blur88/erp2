@@ -1,0 +1,405 @@
+import {
+  Controller,
+  Get,
+  Put,
+  Body,
+  Post,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+  ValidationPipe,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBadRequestResponse,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { SettingsService } from './settings.service';
+import {
+  UpdateCompanySettingsDto,
+  CompanySettingsResponseDto,
+  UpdatePriceCostingSettingsDto,
+  PriceCostingSettingsResponseDto,
+  UpdateDocumentNumberSettingsDto,
+  DocumentNumberSettingsResponseDto,
+  GenerateDocumentNumberDto,
+  GenerateDocumentNumberResponseDto,
+} from './dto';
+
+/**
+ * Settings Controller
+ * Handles company settings operations
+ */
+@ApiTags('Settings')
+@Controller('settings')
+export class SettingsController {
+  private readonly logger = new Logger(SettingsController.name);
+
+  constructor(private readonly settingsService: SettingsService) {}
+
+  /**
+   * Get company settings
+   */
+  @Get('company')
+  @ApiOperation({
+    summary: 'Get company settings',
+    description: 'Retrieve current company settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings retrieved successfully',
+    type: CompanySettingsResponseDto,
+  })
+  async getCompanySettings(): Promise<CompanySettingsResponseDto> {
+    try {
+      this.logger.log('Fetching company settings');
+      return await this.settingsService.getCompanySettings();
+    } catch (error) {
+      this.logger.error(`Failed to get company settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Update company settings
+   */
+  @Put('company')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update company settings',
+    description: 'Update company settings information',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Company settings updated successfully',
+    type: CompanySettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async updateCompanySettings(
+    @Body(ValidationPipe) updateDto: UpdateCompanySettingsDto,
+  ): Promise<CompanySettingsResponseDto> {
+    try {
+      this.logger.log('Updating company settings');
+      return await this.settingsService.updateCompanySettings(updateDto, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to update company settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload company logo
+   */
+  @Post('company/logo')
+  @UseInterceptors(
+    FileInterceptor('logo', {
+      storage: diskStorage({
+        destination: './uploads/logos',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `logo-${uniqueSuffix}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          return callback(
+            new BadRequestException('Only image files are allowed (jpg, jpeg, png, gif, webp)'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload company logo',
+    description: 'Upload company logo image (max 5MB, jpg/jpeg/png/gif/webp)',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        logo: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Logo uploaded successfully',
+    type: CompanySettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid file type or size' })
+  async uploadLogo(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<CompanySettingsResponseDto> {
+    try {
+      if (!file) {
+        throw new BadRequestException('No file uploaded');
+      }
+
+      this.logger.log(`Uploading company logo: ${file.filename}`);
+      const logoUrl = `/uploads/logos/${file.filename}`;
+      return await this.settingsService.updateLogoUrl(logoUrl, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to upload logo: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete company logo
+   */
+  @Delete('company/logo')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete company logo',
+    description: 'Remove company logo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logo deleted successfully',
+    type: CompanySettingsResponseDto,
+  })
+  async deleteLogo(): Promise<CompanySettingsResponseDto> {
+    try {
+      this.logger.log('Deleting company logo');
+      return await this.settingsService.deleteLogoUrl('system');
+    } catch (error) {
+      this.logger.error(`Failed to delete logo: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get price and costing settings
+   */
+  @Get('price-costing')
+  @ApiOperation({
+    summary: 'Get price and costing settings',
+    description: 'Retrieve current price and costing settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Price and costing settings retrieved successfully',
+    type: PriceCostingSettingsResponseDto,
+  })
+  async getPriceCostingSettings(): Promise<PriceCostingSettingsResponseDto> {
+    try {
+      this.logger.log('Fetching price and costing settings');
+      return await this.settingsService.getPriceCostingSettings();
+    } catch (error) {
+      this.logger.error(`Failed to get price and costing settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Update price and costing settings
+   */
+  @Put('price-costing')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update price and costing settings',
+    description: 'Update price and costing settings information',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Price and costing settings updated successfully',
+    type: PriceCostingSettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async updatePriceCostingSettings(
+    @Body(ValidationPipe) updateDto: UpdatePriceCostingSettingsDto,
+  ): Promise<PriceCostingSettingsResponseDto> {
+    try {
+      this.logger.log('Updating price and costing settings');
+      return await this.settingsService.updatePriceCostingSettings(updateDto, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to update price and costing settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get active pricing schemes (for use by other modules)
+   */
+  @Get('pricing-schemes')
+  @ApiOperation({
+    summary: 'Get active pricing schemes',
+    description: 'Retrieve active pricing schemes for use in other modules',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pricing schemes retrieved successfully',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          currency: { type: 'string' },
+        },
+      },
+    },
+  })
+  async getActivePricingSchemes(): Promise<Array<{ name: string; currency: string }>> {
+    try {
+      this.logger.log('Fetching active pricing schemes');
+      return await this.settingsService.getActivePricingSchemes();
+    } catch (error) {
+      this.logger.error(`Failed to get pricing schemes: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get default currency
+   */
+  @Get('default-currency')
+  @ApiOperation({
+    summary: 'Get default currency',
+    description: 'Retrieve the default currency from settings',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Default currency retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        currency: { type: 'string' },
+      },
+    },
+  })
+  async getDefaultCurrency(): Promise<{ currency: string }> {
+    try {
+      this.logger.log('Fetching default currency');
+      const currency = await this.settingsService.getDefaultCurrency();
+      return { currency };
+    } catch (error) {
+      this.logger.error(`Failed to get default currency: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get document number settings
+   */
+  @Get('document-numbers')
+  @ApiOperation({
+    summary: 'Get document number settings',
+    description: 'Retrieve current document number configurations',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Document number settings retrieved successfully',
+    type: DocumentNumberSettingsResponseDto,
+  })
+  async getDocumentNumberSettings(): Promise<DocumentNumberSettingsResponseDto> {
+    try {
+      this.logger.log('Fetching document number settings');
+      return await this.settingsService.getDocumentNumberSettings();
+    } catch (error) {
+      this.logger.error(`Failed to get document number settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Update document number settings
+   */
+  @Put('document-numbers')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update document number settings',
+    description: 'Update document number configurations',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Document number settings updated successfully',
+    type: DocumentNumberSettingsResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async updateDocumentNumberSettings(
+    @Body(ValidationPipe) updateDto: UpdateDocumentNumberSettingsDto,
+  ): Promise<DocumentNumberSettingsResponseDto> {
+    try {
+      this.logger.log('Updating document number settings');
+      return await this.settingsService.updateDocumentNumberSettings(updateDto, 'system');
+    } catch (error) {
+      this.logger.error(`Failed to update document number settings: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate next document number
+   */
+  @Post('document-numbers/generate')
+  @ApiOperation({
+    summary: 'Generate next document number',
+    description: 'Generate the next document number for a specific document type',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Document number generated successfully',
+    type: GenerateDocumentNumberResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
+  async generateDocumentNumber(
+    @Body(ValidationPipe) dto: GenerateDocumentNumberDto,
+  ): Promise<GenerateDocumentNumberResponseDto> {
+    try {
+      this.logger.log(`Generating document number for ${dto.documentName}`);
+      const documentNumber = await this.settingsService.generateDocumentNumber(dto.documentName);
+      return {
+        documentNumber,
+        documentName: dto.documentName,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to generate document number: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync document number settings with database
+   */
+  @Post('document-numbers/sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Sync document numbers with database',
+    description: 'Synchronize document number settings with existing database records to prevent conflicts',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Document numbers synchronized successfully',
+  })
+  async syncDocumentNumbers(): Promise<{ message: string }> {
+    try {
+      this.logger.log('Syncing document numbers with database');
+      await this.settingsService.syncDocumentNumbersWithDatabase();
+      return { message: 'Document numbers synchronized successfully' };
+    } catch (error) {
+      this.logger.error(`Failed to sync document numbers: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+}

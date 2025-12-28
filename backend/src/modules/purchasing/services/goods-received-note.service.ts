@@ -19,6 +19,8 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class GoodsReceivedNoteService {
@@ -37,6 +39,8 @@ export class GoodsReceivedNoteService {
     private readonly productRepository: Repository<Product>,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
+    private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -44,30 +48,35 @@ export class GoodsReceivedNoteService {
    * Checks both active and soft-deleted GRNs to ensure unique numbering
    */
   private async generateSequentialGrnNumber(): Promise<string> {
-    // Get all existing GRN numbers that match the sequential format
-    // Include soft-deleted records to avoid number collision
-    const grns = await this.grnRepository.find({
-      select: ['grnNumber'],
-      withDeleted: true, // Include soft-deleted records
-    });
+    // Use document number settings to generate GRN number
+    try {
+      const grnNumber = await this.settingsService.generateDocumentNumber('Goods Received');
+      this.logger.log(`Generated GRN number: ${grnNumber}`);
+      return grnNumber;
+    } catch (error) {
+      this.logger.error(`Error generating GRN number: ${error.message}`);
+      // Fallback to legacy method
+      const grns = await this.grnRepository.find({
+        select: ['grnNumber'],
+        withDeleted: true,
+      });
 
-    let maxNumber = 0;
-    for (const grn of grns) {
-      // Extract number from format GRN-000001 (only sequential format)
-      const match = grn.grnNumber.match(/^GRN-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) {
-          maxNumber = num;
+      let maxNumber = 0;
+      for (const grn of grns) {
+        const match = grn.grnNumber.match(/^GRN-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
         }
       }
+
+      const nextNumber = maxNumber + 1;
+      const fallbackNumber = `GRN-${nextNumber.toString().padStart(6, '0')}`;
+      this.logger.log(`Fallback GRN number: ${fallbackNumber}`);
+      return fallbackNumber;
     }
-
-    // Next sequential number
-    const nextNumber = maxNumber + 1;
-
-    // Format with leading zeros (6 digits)
-    return `GRN-${nextNumber.toString().padStart(6, '0')}`;
   }
 
   /**
@@ -166,6 +175,22 @@ export class GoodsReceivedNoteService {
 
       this.logger.log(`GRN created successfully with ${grnItems.length} items: ${savedGrn.id}`);
 
+      // Log audit trail for create
+      await this.auditLogService.log(
+        'CREATE',
+        'GoodsReceivedNote',
+        `Created GRN: ${savedGrn.grnNumber}`,
+        {
+          entityId: savedGrn.id,
+          userId: 'system',
+          newValues: {
+            grnNumber: savedGrn.grnNumber,
+            purchaseOrderId: savedGrn.purchaseOrderId,
+            status: savedGrn.status,
+          },
+        }
+      );
+
       return this.findOne(savedGrn.id);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -176,14 +201,12 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Get all GRNs with filtering and pagination
+   * Get all GRNs with filtering (no pagination)
    */
   async findAll(query: GoodsReceivedNoteQueryDto): Promise<GoodsReceivedNoteListResponseDto> {
     this.logger.log(`Finding GRNs with query: ${JSON.stringify(query)}`);
 
     const {
-      page = 1,
-      limit = 10,
       search,
       status,
       supplierId,
@@ -192,7 +215,6 @@ export class GoodsReceivedNoteService {
       sortOrder = 'ASC',
     } = query;
 
-    const skip = (page - 1) * limit;
     const queryBuilder = this.grnRepository
       .createQueryBuilder('grn')
       .leftJoinAndSelect('grn.supplier', 'supplier')
@@ -231,24 +253,19 @@ export class GoodsReceivedNoteService {
       queryBuilder.orderBy('grn.grnNumber', 'ASC');
     }
 
-    // Get total count
-    const total = await queryBuilder.getCount();
-
-    // Apply pagination
-    queryBuilder.skip(skip).take(limit);
-
     const grns = await queryBuilder.getMany();
+    const total = grns.length;
 
     const grnDtos = grns.map(grn => this.mapToResponseDto(grn));
 
     return {
       grns: grnDtos,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
@@ -289,6 +306,21 @@ export class GoodsReceivedNoteService {
       });
 
       const updatedGrn = await this.grnRepository.save(grn);
+
+      // Log audit trail for update
+      await this.auditLogService.log(
+        'UPDATE',
+        'GoodsReceivedNote',
+        `Updated GRN: ${updatedGrn.grnNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            grnNumber: updatedGrn.grnNumber,
+            status: updatedGrn.status,
+          },
+        }
+      );
 
       this.logger.log(`GRN updated successfully: ${updatedGrn.id}`);
       return this.findOne(updatedGrn.id);
@@ -338,6 +370,22 @@ export class GoodsReceivedNoteService {
         this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} soft deleted with timestamp ${deletedAt.toISOString()}`);
       }
 
+      // Log audit trail for soft delete
+      await this.auditLogService.log(
+        'DELETE',
+        'GoodsReceivedNote',
+        `Deleted GRN: ${grn.grnNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          oldValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
       this.logger.log(`GRN soft deleted successfully with timestamp ${deletedAt.toISOString()}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -348,21 +396,16 @@ export class GoodsReceivedNoteService {
   }
 
   /**
-   * Get all soft-deleted GRNs
+   * Get all soft-deleted GRNs (no pagination)
    */
   async findDeleted(query: GoodsReceivedNoteQueryDto): Promise<GoodsReceivedNoteListResponseDto> {
     this.logger.log('Finding deleted GRNs');
 
     const {
-      page = 1,
-      limit = 10,
       search,
       sortBy = 'receivedDate',
       sortOrder = 'DESC',
     } = query;
-
-    const skip = (page - 1) * Math.min(limit, 100);
-    const take = Math.min(limit, 100);
 
     const queryBuilder = this.grnRepository
       .createQueryBuilder('grn')
@@ -379,27 +422,22 @@ export class GoodsReceivedNoteService {
       );
     }
 
-    // Count total
-    const total = await queryBuilder.getCount();
-
-    // Apply sorting and pagination
+    // Apply sorting
     const validSortFields = ['grnNumber', 'receivedDate', 'deletedAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'receivedDate';
     queryBuilder.orderBy(`grn.${sortField}`, sortOrder as 'ASC' | 'DESC');
-    queryBuilder.skip(skip).take(take);
 
     const grns = await queryBuilder.getMany();
-
-    const totalPages = Math.ceil(total / take);
+    const total = grns.length;
 
     return {
       grns: grns.map(grn => this.mapToResponseDto(grn)),
       total,
-      page,
-      limit: take,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
@@ -452,6 +490,22 @@ export class GoodsReceivedNoteService {
         throw new NotFoundException(`Goods Received Note with ID ${id} not found after restore`);
       }
 
+      // Log audit trail for restore
+      await this.auditLogService.log(
+        'RESTORE',
+        'GoodsReceivedNote',
+        `Restored GRN: ${restoredGrn.grnNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          newValues: {
+            grnNumber: restoredGrn.grnNumber,
+            purchaseOrderId: restoredGrn.purchaseOrderId,
+            status: restoredGrn.status,
+          },
+        }
+      );
+
       this.logger.log(`GRN restored successfully (deletedAt set to null)`);
       return this.mapToResponseDto(restoredGrn);
     } catch (error) {
@@ -503,6 +557,22 @@ export class GoodsReceivedNoteService {
     if (!grn.deletedAt) {
       throw new BadRequestException('GRN must be soft-deleted before permanent deletion');
     }
+
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'GoodsReceivedNote',
+      `Permanently deleted GRN: ${grn.grnNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          grnNumber: grn.grnNumber,
+          purchaseOrderId: grn.purchaseOrderId,
+          status: grn.status,
+        },
+      }
+    );
 
     try {
       await this.grnRepository.remove(grn);
@@ -588,6 +658,12 @@ export class GoodsReceivedNoteService {
         supplierCode: grn.supplier.id.substring(0, 8).toUpperCase(),
         companyName: grn.supplier.companyName,
         contactPerson: grn.supplier.contactPerson,
+        phone: grn.supplier.phone,
+        address: grn.supplier.streetAddress,
+        city: grn.supplier.city,
+        state: grn.supplier.state,
+        postalCode: grn.supplier.postalCode,
+        country: grn.supplier.country,
       },
       receivedDate: grn.receivedDate,
       totalQuantityReceived: Number(grn.totalQuantityReceived),

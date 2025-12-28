@@ -18,7 +18,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
   return (
     <Grid container spacing={1}>
       {/* Row 1 */}
-      <Grid item xs={6}>
+      <Grid size={6}>
         <CalculatorButton
           variant="special"
           buttonStyles={buttonStyles}
@@ -28,7 +28,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           Clear
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="special"
           buttonStyles={buttonStyles}
@@ -37,7 +37,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           CE
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="special"
           buttonStyles={buttonStyles}
@@ -46,9 +46,8 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           <BackspaceIcon fontSize="small" />
         </CalculatorButton>
       </Grid>
-
       {/* Row 2 */}
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -57,7 +56,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           7
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -66,7 +65,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           8
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -75,7 +74,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           9
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="operator"
           buttonStyles={buttonStyles}
@@ -84,9 +83,8 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           ÷
         </CalculatorButton>
       </Grid>
-
       {/* Row 3 */}
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -95,7 +93,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           4
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -104,7 +102,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           5
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -113,7 +111,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           6
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="operator"
           buttonStyles={buttonStyles}
@@ -122,9 +120,8 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           ×
         </CalculatorButton>
       </Grid>
-
       {/* Row 4 */}
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -133,7 +130,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           1
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -142,7 +139,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           2
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -151,7 +148,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           3
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="operator"
           buttonStyles={buttonStyles}
@@ -160,9 +157,8 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           −
         </CalculatorButton>
       </Grid>
-
       {/* Row 5 */}
-      <Grid item xs={6}>
+      <Grid size={6}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -171,7 +167,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           0
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="number"
           buttonStyles={buttonStyles}
@@ -180,7 +176,7 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           .
         </CalculatorButton>
       </Grid>
-      <Grid item xs={3}>
+      <Grid size={3}>
         <CalculatorButton
           variant="operator"
           buttonStyles={buttonStyles}
@@ -189,9 +185,8 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
           +
         </CalculatorButton>
       </Grid>
-
       {/* Row 6 - Equals */}
-      <Grid item xs={12}>
+      <Grid size={12}>
         <CalculatorButton
           variant="equals"
           buttonStyles={buttonStyles}
@@ -201,5 +196,5 @@ export const CalculatorGrid: React.FC<CalculatorGridProps> = ({
         </CalculatorButton>
       </Grid>
     </Grid>
-  )
+  );
 }

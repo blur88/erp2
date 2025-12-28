@@ -56,7 +56,7 @@ export class CustomerController {
   @ApiQuery({ name: 'search', required: false, description: 'Search customers by name, email, or phone' })
   @ApiQuery({ name: 'type', required: false, enum: ['individual', 'business'], description: 'Filter by customer type' })
   @ApiQuery({ name: 'status', required: false, enum: ['active', 'inactive', 'suspended', 'blacklisted'], description: 'Filter by status' })
-  @ApiQuery({ name: 'priceLevel', required: false, enum: ['retail', 'wholesale', 'special'], description: 'Filter by price level' })
+  @ApiQuery({ name: 'pricingScheme', required: false, enum: ['retail', 'wholesale', 'special'], description: 'Filter by price level' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })

@@ -33,6 +33,7 @@ import {
   CategoryAncestorsDto,
 } from '../dto/category.dto';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class CategoryService {
@@ -43,6 +44,7 @@ export class CategoryService {
     private readonly categoryRepository: Repository<Category>, // Changed from TreeRepository to Repository
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -80,7 +82,21 @@ export class CategoryService {
 
     const savedCategory = await this.categoryRepository.save(category);
 
-    // Audit logging removed with authentication system
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'Category',
+      `Created category: ${savedCategory.name}`,
+      {
+        entityId: savedCategory.id,
+        userId: userId || 'system',
+        newValues: {
+          name: savedCategory.name,
+          parentId: savedCategory.parentId,
+          level: savedCategory.level,
+        },
+      }
+    );
 
     this.logger.log(`Category created successfully with ID: ${savedCategory.id}`);
     return this.toResponseDto(savedCategory);
@@ -414,7 +430,24 @@ export class CategoryService {
       this.logger.log(`Finished updating descendant paths for category ${updatedCategory.name}`);
     }
 
-    // Audit logging removed with authentication system
+    // Log audit trail for update
+    if (Object.keys(changes).length > 0) {
+      await this.auditLogService.log(
+        'UPDATE',
+        'Category',
+        `Updated category: ${updatedCategory.name}`,
+        {
+          entityId: updatedCategory.id,
+          userId: userId || 'system',
+          oldValues: Object.fromEntries(
+            Object.entries(changes).map(([key, val]) => [key, val.from])
+          ),
+          newValues: Object.fromEntries(
+            Object.entries(changes).map(([key, val]) => [key, val.to])
+          ),
+        }
+      );
+    }
 
     this.logger.log(`Category updated successfully: ${updatedCategory.id}`);
     return this.toResponseDto(updatedCategory);
@@ -538,6 +571,22 @@ export class CategoryService {
     // Normal deletion (no products)
     await this.categoryRepository.softDelete(id);
 
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'Category',
+      `Deleted category: ${category.name}`,
+      {
+        entityId: category.id,
+        userId: userId || 'system',
+        oldValues: {
+          name: category.name,
+          parentId: category.parentId,
+          level: category.level,
+        },
+      }
+    );
+
     this.logger.log(`Category deleted successfully: ${id}`);
     return { message: `Category '${category.name}' deleted successfully.` };
   }
@@ -569,7 +618,21 @@ export class CategoryService {
       where: { id },
     });
 
-    // Audit logging removed with authentication system
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'Category',
+      `Restored category: ${restoredCategory.name}`,
+      {
+        entityId: restoredCategory.id,
+        userId: userId || 'system',
+        newValues: {
+          name: restoredCategory.name,
+          parentId: restoredCategory.parentId,
+          level: restoredCategory.level,
+        },
+      }
+    );
 
     this.logger.log(`Category restored successfully: ${restoredCategory.id}`);
     return this.toResponseDto(restoredCategory);
@@ -604,10 +667,24 @@ export class CategoryService {
       );
     }
 
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'Category',
+      `Permanently deleted category: ${category.name}`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        oldValues: {
+          name: category.name,
+          parentId: category.parentId,
+          level: category.level,
+        },
+      }
+    );
+
     // Perform the permanent deletion
     await this.categoryRepository.remove(category);
-
-    // Audit logging removed with authentication system
 
     this.logger.log(`Category permanently deleted successfully: ${id}`);
   }

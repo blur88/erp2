@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18.1-alpine3.23
     container_name: erp_postgres
     restart: unless-stopped
     environment:
@@ -19,7 +19,7 @@ services:
 
   # Redis for caching and sessions
   redis:
-    image: redis:8-alpine3.22
+    image: redis:8.4.0-alpine3.22
     container_name: erp_redis
     restart: unless-stopped
     environment:
@@ -46,6 +46,11 @@ services:
       - DB_DATABASE=erp_db
       - DB_USERNAME=erp_user
       - DB_PASSWORD=erp_password
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=erp_db
+      - DATABASE_USER=erp_user
+      - DATABASE_PASSWORD=erp_password
       - DB_SYNCHRONIZE=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -63,6 +68,7 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
+      - ./backups:/app/backups
 
   # Frontend Application
   frontend:

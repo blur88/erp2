@@ -13,7 +13,6 @@ import {
   Button,
   Chip,
   IconButton,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -46,6 +45,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
@@ -56,14 +56,10 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { SalesOrderPrint } from '@/components/print'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-
-interface OrdersPageState {
-  page: number
-  rowsPerPage: number
-}
 
 // Memoized Order Row Component to prevent unnecessary re-renders
 interface OrderRowProps {
@@ -153,11 +149,6 @@ const OrdersPage: React.FC = () => {
     customerId: 'all',
   }
 
-  const [state, setState] = useState<OrdersPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
-
   const [viewDialog, setViewDialog] = useState(false)
   const [blockedDialogOpen, setBlockedDialogOpen] = useState(false)
   const [blockedDialogAction, setBlockedDialogAction] = useState<'edit' | 'delete'>('edit')
@@ -167,6 +158,7 @@ const OrdersPage: React.FC = () => {
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -210,8 +202,6 @@ const OrdersPage: React.FC = () => {
   const loadOrders = useCallback(() => {
     const dateRange = getDateRange(orderFilters.dateFilter)
     dispatch(fetchOrders({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       sortBy: orderFilters.sortBy,
       sortOrder: orderFilters.sortOrder,
       search: orderFilters.search,
@@ -221,15 +211,54 @@ const OrdersPage: React.FC = () => {
       paymentStatus: orderFilters.paymentStatus,
       fulfillmentStatus: orderFilters.fulfillmentStatus,
     }))
-  }, [dispatch, state.page, state.rowsPerPage, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
+  }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
 
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
 
+  // Refresh persisted selectedOrder on component mount (after browser refresh)
+  const hasRefreshedPersistedOrder = useRef(false)
+  useEffect(() => {
+    // Only run once on mount
+    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
+      console.log('Refreshing persisted selectedOrder:', selectedOrder.id)
+      dispatch(fetchOrderById(selectedOrder.id) as any)
+      hasRefreshedPersistedOrder.current = true
+    }
+  }, []) // Empty deps - only run on mount
+
+  // Refresh on route navigation (when coming back from another page)
+  const previousPathnameRef = useRef(location.pathname)
+  useEffect(() => {
+    // Only refresh if we navigated TO orders page FROM somewhere else
+    if (previousPathnameRef.current !== '/sales/orders' && location.pathname === '/sales/orders') {
+      loadOrders()
+      // Also refresh the selected order to get updated customer data
+      if (selectedOrder) {
+        dispatch(fetchOrderById(selectedOrder.id) as any)
+      }
+    }
+    previousPathnameRef.current = location.pathname
+  }, [location.pathname, loadOrders, selectedOrder, dispatch])
+
+  // Update selected order when fresh data arrives (to reflect customer changes)
+  useEffect(() => {
+    if (orders && orders.length > 0 && selectedOrder) {
+      const freshOrder = orders.find((order: any) => order.id === selectedOrder.id)
+      if (freshOrder) {
+        // Only update if the data actually changed (to avoid infinite loops)
+        const hasChanged = JSON.stringify(freshOrder) !== JSON.stringify(selectedOrder)
+        if (hasChanged) {
+          dispatch(setSelectedOrder(freshOrder))
+        }
+      }
+    }
+  }, [orders, selectedOrder, dispatch])
+
   // Fetch customers on component mount - memoized to prevent re-fetching
   useEffect(() => {
-    dispatch(fetchCustomers({ limit: 1000 })) // Get all customers for dropdown
+    dispatch(fetchCustomers({})) // Get all customers for dropdown
   }, [dispatch])
 
   // Helper function to calculate date ranges - memoized for performance
@@ -271,7 +300,6 @@ const OrdersPage: React.FC = () => {
       sortBy: field,
       sortOrder: newSortOrder
     }))
-    setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
   }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder])
 
   // Select order when clicked - memoized to prevent re-renders
@@ -382,6 +410,7 @@ const OrdersPage: React.FC = () => {
     }
   }
 
+
   const handleRecordPayment = async () => {
     if (!selectedOrder) return
 
@@ -466,8 +495,6 @@ const OrdersPage: React.FC = () => {
         dispatch(fetchInvoices({ page: 1, limit: 20 }))
         // Refresh the orders list to show updated state
         dispatch(fetchOrders({
-          page: state.page + 1,
-          limit: state.rowsPerPage,
           search: orderFilters.search || '',
           paymentStatus: orderFilters.paymentStatus || 'all',
           fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
@@ -1003,20 +1030,22 @@ const OrdersPage: React.FC = () => {
   }, [orders, dispatch])
 
   const handlePageUpNavigation = useCallback(() => {
-    const newIndex = Math.max(0, focusedOrderIndex - state.rowsPerPage)
+    const rowsPerPage = 20 // Default value previously used
+    const newIndex = Math.max(0, focusedOrderIndex - rowsPerPage)
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
     }
-  }, [focusedOrderIndex, state.rowsPerPage, orders])
+  }, [focusedOrderIndex, orders, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
-    const newIndex = Math.min(orders.length - 1, focusedOrderIndex + state.rowsPerPage)
+    const rowsPerPage = 20 // Default value previously used
+    const newIndex = Math.min(orders.length - 1, focusedOrderIndex + rowsPerPage)
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
     }
-  }, [focusedOrderIndex, state.rowsPerPage, orders])
+  }, [focusedOrderIndex, orders, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedOrderIndex >= 0 && orders[focusedOrderIndex]) {
@@ -1044,11 +1073,12 @@ const OrdersPage: React.FC = () => {
     navigate('/sales/orders/create')
   }
 
-  const handleNavigateToInvoice = useCallback((invoiceId: string, event?: React.MouseEvent) => {
+  const handleNavigateToInvoice = useCallback((invoice: any, event?: React.MouseEvent) => {
     if (event) {
       event.stopPropagation() // Prevent triggering parent row click
     }
-    navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
+    // Pass the full invoice object to avoid lookup issues with pagination
+    navigate('/sales/invoices', { state: { highlightInvoice: invoice } })
   }, [navigate])
 
   const handleNavigateToPayment = useCallback((paymentId: string, event?: React.MouseEvent) => {
@@ -1154,7 +1184,6 @@ const OrdersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -1215,7 +1244,6 @@ const OrdersPage: React.FC = () => {
             label="Date Filter"
             onChange={(e) => {
               dispatch(setOrderFilters({ dateFilter: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1302,7 +1330,6 @@ const OrdersPage: React.FC = () => {
             label="Customer"
             onChange={(e) => {
               dispatch(setOrderFilters({ customerId: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1345,7 +1372,6 @@ const OrdersPage: React.FC = () => {
             label="Payment Status"
             onChange={(e) => {
               dispatch(setOrderFilters({ paymentStatus: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1387,7 +1413,6 @@ const OrdersPage: React.FC = () => {
             label="Fulfillment"
             onChange={(e) => {
               dispatch(setOrderFilters({ fulfillmentStatus: e.target.value }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -1424,7 +1449,6 @@ const OrdersPage: React.FC = () => {
                 paymentStatus: 'all',
                 fulfillmentStatus: 'all'
               }))
-              setState((prev: OrdersPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -1451,18 +1475,20 @@ const OrdersPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout: Order List and SO Details */}
       <Grid container spacing={3}>
         {/* Left Side - Order List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1503,13 +1529,13 @@ const OrdersPage: React.FC = () => {
                   <TableBody>
                     {loading && orders.length === 0 ? (
                       // Show skeleton rows when loading with no existing orders
-                      [...Array(10)].map((_, i) => (
+                      ([...Array(10)].map((_, i) => (
                         <TableRow key={`skeleton-${i}`}>
                           <TableCell>
                             <Skeleton height={40} />
                           </TableCell>
                         </TableRow>
-                      ))
+                      )))
                     ) : (
                       orders.map((order: any, index: number) => (
                         <OrderRow
@@ -1525,28 +1551,16 @@ const OrdersPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              {/* Pagination */}
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev: OrdersPageState) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: OrdersPageState) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>
 
         {/* Right Side - SO Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedOrder ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Order Info and Actions */}
@@ -1606,6 +1620,27 @@ const OrdersPage: React.FC = () => {
                       fontSize: `${TABLE_STYLES.row.height * 0.5}px` // Scale to 50% of row height for better proportion
                     }} />
                   </IconButton>
+                  <IconButton
+                    size="small"
+                    title="Print Order"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
                 </Box>
               </Box>
 
@@ -1614,7 +1649,11 @@ const OrdersPage: React.FC = () => {
               <Box>
                 <Grid container spacing={3}>
                   {/* Left Column - SO Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1676,7 +1715,7 @@ const OrdersPage: React.FC = () => {
                                   <Box key={invoice.id} component="span">
                                     <Typography
                                       component="button"
-                                      onClick={(event) => handleNavigateToInvoice(invoice.id, event)}
+                                      onClick={(event) => handleNavigateToInvoice(invoice, event)}
                                       sx={{
                                         fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
                                         color: 'primary.main',
@@ -1780,7 +1819,11 @@ const OrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Payment & Fulfillment */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     {/* Payment and Fulfillment Section */}
                     <TableContainer>
                       <Table
@@ -2106,15 +2149,12 @@ const OrdersPage: React.FC = () => {
                               fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
                               lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
                             }}>
-                              {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                              {item.discountType === 'percentage' && item.discountPercent && (
-                                <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                  color: 'text.secondary',
-                                  display: 'block'
-                                }}>
-                                  ({item.discountPercent}%)
-                                </Typography>
+                              {item.discountType === 'percentage' && item.discountPercent ? (
+                                `${item.discountPercent}%`
+                              ) : item.discountAmount ? (
+                                `-${formatCurrency(item.discountAmount)}`
+                              ) : (
+                                '-'
                               )}
                             </TableCell>
                             <TableCell align="right" sx={{
@@ -2181,8 +2221,6 @@ const OrdersPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
-
       {/* SO Details Dialog */}
       <Dialog
         open={viewDialog}
@@ -2198,7 +2236,11 @@ const OrdersPage: React.FC = () => {
         <DialogContent>
           {selectedOrder && (
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>SO Information</Typography>
@@ -2230,7 +2272,11 @@ const OrdersPage: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Customer Information</Typography>
@@ -2251,7 +2297,7 @@ const OrdersPage: React.FC = () => {
               </Grid>
               
               {/* SO Items */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>SO Items</Typography>
@@ -2348,24 +2394,12 @@ const OrdersPage: React.FC = () => {
                                   fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
                                   lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
                                 }}>
-                                  {item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                                  {item.discountType === 'percentage' && item.discountPercent && (
-                                    <Typography sx={{
-                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary',
-                                      display: 'block'
-                                    }}>
-                                      ({item.discountPercent}%)
-                                    </Typography>
-                                  )}
-                                  {item.discountType === 'amount' && item.discountAmount && (
-                                    <Typography sx={{
-                                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                      color: 'text.secondary',
-                                      display: 'block'
-                                    }}>
-                                      (Fixed)
-                                    </Typography>
+                                  {item.discountType === 'percentage' && item.discountPercent ? (
+                                    `${item.discountPercent}%`
+                                  ) : item.discountAmount ? (
+                                    `-${formatCurrency(item.discountAmount)}`
+                                  ) : (
+                                    '-'
                                   )}
                                 </TableCell>
                                 <TableCell align="right" sx={{
@@ -2387,7 +2421,7 @@ const OrdersPage: React.FC = () => {
               </Grid>
 
               {/* Order Summary */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Order Summary</Typography>
@@ -2405,7 +2439,6 @@ const OrdersPage: React.FC = () => {
           <Button onClick={() => setViewDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-
       {/* Blocked Sales Order Dialog */}
       {selectedOrder && (
         <BlockedSalesOrderDialog
@@ -2425,13 +2458,11 @@ const OrdersPage: React.FC = () => {
           loading={isLoading}
         />
       )}
-
       {/* Deleted Orders Dialog */}
       <DeletedOrdersDialog
         open={deletedOrdersDialogOpen}
         onClose={() => setDeletedOrdersDialogOpen(false)}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -2443,8 +2474,16 @@ const OrdersPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="warning"
       />
+      {/* Print Dialog */}
+      {selectedOrder && (
+        <SalesOrderPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          salesOrder={selectedOrder}
+        />
+      )}
     </Box>
-  )
+  );
 }
 
 export default OrdersPage

@@ -70,7 +70,8 @@ export const updateSupplier = createAsyncThunk(
   async ({ id, data }: { id: string; data: any }, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.updateSupplier(id, data)
-      return response.data
+      // API returns the supplier object directly, not wrapped in data
+      return response.data || response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update supplier')
     }
@@ -173,9 +174,10 @@ const supplierSlice = createSlice({
       .addCase(updateSupplier.fulfilled, (state, action) => {
         state.loading = false
         if (action.payload) {
-          const index = state.suppliers.findIndex((s) => s.id === action.payload.id)
+          const updatedSupplier = action.payload as any
+          const index = state.suppliers.findIndex((s) => s.id === updatedSupplier.id)
           if (index !== -1) {
-            state.suppliers[index] = action.payload
+            state.suppliers[index] = updatedSupplier
           }
         }
       })

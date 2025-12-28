@@ -12,6 +12,8 @@ import customerSlice from './slices/customerSlice'
 import purchasingSlice from './slices/purchasingSlice'
 import supplierSlice from './slices/supplierSlice'
 import dashboardSlice from './slices/dashboardSlice'
+import backupSlice from './slices/backupSlice'
+import auditLogSlice from './slices/auditLogSlice'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -22,6 +24,8 @@ const rootReducer = combineReducers({
   purchasing: purchasingSlice,
   suppliers: supplierSlice,
   dashboard: dashboardSlice,
+  backup: backupSlice,
+  auditLogs: auditLogSlice,
 })
 
 // Persist configuration
@@ -29,17 +33,19 @@ const persistConfig = {
   key: 'erp-app',
   storage,
   whitelist: ['theme', 'inventory', 'sales', 'purchasing'], // Persist theme, inventory, sales, and purchasing (including selections)
-  version: 2, // Incremented to force dark mode default migration
+  version: 2, // Force dark mode for all users
   migrate: (state: any) => {
-    // Force dark mode for all users on version 2
-    if (state && state.theme) {
-      return Promise.resolve({
+    // Force dark mode for all users on version 2+
+    if (state) {
+      const newState = {
         ...state,
-        theme: {
+        theme: state.theme ? {
           ...state.theme,
           mode: 'dark'
-        }
-      })
+        } : { mode: 'dark' }
+      };
+
+      return Promise.resolve(newState);
     }
     return Promise.resolve(state)
   }

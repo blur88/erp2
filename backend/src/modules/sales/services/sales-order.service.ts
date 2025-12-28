@@ -25,6 +25,8 @@ import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class SalesOrderService {
@@ -47,56 +49,72 @@ export class SalesOrderService {
     private readonly inventoryIntegrationService: InventoryIntegrationService,
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
-    // Use a query builder to get the latest order number (including soft-deleted orders)
-    const lastOrder = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .withDeleted() // IMPORTANT: Include soft-deleted records to avoid number reuse
-      .select('order.orderNumber')
-      .where('order.orderNumber LIKE :prefix', { prefix: 'SO-%' })
-      .orderBy('order.orderNumber', 'DESC')
-      .limit(1)
-      .getOne();
+    // Use document number settings to generate order number
+    try {
+      const orderNumber = await this.settingsService.generateDocumentNumber('Sales Orders');
+      console.log('[generateSequentialOrderNumber] Generated order number:', orderNumber);
+      return orderNumber;
+    } catch (error) {
+      console.error('[generateSequentialOrderNumber] Error generating order number:', error.message);
+      // Fallback to legacy method if settings service fails
+      const lastOrder = await this.salesOrderRepository
+        .createQueryBuilder('order')
+        .withDeleted()
+        .select('order.orderNumber')
+        .where('order.orderNumber LIKE :prefix', { prefix: 'SO-%' })
+        .orderBy('order.orderNumber', 'DESC')
+        .limit(1)
+        .getOne();
 
-    let nextNumber = 1;
-    if (lastOrder) {
-      console.log('[generateSequentialOrderNumber] Last order found:', lastOrder.orderNumber);
-      const match = lastOrder.orderNumber.match(/^SO-(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
+      let nextNumber = 1;
+      if (lastOrder) {
+        const match = lastOrder.orderNumber.match(/^SO-(\d+)$/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
       }
-    } else {
-      console.log('[generateSequentialOrderNumber] No existing orders found, starting from 1');
-    }
 
-    const newOrderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
-    console.log('[generateSequentialOrderNumber] Generated new order number:', newOrderNumber);
-    return newOrderNumber;
+      const newOrderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
+      console.log('[generateSequentialOrderNumber] Fallback order number:', newOrderNumber);
+      return newOrderNumber;
+    }
   }
 
   private async generateInvoiceNumber(): Promise<string> {
-    // Use a query builder to get the latest invoice number (including soft-deleted invoices)
-    const lastInvoice = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .withDeleted() // IMPORTANT: Include soft-deleted records to avoid number reuse
-      .select('invoice.invoiceNumber')
-      .where('invoice.invoiceNumber LIKE :prefix', { prefix: 'INV-%' })
-      .orderBy('invoice.invoiceNumber', 'DESC')
-      .limit(1)
-      .getOne();
+    // Use document number settings to generate invoice number
+    try {
+      const invoiceNumber = await this.settingsService.generateDocumentNumber('Invoices');
+      console.log('[generateInvoiceNumber] Generated invoice number:', invoiceNumber);
+      return invoiceNumber;
+    } catch (error) {
+      console.error('[generateInvoiceNumber] Error generating invoice number:', error.message);
+      // Fallback to legacy method
+      const lastInvoice = await this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .withDeleted()
+        .select('invoice.invoiceNumber')
+        .where('invoice.invoiceNumber LIKE :prefix', { prefix: 'INV-%' })
+        .orderBy('invoice.invoiceNumber', 'DESC')
+        .limit(1)
+        .getOne();
 
-    let nextNumber = 1;
-    if (lastInvoice) {
-      const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
+      let nextNumber = 1;
+      if (lastInvoice) {
+        const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
       }
-    }
 
-    // Format with leading zeros (6 digits)
-    return `INV-${nextNumber.toString().padStart(6, '0')}`;
+      const newInvoiceNumber = `INV-${nextNumber.toString().padStart(6, '0')}`;
+      console.log('[generateInvoiceNumber] Fallback invoice number:', newInvoiceNumber);
+      return newInvoiceNumber;
+    }
   }
 
   private async findPreviousOrder(currentOrderNumber: string): Promise<SalesOrderResponseDto | null> {
@@ -139,8 +157,8 @@ export class SalesOrderService {
       throw new ConflictException('Customer is not active');
     }
 
-    // Validate and calculate order totals
-    const orderItems = await this.validateAndProcessItems(items);
+    // Validate and calculate order totals with customer pricing scheme
+    const orderItems = await this.validateAndProcessItems(items, customer);
     const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
     const shippingAmount = Number(createSalesOrderDto.shippingAmount || 0);
     const totalAmount = subtotal + shippingAmount;
@@ -263,6 +281,24 @@ export class SalesOrderService {
 
       await this.invoiceRepository.save(invoice);
 
+      // Log audit trail for invoice creation
+      await this.auditLogService.log(
+        'CREATE',
+        'Invoice',
+        `Created invoice: ${invoice.invoiceNumber} for sales order ${orderWithCustomer.orderNumber}`,
+        {
+          entityId: invoice.id,
+          userId: 'system',
+          newValues: {
+            invoiceNumber: invoice.invoiceNumber,
+            salesOrderId: orderWithCustomer.id,
+            customerId: orderWithCustomer.customerId,
+            totalAmount: invoice.totalAmount,
+            status: invoice.status,
+          },
+        }
+      );
+
       // Copy sales order items to invoice items
       if (orderWithCustomer.items && orderWithCustomer.items.length > 0) {
         const invoiceItemsData = orderWithCustomer.items.map(soItem => ({
@@ -271,6 +307,8 @@ export class SalesOrderService {
           productId: soItem.productId,
           quantity: Number(soItem.quantity),
           unitPrice: Number(soItem.unitPrice),
+          discountType: soItem.discountType,
+          discountPercent: Number(soItem.discountPercent || 0),
           discount: Number(soItem.discountAmount || 0),
           totalAmount: Number(soItem.totalAmount),
         }));
@@ -285,6 +323,24 @@ export class SalesOrderService {
       console.error('Full error:', error); // Add full error logging for debugging
       // Don't throw error - order creation should still succeed even if invoice creation fails
     }
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'SalesOrder',
+      `Created sales order: ${savedOrder.orderNumber} for ${customer.name} (RM ${totalAmount.toFixed(2)})`,
+      {
+        entityId: savedOrder.id,
+        userId: userId || 'system',
+        newValues: {
+          orderNumber: savedOrder.orderNumber,
+          customerId: customer.id,
+          customerName: customer.name,
+          totalAmount,
+          itemCount: createdItems.length,
+        },
+      }
+    );
 
     return this.findById(savedOrder.id);
   }
@@ -306,6 +362,7 @@ export class SalesOrderService {
     // Use QueryBuilder to avoid metadata issues
     let queryBuilder = this.salesOrderRepository
       .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
       .select([
         'order.id',
         'order.orderNumber',
@@ -315,7 +372,15 @@ export class SalesOrderService {
         'order.isFulfilled',
         'order.customerId',
         'order.createdAt',
-        'order.updatedAt'
+        'order.updatedAt',
+        'customer.id',
+        'customer.name',
+        'customer.phone',
+        'customer.streetAddress',
+        'customer.city',
+        'customer.state',
+        'customer.postalCode',
+        'customer.country'
       ])
       .where('order.deletedAt IS NULL'); // Only get non-deleted orders
 
@@ -440,6 +505,7 @@ export class SalesOrderService {
         isPaidInFull: Number(order.paidAmount || 0) >= Number(order.totalAmount),
         isFulfilled: order.isFulfilled,
         customerId: order.customerId,
+        customer: order.customer,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
       })),
@@ -464,9 +530,6 @@ export class SalesOrderService {
   }
 
   async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
-    console.log('🚀 findSummaries called with query:', JSON.stringify(query, null, 2));
-    console.log('🚀 paymentStatus:', query.paymentStatus, 'fulfillmentStatus:', query.fulfillmentStatus);
-
     const {
       search,
       customerId,
@@ -476,17 +539,13 @@ export class SalesOrderService {
       fulfillmentStatus,
       sortBy = 'orderNumber',
       sortOrder = 'ASC',
-      page = 1,
-      limit = 20,
     } = query;
 
-    // Build find options with filters using TypeORM operators
+    // Build find options with filters using TypeORM operators - no pagination
     let findOptions: any = {
       relations: ['customer', 'items', 'items.product', 'invoices'],
       where: { deletedAt: null },
       order: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit
     };
 
     // Apply filters to where clause
@@ -517,8 +576,6 @@ export class SalesOrderService {
       const balanceDue = Math.max(0, totalAmount - paidAmount);
       const isPaidInFull = paidAmount >= totalAmount;
 
-      console.log(`Order ${order.orderNumber}: totalAmount=${totalAmount}, paidAmount=${paidAmount}, balanceDue=${balanceDue}, isPaidInFull=${isPaidInFull}`);
-
       return {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -534,7 +591,13 @@ export class SalesOrderService {
         customerId: order.customerId,
         customer: order.customer ? {
           id: order.customer.id,
-          name: order.customer.name
+          name: order.customer.name,
+          phone: order.customer.phone,
+          streetAddress: order.customer.streetAddress,
+          city: order.customer.city,
+          state: order.customer.state,
+          postalCode: order.customer.postalCode,
+          country: order.customer.country
         } : null,
         customerName: order.customer?.name || 'Unknown Customer',
         items: order.items?.map(item => ({
@@ -548,8 +611,19 @@ export class SalesOrderService {
           invoiceNumber: invoice.invoiceNumber,
           status: invoice.status,
           invoiceDate: invoice.invoiceDate,
+          shippingAmount: Number(invoice.shippingAmount || 0),
           totalAmount: Number(invoice.totalAmount),
           paidAmount: Number(invoice.paidAmount),
+          balanceDue: Number(invoice.balanceDue),
+          customerName: invoice.customer?.name,
+          customerId: invoice.customerId,
+          salesOrderId: invoice.salesOrderId,
+          salesOrder: {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            orderDate: order.orderDate,
+          },
+          orderNumber: order.orderNumber,
         })) || [],
         isOverdue: false, // Placeholder since no requiredDate property exists
         notes: order.notes, // Include notes field in summary response
@@ -561,9 +635,6 @@ export class SalesOrderService {
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
     };
   }
 
@@ -613,13 +684,40 @@ export class SalesOrderService {
   }
 
   async findById(id: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: ['customer', 'items', 'items.product', 'invoices', 'invoices.payments'],
-    });
+    // Use QueryBuilder to ensure proper loading of all relations
+    const order = await this.salesOrderRepository
+      .createQueryBuilder('salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .leftJoinAndSelect('salesOrder.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
+      .leftJoinAndSelect('invoices.payments', 'payments')
+      .leftJoinAndSelect('invoices.items', 'invoiceItems')
+      .leftJoinAndSelect('invoiceItems.product', 'invoiceItemProduct')
+      .where('salesOrder.id = :id', { id })
+      .getOne();
 
     if (!order) {
       throw new NotFoundException('Sales order not found');
+    }
+
+    // Filter out soft-deleted and inactive payments in application layer
+    if (order.invoices && order.invoices.length > 0) {
+      order.invoices.forEach(invoice => {
+        if (invoice.payments && invoice.payments.length > 0) {
+          invoice.payments = invoice.payments.filter(p => p.isActive && !p.deletedAt);
+        }
+      });
+    }
+
+    console.log(`[findById] Order ${order.orderNumber}: ${order.invoices?.length || 0} invoices`);
+    if (order.invoices && order.invoices.length > 0) {
+      order.invoices.forEach(inv => {
+        console.log(`  Invoice ${inv.invoiceNumber}: ${inv.payments?.length || 0} payments`);
+        if (inv.payments) {
+          inv.payments.forEach(p => console.log(`    - ${p.paymentNumber}: isActive=${p.isActive}, deletedAt=${p.deletedAt}`));
+        }
+      });
     }
 
     // Manually load products for items if not already loaded
@@ -700,13 +798,19 @@ export class SalesOrderService {
     // Prepare update data for the sales order
     const updateData: any = {};
 
+    // Get customer for pricing (either new customer or existing)
+    let customerForPricing: Customer | null = null;
+
     // Update customer if provided
     if (customerId) {
-      const customer = await this.customerRepository.findOne({ where: { id: customerId } });
-      if (!customer) {
+      customerForPricing = await this.customerRepository.findOne({ where: { id: customerId } });
+      if (!customerForPricing) {
         throw new NotFoundException('Customer not found');
       }
       updateData.customerId = customerId;
+    } else {
+      // Load existing customer for pricing
+      customerForPricing = await this.customerRepository.findOne({ where: { id: order.customerId } });
     }
 
     // Update notes if provided (including empty string to clear notes)
@@ -719,8 +823,8 @@ export class SalesOrderService {
       // Delete existing items from database
       await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
-      // Validate and process new items
-      const orderItems = await this.validateAndProcessItems(items);
+      // Validate and process new items with customer pricing
+      const orderItems = await this.validateAndProcessItems(items, customerForPricing);
 
       const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
       const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
@@ -770,6 +874,21 @@ export class SalesOrderService {
     // Automatically update associated invoices if order was modified
     await this.updateAssociatedInvoices(id);
 
+    // Log audit trail for update
+    if (Object.keys(updateData).length > 0) {
+      await this.auditLogService.log(
+        'UPDATE',
+        'SalesOrder',
+        `Updated sales order: ${order.orderNumber}`,
+        {
+          entityId: id,
+          userId: 'system',
+          oldValues: updateData,
+          newValues: updateData,
+        }
+      );
+    }
+
     return this.findById(id);
   }
 
@@ -811,6 +930,24 @@ export class SalesOrderService {
           associatedInvoices.map(invoice => invoice.id)
         );
         console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each deleted invoice
+        for (const invoice of associatedInvoices) {
+          await this.auditLogService.log(
+            'DELETE',
+            'Invoice',
+            `Deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: invoice.id,
+              userId: 'system',
+              oldValues: {
+                invoiceNumber: invoice.invoiceNumber,
+                salesOrderId: id,
+                totalAmount: invoice.totalAmount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
@@ -836,6 +973,24 @@ export class SalesOrderService {
           associatedPayments.map(payment => payment.id)
         );
         console.log(`✅ Auto-deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each deleted payment
+        for (const payment of associatedPayments) {
+          await this.auditLogService.log(
+            'DELETE',
+            'Payment',
+            `Deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: payment.id,
+              userId: 'system',
+              oldValues: {
+                paymentNumber: payment.paymentNumber,
+                salesOrderId: id,
+                amount: payment.amount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-delete payments for sales order ${order.orderNumber}:`, error.message);
@@ -844,6 +999,22 @@ export class SalesOrderService {
 
     // Soft delete using TypeORM's built-in soft delete
     await this.salesOrderRepository.softDelete(id);
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'SalesOrder',
+      `Deleted sales order: ${order.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          orderNumber: order.orderNumber,
+          customerId: order.customerId,
+          totalAmount: order.totalAmount,
+        },
+      }
+    );
 
     return {
       deletedOrderNumber: order.orderNumber,
@@ -933,9 +1104,19 @@ export class SalesOrderService {
         invoiceNumber: invoice.invoiceNumber,
         status: invoice.status,
         invoiceDate: invoice.invoiceDate,
+        shippingAmount: Number(invoice.shippingAmount || 0),
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
         balanceDue: Number(invoice.balanceDue),
+        customerName: invoice.customer?.name,
+        customerId: invoice.customerId,
+        salesOrderId: invoice.salesOrderId,
+        salesOrder: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+        },
+        orderNumber: order.orderNumber,
       })),
     };
   }
@@ -981,7 +1162,7 @@ export class SalesOrderService {
     }
   }
 
-  private async validateAndProcessItems(items: any[]) {
+  private async validateAndProcessItems(items: any[], customer?: Customer) {
     const processedItems = [];
     let lineNumber = 1;
 
@@ -991,20 +1172,32 @@ export class SalesOrderService {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      const unitPrice = Number(item.unitPrice) || Number(product.retailPrice) || 0;
+      // Determine unit price based on customer's pricing scheme
+      let defaultPrice = 0;
+      if (customer && customer.pricingScheme) {
+        // Use customer's pricing scheme to get the correct price
+        defaultPrice = product.getPriceByScheme(customer.pricingScheme);
+      }
+      // If no pricing scheme or price not found, try to get 'Retail' price from tiers
+      if (defaultPrice === 0 && product.pricingTiers) {
+        defaultPrice = Number(product.pricingTiers['Retail']) || Number(product.baseCost) || 0;
+      }
+      const unitPrice = Number(item.unitPrice) || defaultPrice;
       const discountPercent = Number(item.discountPercent) || 0;
       const discountAmount = Number(item.discountAmount) || 0;
 
-      // Discount is applied to unit price first, then multiplied by quantity
-      let unitDiscount = 0;
+      // Calculate line total before discount
+      const lineTotal = unitPrice * item.quantity;
+
+      // Calculate total discount for the line (not per unit)
+      let calculatedDiscountAmount = 0;
       if (item.discountType === DiscountType.PERCENTAGE && discountPercent > 0) {
-        unitDiscount = (unitPrice * discountPercent) / 100;
+        calculatedDiscountAmount = (lineTotal * discountPercent) / 100;
       } else if (item.discountType === DiscountType.AMOUNT && discountAmount > 0) {
-        unitDiscount = discountAmount;
+        calculatedDiscountAmount = discountAmount;
       }
 
-      const discountedUnitPrice = unitPrice - unitDiscount;
-      const totalAmount = discountedUnitPrice * item.quantity;
+      const totalAmount = lineTotal - calculatedDiscountAmount;
 
       processedItems.push({
         lineNumber: lineNumber++,
@@ -1014,7 +1207,7 @@ export class SalesOrderService {
         unitCost: Number(product.baseCost) || 0,
         discountType: item.discountType || DiscountType.PERCENTAGE,
         discountPercent: Number(discountPercent) || 0,
-        discountAmount: Number(discountAmount) || 0,
+        discountAmount: Number(calculatedDiscountAmount) || 0,
         totalAmount: Number(totalAmount) || 0,
         notes: item.notes || null,
       });
@@ -1103,6 +1296,24 @@ export class SalesOrderService {
           softDeletedInvoices.map(invoice => invoice.id)
         );
         console.log(`✅ Auto-restored ${softDeletedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each restored invoice
+        for (const invoice of softDeletedInvoices) {
+          await this.auditLogService.log(
+            'RESTORE',
+            'Invoice',
+            `Restored invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: invoice.id,
+              userId: 'system',
+              newValues: {
+                invoiceNumber: invoice.invoiceNumber,
+                salesOrderId: id,
+                totalAmount: invoice.totalAmount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-restore invoices for sales order ${order.orderNumber}:`, error.message);
@@ -1131,6 +1342,24 @@ export class SalesOrderService {
           softDeletedPayments.map(payment => payment.id)
         );
         console.log(`✅ Auto-restored ${softDeletedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+
+        // Log audit trail for each restored payment
+        for (const payment of softDeletedPayments) {
+          await this.auditLogService.log(
+            'RESTORE',
+            'Payment',
+            `Restored payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: payment.id,
+              userId: 'system',
+              newValues: {
+                paymentNumber: payment.paymentNumber,
+                salesOrderId: id,
+                amount: payment.amount,
+              },
+            }
+          );
+        }
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-restore payments for sales order ${order.orderNumber}:`, error.message);
@@ -1142,6 +1371,22 @@ export class SalesOrderService {
       where: { id },
       relations: ['customer', 'items', 'items.product'],
     });
+
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'SalesOrder',
+      `Restored sales order: ${order.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          orderNumber: order.orderNumber,
+          customerId: order.customerId,
+          totalAmount: order.totalAmount,
+        },
+      }
+    );
 
     return this.mapToResponseDto(restoredOrder);
   }
@@ -1199,6 +1444,25 @@ export class SalesOrderService {
     // Automatically hard delete associated invoices (if they have no payments)
     if (invoices.length > 0) {
       try {
+        // Log audit trail for each invoice BEFORE permanent deletion
+        for (const invoice of invoices) {
+          await this.auditLogService.log(
+            'PERMANENT_DELETE',
+            'Invoice',
+            `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: invoice.id,
+              userId: 'system',
+              oldValues: {
+                invoiceNumber: invoice.invoiceNumber,
+                salesOrderId: id,
+                totalAmount: invoice.totalAmount,
+                paidAmount: invoice.paidAmount,
+              },
+            }
+          );
+        }
+
         // Hard delete all associated invoices
         await this.invoiceRepository.delete(
           invoices.map(invoice => invoice.id)
@@ -1233,10 +1497,26 @@ export class SalesOrderService {
     // Hard delete order items first (foreign key constraint)
     await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'SalesOrder',
+      `Permanently deleted sales order: ${order.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          orderNumber: order.orderNumber,
+          customerId: order.customerId,
+          customerName: order.customer?.name,
+          totalAmount: order.totalAmount,
+          paidAmount: order.paidAmount,
+        },
+      }
+    );
+
     // Hard delete the order from database
     await this.salesOrderRepository.delete(id);
-
-    // Note: Audit logging removed with authentication system
   }
 
   async bulkPermanentDelete(
@@ -1299,6 +1579,25 @@ export class SalesOrderService {
         // Automatically hard delete associated invoices (if they have no payments)
         if (invoices.length > 0) {
           try {
+            // Log audit trail for each invoice BEFORE permanent deletion
+            for (const invoice of invoices) {
+              await this.auditLogService.log(
+                'PERMANENT_DELETE',
+                'Invoice',
+                `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
+                {
+                  entityId: invoice.id,
+                  userId: 'system',
+                  oldValues: {
+                    invoiceNumber: invoice.invoiceNumber,
+                    salesOrderId: id,
+                    totalAmount: invoice.totalAmount,
+                    paidAmount: invoice.paidAmount,
+                  },
+                }
+              );
+            }
+
             // Hard delete all associated invoices
             await this.invoiceRepository.delete(
               invoices.map(invoice => invoice.id)
@@ -1403,6 +1702,8 @@ export class SalesOrderService {
             productId: soItem.productId,
             quantity: Number(soItem.quantity),
             unitPrice: Number(soItem.unitPrice),
+            discountType: soItem.discountType,
+            discountPercent: Number(soItem.discountPercent || 0),
             discount: Number(soItem.discountAmount),
             totalAmount: Number(soItem.totalAmount),
           }));
@@ -1416,6 +1717,9 @@ export class SalesOrderService {
           const shippingAmount = Number(updatedOrder.shippingAmount || 0);
           invoice.totalAmount = newSubtotal + shippingAmount;
         }
+
+        // Sync notes from sales order
+        invoice.notes = updatedOrder.notes;
 
         // Preserve existing paidAmount and recalculate balance due
         const currentPaidAmount = Number(invoice.paidAmount);
@@ -1482,34 +1786,92 @@ export class SalesOrderService {
         await invoiceRepository.save(invoice);
       }
 
-      // Check if a payment already exists for this sales order
+      // Check if a payment already exists for this sales order (including soft-deleted)
       const existingPayment = await paymentRepository.findOne({
         where: {
           customerId: order.customerId,
           notes: ILike(`%sales order ${order.orderNumber}%`),
-          invoiceId: invoice ? invoice.id : null as any,
-        }
+        },
+        withDeleted: true, // Include soft-deleted payments
       });
 
       if (existingPayment) {
+        // Restore payment if it was soft-deleted
+        if (existingPayment.deletedAt) {
+          // Restore using TypeORM's restore method to clear deletedAt
+          await paymentRepository.restore(existingPayment.id);
+
+          // Reload the entity to get the restored state
+          const restoredPayment = await paymentRepository.findOne({
+            where: { id: existingPayment.id }
+          });
+
+          if (restoredPayment) {
+            restoredPayment.isActive = true;
+            await paymentRepository.save(restoredPayment);
+            console.log(`✅ Restored soft-deleted payment ${restoredPayment.paymentNumber}`);
+
+            // Log audit trail for payment restore
+            await this.auditLogService.log(
+              'RESTORE',
+              'Payment',
+              `Restored payment: ${restoredPayment.paymentNumber} for sales order ${order.orderNumber}`,
+              {
+                entityId: restoredPayment.id,
+                userId: 'system',
+                newValues: {
+                  paymentNumber: restoredPayment.paymentNumber,
+                  amount: Number(amount),
+                },
+              }
+            );
+
+            // Update the reference to use the restored payment
+            Object.assign(existingPayment, restoredPayment);
+          }
+        }
+
         // Update existing payment
         existingPayment.amount = Number(amount);
         existingPayment.paymentDate = new Date();
         existingPayment.notes = `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`;
+        existingPayment.invoiceId = invoice ? invoice.id : null; // Update invoice link
         await paymentRepository.save(existingPayment);
         console.log(`✅ Updated payment ${existingPayment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
-      } else {
-        // Generate payment number
-        const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
-        let maxNumber = 0;
-        for (const payment of allPayments) {
-          const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
-          if (match) {
-            const num = parseInt(match[1]);
-            if (num > maxNumber) maxNumber = num;
+
+        // Log audit trail for payment update
+        await this.auditLogService.log(
+          'UPDATE',
+          'Payment',
+          `Updated payment: ${existingPayment.paymentNumber} for sales order ${order.orderNumber}`,
+          {
+            entityId: existingPayment.id,
+            userId: 'system',
+            newValues: {
+              paymentNumber: existingPayment.paymentNumber,
+              amount: existingPayment.amount,
+              status: existingPayment.status,
+            },
           }
+        );
+      } else {
+        // Generate payment number using document settings
+        let paymentNumber: string;
+        try {
+          paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
+        } catch (error) {
+          // Fallback to legacy method
+          const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
+          let maxNumber = 0;
+          for (const payment of allPayments) {
+            const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
+            if (match) {
+              const num = parseInt(match[1]);
+              if (num > maxNumber) maxNumber = num;
+            }
+          }
+          paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
         }
-        const paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
 
         // Create new payment record with sales order details
         const payment = paymentRepository.create({
@@ -1525,6 +1887,23 @@ export class SalesOrderService {
 
         await paymentRepository.save(payment);
         console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
+
+        // Log audit trail for payment creation
+        await this.auditLogService.log(
+          'CREATE',
+          'Payment',
+          `Created payment: ${payment.paymentNumber} for sales order ${order.orderNumber}`,
+          {
+            entityId: payment.id,
+            userId: 'system',
+            newValues: {
+              paymentNumber: payment.paymentNumber,
+              amount: payment.amount,
+              status: payment.status,
+              method: payment.paymentMethod,
+            },
+          }
+        );
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-generate payment for order ${order.orderNumber}:`, error.message);
@@ -1563,9 +1942,27 @@ export class SalesOrderService {
       });
 
       if (associatedPayments.length > 0) {
-        // Hard delete the payment records from database
-        await paymentRepository.delete(associatedPayments.map(p => p.id));
-        console.log(`✅ Deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
+        // Log audit trail for payment deletion BEFORE deleting
+        for (const payment of associatedPayments) {
+          await this.auditLogService.log(
+            'DELETE',
+            'Payment',
+            `Permanently deleted payment: ${payment.paymentNumber} (unpaid sales order ${order.orderNumber})`,
+            {
+              entityId: payment.id,
+              userId: 'system',
+              oldValues: {
+                paymentNumber: payment.paymentNumber,
+                amount: payment.amount,
+                status: payment.status,
+              },
+            }
+          );
+        }
+
+        // Permanently delete the payment records (hard delete)
+        await paymentRepository.remove(associatedPayments);
+        console.log(`✅ Permanently deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
       }
     } catch (error) {
       console.error(`⚠️ Failed to delete payment records for order ${order.orderNumber}:`, error.message);
@@ -1636,6 +2033,19 @@ export class SalesOrderService {
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
+    // Log audit trail for fulfill
+    await this.auditLogService.log(
+      'FULFILL',
+      'SalesOrder',
+      `Fulfilled sales order: ${order.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: { isFulfilled: false },
+        newValues: { isFulfilled: true, fulfilledDate: order.fulfilledDate },
+      }
+    );
+
     return this.findById(savedOrder.id);
   }
 
@@ -1684,8 +2094,22 @@ export class SalesOrderService {
 
     const savedOrder = await this.salesOrderRepository.save(order);
 
+    // Log audit trail for unfulfill
+    await this.auditLogService.log(
+      'UPDATE',
+      'SalesOrder',
+      `Unfulfilled sales order: ${order.orderNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: { isFulfilled: true },
+        newValues: { isFulfilled: false, fulfilledDate: null },
+      }
+    );
+
     return this.findById(savedOrder.id);
   }
+
 
   private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {
     return {
@@ -1707,6 +2131,11 @@ export class SalesOrderService {
         id: order.customer.id,
         name: order.customer.name,
         phone: order.customer.phone,
+        streetAddress: order.customer.streetAddress,
+        city: order.customer.city,
+        state: order.customer.state,
+        postalCode: order.customer.postalCode,
+        country: order.customer.country,
       } : undefined,
       items: order.items?.map(item => ({
         id: item.id,
@@ -1732,8 +2161,19 @@ export class SalesOrderService {
         invoiceNumber: invoice.invoiceNumber,
         status: invoice.status,
         invoiceDate: invoice.invoiceDate,
+        shippingAmount: Number(invoice.shippingAmount || 0),
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
+        balanceDue: Number(invoice.balanceDue),
+        customerName: invoice.customer?.name,
+        customerId: invoice.customerId,
+        salesOrderId: invoice.salesOrderId,
+        salesOrder: {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+        },
+        orderNumber: order.orderNumber,
         payments: invoice.payments?.map(payment => ({
           id: payment.id,
           paymentNumber: payment.paymentNumber,
@@ -1741,6 +2181,22 @@ export class SalesOrderService {
           amount: Number(payment.amount),
           paymentMethod: payment.paymentMethod,
           status: payment.status,
+        })) || [],
+        items: invoice.items?.map(item => ({
+          id: item.id,
+          lineNumber: item.lineNumber,
+          productId: item.productId,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          discountType: item.discountType,
+          discountPercent: Number(item.discountPercent || 0),
+          discount: Number(item.discount),
+          totalAmount: Number(item.totalAmount),
+          product: item.product ? {
+            id: item.product.id,
+            name: item.product.name,
+            barcode: item.product.barcode,
+          } : undefined,
         })) || [],
       })) || [],
       createdAt: order.createdAt,

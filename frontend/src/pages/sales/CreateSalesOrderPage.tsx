@@ -36,6 +36,7 @@ import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { updateOrderInPlace, createOrder as createOrderAction } from '@/store/slices/salesSlice'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface OrderItem {
   productId: string
@@ -85,12 +86,14 @@ const CreateSalesOrderPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
+  const { currency } = useCurrency()
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -122,11 +125,38 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const watchedItems = watch('items')
   const watchedShipping = watch('shipping')
+  const watchedCustomerId = watch('customerId')
 
   useEffect(() => {
     loadCustomers()
     loadProducts()
   }, [])
+
+  // Update all product prices when customer changes
+  useEffect(() => {
+    // Skip price recalculation if in edit mode and still loading
+    if (loadingOrder || orderToLoad) {
+      return
+    }
+
+    if (selectedCustomer && watchedItems && watchedItems.length > 0) {
+      watchedItems.forEach((item, index) => {
+        if (item.productId && item.product) {
+          // Recalculate price based on new customer's pricing scheme
+          let productPrice = 0
+
+          if (selectedCustomer.pricingScheme && item.product.pricingTiers) {
+            productPrice = Number(item.product.pricingTiers[selectedCustomer.pricingScheme] || 0)
+          }
+
+          // Only update if price changed and product has pricing tiers
+          if (item.product.pricingTiers && Number(item.unitPrice) !== productPrice) {
+            setValue(`items.${index}.unitPrice`, productPrice)
+          }
+        }
+      })
+    }
+  }, [selectedCustomer, setValue, loadingOrder, orderToLoad])
 
   // Load sales order data in edit mode
   useEffect(() => {
@@ -184,6 +214,12 @@ const CreateSalesOrderPage: React.FC = () => {
         }
       })
 
+      // Set selected customer for pricing scheme
+      const customer = customers.find(c => c.id === (orderToLoad.customerId || orderToLoad.customer?.id))
+      if (customer) {
+        setSelectedCustomer(customer)
+      }
+
       // Map order data to form
       reset({
         customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
@@ -208,7 +244,7 @@ const CreateSalesOrderPage: React.FC = () => {
       setOrderToLoad(null)
       setLoadingOrder(false)
     }
-  }, [orderToLoad, products, reset])
+  }, [orderToLoad, products, customers, reset])
 
   // Recalculate totals when items change
   useEffect(() => {
@@ -275,15 +311,22 @@ const CreateSalesOrderPage: React.FC = () => {
         orderDate: data.orderDate,
         notes: data.notes || undefined,
         shippingAmount: Number(data.shipping) || 0,
-        items: data.items.map((item) => ({
-          productId: item.productId,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-          discountType: item.discountType,
-          discountPercent: Number(item.discountPercent) || 0,
-          discountAmount: Number(item.discountAmount) || 0,
-          notes: item.description || undefined,
-        })),
+        items: data.items.map((item) => {
+          // Calculate discountPercent and discountAmount based on discountType and discountValue
+          const discountValue = Number(item.discountValue) || 0
+          const discountPercent = item.discountType === 'percentage' ? discountValue : 0
+          const discountAmount = item.discountType === 'amount' ? discountValue : 0
+
+          return {
+            productId: item.productId,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unitPrice),
+            discountType: item.discountType,
+            discountPercent: discountPercent,
+            discountAmount: discountAmount,
+            notes: item.description || undefined,
+          }
+        }),
       }
 
       console.log('Sending order data:', JSON.stringify(orderData, null, 2))
@@ -317,7 +360,20 @@ const CreateSalesOrderPage: React.FC = () => {
   const handleProductSelect = (index: number, product: any) => {
     if (product) {
       setValue(`items.${index}.productId`, product.id)
-      setValue(`items.${index}.unitPrice`, Number(product.retailPrice || 0))
+
+      // Use customer's pricing scheme to determine the price
+      let productPrice = 0
+
+      if (selectedCustomer && selectedCustomer.pricingScheme && product.pricingTiers) {
+        // Use customer's pricing scheme
+        productPrice = Number(product.pricingTiers[selectedCustomer.pricingScheme] || 0)
+      } else if (product.pricingTiers) {
+        // If no customer selected, use first available pricing tier
+        const firstTier = Object.values(product.pricingTiers)[0]
+        productPrice = Number(firstTier || 0)
+      }
+
+      setValue(`items.${index}.unitPrice`, productPrice)
       setValue(`items.${index}.product`, product)
     }
   }
@@ -334,7 +390,7 @@ const CreateSalesOrderPage: React.FC = () => {
   }
 
   const parseFormattedNumber = (value: string): number => {
-    return parseFloat(value.replace(/,/g, '')) || 0
+    return parseFloat(value.replace(/,/g, '')) || 0;
   }
 
   const calculateOrderTotals = () => {
@@ -389,12 +445,16 @@ const CreateSalesOrderPage: React.FC = () => {
 
           <Grid container spacing={3}>
             {/* SO Information Card */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>SO Information</Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                      size={{
+                        xs: 12,
+                        md: 6
+                      }}>
                       <Controller
                         name="customerId"
                         control={control}
@@ -403,7 +463,10 @@ const CreateSalesOrderPage: React.FC = () => {
                             options={customers}
                             getOptionLabel={(option) => option.name}
                             value={customers.find(c => c.id === field.value) || null}
-                            onChange={(_, value) => field.onChange(value?.id || '')}
+                            onChange={(_, value) => {
+                              field.onChange(value?.id || '')
+                              setSelectedCustomer(value)
+                            }}
                             size="small"
                             renderInput={(params) => (
                               <TextField
@@ -437,7 +500,11 @@ const CreateSalesOrderPage: React.FC = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} md={6}>
+                    <Grid
+                      size={{
+                        xs: 12,
+                        md: 6
+                      }}>
                       <Controller
                         name="orderDate"
                         control={control}
@@ -470,7 +537,7 @@ const CreateSalesOrderPage: React.FC = () => {
             </Grid>
 
             {/* SO Items Card */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -607,7 +674,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                     if (value === '' || value === null || value === undefined) return ''
                                     const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
                                     if (isNaN(num)) return ''
-                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
                                   }
 
                                   const [displayValue, setDisplayValue] = React.useState(formatQuantity(qtyField.value))
@@ -644,7 +711,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                       error={!!errors.items?.[index]?.quantity}
                                       helperText={errors.items?.[index]?.quantity?.message}
                                     />
-                                  )
+                                  );
                                 }}
                               />
                             </TableCell>
@@ -683,11 +750,11 @@ const CreateSalesOrderPage: React.FC = () => {
                                         style: { textAlign: 'right', fontSize: '0.875rem' }
                                       }}
                                       InputProps={{
-                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                                       }}
                                       error={!!errors.items?.[index]?.unitPrice}
                                     />
-                                  )
+                                  );
                                 }}
                               />
                             </TableCell>
@@ -731,7 +798,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                           flex: 1,
                                         }}
                                       />
-                                    )
+                                    );
                                   }}
                                 />
                                 <Controller
@@ -762,7 +829,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                       }}
                                     >
                                       <MenuItem value="percentage">%</MenuItem>
-                                      <MenuItem value="amount">RM</MenuItem>
+                                      <MenuItem value="amount">{currency}</MenuItem>
                                     </TextField>
                                   )}
                                 />
@@ -802,7 +869,11 @@ const CreateSalesOrderPage: React.FC = () => {
             </Grid>
 
             {/* Notes and Summary */}
-            <Grid item xs={12} md={8}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 8
+              }}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Controller
@@ -834,7 +905,11 @@ const CreateSalesOrderPage: React.FC = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 4
+              }}>
               <Card sx={{ height: '100%' }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" gutterBottom>SO Summary</Typography>
@@ -891,10 +966,10 @@ const CreateSalesOrderPage: React.FC = () => {
                               },
                             }}
                             InputProps={{
-                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                             }}
                           />
-                        )
+                        );
                       }}
                     />
                   </Box>
@@ -933,7 +1008,7 @@ const CreateSalesOrderPage: React.FC = () => {
         )}
       </Box>
     </Container>
-  )
+  );
 }
 
 export default CreateSalesOrderPage

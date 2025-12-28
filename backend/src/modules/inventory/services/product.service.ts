@@ -38,6 +38,8 @@ import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ProductService {
@@ -67,6 +69,8 @@ export class ProductService {
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -125,12 +129,32 @@ export class ProductService {
     // Validate pricing logic
     this.validatePricing(createProductDto);
 
+    // Get pricing schemes from settings to initialize pricingTiers
+    const pricingSchemes = await this.settingsService.getActivePricingSchemes();
+
+    // Initialize pricingTiers - prioritize direct pricingTiers if provided
+    let pricingTiers: Record<string, number> = {};
+
+    if (createProductDto.pricingTiers && Object.keys(createProductDto.pricingTiers).length > 0) {
+      // Use directly provided pricingTiers (from new UI)
+      pricingTiers = { ...createProductDto.pricingTiers };
+    } else {
+      // Set default pricing for schemes not provided (use baseCost * 1.3 as default)
+      pricingSchemes.forEach((scheme) => {
+        const schemeName = scheme.name;
+        if (pricingTiers[schemeName] === undefined || pricingTiers[schemeName] === null) {
+          pricingTiers[schemeName] = createProductDto.baseCost * 1.3;
+        }
+      });
+    }
+
     // Create product
     const product = this.productRepository.create({
       ...createProductDto,
       stockQuantity: createProductDto.stockQuantity || 0,
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
+      pricingTiers, // Add dynamic pricing tiers
     });
 
     const savedProduct = await this.productRepository.save(product);
@@ -174,7 +198,22 @@ export class ProductService {
       }
     }
 
-    // Audit logging removed with authentication system
+    // Log audit trail
+    await this.auditLogService.log(
+      'CREATE',
+      'Product',
+      `Created product: ${savedProduct.name} (${savedProduct.barcode})`,
+      {
+        entityId: savedProduct.id,
+        userId: userId || 'system',
+        newValues: {
+          name: savedProduct.name,
+          barcode: savedProduct.barcode,
+          baseCost: savedProduct.baseCost,
+          stockQuantity: savedProduct.stockQuantity,
+        },
+      }
+    );
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
     return this.toResponseDto(savedProduct);
@@ -237,16 +276,12 @@ export class ProductService {
       queryBuilder.andWhere('product.stockQuantity <= :maxStock', { maxStock });
     }
 
-    if (minPrice !== undefined) {
-      queryBuilder.andWhere('product.retailPrice >= :minPrice', { minPrice });
-    }
-
-    if (maxPrice !== undefined) {
-      queryBuilder.andWhere('product.retailPrice <= :maxPrice', { maxPrice });
-    }
+    // Note: minPrice and maxPrice filters removed - pricing is now in JSONB pricingTiers field
+    // To filter by price, you would need to use JSONB query operators which is complex
+    // Consider implementing price range filtering at the application level if needed
 
     // Apply sorting
-    const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'];
+    const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -442,7 +477,7 @@ export class ProductService {
     }
 
     // Sorting
-    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt', 'retailPrice', 'stockQuantity'];
+    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt', 'stockQuantity'];
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     // Use case-insensitive sorting for text fields
@@ -515,6 +550,23 @@ export class ProductService {
       where: { id },
       relations: ['category'],
     });
+
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'Product',
+      `Restored product: ${restoredProduct.name} (${restoredProduct.barcode})`,
+      {
+        entityId: restoredProduct.id,
+        userId: _userId || 'system',
+        newValues: {
+          name: restoredProduct.name,
+          barcode: restoredProduct.barcode,
+          baseCost: restoredProduct.baseCost,
+          stockQuantity: restoredProduct.stockQuantity,
+        },
+      }
+    );
 
     return this.toResponseDto(restoredProduct!);
   }
@@ -625,10 +677,25 @@ export class ProductService {
       );
     }
 
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'Product',
+      `Permanently deleted product: ${product.name} (${product.barcode})`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        oldValues: {
+          name: product.name,
+          barcode: product.barcode,
+          baseCost: product.baseCost,
+          stockQuantity: product.stockQuantity,
+        },
+      }
+    );
+
     // Hard delete the product from database
     await this.productRepository.delete(id);
-
-    // Audit logging removed with authentication system
 
     this.logger.log(`Product permanently deleted: ${id}`);
   }
@@ -778,11 +845,17 @@ export class ProductService {
 
     // Transform DTO fields to match entity fields FIRST
     const updateData: any = { ...updateProductDto };
-    
+
     // stockQuantity is handled directly in the DTO
 
-    // Validate pricing if being updated (use transformed data)
-    if (this.hasPricingChanges(updateData)) {
+    // Update pricingTiers - prioritize direct pricingTiers if provided
+    if (updateData.pricingTiers && Object.keys(updateData.pricingTiers).length > 0) {
+      // Direct pricingTiers provided (from new UI) - use as-is
+      this.logger.log('Using directly provided pricingTiers from DTO');
+    }
+
+    // Validate pricing if any pricing changes
+    if (updateData.pricingTiers || this.hasPricingChanges(updateData)) {
       this.validatePricing({ ...product, ...updateData } as any);
     }
 
@@ -831,7 +904,24 @@ export class ProductService {
     console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
     console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
-    // Audit logging removed with authentication system
+    // Log audit trail for update
+    if (Object.keys(changes).length > 0) {
+      await this.auditLogService.log(
+        'UPDATE',
+        'Product',
+        `Updated product: ${productWithCategory.name} (${productWithCategory.barcode})`,
+        {
+          entityId: productWithCategory.id,
+          userId: userId || 'system',
+          oldValues: Object.fromEntries(
+            Object.entries(changes).map(([key, val]) => [key, val.from])
+          ),
+          newValues: Object.fromEntries(
+            Object.entries(changes).map(([key, val]) => [key, val.to])
+          ),
+        }
+      );
+    }
 
     this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
     return this.toResponseDto(productWithCategory!);
@@ -946,7 +1036,22 @@ export class ProductService {
     // Use TypeORM soft delete (sets deletedAt timestamp)
     await this.productRepository.softDelete(id);
 
-    // Audit logging removed with authentication system
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'Product',
+      `Deleted product: ${product.name} (${product.barcode})`,
+      {
+        entityId: product.id,
+        userId: 'system',
+        oldValues: {
+          name: product.name,
+          barcode: product.barcode,
+          baseCost: product.baseCost,
+          stockQuantity: product.stockQuantity,
+        },
+      }
+    );
 
     this.logger.log(`Product soft-deleted successfully: ${id}`);
   }
@@ -976,19 +1081,17 @@ export class ProductService {
       // Track price changes
       const priceChanges: Record<string, { from: number; to: number }> = {};
 
-      if (priceUpdate.retailPrice !== undefined && priceUpdate.retailPrice !== product.retailPrice) {
-        updateData.retailPrice = priceUpdate.retailPrice;
-        priceChanges.retailPrice = { from: Number(product.retailPrice), to: priceUpdate.retailPrice };
-      }
-
-      if (priceUpdate.wholesalePrice !== undefined && priceUpdate.wholesalePrice !== product.wholesalePrice) {
-        updateData.wholesalePrice = priceUpdate.wholesalePrice;
-        priceChanges.wholesalePrice = { from: Number(product.wholesalePrice), to: priceUpdate.wholesalePrice };
-      }
-
-      if (priceUpdate.specialPrice !== undefined && priceUpdate.specialPrice !== product.specialPrice) {
-        updateData.specialPrice = priceUpdate.specialPrice;
-        priceChanges.specialPrice = { from: Number(product.specialPrice), to: priceUpdate.specialPrice };
+      // Update pricingTiers if provided
+      if (priceUpdate.pricingTiers && Object.keys(priceUpdate.pricingTiers).length > 0) {
+        updateData.pricingTiers = { ...product.pricingTiers, ...priceUpdate.pricingTiers };
+        // Track changes for each tier
+        Object.keys(priceUpdate.pricingTiers).forEach(tierName => {
+          const oldPrice = product.pricingTiers?.[tierName] || 0;
+          const newPrice = priceUpdate.pricingTiers![tierName];
+          if (oldPrice !== newPrice) {
+            priceChanges[tierName] = { from: Number(oldPrice), to: newPrice };
+          }
+        });
       }
 
       if (priceUpdate.baseCost !== undefined && priceUpdate.baseCost !== product.baseCost) {
@@ -1178,10 +1281,11 @@ export class ProductService {
 
     products.forEach(product => {
       const stock = Number(product.stockQuantity) || 0;
-      const price = Number(product.retailPrice) || 0;
-      
-      // Calculate inventory value
-      inventoryValue += stock * price;
+      // Use baseCost for inventory valuation (standard accounting practice)
+      const cost = Number(product.baseCost) || 0;
+
+      // Calculate inventory value at cost
+      inventoryValue += stock * cost;
 
       // Count low stock and out of stock (using simple threshold of 10)
       if (stock <= 0) {
@@ -1194,7 +1298,7 @@ export class ProductService {
       const categoryName = product.category?.name || 'Uncategorized';
       const existing = categoryMap.get(categoryName) || { count: 0, value: 0 };
       existing.count += 1;
-      existing.value += stock * price;
+      existing.value += stock * cost;
       categoryMap.set(categoryName, existing);
     });
 
@@ -1257,9 +1361,7 @@ export class ProductService {
       type: product.type,
       isActive: product.isActive,
       baseCost: Number(product.baseCost),
-      retailPrice: product.retailPrice ? Number(product.retailPrice) : undefined,
-      wholesalePrice: product.wholesalePrice ? Number(product.wholesalePrice) : undefined,
-      specialPrice: product.specialPrice ? Number(product.specialPrice) : undefined,
+      pricingTiers: product.pricingTiers || {}, // Dynamic pricing tiers from settings
       stockQuantity: Number(product.stockQuantity),
       notes: product.notes,
       categoryId: product.categoryId,
@@ -1269,13 +1371,10 @@ export class ProductService {
         fullPath: product.category.fullPath,
       } : null,
       isOutOfStock: product.isOutOfStock,
-      grossMarginRetail: product.grossMarginRetail,
-      grossMarginWholesale: product.grossMarginWholesale,
-      grossMarginSpecial: product.grossMarginSpecial,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt,
-    };
+    } as any;
   }
 
   /**
@@ -1290,7 +1389,7 @@ export class ProductService {
    * Check if the update contains pricing changes
    */
   private hasPricingChanges(_updateDto: UpdateProductDto): boolean {
-    return ['baseCost', 'retailPrice', 'wholesalePrice', 'specialPrice'].some(
+    return ['baseCost', 'pricingTiers'].some(
       field => _updateDto.hasOwnProperty(field)
     );
   }
@@ -1649,7 +1748,29 @@ export class ProductService {
     const baseCost = parseNumber(row.basecost, 'baseCost');
     if (baseCost === undefined) return null;
 
-    // Build product data (Note: unit field is handled by entity defaults)
+    // Build pricingTiers from CSV columns (map to pricing schemes from settings)
+    const pricingTiers: Record<string, number> = {};
+    const retailPrice = parseNumber(row.retailprice, 'retailPrice');
+    const wholesalePrice = parseNumber(row.wholesaleprice, 'wholesalePrice');
+    const specialPrice = parseNumber(row.specialprice, 'specialPrice');
+
+    // Get active pricing schemes to map CSV columns
+    const pricingSchemes = await this.settingsService.getActivePricingSchemes();
+    pricingSchemes.forEach((scheme) => {
+      const lowerScheme = scheme.name.toLowerCase();
+      if (lowerScheme === 'retail' && retailPrice !== undefined) {
+        pricingTiers[scheme.name] = retailPrice;
+      } else if (lowerScheme === 'wholesale' && wholesalePrice !== undefined) {
+        pricingTiers[scheme.name] = wholesalePrice;
+      } else if (lowerScheme === 'special' && specialPrice !== undefined) {
+        pricingTiers[scheme.name] = specialPrice;
+      } else {
+        // Default pricing for schemes not in CSV (use baseCost * 1.3)
+        pricingTiers[scheme.name] = baseCost * 1.3;
+      }
+    });
+
+    // Build product data
     const productData: any = {
       name: row.name.trim(),
       description: row.description?.trim() || undefined,
@@ -1657,9 +1778,7 @@ export class ProductService {
       type: normalizedType,
       categoryId,
       baseCost,
-      retailPrice: parseNumber(row.retailprice, 'retailPrice'),
-      wholesalePrice: parseNumber(row.wholesaleprice, 'wholesalePrice'),
-      specialPrice: parseNumber(row.specialprice, 'specialPrice'),
+      pricingTiers, // Use dynamic pricing tiers instead of fixed fields
       stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
       notes: row.notes?.trim() || undefined,
       isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true

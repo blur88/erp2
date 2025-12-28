@@ -25,7 +25,10 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-
+/**
+ * @deprecated Use pricingScheme string field instead
+ * Kept for backward compatibility during migration
+ */
 export enum PriceLevel {
   RETAIL = 'retail',
   WHOLESALE = 'wholesale',
@@ -40,7 +43,7 @@ export enum PriceLevel {
 @Entity('customers')
 @Index(['phone'])
 @Index(['type'])
-@Index(['priceLevel'])
+@Index(['pricingScheme'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
 
@@ -76,7 +79,61 @@ export class Customer extends BaseEntity {
   @MaxLength(20)
   phone?: string;
 
+  // Address Information
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Street address',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  streetAddress?: string;
 
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'City',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'State or province',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    comment: 'Postal or ZIP code',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  postalCode?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'Country',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
 
   // Business Information
 
@@ -89,13 +146,14 @@ export class Customer extends BaseEntity {
   isActive: boolean;
 
   @Column({
-    type: 'enum',
-    enum: PriceLevel,
-    default: PriceLevel.RETAIL,
-    comment: 'Default price level for this customer',
+    type: 'varchar',
+    length: 100,
+    default: 'Retail',
+    comment: 'Default pricing scheme name for this customer',
   })
-  @IsEnum(PriceLevel)
-  priceLevel: PriceLevel;
+  @IsString()
+  @MaxLength(100)
+  pricingScheme: string;
 
 
   // Customer Metrics

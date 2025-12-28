@@ -1,0 +1,137 @@
+import React, { useState, useEffect, useRef } from 'react'
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  CircularProgress,
+  Box,
+  Alert,
+} from '@mui/material'
+import { Print as PrintIcon, Close as CloseIcon } from '@mui/icons-material'
+import BasePrintTemplate from './BasePrintTemplate'
+import { printSettingsApi } from '@/services/printSettingsApi'
+import { useCurrency } from '@/hooks/useCurrency'
+import { formatDate } from '@/utils/formatters'
+
+interface VendorPaymentPrintProps {
+  open: boolean
+  onClose: () => void
+  payment: any
+}
+
+const VendorPaymentPrint: React.FC<VendorPaymentPrintProps> = ({ open, onClose, payment }) => {
+  const { currency } = useCurrency()
+  const [settings, setSettings] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const printRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (open) {
+      fetchPrintSettings()
+    }
+  }, [open])
+
+  const fetchPrintSettings = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await printSettingsApi.getPrintSettings()
+      setSettings(response)
+    } catch (err: any) {
+      console.error('Error fetching print settings:', err)
+      setError('Failed to load print settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  if (!payment) return null
+
+  // Prepare items from purchase order
+  const purchaseOrder = payment.purchaseOrder || {}
+  const items = (purchaseOrder.items || []).map((item: any) => ({
+    description: item.product?.name || item.productName || 'Unknown Product',
+    quantity: parseFloat(item.quantity) || 0,
+    unitPrice: parseFloat(item.unitCost) || 0,
+    discount: parseFloat(item.discountAmount) || 0,
+    amount: parseFloat(item.totalAmount) || 0,
+  }))
+
+  // Prepare totals (follows payment receipt format)
+  const poTotal = parseFloat(purchaseOrder.totalAmount) || 0
+  const totals = {
+    subtotal: parseFloat(purchaseOrder.subtotal) || 0,
+    shipping: parseFloat(purchaseOrder.shippingAmount) || 0,
+    total: poTotal,
+    paid: parseFloat(payment.amount) || 0,
+    balance: poTotal - (parseFloat(payment.amount) || 0),
+  }
+
+  // Prepare recipient (supplier)
+  const recipient = {
+    name: payment.supplier?.companyName || purchaseOrder.supplier?.companyName || 'Unknown Supplier',
+    address: payment.supplier?.streetAddress || payment.supplier?.address || purchaseOrder.supplier?.streetAddress || purchaseOrder.supplier?.address || '',
+    city: payment.supplier?.city || purchaseOrder.supplier?.city || '',
+    state: payment.supplier?.state || purchaseOrder.supplier?.state || '',
+    postalCode: payment.supplier?.postalCode || purchaseOrder.supplier?.postalCode || '',
+    country: payment.supplier?.country || purchaseOrder.supplier?.country || '',
+    phone: payment.supplier?.phone || purchaseOrder.supplier?.phone || '',
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        Print Vendor Payment - {purchaseOrder.orderNumber || payment.id}
+      </DialogTitle>
+      <DialogContent>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Alert severity="error">{error}</Alert>
+        ) : (
+          <Box ref={printRef}>
+            <BasePrintTemplate
+              settings={settings}
+              documentTitle="Vendor Payment"
+              documentNumber={purchaseOrder.orderNumber || payment.id || ''}
+              documentDate={formatDate(payment.paymentDate || new Date())}
+              recipient={recipient}
+              items={items}
+              totals={totals}
+              notes={payment.notes || ''}
+              perPageFooter={settings?.purchasingPerPageFooter || ''}
+              endOfDocFooter={settings?.purchasingEndOfDocFooter || ''}
+              showDiscount={false}
+              showPricing={true}
+              currency={currency}
+            />
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ '@media print': { display: 'none' } }}>
+        <Button onClick={onClose} startIcon={<CloseIcon />}>
+          Close
+        </Button>
+        <Button
+          onClick={handlePrint}
+          variant="contained"
+          startIcon={<PrintIcon />}
+          disabled={loading || !!error}
+        >
+          Print
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+export default VendorPaymentPrint

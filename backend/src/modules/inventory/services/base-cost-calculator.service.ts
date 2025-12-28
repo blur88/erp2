@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 
 @Injectable()
 export class BaseCostCalculatorService {
@@ -13,18 +14,12 @@ export class BaseCostCalculatorService {
     private productRepository: Repository<Product>,
     @InjectRepository(PurchaseCostHistory)
     private costHistoryRepository: Repository<PurchaseCostHistory>,
+    private costingStrategyFactory: CostingStrategyFactory,
   ) {}
 
   /**
-   * Calculate base cost using RECEIVED QUANTITIES (Moving Average)
-   * Formula: SUM(receivedQty × landedCost) / SUM(receivedQty)
-   *
-   * This method calculates base cost from original purchase quantities,
-   * not current stock levels. Base cost only changes when receiving or
-   * returning goods, NOT when selling goods.
-   *
-   * Example: 30 units received @ RM 10 + 50 units received @ RM 12 = (300 + 600) / 80 = RM 11.25
-   * Even if you sell 20 units, base cost remains RM 11.25 until next purchase.
+   * Calculate base cost using configured costing strategy
+   * Strategy is determined by settings (AVERAGE, FIFO, LIFO, STANDARD)
    */
   async calculateBaseCostFromCurrentStock(productId: string): Promise<number> {
     const product = await this.productRepository.findOne({
@@ -44,39 +39,20 @@ export class BaseCostCalculatorService {
       order: { receivedDate: 'ASC' },
     });
 
-    // If no batches, return current base cost
-    if (batches.length === 0) {
-      this.logger.warn(`No cost history found for product ${productId}, using current base cost`);
-      return Number(product.baseCost || 0);
-    }
+    // Get active costing strategy from settings
+    const strategy = await this.costingStrategyFactory.getActiveStrategy();
+    const costingMethod = await this.costingStrategyFactory.getCurrentCostingMethod();
 
-    // Calculate weighted average from RECEIVED quantities (not remaining)
-    let totalCost = 0;
-    let totalQuantity = 0;
+    this.logger.debug(`Calculating base cost for product ${productId} using ${costingMethod} method`);
 
-    for (const batch of batches) {
-      const qtyReceived = Number(batch.receivedQuantity);
-      const qtyRemaining = Number(batch.remainingQuantity);
-      const costPerUnit = Number(batch.landedCost);
-
-      totalCost += qtyReceived * costPerUnit;
-      totalQuantity += qtyReceived;
-
-      this.logger.debug(
-        `Batch ${batch.id}: ${qtyReceived} units received (${qtyRemaining} remaining) @ RM ${costPerUnit.toFixed(4)} = RM ${(qtyReceived * costPerUnit).toFixed(2)}`
-      );
-    }
-
-    // Return weighted average
-    const weightedAvg = totalQuantity > 0
-      ? totalCost / totalQuantity
-      : Number(product.baseCost || 0);
-
-    this.logger.log(
-      `Product ${product.name}: Moving Average = RM ${totalCost.toFixed(2)} / ${totalQuantity} units = RM ${weightedAvg.toFixed(4)}`
+    // Use strategy to calculate base cost
+    const baseCost = await strategy.calculateBaseCost(
+      productId,
+      batches,
+      Number(product.baseCost || 0),
     );
 
-    return weightedAvg;
+    return baseCost;
   }
 
   /**
@@ -96,7 +72,8 @@ export class BaseCostCalculatorService {
   }
 
   /**
-   * Reduce stock when selling (FIFO - oldest first)
+   * Reduce stock when selling
+   * Uses costing strategy to determine which batches to reduce from
    * Updates remainingQuantity in cost history and recalculates base cost
    */
   async reduceStock(productId: string, quantitySold: number): Promise<void> {
@@ -107,7 +84,7 @@ export class BaseCostCalculatorService {
         productId,
         remainingQuantity: MoreThan(0),
       },
-      order: { receivedDate: 'ASC' }, // FIFO order - oldest first
+      order: { receivedDate: 'ASC' },
     });
 
     if (batches.length === 0) {
@@ -115,30 +92,32 @@ export class BaseCostCalculatorService {
       return;
     }
 
-    let remainingToReduce = quantitySold;
+    // Get active costing strategy to determine batch reduction order
+    const strategy = await this.costingStrategyFactory.getActiveStrategy();
+    const reductions = strategy.determineBatchReduction(batches, quantitySold);
 
-    // Reduce from oldest batches first (FIFO)
-    for (const batch of batches) {
-      if (remainingToReduce <= 0) break;
+    // Apply reductions
+    for (const reduction of reductions) {
+      const batch = batches.find(b => b.id === reduction.batchId);
+      if (!batch) continue;
 
       const batchRemaining = Number(batch.remainingQuantity);
-      const toReduce = Math.min(batchRemaining, remainingToReduce);
+      const newRemaining = batchRemaining - reduction.quantity;
 
       await this.costHistoryRepository.update(batch.id, {
-        remainingQuantity: batchRemaining - toReduce,
+        remainingQuantity: newRemaining,
         updatedAt: new Date(),
       });
 
       this.logger.debug(
-        `Reduced batch ${batch.id}: ${batchRemaining} - ${toReduce} = ${batchRemaining - toReduce} remaining`
+        `Reduced batch ${batch.id}: ${batchRemaining} - ${reduction.quantity} = ${newRemaining} remaining`
       );
-
-      remainingToReduce -= toReduce;
     }
 
-    if (remainingToReduce > 0) {
+    const totalReduced = reductions.reduce((sum, r) => sum + r.quantity, 0);
+    if (totalReduced < quantitySold) {
       this.logger.warn(
-        `Not enough stock to reduce for product ${productId}. Attempted to reduce ${quantitySold}, but only ${quantitySold - remainingToReduce} available`
+        `Not enough stock to reduce for product ${productId}. Attempted to reduce ${quantitySold}, but only ${totalReduced} available`
       );
     }
 

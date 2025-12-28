@@ -48,23 +48,13 @@ export class CreateProductDto {
   @Min(0)
   baseCost: number;
 
-  @ApiPropertyOptional({ description: 'Retail selling price', minimum: 0 })
+  @ApiPropertyOptional({
+    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+    type: 'object',
+    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
+  })
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  retailPrice?: number;
-
-  @ApiPropertyOptional({ description: 'Wholesale selling price', minimum: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  wholesalePrice?: number;
-
-  @ApiPropertyOptional({ description: 'Special/promotional selling price', minimum: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  specialPrice?: number;
+  pricingTiers?: Record<string, number>;
 
   @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
   @IsOptional()
@@ -149,7 +139,7 @@ export class QueryProductsDto {
   @IsBoolean()
   outOfStock?: boolean;
 
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'barcode', 'createdAt', 'stockQuantity', 'retailPrice'] })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'barcode', 'createdAt', 'stockQuantity'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
@@ -216,14 +206,12 @@ export class ProductResponseDto {
   @ApiProperty({ description: 'Base cost price' })
   baseCost: number;
 
-  @ApiPropertyOptional({ description: 'Retail selling price' })
-  retailPrice?: number;
-
-  @ApiPropertyOptional({ description: 'Wholesale selling price' })
-  wholesalePrice?: number;
-
-  @ApiPropertyOptional({ description: 'Special selling price' })
-  specialPrice?: number;
+  @ApiPropertyOptional({
+    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+    type: 'object',
+    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
+  })
+  pricingTiers?: Record<string, number>;
 
   @ApiProperty({ description: 'Current stock quantity' })
   stockQuantity: number;
@@ -243,15 +231,6 @@ export class ProductResponseDto {
 
   @ApiProperty({ description: 'Out of stock indicator' })
   isOutOfStock: boolean;
-
-  @ApiProperty({ description: 'Retail margin percentage' })
-  grossMarginRetail: number;
-
-  @ApiProperty({ description: 'Wholesale margin percentage' })
-  grossMarginWholesale: number;
-
-  @ApiProperty({ description: 'Special price margin percentage' })
-  grossMarginSpecial: number;
 
   @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
@@ -292,29 +271,19 @@ export class ProductPriceUpdateDto {
   @IsUUID(4)
   productId: string;
 
-  @ApiPropertyOptional({ description: 'New retail price' })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  retailPrice?: number;
-
-  @ApiPropertyOptional({ description: 'New wholesale price' })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  wholesalePrice?: number;
-
-  @ApiPropertyOptional({ description: 'New special price' })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  specialPrice?: number;
-
   @ApiPropertyOptional({ description: 'New base cost' })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   baseCost?: number;
+
+  @ApiPropertyOptional({
+    description: 'New pricing tiers - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+    type: 'object',
+    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
+  })
+  @IsOptional()
+  pricingTiers?: Record<string, number>;
 }
 
 export class ProductStockSummaryDto {
@@ -448,23 +417,13 @@ export class ProductImportRowDto {
   @Min(0)
   baseCost: number;
 
-  @ApiPropertyOptional({ description: 'Retail selling price', minimum: 0 })
+  @ApiPropertyOptional({
+    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+    type: 'object',
+    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
+  })
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  retailPrice?: number;
-
-  @ApiPropertyOptional({ description: 'Wholesale selling price', minimum: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  wholesalePrice?: number;
-
-  @ApiPropertyOptional({ description: 'Special selling price', minimum: 0 })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  specialPrice?: number;
+  pricingTiers?: Record<string, number>;
 
   @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
   @IsOptional()

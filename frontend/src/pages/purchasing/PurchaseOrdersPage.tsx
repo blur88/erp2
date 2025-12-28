@@ -12,7 +12,6 @@ import {
   TableRow,
   Button,
   IconButton,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -37,6 +36,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -44,11 +44,13 @@ import {
   fetchSuppliers,
   fetchGoodsReceivedNotes,
   setSelectedPurchaseOrder,
+  updatePurchaseOrderInPlace,
   selectPurchaseOrders,
   selectSelectedPurchaseOrder,
   selectPurchasingLoading,
   selectPurchasingError,
   selectPurchasingPagination,
+  selectSupplierUpdateTimestamp,
 } from '@/store/slices/purchasingSlice'
 import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -58,10 +60,9 @@ import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
 import BlockedPurchaseOrderDialog from '@/components/purchasing/BlockedPurchaseOrderDialog'
+import { PurchaseOrderPrint } from '@/components/print'
 
 interface PurchaseOrdersPageState {
-  page: number
-  rowsPerPage: number
   search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
@@ -131,22 +132,18 @@ const PurchaseOrdersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Debug logging
-  console.log('PurchaseOrdersPage rendering...')
-
   const purchaseOrders = useAppSelector(selectPurchaseOrders) || []
   const suppliers = useAppSelector((state: any) => state.purchasing.suppliers) || []
   const loading = useAppSelector(selectPurchasingLoading)?.purchaseOrders || false
   const error = useAppSelector(selectPurchasingError)
   const pagination = useAppSelector(selectPurchasingPagination)?.purchaseOrders
   const selectedOrder = useAppSelector(selectSelectedPurchaseOrder)
+  const supplierUpdateTimestamp = useAppSelector(selectSupplierUpdateTimestamp)
 
   const [state, setState] = useState<PurchaseOrdersPageState>({
-    page: 0,
-    rowsPerPage: 20,
     search: '',
     sortBy: 'orderNumber',
-    sortOrder: 'asc',
+    sortOrder: 'asc', // ASC so lower numbers appear first
     supplierFilter: 'all',
     dateFilter: 'all',
     customFromDate: '',
@@ -158,9 +155,11 @@ const PurchaseOrdersPage: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<any>(null)
   const [deletedOrdersDialogOpen, setDeletedOrdersDialogOpen] = useState(false)
   const [unreturnDialogOpen, setUnreturnDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [blockedDialogType, setBlockedDialogType] = useState<'edit' | 'delete'>('edit')
   const [isLoading, setIsLoading] = useState(false)
   const [paymentStatus, setPaymentStatus] = useState<Record<string, boolean>>({})
+  const [paymentAmount, setPaymentAmount] = useState('')
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -205,8 +204,6 @@ const PurchaseOrdersPage: React.FC = () => {
   const loadOrders = useCallback(() => {
     const dateRange = getDateRange(state.dateFilter)
     dispatch(fetchPurchaseOrders({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       sortBy: state.sortBy,
       sortOrder: state.sortOrder.toUpperCase() as 'ASC' | 'DESC',
       search: state.search,
@@ -219,6 +216,13 @@ const PurchaseOrdersPage: React.FC = () => {
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  // Refetch purchase orders when a supplier is updated
+  useEffect(() => {
+    if (supplierUpdateTimestamp) {
+      loadOrders()
+    }
+  }, [supplierUpdateTimestamp])
 
   // Handle poId query parameter to auto-select PO from GRN page
   useEffect(() => {
@@ -243,17 +247,7 @@ const PurchaseOrdersPage: React.FC = () => {
       console.log('Payment status response:', response)
 
       // Handle both direct response and wrapped response structure
-      let paymentData
-      if (response.data && typeof response.data === 'object' && 'isPaid' in response.data) {
-        // Direct response structure: { isPaid: boolean, payment?: any }
-        paymentData = response.data
-      } else if (response && typeof response === 'object' && 'isPaid' in response) {
-        // Direct response structure: { isPaid: boolean, payment?: any }
-        paymentData = response
-      } else {
-        // Fallback - assume unpaid if structure is unexpected
-        paymentData = { isPaid: false }
-      }
+      const paymentData: any = (response as any).data || response
 
       setPaymentStatus(prev => ({
         ...prev,
@@ -273,15 +267,27 @@ const PurchaseOrdersPage: React.FC = () => {
     setState(prev => ({
       ...prev,
       sortBy: field,
-      sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
-      page: 0
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc'
     }))
   }, [])
 
-  const handleOrderSelect = useCallback((order: any) => {
-    dispatch(setSelectedPurchaseOrder(order))
+  const handleOrderSelect = useCallback(async (order: any) => {
     const orderIndex = purchaseOrders.findIndex(o => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
+
+    try {
+      // Fetch fresh data from server to ensure supplier name is current
+      const response = await purchasingApi.getPurchaseOrder(order.id)
+      const freshOrder = (response as any).data || response
+
+      // Update both the selected order and the order in the list
+      dispatch(setSelectedPurchaseOrder(freshOrder))
+      dispatch(updatePurchaseOrderInPlace(freshOrder))
+    } catch (error) {
+      console.error('Error fetching purchase order:', error)
+      // Fallback to cached order if fetch fails
+      dispatch(setSelectedPurchaseOrder(order))
+    }
   }, [dispatch, purchaseOrders])
 
   const handleApprove = async () => {
@@ -326,8 +332,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods received successfully. Product quantities updated.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       loadOrders() // Reload to update the list
@@ -357,8 +364,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods returned successfully. Product quantities reverted.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       loadOrders() // Reload to update the list
@@ -399,8 +407,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods returned successfully. You can now edit the order.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       setUnreturnDialogOpen(false)
@@ -427,8 +436,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Goods returned successfully. Product quantities reverted.')
 
       // Update the selected order with the new data
-      if (response.data) {
-        dispatch(setSelectedPurchaseOrder(response.data))
+      const updatedOrder = (response as any).data || response
+      if (updatedOrder) {
+        dispatch(setSelectedPurchaseOrder(updatedOrder))
       }
 
       setUnreturnDialogOpen(false)
@@ -462,8 +472,9 @@ const PurchaseOrdersPage: React.FC = () => {
         showSuccess('Payment deleted and goods returned successfully. You can now edit the order.')
 
         // Update with returned goods data
-        if (returnResponse.data) {
-          dispatch(setSelectedPurchaseOrder(returnResponse.data))
+        const returnedOrder = (returnResponse as any).data || returnResponse
+        if (returnedOrder) {
+          dispatch(setSelectedPurchaseOrder(returnedOrder))
         }
 
         // Refetch GRNs to update the GRN page with latest data
@@ -472,8 +483,9 @@ const PurchaseOrdersPage: React.FC = () => {
         showSuccess('Payment deleted successfully. You can now edit the order.')
 
         // Update the selected order with the unpay data
-        const updatedOrder = unpayResponse.data.data || unpayResponse.data
-        if (updatedOrder && (updatedOrder as any).id) {
+        const unpayData: any = (unpayResponse as any).data || unpayResponse
+        const updatedOrder = unpayData.data || unpayData
+        if (updatedOrder && updatedOrder.id) {
           const orderWithoutPayment = {
             ...(updatedOrder as any),
             vendorPayments: []
@@ -504,8 +516,9 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Payment deleted successfully.')
 
       // Update the selected order with the new data
-      const updatedOrder = response.data.data || response.data
-      if (updatedOrder && (updatedOrder as any).id) {
+      const responseData: any = (response as any).data || response
+      const updatedOrder = responseData.data || responseData
+      if (updatedOrder && updatedOrder.id) {
         const orderWithoutPayment = {
           ...(updatedOrder as any),
           vendorPayments: []
@@ -624,7 +637,8 @@ const PurchaseOrdersPage: React.FC = () => {
       const response = await purchasingApi.markPurchaseOrderAsPaid(selectedOrder.id)
 
       // Response structure: { data: { data: PO, payment: Payment } }
-      const updatedPO = response.data?.data || response.data as any
+      const responseData: any = (response as any).data || response
+      const updatedPO = responseData?.data || responseData
 
       // Show success message using the vendorPayments from the updated PO
       if (updatedPO.vendorPayments && updatedPO.vendorPayments.length > 0) {
@@ -660,13 +674,15 @@ const PurchaseOrdersPage: React.FC = () => {
       showSuccess('Payment deleted successfully')
 
       // Update the selected order with the new data
-      // ApiService wraps response, check both response.data.data and response.data
-      const updatedOrder = response.data.data || response.data
-      if (updatedOrder && (updatedOrder as any).id) {
+      // ApiService wraps response, check both response.data.data || response.data
+      const responseData: any = (response as any).data || response
+      const updatedOrder = responseData.data || responseData
+      if (updatedOrder && updatedOrder.id) {
         // Clear vendorPayments array when unpaying
         const orderWithoutPayment = {
           ...(updatedOrder as any),
-          vendorPayments: []
+          vendorPayments: [],
+          paidAmount: 0
         }
         dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
       }
@@ -679,6 +695,70 @@ const PurchaseOrdersPage: React.FC = () => {
       } else {
         showError(err?.response?.data?.message || 'Failed to delete payment')
       }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRecordPayment = async () => {
+    if (!selectedOrder) return
+
+    // Calculate the new total paid amount
+    let newPaidAmount
+    let paymentToAdd = 0
+
+    if (paymentAmount) {
+      // If user entered an amount, add it to existing paid amount
+      paymentToAdd = parseFloat(paymentAmount)
+      newPaidAmount = (selectedOrder.paidAmount || 0) + paymentToAdd
+    } else {
+      // Auto-fill behavior: if payment field is blank, pay the remaining balance
+      const remainingBalance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))
+      paymentToAdd = remainingBalance
+      newPaidAmount = (selectedOrder.paidAmount || 0) + remainingBalance
+    }
+
+    if (paymentToAdd <= 0) return
+
+    setIsLoading(true)
+    try {
+      // Optimistically update the UI
+      const optimisticUpdate = {
+        ...selectedOrder,
+        paidAmount: newPaidAmount
+      }
+      dispatch(setSelectedPurchaseOrder(optimisticUpdate))
+      setPaymentAmount('')
+
+      const response = await fetch(`/api/purchasing/orders/${selectedOrder.id}/record-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: newPaidAmount }),
+      })
+
+      if (response.ok) {
+        const updatedOrder = await response.json()
+        dispatch(setSelectedPurchaseOrder(updatedOrder.data))
+        showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+
+        // Reload orders to update the list with new vendor payments
+        loadOrders()
+      } else {
+        // Revert optimistic update on error
+        dispatch(setSelectedPurchaseOrder(selectedOrder))
+        setPaymentAmount(paymentToAdd.toString())
+        const errorData = await response.json()
+        const errorMessage = errorData?.message || 'Failed to record payment'
+        showError(errorMessage)
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      dispatch(setSelectedPurchaseOrder(selectedOrder))
+      setPaymentAmount(paymentToAdd.toString())
+      console.error('Error recording payment:', error)
+      showError('Error recording payment. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -793,7 +873,6 @@ const PurchaseOrdersPage: React.FC = () => {
           Debug: PurchaseOrdersPage loaded | Orders: {purchaseOrders.length} | Loading: {loading} | Error: {error || 'None'}
         </Alert>
       )}
-
       {/* Header */}
       <Box sx={{
         display: 'flex',
@@ -855,7 +934,6 @@ const PurchaseOrdersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -871,7 +949,7 @@ const PurchaseOrdersPage: React.FC = () => {
           inputRef={searchInputRef}
           placeholder="Search orders..."
           value={state.search}
-          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value, page: 0 }))}
+          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
           size="medium"
           sx={{
             minWidth: isMobile ? 'auto' : 250,
@@ -905,7 +983,7 @@ const PurchaseOrdersPage: React.FC = () => {
           <Select
             value={state.dateFilter}
             label="Date Filter"
-            onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value, page: 0 }))}
+            onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value }))}
             sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
@@ -968,7 +1046,7 @@ const PurchaseOrdersPage: React.FC = () => {
           <Select
             value={state.supplierFilter}
             label="Supplier"
-            onChange={(e) => setState(prev => ({ ...prev, supplierFilter: e.target.value, page: 0 }))}
+            onChange={(e) => setState(prev => ({ ...prev, supplierFilter: e.target.value }))}
             sx={{ fontSize: '0.875rem' }}
           >
             <MenuItem value="all">All</MenuItem>
@@ -989,8 +1067,7 @@ const PurchaseOrdersPage: React.FC = () => {
               dateFilter: 'all',
               customFromDate: '',
               customToDate: '',
-              supplierFilter: 'all',
-              page: 0
+              supplierFilter: 'all'
             }))}
             sx={{
               minWidth: 'auto',
@@ -1018,18 +1095,20 @@ const PurchaseOrdersPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout */}
       <Grid container spacing={3}>
         {/* Left Side - Order List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -1069,27 +1148,16 @@ const PurchaseOrdersPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_, newPage) => setState(prev => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e) => setState(prev => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>
 
         {/* Right Side - Order Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedOrder ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1126,13 +1194,30 @@ const PurchaseOrdersPage: React.FC = () => {
                   >
                     <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
                   </IconButton>
+                  <IconButton
+                    size="small"
+                    title="Print Purchase Order"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      color: 'info.main',
+                    }}
+                  >
+                    <PrintIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                  </IconButton>
                 </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 <Grid container spacing={3}>
                   {/* Left Column - PO Information */}
-                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
+                  <Grid
+                    sx={{ pb: '0 !important' }}
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1237,7 +1322,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                     <Box key={payment.id} component="span">
                                       {index > 0 && ', '}
                                       <Link
-                                        to={`/purchasing/vendor-payments?paymentId=${payment.id}`}
+                                        to={`/purchasing/vendor-payments?vpId=${payment.id}`}
                                         style={{
                                           color: '#1976d2',
                                           textDecoration: 'none',
@@ -1264,7 +1349,12 @@ const PurchaseOrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - PO Summary */}
-                  <Grid item xs={12} md={6} sx={{ pb: '0 !important' }}>
+                  <Grid
+                    sx={{ pb: '0 !important' }}
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table
                         size={TABLE_STYLES.size}
@@ -1336,19 +1426,101 @@ const PurchaseOrdersPage: React.FC = () => {
                               color: 'text.secondary',
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              Total Amount
+                              Total
                             </TableCell>
                             <TableCell sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              {formatCurrency(
-                                selectedOrder.totalAmount ||
-                                ((selectedOrder.items?.reduce((sum: number, item: any) =>
-                                  sum + (item.totalAmount || item.total || (item.quantity * (item.unitPrice || item.unitCost || 0))), 0
-                                ) || 0) + (selectedOrder.shippingAmount || 0)) ||
-                                (selectedOrder as any).total ||
-                                0
-                              )}
+                              {formatCurrency(selectedOrder.totalAmount || 0)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Paid
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                                }}>
+                                  {formatCurrency(selectedOrder.paidAmount || 0)}
+                                </Typography>
+                                <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                                  +
+                                </Typography>
+                                <TextField
+                                  size="small"
+                                  type="number"
+                                  value={paymentAmount}
+                                  onChange={(e) => setPaymentAmount(e.target.value)}
+                                  placeholder={`Add: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
+                                  inputProps={{ min: 0, step: 0.01 }}
+                                  sx={{
+                                    width: '120px',
+                                    '& .MuiInputBase-root': {
+                                      height: '24px',
+                                      fontSize: '0.75rem'
+                                    },
+                                    '& .MuiInputBase-input': {
+                                      padding: '4px 6px',
+                                      fontSize: '0.75rem'
+                                    },
+                                    '& input[type=number]': {
+                                      MozAppearance: 'textfield'
+                                    },
+                                    '& input[type=number]::-webkit-outer-spin-button': {
+                                      WebkitAppearance: 'none',
+                                      margin: 0
+                                    },
+                                    '& input[type=number]::-webkit-inner-spin-button': {
+                                      WebkitAppearance: 'none',
+                                      margin: 0
+                                    }
+                                  }}
+                                />
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Balance
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: (() => {
+                                    const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
+                                    const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
+                                    const balance = (selectedOrder.totalAmount || 0) - currentPaid
+                                    return balance < 0 ? 'error.main' : 'inherit'
+                                  })()
+                                }}>
+                                  {(() => {
+                                    const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
+                                    const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
+                                    const balance = (selectedOrder.totalAmount || 0) - currentPaid
+                                    return balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)
+                                  })()}
+                                </Typography>
+                                {paymentAmount && !isNaN(parseFloat(paymentAmount)) && parseFloat(paymentAmount) > 0 && (
+                                  <Typography sx={{
+                                    fontSize: '0.75rem',
+                                    color: 'text.secondary',
+                                    fontStyle: 'italic'
+                                  }}>
+                                    (after payment)
+                                  </Typography>
+                                )}
+                              </Box>
                             </TableCell>
                           </TableRow>
                           <TableRow>
@@ -1357,19 +1529,30 @@ const PurchaseOrdersPage: React.FC = () => {
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  color={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "error" : "primary"}
+                                  color={(() => {
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    return isPaidInFull ? "warning" : "primary"
+                                  })()}
+                                  onClick={(() => {
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    return isPaidInFull ? handleUnpay : handleRecordPayment
+                                  })()}
+                                  disabled={(() => {
+                                    const isReceived = selectedOrder.goodsReceivedNotes &&
+                                      selectedOrder.goodsReceivedNotes.length > 0 &&
+                                      selectedOrder.goodsReceivedNotes[0].status === 'received'
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    // Disable unpay button if order is received, or if loading
+                                    return (isPaidInFull && isReceived) || isLoading
+                                  })()}
                                   sx={{ minWidth: 110 }}
-                                  onClick={(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? handleUnpay : handlePay}
-                                  disabled={
-                                    isLoading ||
-                                    (selectedOrder.vendorPayments &&
-                                     selectedOrder.vendorPayments.length > 0 &&
-                                     selectedOrder.goodsReceivedNotes &&
-                                     selectedOrder.goodsReceivedNotes.length > 0 &&
-                                     selectedOrder.goodsReceivedNotes[0].status === 'received')
-                                  }
                                 >
-                                  {(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0) ? "Unpay" : "Pay"}
+                                  {(() => {
+                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    return isPaidInFull
+                                      ? "Unpay"
+                                      : (selectedOrder.paidAmount > 0 ? "Pay Remaining" : "Pay")
+                                  })()}
                                 </Button>
                                 {selectedOrder.goodsReceivedNotes &&
                                  selectedOrder.goodsReceivedNotes.length > 0 &&
@@ -1395,7 +1578,7 @@ const PurchaseOrdersPage: React.FC = () => {
                                       !selectedOrder?.items ||
                                       selectedOrder.items.length === 0 ||
                                       isLoading ||
-                                      !(selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0)
+                                      !((selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0)
                                     }
                                   >
                                     Receive
@@ -1410,7 +1593,7 @@ const PurchaseOrdersPage: React.FC = () => {
                   </Grid>
 
                   {/* Order Items Section */}
-                  <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                  <Grid sx={{ pt: '0 !important' }} size={12}>
                     {/* Page Break */}
                     <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
 
@@ -1503,7 +1686,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
                   {/* Notes Section */}
                   {selectedOrder.notes && (
-                    <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                    <Grid sx={{ pt: '0 !important' }} size={12}>
                       {/* Page Break */}
                       <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
 
@@ -1543,7 +1726,6 @@ const PurchaseOrdersPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -1557,13 +1739,12 @@ const PurchaseOrdersPage: React.FC = () => {
         confirmText="Delete"
         severity="error"
       />
-
       {/* Deleted Purchase Orders Dialog */}
       <DeletedPurchaseOrdersDialog
         open={deletedOrdersDialogOpen}
         onClose={() => setDeletedOrdersDialogOpen(false)}
+        onRefresh={loadOrders}
       />
-
       {/* Blocked Purchase Order Dialog */}
       {selectedOrder && (
         <BlockedPurchaseOrderDialog
@@ -1586,8 +1767,16 @@ const PurchaseOrdersPage: React.FC = () => {
           loading={isLoading}
         />
       )}
+      {/* Print Dialog */}
+      {selectedOrder && (
+        <PurchaseOrderPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          purchaseOrder={selectedOrder}
+        />
+      )}
     </Box>
-  )
+  );
 }
 
 export default PurchaseOrdersPage

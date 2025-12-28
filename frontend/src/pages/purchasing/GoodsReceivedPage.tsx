@@ -12,7 +12,6 @@ import {
   TableRow,
   Button,
   Chip,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -23,6 +22,7 @@ import {
   Skeleton,
   Alert,
   Grid,
+  IconButton,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -33,6 +33,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -45,11 +46,8 @@ import {
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
+import { GRNPrint } from '@/components/print'
 
-interface GoodsReceivedPageState {
-  page: number
-  rowsPerPage: number
-}
 
 interface GRNFilters {
   search: string
@@ -123,11 +121,6 @@ const GoodsReceivedPage: React.FC = () => {
   const selectedGRNFromRedux = useAppSelector(selectSelectedGRN)
   const [selectedGRN, setSelectedGRNLocal] = useState<any | null>(null)
 
-  const [state, setState] = useState<GoodsReceivedPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
-
   const [filters, setFilters] = useState<GRNFilters>({
     search: '',
     sortBy: 'grnNumber',
@@ -139,6 +132,7 @@ const GoodsReceivedPage: React.FC = () => {
   })
 
   const [deletedGRNsDialogOpen, setDeletedGRNsDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
   const grnListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -179,15 +173,13 @@ const GoodsReceivedPage: React.FC = () => {
   useEffect(() => {
     const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchGoodsReceivedNotes({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       receivedDateFrom: dateRange.fromDate,
       receivedDateTo: dateRange.toDate,
     } as any))
-  }, [dispatch, state.page, state.rowsPerPage, filters.search, filters.sortBy, filters.sortOrder, filters.dateFilter, getDateRange])
+  }, [dispatch, filters.search, filters.sortBy, filters.sortOrder, filters.dateFilter, getDateRange])
 
   // Filter GRNs (status filter only - backend handles search and sorting)
   const filteredGRNs = useMemo(() => {
@@ -201,18 +193,12 @@ const GoodsReceivedPage: React.FC = () => {
     return filtered
   }, [goodsReceivedNotes, filters.status])
 
-  // Pagination
-  const paginatedGRNs = useMemo(() => {
-    const startIndex = state.page * state.rowsPerPage
-    return filteredGRNs.slice(startIndex, startIndex + state.rowsPerPage)
-  }, [filteredGRNs, state.page, state.rowsPerPage])
-
   const handleGRNSelect = useCallback((grn: any) => {
     setSelectedGRNLocal(grn)
     dispatch(setSelectedGRN(grn))
-    const grnIndex = paginatedGRNs.findIndex(g => g.id === grn.id)
+    const grnIndex = filteredGRNs.findIndex(g => g.id === grn.id)
     setFocusedGRNIndex(grnIndex)
-  }, [dispatch, paginatedGRNs])
+  }, [dispatch, filteredGRNs])
 
   // Restore selected GRN from Redux on mount
   useEffect(() => {
@@ -227,15 +213,30 @@ const GoodsReceivedPage: React.FC = () => {
   // Handle grnId query parameter to auto-select GRN from PO page
   useEffect(() => {
     const grnId = searchParams.get('grnId')
-    if (grnId && goodsReceivedNotes.length > 0) {
-      const grn = goodsReceivedNotes.find((g: any) => g.id === grnId)
-      if (grn) {
-        handleGRNSelect(grn)
-        // Remove the query parameter after selection
-        setSearchParams({})
-      }
+    if (grnId) {
+      // Force refresh the GRN list to ensure we have the latest data
+      const dateRange = getDateRange(filters.dateFilter)
+      dispatch(fetchGoodsReceivedNotes({
+        search: filters.search,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        receivedDateFrom: dateRange.fromDate,
+        receivedDateTo: dateRange.toDate,
+      } as any)).then((result: any) => {
+        // Use the data from the fetch result, not the Redux state
+        // API returns { grns: [], total: 3, page: 1, ... }
+        if (result.payload && result.payload.grns) {
+          const grns = result.payload.grns
+          const grn = grns.find((g: any) => g.id === grnId)
+          if (grn) {
+            handleGRNSelect(grn)
+            // Remove the query parameter after selection
+            setSearchParams({})
+          }
+        }
+      })
     }
-  }, [searchParams, goodsReceivedNotes, handleGRNSelect, setSearchParams])
+  }, [searchParams.get('grnId')]) // Only run when grnId changes
 
   // Auto-refresh selected GRN when the list updates (e.g., after PO edit/return/receive)
   useEffect(() => {
@@ -252,26 +253,26 @@ const GoodsReceivedPage: React.FC = () => {
 
   // Auto-select first GRN when GRNs load
   useEffect(() => {
-    if (paginatedGRNs.length > 0 && focusedGRNIndex === -1) {
+    if (filteredGRNs.length > 0 && focusedGRNIndex === -1) {
       if (!selectedGRN && searchInputRef.current !== document.activeElement) {
         // Don't auto-select if we have a grnId query parameter or a persisted selection
         const grnId = searchParams.get('grnId')
         if (!grnId && !selectedGRNFromRedux) {
           setFocusedGRNIndex(0)
-          handleGRNSelect(paginatedGRNs[0])
+          handleGRNSelect(filteredGRNs[0])
         }
       }
     }
-  }, [paginatedGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams, selectedGRNFromRedux])
+  }, [filteredGRNs, focusedGRNIndex, selectedGRN, handleGRNSelect, searchParams, selectedGRNFromRedux])
 
   // Clear selection when no GRNs exist
   useEffect(() => {
-    if (paginatedGRNs.length === 0 && selectedGRN) {
+    if (filteredGRNs.length === 0 && selectedGRN) {
       setSelectedGRNLocal(null)
       dispatch(setSelectedGRN(null))
       setFocusedGRNIndex(-1)
     }
-  }, [paginatedGRNs.length, selectedGRN, dispatch])
+  }, [filteredGRNs.length, selectedGRN, dispatch])
 
   const handleSort = useCallback((field: string) => {
     setFilters(prev => ({
@@ -279,7 +280,6 @@ const GoodsReceivedPage: React.FC = () => {
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
     }))
-    setState(prev => ({ ...prev, page: 0 }))
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -298,17 +298,17 @@ const GoodsReceivedPage: React.FC = () => {
     if (focusedGRNIndex > 0) {
       const newIndex = focusedGRNIndex - 1
       setFocusedGRNIndex(newIndex)
-      handleGRNSelect(paginatedGRNs[newIndex])
+      handleGRNSelect(filteredGRNs[newIndex])
     }
-  }, [focusedGRNIndex, paginatedGRNs, handleGRNSelect])
+  }, [focusedGRNIndex, filteredGRNs, handleGRNSelect])
 
   const handleNavigateDown = useCallback(() => {
-    if (focusedGRNIndex < paginatedGRNs.length - 1) {
+    if (focusedGRNIndex < filteredGRNs.length - 1) {
       const newIndex = focusedGRNIndex + 1
       setFocusedGRNIndex(newIndex)
-      handleGRNSelect(paginatedGRNs[newIndex])
+      handleGRNSelect(filteredGRNs[newIndex])
     }
-  }, [focusedGRNIndex, paginatedGRNs, handleGRNSelect])
+  }, [focusedGRNIndex, filteredGRNs, handleGRNSelect])
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus()
@@ -346,7 +346,7 @@ const GoodsReceivedPage: React.FC = () => {
             Goods Received Notes
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Track and manage incoming goods from suppliers ({pagination?.total || 0} total)
+            Track and manage incoming goods from suppliers ({filteredGRNs.length} total)
           </Typography>
         </Box>
         <Box sx={{
@@ -374,7 +374,6 @@ const GoodsReceivedPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -521,7 +520,6 @@ const GoodsReceivedPage: React.FC = () => {
                 customFromDate: '',
                 customToDate: '',
               })
-              setState((prev) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -549,18 +547,20 @@ const GoodsReceivedPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout: GRN List and GRN Details */}
       <Grid container spacing={3}>
         {/* Left Side - GRN List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -569,67 +569,54 @@ const GoodsReceivedPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                GRN List ({pagination?.total || 0})
+                GRN List ({filteredGRNs.length})
               </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={grnListRef}>
-              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table
-                  size={TABLE_STYLES.size}
-                  sx={{
-                    '& .MuiTableCell-root': {
-                      borderBottom: TABLE_STYLES.cell.border,
-                      py: TABLE_STYLES.cell.padding.py * 0.75,
-                      px: TABLE_STYLES.cell.padding.px * 0.75
-                    }
-                  }}
-                >
-                  <TableBody>
-                    {loading && paginatedGRNs.length === 0 ? (
-                      [...Array(10)].map((_, i) => (
-                        <TableRow key={`skeleton-${i}`}>
-                          <TableCell>
-                            <Skeleton height={40} />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      paginatedGRNs.map((grn: any, index: number) => (
-                        <GRNRow
-                          key={grn.id}
-                          grn={grn}
-                          index={index}
-                          selectedGRNId={selectedGRN?.id}
-                          focusedGRNIndex={focusedGRNIndex}
-                          onGRNSelect={handleGRNSelect}
-                        />
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e) => setState((prev) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
-            </Box>
+            <TableContainer sx={{ flex: 1, overflow: 'auto' }} ref={grnListRef}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  '& .MuiTableCell-root': {
+                    borderBottom: TABLE_STYLES.cell.border,
+                    py: TABLE_STYLES.cell.padding.py * 0.75,
+                    px: TABLE_STYLES.cell.padding.px * 0.75
+                  }
+                }}
+              >
+                <TableBody>
+                  {loading && filteredGRNs.length === 0 ? (
+                    [...Array(10)].map((_, i) => (
+                      <TableRow key={`skeleton-${i}`}>
+                        <TableCell>
+                          <Skeleton height={40} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    filteredGRNs.map((grn: any, index: number) => (
+                      <GRNRow
+                        key={grn.id}
+                        grn={grn}
+                        index={index}
+                        selectedGRNId={selectedGRN?.id}
+                        focusedGRNIndex={focusedGRNIndex}
+                        onGRNSelect={handleGRNSelect}
+                      />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
 
         {/* Right Side - GRN Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedGRN ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with GRN Info */}
@@ -660,13 +647,40 @@ const GoodsReceivedPage: React.FC = () => {
                     }}
                   />
                 </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    title="Print GRN"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 {/* GRN Details Section */}
                 <Grid container spacing={3}>
                   {/* Left Column - GRN Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -757,7 +771,11 @@ const GoodsReceivedPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Quantity Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -869,14 +887,21 @@ const GoodsReceivedPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Deleted GRNs Dialog */}
       <DeletedGRNsDialog
         open={deletedGRNsDialogOpen}
         onClose={() => setDeletedGRNsDialogOpen(false)}
       />
+      {/* Print Dialog */}
+      {selectedGRN && (
+        <GRNPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          grn={selectedGRN}
+        />
+      )}
     </Box>
-  )
+  );
 }
 
 export default GoodsReceivedPage

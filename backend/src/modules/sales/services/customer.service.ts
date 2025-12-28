@@ -9,7 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
 import { Customer, PriceLevel } from '../../../database/entities/customer.entity';
-import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateCustomerDto,
@@ -20,6 +20,7 @@ import {
 } from '../dto/customer.dto';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class CustomerService {
@@ -31,6 +32,7 @@ export class CustomerService {
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
     private readonly transactionManager: TransactionManager,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
@@ -41,10 +43,28 @@ export class CustomerService {
 
     const customer = this.customerRepository.create({
       ...createCustomerDto,
-      priceLevel: createCustomerDto.priceLevel || PriceLevel.RETAIL,
+      pricingScheme: createCustomerDto.pricingScheme || createCustomerDto.priceLevel || 'Retail',
     });
 
     const savedCustomer = await this.customerRepository.save(customer);
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'CREATE',
+      'Customer',
+      `Created customer: ${savedCustomer.name} (${savedCustomer.phone || 'no phone'})`,
+      {
+        entityId: savedCustomer.id,
+        userId: 'system',
+        newValues: {
+          name: savedCustomer.name,
+          phone: savedCustomer.phone,
+          type: savedCustomer.type,
+          pricingScheme: savedCustomer.pricingScheme,
+        },
+      }
+    );
+
     return this.mapToResponseDto(savedCustomer);
   }
 
@@ -52,7 +72,7 @@ export class CustomerService {
     const {
       search,
       type,
-      priceLevel,
+      pricingScheme,
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
@@ -63,7 +83,7 @@ export class CustomerService {
     const where: FindOptionsWhere<Customer> = {};
 
     if (type) where.type = type;
-    if (priceLevel) where.priceLevel = priceLevel;
+    if (pricingScheme) where.pricingScheme = pricingScheme;
     if (isActive !== undefined) where.isActive = isActive;
 
 
@@ -176,6 +196,14 @@ export class CustomerService {
       throw new NotFoundException('Customer not found');
     }
 
+    // Store old values for audit
+    const oldValues = {
+      name: customer.name,
+      phone: customer.phone,
+      type: customer.type,
+      pricingScheme: customer.pricingScheme,
+    };
+
     // Check for phone number duplicate if phone is being updated
     if (updateCustomerDto.phone && updateCustomerDto.phone !== customer.phone) {
       await this.validatePhoneUniqueness(updateCustomerDto.phone, id);
@@ -183,6 +211,25 @@ export class CustomerService {
 
     Object.assign(customer, updateCustomerDto);
     const savedCustomer = await this.customerRepository.save(customer);
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'UPDATE',
+      'Customer',
+      `Updated customer: ${savedCustomer.name}`,
+      {
+        entityId: savedCustomer.id,
+        userId: 'system',
+        oldValues,
+        newValues: {
+          name: savedCustomer.name,
+          phone: savedCustomer.phone,
+          type: savedCustomer.type,
+          pricingScheme: savedCustomer.pricingScheme,
+        },
+      }
+    );
+
     return this.mapToResponseDto(savedCustomer);
   }
 
@@ -245,6 +292,22 @@ export class CustomerService {
 
     // Use soft delete instead of hard delete
     await this.customerRepository.softDelete(id);
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'DELETE',
+      'Customer',
+      `Deleted customer: ${customer.name}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          name: customer.name,
+          phone: customer.phone,
+          type: customer.type,
+        },
+      }
+    );
   }
 
   async restore(id: string): Promise<CustomerResponseDto> {
@@ -259,6 +322,21 @@ export class CustomerService {
 
     // Restore the customer
     await this.customerRepository.restore(id);
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'RESTORE',
+      'Customer',
+      `Restored customer: ${customer.name}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          name: customer.name,
+          phone: customer.phone,
+        },
+      }
+    );
 
     return this.mapToResponseDto(customer);
   }
@@ -284,7 +362,8 @@ export class CustomerService {
         id: order.id,
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
-        status: order.status,
+        isFulfilled: order.isFulfilled,
+        isPaid: order.isPaidInFull,
         totalAmount: Number(order.totalAmount),
         itemsCount: order.items?.length || 0,
       })),
@@ -646,6 +725,23 @@ export class CustomerService {
       // TODO: Add payment deletion when Payment entity is available
     ]);
 
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'Customer',
+      `Permanently deleted customer: ${customer.name}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          name: customer.name,
+          phone: customer.phone,
+          type: customer.type,
+          pricingScheme: customer.pricingScheme,
+        },
+      }
+    );
+
     // Perform hard delete
     await this.customerRepository.delete(id);
   }
@@ -818,15 +914,20 @@ export class CustomerService {
     return customer;
   }
 
-  
+
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
     return {
       id: customer.id,
       type: customer.type,
       name: customer.name,
       phone: customer.phone,
+      streetAddress: customer.streetAddress,
+      city: customer.city,
+      state: customer.state,
+      postalCode: customer.postalCode,
+      country: customer.country,
       isActive: customer.isActive,
-      priceLevel: customer.priceLevel,
+      pricingScheme: customer.pricingScheme,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,

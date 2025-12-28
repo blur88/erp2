@@ -12,7 +12,6 @@ import {
   TableRow,
   Button,
   Chip,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -23,6 +22,7 @@ import {
   Skeleton,
   Alert,
   Grid,
+  IconButton,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -33,6 +33,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatDate, formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -45,11 +46,7 @@ import {
 } from '@/store/slices/purchasingSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
-
-interface VendorPaymentsPageState {
-  page: number
-  rowsPerPage: number
-}
+import { VendorPaymentPrint } from '@/components/print'
 
 interface VendorPaymentFilters {
   search: string
@@ -125,11 +122,6 @@ const VendorPaymentsPage: React.FC = () => {
   const selectedPaymentFromRedux = useAppSelector(selectSelectedVendorPayment)
   const [selectedPayment, setSelectedPaymentLocal] = useState<any | null>(null)
 
-  const [state, setState] = useState<VendorPaymentsPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
-
   const [filters, setFilters] = useState<VendorPaymentFilters>({
     search: '',
     sortBy: 'paymentNumber',
@@ -142,6 +134,7 @@ const VendorPaymentsPage: React.FC = () => {
   })
 
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const paymentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -182,8 +175,6 @@ const VendorPaymentsPage: React.FC = () => {
   useEffect(() => {
     const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchVendorPayments({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
@@ -192,19 +183,14 @@ const VendorPaymentsPage: React.FC = () => {
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
     } as any))
-  }, [dispatch, state.page, state.rowsPerPage, filters, getDateRange])
-
-  // Pagination
-  const paginatedPayments = useMemo(() => {
-    return vendorPayments || []
-  }, [vendorPayments])
+  }, [dispatch, filters, getDateRange])
 
   const handlePaymentSelect = useCallback((payment: any) => {
     setSelectedPaymentLocal(payment)
     dispatch(setSelectedVendorPayment(payment))
-    const paymentIndex = paginatedPayments.findIndex(p => p.id === payment.id)
+    const paymentIndex = vendorPayments.findIndex(p => p.id === payment.id)
     setFocusedPaymentIndex(paymentIndex)
-  }, [dispatch, paginatedPayments])
+  }, [dispatch, vendorPayments])
 
   // Restore selected payment from Redux on mount
   useEffect(() => {
@@ -219,15 +205,32 @@ const VendorPaymentsPage: React.FC = () => {
   // Handle vpId query parameter to auto-select payment
   useEffect(() => {
     const vpId = searchParams.get('vpId')
-    if (vpId && vendorPayments.length > 0) {
-      const payment = vendorPayments.find((p: any) => p.id === vpId)
-      if (payment) {
-        handlePaymentSelect(payment)
-        // Remove the query parameter after selection
-        setSearchParams({})
-      }
+    if (vpId) {
+      // Force refresh the vendor payments list to ensure we have the latest data
+      const dateRange = getDateRange(filters.dateFilter)
+      dispatch(fetchVendorPayments({
+        search: filters.search,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        status: filters.status !== 'all' ? filters.status : undefined,
+        paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } as any)).then((result: any) => {
+        // Use the data from the fetch result, not the Redux state
+        // API returns { data: [] } or { payments: [] }
+        if (result.payload) {
+          const payments = result.payload.data || result.payload.payments || []
+          const payment = payments.find((p: any) => p.id === vpId)
+          if (payment) {
+            handlePaymentSelect(payment)
+            // Remove the query parameter after selection
+            setSearchParams({})
+          }
+        }
+      })
     }
-  }, [searchParams, vendorPayments, handlePaymentSelect, setSearchParams])
+  }, [searchParams.get('vpId')]) // Only run when vpId changes
 
   // Auto-refresh selected payment when the list updates
   useEffect(() => {
@@ -243,26 +246,26 @@ const VendorPaymentsPage: React.FC = () => {
 
   // Auto-select first payment when payments load
   useEffect(() => {
-    if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
+    if (vendorPayments.length > 0 && focusedPaymentIndex === -1) {
       if (!selectedPayment && searchInputRef.current !== document.activeElement) {
         // Don't auto-select if we have a vpId query parameter or a persisted selection
         const vpId = searchParams.get('vpId')
         if (!vpId && !selectedPaymentFromRedux) {
           setFocusedPaymentIndex(0)
-          handlePaymentSelect(paginatedPayments[0])
+          handlePaymentSelect(vendorPayments[0])
         }
       }
     }
-  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams, selectedPaymentFromRedux])
+  }, [vendorPayments, focusedPaymentIndex, selectedPayment, handlePaymentSelect, searchParams, selectedPaymentFromRedux])
 
   // Clear selection when no payments exist
   useEffect(() => {
-    if (paginatedPayments.length === 0 && selectedPayment) {
+    if (vendorPayments.length === 0 && selectedPayment) {
       setSelectedPaymentLocal(null)
       dispatch(setSelectedVendorPayment(null))
       setFocusedPaymentIndex(-1)
     }
-  }, [paginatedPayments.length, selectedPayment, dispatch])
+  }, [vendorPayments.length, selectedPayment, dispatch])
 
   const handleSort = useCallback((field: string) => {
     setFilters(prev => ({
@@ -270,7 +273,6 @@ const VendorPaymentsPage: React.FC = () => {
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
     }))
-    setState(prev => ({ ...prev, page: 0 }))
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -301,17 +303,17 @@ const VendorPaymentsPage: React.FC = () => {
     if (focusedPaymentIndex > 0) {
       const newIndex = focusedPaymentIndex - 1
       setFocusedPaymentIndex(newIndex)
-      handlePaymentSelect(paginatedPayments[newIndex])
+      handlePaymentSelect(vendorPayments[newIndex])
     }
-  }, [focusedPaymentIndex, paginatedPayments, handlePaymentSelect])
+  }, [focusedPaymentIndex, vendorPayments, handlePaymentSelect])
 
   const handleNavigateDown = useCallback(() => {
-    if (focusedPaymentIndex < paginatedPayments.length - 1) {
+    if (focusedPaymentIndex < vendorPayments.length - 1) {
       const newIndex = focusedPaymentIndex + 1
       setFocusedPaymentIndex(newIndex)
-      handlePaymentSelect(paginatedPayments[newIndex])
+      handlePaymentSelect(vendorPayments[newIndex])
     }
-  }, [focusedPaymentIndex, paginatedPayments, handlePaymentSelect])
+  }, [focusedPaymentIndex, vendorPayments, handlePaymentSelect])
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus()
@@ -349,7 +351,7 @@ const VendorPaymentsPage: React.FC = () => {
             Vendor Payments
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Track and manage payments to suppliers ({pagination?.total || 0} total)
+            Track and manage payments to suppliers ({vendorPayments.length} total)
           </Typography>
         </Box>
         <Box sx={{
@@ -377,7 +379,6 @@ const VendorPaymentsPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -558,7 +559,6 @@ const VendorPaymentsPage: React.FC = () => {
                 customFromDate: '',
                 customToDate: '',
               })
-              setState((prev) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -586,18 +586,20 @@ const VendorPaymentsPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout: Payment List and Payment Details */}
       <Grid container spacing={3}>
         {/* Left Side - Payment List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -606,67 +608,54 @@ const VendorPaymentsPage: React.FC = () => {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                VP List ({pagination?.total || 0})
+                VP List ({vendorPayments.length})
               </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={paymentListRef}>
-              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table
-                  size={TABLE_STYLES.size}
-                  sx={{
-                    '& .MuiTableCell-root': {
-                      borderBottom: TABLE_STYLES.cell.border,
-                      py: TABLE_STYLES.cell.padding.py * 0.75,
-                      px: TABLE_STYLES.cell.padding.px * 0.75
-                    }
-                  }}
-                >
-                  <TableBody>
-                    {loading && paginatedPayments.length === 0 ? (
-                      [...Array(10)].map((_, i) => (
-                        <TableRow key={`skeleton-${i}`}>
-                          <TableCell>
-                            <Skeleton height={40} />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      paginatedPayments.map((payment: any, index: number) => (
-                        <PaymentRow
-                          key={payment.id}
-                          payment={payment}
-                          index={index}
-                          selectedPaymentId={selectedPayment?.id}
-                          focusedPaymentIndex={focusedPaymentIndex}
-                          onPaymentSelect={handlePaymentSelect}
-                        />
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e) => setState((prev) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
-            </Box>
+            <TableContainer sx={{ flex: 1, overflow: 'auto' }} ref={paymentListRef}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  '& .MuiTableCell-root': {
+                    borderBottom: TABLE_STYLES.cell.border,
+                    py: TABLE_STYLES.cell.padding.py * 0.75,
+                    px: TABLE_STYLES.cell.padding.px * 0.75
+                  }
+                }}
+              >
+                <TableBody>
+                  {loading && vendorPayments.length === 0 ? (
+                    [...Array(10)].map((_, i) => (
+                      <TableRow key={`skeleton-${i}`}>
+                        <TableCell>
+                          <Skeleton height={40} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    vendorPayments.map((payment: any, index: number) => (
+                      <PaymentRow
+                        key={payment.id}
+                        payment={payment}
+                        index={index}
+                        selectedPaymentId={selectedPayment?.id}
+                        focusedPaymentIndex={focusedPaymentIndex}
+                        onPaymentSelect={handlePaymentSelect}
+                      />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
 
         {/* Right Side - Payment Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedPayment ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Payment Info */}
@@ -697,13 +686,40 @@ const VendorPaymentsPage: React.FC = () => {
                     }}
                   />
                 </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    title="Print Payment"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 {/* Payment Details Section */}
                 <Grid container spacing={3}>
                   {/* Left Column - Payment Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -722,8 +738,16 @@ const VendorPaymentsPage: React.FC = () => {
                               {selectedPayment.supplier?.companyName || 'Unknown'}
                             </TableCell>
                           </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              VP Amount
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+                              {formatCurrency(selectedPayment.amount)}
+                            </TableCell>
+                          </TableRow>
                           {selectedPayment.purchaseOrder && (
-                            <TableRow>
+                            <TableRow sx={{ backgroundColor: 'grey.50' }}>
                               <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                 PO Amount
                               </TableCell>
@@ -732,7 +756,7 @@ const VendorPaymentsPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                          <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Payment Date
                             </TableCell>
@@ -756,7 +780,11 @@ const VendorPaymentsPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Amount Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -862,14 +890,21 @@ const VendorPaymentsPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Deleted Vendor Payments Dialog */}
       <DeletedVendorPaymentsDialog
         open={deletedPaymentsDialogOpen}
         onClose={() => setDeletedPaymentsDialogOpen(false)}
       />
+      {/* Print Dialog */}
+      {selectedPayment && (
+        <VendorPaymentPrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          payment={selectedPayment}
+        />
+      )}
     </Box>
-  )
+  );
 }
 
 export default VendorPaymentsPage

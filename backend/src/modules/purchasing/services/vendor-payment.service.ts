@@ -8,6 +8,7 @@ import {
   QueryVendorPaymentsDto,
   PaginatedResponse,
 } from '../dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class VendorPaymentService {
@@ -18,6 +19,7 @@ export class VendorPaymentService {
     private purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(GoodsReceivedNote)
     private grnRepository: Repository<GoodsReceivedNote>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -54,11 +56,27 @@ export class VendorPaymentService {
       await this.purchaseOrderRepository.update(createDto.purchaseOrderId, {});
     }
 
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'VendorPayment',
+      `Created vendor payment: ${savedPayment.paymentNumber}`,
+      {
+        entityId: savedPayment.id,
+        userId: user,
+        newValues: {
+          paymentNumber: savedPayment.paymentNumber,
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
+
     return savedPayment;
   }
 
   /**
-   * Find all vendor payments with filters and pagination
+   * Find all vendor payments with filters (no pagination)
    */
   async findAll(
     query: QueryVendorPaymentsDto,
@@ -69,8 +87,6 @@ export class VendorPaymentService {
       paymentMethod,
       startDate,
       endDate,
-      page = 1,
-      limit = 20,
       sortBy = 'paymentDate',
       sortOrder = 'DESC',
       search,
@@ -80,6 +96,8 @@ export class VendorPaymentService {
       .createQueryBuilder('vendorPayment')
       .leftJoinAndSelect('vendorPayment.supplier', 'supplier')
       .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('purchaseOrder.items', 'purchaseOrderItems')
+      .leftJoinAndSelect('purchaseOrderItems.product', 'product')
       .leftJoinAndSelect('vendorPayment.grn', 'grn')
       .where('vendorPayment.isActive = :isActive', { isActive: true });
 
@@ -123,24 +141,21 @@ export class VendorPaymentService {
       });
     }
 
-    // Pagination
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
     // Dynamic sorting
     const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     queryBuilder.orderBy(`vendorPayment.${sortBy}`, order);
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    const data = await queryBuilder.getMany();
+    const total = data.length;
 
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
@@ -150,7 +165,7 @@ export class VendorPaymentService {
   async findOne(id: string): Promise<VendorPayment> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id, isActive: true },
-      relations: ['supplier', 'purchaseOrder', 'grn'],
+      relations: ['supplier', 'purchaseOrder', 'purchaseOrder.items', 'purchaseOrder.items.product', 'grn'],
     });
 
     if (!vendorPayment) {
@@ -183,11 +198,27 @@ export class VendorPaymentService {
       await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
     }
 
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'VendorPayment',
+      `Updated vendor payment: ${savedPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: user,
+        newValues: {
+          paymentNumber: savedPayment.paymentNumber,
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
+
     return savedPayment;
   }
 
   /**
-   * Find deleted vendor payments with filters and pagination
+   * Find deleted vendor payments with filters (no pagination)
    */
   async findDeleted(
     query: QueryVendorPaymentsDto,
@@ -198,8 +229,6 @@ export class VendorPaymentService {
       paymentMethod,
       startDate,
       endDate,
-      page = 1,
-      limit = 20,
     } = query;
 
     const queryBuilder = this.vendorPaymentRepository
@@ -241,23 +270,20 @@ export class VendorPaymentService {
       });
     }
 
-    // Pagination
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
     // Order by payment date descending
     queryBuilder.orderBy('vendorPayment.paymentDate', 'DESC');
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    const data = await queryBuilder.getMany();
+    const total = data.length;
 
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1,
+      page: 1,
+      limit: total,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
     };
   }
 
@@ -277,7 +303,25 @@ export class VendorPaymentService {
     vendorPayment.isActive = true;
 
     await this.vendorPaymentRepository.restore(id);
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const restoredPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Log audit trail for restore
+    await this.auditLogService.log(
+      'RESTORE',
+      'VendorPayment',
+      `Restored vendor payment: ${restoredPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: user,
+        newValues: {
+          paymentNumber: restoredPayment.paymentNumber,
+          amount: restoredPayment.amount,
+          status: restoredPayment.status,
+        },
+      }
+    );
+
+    return restoredPayment;
   }
 
   /**
@@ -312,6 +356,22 @@ export class VendorPaymentService {
 
     await this.vendorPaymentRepository.save(vendorPayment);
     await this.vendorPaymentRepository.softDelete(id);
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'VendorPayment',
+      `Deleted vendor payment: ${vendorPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: user,
+        oldValues: {
+          paymentNumber: vendorPayment.paymentNumber,
+          amount: vendorPayment.amount,
+          status: vendorPayment.status,
+        },
+      }
+    );
 
     // Touch the purchase order to update its updatedAt timestamp
     if (vendorPayment.purchaseOrderId) {
@@ -366,7 +426,26 @@ export class VendorPaymentService {
       notes: `Auto-generated payment for PO ${purchaseOrder.orderNumber}`,
     });
 
-    return this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'VendorPayment',
+      `Created vendor payment: ${savedPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`,
+      {
+        entityId: savedPayment.id,
+        userId: user,
+        newValues: {
+          paymentNumber: savedPayment.paymentNumber,
+          purchaseOrderId: poId,
+          amount: savedPayment.amount,
+          status: savedPayment.status,
+        },
+      }
+    );
+
+    return savedPayment;
   }
 
   /**
@@ -394,6 +473,23 @@ export class VendorPaymentService {
     if (!vendorPayment) {
       throw new NotFoundException('Vendor payment not found');
     }
+
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'VendorPayment',
+      `Permanently deleted vendor payment: ${vendorPayment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          paymentNumber: vendorPayment.paymentNumber,
+          amount: vendorPayment.amount,
+          status: vendorPayment.status,
+          paymentMethod: vendorPayment.paymentMethod,
+        },
+      }
+    );
 
     await this.vendorPaymentRepository.remove(vendorPayment);
     return { message: 'Vendor payment permanently deleted successfully' };

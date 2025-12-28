@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { salesApi } from '@/services/salesApi'
-import type { Customer, CustomerType, PriceLevel, PaginatedResponse } from '@/types'
+import type { Customer, CustomerType, PaginatedResponse } from '@/types'
 
 interface CustomerState {
   customers: Customer[]
@@ -8,16 +8,10 @@ interface CustomerState {
   currentCustomer: Customer | null
   loading: boolean
   error: string | null
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
   filters: {
     search?: string
     type?: CustomerType
-    priceLevel?: PriceLevel
+    pricingScheme?: string
     isActive?: boolean
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'
@@ -30,12 +24,6 @@ const initialState: CustomerState = {
   currentCustomer: null,
   loading: false,
   error: null,
-  pagination: {
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 0,
-  },
   filters: {}
 }
 
@@ -43,21 +31,20 @@ const initialState: CustomerState = {
 export const fetchCustomers = createAsyncThunk(
   'customers/fetchCustomers',
   async (params?: {
-    page?: number
-    limit?: number
     search?: string
     type?: CustomerType
-    priceLevel?: PriceLevel
+    pricingScheme?: string
     isActive?: boolean
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'
   }) => {
-    // Clean params to avoid sending empty strings
+    // Clean params to avoid sending empty strings and add limit to fetch all
     const cleanParams = params ? Object.fromEntries(
       Object.entries(params).filter(([_, value]) => value !== '' && value !== undefined && value !== null)
-    ) : undefined
-    
-    const response = await salesApi.getCustomers(cleanParams)
+    ) : {}
+
+    // Fetch all customers by setting a large limit
+    const response = await salesApi.getCustomers({ ...cleanParams, limit: 999999 })
     return response  // Return the full response, not just response.data
   }
 )
@@ -181,12 +168,6 @@ const customerSlice = createSlice({
           const payload = action.payload as any
           // The API returns the data directly, not wrapped in another data property
           state.customers = Array.isArray(payload.data) ? payload.data : []
-          state.pagination = {
-            page: payload.page || 1,
-            limit: payload.limit || 20,
-            total: payload.total || 0,
-            totalPages: payload.totalPages || 0,
-          }
         }
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
@@ -222,7 +203,6 @@ const customerSlice = createSlice({
         if (action.payload) {
           const customer = ((action.payload as any).data || action.payload) as Customer
           state.customers.unshift(customer)
-          state.pagination.total += 1
         }
       })
       .addCase(createCustomer.rejected, (state, action) => {
@@ -264,7 +244,6 @@ const customerSlice = createSlice({
         state.loading = false
         if (action.payload) {
           state.customers = state.customers.filter(c => c.id !== action.payload)
-          state.pagination.total = Math.max(0, state.pagination.total - 1)
           if (state.currentCustomer?.id === action.payload) {
             state.currentCustomer = null
           }
@@ -311,7 +290,6 @@ const customerSlice = createSlice({
           const exists = state.customers.find(c => c.id === restoredCustomer.id)
           if (!exists) {
             state.customers.unshift(restoredCustomer)
-            state.pagination.total += 1
           }
         }
       })
@@ -381,7 +359,6 @@ export const selectDeletedCustomers = (state: any) => state.customers?.deletedCu
 export const selectCurrentCustomer = (state: any) => state.customers?.currentCustomer
 export const selectCustomersLoading = (state: any) => state.customers?.loading || false
 export const selectCustomersError = (state: any) => state.customers?.error
-export const selectCustomersPagination = (state: any) => state.customers?.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }
 export const selectCustomersFilters = (state: any) => state.customers?.filters || {}
 
 export default customerSlice.reducer

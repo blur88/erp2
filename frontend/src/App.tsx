@@ -46,8 +46,12 @@ const HistoricalInventoryReport = React.lazy(() => import('./pages/inventory/His
 const MovementSummaryReport = React.lazy(() => import('./pages/inventory/MovementSummaryReport'))
 const PriceListReport = React.lazy(() => import('./pages/inventory/PriceListReport'))
 const ProductCostReport = React.lazy(() => import('./pages/inventory/ProductCostReport'))
-const SettingsPage = React.lazy(() => import('./pages/settings/SettingsPage'))
-const UserManagementPage = React.lazy(() => import('./pages/settings/UserManagementPage'))
+const CompanySettingsPage = React.lazy(() => import('./pages/settings/CompanySettingsPage'))
+const PriceCostingPage = React.lazy(() => import('./pages/settings/PriceCostingPage'))
+const PrintSettingsPage = React.lazy(() => import('./pages/settings/PrintSettingsPage'))
+const DocumentNumbersPage = React.lazy(() => import('./pages/settings/DocumentNumbersPage'))
+const BackupManagement = React.lazy(() => import('./pages/settings/BackupManagement'))
+const AuditLogsPage = React.lazy(() => import('./pages/audit-logs/AuditLogsPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
 // Loading component
@@ -129,8 +133,14 @@ function App() {
                     <Route path="/reports/sales/product-customer" element={<ProductCustomerReport />} />
 
                     {/* Settings */}
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/settings/users" element={<UserManagementPage />} />
+                    <Route path="/settings/company" element={<CompanySettingsPage />} />
+                    <Route path="/settings/price-costing" element={<PriceCostingPage />} />
+                    <Route path="/settings/print" element={<PrintSettingsPage />} />
+                    <Route path="/settings/document-numbers" element={<DocumentNumbersPage />} />
+                    <Route path="/settings/backup" element={<BackupManagement />} />
+
+                    {/* Audit Logs */}
+                    <Route path="/audit-logs" element={<AuditLogsPage />} />
 
                     {/* Default redirect */}
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -186,7 +186,7 @@ const DataTable: React.FC<DataTableProps> = ({
         disableRowSelectionOnClick={disableSelection}
         slots={{
           toolbar: !hideToolbar ? CustomToolbar : null,
-          loadingOverlay: LinearProgress,
+          loadingOverlay: LinearProgress as any,
         }}
         slotProps={{
           toolbar: {

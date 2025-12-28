@@ -84,7 +84,7 @@ export class Product extends BaseEntity {
   @IsBoolean()
   isActive: boolean;
 
-  
+
   // Pricing - Multi-level pricing support
   @Column({
     type: 'decimal',
@@ -97,40 +97,12 @@ export class Product extends BaseEntity {
   baseCost: number;
 
   @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
+    type: 'jsonb',
     nullable: true,
-    comment: 'Retail selling price',
+    default: '{}',
+    comment: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
   })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  retailPrice?: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    nullable: true,
-    comment: 'Wholesale selling price',
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  wholesalePrice?: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    nullable: true,
-    comment: 'Special/promotional selling price',
-  })
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  specialPrice?: number;
+  pricingTiers?: Record<string, number>;
 
   // Current stock quantity
   @Column({
@@ -179,22 +151,13 @@ export class Product extends BaseEntity {
     return Number(this.stockQuantity) <= 0;
   }
 
-  get grossMarginRetail(): number {
-    const retail = Number(this.retailPrice || 0);
+  /**
+   * Calculate gross margin for a specific pricing scheme
+   */
+  getGrossMargin(schemeName: string): number {
+    const price = this.getPriceByScheme(schemeName);
     const cost = Number(this.baseCost);
-    return cost > 0 && retail > 0 ? ((retail - cost) / retail) * 100 : 0;
-  }
-
-  get grossMarginWholesale(): number {
-    const wholesale = Number(this.wholesalePrice || 0);
-    const cost = Number(this.baseCost);
-    return cost > 0 && wholesale > 0 ? ((wholesale - cost) / wholesale) * 100 : 0;
-  }
-
-  get grossMarginSpecial(): number {
-    const special = Number(this.specialPrice || 0);
-    const cost = Number(this.baseCost);
-    return cost > 0 && special > 0 ? ((special - cost) / special) * 100 : 0;
+    return cost > 0 && price > 0 ? ((price - cost) / price) * 100 : 0;
   }
 
   // Helper methods
@@ -212,16 +175,24 @@ export class Product extends BaseEntity {
     }
   }
 
-  getPriceByType(priceType: 'retail' | 'wholesale' | 'special'): number {
-    switch (priceType) {
-      case 'retail':
-        return Number(this.retailPrice || 0);
-      case 'wholesale':
-        return Number(this.wholesalePrice || 0);
-      case 'special':
-        return Number(this.specialPrice || 0);
-      default:
-        return Number(this.retailPrice || 0);
+  /**
+   * Get price for a specific pricing scheme
+   * Returns 0 if scheme not found
+   */
+  getPriceByScheme(schemeName: string): number {
+    if (this.pricingTiers && this.pricingTiers[schemeName]) {
+      return Number(this.pricingTiers[schemeName]);
     }
+    return 0;
+  }
+
+  /**
+   * Set price for a specific pricing scheme
+   */
+  setPriceForScheme(schemeName: string, price: number): void {
+    if (!this.pricingTiers) {
+      this.pricingTiers = {};
+    }
+    this.pricingTiers[schemeName] = price;
   }
 }

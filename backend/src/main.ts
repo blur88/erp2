@@ -2,14 +2,21 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
 import { DetailedErrorFilter } from './common/filters/detailed-error.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
+
+  // Serve static files from uploads directory
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // Apply comprehensive security configuration
   const securityService = new SecurityApplicationService(configService);
@@ -63,6 +70,7 @@ async function bootstrap() {
       .addTag('Inventory', 'Product and inventory management')
       .addTag('Sales', 'Sales orders and customer management')
       .addTag('Purchasing', 'Purchase orders and supplier management')
+      .addTag('Settings', 'Company settings and configuration')
       .addTag('Reports', 'Business reports and analytics')
       .addTag('Plugins', 'Plugin management system')
       .addTag('Security', 'Security monitoring and reporting')

@@ -6,17 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Comprehensive ERP system with modern full-stack architecture:
 - **Backend**: NestJS 11 + TypeORM (PostgreSQL) + MongoDB + Redis 8 + Bull Queue
-- **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit + Vite
-- **Infrastructure**: Docker + NGINX + Node.js 22
+- **Frontend**: React 18.3.1 + TypeScript + Material-UI v7 + Redux Toolkit + Vite
+- **Infrastructure**: Docker + NGINX + Node.js 24
 - **Testing**: Jest (backend) + Vitest (frontend)
 
-**Last Updated**: November 2025
+**Last Updated**: December 2025
 
 ## Current System Status
 
 **⚠️ CRITICAL: Authentication system completely removed**
 
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule` (5 active)
+**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `AuditLogsModule`, `BackupModule` (9 active)
 **Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 **Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
@@ -123,7 +123,8 @@ docker compose logs backend # Check specific service logs
 - **Core**: `users/` - User management
 - **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
 - **Analytics**: `dashboard/` (✅ with WebSocket)
-- **System**: `plugins/` (❌ disabled)
+- **Configuration**: `settings/` (✅ company settings), `print-settings/` (✅ print templates and settings)
+- **System**: `audit-logs/` (✅ comprehensive audit logging), `backup/` (✅ backup and restore), `plugins/` (❌ disabled)
 
 ### Architecture Patterns
 - **Controllers**: Handle HTTP with Swagger decorators
@@ -145,7 +146,7 @@ docker compose logs backend # Check specific service logs
 
 ### Frontend Architecture
 - **State**: Redux Toolkit with persistence
-- **UI**: Material-UI v5, React Router
+- **UI**: Material-UI v7, React Router v6
 - **Build**: Vite with TypeScript and path aliases
 - **Real-time**: Socket.IO WebSocket integration
 - **Environment**: Runtime `window.__ENV__` configuration
@@ -255,13 +256,27 @@ When enabling disabled modules:
 - **Data Export**: ExcelJS for Excel exports, jsPDF for PDF generation
 - **Report Removed**: Count Sheet Report and Inventory Details Report removed from navigation
 
-### Recent Updates (October-November 2025)
+### Recent Updates (October-December 2025)
 
-### 🚀 Redis 8 Upgrade (October 2025)
-- ✅ **COMPLETE**: Upgraded Redis from 7-alpine to 8-alpine3.22
+### 📋 Comprehensive Audit Logging (December 2025)
+- ✅ **COMPLETE**: System-wide audit logging for all CRUD operations
+- **Coverage**: Automatic logging for inventory, sales, purchasing, and all module operations
+- **Details**: Captures user actions, entity changes, timestamps, and operation context
+- **API Access**: `/api/audit-logs` endpoint with filtering and pagination
+- **Backend Implementation**: `AuditLogsModule` integrated into all business modules
+
+### 🎨 Material-UI v7 Upgrade (December 2025)
+- ✅ **COMPLETE**: Upgraded Material-UI from v5 to v7.3.6
+- **Breaking Changes**: Updated component APIs and theme structure
+- **React Compatibility**: Requires React 18.3.1 (upgraded simultaneously)
+- **Benefits**: Enhanced performance, improved TypeScript support, new component features
+- **Migration**: All existing components tested and working with new MUI v7 API
+
+### 🚀 Redis 8.4 Upgrade (December 2025)
+- ✅ **COMPLETE**: Upgraded Redis from 8.2.2 to 8.4.0-alpine3.22
 - **New Features**: Built-in Redis modules now available - Search, JSON, TimeSeries, Bloom, and VectorSet
 - **Compatibility**: All existing Redis client operations remain functional
-- **Performance**: Enhanced performance and security with Redis 8.2.2
+- **Performance**: Enhanced performance and security with Redis 8.4.0
 - **License**: Redis 8 uses RSALv2/SSPLv1/AGPLv3 tri-license model
 - **Benefits**: Access to advanced data structures and query capabilities without external modules
 
@@ -323,7 +338,7 @@ When enabling disabled modules:
 
 ### 🏗️ Platform Upgrades (September-October 2025)
 - ✅ **NestJS v11 Upgrade**: Complete upgrade to NestJS 11 with all dependencies
-- ✅ **Node.js 22**: Updated Docker base images to Node.js 22 for better performance
+- ✅ **Node.js 24**: Updated Docker base images to Node.js 24 Alpine for better performance
 - ✅ **Frontend Dependencies**: Comprehensive updates to all Alpine packages and OpenSSL
 - ✅ **Container Health**: Added curl to frontend nginx container for health checks
 - ✅ **Security Enhancements**: Payment numbers now clickable in invoice details
@@ -489,6 +504,10 @@ const { control, handleSubmit } = useForm<FormData>({
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
 - Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
 - Purchasing: `/api/purchasing/suppliers`, `/api/purchasing/purchase-orders`, `/api/purchasing/overview`
+- Settings: `/api/settings` (company settings and configuration)
+- Print Settings: `/api/print-settings` (print templates and printing configuration)
+- Audit Logs: `/api/audit-logs` (audit trail for all operations)
+- Backup: `/api/backup` (database backup and restore)
 - Module Info: `/api/info`
 
 ### 📊 Report Export Endpoints
@@ -500,7 +519,9 @@ const { control, handleSubmit } = useForm<FormData>({
 
 ### Common Issues
 - **README.md outdated**: Use CLAUDE.md instead - README mentions authentication features that were completely removed
+- **deploy.sh mentions demo accounts**: Ignore demo account credentials in deploy.sh output - authentication system was completely removed
 - **TypeScript**: Uses `"strict": false`, use `as any` assertions for TypeORM when needed
+- **Backend tsconfig.json excludes active modules**: Backend `tsconfig.json` excludes `purchasing` and `reports` directories but both are actually active - this is a configuration artifact that doesn't affect runtime
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
 - **Icons**: Use `Inventory2` instead of non-existent `Product` icon
 - **Form validation fails silently**: Check yup schema allows `null` for optional foreign keys (use `.nullable()`)
@@ -541,7 +562,7 @@ For disabled modules (Plugins):
 ## Key Files
 
 ### Core Configuration
-- `backend/src/app.module.ts` - Main module (5 active modules)
+- `backend/src/app.module.ts` - Main module (9 active modules)
 - `docker-compose.yml` - Service orchestration with NGINX proxy
 - `deploy.sh` - Production deployment
 - `frontend/src/App.tsx` - Main React component
@@ -551,6 +572,10 @@ For disabled modules (Plugins):
 - `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes with integrated reports
 - `backend/src/modules/dashboard/` - ✅ WebSocket support for real-time updates
 - `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025) with integrated reports (5 report types)
+- `backend/src/modules/settings/` - ✅ Company settings management
+- `backend/src/modules/print-settings/` - ✅ Print templates and printing configuration
+- `backend/src/modules/audit-logs/` - ✅ Comprehensive audit logging for all operations
+- `backend/src/modules/backup/` - ✅ Database backup and restore functionality
 
 ### Key Inventory Components
 - `frontend/src/components/inventory/DeletedProductsDialog.tsx` - Dialog for viewing and restoring soft-deleted products

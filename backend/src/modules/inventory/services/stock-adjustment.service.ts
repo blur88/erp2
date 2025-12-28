@@ -25,6 +25,8 @@ import {
 } from '../dto/stock-adjustment.dto';
 import { StockMovementService } from './stock-movement.service';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class StockAdjustmentService {
@@ -42,27 +44,40 @@ export class StockAdjustmentService {
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
     private readonly dataSource: DataSource,
+    private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
    * Generate SA reference number for stock adjustments
    */
   private async generateSANumber(): Promise<string> {
-    const result = await this.stockAdjustmentRepository
-      .createQueryBuilder('adjustment')
-      .select('adjustment.adjustmentNumber', 'adjustmentNumber')
-      .where('adjustment.adjustmentNumber LIKE :pattern', { pattern: 'SA-%' })
-      .orderBy('adjustment.adjustmentNumber', 'DESC')
-      .limit(1)
-      .getRawOne();
+    // Use document number settings to generate SA number
+    try {
+      const saNumber = await this.settingsService.generateDocumentNumber('Stock Adjustment');
+      this.logger.log(`Generated stock adjustment number: ${saNumber}`);
+      return saNumber;
+    } catch (error) {
+      this.logger.error(`Error generating SA number: ${error.message}`);
+      // Fallback to legacy method
+      const result = await this.stockAdjustmentRepository
+        .createQueryBuilder('adjustment')
+        .select('adjustment.adjustmentNumber', 'adjustmentNumber')
+        .where('adjustment.adjustmentNumber LIKE :pattern', { pattern: 'SA-%' })
+        .orderBy('adjustment.adjustmentNumber', 'DESC')
+        .limit(1)
+        .getRawOne();
 
-    let nextNumber = 1;
-    if (result?.adjustmentNumber) {
-      const currentNumber = parseInt(result.adjustmentNumber.replace('SA-', ''), 10);
-      nextNumber = currentNumber + 1;
+      let nextNumber = 1;
+      if (result?.adjustmentNumber) {
+        const currentNumber = parseInt(result.adjustmentNumber.replace('SA-', ''), 10);
+        nextNumber = currentNumber + 1;
+      }
+
+      const fallbackNumber = `SA-${String(nextNumber).padStart(6, '0')}`;
+      this.logger.log(`Fallback stock adjustment number: ${fallbackNumber}`);
+      return fallbackNumber;
     }
-
-    return `SA-${String(nextNumber).padStart(6, '0')}`;
   }
 
   /**
@@ -127,16 +142,31 @@ export class StockAdjustmentService {
     const saved = await this.stockAdjustmentRepository.save(adjustment);
     this.logger.log(`Stock adjustment ${adjustmentNumber} created successfully`);
 
+    // Log audit trail for create
+    await this.auditLogService.log(
+      'CREATE',
+      'StockAdjustment',
+      `Created stock adjustment: ${adjustmentNumber} (${items.length} items, RM ${totalValue.toFixed(2)})`,
+      {
+        entityId: saved.id,
+        userId: 'system',
+        newValues: {
+          adjustmentNumber,
+          itemCount: items.length,
+          totalValue,
+          status: StockAdjustmentStatus.DRAFT,
+        },
+      }
+    );
+
     return this.findOne(saved.id);
   }
 
   /**
-   * Find all stock adjustments with filtering and pagination
+   * Find all stock adjustments with filtering (no pagination)
    */
   async findAll(query: QueryStockAdjustmentsDto) {
     const {
-      page = 1,
-      limit = 20,
       status,
       fromDate,
       toDate,
@@ -179,10 +209,6 @@ export class StockAdjustmentService {
     queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
     queryBuilder.addOrderBy('adjustment.createdAt', normalizedSortOrder);
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
-
     const [adjustments, total] = await queryBuilder.getManyAndCount();
 
     const data = adjustments.map(adjustment => this.toListResponseDto(adjustment));
@@ -190,12 +216,7 @@ export class StockAdjustmentService {
     return {
       data,
       meta: {
-        page,
-        limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
       },
     };
   }
@@ -292,6 +313,22 @@ export class StockAdjustmentService {
     const saved = await this.stockAdjustmentRepository.save(adjustment);
     this.logger.log(`Stock adjustment ${saved.adjustmentNumber} updated successfully`);
 
+    // Log audit trail for update
+    await this.auditLogService.log(
+      'UPDATE',
+      'StockAdjustment',
+      `Updated stock adjustment: ${saved.adjustmentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: {
+          adjustmentNumber: saved.adjustmentNumber,
+          itemCount: saved.itemCount,
+          totalValue: saved.totalValue,
+        },
+      }
+    );
+
     return this.findOne(saved.id);
   }
 
@@ -347,6 +384,19 @@ export class StockAdjustmentService {
       // Update adjustment status
       adjustment.status = StockAdjustmentStatus.COMPLETED;
       await queryRunner.manager.save(adjustment);
+
+      // Log audit trail for complete
+      await this.auditLogService.log(
+        'UPDATE',
+        'StockAdjustment',
+        `Completed stock adjustment: ${adjustment.adjustmentNumber}`,
+        {
+          entityId: adjustment.id,
+          userId: 'system',
+          oldValues: { status: StockAdjustmentStatus.DRAFT },
+          newValues: { status: StockAdjustmentStatus.COMPLETED },
+        }
+      );
 
       await queryRunner.commitTransaction();
       this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} completed successfully`);
@@ -450,19 +500,34 @@ export class StockAdjustmentService {
     }
 
     await this.stockAdjustmentRepository.softDelete(id);
+
+    // Log audit trail for delete
+    await this.auditLogService.log(
+      'DELETE',
+      'StockAdjustment',
+      `Deleted stock adjustment: ${adjustment.adjustmentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          adjustmentNumber: adjustment.adjustmentNumber,
+          status: adjustment.status,
+          totalValue: adjustment.totalValue,
+        },
+      }
+    );
+
     this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} deleted successfully`);
   }
 
   /**
-   * Find all deleted stock adjustments
+   * Find all deleted stock adjustments (no pagination)
    */
   async findDeleted(query: QueryStockAdjustmentsDto = {}): Promise<any> {
     const {
       search,
       sortBy = 'deletedAt',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 20,
     } = query;
 
     let queryBuilder = this.stockAdjustmentRepository
@@ -483,10 +548,6 @@ export class StockAdjustmentService {
     const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
-
     const [adjustments, total] = await queryBuilder.getManyAndCount();
 
     const data = adjustments.map(adjustment => this.toListResponseDto(adjustment));
@@ -494,12 +555,7 @@ export class StockAdjustmentService {
     return {
       data,
       meta: {
-        page,
-        limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
       },
     };
   }
@@ -567,6 +623,23 @@ export class StockAdjustmentService {
         adjustment.items.map(item => item.id)
       );
     }
+
+    // Log audit trail for permanent delete
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'StockAdjustment',
+      `Permanently deleted stock adjustment: ${adjustment.adjustmentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        oldValues: {
+          adjustmentNumber: adjustment.adjustmentNumber,
+          itemCount: adjustment.itemCount,
+          totalValue: adjustment.totalValue,
+          status: adjustment.status,
+        },
+      }
+    );
 
     // Hard delete the adjustment
     await this.stockAdjustmentRepository.delete(id);

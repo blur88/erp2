@@ -84,6 +84,17 @@ export class Invoice extends BaseEntity {
     precision: 15,
     scale: 4,
     default: 0,
+    comment: 'Shipping/freight charges',
+  })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  shippingAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    default: 0,
     comment: 'Total invoice amount (same as subtotal - discounts tracked at line item level)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
@@ -111,6 +122,15 @@ export class Invoice extends BaseEntity {
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   balanceDue: number;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'Invoice notes (synced from sales order)',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
     // Foreign Keys
   @Column({
@@ -221,15 +241,18 @@ export class Invoice extends BaseEntity {
   static fromSalesOrder(salesOrder: SalesOrder): Partial<Invoice> {
     const paidAmount = Number(salesOrder.paidAmount || 0);
     const totalAmount = Number(salesOrder.totalAmount);
+    const shippingAmount = Number(salesOrder.shippingAmount || 0);
     const balanceDue = Math.max(0, totalAmount - paidAmount);
 
     return {
       customerId: salesOrder.customerId,
       salesOrderId: salesOrder.id,
+      shippingAmount: shippingAmount, // Copy shipping from sales order
       totalAmount: totalAmount, // Calculate from sales order total
       paidAmount: paidAmount, // Transfer payment information from sales order
       balanceDue: balanceDue, // Calculate correct balance due
       invoiceDate: new Date(),
+      notes: salesOrder.notes, // Copy notes from sales order
     };
   }
 }

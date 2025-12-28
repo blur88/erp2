@@ -13,7 +13,6 @@ import {
   Button,
   Chip,
   IconButton,
-  TablePagination,
   TextField,
   InputAdornment,
   FormControl,
@@ -41,6 +40,7 @@ import {
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -49,6 +49,7 @@ import { fetchInvoices, selectInvoicesState, setSelectedInvoice, selectSelectedI
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
+import { InvoicePrint } from '@/components/print'
 import type { InvoiceItem } from '@/types'
 
 // Adapter types to match the backend API response structure
@@ -58,6 +59,7 @@ interface InvoiceListItem {
   customerName?: string
   orderNumber?: string
   invoiceDate?: string
+  shippingAmount?: number
   totalAmount?: number
   paidAmount: number
   balanceDue?: number
@@ -79,11 +81,6 @@ interface InvoiceListItem {
   issueDate?: Date | string
   dueAmount?: number
   items?: InvoiceItem[]
-}
-
-interface InvoicesPageState {
-  page: number
-  rowsPerPage: number
 }
 
 interface InvoiceFilters {
@@ -160,11 +157,6 @@ const InvoicesPage: React.FC = () => {
   const { invoices, loading, error, pagination } = useAppSelector(selectInvoicesState)
   const selectedInvoice = useAppSelector(selectSelectedInvoice) as InvoiceListItem | null
 
-  const [state, setState] = useState<InvoicesPageState>({
-    page: 0,
-    rowsPerPage: 20,
-  })
-
   const [filters, setFilters] = useState<InvoiceFilters>({
     search: '',
     sortBy: 'invoiceNumber',
@@ -180,6 +172,7 @@ const InvoicesPage: React.FC = () => {
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const invoiceListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
@@ -257,14 +250,15 @@ const InvoicesPage: React.FC = () => {
 
   // Consolidated invoice fetching - handles all refresh scenarios
   const fetchInvoicesData = useCallback(() => {
+    const dateRange = getDateRange(filters.dateFilter)
     dispatch(fetchInvoices({
-      page: state.page + 1,
-      limit: state.rowsPerPage,
       search: filters.search,
       sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as any
+      sortOrder: filters.sortOrder.toUpperCase() as any,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate
     }))
-  }, [dispatch, state.page, state.rowsPerPage, filters])
+  }, [dispatch, filters, getDateRange])
 
   // Main effect: Load invoices on mount and when filters/pagination change
   useEffect(() => {
@@ -318,63 +312,17 @@ const InvoicesPage: React.FC = () => {
     })
   }, [invoices])
 
-  // Filter and sort invoices
+  // Backend handles filtering, sorting, and pagination
+  // No need for client-side filtering/sorting since backend already does it
   const filteredInvoices = useMemo(() => {
-    let filtered = [...normalizedInvoices]
+    return normalizedInvoices
+  }, [normalizedInvoices])
 
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filtered = filtered.filter(invoice =>
-        invoice.invoiceNumber.toLowerCase().includes(searchLower) ||
-        (invoice.customerName && invoice.customerName.toLowerCase().includes(searchLower)) ||
-        (invoice.salesOrder?.orderNumber && invoice.salesOrder.orderNumber.toLowerCase().includes(searchLower))
-      )
-    }
-
-
-    // Date filter
-    if (filters.dateFilter !== 'all') {
-      const dateRange = getDateRange(filters.dateFilter)
-      if (dateRange.fromDate || dateRange.toDate) {
-        filtered = filtered.filter(invoice => {
-          if (!invoice.invoiceDate) return false
-
-          const invoiceDate = new Date(invoice.invoiceDate).toISOString().split('T')[0]
-
-          if (dateRange.fromDate && invoiceDate < dateRange.fromDate) return false
-          if (dateRange.toDate && invoiceDate > dateRange.toDate) return false
-
-          return true
-        })
-      }
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue: any = a[filters.sortBy as keyof InvoiceListItem]
-      let bValue: any = b[filters.sortBy as keyof InvoiceListItem]
-
-      if (filters.sortBy === 'invoiceDate') {
-        aValue = new Date(aValue || 0).getTime()
-        bValue = new Date(bValue || 0).getTime()
-      }
-
-      if (filters.sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-
-    return filtered
-  }, [normalizedInvoices, filters, getDateRange])
-
-  // Pagination
+  // No client-side pagination needed - backend handles pagination
+  // Just use filteredInvoices directly since backend already paginated
   const paginatedInvoices = useMemo(() => {
-    const startIndex = state.page * state.rowsPerPage
-    return filteredInvoices.slice(startIndex, startIndex + state.rowsPerPage)
-  }, [filteredInvoices, state.page, state.rowsPerPage])
+    return filteredInvoices
+  }, [filteredInvoices])
 
   const handleSort = useCallback((field: string) => {
     const newSortOrder = filters.sortBy === field && filters.sortOrder === 'desc' ? 'asc' : 'desc'
@@ -383,7 +331,6 @@ const InvoicesPage: React.FC = () => {
       sortBy: field,
       sortOrder: newSortOrder
     }))
-    setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
   }, [filters.sortBy, filters.sortOrder])
 
   const handleInvoiceSelect = useCallback((invoice: InvoiceListItem) => {
@@ -426,19 +373,35 @@ const InvoicesPage: React.FC = () => {
     }
   }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice, dispatch])
 
-  // Handle navigation from orders page with highlightInvoiceId
+  // Handle navigation from orders page with highlightInvoice object
   useEffect(() => {
-    const state = location.state as { highlightInvoiceId?: string }
-    if (state?.highlightInvoiceId && paginatedInvoices.length > 0) {
-      const invoiceIndex = paginatedInvoices.findIndex(i => i.id === state.highlightInvoiceId)
+    const state = location.state as { highlightInvoice?: any, highlightInvoiceId?: string }
+
+    // Handle new format: full invoice object
+    if (state?.highlightInvoice) {
+      dispatch(setSelectedInvoice(state.highlightInvoice as any))
+      // Try to find in paginated list for focus highlight
+      const invoiceIndex = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === state.highlightInvoice.id)
       if (invoiceIndex >= 0) {
-        dispatch(setSelectedInvoice(paginatedInvoices[invoiceIndex] as any))
         setFocusedInvoiceIndex(invoiceIndex)
+      }
+      // Clear the state to prevent repeated highlighting
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+    // Handle old format: just invoice ID (for backward compatibility)
+    else if (state?.highlightInvoiceId && invoices && invoices.length > 0) {
+      const invoice = invoices.find((i: any) => i.id === state.highlightInvoiceId)
+      if (invoice) {
+        dispatch(setSelectedInvoice(invoice as any))
+        const invoiceIndex = paginatedInvoices.findIndex((i: InvoiceListItem) => i.id === state.highlightInvoiceId)
+        if (invoiceIndex >= 0) {
+          setFocusedInvoiceIndex(invoiceIndex)
+        }
         // Clear the state to prevent repeated highlighting
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
     }
-  }, [paginatedInvoices, location.state, dispatch])
+  }, [invoices, paginatedInvoices, location.state, dispatch])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -493,26 +456,29 @@ const InvoicesPage: React.FC = () => {
   }, [navigate])
 
   const handlePageUpNavigation = useCallback(() => {
-    const newIndex = Math.max(0, focusedInvoiceIndex - state.rowsPerPage)
+    const pageSize = 20
+    const newIndex = Math.max(0, focusedInvoiceIndex - pageSize)
     setFocusedInvoiceIndex(newIndex)
     if (paginatedInvoices[newIndex]) {
       dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices, dispatch])
+  }, [focusedInvoiceIndex, paginatedInvoices, dispatch])
 
   const handlePageDownNavigation = useCallback(() => {
-    const newIndex = Math.min(paginatedInvoices.length - 1, focusedInvoiceIndex + state.rowsPerPage)
+    const pageSize = 20
+    const newIndex = Math.min(paginatedInvoices.length - 1, focusedInvoiceIndex + pageSize)
     setFocusedInvoiceIndex(newIndex)
     if (paginatedInvoices[newIndex]) {
       dispatch(setSelectedInvoice(paginatedInvoices[newIndex] as any))
     }
-  }, [focusedInvoiceIndex, state.rowsPerPage, paginatedInvoices, dispatch])
+  }, [focusedInvoiceIndex, paginatedInvoices, dispatch])
 
   const handleEnterAction = useCallback(() => {
     if (focusedInvoiceIndex >= 0 && paginatedInvoices[focusedInvoiceIndex]) {
       setEditDialog(true)
     }
   }, [focusedInvoiceIndex, paginatedInvoices])
+
 
   const handleEditAction = () => {
     if (selectedInvoice) {
@@ -608,7 +574,6 @@ const InvoicesPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -665,7 +630,6 @@ const InvoicesPage: React.FC = () => {
             label="Date Filter"
             onChange={(e) => {
               setFilters((prev: InvoiceFilters) => ({ ...prev, dateFilter: e.target.value }))
-              setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               fontSize: '0.875rem',
@@ -752,7 +716,6 @@ const InvoicesPage: React.FC = () => {
                 customToDate: '',
                 customerId: 'all'
               })
-              setState((prev: InvoicesPageState) => ({ ...prev, page: 0 }))
             }}
             sx={{
               minWidth: 'auto',
@@ -780,18 +743,20 @@ const InvoicesPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       {/* Split Layout: Invoice List and Invoice Details */}
       <Grid container spacing={3}>
         {/* Left Side - Invoice List */}
-        <Grid item xs={12} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 3
+          }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
@@ -849,27 +814,16 @@ const InvoicesPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              <TablePagination
-                component="div"
-                count={pagination?.total || 0}
-                page={state.page}
-                onPageChange={(_: unknown, newPage: number) => setState((prev: InvoicesPageState) => ({ ...prev, page: newPage }))}
-                rowsPerPage={state.rowsPerPage}
-                onRowsPerPageChange={(e: React.ChangeEvent<HTMLInputElement>) => setState((prev: InvoicesPageState) => ({
-                  ...prev,
-                  rowsPerPage: parseInt(e.target.value),
-                  page: 0
-                }))}
-                rowsPerPageOptions={[10, 20, 50]}
-                size="small"
-              />
             </Box>
           </Paper>
         </Grid>
 
         {/* Right Side - Invoice Details */}
-        <Grid item xs={12} md={9}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 9
+          }}>
           {selectedInvoice ? (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               {/* Header with Invoice Info and Actions */}
@@ -923,13 +877,40 @@ const InvoicesPage: React.FC = () => {
                     )
                   })()}
                 </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    title="Print Invoice"
+                    onClick={() => setPrintDialogOpen(true)}
+                    sx={{
+                      height: `${TABLE_STYLES.row.height * 0.75}px`,
+                      width: `${TABLE_STYLES.row.height * 0.75}px`,
+                      minHeight: 20,
+                      minWidth: 20,
+                      p: 0.125,
+                      color: 'info.main',
+                      '&:hover': {
+                        backgroundColor: 'info.light',
+                        color: 'info.dark'
+                      }
+                    }}
+                  >
+                    <PrintIcon sx={{
+                      fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                    }} />
+                  </IconButton>
+                </Box>
               </Box>
 
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 {/* Invoice Details Section */}
                 <Grid container spacing={3}>
                   {/* Left Column - Invoice Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -1035,7 +1016,11 @@ const InvoicesPage: React.FC = () => {
                   </Grid>
 
                   {/* Right Column - Payment Information */}
-                  <Grid item xs={12} md={6}>
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6
+                    }}>
                     <TableContainer>
                       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
                         <TableBody>
@@ -1048,6 +1033,22 @@ const InvoicesPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                              Sub-total
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency((selectedInvoice.totalAmount || 0) - (selectedInvoice.shippingAmount || 0))}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Shipping
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {formatCurrency(selectedInvoice.shippingAmount || 0)}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Total Amount
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
@@ -1081,30 +1082,6 @@ const InvoicesPage: React.FC = () => {
                     </TableContainer>
                   </Grid>
                 </Grid>
-
-                {/* Invoice Notes Section */}
-                {selectedInvoice.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <TableContainer>
-                      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: 0.75, px: 1 } }}>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell sx={{ pb: 0.5, borderTop: TABLE_STYLES.cell.border }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main', fontSize: '0.9rem' }}>
-                                Notes
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                              {selectedInvoice.notes}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
 
                 {/* Page Break */}
                 <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
@@ -1168,7 +1145,13 @@ const InvoicesPage: React.FC = () => {
                                 {formatCurrency(item.unitPrice)}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                {item.discount ? `-${formatCurrency(item.discount)}` : '-'}
+                                {(item as any).discountType === 'percentage' && (item as any).discountPercent ? (
+                                  `${(item as any).discountPercent}%`
+                                ) : item.discount ? (
+                                  `-${formatCurrency(item.discount)}`
+                                ) : (
+                                  '-'
+                                )}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                 {formatCurrency((item as any).totalAmount || item.total)}
@@ -1182,6 +1165,33 @@ const InvoicesPage: React.FC = () => {
                     <Alert severity="info">No items in this invoice</Alert>
                   )}
                 </Box>
+
+                {/* NOTES Section - below items */}
+                {selectedInvoice.notes && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      mb: 1
+                    }}>
+                      NOTES
+                    </Typography>
+
+                    <Box sx={{
+                      p: 2,
+                      backgroundColor: 'grey.50',
+                      borderRadius: 1,
+                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}>
+                      {selectedInvoice.notes}
+                    </Box>
+                  </Box>
+                )}
+
               </Box>
             </Paper>
           ) : (
@@ -1193,7 +1203,6 @@ const InvoicesPage: React.FC = () => {
           )}
         </Grid>
       </Grid>
-
       {/* Placeholder Dialogs */}
       <Dialog open={createDialog} onClose={() => setCreateDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Create New Invoice</DialogTitle>
@@ -1205,7 +1214,6 @@ const InvoicesPage: React.FC = () => {
           <Button variant="contained">Create</Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Edit Invoice</DialogTitle>
         <DialogContent>
@@ -1216,14 +1224,21 @@ const InvoicesPage: React.FC = () => {
           <Button variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>
-
       {/* Deleted Invoices Dialog */}
       <DeletedInvoicesDialog
         open={deletedInvoicesDialogOpen}
         onClose={() => setDeletedInvoicesDialogOpen(false)}
       />
+      {/* Print Dialog */}
+      {selectedInvoice && (
+        <InvoicePrint
+          open={printDialogOpen}
+          onClose={() => setPrintDialogOpen(false)}
+          invoice={selectedInvoice}
+        />
+      )}
     </Box>
-  )
+  );
 }
 
 export default InvoicesPage

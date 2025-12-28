@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
@@ -21,11 +21,126 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
+import { settingsApi } from '@/services/settingsApi'
 import { formatCurrency } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
+import { useCurrency } from '@/hooks/useCurrency'
+
+// Pricing field component with proper decimal handling
+const PricingField: React.FC<{
+  schemeName: string
+  currency: string
+  value: number
+  baseCost: number
+  disabled: boolean
+  onChange: (value: number) => void
+}> = ({ schemeName, currency, value, baseCost, disabled, onChange }) => {
+  const [localValue, setLocalValue] = useState(value > 0 ? value.toFixed(2) : '')
+  const [isFocused, setIsFocused] = useState(false)
+
+  // Update local value when external value changes (but not when focused)
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(value > 0 ? value.toFixed(2) : '')
+    }
+  }, [value, isFocused])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let newValue = e.target.value
+
+    // Allow numbers, decimal point, and empty string
+    newValue = newValue.replace(/[^0-9.]/g, '')
+
+    // Prevent multiple decimal points
+    const parts = newValue.split('.')
+    if (parts.length > 2) {
+      newValue = parts[0] + '.' + parts.slice(1).join('')
+    }
+
+    setLocalValue(newValue)
+
+    // Update parent with numeric value
+    if (newValue === '' || newValue === '.') {
+      onChange(0)
+    } else {
+      const numValue = parseFloat(newValue)
+      if (!isNaN(numValue)) {
+        onChange(numValue)
+      }
+    }
+  }
+
+  const handleBlur = () => {
+    setIsFocused(false)
+    // Format to 2 decimal places when losing focus
+    if (value > 0) {
+      setLocalValue(value.toFixed(2))
+    }
+  }
+
+  const calculateMargin = (price: number, cost: number): number => {
+    if (!price || !cost || price <= 0 || cost <= 0) return 0
+    return ((price - cost) / price) * 100
+  }
+
+  const margin = calculateMargin(value, baseCost)
+
+  return (
+    <Grid
+      size={{
+        xs: 12,
+        md: 6
+      }}>
+      <Box>
+        <TextField
+          value={localValue}
+          onChange={handleChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={handleBlur}
+          label={`${schemeName} Price`}
+          fullWidth
+          size="small"
+          type="text"
+          disabled={disabled}
+          InputProps={{
+            startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+          }}
+          sx={{
+            '& .MuiInputBase-input': {
+              fontSize: '0.875rem',
+              textAlign: 'right',
+            },
+            '& .MuiInputLabel-root': {
+              fontSize: '0.875rem',
+            }
+          }}
+        />
+        {value > 0 && baseCost > 0 && (
+          <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              Margin:
+            </Typography>
+            <Chip
+              label={`${margin.toFixed(1)}%`}
+              size="small"
+              variant="outlined"
+              color={margin > 20 ? 'success' : margin > 10 ? 'warning' : 'error'}
+              sx={{
+                fontSize: '0.7rem',
+                fontWeight: 500,
+                height: 20,
+                minWidth: 42
+              }}
+            />
+          </Box>
+        )}
+      </Box>
+    </Grid>
+  );
+}
 
 interface ProductFormData {
   name: string
@@ -34,9 +149,7 @@ interface ProductFormData {
   type: 'Stocked Product' | 'Service'
   categoryId: string
   baseCost: number
-  retailPrice: number
-  wholesalePrice: number
-  specialPrice: number
+  pricingTiers: Record<string, number>
   stockQuantity?: number
   notes: string
   isActive: boolean
@@ -53,9 +166,7 @@ const productSchema = yup.object({
     (value) => value !== 'main'
   ),
   baseCost: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Base cost must be 0 or greater').nullable().optional(),
-  retailPrice: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Retail price must be 0 or greater').nullable().optional(),
-  wholesalePrice: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Wholesale price must be 0 or greater').nullable().optional(),
-  specialPrice: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Special price must be 0 or greater').nullable().optional(),
+  pricingTiers: yup.object(),
   stockQuantity: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).integer('Stock must be a whole number').min(0, 'Stock must be 0 or greater').nullable().optional(),
   notes: yup.string(),
   isActive: yup.boolean(),
@@ -70,6 +181,11 @@ const CreateProductPage: React.FC = () => {
   const [loadingProduct, setLoadingProduct] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [pricingSchemes, setPricingSchemes] = useState<Array<{ name: string; currency: string }>>([])
+  const [loadingPricingSchemes, setLoadingPricingSchemes] = useState(false)
+
+  // Currency hook
+  const { currency } = useCurrency()
 
   // Duplicate detection hook
   const {
@@ -82,7 +198,7 @@ const CreateProductPage: React.FC = () => {
     hasCheckedBarcode
   } = useDuplicateCheck()
 
-  const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<ProductFormData>({
+  const { control, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
       name: '',
@@ -91,9 +207,7 @@ const CreateProductPage: React.FC = () => {
       type: 'Stocked Product',
       categoryId: '',
       baseCost: undefined as any,
-      retailPrice: undefined as any,
-      wholesalePrice: undefined as any,
-      specialPrice: undefined as any,
+      pricingTiers: {},
       stockQuantity: undefined,
       notes: '',
       isActive: true,
@@ -104,9 +218,7 @@ const CreateProductPage: React.FC = () => {
   const watchedName = watch('name')
   const watchedBarcode = watch('barcode')
   const watchedBaseCost = watch('baseCost')
-  const watchedRetailPrice = watch('retailPrice')
-  const watchedWholesalePrice = watch('wholesalePrice')
-  const watchedSpecialPrice = watch('specialPrice')
+  const watchedPricingTiers = watch('pricingTiers') || {}
 
   // Calculate margins
   const calculateMargin = (price: number | undefined, cost: number | undefined): number => {
@@ -114,9 +226,41 @@ const CreateProductPage: React.FC = () => {
     return ((price - cost) / price) * 100
   }
 
-  const retailMargin = calculateMargin(watchedRetailPrice, watchedBaseCost)
-  const wholesaleMargin = calculateMargin(watchedWholesalePrice, watchedBaseCost)
-  const specialMargin = calculateMargin(watchedSpecialPrice, watchedBaseCost)
+  // Helper to update a specific pricing tier
+  const updatePricingTier = (schemeName: string, value: number) => {
+    const currentTiers = watchedPricingTiers || {}
+    setValue('pricingTiers', { ...currentTiers, [schemeName]: value })
+  }
+
+  // Fetch pricing schemes on mount
+  useEffect(() => {
+    const loadPricingSchemes = async () => {
+      try {
+        setLoadingPricingSchemes(true)
+        const response = await settingsApi.getActivePricingSchemes()
+        const schemes = Array.isArray(response) ? response : (response.data || [])
+        console.log('Loaded pricing schemes for product:', schemes)
+        setPricingSchemes(schemes)
+      } catch (error) {
+        console.error('Failed to load pricing schemes:', error)
+        // Fallback to default schemes
+        setPricingSchemes([
+          { name: 'Retail', currency: 'USD' },
+          { name: 'Wholesale', currency: 'USD' },
+          { name: 'Special', currency: 'USD' },
+        ])
+      } finally {
+        setLoadingPricingSchemes(false)
+      }
+    }
+    loadPricingSchemes()
+  }, [])
+
+  // Dynamic margin calculations
+  const getMarginForScheme = (schemeName: string) => {
+    const price = watchedPricingTiers?.[schemeName]
+    return calculateMargin(price, watchedBaseCost)
+  }
 
   // Real-time duplicate checking
   useEffect(() => {
@@ -152,6 +296,9 @@ const CreateProductPage: React.FC = () => {
         setSelectedCategory(product.category)
       }
 
+      // Load pricing tiers
+      const pricingTiers = product.pricingTiers || {}
+
       reset({
         name: product.name || '',
         description: product.description || '',
@@ -159,9 +306,7 @@ const CreateProductPage: React.FC = () => {
         type: product.type || 'Stocked Product',
         categoryId: product.categoryId || product.category?.id || '',
         baseCost: product.baseCost || 0,
-        retailPrice: product.retailPrice || 0,
-        wholesalePrice: product.wholesalePrice || 0,
-        specialPrice: product.specialPrice || 0,
+        pricingTiers: pricingTiers,
         stockQuantity: product.stockQuantity || 0,
         notes: product.notes || '',
         isActive: product.isActive !== undefined ? product.isActive : true,
@@ -197,9 +342,7 @@ const CreateProductPage: React.FC = () => {
         type: data.type,
         categoryId: data.categoryId,
         baseCost: data.baseCost !== undefined && data.baseCost !== null ? Number(data.baseCost) : 0,
-        retailPrice: data.retailPrice !== undefined && data.retailPrice !== null ? Number(data.retailPrice) : 0,
-        wholesalePrice: data.wholesalePrice !== undefined && data.wholesalePrice !== null ? Number(data.wholesalePrice) : 0,
-        specialPrice: data.specialPrice !== undefined && data.specialPrice !== null ? Number(data.specialPrice) : 0,
+        pricingTiers: data.pricingTiers || {},
         stockQuantity: data.type === 'Stocked Product' ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0) : 0,
         notes: data.notes || '',
         isActive: data.isActive,
@@ -253,7 +396,7 @@ const CreateProductPage: React.FC = () => {
     if (value === '' || value === null || value === undefined) return ''
     const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
     if (isNaN(num)) return ''
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
   return (
@@ -295,12 +438,16 @@ const CreateProductPage: React.FC = () => {
 
             <Grid container spacing={3}>
               {/* Product Information Card */}
-              <Grid item xs={12} md={8}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 8
+                }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Product Information</Typography>
                     <Grid container spacing={2}>
-                      <Grid item xs={12}>
+                      <Grid size={12}>
                         <Controller
                           name="name"
                           control={control}
@@ -336,7 +483,7 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12}>
+                      <Grid size={12}>
                         <Controller
                           name="description"
                           control={control}
@@ -361,7 +508,11 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12} md={6}>
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
                         <Controller
                           name="barcode"
                           control={control}
@@ -395,7 +546,11 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12} md={6}>
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
                         <Controller
                           name="type"
                           control={control}
@@ -425,7 +580,7 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      <Grid item xs={12}>
+                      <Grid size={12}>
                         <Controller
                           name="categoryId"
                           control={control}
@@ -452,7 +607,11 @@ const CreateProductPage: React.FC = () => {
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Pricing</Typography>
                     <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
                         <Controller
                           name="baseCost"
                           control={control}
@@ -488,7 +647,7 @@ const CreateProductPage: React.FC = () => {
                                 fullWidth
                                 size="small"
                                 InputProps={{
-                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
+                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                                 }}
                                 sx={{
                                   '& .MuiInputBase-input': {
@@ -500,232 +659,23 @@ const CreateProductPage: React.FC = () => {
                                   }
                                 }}
                               />
-                            )
+                            );
                           }}
                         />
                       </Grid>
 
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name="retailPrice"
-                          control={control}
-                          render={({ field }) => {
-                            const [displayValue, setDisplayValue] = useState(formatNumberWithCommas(field.value))
-                            const [isFocused, setIsFocused] = useState(false)
-
-                            React.useEffect(() => {
-                              if (!isFocused) {
-                                setDisplayValue(formatNumberWithCommas(field.value))
-                              }
-                            }, [field.value, isFocused])
-
-                            return (
-                              <Box>
-                                <TextField
-                                  value={displayValue}
-                                  onChange={(e) => {
-                                    const value = e.target.value.replace(/[^0-9.]/g, '')
-                                    setDisplayValue(value)
-                                    field.onChange(parseFormattedNumber(value))
-                                  }}
-                                  onFocus={() => {
-                                    setIsFocused(true)
-                                    setDisplayValue(field.value?.toString() || '')
-                                  }}
-                                  onBlur={() => {
-                                    setIsFocused(false)
-                                    setDisplayValue(formatNumberWithCommas(field.value))
-                                  }}
-                                  label="Retail Price"
-                                  error={!!errors.retailPrice}
-                                  helperText={errors.retailPrice?.message}
-                                  fullWidth
-                                  size="small"
-                                  InputProps={{
-                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                                  }}
-                                  sx={{
-                                    '& .MuiInputBase-input': {
-                                      fontSize: '0.875rem',
-                                      textAlign: 'right',
-                                    },
-                                    '& .MuiInputLabel-root': {
-                                      fontSize: '0.875rem',
-                                    }
-                                  }}
-                                />
-                                {watchedRetailPrice > 0 && watchedBaseCost > 0 && (
-                                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Margin:
-                                    </Typography>
-                                    <Chip
-                                      label={`${retailMargin.toFixed(1)}%`}
-                                      size="small"
-                                      variant="outlined"
-                                      color={retailMargin > 20 ? 'success' : retailMargin > 10 ? 'warning' : 'error'}
-                                      sx={{
-                                        fontSize: '0.7rem',
-                                        fontWeight: 500,
-                                        height: 20,
-                                        minWidth: 42
-                                      }}
-                                    />
-                                  </Box>
-                                )}
-                              </Box>
-                            )
-                          }}
+                      {/* Dynamic Pricing Scheme Fields */}
+                      {pricingSchemes.map((scheme) => (
+                        <PricingField
+                          key={scheme.name}
+                          schemeName={scheme.name}
+                          currency={scheme.currency}
+                          value={watchedPricingTiers?.[scheme.name] || 0}
+                          baseCost={watchedBaseCost || 0}
+                          disabled={loadingPricingSchemes}
+                          onChange={(value) => updatePricingTier(scheme.name, value)}
                         />
-                      </Grid>
-
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name="wholesalePrice"
-                          control={control}
-                          render={({ field }) => {
-                            const [displayValue, setDisplayValue] = useState(formatNumberWithCommas(field.value))
-                            const [isFocused, setIsFocused] = useState(false)
-
-                            React.useEffect(() => {
-                              if (!isFocused) {
-                                setDisplayValue(formatNumberWithCommas(field.value))
-                              }
-                            }, [field.value, isFocused])
-
-                            return (
-                              <Box>
-                                <TextField
-                                  value={displayValue}
-                                  onChange={(e) => {
-                                    const value = e.target.value.replace(/[^0-9.]/g, '')
-                                    setDisplayValue(value)
-                                    field.onChange(parseFormattedNumber(value))
-                                  }}
-                                  onFocus={() => {
-                                    setIsFocused(true)
-                                    setDisplayValue(field.value?.toString() || '')
-                                  }}
-                                  onBlur={() => {
-                                    setIsFocused(false)
-                                    setDisplayValue(formatNumberWithCommas(field.value))
-                                  }}
-                                  label="Wholesale Price"
-                                  error={!!errors.wholesalePrice}
-                                  helperText={errors.wholesalePrice?.message}
-                                  fullWidth
-                                  size="small"
-                                  InputProps={{
-                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                                  }}
-                                  sx={{
-                                    '& .MuiInputBase-input': {
-                                      fontSize: '0.875rem',
-                                      textAlign: 'right',
-                                    },
-                                    '& .MuiInputLabel-root': {
-                                      fontSize: '0.875rem',
-                                    }
-                                  }}
-                                />
-                                {watchedWholesalePrice > 0 && watchedBaseCost > 0 && (
-                                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Margin:
-                                    </Typography>
-                                    <Chip
-                                      label={`${wholesaleMargin.toFixed(1)}%`}
-                                      size="small"
-                                      variant="outlined"
-                                      color={wholesaleMargin > 15 ? 'success' : wholesaleMargin > 5 ? 'warning' : 'error'}
-                                      sx={{
-                                        fontSize: '0.7rem',
-                                        fontWeight: 500,
-                                        height: 20,
-                                        minWidth: 42
-                                      }}
-                                    />
-                                  </Box>
-                                )}
-                              </Box>
-                            )
-                          }}
-                        />
-                      </Grid>
-
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name="specialPrice"
-                          control={control}
-                          render={({ field }) => {
-                            const [displayValue, setDisplayValue] = useState(formatNumberWithCommas(field.value))
-                            const [isFocused, setIsFocused] = useState(false)
-
-                            React.useEffect(() => {
-                              if (!isFocused) {
-                                setDisplayValue(formatNumberWithCommas(field.value))
-                              }
-                            }, [field.value, isFocused])
-
-                            return (
-                              <Box>
-                                <TextField
-                                  value={displayValue}
-                                  onChange={(e) => {
-                                    const value = e.target.value.replace(/[^0-9.]/g, '')
-                                    setDisplayValue(value)
-                                    field.onChange(parseFormattedNumber(value))
-                                  }}
-                                  onFocus={() => {
-                                    setIsFocused(true)
-                                    setDisplayValue(field.value?.toString() || '')
-                                  }}
-                                  onBlur={() => {
-                                    setIsFocused(false)
-                                    setDisplayValue(formatNumberWithCommas(field.value))
-                                  }}
-                                  label="Special Price"
-                                  error={!!errors.specialPrice}
-                                  helperText={errors.specialPrice?.message}
-                                  fullWidth
-                                  size="small"
-                                  InputProps={{
-                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>RM</span>
-                                  }}
-                                  sx={{
-                                    '& .MuiInputBase-input': {
-                                      fontSize: '0.875rem',
-                                      textAlign: 'right',
-                                    },
-                                    '& .MuiInputLabel-root': {
-                                      fontSize: '0.875rem',
-                                    }
-                                  }}
-                                />
-                                {watchedSpecialPrice > 0 && watchedBaseCost > 0 && (
-                                  <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Margin:
-                                    </Typography>
-                                    <Chip
-                                      label={`${specialMargin.toFixed(1)}%`}
-                                      size="small"
-                                      variant="outlined"
-                                      color={specialMargin > 15 ? 'success' : specialMargin > 5 ? 'warning' : 'error'}
-                                      sx={{
-                                        fontSize: '0.7rem',
-                                        fontWeight: 500,
-                                        height: 20,
-                                        minWidth: 42
-                                      }}
-                                    />
-                                  </Box>
-                                )}
-                              </Box>
-                            )
-                          }}
-                        />
-                      </Grid>
+                      ))}
                     </Grid>
                   </CardContent>
                 </Card>
@@ -736,7 +686,11 @@ const CreateProductPage: React.FC = () => {
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Stock Information</Typography>
                       <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
+                        <Grid
+                          size={{
+                            xs: 12,
+                            md: 6
+                          }}>
                           <Controller
                             name="stockQuantity"
                             control={control}
@@ -785,7 +739,7 @@ const CreateProductPage: React.FC = () => {
                                     }
                                   }}
                                 />
-                              )
+                              );
                             }}
                           />
                           {isEditMode && (
@@ -801,7 +755,11 @@ const CreateProductPage: React.FC = () => {
               </Grid>
 
               {/* Notes and Actions */}
-              <Grid item xs={12} md={4}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 4
+                }}>
                 <Card sx={{ height: '100%' }}>
                   <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <Typography variant="h6" gutterBottom>Additional Information</Typography>
@@ -870,7 +828,7 @@ const CreateProductPage: React.FC = () => {
         )}
       </Box>
     </Container>
-  )
+  );
 }
 
 export default CreateProductPage

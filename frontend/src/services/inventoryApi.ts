@@ -399,4 +399,39 @@ export const inventoryApi = {
       }
     }>('/inventory/products/dashboard-stats')
   },
+
+  // Costing methods
+  async getCurrentCostingMethod() {
+    return ApiService.get<{
+      costingMethod: string
+      availableMethods: string[]
+    }>('/inventory/costing/method')
+  },
+
+  async recalculateAllProductCosts() {
+    return ApiService.post<{
+      totalProducts: number
+      updated: number
+      errors: number
+      costingMethod: string
+      results: Array<{
+        productId: string
+        productName: string
+        oldCost: number
+        newCost: number
+        success: boolean
+        error?: string
+      }>
+    }>('/inventory/costing/recalculate')
+  },
+
+  async recalculateProductCost(productId: string) {
+    return ApiService.post<{
+      productId: string
+      productName: string
+      oldCost: number
+      newCost: number
+      costingMethod: string
+    }>(`/inventory/costing/recalculate/${productId}`)
+  },
 }

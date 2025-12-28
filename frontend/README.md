@@ -5,10 +5,10 @@ A modern, comprehensive React frontend application for the ERP system built with
 ## Features
 
 ### 🚀 Core Features
-- **Modern React Architecture** - React 18 with TypeScript, hooks, and context API
-- **Responsive Design** - Mobile-first approach with Material-UI components
+- **Modern React Architecture** - React 18.3.1 with TypeScript, hooks, and context API
+- **Responsive Design** - Mobile-first approach with Material-UI v7 components
 - **State Management** - Redux Toolkit for predictable state management
-- **Authentication** - JWT token management with route protection
+- **Public Access** - Authentication system completely removed for rapid development
 - **Real-time Updates** - WebSocket integration for live data updates
 - **Module-based Navigation** - Sidebar navigation for different ERP modules
 
@@ -32,9 +32,9 @@ A modern, comprehensive React frontend application for the ERP system built with
 
 ## Tech Stack
 
-- **React 18** - Modern React with concurrent features
-- **TypeScript** - Type-safe JavaScript
-- **Material-UI v5** - Comprehensive UI component library
+- **React 18.3.1** - Modern React with concurrent features
+- **TypeScript** - Type-safe JavaScript (relaxed mode: `"strict": false`)
+- **Material-UI v7** - Comprehensive UI component library (v7.3.6)
 - **Redux Toolkit** - State management with Redux best practices
 - **React Router v6** - Client-side routing
 - **Vite** - Fast build tool and dev server
@@ -56,13 +56,12 @@ A modern, comprehensive React frontend application for the ERP system built with
 │   │   ├── forms/        # Form components
 │   │   └── tables/       # Table components
 │   ├── pages/            # Page components organized by modules
-│   │   ├── auth/         # Authentication pages
 │   │   ├── dashboard/    # Dashboard pages
-│   │   ├── inventory/    # Inventory management
-│   │   ├── sales/        # Sales management
-│   │   ├── purchasing/   # Purchasing management
-│   │   ├── reports/      # Report generation
-│   │   └── settings/     # Application settings
+│   │   ├── inventory/    # Inventory management with integrated reports
+│   │   ├── sales/        # Sales management with integrated reports
+│   │   ├── purchasing/   # Purchasing management with integrated reports
+│   │   ├── settings/     # Application settings
+│   │   └── users/        # User management
 │   ├── hooks/            # Custom React hooks
 │   ├── services/         # API service layer
 │   ├── store/            # Redux store and slices
@@ -80,9 +79,11 @@ A modern, comprehensive React frontend application for the ERP system built with
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18.x or higher
+- Node.js 24.x (Docker) or 18.x+ (local development)
 - npm 9.x or higher
 - Backend API running on port 3001 (see backend README)
+
+**Note**: The Docker containers use Node.js 24. For local development, Node.js 18+ is compatible.
 
 ### Installation
 
@@ -158,55 +159,69 @@ npm run test:coverage    # Run tests with coverage report
 - **Goods Received Notes (GRN)** - Inventory receiving workflow
 - **Supplier Invoicing** - Vendor invoice processing
 
-### 📊 Reports & Analytics
-- **Financial Reports** - P&L, balance sheet, cash flow
-- **Inventory Reports** - Stock levels, movements, valuation
-- **Sales Analytics** - Customer analysis, product performance
-- **Export Options** - PDF, Excel, CSV export capabilities
+### 📊 Module-Embedded Reports (December 2025)
+- **Inventory Reports** - Product Cost, Price List, Summary, Historical, Movement Summary
+- **Sales Reports** - Sales analytics and reporting within Sales module
+- **Purchasing Reports** - Vendor Product List and purchasing analytics within Purchasing module
+- **Export Options** - Excel (ExcelJS) and PDF (jsPDF) export capabilities
 
-### ⚙️ Settings & Administration
-- **User Management** - Role-based access control
-- **System Configuration** - Application settings and preferences
+### ⚙️ Settings & Configuration
+- **Company Settings** - Business configuration and preferences
+- **Price & Costing Settings** - AVERAGE, FIFO, LIFO, and STANDARD costing methods
+- **Print Settings** - Print templates and printing configuration
+- **User Management** - Basic user CRUD operations (no authentication)
 - **Theme Customization** - Light/dark mode, color schemes
-- **Backup & Recovery** - Data management tools
 
-## Authentication & Security
+## Security Status
 
-### JWT Token Management
-- **Automatic token refresh** - Seamless session management
-- **Secure storage** - Tokens stored securely in localStorage
-- **Route protection** - Private routes with authentication guards
-- **Role-based access** - Permission-based feature access
+**⚠️ CRITICAL: Authentication system completely removed**
 
-### Security Features
-- **Input sanitization** - XSS prevention
-- **CSRF protection** - Cross-site request forgery protection
-- **Rate limiting** - API request throttling
-- **Secure headers** - Security headers for production
+### Current Security Model
+- **Public Access** - All pages and API endpoints publicly accessible
+- **No Authentication** - JWT authentication system completely removed for rapid development
+- **Input Validation** - Client-side and server-side validation still active
+- **CORS Enabled** - Cross-origin requests configured for development
+
+### Removed Features
+- ❌ JWT token management
+- ❌ Route protection and guards
+- ❌ Role-based access control
+- ❌ Login/logout functionality
+- ❌ Password management
+
+### Remaining Security
+- ✅ Input sanitization - XSS prevention
+- ✅ Client-side validation - Form validation with Yup
+- ✅ Secure headers - CORS, CSP headers from backend
 
 ## State Management
 
 ### Redux Store Structure
 ```typescript
 {
-  auth: {
-    user: User | null,
-    token: string | null,
-    isAuthenticated: boolean,
-    isLoading: boolean
-  },
   theme: {
     mode: 'light' | 'dark',
     primaryColor: string,
     secondaryColor: string
   },
-  notifications: {
-    notifications: Notification[],
-    unreadCount: number
+  inventory: {
+    products: Product[],
+    categories: Category[],
+    loading: boolean,
+    error: string | null
   },
-  // Module-specific state...
+  sales: {
+    customers: Customer[],
+    orders: SalesOrder[],
+    invoices: Invoice[],
+    loading: boolean,
+    error: string | null
+  },
+  // Other module-specific state...
 }
 ```
+
+**Note**: No auth state - authentication system completely removed
 
 ### Real-time Updates
 - **WebSocket integration** - Live data synchronization
@@ -291,10 +306,11 @@ VITE_APP_VERSION=1.0.0
 ## Development Guidelines
 
 ### Code Style
-- **TypeScript strict mode** - Full type safety
+- **TypeScript relaxed mode** - Uses `"strict": false` for faster development
 - **ESLint configuration** - Consistent code style
 - **Prettier integration** - Automatic code formatting
 - **Import organization** - Consistent import ordering
+- **Liberal `as any` usage** - When TypeScript type inference needs help
 
 ### Component Guidelines
 ```typescript
@@ -353,6 +369,30 @@ For support, please:
 2. Search [existing issues](https://github.com/yourorg/erp-system/issues)
 3. Create a [new issue](https://github.com/yourorg/erp-system/issues/new) if needed
 
-## Changelog
+## Recent Updates
 
-See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
+### December 2025
+- ✅ **Material-UI v7 Upgrade** - Upgraded from v5 to v7.3.6
+- ✅ **React 18.3.1 Upgrade** - Latest React version
+- ✅ **PostgreSQL 18.1** - Backend database upgrade
+- ✅ **Redis 8.4** - Cache and queue system upgrade
+
+### November 2025
+- ✅ **Module-Embedded Reports** - Reports integrated into business modules
+- ✅ **Flexible Costing Methods** - AVERAGE, FIFO, LIFO, STANDARD support
+- ✅ **Settings Module** - Company settings and print configuration
+
+### October 2025
+- ✅ **Product Fields Modernization** - Simplified product model
+- ✅ **Soft-Delete Management** - View and restore deleted records
+- ✅ **Purchasing Module Re-enabled** - Full purchasing functionality
+- ✅ **Sales Order Enhancements** - Advanced filtering and payment handling
+
+### Pre-September 2025
+- ✅ **Authentication Removal** - Complete auth system removal for rapid development
+- ✅ **NestJS 11 Upgrade** - Backend framework upgrade
+- ✅ **Node.js 24** - Docker base image upgrade
+
+---
+
+**For complete system documentation, see**: `/CLAUDE.md` in the repository root.

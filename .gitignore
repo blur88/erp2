@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 */node_modules/
+.pnp
+.pnp.js
 
 # Prevent accidental root-level package files
 /package.json
@@ -14,11 +16,15 @@ build/
 *.tsbuildinfo
 .next/
 out/
+.turbo
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Logs
 *.log
@@ -40,17 +46,54 @@ pnpm-debug.log*
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.iml
 
 # IDE files
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.code-workspace
 
-# Docker volumes
+# Docker volumes and data
 postgres-data/
 mongo-data/
 redis-data/
+docker-compose.override.yml
+
+# Uploaded files
+uploads/
+backend/uploads/
+frontend/uploads/
+public/uploads/
+
+# Backup files and archives
+backups/
+backend/backups/
+*.tar.gz
+*.sql
+*.sql.gz
+*.dump
+*.bak
+backup-*/
+backup_*/
+
+# Application logs
+logs/
+backend/logs/
+frontend/logs/
+*.log.*
 
 # Coverage and test outputs
 coverage/
@@ -58,6 +101,9 @@ coverage/
 .nyc_output/
 junit.xml
 test-results/
+.vitest/
+htmlcov/
+.pytest_cache/
 
 # Test files for production builds
 *.spec.ts
@@ -65,11 +111,60 @@ test-results/
 *.spec.js
 *.test.js
 
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.npm/
+.yarn/
+.pnpm-store/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+.tmp/
+.temp/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Migration artifacts (keep migrations, ignore temp files)
+backend/src/migrations/*.js
+backend/src/migrations/*.js.map
+
+# Report exports (generated files)
+exports/
+reports/
+*.xlsx
+*.pdf
+backend/exports/
+frontend/exports/
+
+# Redis dump files
+dump.rdb
+
 # Claude Code configuration
-.claude
+.claude/
 
 # Binaries and executables
 code
 
 # Generated documentation
 ERROR.md
+TODOS.md
+
+# Security and sensitive files
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+.secrets/
+
+# Debug files
+debug/
+*.debug

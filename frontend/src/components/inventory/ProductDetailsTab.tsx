@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -13,6 +13,7 @@ import {
 import { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { settingsApi, PricingScheme } from '@/services/settingsApi'
 
 interface ProductDetailsTabProps {
   product: Product
@@ -20,11 +21,10 @@ interface ProductDetailsTabProps {
 
 const getStockStatus = (product: Product) => {
   const stock = product.stockQuantity || 0
-  const reorderLevel = product.reorderLevel || 0
 
   if (stock <= 0) {
     return { label: 'Out of Stock', color: 'error' as const }
-  } else if (stock <= reorderLevel) {
+  } else if (stock <= 10) {
     return { label: 'Low Stock', color: 'warning' as const }
   } else {
     return { label: 'In Stock', color: 'success' as const }
@@ -32,11 +32,46 @@ const getStockStatus = (product: Product) => {
 }
 
 const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
+  const [pricingSchemes, setPricingSchemes] = useState<PricingScheme[]>([])
+
+  useEffect(() => {
+    const loadPricingSchemes = async () => {
+      try {
+        const response = await settingsApi.getActivePricingSchemes()
+        const schemes = Array.isArray(response) ? response : (response.data || [])
+        setPricingSchemes(schemes)
+      } catch (error) {
+        console.error('Failed to load pricing schemes:', error)
+      }
+    }
+    loadPricingSchemes()
+  }, [])
+
+  // Calculate margin for a price
+  const calculateMargin = (price: number, baseCost: number): number => {
+    if (!price || !baseCost || baseCost === 0) return 0
+    return ((price - baseCost) / price) * 100
+  }
+
+  // Get margin color based on value
+  const getMarginColor = (margin: number): 'success' | 'warning' | 'error' => {
+    if (margin > 20) return 'success'
+    if (margin > 10) return 'warning'
+    return 'error'
+  }
+
+  // Get pricing tiers from product
+  const pricingTiers = product.pricingTiers || {}
+
   return (
     <Box>
       <Grid container spacing={3}>
         {/* Left Column - Basic Information */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -117,7 +152,11 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
         </Grid>
 
         {/* Right Column - Pricing Information */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -157,95 +196,57 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                     {formatCurrency(product.baseCost)}
                   </TableCell>
                 </TableRow>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    Retail Price
-                  </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    {formatCurrency(product.retailPrice)}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    {(product.retailPrice !== undefined && product.retailPrice !== null && product.retailPrice > 0) && (
-                      <Chip
-                        label={`${product.grossMarginRetail?.toFixed(1) || '0.0'}%`}
-                        size="small"
-                        variant="outlined"
-                        color={(product.grossMarginRetail || 0) > 20 ? 'success' : (product.grossMarginRetail || 0) > 10 ? 'warning' : 'error'}
-                        sx={{
-                          fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                          height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
-                          minWidth: 42
-                        }}
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-                <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    Wholesale Price
-                  </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    {formatCurrency(product.wholesalePrice)}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    {(product.wholesalePrice !== undefined && product.wholesalePrice !== null && product.wholesalePrice > 0) && (
-                      <Chip
-                        label={`${product.grossMarginWholesale?.toFixed(1) || '0.0'}%`}
-                        size="small"
-                        variant="outlined"
-                        color={(product.grossMarginWholesale || 0) > 15 ? 'success' : (product.grossMarginWholesale || 0) > 5 ? 'warning' : 'error'}
-                        sx={{
-                          fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                          height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
-                          minWidth: 42
-                        }}
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    Special Price
-                  </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    {formatCurrency(product.specialPrice)}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                    {(product.specialPrice !== undefined && product.specialPrice !== null && product.specialPrice > 0) && (
-                      <Chip
-                        label={`${product.grossMarginSpecial?.toFixed(1) || '0.0'}%`}
-                        size="small"
-                        variant="outlined"
-                        color={(product.grossMarginSpecial || 0) > 15 ? 'success' : (product.grossMarginSpecial || 0) > 5 ? 'warning' : 'error'}
-                        sx={{
-                          fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                          height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
-                          minWidth: 42
-                        }}
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
+                {pricingSchemes.map((scheme, index) => {
+                  const price = pricingTiers[scheme.name] || 0
+                  const margin = calculateMargin(price, product.baseCost || 0)
+                  const isEvenRow = index % 2 === 0
+
+                  return (
+                    <TableRow key={scheme.name} sx={{ backgroundColor: isEvenRow ? 'transparent' : 'grey.50' }}>
+                      <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        {scheme.name} Price
+                      </TableCell>
+                      <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        {formatCurrency(price)}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        {price > 0 && (
+                          <Chip
+                            label={`${margin.toFixed(1)}%`}
+                            size="small"
+                            variant="outlined"
+                            color={getMarginColor(margin)}
+                            sx={{
+                              fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
+                              minWidth: 42
+                            }}
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
 
               </TableBody>
             </Table>
           </TableContainer>
         </Grid>
       </Grid>
-
       {/* Page Break - Full Width */}
       <Box sx={{
         borderTop: '2px solid',
         borderColor: 'divider',
         my: TABLE_STYLES.cell.padding.py * 2
       }} />
-
       <Grid container spacing={3}>
         {/* Left Column - Notes */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -310,7 +311,11 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
         </Grid>
 
         {/* Right Column - Stock Information */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <TableContainer>
             <Table
               size={TABLE_STYLES.size}
@@ -371,7 +376,7 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }
 
 export default ProductDetailsTab

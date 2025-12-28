@@ -6,8 +6,8 @@ A comprehensive ERP (Enterprise Resource Planning) system built with modern full
 
 ### Prerequisites
 - Docker and Docker Compose
-- Node.js 22+ (for development)
-- PostgreSQL 15+ (if running locally)
+- Node.js 24+ (for development)
+- PostgreSQL 18+ (if running locally)
 
 ### One-Click Deployment
 ```bash
@@ -57,34 +57,40 @@ docker-compose up -d
 - **Purchasing**: http://localhost:3000/purchasing (suppliers, purchase orders - re-enabled October 2025)
 - **Users**: http://localhost:3000/users (basic CRUD)
 
-### ⚠️ Non-Functional Pages (Modules Disabled)
-- Reports pages (ReportsModule disabled)
-- Plugin pages (PluginsModule disabled)
+### 📊 Module-Embedded Reports (Active - December 2025)
+- **Inventory Reports**: Product Cost, Price List, Summary, Historical, Movement Summary
+- **Sales Reports**: Integrated within Sales module navigation
+- **Purchasing Reports**: Vendor Product List and other purchasing reports
+
+### ⚠️ Disabled Modules
+- Plugin pages (PluginsModule disabled - requires dependency installation)
 
 ## 📋 System Overview
 
-### Current Status - October 2025
+### Current Status - December 2025
 
 **⚠️ CRITICAL: Authentication system completely removed**
 
-- **Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule` (5 active)
-- **Disabled Modules**: `ReportsModule`, `PluginsModule` (commented out in `app.module.ts`)
+- **Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule` (7 active)
+- **Module-Embedded Reports**: Each business module (Inventory, Sales, Purchasing) has integrated reports
+- **Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 - **Public API Access**: All endpoints publicly accessible without authentication
 - **Frontend Integration**: Fully integrated with backend
 
 ### Core Features
 - ✅ **Dashboard** - Real-time KPIs with WebSocket updates
 - ✅ **Inventory Management** - Products with barcodes, simplified categories, soft-delete management
-- ✅ **Sales Management** - Customers, orders, invoices, payments with FIFO costing
+- ✅ **Sales Management** - Customers, orders, invoices, payments with flexible costing methods
 - ✅ **Purchasing Management** - Suppliers, purchase orders, goods received notes (re-enabled October 2025)
+- ✅ **Module-Embedded Reports** - Comprehensive reporting in Inventory, Sales, Purchasing modules
+- ✅ **Settings Management** - Company settings and print template configuration
 - ✅ **User Management** - Basic user CRUD operations
-- ❌ **Reporting** - Module disabled (available but needs enabling)
 - ❌ **Plugin System** - Module disabled (available but needs enabling)
 
 ### Technology Stack
-- **Frontend**: React 18 + TypeScript + Material-UI + Redux Toolkit + Vite
-- **Backend**: NestJS 11 + TypeORM (PostgreSQL) + MongoDB + Redis 8 + Bull Queue
-- **Infrastructure**: Docker + NGINX + Node.js 22
+- **Frontend**: React 18.3.1 + TypeScript + Material-UI v7 + Redux Toolkit + Vite
+- **Backend**: NestJS 11 + TypeORM (PostgreSQL 18.1) + MongoDB + Redis 8.4 + Bull Queue
+- **Infrastructure**: Docker + NGINX + Node.js 24
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Security**: Input validation, security headers (CORS, CSP, HSTS)
 
@@ -96,11 +102,12 @@ backend/
 ├── src/
 │   ├── modules/
 │   │   ├── users/          # ✅ User management (active)
-│   │   ├── inventory/      # ✅ Product & stock management (active)
-│   │   ├── sales/          # ✅ Sales & customer management (active)
+│   │   ├── inventory/      # ✅ Product & stock management with integrated reports (active)
+│   │   ├── sales/          # ✅ Sales & customer management with integrated reports (active)
+│   │   ├── purchasing/     # ✅ Supplier & procurement with integrated reports (active)
 │   │   ├── dashboard/      # ✅ Real-time analytics with WebSocket (active)
-│   │   ├── purchasing/     # ✅ Supplier & procurement (re-enabled Oct 2025)
-│   │   ├── reports/        # ❌ Business intelligence (disabled)
+│   │   ├── settings/       # ✅ Company settings and configuration (active)
+│   │   ├── print-settings/ # ✅ Print templates and settings (active)
 │   │   └── plugins/        # ❌ Plugin system (disabled)
 │   ├── database/
 │   │   ├── entities/       # TypeORM entities (19+ entities)
@@ -108,7 +115,7 @@ backend/
 │   └── config/            # Configuration files
 ```
 
-**Note**: Authentication completely removed. Purchasing module re-enabled October 2025. Reports and Plugins modules are commented out in `app.module.ts`.
+**Note**: Authentication completely removed. Purchasing module re-enabled October 2025. Reports are now embedded within each business module. Only Plugins module is commented out in `app.module.ts`.
 
 ### Frontend Structure
 ```
@@ -149,17 +156,19 @@ frontend/
 - **Sales Orders**: Order lifecycle management with auto-display after create/edit
 - **Invoices**: Invoice generation and tracking with auto-generated line items
 - **Payments**: Cash-only payment processing (simplified model)
-- **FIFO Costing**: Automatic cost tracking integrated with inventory
+- **Flexible Costing**: Support for AVERAGE, FIFO, LIFO, and STANDARD costing methods
 - **Bulk Customer Operations**: Mass restore and delete functionality
 - **Advanced Filtering**: Payment status and fulfillment status filters
+- **Integrated Reports**: Sales analytics and reporting within module
 
 ### 🛒 Purchasing Management (✅ Re-enabled October 2025)
 - **Suppliers**: Supplier database management
 - **Purchase Orders**: PO creation and tracking with unique number generation
 - **Goods Received**: Receiving and inventory updates
 - **Overview Analytics**: Comprehensive purchasing dashboard
-- **FIFO Integration**: Automatic cost tracking for purchases
+- **Costing Integration**: Automatic cost tracking with configurable costing methods
 - **Auth Cleanup**: All authentication dependencies removed
+- **Integrated Reports**: Vendor Product List and purchasing analytics
 
 ### 📈 Dashboard & Analytics (✅ Active)
 - **Real-time Dashboard**: Live KPIs with WebSocket updates
@@ -171,12 +180,13 @@ frontend/
 - **User CRUD**: Basic user management operations
 - **No Authentication**: All endpoints publicly accessible
 
-## ⚠️ Disabled Modules
+### ⚙️ Settings & Configuration (✅ Active - November 2025)
+- **Company Settings**: Business configuration and preferences
+- **Price & Costing Settings**: Configurable costing methods (AVERAGE, FIFO, LIFO, STANDARD)
+- **Print Settings**: Print templates and printing configuration
+- **System Configuration**: Application-wide settings management
 
-### 📈 Reports & Analytics (Available but Disabled)
-- Module exists but requires enabling and auth cleanup
-- Would provide comprehensive reporting capabilities
-- To enable: Uncomment in app.module.ts and fix auth-related TypeScript errors
+## ⚠️ Disabled Modules
 
 ### 🔌 Plugin System (Available but Disabled)
 - Extensible architecture exists but disabled
@@ -185,13 +195,40 @@ frontend/
 
 ## 🆕 Recent Changes & Modernization
 
-### 🚀 Latest Updates (October 2025)
+### 🚀 Latest Updates (December 2025)
 
-#### Redis 8 Upgrade (October 2025)
-- **Complete Upgrade**: Redis 7-alpine to 8-alpine3.22
+#### PostgreSQL 18.1 Upgrade (December 2025)
+- **Complete Upgrade**: PostgreSQL 15.14 to 18.1-alpine3.23
+- **Performance**: Enhanced query optimizer, better parallelism, faster VACUUM
+- **Security**: Latest CVE patches and improved SSL/TLS support
+- **Zero Downtime**: Automated migration with full backup and restore
+
+#### Material-UI v7 Upgrade (December 2025)
+- **Complete Upgrade**: Material-UI v5 to v7.3.6
+- **React Compatibility**: Requires React 18.3.1 (upgraded simultaneously)
+- **Breaking Changes**: Updated component APIs and theme structure
+- **Benefits**: Enhanced performance, improved TypeScript support, new component features
+
+#### Redis 8.4 Upgrade (December 2025)
+- **Complete Upgrade**: Redis 8.2.2 to 8.4.0-alpine3.22
 - **Built-in Modules**: Search, JSON, TimeSeries, Bloom, and VectorSet now available
-- **Enhanced Performance**: Better performance and security with Redis 8.2.2
+- **Enhanced Performance**: Better performance and security with Redis 8.4.0
 - **License**: RSALv2/SSPLv1/AGPLv3 tri-license model
+
+### 🚀 Major Updates (October-November 2025)
+
+#### Module-Embedded Reports (November 2025)
+- **Architecture**: Reports integrated within Inventory, Sales, and Purchasing modules
+- **Inventory Reports**: Product Cost, Price List, Summary, Historical, Movement Summary
+- **Sales Reports**: Enhanced with subtotals and grand totals
+- **Purchasing Reports**: Vendor Product List with weighted average pricing
+- **Export**: Excel (ExcelJS) and PDF (jsPDF) generation
+
+#### Flexible Costing Methods (November 2025)
+- **Methods**: AVERAGE, FIFO, LIFO, and STANDARD costing
+- **Automatic Calculation**: Real-time cost updates on GRN, sales, and returns
+- **Switchable**: Change costing method with automatic recalculation
+- **Settings Integration**: Configured via Settings module
 
 #### Purchasing Module Re-enabled (October 2025)
 - **Module Active**: Purchasing module fully re-enabled with auth cleanup complete
@@ -229,8 +266,8 @@ frontend/
 - **Modern Architecture**: Latest patterns and best practices
 - **Enhanced Performance**: Better optimization and security
 
-#### Node.js 22 Update
-- **Docker Base Images**: Updated to Node.js 22 for better performance
+#### Node.js 24 Update
+- **Docker Base Images**: Updated to Node.js 24 Alpine for better performance
 - **Enhanced Security**: Latest security patches and improvements
 - **Performance Gains**: Better memory management and execution speed
 
@@ -402,12 +439,23 @@ GET    /api/purchasing/purchase-orders      # List purchase orders
 POST   /api/purchasing/purchase-orders      # Create purchase order
 GET    /api/purchasing/overview             # Purchasing analytics dashboard
 
+# Settings & Configuration
+GET    /api/settings                        # Get company settings
+PUT    /api/settings/price-costing          # Update costing method
+GET    /api/print-settings                  # Get print settings
+
+# Costing & Reports
+GET    /api/inventory/costing/method        # Get current costing method
+POST   /api/inventory/costing/recalculate   # Recalculate all product costs
+GET    /api/inventory/reports/*             # Inventory reports (5 report types)
+GET    /api/sales/reports/*                 # Sales reports
+GET    /api/purchasing/reports/*            # Purchasing reports
+
 # System
 GET    /api/info                            # Module information
 ```
 
 ### Disabled Endpoints
-- **Reports APIs**: Module disabled, endpoints not accessible
 - **Plugin APIs**: Module disabled, endpoints not accessible
 
 Complete API documentation available at: `http://localhost:3001/api/docs`
@@ -558,16 +606,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🎉 System Status
 
 - **Rapid Development Mode**: Authentication removed for faster iteration
-- **Modern Tech Stack**: React 18 + NestJS 11 + TypeORM + Redis 8 + Node.js 22 + WebSocket
-- **Active Modules**: Dashboard, Inventory, Sales, Purchasing, Users (5 of 7 modules enabled)
-- **Clean Architecture**: Modular design with 2 modules available for re-enabling
+- **Modern Tech Stack**: React 18.3.1 + NestJS 11 + TypeORM + PostgreSQL 18.1 + Redis 8.4 + Node.js 24 + WebSocket
+- **Active Modules**: Dashboard, Inventory, Sales, Purchasing, Settings, Print Settings, Users (7 modules enabled)
+- **Module-Embedded Reports**: Comprehensive reporting in Inventory, Sales, and Purchasing modules
+- **Flexible Costing**: AVERAGE, FIFO, LIFO, and STANDARD costing methods
 - **Real-time Features**: WebSocket dashboard updates and live data
-- **Latest Updates**: October 2025 - Redis 8 upgrade, Purchasing re-enabled, Product simplification
+- **Latest Updates**: December 2025 - PostgreSQL 18.1, Material-UI v7, Redis 8.4, Module-integrated reports
 
 ---
 
-**🚀 Actively Developed** | **🔄 Real-time Updates** | **⚡ Simplified Architecture** | **📦 5 Active Modules**
+**🚀 Actively Developed** | **🔄 Real-time Updates** | **⚡ Simplified Architecture** | **📦 7 Active Modules** | **📊 Integrated Reports**
 
 > 📄 **For developers**: Always refer to `CLAUDE.md` for the most current system state, commands, and development patterns.
 >
-> ⚠️ **Note**: This README reflects the system as of October 2025. Check git history and CLAUDE.md for latest changes.
+> ⚠️ **Note**: This README reflects the system as of December 2025. Check git history and CLAUDE.md for latest changes.

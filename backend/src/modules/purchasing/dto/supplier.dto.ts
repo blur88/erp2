@@ -41,6 +41,36 @@ export class CreateSupplierDto {
   @MaxLength(20)
   phone?: string;
 
+  @ApiPropertyOptional({ description: 'Street address', maxLength: 255 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  streetAddress?: string;
+
+  @ApiPropertyOptional({ description: 'City', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({ description: 'State/Province', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @ApiPropertyOptional({ description: 'Postal/ZIP code', maxLength: 20 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  postalCode?: string;
+
+  @ApiPropertyOptional({ description: 'Country', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
+
   @ApiPropertyOptional({ description: 'Internal notes' })
   @IsOptional()
   @IsString()
@@ -112,6 +142,21 @@ export class SupplierResponseDto {
 
   @ApiProperty({ description: 'Primary phone number' })
   phone?: string;
+
+  @ApiProperty({ description: 'Street address' })
+  streetAddress?: string;
+
+  @ApiProperty({ description: 'City' })
+  city?: string;
+
+  @ApiProperty({ description: 'State/Province' })
+  state?: string;
+
+  @ApiProperty({ description: 'Postal/ZIP code' })
+  postalCode?: string;
+
+  @ApiProperty({ description: 'Country' })
+  country?: string;
 
   @ApiProperty({ description: 'Total purchases amount' })
   totalPurchases!: number;

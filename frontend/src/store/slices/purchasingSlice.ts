@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import type { Supplier, PurchaseOrder, GoodsReceivedNote, VendorPayment } from '@/types'
 import { purchasingApi } from '@/services/purchasingApi'
+import { updateSupplier } from './supplierSlice'
 
 interface PurchasingState {
   suppliers: Supplier[]
@@ -13,6 +14,7 @@ interface PurchasingState {
   selectedPurchaseOrder: PurchaseOrder | null
   selectedGRN: GoodsReceivedNote | null
   selectedVendorPayment: VendorPayment | null
+  supplierUpdateTimestamp: number | null
   loading: {
     suppliers: boolean
     purchaseOrders: boolean
@@ -61,6 +63,7 @@ const initialState: PurchasingState = {
   selectedPurchaseOrder: null,
   selectedGRN: null,
   selectedVendorPayment: null,
+  supplierUpdateTimestamp: null,
   loading: {
     suppliers: false,
     purchaseOrders: false,
@@ -488,6 +491,103 @@ const purchasingSlice = createSlice({
       .addCase(bulkRestoreVendorPayments.rejected, (state, action) => {
         state.error = action.payload as string
       })
+
+    // Listen to supplier updates from supplierSlice to update purchase orders
+    builder.addCase(updateSupplier.fulfilled, (state, action) => {
+      if (!action.payload) return
+
+      const updatedSupplier = action.payload
+
+      // Set timestamp to trigger refetch on pages
+      state.supplierUpdateTimestamp = Date.now()
+
+      // Update supplier in purchase orders list
+      state.purchaseOrders = state.purchaseOrders.map(po => {
+        if (po.supplier?.id === (updatedSupplier as any).id) {
+          return {
+            ...po,
+            supplier: {
+              ...po.supplier,
+              companyName: (updatedSupplier as any).companyName || po.supplier.companyName,
+              contactPerson: (updatedSupplier as any).contactPerson,
+              phone: (updatedSupplier as any).phone,
+            }
+          }
+        }
+        return po
+      })
+
+      // Update supplier in selected purchase order
+      if (state.selectedPurchaseOrder?.supplier?.id === (updatedSupplier as any).id) {
+        state.selectedPurchaseOrder = {
+          ...state.selectedPurchaseOrder,
+          supplier: {
+            ...state.selectedPurchaseOrder.supplier,
+            companyName: (updatedSupplier as any).companyName || state.selectedPurchaseOrder.supplier.companyName,
+            contactPerson: (updatedSupplier as any).contactPerson,
+            phone: (updatedSupplier as any).phone,
+          }
+        }
+      }
+
+      // Update supplier in GRNs list
+      state.goodsReceivedNotes = state.goodsReceivedNotes.map(grn => {
+        if (grn.supplier?.id === (updatedSupplier as any).id) {
+          return {
+            ...grn,
+            supplier: {
+              ...grn.supplier,
+              companyName: (updatedSupplier as any).companyName || grn.supplier.companyName,
+              contactPerson: (updatedSupplier as any).contactPerson,
+              phone: (updatedSupplier as any).phone,
+            }
+          }
+        }
+        return grn
+      })
+
+      // Update supplier in selected GRN
+      if (state.selectedGRN?.supplier?.id === (updatedSupplier as any).id) {
+        state.selectedGRN = {
+          ...state.selectedGRN,
+          supplier: {
+            ...state.selectedGRN.supplier,
+            companyName: (updatedSupplier as any).companyName || state.selectedGRN.supplier.companyName,
+            contactPerson: (updatedSupplier as any).contactPerson,
+            phone: (updatedSupplier as any).phone,
+          }
+        }
+      }
+
+      // Update supplier in vendor payments list
+      state.vendorPayments = state.vendorPayments.map(vp => {
+        if (vp.supplier?.id === (updatedSupplier as any).id) {
+          return {
+            ...vp,
+            supplier: {
+              ...vp.supplier,
+              companyName: (updatedSupplier as any).companyName || vp.supplier.companyName,
+              contactPerson: (updatedSupplier as any).contactPerson,
+              phone: (updatedSupplier as any).phone,
+            }
+          }
+        }
+        return vp
+      })
+
+      // Update supplier in selected vendor payment
+      if (state.selectedVendorPayment?.supplier?.id === (updatedSupplier as any).id) {
+        state.selectedVendorPayment = {
+          ...state.selectedVendorPayment,
+          supplier: {
+            ...state.selectedVendorPayment.supplier,
+            companyName: (updatedSupplier as any).companyName || state.selectedVendorPayment.supplier.companyName,
+            contactPerson: (updatedSupplier as any).contactPerson,
+            phone: (updatedSupplier as any).phone,
+          }
+        }
+      }
+    })
   },
 })
 
@@ -527,5 +627,6 @@ export const selectSelectedVendorPayment = (state: any) => state.purchasing?.sel
 export const selectPurchasingLoading = (state: any) => state.purchasing?.loading
 export const selectPurchasingError = (state: any) => state.purchasing?.error
 export const selectPurchasingPagination = (state: any) => state.purchasing?.pagination
+export const selectSupplierUpdateTimestamp = (state: any) => state.purchasing?.supplierUpdateTimestamp
 
 export default purchasingSlice.reducer

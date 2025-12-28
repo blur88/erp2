@@ -23,7 +23,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   Alert,
   CircularProgress,
   useTheme,
@@ -40,6 +39,7 @@ import {
   RestoreFromTrash as RestoreIcon,
   Business as BusinessIcon,
   Phone as PhoneIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -74,6 +74,11 @@ const supplierSchema = yup.object({
   type: yup.string().oneOf(['local', 'international']).required('Type is required'),
   contactPerson: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(200, 'Name must be less than 200 characters'),
   phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
+  streetAddress: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255, 'Street address must be less than 255 characters'),
+  city: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'City must be less than 100 characters'),
+  state: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'State must be less than 100 characters'),
+  postalCode: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Postal code must be less than 20 characters'),
+  country: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'Country must be less than 100 characters'),
   notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
@@ -82,6 +87,11 @@ interface SupplierFormData {
   type: SupplierType
   contactPerson?: string | null
   phone?: string | null
+  streetAddress?: string | null
+  city?: string | null
+  state?: string | null
+  postalCode?: string | null
+  country?: string | null
   notes?: string | null
 }
 
@@ -95,7 +105,6 @@ const SuppliersPage: React.FC = () => {
   const suppliers = useAppSelector(selectSuppliers)
   const loading = useAppSelector(selectSuppliersLoading)
   const error = useAppSelector(selectSuppliersError)
-  const pagination = useAppSelector(selectSuppliersPagination)
   const filters = useAppSelector(selectSuppliersFilters)
 
   // Local state
@@ -107,15 +116,6 @@ const SuppliersPage: React.FC = () => {
   const [companyNameError, setCompanyNameError] = useState<string | null>(null)
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false)
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('🔴 companyNameError changed:', companyNameError)
-  }, [companyNameError])
-
-  useEffect(() => {
-    console.log('🔵 isCheckingDuplicate changed:', isCheckingDuplicate)
-  }, [isCheckingDuplicate])
-
   // Form setup
   const { control, handleSubmit, reset, formState: { errors }, watch } = useForm<SupplierFormData>({
     resolver: yupResolver(supplierSchema) as any,
@@ -124,6 +124,11 @@ const SuppliersPage: React.FC = () => {
       type: SupplierType.LOCAL,
       contactPerson: null,
       phone: null,
+      streetAddress: null,
+      city: null,
+      state: null,
+      postalCode: null,
+      country: null,
       notes: null,
     }
   })
@@ -151,29 +156,29 @@ const SuppliersPage: React.FC = () => {
 
   // Load suppliers on mount and when filters change
   useEffect(() => {
-    dispatch(fetchSuppliers({ ...filters }))
+    dispatch(fetchSuppliers(filters))
   }, [dispatch, filters.search, filters.type, filters.sortBy, filters.sortOrder])
 
   // Debounced duplicate check for company name
   useEffect(() => {
     // Skip check if dialog is not open
     if (!isFormOpen) {
-      console.log('Form is not open, skipping duplicate check')
+      return
+    }
+
+    // Skip check if company name hasn't changed from original (when editing)
+    if (selectedSupplier && companyName === selectedSupplier.companyName) {
+      setCompanyNameError(null)
+      setIsCheckingDuplicate(false)
       return
     }
 
     const checkDuplicate = async () => {
-      console.log('=== Duplicate Check ===')
-      console.log('Company name:', companyName)
-      console.log('Selected supplier ID:', selectedSupplier?.id)
-
       if (!companyName || companyName.trim().length < 2) {
-        console.log('Company name too short, clearing error')
         setCompanyNameError(null)
         return
       }
 
-      console.log('Starting API call...')
       setIsCheckingDuplicate(true)
       try {
         const response = await purchasingApi.checkDuplicateCompanyName(
@@ -181,28 +186,19 @@ const SuppliersPage: React.FC = () => {
           selectedSupplier?.id
         )
 
-        console.log('API Response:', response)
-        console.log('Response.data:', response.data)
-
         // ApiResponse wraps the data in a data property
         const result = response.data || response as any
 
-        console.log('Extracted result:', result)
-
         if (result?.exists) {
           const errorMsg = result.message || 'This company name already exists'
-          console.log('❌ DUPLICATE FOUND! Setting error:', errorMsg)
           setCompanyNameError(errorMsg)
         } else {
-          console.log('✅ No duplicate, clearing error')
           setCompanyNameError(null)
         }
       } catch (error) {
-        console.error('❌ API Error:', error)
         setCompanyNameError(null)
       } finally {
         setIsCheckingDuplicate(false)
-        console.log('=== Check Complete ===')
       }
     }
 
@@ -211,15 +207,6 @@ const SuppliersPage: React.FC = () => {
       clearTimeout(timer)
     }
   }, [companyName, selectedSupplier?.id, isFormOpen])
-
-  // Handle pagination
-  const handleChangePage = (event: unknown, newPage: number) => {
-    dispatch(fetchSuppliers({ ...filters, page: newPage + 1 }))
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(fetchSuppliers({ ...filters, page: 1, limit: parseInt(event.target.value) }))
-  }
 
   // Handle form submit
   const handleFormSubmit = async (data: SupplierFormData) => {
@@ -234,6 +221,11 @@ const SuppliersPage: React.FC = () => {
         ...data,
         contactPerson: data.contactPerson?.trim() || null,
         phone: data.phone?.trim() || null,
+        streetAddress: data.streetAddress?.trim() || null,
+        city: data.city?.trim() || null,
+        state: data.state?.trim() || null,
+        postalCode: data.postalCode?.trim() || null,
+        country: data.country?.trim() || null,
         notes: data.notes?.trim() || null,
       }
 
@@ -245,11 +237,7 @@ const SuppliersPage: React.FC = () => {
         showSuccess('Supplier created successfully')
       }
       handleCloseForm()
-      dispatch(fetchSuppliers({
-        ...filters,
-        page: pagination.page,
-        limit: pagination.limit,
-      }))
+      dispatch(fetchSuppliers(filters))
     } catch (error: any) {
       // Extract error message from the response
       let errorMessage = `Failed to ${selectedSupplier ? 'update' : 'create'} supplier`
@@ -270,7 +258,6 @@ const SuppliersPage: React.FC = () => {
     console.log('🗑️ Starting delete for supplier:', selectedSupplier.id)
     console.log('📊 Current suppliers count:', suppliers.length)
     console.log('📊 Current filters:', filters)
-    console.log('📊 Current pagination:', pagination)
 
     try {
       console.log('🔄 Calling deleteSupplier...')
@@ -297,17 +284,8 @@ const SuppliersPage: React.FC = () => {
       showError(errorMessage)
     } finally {
       console.log('🔄 Starting refetch...')
-      console.log('🔄 Refetch params:', {
-        ...filters,
-        page: pagination.page,
-        limit: pagination.limit,
-      })
       // Always refetch to ensure UI is in sync with backend
-      await dispatch(fetchSuppliers({
-        ...filters,
-        page: pagination.page,
-        limit: pagination.limit,
-      }))
+      await dispatch(fetchSuppliers(filters))
       console.log('✅ Refetch complete')
       console.log('📊 New suppliers count:', suppliers.length)
     }
@@ -325,6 +303,11 @@ const SuppliersPage: React.FC = () => {
         type: supplier.type,
         contactPerson: supplier.contactPerson || null,
         phone: supplier.phone || null,
+        streetAddress: (supplier as any).streetAddress || null,
+        city: (supplier as any).city || null,
+        state: (supplier as any).state || null,
+        postalCode: (supplier as any).postalCode || null,
+        country: (supplier as any).country || null,
         notes: supplier.notes || null,
       })
     } else {
@@ -334,6 +317,11 @@ const SuppliersPage: React.FC = () => {
         type: SupplierType.LOCAL,
         contactPerson: null,
         phone: null,
+        streetAddress: null,
+        city: null,
+        state: null,
+        postalCode: null,
+        country: null,
         notes: null,
       })
     }
@@ -417,7 +405,6 @@ const SuppliersPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
-
       {/* Filters and Search */}
       <Box sx={{
         display: 'flex',
@@ -501,14 +488,12 @@ const SuppliersPage: React.FC = () => {
           </Select>
         </FormControl>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(clearError())}>
           {error}
         </Alert>
       )}
-
       {/* Supplier Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -770,19 +755,7 @@ const SuppliersPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-
-        {/* Pagination */}
-        <TablePagination
-          rowsPerPageOptions={[10, 20, 50]}
-          component="div"
-          count={pagination.total}
-          rowsPerPage={pagination.limit}
-          page={pagination.page - 1}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
       </Paper>
-
       {/* Supplier Form Dialog */}
       <Dialog
         open={isFormOpen}
@@ -797,13 +770,13 @@ const SuppliersPage: React.FC = () => {
         <form onSubmit={handleSubmit(handleFormSubmit)}>
           <DialogContent dividers>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="h6" gutterBottom>
                   Basic Information
                 </Typography>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="type"
                   control={control}
@@ -819,7 +792,7 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Controller
                   name="companyName"
                   control={control}
@@ -840,7 +813,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="contactPerson"
                   control={control}
@@ -857,7 +834,11 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Controller
                   name="phone"
                   control={control}
@@ -874,7 +855,116 @@ const SuppliersPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              {/* Address Information */}
+              <Grid size={12}>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Address Information
+                </Typography>
+              </Grid>
+
+              <Grid size={12}>
+                <Controller
+                  name="streetAddress"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Street Address"
+                      error={!!errors.streetAddress}
+                      helperText={errors.streetAddress?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="city"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="City"
+                      error={!!errors.city}
+                      helperText={errors.city?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="state"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="State"
+                      error={!!errors.state}
+                      helperText={errors.state?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="postalCode"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Postal Code"
+                      error={!!errors.postalCode}
+                      helperText={errors.postalCode?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Controller
+                  name="country"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      label="Country"
+                      error={!!errors.country}
+                      helperText={errors.country?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Notes */}
+              <Grid size={12}>
                 <Controller
                   name="notes"
                   control={control}
@@ -902,20 +992,12 @@ const SuppliersPage: React.FC = () => {
               type="submit"
               variant="contained"
               disabled={loading || isCheckingDuplicate || !!companyNameError}
-              onClick={() => {
-                console.log('🔘 Submit button clicked')
-                console.log('  loading:', loading)
-                console.log('  isCheckingDuplicate:', isCheckingDuplicate)
-                console.log('  companyNameError:', companyNameError)
-                console.log('  disabled:', loading || isCheckingDuplicate || !!companyNameError)
-              }}
             >
               {loading ? <CircularProgress size={20} /> : (selectedSupplier ? 'Update' : 'Create')}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
-
       {/* Supplier Details Dialog */}
       <Dialog
         open={isViewOpen}
@@ -927,7 +1009,7 @@ const SuppliersPage: React.FC = () => {
         <DialogContent dividers>
           {selectedSupplier && (
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
                     {selectedSupplier.companyName}
@@ -935,7 +1017,11 @@ const SuppliersPage: React.FC = () => {
                 </Box>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Contact Information</Typography>
                 <Stack spacing={1}>
                   {selectedSupplier.contactPerson && (
@@ -953,7 +1039,43 @@ const SuppliersPage: React.FC = () => {
                 </Stack>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
+                <Typography variant="h6" gutterBottom>Address</Typography>
+                <Stack spacing={1}>
+                  {((selectedSupplier as any).streetAddress || (selectedSupplier as any).city || (selectedSupplier as any).state || (selectedSupplier as any).postalCode || (selectedSupplier as any).country) ? (
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
+                      <Box>
+                        {(selectedSupplier as any).streetAddress && (
+                          <Typography>{(selectedSupplier as any).streetAddress}</Typography>
+                        )}
+                        {((selectedSupplier as any).city || (selectedSupplier as any).state || (selectedSupplier as any).postalCode) && (
+                          <Typography>
+                            {[(selectedSupplier as any).city, (selectedSupplier as any).state, (selectedSupplier as any).postalCode]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </Typography>
+                        )}
+                        {(selectedSupplier as any).country && (
+                          <Typography>{(selectedSupplier as any).country}</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Typography color="text.secondary" variant="body2">No address provided</Typography>
+                  )}
+                </Stack>
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Typography variant="h6" gutterBottom>Purchase Statistics</Typography>
                 <Stack spacing={1}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -980,7 +1102,7 @@ const SuppliersPage: React.FC = () => {
               </Grid>
 
               {selectedSupplier.notes && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="h6" gutterBottom>Notes</Typography>
                   <Typography>{selectedSupplier.notes}</Typography>
                 </Grid>
@@ -1004,7 +1126,6 @@ const SuppliersPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={isDeleteConfirmOpen}
@@ -1017,14 +1138,13 @@ const SuppliersPage: React.FC = () => {
         severity="warning"
         loading={loading}
       />
-
       {/* Deleted Suppliers Dialog */}
       <DeletedSuppliersDialog
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
       />
     </Box>
-  )
+  );
 }
 
 export default SuppliersPage
