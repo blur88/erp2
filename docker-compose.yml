@@ -55,7 +55,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=redis_password
-      - JWT_SECRET=your_jwt_secret_key_change_in_production
+      - JWT_SECRET=b9adcae340bc05b8b527f61067aaad6122cae3639e33e2ec39da3b68ae9d5ff64a080d73f62e384a8f40c49005d7bdf5647d36f019bc625d151f334ca680a4cf
+      - JWT_ACCESS_TOKEN_EXPIRY=15m
+      - JWT_REFRESH_TOKEN_EXPIRY=7d
       - PORT=3001
       - TZ=Asia/Kuala_Lumpur
     ports:

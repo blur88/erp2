@@ -16,6 +16,7 @@ export { AuditLog } from './audit-log.entity';
 
 // User Management (UsersModule)
 export { User, UserRole, UserStatus } from './user.entity';
+export { RefreshToken } from './refresh-token.entity';
 
 // Product Management (InventoryModule)
 export { Category } from './category.entity';
@@ -46,6 +47,7 @@ export { VendorPayment } from './vendor-payment.entity';
 // Import entities for array construction
 import { AuditLog } from './audit-log.entity';
 import { User } from './user.entity';
+import { RefreshToken } from './refresh-token.entity';
 import { Category } from './category.entity';
 import { Product } from './product.entity';
 import { Customer } from './customer.entity';
@@ -65,6 +67,7 @@ export const ACTIVE_ENTITIES = [
 
   // Core entities
   User,
+  RefreshToken,
   Category,
   Product,
   Customer,
@@ -84,7 +87,7 @@ export const ACTIVE_ENTITIES = [
  * Useful for feature-specific entity loading or testing
  */
 export const ACTIVE_ENTITY_GROUPS = {
-  CORE: [User, Category, Product, Customer],
+  CORE: [User, RefreshToken, Category, Product, Customer],
   // SALES: [SalesOrder, SalesOrderItem, Invoice, Payment], // Temporarily disabled for startup
   INVENTORY: [StockMovement],
 } as const;
