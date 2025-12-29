@@ -2,19 +2,28 @@
 
 export interface User {
   id: string;
+  username: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  fullName?: string;
+  phoneNumber?: string;
   role: UserRole;
-  permissions: Permission[];
+  status: 'active' | 'inactive' | 'suspended';
   isActive: boolean;
-  lastLogin?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  lastLoginAt?: Date | string;
+  lastLoginIp?: string;
+  failedLoginAttempts: number;
+  lockedUntil?: Date | string;
+  isLocked?: boolean;
+  notes?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
+export type UserRole = 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff';
 
-export type UserRole = 'admin' | 'manager' | 'employee' | 'viewer';
-
+// Legacy permission interface - kept for backward compatibility
 export interface Permission {
   id: string;
   name: string;

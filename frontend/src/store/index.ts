@@ -5,6 +5,7 @@ import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
 import themeSlice from './slices/themeSlice'
+import authSlice from './slices/authSlice'
 import notificationSlice from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
@@ -17,6 +18,7 @@ import auditLogSlice from './slices/auditLogSlice'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
+  auth: authSlice,
   notifications: notificationSlice,
   inventory: inventorySlice,
   sales: salesSlice,
@@ -32,8 +34,8 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: 'erp-app',
   storage,
-  whitelist: ['theme', 'inventory', 'sales', 'purchasing'], // Persist theme, inventory, sales, and purchasing (including selections)
-  version: 2, // Force dark mode for all users
+  whitelist: ['theme', 'auth', 'inventory', 'sales', 'purchasing'], // Persist theme, auth, inventory, sales, and purchasing (including selections)
+  version: 3, // Add auth persistence
   migrate: (state: any) => {
     // Force dark mode for all users on version 2+
     if (state) {

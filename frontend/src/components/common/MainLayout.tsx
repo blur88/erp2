@@ -23,11 +23,16 @@ import {
   Settings as SettingsIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
+  Person as PersonIcon,
+  Logout as LogoutIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material'
 
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { toggleTheme, selectThemeMode } from '@/store/slices/themeSlice'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
+import { logout as logoutAction } from '@/store/slices/authSlice'
+import { useNavigate } from 'react-router-dom'
 
 import Sidebar from './Sidebar'
 import NotificationPanel from './NotificationPanel'
@@ -49,6 +54,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null)
+  const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null)
+
+  const navigate = useNavigate()
+  const currentUser = useAppSelector((state) => state.auth?.user || null)
 
   // Close drawer on navigation to prevent overlay issues
   useEffect(() => {
@@ -70,6 +79,66 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const handleThemeToggle = () => {
     dispatch(toggleTheme())
+  }
+
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchorEl(event.currentTarget)
+  }
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchorEl(null)
+  }
+
+  const handleLogout = async () => {
+    handleUserMenuClose()
+    const refreshToken = (window as any).store?.getState()?.auth?.refreshToken
+    if (refreshToken) {
+      await dispatch(logoutAction(refreshToken))
+    }
+    navigate('/login')
+  }
+
+  const handleChangePassword = () => {
+    handleUserMenuClose()
+    // Will be implemented when ChangePasswordDialog is added
+    console.log('Change password clicked')
+  }
+
+  const handleProfile = () => {
+    handleUserMenuClose()
+    navigate('/profile')
+  }
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!currentUser) return 'U'
+    const firstName = currentUser.firstName || ''
+    const lastName = currentUser.lastName || ''
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || currentUser.username?.charAt(0).toUpperCase() || 'U'
+  }
+
+  // Get user display name
+  const getUserDisplayName = () => {
+    if (!currentUser) return 'User'
+    return currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}` || currentUser.username
+  }
+
+  // Get role badge color
+  const getRoleBadgeColor = (role?: string) => {
+    switch (role) {
+      case 'admin':
+        return 'error'
+      case 'manager':
+        return 'warning'
+      case 'sales_staff':
+        return 'info'
+      case 'inventory_staff':
+        return 'success'
+      case 'procurement_staff':
+        return 'primary'
+      default:
+        return 'default'
+    }
   }
 
 
@@ -131,6 +200,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </IconButton>
             </Tooltip>
 
+            {/* User Menu */}
+            <Tooltip title="Account">
+              <IconButton onClick={handleUserMenuOpen} sx={{ ml: 1 }}>
+                <Avatar
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    bgcolor: 'primary.main',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {getUserInitials()}
+                </Avatar>
+              </IconButton>
+            </Tooltip>
           </Box>
         </Toolbar>
       </AppBar>
@@ -200,6 +285,94 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         open={Boolean(notificationAnchorEl)}
         onClose={handleNotificationClose}
       />
+
+      {/* User Menu */}
+      <Menu
+        anchorEl={userMenuAnchorEl}
+        open={Boolean(userMenuAnchorEl)}
+        onClose={handleUserMenuClose}
+        onClick={handleUserMenuClose}
+        PaperProps={{
+          elevation: 3,
+          sx: {
+            mt: 1.5,
+            minWidth: 220,
+            overflow: 'visible',
+            '&:before': {
+              content: '""',
+              display: 'block',
+              position: 'absolute',
+              top: 0,
+              right: 14,
+              width: 10,
+              height: 10,
+              bgcolor: 'background.paper',
+              transform: 'translateY(-50%) rotate(45deg)',
+              zIndex: 0,
+            },
+          },
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        {/* User Info Header */}
+        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="subtitle2" fontWeight={600}>
+            {getUserDisplayName()}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block">
+            {currentUser?.email}
+          </Typography>
+          <Box sx={{ mt: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                px: 1,
+                py: 0.25,
+                borderRadius: 1,
+                bgcolor: `${getRoleBadgeColor(currentUser?.role)}.main`,
+                color: 'white',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                fontSize: '0.625rem',
+              }}
+            >
+              {currentUser?.role?.replace('_', ' ')}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Menu Items */}
+        <MenuItem onClick={handleProfile}>
+          <ListItemIcon>
+            <PersonIcon fontSize="small" />
+          </ListItemIcon>
+          My Profile
+        </MenuItem>
+
+        <MenuItem onClick={handleChangePassword}>
+          <ListItemIcon>
+            <LockIcon fontSize="small" />
+          </ListItemIcon>
+          Change Password
+        </MenuItem>
+
+        <MenuItem onClick={() => { handleUserMenuClose(); navigate('/settings/company'); }}>
+          <ListItemIcon>
+            <SettingsIcon fontSize="small" />
+          </ListItemIcon>
+          Settings
+        </MenuItem>
+
+        <Divider />
+
+        <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+          <ListItemIcon>
+            <LogoutIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          Logout
+        </MenuItem>
+      </Menu>
     </Box>
   )
 }

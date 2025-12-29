@@ -6,6 +6,10 @@ import { selectTheme } from './store/slices/themeSlice'
 
 // Layouts
 import MainLayout from './components/common/MainLayout'
+import ProtectedRoute from './components/auth/ProtectedRoute'
+
+// Auth Pages
+const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
 
 // Main Pages (lazy loaded)
 const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
@@ -74,11 +78,15 @@ function App() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Main Routes */}
+          {/* Public Routes */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Protected Routes */}
           <Route
             path="/*"
             element={
-              <MainLayout>
+              <ProtectedRoute>
+                <MainLayout>
                   <Routes>
                     {/* Dashboard */}
                     <Route path="/dashboard" element={<DashboardPage />} />
@@ -148,7 +156,8 @@ function App() {
                     {/* 404 page */}
                     <Route path="*" element={<NotFoundPage />} />
                   </Routes>
-              </MainLayout>
+                </MainLayout>
+              </ProtectedRoute>
             }
           />
         </Routes>
