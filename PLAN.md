@@ -1,425 +1,554 @@
-# Backup and Restore System - Implementation Plan
+# Implementation Plan: Basic Login System with User Settings
 
 ## Overview
-Implement a comprehensive backup and restore system for the entire database (PostgreSQL, MongoDB) and system settings (Redis). This feature will enable administrators to create full system backups and restore from previous backup points.
+Implement a basic username/password authentication system with JWT tokens and user profile management. This will restore authentication to the ERP2 system which previously had auth completely removed.
 
-## Goals
-1. **Complete Data Backup**: Backup PostgreSQL (all entities), MongoDB (analytics/reports), and Redis (settings/cache)
-2. **System Settings Backup**: Include application configuration, print settings, and company settings
-3. **Scheduled Backups**: Automated daily/weekly backup scheduling
-4. **Manual Backups**: On-demand backup creation via UI
-5. **Restore Functionality**: Ability to restore from any backup point with confirmation
-6. **Backup Management**: List, download, delete backup files
-7. **Storage Options**: Local filesystem storage with optional cloud storage extension
+## User Requirements
+- **Authentication Level**: Basic login only (username/password with JWT)
+- **User Settings**: Yes - profile page for updating user information and password
+- **Scope**: Minimal viable authentication without complex features (no password reset emails, no OAuth, no 2FA)
 
-## Architecture Design
+---
 
-### Backend Components
+## Backend Implementation
 
-#### 1. Backup Module (`backend/src/modules/backup/`)
-```
-backup/
-├── backup.module.ts
-├── backup.controller.ts
-├── backup.service.ts
-├── dto/
-│   ├── create-backup.dto.ts
-│   ├── restore-backup.dto.ts
-│   └── backup-schedule.dto.ts
-├── entities/
-│   └── backup-log.entity.ts
-└── interfaces/
-    └── backup-metadata.interface.ts
+### Phase 1: Install Dependencies
+**Location**: `backend/`
+
+Install required authentication packages:
+```bash
+npm install @nestjs/jwt @nestjs/passport passport passport-jwt bcrypt
+npm install -D @types/bcrypt @types/passport-jwt
 ```
 
-#### 2. Backup Service Responsibilities
-- **PostgreSQL Backup**: Use `pg_dump` to create SQL dump files
-- **MongoDB Backup**: Use `mongodump` for BSON exports
-- **Redis Backup**: Use `SAVE`/`BGSAVE` for RDB snapshots
-- **Settings Export**: JSON export of system/print/company settings
-- **Compression**: Create `.tar.gz` archives for backup files
-- **Metadata**: Store backup metadata (timestamp, size, type, status)
+### Phase 2: Create Auth Module
+**Location**: `backend/src/modules/auth/`
 
-#### 3. Backup Entity Schema
+Create new auth module with following structure:
+```
+backend/src/modules/auth/
+├── auth.module.ts
+├── auth.controller.ts
+├── auth.service.ts
+├── strategies/
+│   └── jwt.strategy.ts
+├── guards/
+│   └── jwt-auth.guard.ts
+└── dto/
+    ├── login.dto.ts
+    └── auth-response.dto.ts
+```
+
+**Files to Create:**
+
+1. **auth.module.ts**
+   - Import JwtModule with configuration from environment
+   - Import PassportModule with default strategy 'jwt'
+   - Import UsersModule (to access UserService)
+   - Provide: AuthService, JwtStrategy
+   - Export: AuthService, JwtModule
+
+2. **auth.controller.ts**
+   - `POST /api/auth/login` - Login endpoint
+     - Takes LoginDto (username, password)
+     - Returns AuthResponseDto (user, accessToken)
+     - Rate limit: 5 attempts per minute using @Throttle
+     - Returns specific error messages:
+       - "Account is locked. Please try again later."
+       - "Invalid username or password. X attempts remaining."
+   - `POST /api/auth/logout` - Logout endpoint (client-side token removal)
+     - No server-side action needed (stateless JWT)
+   - `GET /api/auth/profile` - Get current user profile
+     - Protected with @UseGuards(JwtAuthGuard)
+     - Returns current user from request.user
+   - `POST /api/auth/unlock/:userId` - Admin unlock account
+     - Protected with @UseGuards(JwtAuthGuard)
+     - Only admins can unlock accounts (check user.role === 'ADMIN')
+     - Resets failed attempts and clears lock
+
+3. **auth.service.ts**
+   - `validateUser(username: string, password: string)` - Validate credentials
+     - Find user by username
+     - Check if account is locked (lockedUntil > now)
+     - If locked, throw UnauthorizedException
+     - Compare password using bcrypt.compare()
+     - If invalid password:
+       - Increment failedLoginAttempts
+       - If attempts >= 5, set lockedUntil to 30 minutes from now
+       - Throw UnauthorizedException
+     - If valid password:
+       - Reset failedLoginAttempts to 0
+       - Clear lockedUntil
+       - Return user
+   - `login(user: User)` - Generate JWT token
+     - Create payload: { sub: user.id, username: user.username, role: user.role }
+     - Sign JWT with jwtService.sign()
+     - Update lastLoginAt and lastLoginIp in database
+     - Return { user: UserResponseDto, accessToken: string }
+   - `unlockAccount(userId: string)` - Admin function to unlock account
+     - Reset failedLoginAttempts to 0
+     - Clear lockedUntil
+
+4. **jwt.strategy.ts**
+   - Extend PassportStrategy(Strategy)
+   - Validate JWT payload
+   - Extract user from database by payload.sub (user ID)
+   - Return user object (attached to request.user)
+
+5. **jwt-auth.guard.ts**
+   - Extend @nestjs/passport AuthGuard('jwt')
+   - Provides @UseGuards(JwtAuthGuard) decorator for protected routes
+
+6. **DTOs:**
+   - **LoginDto**: username (string, required), password (string, required)
+   - **AuthResponseDto**: user (UserResponseDto), accessToken (string)
+
+### Phase 3: Update User Entity & Service
+**Location**: `backend/src/modules/users/`
+
+**Files to Modify:**
+
+1. **user.entity.ts** (NO CHANGES NEEDED)
+   - Password field already exists (varchar 255)
+   - Just need to hash passwords going forward
+
+2. **users.service.ts**
+   - Add bcrypt hashing to `create()` method:
+     ```typescript
+     const hashedPassword = await bcrypt.hash(dto.password, 10);
+     const user = this.userRepository.create({
+       ...dto,
+       password: hashedPassword
+     });
+     ```
+   - Add `findByUsername(username: string)` method for auth
+   - Add `updatePassword(userId: string, newPassword: string)` method
+     - Hash new password with bcrypt
+     - Update user.password field
+   - Add `updateProfile(userId: string, dto: UpdateProfileDto)` method
+     - Allow updating: firstName, lastName, email, phoneNumber
+     - Validate email uniqueness
+
+3. **users.controller.ts**
+   - Protect sensitive endpoints with @UseGuards(JwtAuthGuard)
+   - Update `GET /api/users/me` to use JWT user from request
+   - Update `PATCH /api/users/me` to use JWT user ID
+   - Add `PUT /api/users/me/password` endpoint for password changes
+     - Takes { currentPassword, newPassword }
+     - Validates current password before updating
+
+4. **New DTOs:**
+   - **UpdateProfileDto**: firstName?, lastName?, email?, phoneNumber?
+   - **ChangePasswordDto**: currentPassword (string, required), newPassword (string, required, min 8 chars)
+
+### Phase 4: Add JWT Configuration
+**Location**: `backend/src/config/`
+
+**Files to Create:**
+
+1. **jwt.config.ts**
+   - Export JWT configuration factory
+   - Read from environment: JWT_SECRET, JWT_EXPIRATION (default: '24h')
+   - Register with ConfigModule
+
+2. **Update .env / docker-compose.yml**
+   - Add JWT_SECRET environment variable (generate secure random string)
+   - Add JWT_EXPIRATION=24h
+
+### Phase 5: Update App Module
+**Location**: `backend/src/app.module.ts`
+
+- Import AuthModule
+- Add to imports array (after UsersModule)
+
+### Phase 6: Database Migration
+**Location**: `backend/src/database/migrations/`
+
+Create migration to reset all user passwords:
+- Migration name: `ResetUserPasswordsToDefault`
+- Set all users to default password: "Password123!"
+- Hash with bcrypt (10 rounds)
+- Reset failedLoginAttempts to 0
+- Clear lockedUntil field
+- Add note to each user: "Password reset - please change on first login"
+- **Action Required**: Users must change password after first login
+
+---
+
+## Frontend Implementation
+
+### Phase 1: Create Auth Redux Slice
+**Location**: `frontend/src/store/slices/authSlice.ts`
+
+**State Shape:**
 ```typescript
-BackupLog {
-  id: UUID
-  filename: string
-  filepath: string
-  backupType: 'manual' | 'scheduled'
-  status: 'in_progress' | 'completed' | 'failed'
-  size: number (bytes)
-  databases: string[] // ['postgresql', 'mongodb', 'redis']
-  startedAt: Date
-  completedAt: Date
-  createdBy: string
-  metadata: JSON // { pgVersion, mongoVersion, redisVersion, tables, collections }
-  error?: string
+interface AuthState {
+  user: UserResponseDto | null
+  token: string | null
+  isAuthenticated: boolean
+  loading: boolean
+  error: string | null
 }
 ```
 
-#### 4. API Endpoints
-```
-POST   /api/backup/create              - Create manual backup
-POST   /api/backup/restore/:id         - Restore from backup
-GET    /api/backup/list                - List all backups
-GET    /api/backup/download/:id        - Download backup file
-DELETE /api/backup/delete/:id          - Delete backup file
-GET    /api/backup/schedule            - Get backup schedule
-PUT    /api/backup/schedule            - Update backup schedule
-GET    /api/backup/status/:id          - Get backup operation status
-```
+**Async Thunks:**
+- `login(credentials: LoginDto)` - POST /api/auth/login
+  - On success: store token in state (Redux Persist will save it)
+  - Store user object
+  - Set isAuthenticated: true
+- `logout()` - Clear token and user from state
+- `fetchCurrentUser()` - GET /api/auth/profile
+  - Fetch user data with current token
+  - Refresh user object in state
 
-#### 5. Backup Queue System (Bull Queue)
-- **Queue Name**: `backup-queue`
-- **Jobs**:
-  - `create-backup`: Async backup creation
-  - `scheduled-backup`: Cron-triggered backups
-  - `cleanup-old-backups`: Remove backups older than retention period
-- **Progress Tracking**: Emit progress events via WebSocket
+**Reducers:**
+- Handle fulfilled/rejected cases for all thunks
+- Clear error on new requests
 
-#### 6. Backup Storage Structure
-```
-/app/backups/
-├── postgresql/
-│   └── erp_db_2025-12-25_14-30-00.sql
-├── mongodb/
-│   └── erp_analytics_2025-12-25_14-30-00/
-├── redis/
-│   └── dump_2025-12-25_14-30-00.rdb
-├── settings/
-│   └── settings_2025-12-25_14-30-00.json
-└── archives/
-    └── full_backup_2025-12-25_14-30-00.tar.gz
+### Phase 2: Create Auth API Service
+**Location**: `frontend/src/services/authApi.ts`
+
+**Methods:**
+```typescript
+export const authApi = {
+  login: (credentials: LoginDto) => ApiService.post('/auth/login', credentials),
+  logout: () => ApiService.post('/auth/logout'),
+  getCurrentUser: () => ApiService.get('/auth/profile'),
+}
 ```
 
-### Frontend Components
+### Phase 3: Update API Service Interceptor
+**Location**: `frontend/src/services/api.ts`
 
-#### 1. Backup Management Page (`frontend/src/pages/settings/BackupManagement.tsx`)
-**Features**:
-- List of all backups with metadata (date, size, type, status)
-- "Create Backup" button for manual backups
-- Actions: Download, Restore, Delete
-- Backup schedule configuration
-- Real-time backup progress indicator
-- Confirmation dialogs for restore operations
+**Modifications:**
+- Add request interceptor to attach JWT token:
+  ```typescript
+  apiClient.interceptors.request.use(config => {
+    const token = store.getState().auth.token
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  })
+  ```
+- Add response interceptor for 401 errors:
+  ```typescript
+  apiClient.interceptors.response.use(
+    response => response,
+    error => {
+      if (error.response?.status === 401) {
+        store.dispatch(logout())
+        window.location.href = '/login'
+      }
+      return Promise.reject(error)
+    }
+  )
+  ```
 
-#### 2. Backup Schedule Dialog (`frontend/src/components/backup/BackupScheduleDialog.tsx`)
-**Configuration Options**:
-- Enable/disable automated backups
-- Frequency: Daily, Weekly, Monthly
-- Time of day for execution
-- Retention policy (keep last N backups)
-- Email notifications on completion/failure
+### Phase 4: Create Login Page
+**Location**: `frontend/src/pages/auth/LoginPage.tsx`
 
-#### 3. Restore Confirmation Dialog (`frontend/src/components/backup/RestoreConfirmationDialog.tsx`)
-**Warning Features**:
-- Display backup metadata (date, size, databases included)
-- Warning about overwriting current data
-- Checkbox: "I understand this will replace all current data"
-- Two-step confirmation (type "RESTORE" to confirm)
-- Estimated restore time
+**Component Structure:**
+- Full-screen centered login form (not in MainLayout)
+- Material-UI Card with Paper elevation
+- React Hook Form + Yup validation
+- Fields: username (required), password (required, min 8 chars)
+- Submit button with loading state
+- Error message display using useNotification
+- Redirect to /dashboard on successful login
+- Company logo and title at top
 
-#### 4. Backup Progress Indicator (`frontend/src/components/backup/BackupProgress.tsx`)
-**Real-time Updates**:
-- WebSocket connection for live progress
-- Progress bar with percentage
-- Current operation status (e.g., "Backing up PostgreSQL...")
-- Estimated time remaining
-- Cancel operation button
-
-### Database Schema
-
-#### PostgreSQL Migration
-```sql
-CREATE TABLE backup_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  filename VARCHAR(255) NOT NULL,
-  filepath VARCHAR(500) NOT NULL,
-  backup_type VARCHAR(20) NOT NULL CHECK (backup_type IN ('manual', 'scheduled')),
-  status VARCHAR(20) NOT NULL CHECK (status IN ('in_progress', 'completed', 'failed')),
-  size BIGINT,
-  databases TEXT[] DEFAULT '{}',
-  started_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  completed_at TIMESTAMP,
-  created_by VARCHAR(100) DEFAULT 'system',
-  metadata JSONB,
-  error TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_backup_logs_status ON backup_logs(status);
-CREATE INDEX idx_backup_logs_created_at ON backup_logs(created_at DESC);
+**Validation Schema:**
+```typescript
+const schema = yup.object({
+  username: yup.string().required('Username is required'),
+  password: yup.string().required('Password is required').min(8)
+})
 ```
 
-## Implementation Steps
+**Actions:**
+- On submit: dispatch login() thunk
+- On success:
+  - Navigate('/dashboard')
+  - If user notes contains "Password reset", show notification to change password
+- On error:
+  - Show specific error message (account locked, invalid credentials, attempts remaining)
+  - Display error notification
 
-### Phase 1: Core Backup Functionality (Day 1-2)
-1. **Setup Module Structure**
-   - Create BackupModule with controller, service, entities
-   - Add BackupLog entity with TypeORM
-   - Create database migration for backup_logs table
+### Phase 5: Create User Settings Page
+**Location**: `frontend/src/pages/settings/UserSettingsPage.tsx`
 
-2. **Implement PostgreSQL Backup**
-   - Use `pg_dump` via child_process
-   - Handle connection credentials from environment
-   - Save SQL dump to backup directory
-   - Compress with gzip
+**Component Structure:**
+- Two tabs: "Profile Information" and "Change Password"
+- Profile tab:
+  - Form fields: firstName, lastName, email, phoneNumber
+  - Pre-filled with current user data
+  - Submit updates to PATCH /api/users/me
+- Change Password tab:
+  - Form fields: currentPassword, newPassword, confirmNewPassword
+  - Validation: passwords match, min 8 chars
+  - Submit to PUT /api/users/me/password
+- Use react-hook-form + yup
+- Success/error notifications
 
-3. **Implement MongoDB Backup**
-   - Use `mongodump` for BSON export
-   - Handle authentication if configured
-   - Save to backup directory
+**API Calls:**
+```typescript
+// Profile update
+const updateProfile = async (data: UpdateProfileDto) => {
+  await ApiService.patch('/users/me', data)
+}
 
-4. **Implement Redis Backup**
-   - Trigger `BGSAVE` command
-   - Copy RDB file to backup directory
-   - Export settings as JSON for human readability
+// Password change
+const changePassword = async (data: ChangePasswordDto) => {
+  await ApiService.put('/users/me/password', data)
+}
+```
 
-5. **Create Archive**
-   - Combine all backup files into `.tar.gz`
-   - Generate metadata file
-   - Create BackupLog database record
-   - Clean up temporary files
+### Phase 6: Create Protected Route Component
+**Location**: `frontend/src/components/auth/ProtectedRoute.tsx`
 
-### Phase 2: Restore Functionality (Day 3)
-1. **Implement PostgreSQL Restore**
-   - Extract archive to temp directory
-   - Drop existing database schema (with confirmation)
-   - Use `psql` to restore from SQL dump
-   - Verify restoration success
+**Component Logic:**
+- Check if user is authenticated from Redux state
+- If not authenticated:
+  - Redirect to /login
+  - Store intended destination in localStorage
+- If authenticated:
+  - Render children
+- Show loading state while checking auth
 
-2. **Implement MongoDB Restore**
-   - Extract BSON dump
-   - Use `mongorestore` to import collections
-   - Verify data integrity
+**Usage:**
+```typescript
+<ProtectedRoute>
+  <Dashboard />
+</ProtectedRoute>
+```
 
-3. **Implement Redis Restore**
-   - Stop Redis temporarily
-   - Replace RDB file
-   - Restart Redis
-   - Restore settings from JSON
+### Phase 7: Update App.tsx Routing
+**Location**: `frontend/src/App.tsx`
 
-4. **Post-Restore Actions**
-   - Run database migrations if needed
-   - Clear application cache
-   - Restart backend services
-   - Log restore operation
+**Changes:**
+- Add public route: `/login` → LoginPage (not wrapped in MainLayout)
+- Wrap all existing routes with ProtectedRoute component
+- Add `/settings/profile` route → UserSettingsPage
+- Default redirect: `/` → `/login` if not authenticated, else `/dashboard`
 
-### Phase 3: Scheduling & Queue System (Day 4)
-1. **Setup Bull Queue**
-   - Create `backup-queue` processor
-   - Add job handlers for create-backup
-   - Implement progress tracking
+**Route Structure:**
+```typescript
+<Routes>
+  {/* Public Routes */}
+  <Route path="/login" element={<LoginPage />} />
 
-2. **Implement Scheduled Backups**
-   - Create BackupSchedule entity/settings
-   - Add cron job configuration
-   - Bull Queue repeatable jobs
-   - Email notification on completion
+  {/* Protected Routes */}
+  <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+    <Route path="/dashboard" element={<Dashboard />} />
+    <Route path="/settings/profile" element={<UserSettingsPage />} />
+    {/* ... all other routes ... */}
+  </Route>
 
-3. **Cleanup Jobs**
-   - Implement retention policy
-   - Delete old backups automatically
-   - Free up disk space
+  <Route path="*" element={<Navigate to="/login" />} />
+</Routes>
+```
 
-### Phase 4: Frontend Implementation (Day 5-6)
-1. **Backup Management Page**
-   - Create BackupManagement.tsx
-   - Add Redux slice for backup state
-   - Implement backup list with MUI DataGrid
-   - Add action buttons (Create, Download, Restore, Delete)
+### Phase 8: Update Main Layout
+**Location**: `frontend/src/components/layout/MainLayout.tsx`
 
-2. **Backup Creation**
-   - Create backup button with loading state
-   - WebSocket integration for progress
-   - Success/error notifications
-   - Auto-refresh list on completion
+**Changes:**
+- Add user menu in AppBar:
+  - Display current user name
+  - Dropdown with options:
+    - "Profile Settings" → navigate to /settings/profile
+    - "Logout" → dispatch logout() and navigate to /login
+- Use Avatar component for user icon
+- Get user from Redux: `useAppSelector(state => state.auth.user)`
 
-3. **Restore Functionality**
-   - RestoreConfirmationDialog component
-   - Two-step confirmation process
-   - Progress tracking during restore
-   - Success confirmation with page reload
+### Phase 9: Update Redux Store Configuration
+**Location**: `frontend/src/store/index.ts`
 
-4. **Schedule Configuration**
-   - BackupScheduleDialog component
-   - Form with schedule options
-   - Save/update schedule settings
+**Changes:**
+- Import authSlice reducer
+- Add to rootReducer: `auth: authReducer`
+- Add 'auth' to persistConfig whitelist (persist token across page refreshes)
 
-### Phase 5: Testing & Documentation (Day 7)
-1. **Backend Tests**
-   - Unit tests for BackupService methods
-   - Integration tests for backup/restore flow
-   - Test error handling and edge cases
+**Persist Config:**
+```typescript
+const persistConfig = {
+  key: 'root',
+  storage,
+  whitelist: ['theme', 'inventory', 'sales', 'purchasing', 'auth'], // Add auth
+}
+```
 
-2. **Frontend Tests**
-   - Component tests with Vitest
-   - Integration tests for backup flow
-   - Test WebSocket progress updates
+---
 
-3. **Documentation**
-   - Update CLAUDE.md with backup module info
-   - Add API endpoint documentation
-   - Create user guide for backup/restore
-   - Document backup file structure
+## Testing Strategy
 
-## Technical Considerations
+### Backend Testing
+1. **Auth Service Tests**:
+   - Test password hashing during user creation
+   - Test validateUser() with correct/incorrect passwords
+   - Test JWT token generation
 
-### Docker Integration
-- Mount backup volume: `./backups:/app/backups`
-- Ensure PostgreSQL, MongoDB clients installed in backend container
-- Handle file permissions for backup directory
-- Consider backup volume size limits
+2. **Auth Controller Tests**:
+   - Test login endpoint with valid/invalid credentials
+   - Test protected endpoints require JWT
+   - Test token expiration handling
 
-### Security
-- Encrypt backup archives with AES-256
-- Store encryption keys separately
-- Validate backup integrity with checksums (SHA-256)
-- Restrict restore operations to admin users only
-- Sanitize file paths to prevent directory traversal
+3. **Manual API Testing**:
+   - Use Postman/curl to test /api/auth/login
+   - Verify JWT token in response
+   - Test protected endpoints with Authorization header
 
-### Performance
-- Use streaming for large database dumps
-- Compress backups to save storage space
-- Run backups during off-peak hours
-- Set timeout limits for long operations
-- Monitor disk space before backup creation
+### Frontend Testing
+1. **Login Flow**:
+   - Submit valid credentials → redirects to dashboard
+   - Submit invalid credentials → shows error
+   - Token persists after page refresh
 
-### Error Handling
-- Graceful failure with detailed error logs
-- Rollback on partial restore failures
-- Retry logic for transient failures
-- User-friendly error messages
-- Backup verification before deletion
+2. **Protected Routes**:
+   - Access dashboard without login → redirects to /login
+   - Logout → redirects to /login
+   - Token expired → redirects to /login
 
-### Monitoring
-- Track backup success/failure rates
-- Alert on consecutive failures
-- Monitor backup storage usage
-- Log all backup/restore operations
-- Dashboard widget for backup status
+3. **User Settings**:
+   - Update profile information → success notification
+   - Change password with wrong current password → error
+   - Change password with valid data → success
 
-## Configuration
+---
 
-### Environment Variables
+## Environment Variables
+
+### Backend (.env)
 ```env
-# Backup Configuration
-BACKUP_ENABLED=true
-BACKUP_DIRECTORY=/app/backups
-BACKUP_RETENTION_DAYS=30
-BACKUP_ENCRYPTION_ENABLED=true
-BACKUP_ENCRYPTION_KEY=<secret-key>
-BACKUP_MAX_SIZE_GB=10
-
-# Scheduled Backups
-BACKUP_SCHEDULE_ENABLED=true
-BACKUP_SCHEDULE_CRON=0 2 * * * # Daily at 2 AM
-BACKUP_NOTIFICATION_EMAIL=admin@example.com
-
-# Database Credentials (for backup tools)
-POSTGRES_BACKUP_HOST=postgres
-POSTGRES_BACKUP_PORT=5432
-MONGO_BACKUP_URI=mongodb://mongodb:27017
+JWT_SECRET=<generate-random-64-char-string>
+JWT_EXPIRATION=24h
 ```
 
-### Default Schedule Settings
-```typescript
-{
-  enabled: false,
-  frequency: 'daily',
-  time: '02:00',
-  retentionDays: 30,
-  includeDatabases: ['postgresql', 'mongodb', 'redis'],
-  includeSettings: true,
-  compression: 'gzip',
-  encryption: true,
-  notifications: {
-    enabled: false,
-    email: '',
-    onSuccess: false,
-    onFailure: true
-  }
-}
-```
+### Frontend (.env)
+No new variables needed - uses existing VITE_API_BASE_URL
 
-## Navigation Integration
+---
 
-### Settings Module
-Add backup management to settings navigation:
-- Settings > Backup & Restore
-- Settings > Backup Schedule
-- Route: `/settings/backup`
+## Critical Files to Modify/Create
 
-### Dashboard Widget (Optional)
-- Last backup status
-- Next scheduled backup
-- Quick "Create Backup" action
-- Storage usage indicator
+### Backend (Create New)
+- `backend/src/modules/auth/auth.module.ts`
+- `backend/src/modules/auth/auth.controller.ts`
+- `backend/src/modules/auth/auth.service.ts`
+- `backend/src/modules/auth/strategies/jwt.strategy.ts`
+- `backend/src/modules/auth/guards/jwt-auth.guard.ts`
+- `backend/src/modules/auth/dto/login.dto.ts`
+- `backend/src/modules/auth/dto/auth-response.dto.ts`
+- `backend/src/config/jwt.config.ts`
+- `backend/src/database/migrations/[timestamp]-ResetUserPasswordsToDefault.ts`
 
-## Success Metrics
-1. ✅ Successfully create full system backup (PostgreSQL + MongoDB + Redis)
-2. ✅ Successfully restore from backup and verify data integrity
-3. ✅ Scheduled backups run automatically according to cron schedule
-4. ✅ Backup retention policy automatically removes old backups
-5. ✅ Frontend UI allows easy backup management
-6. ✅ WebSocket provides real-time backup/restore progress
-7. ✅ Comprehensive error handling and logging
-8. ✅ All backup operations logged in database
+### Backend (Modify Existing)
+- `backend/src/modules/users/users.service.ts` - Add password hashing, findByUsername, updatePassword methods
+- `backend/src/modules/users/users.controller.ts` - Add @UseGuards, password change endpoint
+- `backend/src/modules/users/dto/update-user.dto.ts` - Add UpdateProfileDto, ChangePasswordDto
+- `backend/src/app.module.ts` - Import AuthModule
+- `backend/package.json` - Add dependencies
 
-## Future Enhancements
-1. **Cloud Storage Integration**: Upload backups to AWS S3, Google Cloud Storage
-2. **Incremental Backups**: Only backup changes since last full backup
-3. **Selective Restore**: Restore individual tables/collections
-4. **Backup Comparison**: Diff tool to compare backup states
-5. **Multi-Environment**: Restore production backup to staging
-6. **Disaster Recovery**: Automated backup testing and validation
-7. **Backup Replication**: Mirror backups to multiple locations
-8. **Point-in-Time Recovery**: Restore to specific transaction timestamp
+### Frontend (Create New)
+- `frontend/src/pages/auth/LoginPage.tsx`
+- `frontend/src/pages/settings/UserSettingsPage.tsx`
+- `frontend/src/components/auth/ProtectedRoute.tsx`
+- `frontend/src/store/slices/authSlice.ts`
+- `frontend/src/services/authApi.ts`
+- `frontend/src/types/auth.types.ts`
 
-## Risk Assessment
+### Frontend (Modify Existing)
+- `frontend/src/App.tsx` - Add login route, wrap routes with ProtectedRoute
+- `frontend/src/services/api.ts` - Add auth interceptors
+- `frontend/src/store/index.ts` - Add authSlice to store and persist config
+- `frontend/src/components/layout/MainLayout.tsx` - Add user menu with logout
+- `frontend/package.json` - No new dependencies needed
 
-### High Risk Areas
-- **Data Loss**: Restore operation overwrites current data (mitigated by strong confirmation)
-- **Disk Space**: Backups consume significant storage (mitigated by retention policy)
-- **Downtime**: Restore requires application downtime (mitigated by progress tracking)
-- **Corruption**: Backup files could be corrupted (mitigated by checksums)
+### Docker & Config
+- `docker-compose.yml` - Add JWT_SECRET environment variable
+- `.env.example` - Document JWT_SECRET and JWT_EXPIRATION
 
-### Mitigation Strategies
-- Pre-restore validation of backup integrity
-- Test restore process in staging environment first
-- Keep multiple backup versions
-- Monitor backup file health
-- Implement backup verification jobs
+---
 
-## Dependencies
+## Implementation Order
 
-### Backend
-- `@nestjs/bull` - Queue management
-- `bull` - Job processing
-- `tar` - Archive creation
-- `pg_dump`, `pg_restore` - PostgreSQL backup tools (installed in Docker)
-- `mongodump`, `mongorestore` - MongoDB backup tools (installed in Docker)
-- `node-cron` - Cron scheduling (if not using Bull repeatable jobs)
-- `archiver` - Node.js archiving library
-- `fast-csv` - CSV export for settings
+1. **Backend Auth Module** (core authentication)
+2. **Backend User Service Updates** (password hashing, profile endpoints)
+3. **Database Migration** (reset passwords to default)
+4. **Frontend Auth Slice** (state management)
+5. **Frontend Login Page** (user entry point)
+6. **Frontend Protected Routes** (route guards)
+7. **Frontend User Settings** (profile management)
+8. **UI Integration** (layout updates, user menu)
+9. **Testing** (manual testing of full flow)
+10. **Documentation** (update CLAUDE.md with auth status)
 
-### Frontend
-- No new dependencies (use existing MUI, Redux, Socket.IO)
+---
 
-### Docker
-- Ensure `postgresql-client` installed in backend container
-- Ensure `mongodb-database-tools` installed in backend container
-- Mount backup volume in docker-compose.yml
+## Security Considerations
 
-## Estimated Timeline
-- **Phase 1**: 2 days (Core backup functionality)
-- **Phase 2**: 1 day (Restore functionality)
-- **Phase 3**: 1 day (Scheduling & queue system)
-- **Phase 4**: 2 days (Frontend implementation)
-- **Phase 5**: 1 day (Testing & documentation)
-- **Total**: 7 days
+### Implemented
+- Password hashing with bcrypt (10 rounds)
+- JWT with configurable expiration (24h default)
+- HTTP-only token storage (localStorage on frontend)
+- Rate limiting on login endpoint (5 attempts/minute)
+- Password complexity validation (min 8 chars)
+- **Account lockout**: 5 failed attempts → 30 minute lock
+- Failed login attempt tracking with database persistence
+- Admin unlock capability for locked accounts
+- Informative error messages showing remaining attempts
 
-## Conclusion
-This backup and restore system will provide comprehensive data protection for the ERP system, enabling disaster recovery, system migration, and data archival. The implementation follows the existing codebase patterns with TypeORM entities, NestJS modules, Bull queues, and Material-UI frontend components.
+### Not Implemented (Future Enhancements)
+- Refresh tokens (JWT expiration requires re-login)
+- Password reset via email
+- Two-factor authentication
+- Session management (JWT is stateless)
+- CSRF protection (not needed for JWT)
+- Password expiration/rotation policies
+- Force password change on first login (UI notification only)
+
+---
+
+## Rollback Plan
+
+If issues arise:
+1. Comment out AuthModule import in app.module.ts
+2. Remove @UseGuards decorators from controllers
+3. System returns to public access mode
+4. All code changes are isolated to auth module (minimal risk)
+
+---
+
+## Post-Implementation Updates
+
+### CLAUDE.md Updates Required
+- Remove "⚠️ CRITICAL: Authentication system completely removed"
+- Update "Current System Status" to reflect JWT auth
+- Add Auth Module to active modules list
+- Update security status section
+- Add authentication endpoints to API documentation
+- Update development patterns with auth examples
+
+### README.md Updates
+- Add login instructions
+- Document default credentials for all users: "Password123!"
+- Note: All users must change password after first login
+- Add JWT environment variables to setup guide
+
+### Default Credentials After Migration
+**All existing users will have password reset to**: `Password123!`
+
+Users should:
+1. Login with their existing username and default password
+2. Navigate to Settings → Profile
+3. Change password immediately in the "Change Password" tab
+
+**Admin unlock capability**: Admins can unlock accounts from Users management page (future enhancement)
+
+---
+
+## Estimated Complexity
+- **Backend**: Medium (new module, password hashing, JWT strategy)
+- **Frontend**: Medium (new pages, Redux slice, route guards)
+- **Total**: ~15-20 files to create/modify
+- **Risk**: Low (isolated changes, easy rollback)
