@@ -16,6 +16,8 @@ import {
   Tooltip,
   Divider,
   ListItemIcon,
+  Popover,
+  MenuList,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -31,7 +33,7 @@ import {
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { toggleTheme, selectThemeMode } from '@/store/slices/themeSlice'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
-import { logout as logoutAction } from '@/store/slices/authSlice'
+import { logout as logoutAction, selectRefreshToken } from '@/store/slices/authSlice'
 import { useNavigate } from 'react-router-dom'
 
 import Sidebar from './Sidebar'
@@ -58,10 +60,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const navigate = useNavigate()
   const currentUser = useAppSelector((state) => state.auth?.user || null)
+  const refreshToken = useAppSelector(selectRefreshToken)
 
-  // Close drawer on navigation to prevent overlay issues
+  // Close drawer and user menu on navigation to prevent overlay issues
   useEffect(() => {
     setMobileOpen(false)
+    setUserMenuAnchorEl(null)
   }, [location.pathname])
 
   const handleDrawerToggle = () => {
@@ -81,7 +85,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     dispatch(toggleTheme())
   }
 
-  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
     setUserMenuAnchorEl(event.currentTarget)
   }
 
@@ -91,36 +97,58 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const handleLogout = async () => {
     handleUserMenuClose()
-    const refreshToken = (window as any).store?.getState()?.auth?.refreshToken
     if (refreshToken) {
       await dispatch(logoutAction(refreshToken))
     }
     navigate('/login')
   }
 
-  const handleChangePassword = () => {
-    handleUserMenuClose()
-    // Will be implemented when ChangePasswordDialog is added
-    console.log('Change password clicked')
-  }
-
-  const handleProfile = () => {
-    handleUserMenuClose()
-    navigate('/profile')
-  }
-
   // Get user initials for avatar
   const getUserInitials = () => {
     if (!currentUser) return 'U'
-    const firstName = currentUser.firstName || ''
-    const lastName = currentUser.lastName || ''
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || currentUser.username?.charAt(0).toUpperCase() || 'U'
+
+    const firstName = currentUser.firstName?.trim() || ''
+    const lastName = currentUser.lastName?.trim() || ''
+
+    // Try to get initials from first and last name
+    const firstInitial = firstName.charAt(0).toUpperCase()
+    const lastInitial = lastName.charAt(0).toUpperCase()
+
+    if (firstInitial && lastInitial) {
+      return `${firstInitial}${lastInitial}`
+    }
+
+    if (firstInitial) {
+      return firstInitial
+    }
+
+    if (lastInitial) {
+      return lastInitial
+    }
+
+    // Fallback to first letter of username
+    return currentUser.username?.charAt(0).toUpperCase() || 'U'
   }
 
   // Get user display name
   const getUserDisplayName = () => {
     if (!currentUser) return 'User'
-    return currentUser.fullName || `${currentUser.firstName} ${currentUser.lastName}` || currentUser.username
+
+    // Check if fullName exists and is not empty
+    if (currentUser.fullName && currentUser.fullName.trim()) {
+      return currentUser.fullName
+    }
+
+    // Check if firstName and lastName exist
+    const firstName = currentUser.firstName?.trim() || ''
+    const lastName = currentUser.lastName?.trim() || ''
+
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim()
+    }
+
+    // Fallback to username
+    return currentUser.username || 'User'
   }
 
   // Get role badge color
@@ -201,21 +229,26 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             </Tooltip>
 
             {/* User Menu */}
-            <Tooltip title="Account">
-              <IconButton onClick={handleUserMenuOpen} sx={{ ml: 1 }}>
-                <Avatar
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    bgcolor: 'primary.main',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  {getUserInitials()}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
+            <IconButton
+              onClick={handleUserMenuOpen}
+              sx={{ ml: 1 }}
+              aria-label="Account menu"
+              aria-controls={Boolean(userMenuAnchorEl) ? 'user-menu' : undefined}
+              aria-haspopup="true"
+              aria-expanded={Boolean(userMenuAnchorEl) ? 'true' : undefined}
+            >
+              <Avatar
+                sx={{
+                  width: 36,
+                  height: 36,
+                  bgcolor: 'primary.main',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                }}
+              >
+                {getUserInitials()}
+              </Avatar>
+            </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
@@ -288,32 +321,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
       {/* User Menu */}
       <Menu
+        id="user-menu"
         anchorEl={userMenuAnchorEl}
         open={Boolean(userMenuAnchorEl)}
         onClose={handleUserMenuClose}
-        onClick={handleUserMenuClose}
-        PaperProps={{
-          elevation: 3,
-          sx: {
-            mt: 1.5,
-            minWidth: 220,
-            overflow: 'visible',
-            '&:before': {
-              content: '""',
-              display: 'block',
-              position: 'absolute',
-              top: 0,
-              right: 14,
-              width: 10,
-              height: 10,
-              bgcolor: 'background.paper',
-              transform: 'translateY(-50%) rotate(45deg)',
-              zIndex: 0,
+        keepMounted={false}
+        disablePortal={false}
+        disableScrollLock={true}
+        disableAutoFocusItem={false}
+        transitionDuration={0}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        slotProps={{
+          paper: {
+            elevation: 3,
+            sx: {
+              mt: 1.5,
+              minWidth: 220,
+              overflow: 'visible',
+              filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+              zIndex: 1300,
             },
           },
         }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         {/* User Info Header */}
         <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -343,21 +379,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </Box>
 
         {/* Menu Items */}
-        <MenuItem onClick={handleProfile}>
+        <MenuItem onClick={() => navigate('/settings/users')}>
           <ListItemIcon>
             <PersonIcon fontSize="small" />
           </ListItemIcon>
-          My Profile
+          User Management
         </MenuItem>
 
-        <MenuItem onClick={handleChangePassword}>
-          <ListItemIcon>
-            <LockIcon fontSize="small" />
-          </ListItemIcon>
-          Change Password
-        </MenuItem>
-
-        <MenuItem onClick={() => { handleUserMenuClose(); navigate('/settings/company'); }}>
+        <MenuItem onClick={() => navigate('/settings/company')}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>
