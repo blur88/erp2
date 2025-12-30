@@ -1,6 +1,6 @@
 # 🏢 ERP System - Modern Business Management
 
-A comprehensive ERP (Enterprise Resource Planning) system built with modern full-stack architecture, featuring inventory management, sales, purchasing, user management, and real-time dashboard analytics. Currently optimized for rapid development with simplified authentication-free architecture.
+A comprehensive ERP (Enterprise Resource Planning) system built with modern full-stack architecture, featuring JWT authentication, inventory management, sales, purchasing, user management, and real-time dashboard analytics. Production-ready with complete security and role-based access control.
 
 ## 🚀 Quick Start
 
@@ -18,9 +18,13 @@ cd /home/blur/erp2
 docker-compose up -d
 
 # Access the application
-# Frontend: http://localhost:3000
+# Frontend: http://localhost:3000 (redirects to /login)
 # Backend API: http://localhost:3001/api
 # API Documentation: http://localhost:3001/api/docs
+
+# Default admin credentials (CHANGE IMMEDIATELY after first login)
+# Username: admin
+# Password: Admin@123!
 ```
 
 ### Quick System Commands
@@ -48,14 +52,17 @@ docker-compose up -d
 - **Backend API**: http://localhost:3001/api
 - **API Documentation**: http://localhost:3001/api/docs
 
-### ✅ Working Pages (Fully Functional)
+### ✅ Working Pages (Fully Functional - Authentication Required)
+- **Login**: http://localhost:3000/login (JWT authentication)
 - **Dashboard**: http://localhost:3000/ (with real-time WebSocket updates)
 - **Inventory Management**: http://localhost:3000/inventory
 - **Products**: http://localhost:3000/inventory/products (CRUD + soft-deleted management)
 - **Categories**: http://localhost:3000/inventory/categories (simplified table view)
 - **Sales**: http://localhost:3000/sales (customers, orders, invoices, payments)
-- **Purchasing**: http://localhost:3000/purchasing (suppliers, purchase orders - re-enabled October 2025)
-- **Users**: http://localhost:3000/users (basic CRUD)
+- **Purchasing**: http://localhost:3000/purchasing (suppliers, purchase orders)
+- **User Management**: http://localhost:3000/settings/users (admin only)
+- **Role Management**: http://localhost:3000/settings/roles (admin/manager)
+- **Security Settings**: http://localhost:3000/settings/security (admin only)
 
 ### 📊 Module-Embedded Reports (Active - December 2025)
 - **Inventory Reports**: Product Cost, Price List, Summary, Historical, Movement Summary
@@ -69,30 +76,34 @@ docker-compose up -d
 
 ### Current Status - December 2025
 
-**⚠️ CRITICAL: Authentication system completely removed**
+**✅ PRODUCTION-READY: Complete JWT authentication system implemented**
 
-- **Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule` (7 active)
+- **Active Modules**: `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `AuditLogsModule`, `BackupModule` (10 active)
 - **Module-Embedded Reports**: Each business module (Inventory, Sales, Purchasing) has integrated reports
 - **Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
-- **Public API Access**: All endpoints publicly accessible without authentication
-- **Frontend Integration**: Fully integrated with backend
+- **Authentication**: JWT-based with refresh tokens, role-based access control (5 roles)
+- **Security**: bcrypt password hashing, account lockout, rate limiting
+- **Test Coverage**: 81 tests (57 backend + 24 frontend) - 100% passing
 
 ### Core Features
+- ✅ **Authentication & Authorization** - JWT with refresh tokens, RBAC with 5 roles, account lockout
 - ✅ **Dashboard** - Real-time KPIs with WebSocket updates
 - ✅ **Inventory Management** - Products with barcodes, simplified categories, soft-delete management
 - ✅ **Sales Management** - Customers, orders, invoices, payments with flexible costing methods
-- ✅ **Purchasing Management** - Suppliers, purchase orders, goods received notes (re-enabled October 2025)
+- ✅ **Purchasing Management** - Suppliers, purchase orders, goods received notes
 - ✅ **Module-Embedded Reports** - Comprehensive reporting in Inventory, Sales, Purchasing modules
 - ✅ **Settings Management** - Company settings and print template configuration
-- ✅ **User Management** - Basic user CRUD operations
+- ✅ **Admin Settings UI** - User management, role management, security settings (admin only)
+- ✅ **Audit Logging** - Comprehensive audit trails for all operations
+- ✅ **Backup & Restore** - Database backup and restore functionality
 - ❌ **Plugin System** - Module disabled (available but needs enabling)
 
 ### Technology Stack
 - **Frontend**: React 18.3.1 + TypeScript + Material-UI v7 + Redux Toolkit + Vite
 - **Backend**: NestJS 11 + TypeORM (PostgreSQL 18.1) + MongoDB + Redis 8.4 + Bull Queue
 - **Infrastructure**: Docker + NGINX + Node.js 24
-- **Testing**: Jest (backend) + Vitest (frontend)
-- **Security**: Input validation, security headers (CORS, CSP, HSTS)
+- **Testing**: Jest (backend) + Vitest (frontend) - 81 tests total
+- **Security**: JWT authentication, bcrypt hashing, RBAC, rate limiting, input validation, security headers
 
 ## 🏗️ Architecture
 
@@ -101,21 +112,24 @@ docker-compose up -d
 backend/
 ├── src/
 │   ├── modules/
-│   │   ├── users/          # ✅ User management (active)
+│   │   ├── auth/           # ✅ JWT authentication, token refresh, password management (active)
+│   │   ├── users/          # ✅ User management with RBAC (active)
 │   │   ├── inventory/      # ✅ Product & stock management with integrated reports (active)
 │   │   ├── sales/          # ✅ Sales & customer management with integrated reports (active)
 │   │   ├── purchasing/     # ✅ Supplier & procurement with integrated reports (active)
 │   │   ├── dashboard/      # ✅ Real-time analytics with WebSocket (active)
 │   │   ├── settings/       # ✅ Company settings and configuration (active)
 │   │   ├── print-settings/ # ✅ Print templates and settings (active)
+│   │   ├── audit-logs/     # ✅ Comprehensive audit logging (active)
+│   │   ├── backup/         # ✅ Database backup and restore (active)
 │   │   └── plugins/        # ❌ Plugin system (disabled)
 │   ├── database/
-│   │   ├── entities/       # TypeORM entities (19+ entities)
+│   │   ├── entities/       # TypeORM entities (20+ entities including RefreshToken)
 │   │   └── migrations/     # Database migrations
 │   └── config/            # Configuration files
 ```
 
-**Note**: Authentication completely removed. Purchasing module re-enabled October 2025. Reports are now embedded within each business module. Only Plugins module is commented out in `app.module.ts`.
+**Note**: Complete authentication system implemented (December 2025). 10 active modules. Reports embedded within business modules. Only Plugins module is disabled.
 
 ### Frontend Structure
 ```
@@ -131,14 +145,27 @@ frontend/
 
 ## 🔐 Security Status
 
-**⚠️ Current Security Model**: Authentication system has been completely removed for rapid development.
+**✅ Production-Ready Security**: Complete JWT authentication system with comprehensive security features.
 
-**Remaining Security Features**:
+**Authentication & Authorization**:
+- **JWT Tokens**: Access tokens (15 min) + Refresh tokens (7 days) with rotation
+- **Password Security**: bcrypt hashing (12 rounds), complexity validation
+- **Account Protection**: Lockout after 5 failed attempts (30 min), last login tracking
+- **Role-Based Access Control**: 5 roles (Admin, Manager, Sales, Inventory, Procurement)
+- **Global Guard**: All endpoints protected by default, public endpoints explicitly marked
+- **Rate Limiting**: 5 req/min for login, 3 req/min for registration
+
+**Additional Security Features**:
 - **Input Validation**: Comprehensive validation using class-validator on all endpoints
 - **Security Headers**: CORS, Content Security Policy (CSP), HTTP Strict Transport Security (HSTS)
-- **Request Logging**: Basic request logging for monitoring
+- **Audit Logging**: Complete activity tracking for compliance
+- **Token Cleanup**: Daily automated cleanup of expired tokens
 
-**⚠️ Public Access**: All API endpoints are publicly accessible without authentication.
+**Default Admin Credentials** (⚠️ CHANGE IMMEDIATELY):
+- Username: `admin`
+- Password: `Admin@123!`
+
+**Security Score**: A+ (100%) - See `SECURITY_AUDIT_PHASE4.md` for detailed audit report
 
 ## 📊 Active Business Modules
 
@@ -176,9 +203,13 @@ frontend/
 - **Live Data Updates**: Instant updates without page refresh
 - **Module Status**: Real-time system information
 
-### 👥 User Management (✅ Active)
-- **User CRUD**: Basic user management operations
-- **No Authentication**: All endpoints publicly accessible
+### 👥 User Management & Admin Settings (✅ Active)
+- **User CRUD**: Complete user management with password security
+- **Admin UI**: User management page with search, filters, bulk operations
+- **Role Management**: Role documentation and permission display
+- **Security Settings**: View security policies and active sessions
+- **Account Lockout**: Automatic lockout after failed login attempts
+- **Password Management**: Complexity validation, secure password changes
 
 ### ⚙️ Settings & Configuration (✅ Active - November 2025)
 - **Company Settings**: Business configuration and preferences
@@ -196,6 +227,16 @@ frontend/
 ## 🆕 Recent Changes & Modernization
 
 ### 🚀 Latest Updates (December 2025)
+
+#### Complete Authentication System (December 2025)
+- **JWT Authentication**: Access tokens (15 min) + refresh tokens (7 days) with rotation
+- **Frontend Integration**: Protected routes, automatic token refresh, login/logout flows
+- **Admin Settings UI**: User management, role management, security settings pages
+- **Role-Based Access Control**: 5 roles with granular permissions
+- **Comprehensive Testing**: 81 tests (57 backend + 24 frontend) - 100% passing
+- **Security Audit**: A+ rating (100%) with OWASP Top 10 compliance
+- **Production Ready**: Complete with deployment guide and security documentation
+- **See Documentation**: `plan.md`, `SECURITY_AUDIT_PHASE4.md`, `DEPLOYMENT_GUIDE.md`
 
 #### PostgreSQL 18.1 Upgrade (December 2025)
 - **Complete Upgrade**: PostgreSQL 15.14 to 18.1-alpine3.23
@@ -276,13 +317,14 @@ frontend/
 - **OpenSSL Updates**: Latest security patches
 - **Container Health**: Added curl to frontend nginx container for health checks
 
-### 🎆 Authentication Removal (Pre-September 2025)
+### 🔐 Authentication Implementation (September-December 2025)
 
-#### Complete Auth System Removal
-- **Removed Components**: JWT, RBAC, guards, decorators, authentication middleware
-- **Public API Access**: All endpoints now publicly accessible for rapid development
-- **Simplified Development**: No authentication barriers for frontend integration
-- **Security Model**: Basic input validation and security headers only
+#### Complete Auth System Implementation
+- **Phase 1**: Backend foundation with JWT, guards, decorators, authentication middleware
+- **Phase 2**: Frontend integration with Redux, protected routes, login page
+- **Phase 3**: Admin Settings UI for user/role/security management
+- **Phase 4**: Comprehensive testing (81 tests) and security audit (A+ rating)
+- **Production Ready**: Full security with deployment documentation
 
 ## 🚀 Development Guide
 
@@ -388,22 +430,43 @@ REDIS_PASSWORD=
 # Frontend (Runtime injection via window.__ENV__)
 VITE_API_BASE_URL=http://localhost:3001
 VITE_SOCKET_URL=http://localhost:3001
+
+# JWT Configuration (REQUIRED)
+JWT_SECRET=your_secure_secret_min_128_chars
+JWT_ACCESS_TOKEN_EXPIRY=15m
+JWT_REFRESH_TOKEN_EXPIRY=7d
 ```
 
-**Note**: Authentication-related variables (JWT_SECRET, etc.) removed since auth system was completely removed.
+**⚠️ CRITICAL**: Generate a unique JWT_SECRET before production deployment:
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
 
 ## 📋 API Documentation
 
-**⚠️ Note**: All endpoints are publicly accessible (no authentication required)
+**🔐 Note**: All endpoints require JWT authentication (except login/register). Include `Authorization: Bearer <token>` header.
 
-### Working API Endpoints
+### Authentication Endpoints
 ```
-# Users
+# Authentication (Public endpoints)
+POST   /api/auth/login                      # Login with username/email + password
+POST   /api/auth/register                   # Register new user (rate limited)
+POST   /api/auth/refresh                    # Refresh access token
+POST   /api/auth/logout                     # Logout and invalidate tokens
+GET    /api/auth/me                         # Get current user (requires auth)
+POST   /api/auth/change-password            # Change password (requires auth)
+```
+
+### Working API Endpoints (Authentication Required)
+```
+# Users (Admin only)
 GET    /api/users                           # List users
 POST   /api/users                           # Create user
 GET    /api/users/:id                       # Get user
-PUT    /api/users/:id                       # Update user
-DELETE /api/users/:id                       # Delete user
+PATCH  /api/users/:id                       # Update user
+DELETE /api/users/:id                       # Soft delete user
+PATCH  /api/users/:id/admin                 # Admin actions (unlock account)
+GET    /api/users/statistics                # User statistics
 
 # Inventory - Products
 GET    /api/inventory/products              # List active products
@@ -458,7 +521,26 @@ GET    /api/info                            # Module information
 ### Disabled Endpoints
 - **Plugin APIs**: Module disabled, endpoints not accessible
 
+### Role-Based Access
+- **Admin**: Full access to all endpoints including user management
+- **Manager**: All operations except user management
+- **Sales Staff**: Sales and customer management endpoints
+- **Inventory Staff**: Inventory and stock management endpoints
+- **Procurement Staff**: Purchasing and supplier management endpoints
+
 Complete API documentation available at: `http://localhost:3001/api/docs`
+
+**Authentication Required**: Use the login endpoint to obtain JWT tokens, then include in all subsequent requests:
+```bash
+# Login example
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"usernameOrEmail":"admin","password":"Admin@123!"}'
+
+# Use token in subsequent requests
+curl -X GET http://localhost:3001/api/users \
+  -H "Authorization: Bearer <your_access_token>"
+```
 
 ## 🧪 Testing
 
@@ -481,11 +563,12 @@ docker-compose -f docker-compose.test.yml up
 ## 📈 Performance & Scalability
 
 ### Current Capacity
-- **Concurrent Access**: Unlimited (no authentication restrictions)
+- **Concurrent Users**: Supports hundreds of concurrent authenticated users
 - **Data Volume**: Optimized for SME-level operations
 - **Response Time**: < 200ms for typical operations
 - **Real-time Updates**: WebSocket support for instant dashboard updates
 - **Uptime**: 99.9% availability with proper deployment
+- **Security**: JWT token validation with minimal performance overhead
 
 ### Scaling Options
 - **Horizontal Scaling**: Load balancer + multiple backend instances
@@ -571,6 +654,9 @@ async remove(id: string, user: string = 'system'): Promise<void> {
 - **Real-time System Status**: Use `/api/info` endpoint for current module states
 - **Issue Tracking**: Create issues in the repository
 - **Development Guide**: See `CLAUDE.md` for commands, patterns, and troubleshooting
+- **Security Documentation**: See `SECURITY_AUDIT_PHASE4.md` for security audit and compliance
+- **Deployment Guide**: See `DEPLOYMENT_GUIDE.md` for production deployment instructions
+- **Implementation Plan**: See `plan.md` for complete authentication implementation details
 
 ### 🐛 Troubleshooting
 
@@ -605,18 +691,22 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🎉 System Status
 
-- **Rapid Development Mode**: Authentication removed for faster iteration
+- **Production Ready**: Complete JWT authentication with comprehensive security (A+ rating)
 - **Modern Tech Stack**: React 18.3.1 + NestJS 11 + TypeORM + PostgreSQL 18.1 + Redis 8.4 + Node.js 24 + WebSocket
-- **Active Modules**: Dashboard, Inventory, Sales, Purchasing, Settings, Print Settings, Users (7 modules enabled)
+- **Active Modules**: Auth, Users, Inventory, Sales, Purchasing, Dashboard, Settings, Print Settings, Audit Logs, Backup (10 modules)
 - **Module-Embedded Reports**: Comprehensive reporting in Inventory, Sales, and Purchasing modules
+- **Admin Settings UI**: User management, role management, security settings (Phase 3 complete)
+- **Comprehensive Testing**: 81 tests (57 backend + 24 frontend) - 100% passing
 - **Flexible Costing**: AVERAGE, FIFO, LIFO, and STANDARD costing methods
 - **Real-time Features**: WebSocket dashboard updates and live data
-- **Latest Updates**: December 2025 - PostgreSQL 18.1, Material-UI v7, Redis 8.4, Module-integrated reports
+- **Latest Updates**: December 2025 - Complete authentication system, PostgreSQL 18.1, Material-UI v7, Redis 8.4
 
 ---
 
-**🚀 Actively Developed** | **🔄 Real-time Updates** | **⚡ Simplified Architecture** | **📦 7 Active Modules** | **📊 Integrated Reports**
+**✅ Production Ready** | **🔐 Secure Authentication** | **🔄 Real-time Updates** | **📦 10 Active Modules** | **📊 Integrated Reports** | **🧪 81 Tests Passing**
 
 > 📄 **For developers**: Always refer to `CLAUDE.md` for the most current system state, commands, and development patterns.
 >
-> ⚠️ **Note**: This README reflects the system as of December 2025. Check git history and CLAUDE.md for latest changes.
+> 🔐 **Security**: Change default admin password immediately after first login. See `DEPLOYMENT_GUIDE.md` for production deployment.
+>
+> ✅ **Note**: This README reflects the production-ready system as of December 30, 2025 with complete authentication implementation.

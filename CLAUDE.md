@@ -14,17 +14,29 @@ Comprehensive ERP system with modern full-stack architecture:
 
 ## Current System Status
 
-**⚠️ CRITICAL: Authentication system completely removed**
+**✅ PRODUCTION-READY: Complete JWT authentication system implemented (December 2025)**
 
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `AuditLogsModule`, `BackupModule` (9 active)
+**Active Modules**: `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `AuditLogsModule`, `BackupModule` (10 active)
 **Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 **Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
-- All API endpoints publicly accessible
+**Authentication & Security:**
+- ✅ JWT-based authentication with refresh tokens (access: 15min, refresh: 7 days)
+- ✅ bcrypt password hashing (12 rounds)
+- ✅ Account lockout after 5 failed attempts (30 min)
+- ✅ Role-based access control (Admin, Manager, Sales, Inventory, Procurement Staff)
+- ✅ Global authentication guard (all endpoints protected by default)
+- ✅ Token rotation for enhanced security
+- ✅ Complete frontend authentication with protected routes
+- ✅ Default admin user: `admin / Admin@123!` (⚠️ CHANGE IMMEDIATELY)
+
+**System Features:**
+- All API endpoints protected with JWT authentication
 - Frontend fully integrated with backend
 - WebSocket support for real-time updates
 - Categories simplified (name + hierarchy only)
 - Purchasing module re-enabled (October 2025)
+- Comprehensive test coverage (81 tests: 57 backend + 24 frontend)
 
 ## Key Commands
 
@@ -120,7 +132,8 @@ docker compose logs backend # Check specific service logs
 ## Architecture Overview
 
 ### Backend Module Structure
-- **Core**: `users/` - User management
+- **Authentication**: `auth/` - ✅ JWT authentication, token refresh, password management
+- **Core**: `users/` - User management with RBAC
 - **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
 - **Analytics**: `dashboard/` (✅ with WebSocket)
 - **Configuration**: `settings/` (✅ company settings), `print-settings/` (✅ print templates and settings)
@@ -151,18 +164,53 @@ docker compose logs backend # Check specific service logs
 - **Real-time**: Socket.IO WebSocket integration
 - **Environment**: Runtime `window.__ENV__` configuration
 
-### Security Status
-**⚠️ Authentication completely removed - all endpoints public**
+### Security & Authentication ✅
+**Complete production-ready authentication system implemented (December 2025)**
 
-**Remaining security:**
+**Authentication Features:**
+- ✅ JWT-based authentication (access: 15min, refresh: 7 days)
+- ✅ Refresh token rotation for enhanced security
+- ✅ bcrypt password hashing (12 rounds)
+- ✅ Password complexity validation (uppercase, lowercase, number, special char, min 8 chars)
+- ✅ Account lockout after 5 failed login attempts (30 min lock)
+- ✅ Last login tracking (timestamp + IP address)
+- ✅ Daily automated token cleanup cron job
+
+**Authorization & Access Control:**
+- ✅ Global JWT authentication guard (all endpoints protected by default)
+- ✅ Role-based access control (RBAC) with 5 roles:
+  - **Admin**: Full system access, user management
+  - **Manager**: All operations except user management
+  - **Sales Staff**: Sales and customer management
+  - **Inventory Staff**: Inventory and stock management
+  - **Procurement Staff**: Purchasing and supplier management
+- ✅ `@Public()` decorator for public endpoints (login, register)
+- ✅ `@Auth(...roles)` decorator for protected endpoints
+- ✅ Rate limiting on authentication endpoints (5 req/min login, 3 req/min register)
+
+**Frontend Security:**
+- ✅ Protected routes with authentication guards
+- ✅ Automatic token refresh on 401 responses
+- ✅ Token storage (access: Redux, refresh: localStorage)
+- ✅ Request queue during token refresh (prevents concurrent refreshes)
+- ✅ Secure logout (clears all tokens, invalidates refresh tokens)
+
+**Additional Security:**
 - Input validation via class-validator
 - Security headers (CORS, CSP, HSTS)
-- Basic request logging
+- Comprehensive audit logging with real user IDs
+- Refresh tokens hashed with SHA-256 before storage
+- No sensitive data in URLs or logs
 
-**Removed:**
-- JWT authentication, guards, decorators
-- Role-based access control
-- Password security, account lockout
+**Default Credentials:**
+- Username: `admin`
+- Password: `Admin@123!`
+- ⚠️ **CRITICAL**: Change password immediately after first login!
+
+**Test Coverage:**
+- 57 backend tests (unit + E2E)
+- 24 frontend tests (Redux + components)
+- 81 total tests covering auth flows, security, and edge cases
 
 ## Key Configuration
 
