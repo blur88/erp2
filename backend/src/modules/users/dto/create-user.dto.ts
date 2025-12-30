@@ -32,14 +32,16 @@ export class CreateUserDto {
   username: string;
 
   @ApiProperty({
-    description: 'User email address',
+    description: 'User email address (optional)',
     example: 'john.doe@company.com',
     maxLength: 100,
+    required: false,
   })
+  @IsOptional()
   @IsEmail({}, { message: 'Please provide a valid email address' })
   @MaxLength(100, { message: 'Email must not exceed 100 characters' })
-  @Transform(({ value }) => value?.trim().toLowerCase())
-  email: string;
+  @Transform(({ value }) => value?.trim().toLowerCase() || null)
+  email?: string;
 
   @ApiProperty({
     description: 'User password with security requirements',
@@ -51,32 +53,36 @@ export class CreateUserDto {
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(128, { message: 'Password must not exceed 128 characters' })
   @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]/,
     {
-      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&.)',
     },
   )
   password: string;
 
   @ApiProperty({
-    description: 'User first name',
+    description: 'User first name (optional)',
     example: 'John',
     maxLength: 100,
+    required: false,
   })
+  @IsOptional()
   @IsString()
   @MaxLength(100, { message: 'First name must not exceed 100 characters' })
-  @Transform(({ value }) => value?.trim())
-  firstName: string;
+  @Transform(({ value }) => value?.trim() || null)
+  firstName?: string;
 
   @ApiProperty({
-    description: 'User last name',
+    description: 'User last name (optional)',
     example: 'Doe',
     maxLength: 100,
+    required: false,
   })
+  @IsOptional()
   @IsString()
   @MaxLength(100, { message: 'Last name must not exceed 100 characters' })
-  @Transform(({ value }) => value?.trim())
-  lastName: string;
+  @Transform(({ value }) => value?.trim() || null)
+  lastName?: string;
 
   @ApiProperty({
     description: 'User phone number (optional)',

@@ -57,11 +57,13 @@ export class User extends BaseEntity {
     type: 'varchar',
     length: 100,
     unique: true,
+    nullable: true,
     comment: 'User email address',
   })
+  @IsOptional()
   @IsEmail()
   @MaxLength(100)
-  email: string;
+  email?: string;
 
   @Column({
     type: 'varchar',
@@ -75,20 +77,24 @@ export class User extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
+    nullable: true,
     comment: 'User first name',
   })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  firstName: string;
+  firstName?: string;
 
   @Column({
     type: 'varchar',
     length: 100,
+    nullable: true,
     comment: 'User last name',
   })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  lastName: string;
+  lastName?: string;
 
   @Column({
     type: 'varchar',

@@ -50,6 +50,9 @@ import {
   FormatListNumbered as DocumentNumberIcon,
   Backup as BackupIcon,
   ManageSearch as AuditIcon,
+  People as PeopleIcon,
+  Security as SecurityIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -368,6 +371,24 @@ const menuSections: MenuSection[] = [
             title: 'Document Numbers',
             icon: <DocumentNumberIcon />,
             path: '/settings/document-numbers',
+          },
+          {
+            id: 'users',
+            title: 'Users',
+            icon: <PeopleIcon />,
+            path: '/settings/users',
+          },
+          {
+            id: 'roles',
+            title: 'Roles & Permissions',
+            icon: <SecurityIcon />,
+            path: '/settings/roles',
+          },
+          {
+            id: 'security',
+            title: 'Security',
+            icon: <LockIcon />,
+            path: '/settings/security',
           },
           {
             id: 'backup-restore',
