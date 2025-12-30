@@ -441,36 +441,20 @@ const OrdersPage: React.FC = () => {
       dispatch(updateOrderInPlace(optimisticUpdate))
       setPaymentAmount('')
 
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/record-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount: newPaidAmount }),
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        // Fetch full order details to get updated invoices and payments
-        dispatch(fetchOrderById(selectedOrder.id) as any)
-        // Refresh invoices to show updated payment amounts
-        dispatch(fetchInvoices({ page: 1, limit: 20 }))
-        showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
-      } else {
-        // Revert optimistic update on error
-        dispatch(updateOrderInPlace(selectedOrder))
-        setPaymentAmount(paymentToAdd.toString())
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to record payment'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
+      dispatch(updateOrderInPlace(response.data))
+      // Fetch full order details to get updated invoices and payments
+      dispatch(fetchOrderById(selectedOrder.id) as any)
+      // Refresh invoices to show updated payment amounts
+      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+      showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+    } catch (error: any) {
       // Revert optimistic update on error
       dispatch(updateOrderInPlace(selectedOrder))
       setPaymentAmount(paymentToAdd.toString())
       console.error('Error recording payment:', error)
-      showError('Error recording payment. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error recording payment. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -481,33 +465,21 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        // Refresh invoices to show updated payment amounts
-        dispatch(fetchInvoices({ page: 1, limit: 20 }))
-        // Refresh the orders list to show updated state
-        dispatch(fetchOrders({
-          search: orderFilters.search || '',
-          paymentStatus: orderFilters.paymentStatus || 'all',
-          fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
-        }))
-        showSuccess('Payment cleared successfully')
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to clear payment'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.unpayOrder(selectedOrder.id)
+      dispatch(updateOrderInPlace(response.data))
+      // Refresh invoices to show updated payment amounts
+      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+      // Refresh the orders list to show updated state
+      dispatch(fetchOrders({
+        search: orderFilters.search || '',
+        paymentStatus: orderFilters.paymentStatus || 'all',
+        fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
+      }))
+      showSuccess('Payment cleared successfully')
+    } catch (error: any) {
       console.error('Error unpaying order:', error)
-      showError('Error clearing payment. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error clearing payment. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -530,32 +502,17 @@ const OrdersPage: React.FC = () => {
       }
       dispatch(updateOrderInPlace(optimisticUpdate))
 
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/record-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount: newPaidAmount }),
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        // Refresh invoices to show updated payment amounts
-        dispatch(fetchInvoices({ page: 1, limit: 20 }))
-        showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
-      } else {
-        // Revert optimistic update on error
-        dispatch(updateOrderInPlace(selectedOrder))
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to process refund'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
+      dispatch(updateOrderInPlace(response.data))
+      // Refresh invoices to show updated payment amounts
+      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+      showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
+    } catch (error: any) {
       // Revert optimistic update on error
       dispatch(updateOrderInPlace(selectedOrder))
       console.error('Error processing refund:', error)
-      showError('Error processing refund. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error processing refund. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -566,25 +523,13 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/fulfill-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order fulfilled successfully! Inventory has been deducted.')
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to fulfill order'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.fulfillOrder(selectedOrder.id)
+      dispatch(updateOrderInPlace(response.data))
+      showSuccess('Order fulfilled successfully! Inventory has been deducted.')
+    } catch (error: any) {
       console.error('Error fulfilling order:', error)
-      showError('Error fulfilling order. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error fulfilling order. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -595,25 +540,13 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order unfulfilled successfully - inventory restored')
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to unfulfill order'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.unfulfillOrder(selectedOrder.id)
+      dispatch(updateOrderInPlace(response.data))
+      showSuccess('Order unfulfilled successfully - inventory restored')
+    } catch (error: any) {
       console.error('Error unfulfilling order:', error)
-      showError('Error unfulfilling order. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error unfulfilling order. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }

@@ -130,6 +130,22 @@ export const salesApi = {
     return ApiService.post<SalesOrder>(`sales-orders/${id}/duplicate`)
   },
 
+  async recordOrderPayment(id: string, amount: number) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/record-payment`, { amount })
+  },
+
+  async unpayOrder(id: string) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/unpay`)
+  },
+
+  async fulfillOrder(id: string) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/fulfill-order`)
+  },
+
+  async unfulfillOrder(id: string) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/unfulfill-order`)
+  },
+
   async getOrderSummaries() {
     return ApiService.get('sales-orders/summary')
   },
