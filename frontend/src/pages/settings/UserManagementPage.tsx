@@ -39,7 +39,7 @@ import { userManagementApi } from '@/services/userManagementApi'
 import type { User } from '@/types'
 import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 const UserManagementPage: React.FC = () => {
   const currentUser = useAppSelector((state) => state.auth?.user)
@@ -279,21 +279,33 @@ const UserManagementPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <PeopleIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              User Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage system users and access control
-            </Typography>
-          </Box>
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: 4
+      }}>
+        <Box>
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <PeopleIcon sx={{
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
+            }} />
+            User Management
+          </Typography>
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Manage system users and access control ({totalCount} total)
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
@@ -385,19 +397,111 @@ const UserManagementPage: React.FC = () => {
       )}
 
       {/* Users Table */}
-      <Paper>
-        <TableContainer>
-          <Table>
+      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table
+            size={TABLE_STYLES.size}
+            sx={{
+              '& .MuiTableCell-root': {
+                borderBottom: TABLE_STYLES.cell.border,
+                py: TABLE_STYLES.cell.padding.py,
+                px: TABLE_STYLES.cell.padding.px
+              },
+              '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root': {
+                borderBottom: 'none'
+              }
+            }}
+          >
             <TableHead>
-              <TableRow>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }}>Username</TableCell>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }}>Email</TableCell>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }}>Role</TableCell>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }}>Last Login</TableCell>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }}>Failed Attempts</TableCell>
-                <TableCell sx={{ ...TABLE_STYLES.header, fontWeight: 600 }} align="right">Actions</TableCell>
+              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                <TableCell>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Username
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Name
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Email
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Role
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Status
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Last Login
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Failed Attempts
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Actions
+                  </Typography>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -415,86 +519,193 @@ const UserManagementPage: React.FC = () => {
                 </TableRow>
               ) : (
                 users.map((user) => (
-                  <TableRow key={user.id} hover>
-                    <TableCell sx={TABLE_STYLES.cell}>
-                      {user.username}
-                      {user.isLocked && (
-                        <Tooltip title="Account is locked">
-                          <Chip
-                            label="Locked"
-                            size="small"
-                            color="error"
-                            sx={{ ml: 1 }}
-                          />
-                        </Tooltip>
-                      )}
+                  <TableRow
+                    key={user.id}
+                    hover
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                        '& .user-actions': {
+                          opacity: 1
+                        }
+                      },
+                      transition: 'background-color 0.2s ease',
+                      cursor: 'default',
+                      height: TABLE_STYLES.row.height
+                    }}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
+                          {user.username}
+                        </Typography>
+                        {user.isLocked && (
+                          <Tooltip title="Account is locked">
+                            <Chip
+                              label="Locked"
+                              size="small"
+                              color="error"
+                              sx={{
+                                fontSize: '0.65rem',
+                                height: 20
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
-                    <TableCell sx={TABLE_STYLES.cell}>
-                      {user.fullName || `${user.firstName} ${user.lastName}`}
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
+                        {(() => {
+                          if (user.fullName && user.fullName !== 'null') return user.fullName;
+                          const firstName = user.firstName && user.firstName !== 'null' ? user.firstName : '';
+                          const lastName = user.lastName && user.lastName !== 'null' ? user.lastName : '';
+                          return `${firstName} ${lastName}`.trim();
+                        })()}
+                      </Typography>
                     </TableCell>
-                    <TableCell sx={TABLE_STYLES.cell}>{user.email}</TableCell>
-                    <TableCell sx={TABLE_STYLES.cell}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
+                        {user.email}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       <Chip
                         label={getRoleLabel(user.role)}
                         size="small"
                         color={getRoleColor(user.role)}
+                        sx={{
+                          fontSize: '0.65rem',
+                          height: 20,
+                          fontWeight: 500
+                        }}
                       />
                     </TableCell>
-                    <TableCell sx={TABLE_STYLES.cell}>
+                    <TableCell>
                       <Chip
                         label={user.status}
                         size="small"
                         color={getStatusColor(user.status)}
+                        sx={{
+                          fontSize: '0.65rem',
+                          height: 20,
+                          fontWeight: 500
+                        }}
                       />
                     </TableCell>
-                    <TableCell sx={TABLE_STYLES.cell}>
-                      {formatDate(user.lastLoginAt)}
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
+                        {formatDate(user.lastLoginAt)}
+                      </Typography>
                       {user.lastLoginIp && (
-                        <Typography variant="caption" display="block" color="text.secondary">
+                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                           {user.lastLoginIp}
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell sx={TABLE_STYLES.cell}>
+                    <TableCell>
                       {user.failedLoginAttempts > 0 && (
                         <Chip
                           label={user.failedLoginAttempts}
                           size="small"
                           color="warning"
+                          sx={{
+                            fontSize: '0.65rem',
+                            height: 20,
+                            fontWeight: 500
+                          }}
                         />
                       )}
                     </TableCell>
-                    <TableCell sx={TABLE_STYLES.cell} align="right">
-                      <Tooltip title="Edit User">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditUser(user)}
-                          disabled={user.id === currentUser?.id}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {user.isLocked && (
-                        <Tooltip title="Unlock Account">
+                    <TableCell align="right">
+                      <Box
+                        className="user-actions"
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          alignItems: 'center',
+                          gap: 0.25,
+                          opacity: 0.7,
+                          transition: 'opacity 0.2s ease'
+                        }}
+                      >
+                        <Tooltip title="Edit User">
                           <IconButton
                             size="small"
-                            onClick={() => handleUnlockUser(user)}
-                            color="warning"
+                            onClick={() => handleEditUser(user)}
+                            disabled={user.id === currentUser?.id}
+                            sx={{
+                              height: `${TABLE_STYLES.row.height * 0.75}px`,
+                              width: `${TABLE_STYLES.row.height * 0.75}px`,
+                              minHeight: 20,
+                              minWidth: 20,
+                              p: 0.125,
+                              color: 'primary.main',
+                              '&:hover': {
+                                backgroundColor: 'primary.light',
+                                color: 'primary.dark'
+                              },
+                              '&.Mui-disabled': {
+                                opacity: 0.3
+                              }
+                            }}
                           >
-                            <UnlockIcon fontSize="small" />
+                            <EditIcon sx={{
+                              fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                            }} />
                           </IconButton>
                         </Tooltip>
-                      )}
-                      <Tooltip title={user.status === 'active' ? 'Deactivate' : 'Activate'}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeactivateUser(user)}
-                          color={user.status === 'active' ? 'error' : 'success'}
-                          disabled={user.id === currentUser?.id}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                        {user.isLocked && (
+                          <Tooltip title="Unlock Account">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleUnlockUser(user)}
+                              sx={{
+                                height: `${TABLE_STYLES.row.height * 0.75}px`,
+                                width: `${TABLE_STYLES.row.height * 0.75}px`,
+                                minHeight: 20,
+                                minWidth: 20,
+                                p: 0.125,
+                                color: 'warning.main',
+                                '&:hover': {
+                                  backgroundColor: 'warning.light',
+                                  color: 'warning.dark'
+                                }
+                              }}
+                            >
+                              <UnlockIcon sx={{
+                                fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                              }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        <Tooltip title={user.status === 'active' ? 'Deactivate' : 'Activate'}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeactivateUser(user)}
+                            disabled={user.id === currentUser?.id}
+                            sx={{
+                              height: `${TABLE_STYLES.row.height * 0.75}px`,
+                              width: `${TABLE_STYLES.row.height * 0.75}px`,
+                              minHeight: 20,
+                              minWidth: 20,
+                              p: 0.125,
+                              color: user.status === 'active' ? 'error.main' : 'success.main',
+                              '&:hover': {
+                                backgroundColor: user.status === 'active' ? 'error.light' : 'success.light',
+                                color: user.status === 'active' ? 'error.dark' : 'success.dark'
+                              },
+                              '&.Mui-disabled': {
+                                opacity: 0.3
+                              }
+                            }}
+                          >
+                            <DeleteIcon sx={{
+                              fontSize: `${TABLE_STYLES.row.height * 0.5}px`
+                            }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))

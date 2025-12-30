@@ -180,7 +180,9 @@ export class User extends BaseEntity {
   
   // Virtual fields
   get fullName(): string {
-    return `${this.firstName} ${this.lastName}`;
+    const firstName = this.firstName || '';
+    const lastName = this.lastName || '';
+    return `${firstName} ${lastName}`.trim();
   }
 
   get isLocked(): boolean {
