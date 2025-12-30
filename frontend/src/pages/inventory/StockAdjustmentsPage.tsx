@@ -164,6 +164,7 @@ const StockAdjustmentsPage: React.FC = () => {
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
   const [adjustmentToCancel, setAdjustmentToCancel] = useState<string | null>(null)
   const [adjustmentToCancelName, setAdjustmentToCancelName] = useState<string>('')
+  const [hasAutoSelected, setHasAutoSelected] = useState(false)
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -235,18 +236,19 @@ const StockAdjustmentsPage: React.FC = () => {
 
   // Auto-select newly created adjustment when navigating back from create page
   useEffect(() => {
-    if (newAdjustmentId && adjustments.length > 0) {
+    if (newAdjustmentId && adjustments.length > 0 && !hasAutoSelected) {
       const newAdjustment = adjustments.find(a => a.id === newAdjustmentId)
       if (newAdjustment) {
         const newIndex = adjustments.indexOf(newAdjustment)
         setFocusedAdjustmentIndex(newIndex)
+        setHasAutoSelected(true)
+        // Set the selected adjustment first (for immediate UI feedback)
         dispatch(setSelectedStockAdjustment(newAdjustment))
+        // Fetch full details including items
         dispatch(fetchStockAdjustment(newAdjustmentId))
-        // Clear the navigation state to prevent re-selection on subsequent renders
-        window.history.replaceState({}, document.title)
       }
     }
-  }, [newAdjustmentId, adjustments, dispatch])
+  }, [newAdjustmentId, adjustments, hasAutoSelected, dispatch])
 
   // Auto-focus first adjustment when adjustments load (only if no new adjustment to select)
   useEffect(() => {
