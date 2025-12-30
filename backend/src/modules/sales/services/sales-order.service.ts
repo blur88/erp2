@@ -1494,6 +1494,50 @@ export class SalesOrderService {
       // Don't throw error - sales order deletion should still succeed
     }
 
+    // Permanently delete associated payments (including soft-deleted ones)
+    try {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+      // Find all payments associated with this sales order (including soft-deleted)
+      const associatedPayments = await paymentRepository.find({
+        where: {
+          customerId: order.customerId,
+          notes: ILike(`%sales order ${order.orderNumber}%`)
+        },
+        withDeleted: true, // Include soft-deleted payments
+      });
+
+      if (associatedPayments.length > 0) {
+        // Log audit trail for each payment BEFORE permanent deletion
+        for (const payment of associatedPayments) {
+          await this.auditLogService.log(
+            'PERMANENT_DELETE',
+            'Payment',
+            `Permanently deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
+            {
+              entityId: payment.id,
+              userId: 'system',
+              oldValues: {
+                paymentNumber: payment.paymentNumber,
+                salesOrderId: id,
+                amount: payment.amount,
+              },
+            }
+          );
+        }
+
+        // Hard delete all associated payments (both active and soft-deleted)
+        await paymentRepository.delete(
+          associatedPayments.map(payment => payment.id)
+        );
+        console.log(`✅ Permanently deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to permanently delete payments for sales order ${order.orderNumber}:`, error.message);
+      // Don't throw error - sales order deletion should still succeed
+    }
+
     // Hard delete order items first (foreign key constraint)
     await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
@@ -1631,6 +1675,50 @@ export class SalesOrderService {
           console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber}`);
         } catch (error) {
           console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
+          // Don't throw error - bulk deletion should still succeed
+        }
+
+        // Permanently delete associated payments (including soft-deleted ones)
+        try {
+          const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+          const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
+
+          // Find all payments associated with this sales order (including soft-deleted)
+          const associatedPayments = await paymentRepository.find({
+            where: {
+              customerId: order.customerId,
+              notes: ILike(`%sales order ${order.orderNumber}%`)
+            },
+            withDeleted: true, // Include soft-deleted payments
+          });
+
+          if (associatedPayments.length > 0) {
+            // Log audit trail for each payment BEFORE permanent deletion
+            for (const payment of associatedPayments) {
+              await this.auditLogService.log(
+                'PERMANENT_DELETE',
+                'Payment',
+                `Permanently deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
+                {
+                  entityId: payment.id,
+                  userId: 'system',
+                  oldValues: {
+                    paymentNumber: payment.paymentNumber,
+                    salesOrderId: id,
+                    amount: payment.amount,
+                  },
+                }
+              );
+            }
+
+            // Hard delete all associated payments (both active and soft-deleted)
+            await paymentRepository.delete(
+              associatedPayments.map(payment => payment.id)
+            );
+            console.log(`✅ Permanently deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
+          }
+        } catch (error) {
+          console.error(`⚠️ Failed to permanently delete payments for sales order ${order.orderNumber}:`, error.message);
           // Don't throw error - bulk deletion should still succeed
         }
 
@@ -1927,12 +2015,12 @@ export class SalesOrderService {
       throw new ConflictException('Cannot unpay fulfilled order - order has already been fulfilled');
     }
 
-    // Delete associated payment record(s) from database
+    // Soft delete associated payment record(s) to preserve payment numbers
     try {
       const Payment = (await import('../../../database/entities/payment.entity')).Payment;
       const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
 
-      // Find and delete all payments associated with this sales order
+      // Find all payments associated with this sales order
       // Match by notes field which contains "sales order {orderNumber}"
       const associatedPayments = await paymentRepository.find({
         where: {
@@ -1947,7 +2035,7 @@ export class SalesOrderService {
           await this.auditLogService.log(
             'DELETE',
             'Payment',
-            `Permanently deleted payment: ${payment.paymentNumber} (unpaid sales order ${order.orderNumber})`,
+            `Soft deleted payment: ${payment.paymentNumber} (unpaid sales order ${order.orderNumber})`,
             {
               entityId: payment.id,
               userId: 'system',
@@ -1960,9 +2048,11 @@ export class SalesOrderService {
           );
         }
 
-        // Permanently delete the payment records (hard delete)
-        await paymentRepository.remove(associatedPayments);
-        console.log(`✅ Permanently deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
+        // Soft delete the payment records to preserve payment numbers for re-payment
+        await paymentRepository.softDelete(
+          associatedPayments.map(payment => payment.id)
+        );
+        console.log(`✅ Soft deleted ${associatedPayments.length} payment record(s) for sales order ${order.orderNumber}`);
       }
     } catch (error) {
       console.error(`⚠️ Failed to delete payment records for order ${order.orderNumber}:`, error.message);
