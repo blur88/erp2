@@ -80,10 +80,12 @@ export const salesApi = {
     fromDate?: string;
     toDate?: string;
     overdue?: boolean;
-    sortBy?: string;
-    sortOrder?: 'ASC' | 'DESC';
   }) {
-    return ApiService.get<PaginatedResponse<SalesOrder>>('sales-orders', { params })
+    // Convert sortOrder to uppercase for backend if provided
+    const requestParams = params?.sortOrder
+      ? { ...params, sortOrder: params.sortOrder.toUpperCase() as 'ASC' | 'DESC' }
+      : params;
+    return ApiService.get<PaginatedResponse<SalesOrder>>('sales-orders', { params: requestParams })
   },
 
   async getOrder(id: string) {

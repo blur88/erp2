@@ -46,6 +46,7 @@ import { format } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
+import { inventoryApi } from '@/services/inventoryApi'
 
 ChartJS.register(
   CategoryScale,
@@ -76,25 +77,31 @@ const InventoryPage: React.FC = () => {
       setError(null)
 
       // Fetch dashboard stats
-      const statsResponse = await fetch('/api/inventory/products/dashboard-stats')
+      const statsResponse = await inventoryApi.getDashboardStats()
       let dashboardStats = null
-      if (statsResponse.ok) {
-        dashboardStats = await statsResponse.json()
+      if (statsResponse) {
+        // ApiService.get returns response.data directly
+        dashboardStats = statsResponse
       }
 
       // Fetch recent stock movements
-      const movementsResponse = await fetch('/api/inventory/stock/movements?limit=5&sortBy=movementDate&sortOrder=DESC')
+      const movementsResponse = await inventoryApi.getStockMovements({
+        limit: 5,
+        sortBy: 'movementDate',
+        sortOrder: 'desc'
+      })
       let movementsData = []
-      if (movementsResponse.ok) {
-        const movementsResult = await movementsResponse.json()
-        movementsData = movementsResult.data || []
+      if (movementsResponse?.data) {
+        // ApiService.get returns response.data, so movementsResponse = { data: [...], meta: {...} }
+        movementsData = movementsResponse.data || []
       }
 
       // Fetch out of stock products
-      const outOfStockResponse = await fetch('/api/inventory/products/out-of-stock')
+      const outOfStockResponse = await inventoryApi.getStockLevels({ outOfStock: true })
       let outOfStockData = []
-      if (outOfStockResponse.ok) {
-        outOfStockData = await outOfStockResponse.json()
+      if (outOfStockResponse) {
+        // ApiService.get returns response.data, which is an array for this endpoint
+        outOfStockData = outOfStockResponse
       }
 
       setInventoryData({

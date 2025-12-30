@@ -42,6 +42,7 @@ import { format } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
+import { purchasingApi } from '@/services/purchasingApi'
 
 ChartJS.register(
   CategoryScale,
@@ -70,23 +71,25 @@ const PurchasingPage: React.FC = () => {
       setLoading(true)
 
       // Fetch purchase orders
-      const ordersResponse = await fetch('/api/purchasing/orders?limit=100&sortBy=orderDate&sortOrder=DESC')
+      const ordersResponse = await purchasingApi.getPurchaseOrders({
+        limit: 100,
+        sortBy: 'orderDate',
+        sortOrder: 'desc'
+      })
       let ordersData = []
       let allOrders = []
-      if (ordersResponse.ok) {
-        const ordersResult = await ordersResponse.json()
-        // API returns { orders: [...], total, page, limit }
-        allOrders = ordersResult.orders || ordersResult.data || []
+      if (ordersResponse?.data) {
+        // ApiService.get returns response.data, so ordersResponse = { data: [...], meta: {...} }
+        allOrders = ordersResponse.data || []
         ordersData = allOrders.slice(0, 5)
       }
 
       // Fetch suppliers
-      const suppliersResponse = await fetch('/api/purchasing/suppliers?limit=100')
+      const suppliersResponse = await purchasingApi.getSuppliers({ limit: 100 })
       let suppliersData = []
-      if (suppliersResponse.ok) {
-        const suppliersResult = await suppliersResponse.json()
-        // API returns { suppliers: [...], total, page, limit }
-        suppliersData = suppliersResult.suppliers || suppliersResult.data || []
+      if (suppliersResponse?.data) {
+        // ApiService.get returns response.data, so suppliersResponse = { data: [...], meta: {...} }
+        suppliersData = suppliersResponse.data || []
       }
 
       // Calculate top suppliers from orders
