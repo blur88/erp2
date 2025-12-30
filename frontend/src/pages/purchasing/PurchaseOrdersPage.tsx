@@ -730,35 +730,24 @@ const PurchaseOrdersPage: React.FC = () => {
       dispatch(setSelectedPurchaseOrder(optimisticUpdate))
       setPaymentAmount('')
 
-      const response = await fetch(`/api/purchasing/orders/${selectedOrder.id}/record-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount: newPaidAmount }),
-      })
+      const response = await purchasingApi.recordPurchaseOrderPayment(selectedOrder.id, newPaidAmount)
 
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(setSelectedPurchaseOrder(updatedOrder.data))
-        showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+      // Handle the response data structure
+      const responseData: any = (response as any).data || response
+      const updatedOrder = responseData.data || responseData
 
-        // Reload orders to update the list with new vendor payments
-        loadOrders()
-      } else {
-        // Revert optimistic update on error
-        dispatch(setSelectedPurchaseOrder(selectedOrder))
-        setPaymentAmount(paymentToAdd.toString())
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to record payment'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      dispatch(setSelectedPurchaseOrder(updatedOrder))
+      showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+
+      // Reload orders to update the list with new vendor payments
+      loadOrders()
+    } catch (error: any) {
       // Revert optimistic update on error
       dispatch(setSelectedPurchaseOrder(selectedOrder))
       setPaymentAmount(paymentToAdd.toString())
       console.error('Error recording payment:', error)
-      showError('Error recording payment. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Failed to record payment'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }

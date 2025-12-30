@@ -190,6 +190,10 @@ export const purchasingApi = {
     return ApiService.post<{ data: PurchaseOrder }>(`/purchasing/orders/${purchaseOrderId}/unpay`)
   },
 
+  async recordPurchaseOrderPayment(purchaseOrderId: string, amount: number) {
+    return ApiService.post<{ data: PurchaseOrder }>(`/purchasing/orders/${purchaseOrderId}/record-payment`, { amount })
+  },
+
   async getPurchaseOrderPaymentStatus(purchaseOrderId: string) {
     return ApiService.get<{ isPaid: boolean; payment?: any }>(`/purchasing/orders/${purchaseOrderId}/payment-status`)
   },
