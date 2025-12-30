@@ -477,6 +477,17 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// Purchase Orders use a different response structure
+export interface PurchaseOrderListResponse {
+  orders: PurchaseOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 export interface QueryParams {
   page?: number;
   limit?: number;

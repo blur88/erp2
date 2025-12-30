@@ -1,5 +1,5 @@
 import { ApiService } from './api'
-import type { Supplier, PurchaseOrder, GoodsReceivedNote, VendorPayment, PaginatedResponse, QueryParams } from '@/types'
+import type { Supplier, PurchaseOrder, GoodsReceivedNote, VendorPayment, PaginatedResponse, PurchaseOrderListResponse, QueryParams } from '@/types'
 
 export const purchasingApi = {
   // Suppliers
@@ -59,7 +59,7 @@ export const purchasingApi = {
 
   // Purchase Orders
   async getPurchaseOrders(params?: QueryParams & { supplierId?: string; status?: string }) {
-    return ApiService.get<PaginatedResponse<PurchaseOrder>>('/purchasing/orders', { params })
+    return ApiService.get<PurchaseOrderListResponse>('/purchasing/orders', { params })
   },
 
   async getPurchaseOrder(id: string) {

@@ -74,13 +74,13 @@ const PurchasingPage: React.FC = () => {
       const ordersResponse = await purchasingApi.getPurchaseOrders({
         limit: 100,
         sortBy: 'orderDate',
-        sortOrder: 'desc'
+        sortOrder: 'DESC' as any
       })
       let ordersData = []
       let allOrders = []
-      if (ordersResponse?.data) {
-        // ApiService.get returns response.data, so ordersResponse = { data: [...], meta: {...} }
-        allOrders = ordersResponse.data || []
+      if (ordersResponse?.orders) {
+        // Backend returns { orders: [...], total, page, limit, totalPages }
+        allOrders = ordersResponse.orders || []
         ordersData = allOrders.slice(0, 5)
       }
 
