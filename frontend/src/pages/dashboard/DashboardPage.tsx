@@ -59,6 +59,7 @@ import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { useCurrency } from '@/hooks/useCurrency'
+import { ApiService } from '@/services/api'
 
 ChartJS.register(
   CategoryScale,
@@ -243,53 +244,31 @@ const DashboardPage: React.FC = () => {
         outOfStockRes,
         paymentsRes
       ] = await Promise.all([
-        fetch('/api/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc'),
-        fetch('/api/purchasing/orders?limit=100&sortBy=orderDate&sortOrder=DESC'),
-        fetch('/api/purchasing/suppliers?limit=100'),
-        fetch('/api/inventory/products/dashboard-stats'),
-        fetch('/api/inventory/products/out-of-stock'),
-        fetch('/api/payments?limit=100')
+        ApiService.get<any>('/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc'),
+        ApiService.get<any>('/purchasing/orders?limit=100&sortBy=orderDate&sortOrder=DESC'),
+        ApiService.get<any>('/purchasing/suppliers?limit=100'),
+        ApiService.get<any>('/inventory/products/dashboard-stats'),
+        ApiService.get<any>('/inventory/products/out-of-stock'),
+        ApiService.get<any>('/payments?limit=100')
       ])
 
       // Process Sales Data
-      let salesOrders: any[] = []
-      if (salesOrdersRes.ok) {
-        const result = await salesOrdersRes.json()
-        salesOrders = result.data || []
-      }
+      const salesOrders: any[] = salesOrdersRes.data || []
 
       // Process Purchasing Data
-      let purchaseOrders: any[] = []
-      if (purchaseOrdersRes.ok) {
-        const result = await purchaseOrdersRes.json()
-        purchaseOrders = result.orders || result.data || []
-      }
+      const purchaseOrders: any[] = purchaseOrdersRes.orders || purchaseOrdersRes.data || []
 
       // Process Suppliers Data
-      let suppliers: any[] = []
-      if (suppliersRes.ok) {
-        const result = await suppliersRes.json()
-        suppliers = result.suppliers || result.data || []
-      }
+      const suppliers: any[] = suppliersRes.suppliers || suppliersRes.data || []
 
       // Process Inventory Stats
-      let inventoryStats: any = null
-      if (inventoryStatsRes.ok) {
-        inventoryStats = await inventoryStatsRes.json()
-      }
+      const inventoryStats: any = inventoryStatsRes
 
       // Process Out of Stock
-      let outOfStock: any[] = []
-      if (outOfStockRes.ok) {
-        outOfStock = await outOfStockRes.json()
-      }
+      const outOfStock: any[] = outOfStockRes
 
       // Process Payments
-      let payments: any[] = []
-      if (paymentsRes.ok) {
-        const result = await paymentsRes.json()
-        payments = result.data || []
-      }
+      const payments: any[] = paymentsRes.data || []
 
       // Calculate Sales Metrics
       const today = new Date()
@@ -762,8 +741,6 @@ const DashboardPage: React.FC = () => {
             enabled: false
           },
           mode: 'xy' as const,
-          scaleMode: 'xy' as const,
-          overScaleMode: undefined,
         },
       }
     },
