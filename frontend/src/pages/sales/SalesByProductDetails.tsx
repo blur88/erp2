@@ -51,6 +51,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import api from '@/services/api'
 
 interface ProductDetail {
   transactionType: 'Sale' | 'Purchase'
@@ -104,21 +105,19 @@ const SalesByProductDetails: React.FC = () => {
 
   useEffect(() => {
     // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    api.get('/inventory/products?limit=100')
+      .then(response => {
+        if (response?.data?.data) {
+          setProducts(response.data.data)
         }
       })
       .catch(() => {})
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
+    api.get('/inventory/categories/tree')
+      .then(response => {
         // Handle both response formats: { data: [...] } or direct array
-        const categoryData = data?.data || data
+        const categoryData = response?.data?.data || response?.data
         if (Array.isArray(categoryData)) {
           // Flatten the tree structure for dropdown
           const flattenCategories = (cats: any[], level = 0): any[] => {
@@ -151,15 +150,10 @@ const SalesByProductDetails: React.FC = () => {
         selectedProducts.forEach(productId => params.append('productIds', productId))
       }
 
-      // Call the backend API
-      const response = await fetch(`/api/sales/analytics/product-details?${params.toString()}`)
+      // Call the backend API using authenticated API client
+      const response = await api.get(`/sales/analytics/product-details?${params.toString()}`)
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const data = await response.json()
-      setReportData(data.data || [])
+      setReportData(response.data?.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])
