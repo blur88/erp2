@@ -306,14 +306,15 @@ export const inventoryApi = {
     )
   },
 
-  async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {
+  async getLowStockAlerts() {
     return ApiService.get<Array<{
-      product: Product
+      productId: string
+      productName: string
       currentStock: number
-      minStock: number
-      maxStock: number
-      status: 'in_stock' | 'low_stock' | 'out_of_stock'
-    }>>('/inventory/stock/levels', { params })
+      reorderLevel: number
+      optimalStockLevel: number
+      category: string
+    }>>('/inventory/stock/alerts/low-stock')
   },
 
   async stockTake(data: Array<{ productId: string; countedQuantity: number }>) {

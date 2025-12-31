@@ -96,12 +96,18 @@ const InventoryPage: React.FC = () => {
         movementsData = movementsResponse.data || []
       }
 
-      // Fetch out of stock products
-      const outOfStockResponse = await inventoryApi.getStockLevels({ outOfStock: true })
+      // Fetch out of stock products (products with stockQuantity = 0)
+      const outOfStockResponse = await inventoryApi.getProducts({
+        limit: 5,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc'
+      })
       let outOfStockData = []
-      if (outOfStockResponse) {
-        // ApiService.get returns response.data, which is an array for this endpoint
-        outOfStockData = outOfStockResponse
+      if (outOfStockResponse?.data) {
+        // Filter products with stockQuantity = 0
+        outOfStockData = outOfStockResponse.data.filter((product: any) =>
+          product.stockQuantity === 0 || product.stockQuantity === null
+        )
       }
 
       setInventoryData({
