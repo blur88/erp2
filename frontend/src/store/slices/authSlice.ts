@@ -282,11 +282,11 @@ const authSlice = createSlice({
 export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
 
 // Selectors
-export const selectCurrentUser = (state: { auth: AuthState }) => state.auth.user;
-export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.isAuthenticated;
-export const selectAccessToken = (state: { auth: AuthState }) => state.auth.accessToken;
-export const selectRefreshToken = (state: { auth: AuthState }) => state.auth.refreshToken;
-export const selectAuthLoading = (state: { auth: AuthState }) => state.auth.loading;
-export const selectAuthError = (state: { auth: AuthState }) => state.auth.error;
+export const selectCurrentUser = (state: any) => state.auth?.user;
+export const selectIsAuthenticated = (state: any) => state.auth?.isAuthenticated || false;
+export const selectAccessToken = (state: any) => state.auth?.accessToken;
+export const selectRefreshToken = (state: any) => state.auth?.refreshToken;
+export const selectAuthLoading = (state: any) => state.auth?.loading || false;
+export const selectAuthError = (state: any) => state.auth?.error;
 
 export default authSlice.reducer;

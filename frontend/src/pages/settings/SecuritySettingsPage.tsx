@@ -42,6 +42,64 @@ const SecuritySettingsPage: React.FC = () => {
       </Paper>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+        {/* Auto-Logout Settings */}
+        <Paper sx={{ p: 3, height: '100%' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <ScheduleIcon sx={{ fontSize: 32, color: 'info.main' }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Auto-Logout Settings
+            </Typography>
+          </Box>
+          <Divider sx={{ mb: 2 }} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Inactivity Timeout
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 600 }}>
+                  60
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  minutes
+                </Typography>
+                <Chip label="Active" size="small" color="success" sx={{ ml: 1 }} />
+              </Box>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Warning Time
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 600 }}>
+                  2
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  minutes before logout
+                </Typography>
+              </Box>
+            </Box>
+            <Paper sx={{ p: 1.5, bgcolor: 'grey.50', mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Users will be automatically logged out after 60 minutes of inactivity. A warning
+                dialog will appear 2 minutes before logout, allowing users to stay logged in by
+                clicking a button or simply moving their mouse.
+              </Typography>
+            </Paper>
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                Activity Detection:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <Chip label="Mouse Movement" size="small" variant="outlined" />
+                <Chip label="Keyboard Input" size="small" variant="outlined" />
+                <Chip label="Mouse Clicks" size="small" variant="outlined" />
+                <Chip label="Touch Events" size="small" variant="outlined" />
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+
         {/* Account Lockout Policy */}
         <Paper sx={{ p: 3, height: '100%' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>

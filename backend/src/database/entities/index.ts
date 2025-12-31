@@ -44,6 +44,14 @@ export { GoodsReceivedNote } from './goods-received-note.entity';
 export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 export { VendorPayment } from './vendor-payment.entity';
 
+// Settings (SettingsModule)
+export { CompanySettings } from './company-settings.entity';
+export { PriceCostingSettings } from './price-costing-settings.entity';
+export { PrintSettings } from './print-settings.entity';
+export { DocumentNumberSettings } from './document-number-settings.entity';
+export { BackupRetentionSettings } from './backup-settings.entity';
+export { SecuritySettings } from './security-settings.entity';
+
 // Import entities for array construction
 import { AuditLog } from './audit-log.entity';
 import { User } from './user.entity';
