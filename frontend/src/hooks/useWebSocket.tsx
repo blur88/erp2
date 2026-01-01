@@ -17,7 +17,9 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType | null>(null)
 
 const getSocketUrl = () => {
-  return (window as any).__ENV__?.VITE_SOCKET_URL || 'http://localhost:3001'
+  // Use the current origin for WebSocket connection (proxied by NGINX in production)
+  // In development, this will be localhost:3000 which proxies to backend:3001
+  return (window as any).__ENV__?.VITE_SOCKET_URL || window.location.origin
 }
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
