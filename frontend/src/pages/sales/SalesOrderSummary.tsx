@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { salesApi } from '@/services/salesApi'
 
 interface SalesOrderSummary {
   orderNumber: string
@@ -73,15 +74,16 @@ const SalesOrderSummary: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load customers
-    fetch('/api/customers?limit=100')
-      .then(res => res.ok ? res.json() : null)
+    // Load customers using authenticated API
+    salesApi.getCustomers({ limit: 100 })
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)
         }
       })
-      .catch(() => {})
+      .catch(err => {
+        console.error('Failed to load customers:', err)
+      })
   }, [])
 
   const handleGenerateReport = async () => {
@@ -89,27 +91,21 @@ const SalesOrderSummary: React.FC = () => {
     setPage(0) // Reset to first page when generating new report
 
     try {
-      // Build query parameters
-      const params = new URLSearchParams()
-
-      if (dateFrom) params.append('fromDate', dateFrom)
-      if (dateTo) params.append('toDate', dateTo)
-      if (selectedCustomer) params.append('customerId', selectedCustomer)
-      if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
-      if (inventoryStatus && inventoryStatus !== 'all') params.append('fulfillmentStatus', inventoryStatus)
-
-      params.append('limit', '1000') // Get all for report
-      params.append('sortBy', 'orderDate')
-      params.append('sortOrder', 'DESC')
-
-      // Call the backend API
-      const response = await fetch(`/api/sales-orders?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
+      // Build query parameters using authenticated API
+      const queryParams: any = {
+        limit: 1000, // Get all for report
+        sortBy: 'orderDate',
+        sortOrder: 'DESC'
       }
 
-      const result = await response.json()
+      if (dateFrom) queryParams.fromDate = dateFrom
+      if (dateTo) queryParams.toDate = dateTo
+      if (selectedCustomer) queryParams.customerId = selectedCustomer
+      if (paymentStatus && paymentStatus !== 'all') queryParams.paymentStatus = paymentStatus
+      if (inventoryStatus && inventoryStatus !== 'all') queryParams.fulfillmentStatus = inventoryStatus
+
+      // Call the backend API using authenticated service
+      const result = await salesApi.getOrders(queryParams)
       const orders = result.data || []
 
       // Transform data to match our interface
@@ -512,8 +508,14 @@ const SalesOrderSummary: React.FC = () => {
       </html>
     `
 
-    printWindow.document.write(html)
-    printWindow.document.close()
+    // Write HTML content to the new window
+    // Note: document.write is the standard approach for new window content
+    const doc = printWindow.document
+    doc.open()
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - document.write is deprecated but still the standard for new windows
+    doc.write(html)
+    doc.close()
   }
 
   const calculateTotals = () => {
@@ -724,8 +726,10 @@ const SalesOrderSummary: React.FC = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+                    inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                    htmlInput: { sx: { fontSize: '0.75rem' } }
+                  }}
                   size="small"
                   fullWidth
                 />
@@ -735,8 +739,10 @@ const SalesOrderSummary: React.FC = () => {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+                    inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                    htmlInput: { sx: { fontSize: '0.75rem' } }
+                  }}
                   size="small"
                   fullWidth
                 />
@@ -861,8 +867,10 @@ const SalesOrderSummary: React.FC = () => {
                   label="Report Title"
                   value={reportTitle}
                   onChange={(e) => setReportTitle(e.target.value)}
-                  InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+                    inputLabel: { sx: { fontSize: '0.75rem' } },
+                    htmlInput: { sx: { fontSize: '0.75rem' } }
+                  }}
                   size="small"
                   fullWidth
                 />
