@@ -248,6 +248,7 @@ const authSlice = createSlice({
       .addCase(getCurrentUser.fulfilled, (state, action) => {
         if (action.payload) {
           state.user = action.payload;
+          state.isAuthenticated = true;
           state.loading = false;
         }
       })

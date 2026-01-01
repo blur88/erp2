@@ -156,7 +156,8 @@ api.interceptors.response.use(
         // Token refresh failed, logout user
         processQueue(refreshError, null)
         store.dispatch(clearAuth())
-        window.location.href = '/login'
+        // Don't use window.location.href - let React Router handle it
+        // The ProtectedRoute component will handle the redirect
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

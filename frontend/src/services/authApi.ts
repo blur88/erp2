@@ -66,18 +66,24 @@ export const authApi = {
 
   /**
    * Get current authenticated user
-   * Note: This requires Authorization header, so it will be called through main api service
+   * Note: This requires Authorization header via the main api instance
    */
   getCurrentUser: async (): Promise<AxiosResponse<AuthUser>> => {
-    // This will be enhanced in api.ts with auth interceptor
-    return await authAxios.get<AuthUser>('/auth/me');
+    // Import api (axios instance) dynamically to avoid circular dependency
+    // The default export is the configured axios instance with auth interceptors
+    const apiInstance = (await import('./api')).default;
+    // axios.get returns AxiosResponse, which matches our return type
+    return await apiInstance.get<AuthUser>('/auth/me');
   },
 
   /**
    * Change password for current user
+   * Note: This requires Authorization header via the main api instance
    */
   changePassword: async (data: ChangePasswordData): Promise<AxiosResponse<void>> => {
-    // This will be enhanced in api.ts with auth interceptor
-    return await authAxios.patch<void>('/auth/change-password', data);
+    // Import api (axios instance) dynamically to avoid circular dependency
+    const apiInstance = (await import('./api')).default;
+    // axios.patch returns AxiosResponse, which matches our return type
+    return await apiInstance.patch<void>('/auth/change-password', data);
   },
 };
