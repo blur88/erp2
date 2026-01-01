@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useCallback, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useNotification } from './useNotification'
-import { useAppDispatch } from './useRedux'
+import { useAppDispatch, useAppSelector } from './useRedux'
 import { addNotification } from '@/store/slices/notificationSlice'
 import type { WebSocketMessage, RealtimeUpdate } from '@/types'
 
@@ -23,9 +23,9 @@ const getSocketUrl = () => {
 }
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Authentication removed - WebSocket will connect without auth
-  const isAuthenticated = true
-  const token = null
+  // Get authentication state from Redux
+  const isAuthenticated = useAppSelector((state) => state.auth?.isAuthenticated || false)
+  const token = useAppSelector((state) => state.auth?.accessToken || null)
   const { showNotification } = useNotification()
   const dispatch = useAppDispatch()
   
@@ -36,13 +36,27 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Initialize WebSocket connection
   useEffect(() => {
+    // Only connect if authenticated
+    if (!isAuthenticated || !token) {
+      // Disconnect if already connected but auth is lost
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+        setIsConnected(false)
+      }
+      return
+    }
+
     if (!socketRef.current) {
       const socketUrl = getSocketUrl()
-      
+
       const socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         timeout: 20000,
         retries: 3,
+        auth: {
+          token: token
+        }
       })
 
       socketRef.current = socket
@@ -160,7 +174,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     }
-  }, [showNotification, dispatch])
+  }, [isAuthenticated, token, showNotification, dispatch])
 
   // Cleanup on unmount or auth change
   useEffect(() => {
