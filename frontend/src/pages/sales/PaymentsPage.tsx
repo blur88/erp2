@@ -321,8 +321,7 @@ const PaymentsPage: React.FC = () => {
       loadPayments()
       // Also refresh the selected payment to get updated customer data
       if (selectedPaymentRef.current) {
-        salesApi.getPayment(selectedPaymentRef.current.id).then(response => {
-          const freshPayment = response.data as Payment
+        salesApi.getPayment(selectedPaymentRef.current.id).then(freshPayment => {
           dispatch(setSelectedPayment(freshPayment as any))
         }).catch(err => {
           console.error('Failed to refresh selected payment:', err)
@@ -365,6 +364,14 @@ const PaymentsPage: React.FC = () => {
       }
     }
   }, [paginatedPayments, focusedPaymentIndex, selectedPayment, dispatch])
+
+  // Clear selection when no payments exist
+  useEffect(() => {
+    if (paginatedPayments.length === 0 && selectedPayment) {
+      dispatch(setSelectedPayment(null))
+      setFocusedPaymentIndex(-1)
+    }
+  }, [paginatedPayments.length, selectedPayment, dispatch])
 
   // Handle navigation from order page with highlightPaymentId
   useEffect(() => {
@@ -448,22 +455,6 @@ const PaymentsPage: React.FC = () => {
       setEditDialog(true)
     }
   }, [focusedPaymentIndex, paginatedPayments, dispatch])
-
-  const handleEditAction = () => {
-    if (selectedPayment) {
-      setEditDialog(true)
-    }
-  }
-
-  const handleDeleteAction = () => {
-    if (selectedPayment) {
-      showError('Delete functionality will be implemented later')
-    }
-  }
-
-  const handleViewDeletedAction = () => {
-    setDeletedPaymentsDialogOpen(true)
-  }
 
   const handleEscapeAction = useCallback(() => {
     setFocusedPaymentIndex(-1)
@@ -583,12 +574,14 @@ const PaymentsPage: React.FC = () => {
               }
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
 
@@ -654,8 +647,10 @@ const PaymentsPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
             <TextField
@@ -673,8 +668,10 @@ const PaymentsPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
           </>
