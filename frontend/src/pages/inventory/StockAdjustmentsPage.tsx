@@ -694,14 +694,6 @@ const StockAdjustmentsPage: React.FC = () => {
                           </TableCell>
                         </TableRow>
                       ))
-                    ) : adjustments.length === 0 ? (
-                      <TableRow>
-                        <TableCell align="center">
-                          <Typography variant="body2" color="text.secondary">
-                            No stock adjustments found
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
                     ) : (
                       adjustments.map((adjustment: StockAdjustment, index: number) => (
                         <AdjustmentRow
