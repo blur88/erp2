@@ -19,8 +19,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Menu,
-  ListSubheader,
   Divider,
   Skeleton,
   Alert,
@@ -48,7 +46,7 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
+import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices, clearError } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
@@ -305,7 +303,7 @@ const OrdersPage: React.FC = () => {
   // Select order when clicked - memoized to prevent re-renders
   const handleOrderSelect = useCallback((order: SalesOrder) => {
     dispatch(setSelectedOrder(order))
-    const orderIndex = orders.findIndex(o => o.id === order.id)
+    const orderIndex = orders.findIndex((o: SalesOrder) => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
     // Fetch full order details with invoices and payments
     dispatch(fetchOrderById(order.id) as any)
@@ -335,7 +333,7 @@ const OrdersPage: React.FC = () => {
           break
         case 'delete':
           // Show confirmation dialog instead of deleting immediately
-          const order = orders.find(o => o.id === orderId)
+          const order = orders.find((o: SalesOrder) => o.id === orderId)
           if (order) {
             // Check if order is fulfilled or paid
             const isFulfilled = order.isFulfilled
@@ -415,7 +413,7 @@ const OrdersPage: React.FC = () => {
     if (!selectedOrder) return
 
     // Calculate the new total paid amount
-    let newPaidAmount
+    let newPaidAmount: number
     let paymentToAdd = 0
 
     if (paymentAmount) {
@@ -875,13 +873,18 @@ const OrdersPage: React.FC = () => {
         // Fetch full order details with invoices and payments
         dispatch(fetchOrderById(orders[0].id) as any)
       }
+    } else if (orders.length === 0) {
+      // Clear selection and error when no orders in list
+      dispatch(setSelectedOrder(null))
+      dispatch(clearError())
+      setFocusedOrderIndex(-1)
     }
   }, [orders, focusedOrderIndex, selectedOrder, dispatch])
 
   // Handle pending order selection after orders load
   useEffect(() => {
     if (pendingOrderToSelect && orders.length > 0) {
-      const orderIndex = orders.findIndex(o => o.id === pendingOrderToSelect)
+      const orderIndex = orders.findIndex((o: SalesOrder) => o.id === pendingOrderToSelect)
       if (orderIndex >= 0) {
         dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)
@@ -898,7 +901,7 @@ const OrdersPage: React.FC = () => {
     if (state?.highlightOrderId && orders.length > 0) {
       // Only process if we haven't already processed this highlight ID
       if (processedHighlightRef.current !== state.highlightOrderId) {
-        const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
+        const orderIndex = orders.findIndex((o: SalesOrder) => o.id === state.highlightOrderId)
         if (orderIndex >= 0) {
           dispatch(setSelectedOrder(orders[orderIndex]))
           setFocusedOrderIndex(orderIndex)
@@ -986,26 +989,6 @@ const OrdersPage: React.FC = () => {
     }
   }, [focusedOrderIndex, orders, navigate])
 
-  const handleEditAction = () => {
-    if (selectedOrder) {
-      navigate(`/sales/orders/${selectedOrder.id}/edit`)
-    }
-  }
-
-  const handleDeleteAction = () => {
-    if (selectedOrder) {
-      handleOrderAction('delete', selectedOrder.id)
-    }
-  }
-
-  const handleViewDeletedAction = () => {
-    setDeletedOrdersDialogOpen(true)
-  }
-
-  const handleAddOrder = () => {
-    navigate('/sales/orders/create')
-  }
-
   const handleNavigateToInvoice = useCallback((invoice: any, event?: React.MouseEvent) => {
     if (event) {
       event.stopPropagation() // Prevent triggering parent row click
@@ -1029,13 +1012,6 @@ const OrdersPage: React.FC = () => {
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
   }, [dispatch])
-
-  const clearDialogs = () => {
-    setViewDialog(false)
-    setBlockedDialogOpen(false)
-    setDeletedOrdersDialogOpen(false)
-    setDeleteConfirmOpen(false)
-  }
 
   // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
@@ -1153,12 +1129,14 @@ const OrdersPage: React.FC = () => {
               }
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
         <FormControl
@@ -1222,8 +1200,10 @@ const OrdersPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
             <TextField
@@ -1241,8 +1221,10 @@ const OrdersPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
           </>
@@ -1644,7 +1626,7 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {selectedOrder.invoices && selectedOrder.invoices.length > 0 ? (
-                                selectedOrder.invoices.map((invoice, index) => (
+                                selectedOrder.invoices.map((invoice: any, index: number) => (
                                   <Box key={invoice.id} component="span">
                                     <Typography
                                       component="button"
@@ -1842,7 +1824,7 @@ const OrdersPage: React.FC = () => {
                                       size="small"
                                       type="number"
                                       placeholder={`Add: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
-                                      inputProps={{ min: 0, step: 0.01 }}
+                                      slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                                       sx={{
                                         width: '120px',
                                         '& .MuiInputBase-root': {
