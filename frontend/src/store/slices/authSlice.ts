@@ -19,6 +19,7 @@ export interface AuthUser {
   lockedUntil?: Date | string;
   isLocked?: boolean;
   notes?: string;
+  requiresPasswordChange?: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
 }
@@ -28,6 +29,7 @@ export interface AuthResponse {
   refreshToken: string;
   user: AuthUser;
   expiresIn: number;
+  requiresPasswordChange?: boolean;
 }
 
 export interface LoginCredentials {

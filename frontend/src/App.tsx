@@ -13,6 +13,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 
 // Auth Pages
 const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
+const MandatoryPasswordChangePage = React.lazy(() => import('./pages/auth/MandatoryPasswordChangePage'))
 
 // Main Pages (lazy loaded)
 const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
@@ -178,6 +179,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/change-password-required" element={<MandatoryPasswordChangePage />} />
 
           {/* Protected Routes */}
           <Route

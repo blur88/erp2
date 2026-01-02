@@ -25,4 +25,10 @@ export class AuthResponseDto {
     type: () => User,
   })
   user: Partial<User>;
+
+  @ApiProperty({
+    description: 'Whether user must change password before accessing app',
+    example: false,
+  })
+  requiresPasswordChange: boolean;
 }

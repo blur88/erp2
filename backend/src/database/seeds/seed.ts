@@ -50,6 +50,7 @@ async function createDemoUsers() {
     adminUser.status = UserStatus.ACTIVE;
     adminUser.isActive = true;
     adminUser.failedLoginAttempts = 0;
+    adminUser.requiresPasswordChange = true; // Force password change on first login
 
     // Save admin user
     await userRepository.save(adminUser);

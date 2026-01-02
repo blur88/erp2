@@ -188,4 +188,26 @@ export class AuthController {
   ): Promise<void> {
     await this.authService.changePassword(userId, changePasswordDto);
   }
+
+  @Get('show-default-credentials')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Check if default credentials should be shown',
+    description: 'Returns true if admin user still requires password change',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Check successful',
+    schema: {
+      type: 'object',
+      properties: {
+        showDefaultCredentials: { type: 'boolean' },
+      },
+    },
+  })
+  async shouldShowDefaultCredentials(): Promise<{ showDefaultCredentials: boolean }> {
+    const showDefaultCredentials = await this.authService.shouldShowDefaultCredentials();
+    return { showDefaultCredentials };
+  }
 }

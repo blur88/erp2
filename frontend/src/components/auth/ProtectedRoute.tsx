@@ -76,6 +76,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Redirect to mandatory password change if required
+  if (user?.requiresPasswordChange && location.pathname !== '/change-password-required') {
+    return <Navigate to="/change-password-required" replace />;
+  }
+
   // Render children if authenticated
   return <>{children}</>;
 };

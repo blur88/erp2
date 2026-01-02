@@ -103,6 +103,7 @@ export class AuthService {
       refreshToken,
       expiresIn: this.getAccessTokenExpiry(),
       user: this.sanitizeUser(user),
+      requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
 
@@ -164,6 +165,7 @@ export class AuthService {
       refreshToken,
       expiresIn: this.getAccessTokenExpiry(),
       user: this.sanitizeUser(user),
+      requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
 
@@ -221,6 +223,7 @@ export class AuthService {
       refreshToken: newRefreshToken,
       expiresIn: this.getAccessTokenExpiry(),
       user: this.sanitizeUser(user),
+      requiresPasswordChange: user.requiresPasswordChange || false,
     };
   }
 
@@ -267,8 +270,9 @@ export class AuthService {
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
-    // Update password
+    // Update password and clear password change requirement
     user.password = hashedPassword;
+    user.requiresPasswordChange = false;
     await this.userRepository.save(user);
 
     // Invalidate all refresh tokens (force re-login everywhere)
@@ -288,6 +292,19 @@ export class AuthService {
     }
 
     return this.sanitizeUser(user);
+  }
+
+  /**
+   * Check if default credentials should be shown on login page
+   * Returns true if admin user exists and still requires password change
+   */
+  async shouldShowDefaultCredentials(): Promise<boolean> {
+    const adminUser = await this.userRepository.findOne({
+      where: { username: 'admin', email: 'admin@erp.com' },
+    });
+
+    // Show default credentials if admin exists and requires password change
+    return adminUser ? adminUser.requiresPasswordChange : false;
   }
 
   /**

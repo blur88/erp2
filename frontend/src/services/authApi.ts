@@ -86,4 +86,12 @@ export const authApi = {
     // axios.patch returns AxiosResponse, which matches our return type
     return await apiInstance.patch<void>('/auth/change-password', data);
   },
+
+  /**
+   * Check if default credentials should be shown
+   * Returns true if admin user still requires password change
+   */
+  shouldShowDefaultCredentials: async (): Promise<AxiosResponse<{ showDefaultCredentials: boolean }>> => {
+    return await authAxios.get<{ showDefaultCredentials: boolean }>('/auth/show-default-credentials');
+  },
 };

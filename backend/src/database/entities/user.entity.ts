@@ -2,7 +2,6 @@ import {
   Entity,
   Column,
   Index,
-  OneToMany,
 } from 'typeorm';
 import {
   IsEmail,
@@ -15,8 +14,6 @@ import {
   IsPhoneNumber,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { SalesOrder } from './sales-order.entity';
-import { PurchaseOrder } from './purchase-order.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -173,6 +170,14 @@ export class User extends BaseEntity {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @Column({
+    type: 'boolean',
+    default: false,
+    comment: 'Whether user must change password before accessing app',
+  })
+  @IsBoolean()
+  requiresPasswordChange: boolean;
 
   // Relationships
   // salesOrders relationship removed - createdByUser field removed from SalesOrder entity

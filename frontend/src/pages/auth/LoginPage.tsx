@@ -29,6 +29,7 @@ import {
   clearError,
 } from '@/store/slices/authSlice';
 import type { LoginCredentials } from '@/store/slices/authSlice';
+import { authApi } from '@/services/authApi';
 
 const schema = yup.object({
   usernameOrEmail: yup.string().required('Username or email is required'),
@@ -46,6 +47,7 @@ const LoginPage: React.FC = () => {
   const error = useAppSelector((state) => state.auth?.error || null);
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showDefaultCredentials, setShowDefaultCredentials] = useState(false);
 
   const {
     control,
@@ -59,6 +61,22 @@ const LoginPage: React.FC = () => {
       rememberMe: false,
     },
   });
+
+  // Fetch default credentials visibility from server on component mount
+  useEffect(() => {
+    const fetchCredentialsVisibility = async () => {
+      try {
+        const response = await authApi.shouldShowDefaultCredentials();
+        setShowDefaultCredentials(response.data.showDefaultCredentials);
+      } catch (error) {
+        console.error('Failed to fetch default credentials visibility:', error);
+        // Default to not showing credentials on error
+        setShowDefaultCredentials(false);
+      }
+    };
+
+    fetchCredentialsVisibility();
+  }, []);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -219,20 +237,27 @@ const LoginPage: React.FC = () => {
           </Box>
         </form>
 
-        {/* Default Credentials Hint */}
-        <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-            Default Admin Credentials:
-          </Typography>
-          <Typography variant="body2" fontFamily="monospace">
-            <strong>Username:</strong> admin
-            <br />
-            <strong>Password:</strong> Admin@123!
-          </Typography>
-          <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 1 }}>
-            Change password immediately after first login!
-          </Typography>
-        </Box>
+        {/* Default Admin Credentials Info - Only show if password hasn't been changed */}
+        {showDefaultCredentials && (
+          <Box sx={{ mt: 3, p: 2.5, bgcolor: 'info.lighter', borderRadius: 1, border: 1, borderColor: 'info.light' }}>
+            <Typography variant="subtitle2" color="info.dark" gutterBottom fontWeight="bold">
+              Default Admin Credentials:
+            </Typography>
+            <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, fontFamily: 'monospace' }}>
+              <Typography variant="body2" color="text.primary">
+                <strong>Username:</strong> admin
+              </Typography>
+              <Typography variant="body2" color="text.primary">
+                <strong>Password:</strong> Admin@123!
+              </Typography>
+            </Box>
+            <Alert severity="warning" sx={{ mt: 2 }} icon={false}>
+              <Typography variant="caption" fontWeight="medium">
+                You will be required to change this password immediately after first login for security reasons.
+              </Typography>
+            </Alert>
+          </Box>
+        )}
       </Paper>
     </Box>
   );
