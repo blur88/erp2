@@ -18,13 +18,23 @@ build/
 out/
 .turbo
 
-# Environment variables
+# Environment variables (CRITICAL - never commit actual .env files!)
 .env
 .env.local
 .env.*.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+.env.staging
+.env.staging.local
+
+# Keep template files (these should be committed)
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 
 # Logs
 *.log
@@ -66,11 +76,14 @@ Thumbs.db
 *.sublime-workspace
 *.code-workspace
 
-# Docker volumes and data
+# Docker volumes and data (runtime data - never commit)
 postgres-data/
 mongo-data/
 redis-data/
+docker-volumes/
 docker-compose.override.yml
+
+# NOTE: .dockerignore, Dockerfile, and docker-compose.yml ARE committed
 
 # Uploaded files
 uploads/
