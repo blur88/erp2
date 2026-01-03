@@ -173,6 +173,70 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
     reset()
   }, [reset])
 
+  // Check for elapsed time on window focus (handles laptop standby/sleep)
+  useEffect(() => {
+    if (!enabled) return
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Window became visible, check if too much time has passed
+        const now = Date.now()
+        const elapsed = now - lastActivityRef.current
+
+        // If more time has passed than the timeout, force logout
+        if (elapsed >= timeout) {
+          console.warn(`[useIdleTimer] Laptop was asleep for ${Math.floor(elapsed / 1000 / 60)} minutes, forcing logout`)
+          clearTimers()
+          setIsIdle(false)
+          isIdleRef.current = false
+          onTimeout?.()
+          return
+        }
+
+        // If we're in the warning period, show the warning
+        const idleDelay = timeout - warningTime
+        if (elapsed >= idleDelay && elapsed < timeout) {
+          const timeRemaining = timeout - elapsed
+          console.warn(`[useIdleTimer] Laptop was asleep, showing warning with ${Math.floor(timeRemaining / 1000)} seconds remaining`)
+          setIsIdle(true)
+          isIdleRef.current = true
+          onIdle?.()
+
+          // Start countdown with actual remaining time
+          const remainingSeconds = Math.ceil(timeRemaining / 1000)
+          setRemainingTime(remainingSeconds)
+
+          // Clear existing timers
+          clearTimers()
+
+          // Update remaining time every second
+          countdownIntervalRef.current = setInterval(() => {
+            setRemainingTime((prev) => {
+              if (prev <= 1) {
+                clearTimers()
+                return 0
+              }
+              return prev - 1
+            })
+          }, 1000)
+
+          // Set timeout for actual logout
+          timeoutTimerRef.current = setTimeout(() => {
+            clearTimers()
+            setRemainingTime(0)
+            onTimeout?.()
+          }, timeRemaining)
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [enabled, timeout, warningTime, onIdle, onTimeout, clearTimers])
+
   // Setup event listeners
   useEffect(() => {
     if (!enabled) {

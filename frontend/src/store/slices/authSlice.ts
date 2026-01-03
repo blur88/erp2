@@ -61,6 +61,8 @@ interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  lastActivityTime: number | null;
+  inactivityTimeoutMinutes: number; // Configurable inactivity timeout
 }
 
 const initialState: AuthState = {
@@ -70,6 +72,8 @@ const initialState: AuthState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  lastActivityTime: null,
+  inactivityTimeoutMinutes: 30, // Default: 30 minutes
 };
 
 // Async thunks
@@ -157,6 +161,7 @@ const authSlice = createSlice({
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
       state.error = null;
+      state.lastActivityTime = Date.now();
     },
     setAccessToken: (state, action: PayloadAction<string>) => {
       state.accessToken = action.payload;
@@ -167,9 +172,16 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.error = null;
+      state.lastActivityTime = null;
     },
     clearError: (state) => {
       state.error = null;
+    },
+    updateLastActivity: (state) => {
+      state.lastActivityTime = Date.now();
+    },
+    setInactivityTimeout: (state, action: PayloadAction<number>) => {
+      state.inactivityTimeoutMinutes = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -187,6 +199,7 @@ const authSlice = createSlice({
           state.isAuthenticated = true;
           state.loading = false;
           state.error = null;
+          state.lastActivityTime = Date.now();
         }
       })
       .addCase(login.rejected, (state, action) => {
@@ -209,6 +222,7 @@ const authSlice = createSlice({
           state.isAuthenticated = true;
           state.loading = false;
           state.error = null;
+          state.lastActivityTime = Date.now();
         }
       })
       .addCase(register.rejected, (state, action) => {
@@ -282,7 +296,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
+export const { setCredentials, setAccessToken, clearAuth, clearError, updateLastActivity, setInactivityTimeout } = authSlice.actions;
 
 // Selectors
 export const selectCurrentUser = (state: any) => state.auth?.user;

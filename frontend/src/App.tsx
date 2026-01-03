@@ -83,7 +83,7 @@ function App() {
   const [showIdleWarning, setShowIdleWarning] = useState(false)
 
   // Auto-logout configuration
-  const IDLE_TIMEOUT = 60 * 60 * 1000 // 60 minutes
+  const IDLE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
   const WARNING_TIME = 2 * 60 * 1000 // 2 minutes warning
 
   // Handle auto-logout
