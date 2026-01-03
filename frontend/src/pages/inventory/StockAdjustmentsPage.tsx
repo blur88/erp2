@@ -314,14 +314,16 @@ const StockAdjustmentsPage: React.FC = () => {
     if (adjustmentToDelete) {
       setDeletingId(adjustmentToDelete)
       try {
-        await inventoryApi.deleteStockAdjustment(adjustmentToDelete)
-        showSuccess(`Stock adjustment "${adjustmentToDeleteName}" deleted successfully`)
-        loadAdjustments()
-        // Clear selection if deleted adjustment was selected
+        // Clear selection BEFORE deleting if this adjustment is selected
         if (selectedAdjustment?.id === adjustmentToDelete) {
           dispatch(setSelectedStockAdjustment(null))
           setFocusedAdjustmentIndex(-1)
         }
+
+        await inventoryApi.deleteStockAdjustment(adjustmentToDelete)
+        showSuccess(`Stock adjustment "${adjustmentToDeleteName}" deleted successfully`)
+        loadAdjustments()
+
         setDeleteConfirmOpen(false)
         setAdjustmentToDelete(null)
         setAdjustmentToDeleteName('')
