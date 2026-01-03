@@ -48,8 +48,6 @@ export class PrintSettingsService {
         purchaseOrderTemplate: this.getDefaultTemplate('Purchase Order'),
         grnTemplate: this.getDefaultTemplate('Goods Received Note'),
         vendorPaymentTemplate: this.getDefaultTemplate('Vendor Payment'),
-        createdBy: 'system',
-        updatedBy: 'system',
       });
       settings = await this.printSettingsRepository.save(settings);
     }
@@ -72,13 +70,10 @@ export class PrintSettingsService {
       // Create new settings
       settings = this.printSettingsRepository.create({
         ...updateDto,
-        createdBy: 'system',
-        updatedBy: 'system',
       });
     } else {
       // Update existing settings
       Object.assign(settings, updateDto);
-      settings.updatedBy = 'system';
     }
 
     settings = await this.printSettingsRepository.save(settings);
@@ -105,18 +100,15 @@ export class PrintSettingsService {
       email: companySettings.email || '',
       website: companySettings.website || '',
       miscInfo: companySettings.miscInfo || '',
-      logoUrl: companySettings.logoUrl || '',
+      logoUrl: companySettings.logoUrl || null,
     };
 
     if (!settings) {
       settings = this.printSettingsRepository.create({
         ...importData,
-        createdBy: 'system',
-        updatedBy: 'system',
       });
     } else {
       Object.assign(settings, importData);
-      settings.updatedBy = 'system';
     }
 
     settings = await this.printSettingsRepository.save(settings);
