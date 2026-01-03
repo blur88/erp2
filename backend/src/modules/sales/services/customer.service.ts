@@ -21,6 +21,7 @@ import {
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { AuditLogService } from '../../audit-logs/services';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class CustomerService {
@@ -33,6 +34,7 @@ export class CustomerService {
     private readonly invoiceRepository: Repository<Invoice>,
     private readonly transactionManager: TransactionManager,
     private readonly auditLogService: AuditLogService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
@@ -41,9 +43,16 @@ export class CustomerService {
       await this.validatePhoneUniqueness(createCustomerDto.phone);
     }
 
+    // Get default pricing scheme from settings if not provided
+    let pricingScheme = createCustomerDto.pricingScheme || createCustomerDto.priceLevel;
+    if (!pricingScheme) {
+      const schemes = await this.settingsService.getActivePricingSchemeNames();
+      pricingScheme = schemes[0] || 'Retail'; // Use first available scheme or fallback to 'Retail'
+    }
+
     const customer = this.customerRepository.create({
       ...createCustomerDto,
-      pricingScheme: createCustomerDto.pricingScheme || createCustomerDto.priceLevel || 'Retail',
+      pricingScheme,
     });
 
     const savedCustomer = await this.customerRepository.save(customer);
