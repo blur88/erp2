@@ -163,6 +163,7 @@ const OrdersPage: React.FC = () => {
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const processedHighlightRef = useRef<string | null>(null)
+  const userHasNavigatedRef = useRef<boolean>(false)
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -308,6 +309,8 @@ const OrdersPage: React.FC = () => {
     setFocusedOrderIndex(orderIndex)
     // Fetch full order details with invoices and payments
     dispatch(fetchOrderById(order.id) as any)
+    // Mark that user has manually navigated
+    userHasNavigatedRef.current = true
   }, [dispatch, orders])
 
 
@@ -866,9 +869,13 @@ const OrdersPage: React.FC = () => {
 
   // Auto-focus first order when orders load (only if search input is not focused)
   useEffect(() => {
+    // Check if there's a highlightOrderId in location.state OR if we recently processed one
+    const state = location.state as { highlightOrderId?: string }
+    const hasHighlightOrderId = !!state?.highlightOrderId || !!processedHighlightRef.current
+
     if (orders.length > 0 && focusedOrderIndex === -1) {
-      // Only auto-focus if we don't have a selected order AND search input is not focused
-      if (!selectedOrder && searchInputRef.current !== document.activeElement) {
+      // Only auto-focus if we don't have a selected order AND search input is not focused AND no highlightOrderId pending or processed
+      if (!selectedOrder && searchInputRef.current !== document.activeElement && !hasHighlightOrderId) {
         setFocusedOrderIndex(0)
         // Automatically show order details for the first order
         dispatch(setSelectedOrder(orders[0]))
@@ -881,7 +888,7 @@ const OrdersPage: React.FC = () => {
       dispatch(clearError())
       setFocusedOrderIndex(-1)
     }
-  }, [orders, focusedOrderIndex, selectedOrder, dispatch])
+  }, [orders, focusedOrderIndex, selectedOrder, dispatch, location.state])
 
   // Handle pending order selection after orders load
   useEffect(() => {
@@ -901,23 +908,27 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     const state = location.state as { highlightOrderId?: string }
     if (state?.highlightOrderId && orders.length > 0) {
-      // Only process if we haven't already processed this highlight ID
-      if (processedHighlightRef.current !== state.highlightOrderId) {
-        const orderIndex = orders.findIndex((o: SalesOrder) => o.id === state.highlightOrderId)
-        if (orderIndex >= 0) {
+      const orderIndex = orders.findIndex((o: SalesOrder) => o.id === state.highlightOrderId)
+      if (orderIndex >= 0) {
+        // Only process if we haven't already processed this highlight ID
+        if (processedHighlightRef.current !== state.highlightOrderId) {
           dispatch(setSelectedOrder(orders[orderIndex]))
           setFocusedOrderIndex(orderIndex)
           // Fetch full order details with invoices and payments
           dispatch(fetchOrderById(orders[orderIndex].id) as any)
-          // Mark this ID as processed
+          // Mark this ID as processed and reset navigation flag
           processedHighlightRef.current = state.highlightOrderId
-          // Clear the state to prevent repeated highlighting
-          window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          userHasNavigatedRef.current = false
+        } else if (!userHasNavigatedRef.current) {
+          // Already processed, but update focusedOrderIndex if order position changed
+          // ONLY if user hasn't manually navigated away yet
+          setFocusedOrderIndex(orderIndex)
         }
       }
     } else if (!state?.highlightOrderId) {
       // Reset when there's no highlightOrderId (e.g., normal navigation)
       processedHighlightRef.current = null
+      userHasNavigatedRef.current = false
     }
   }, [orders, location.state, dispatch])
 
@@ -941,6 +952,10 @@ const OrdersPage: React.FC = () => {
       const newIndex = focusedOrderIndex - 1
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
@@ -949,6 +964,10 @@ const OrdersPage: React.FC = () => {
       const newIndex = focusedOrderIndex + 1
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
@@ -956,6 +975,10 @@ const OrdersPage: React.FC = () => {
     if (orders.length > 0) {
       setFocusedOrderIndex(0)
       dispatch(setSelectedOrder(orders[0]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[0].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [orders, dispatch])
 
@@ -964,6 +987,10 @@ const OrdersPage: React.FC = () => {
       const lastIndex = orders.length - 1
       setFocusedOrderIndex(lastIndex)
       dispatch(setSelectedOrder(orders[lastIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[lastIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [orders, dispatch])
 
@@ -973,6 +1000,10 @@ const OrdersPage: React.FC = () => {
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
@@ -982,6 +1013,10 @@ const OrdersPage: React.FC = () => {
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
