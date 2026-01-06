@@ -217,7 +217,7 @@ const LoginPage: React.FC = () => {
               render={({ field }) => (
                 <FormControlLabel
                   control={<Checkbox {...field} checked={field.value} />}
-                  label="Remember me for 7 days"
+                  label="Remember me for 7 days (otherwise 1 day)"
                 />
               )}
             />
