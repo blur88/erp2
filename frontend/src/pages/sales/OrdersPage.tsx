@@ -213,20 +213,54 @@ const OrdersPage: React.FC = () => {
     }))
   }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
 
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
-
-  // Refresh persisted selectedOrder on component mount (after browser refresh)
+  // Track if we're on initial mount with persisted selection
   const hasRefreshedPersistedOrder = useRef(false)
+  const isRefreshingPersistedOrder = useRef(false)
+
   useEffect(() => {
-    // Only run once on mount
+    // If we have a persisted selected order on mount, fetch it first, then load the list
     if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
       console.log('Refreshing persisted selectedOrder:', selectedOrder.id)
-      dispatch(fetchOrderById(selectedOrder.id) as any)
+      isRefreshingPersistedOrder.current = true
       hasRefreshedPersistedOrder.current = true
+
+      // Fetch the selected order by ID first to get complete data with invoices/items
+      dispatch(fetchOrderById(selectedOrder.id) as any)
+        .then((result: any) => {
+          if (result.payload) {
+            const order = result.payload.data || result.payload
+            // Set the complete order data from fetchOrderById
+            dispatch(setSelectedOrder(order))
+
+            // Find the index of this order in the list after orders load
+            setTimeout(() => {
+              const orderIndex = orders.findIndex((o: any) => o.id === order.id)
+              if (orderIndex >= 0) {
+                setFocusedOrderIndex(orderIndex)
+              }
+              isRefreshingPersistedOrder.current = false
+            }, 500) // Small delay to ensure orders list has loaded
+          }
+        })
+        .catch(() => {
+          isRefreshingPersistedOrder.current = false
+        })
+
+      // Then load the orders list
+      loadOrders()
+    } else if (!hasRefreshedPersistedOrder.current) {
+      // No persisted selection - just load orders normally
+      hasRefreshedPersistedOrder.current = true
+      loadOrders()
     }
-  }, []) // Empty deps - only run on mount
+  }, []) // Only run once on mount
+
+  // Load orders when filters change (but not on initial mount)
+  useEffect(() => {
+    if (hasRefreshedPersistedOrder.current) {
+      loadOrders()
+    }
+  }, [loadOrders])
 
   // Refresh on route navigation (when coming back from another page)
   const previousPathnameRef = useRef(location.pathname)
@@ -237,20 +271,37 @@ const OrdersPage: React.FC = () => {
       // Also refresh the selected order to get updated customer data
       if (selectedOrder) {
         dispatch(fetchOrderById(selectedOrder.id) as any)
+          .then((result: any) => {
+            if (result.payload) {
+              const order = result.payload.data || result.payload
+              dispatch(setSelectedOrder(order))
+            }
+          })
       }
     }
     previousPathnameRef.current = location.pathname
   }, [location.pathname, loadOrders, selectedOrder, dispatch])
 
-  // Update selected order when fresh data arrives (to reflect customer changes)
+  // Sync selected order with fresh data from orders list (but don't overwrite during refresh)
   useEffect(() => {
-    if (orders && orders.length > 0 && selectedOrder) {
+    if (orders && orders.length > 0 && selectedOrder && !isRefreshingPersistedOrder.current) {
       const freshOrder = orders.find((order: any) => order.id === selectedOrder.id)
       if (freshOrder) {
-        // Only update if the data actually changed (to avoid infinite loops)
-        const hasChanged = JSON.stringify(freshOrder) !== JSON.stringify(selectedOrder)
-        if (hasChanged) {
+        // Check if invoices/items exist in both before comparing
+        const selectedHasInvoices = selectedOrder.invoices && selectedOrder.invoices.length > 0
+        const freshHasInvoices = freshOrder.invoices && freshOrder.invoices.length > 0
+        const selectedHasItems = selectedOrder.items && selectedOrder.items.length > 0
+        const freshHasItems = freshOrder.items && freshOrder.items.length > 0
+
+        // Only update if fresh order has MORE data (avoid overwriting complete data with incomplete)
+        if ((freshHasInvoices && !selectedHasInvoices) || (freshHasItems && !selectedHasItems)) {
           dispatch(setSelectedOrder(freshOrder))
+        } else if (!selectedHasInvoices && !freshHasInvoices && !selectedHasItems && !freshHasItems) {
+          // Both incomplete - check for other changes
+          const hasChanged = JSON.stringify(freshOrder) !== JSON.stringify(selectedOrder)
+          if (hasChanged) {
+            dispatch(setSelectedOrder(freshOrder))
+          }
         }
       }
     }
@@ -869,19 +920,26 @@ const OrdersPage: React.FC = () => {
     }
   }
 
-  // Auto-focus first order when orders load (only if search input is not focused)
+  // Auto-focus order when orders load
   useEffect(() => {
     // Check if there's a highlightOrderId in location.state OR if we recently processed one
     const state = location.state as { highlightOrderId?: string }
     const hasHighlightOrderId = !!state?.highlightOrderId || !!processedHighlightRef.current
 
-    if (orders.length > 0 && focusedOrderIndex === -1) {
-      // Only auto-focus if we don't have a selected order AND search input is not focused AND no highlightOrderId pending or processed
-      if (!selectedOrder && searchInputRef.current !== document.activeElement && !hasHighlightOrderId) {
+    if (orders.length > 0 && focusedOrderIndex === -1 && !isRefreshingPersistedOrder.current) {
+      if (selectedOrder) {
+        // We have a selected order - find its index and focus it
+        const orderIndex = orders.findIndex((o: any) => o.id === selectedOrder.id)
+        if (orderIndex >= 0) {
+          setFocusedOrderIndex(orderIndex)
+        } else {
+          // Selected order not in current list (due to filters) - focus first order but keep selection
+          setFocusedOrderIndex(0)
+        }
+      } else if (searchInputRef.current !== document.activeElement && !hasHighlightOrderId) {
+        // No selected order - auto-focus and select first order
         setFocusedOrderIndex(0)
-        // Automatically show order details for the first order
         dispatch(setSelectedOrder(orders[0]))
-        // Fetch full order details with invoices and payments
         dispatch(fetchOrderById(orders[0].id) as any)
       }
     } else if (orders.length === 0) {
