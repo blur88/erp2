@@ -1852,6 +1852,7 @@ export class SalesOrderService {
 
     // Automatically update or create payment record
     try {
+      console.log(`[recordPayment] Starting payment creation/update for order ${order.orderNumber}, amount: ${amount}`);
       const Payment = (await import('../../../database/entities/payment.entity')).Payment;
       const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
       const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
@@ -1860,11 +1861,13 @@ export class SalesOrderService {
       // Get or create a user repository import
       const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
       const invoiceRepository = this.salesOrderRepository.manager.getRepository(Invoice);
+      console.log(`[recordPayment] Repositories acquired successfully`);
 
       // Find invoice for this sales order if it exists
       let invoice = await invoiceRepository.findOne({
         where: { salesOrderId: savedOrder.id }
       });
+      console.log(`[recordPayment] Invoice lookup: ${invoice ? `Found ${invoice.invoiceNumber}` : 'No invoice found'}`);
 
       // If invoice exists, update its paid amount
       if (invoice) {
@@ -1872,9 +1875,11 @@ export class SalesOrderService {
         invoice.calculateTotals();
         invoice.updateStatus();
         await invoiceRepository.save(invoice);
+        console.log(`[recordPayment] Updated invoice ${invoice.invoiceNumber} paid amount to ${amount}`);
       }
 
       // Check if a payment already exists for this sales order (including soft-deleted)
+      console.log(`[recordPayment] Checking for existing payment with notes containing 'sales order ${order.orderNumber}'`);
       const existingPayment = await paymentRepository.findOne({
         where: {
           customerId: order.customerId,
@@ -1882,6 +1887,7 @@ export class SalesOrderService {
         },
         withDeleted: true, // Include soft-deleted payments
       });
+      console.log(`[recordPayment] Existing payment: ${existingPayment ? `Found ${existingPayment.paymentNumber}` : 'None found, will create new'}`);
 
       if (existingPayment) {
         // Restore payment if it was soft-deleted
@@ -1944,12 +1950,18 @@ export class SalesOrderService {
         );
       } else {
         // Generate payment number using document settings
+        console.log(`[recordPayment] Generating new payment number`);
         let paymentNumber: string;
         try {
           paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
+          console.log(`[recordPayment] Generated payment number from settings: ${paymentNumber}`);
         } catch (error) {
-          // Fallback to legacy method
-          const allPayments = await paymentRepository.find({ select: ['paymentNumber'] });
+          console.log(`[recordPayment] Settings service failed, using fallback method:`, error.message);
+          // Fallback to legacy method - must include soft-deleted payments to avoid duplicates
+          const allPayments = await paymentRepository.find({
+            select: ['paymentNumber'],
+            withDeleted: true // CRITICAL: Include soft-deleted to get accurate max number
+          });
           let maxNumber = 0;
           for (const payment of allPayments) {
             const match = payment.paymentNumber.match(/^PAY-(\d+)$/);
@@ -1959,9 +1971,11 @@ export class SalesOrderService {
             }
           }
           paymentNumber = `PAY-${(maxNumber + 1).toString().padStart(6, '0')}`;
+          console.log(`[recordPayment] Generated payment number from fallback: ${paymentNumber} (checked ${allPayments.length} payments including deleted)`);
         }
 
         // Create new payment record with sales order details
+        console.log(`[recordPayment] Creating payment entity with number: ${paymentNumber}`);
         const payment = paymentRepository.create({
           paymentNumber,
           status: PaymentStatus.COMPLETED,
@@ -1973,6 +1987,7 @@ export class SalesOrderService {
                     notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
         });
 
+        console.log(`[recordPayment] Saving payment to database...`);
         await paymentRepository.save(payment);
         console.log(`✅ Auto-generated payment ${payment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
 
@@ -1992,9 +2007,12 @@ export class SalesOrderService {
             },
           }
         );
+        console.log(`[recordPayment] Payment creation completed successfully`);
       }
     } catch (error) {
       console.error(`⚠️ Failed to auto-generate payment for order ${order.orderNumber}:`, error.message);
+      console.error('Full error:', error);
+      console.error('Stack trace:', error.stack);
       // Don't throw error - payment recording on order should still succeed
     }
 

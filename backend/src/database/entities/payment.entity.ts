@@ -127,7 +127,7 @@ export class Payment extends BaseEntity {
   @JoinColumn({ name: 'invoiceId' })
   invoice?: Invoice;
 
-  
+
   // Computed properties
   get isCompleted(): boolean {
     return this.status === PaymentStatus.COMPLETED;
