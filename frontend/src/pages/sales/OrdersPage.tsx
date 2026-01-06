@@ -467,17 +467,18 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await salesApi.unpayOrder(selectedOrder.id)
-      dispatch(updateOrderInPlace(response.data))
+      await salesApi.unpayOrder(selectedOrder.id)
+
+      // Re-fetch full order details to get updated invoice/items with proper relations
+      await dispatch(fetchOrderById(selectedOrder.id) as any)
+
       // Refresh invoices to show updated payment amounts
       dispatch(fetchInvoices({ page: 1, limit: 20 }))
-      // Refresh the orders list to show updated state
-      dispatch(fetchOrders({
-        limit: 1000,
-        search: orderFilters.search || '',
-        paymentStatus: orderFilters.paymentStatus || 'all',
-        fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
-      }))
+
+      // Note: NOT calling fetchOrders here because it would overwrite selectedOrder
+      // with a shallow version from the list that doesn't have full invoice/item relations.
+      // The order list will be updated by the useEffect that syncs from selectedOrder changes.
+
       showSuccess('Payment cleared successfully')
     } catch (error: any) {
       console.error('Error unpaying order:', error)
@@ -850,8 +851,9 @@ const OrdersPage: React.FC = () => {
       })
 
       if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
+        // Re-fetch full order details to get updated invoice/items with proper relations
+        await dispatch(fetchOrderById(selectedOrder.id) as any)
+
         showSuccess('Order unpaid successfully - payment removed')
         setBlockedDialogOpen(false)
       } else {
