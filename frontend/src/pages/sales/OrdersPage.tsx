@@ -821,69 +821,44 @@ const OrdersPage: React.FC = () => {
   const handleUnpayAndDelete = async () => {
     if (!selectedOrder) return
 
+    // Capture order details before any async operations to avoid race conditions
+    const orderId = selectedOrder.id
+    const orderNumber = selectedOrder.orderNumber || selectedOrder.id
+    const isFulfilled = selectedOrder.isFulfilled
+
     setIsLoading(true)
     try {
-      // Check if also fulfilled - if so, unfulfill first before unpay
-      const isFulfilled = selectedOrder.isFulfilled
-
       if (isFulfilled) {
         // Step 1: Unfulfill first (required before unpay)
-        const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-
-        if (!unfulfillResponse.ok) {
-          const errorData = await unfulfillResponse.json()
-          throw new Error(errorData?.message || 'Failed to unfulfill order')
-        }
+        await salesApi.unfulfillOrder(orderId)
 
         // Step 2: Then unpay
-        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
+        await salesApi.unpayOrder(orderId)
 
-        if (!unpayResponse.ok) {
-          const errorData = await unpayResponse.json()
-          throw new Error(errorData?.message || 'Failed to unpay order')
-        }
-
-        const updatedOrder = await unpayResponse.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order unfulfilled and unpaid successfully')
+        showSuccess('Order unfulfilled and unpaid - now deleting...')
       } else {
         // Only unpay
-        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
+        await salesApi.unpayOrder(orderId)
 
-        if (!unpayResponse.ok) {
-          const errorData = await unpayResponse.json()
-          throw new Error(errorData?.message || 'Failed to unpay order')
-        }
-
-        const updatedOrder = await unpayResponse.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order unpaid successfully')
+        showSuccess('Order unpaid - now deleting...')
       }
 
+      // Close the blocked dialog
       setBlockedDialogOpen(false)
 
-      // Now proceed with delete
-      setOrderToDelete(selectedOrder.id)
-      setOrderToDeleteName(selectedOrder.orderNumber || selectedOrder.id)
-      setDeleteConfirmOpen(true)
+      // Step 3: Delete the order directly
+      // The delete endpoint will verify the order is in correct state
+      const result = await dispatch(deleteOrder(orderId))
+
+      if (deleteOrder.fulfilled.match(result)) {
+        showSuccess(`Order "${orderNumber}" deleted successfully`)
+      } else if (deleteOrder.rejected.match(result)) {
+        const errorMessage = result.payload as string || 'Failed to delete order'
+        showError(errorMessage)
+      }
     } catch (error: any) {
       console.error('Error preparing order for deletion:', error)
-      showError(error.message || 'Error preparing order for deletion. Please try again.')
+      showError(error?.response?.data?.message || error.message || 'Error preparing order for deletion. Please try again.')
     } finally {
       setIsLoading(false)
     }

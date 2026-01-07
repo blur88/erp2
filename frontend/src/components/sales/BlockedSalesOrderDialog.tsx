@@ -163,27 +163,16 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
 
         {/* Show appropriate action buttons based on status */}
         {blockingReasons.length === 2 ? (
-          // Both fulfilled and paid - unpay & unfulfill together
-          (<>
-            <Button
-              onClick={onUnpayOnly}
-              variant="outlined"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 140 }}
-            >
-              Unpay Only
-            </Button>
-            <Button
-              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
-              variant="contained"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 200 }}
-            >
-              Unpay, Unfulfill & {actionVerbCap}
-            </Button>
-          </>)
+          // Both fulfilled and paid - only show unpay & unfulfill together (no "Unpay Only" option)
+          <Button
+            onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ minWidth: 200 }}
+          >
+            Unpay, Unfulfill & {actionVerbCap}
+          </Button>
         ) : isFulfilled ? (
           // Only fulfilled
           (<>
