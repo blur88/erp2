@@ -356,7 +356,7 @@ export class SalesOrderService {
       sortBy = 'orderNumber',
       sortOrder = 'ASC',
       page = 1,
-      limit = 20,
+      limit = 1000, // Increased default to support fetching all orders
     } = query;
 
     // Use QueryBuilder to avoid metadata issues
