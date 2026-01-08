@@ -864,36 +864,6 @@ const OrdersPage: React.FC = () => {
     }
   }
 
-  const handleUnpayOnly = async () => {
-    if (!selectedOrder) return
-
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        // Re-fetch full order details to get updated invoice/items with proper relations
-        await dispatch(fetchOrderById(selectedOrder.id) as any)
-
-        showSuccess('Order unpaid successfully - payment removed')
-        setBlockedDialogOpen(false)
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to unpay order'
-        showError(errorMessage)
-      }
-    } catch (error) {
-      console.error('Error unpaying order:', error)
-      showError('Error unpaying order. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   // Auto-focus order when orders load
   useEffect(() => {
@@ -2439,7 +2409,6 @@ const OrdersPage: React.FC = () => {
           onUnfulfillAndEdit={handleUnfulfillAndEdit}
           onUnfulfillOnly={handleUnfulfillOnly}
           onUnpayAndEdit={handleUnpayAndEdit}
-          onUnpayOnly={handleUnpayOnly}
           onUnfulfillAndDelete={handleUnfulfillAndDelete}
           onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}

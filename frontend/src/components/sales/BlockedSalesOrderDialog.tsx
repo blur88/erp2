@@ -28,7 +28,6 @@ interface BlockedSalesOrderDialogProps {
   onUnfulfillAndEdit: () => void
   onUnfulfillOnly: () => void
   onUnpayAndEdit: () => void
-  onUnpayOnly: () => void
   onUnfulfillAndDelete?: () => void
   onUnpayAndDelete?: () => void
   loading?: boolean
@@ -45,7 +44,6 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
   onUnfulfillAndEdit,
   onUnfulfillOnly,
   onUnpayAndEdit,
-  onUnpayOnly,
   onUnfulfillAndDelete,
   onUnpayAndDelete,
   loading = false
@@ -197,26 +195,15 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
           </>)
         ) : (
           // Only paid
-          (<>
-            <Button
-              onClick={onUnpayOnly}
-              variant="outlined"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 100 }}
-            >
-              Unpay Only
-            </Button>
-            <Button
-              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
-              variant="contained"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 140 }}
-            >
-              Unpay & {actionVerbCap}
-            </Button>
-          </>)
+          <Button
+            onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ minWidth: 140 }}
+          >
+            Unpay & {actionVerbCap}
+          </Button>
         )}
       </DialogActions>
     </Dialog>
