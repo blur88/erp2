@@ -130,19 +130,21 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
                       Inventory quantities will be restored
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                    <Typography variant="body2">
-                      Order will become editable again
-                    </Typography>
-                  </Box>
+                  {actionType === 'edit' && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                      <Typography variant="body2">
+                        Order will become editable again
+                      </Typography>
+                    </Box>
+                  )}
                 </>
               )}
-              {!isFulfilled && isPaid && (
+              {!isFulfilled && isPaid && actionType === 'edit' && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
                   <Typography variant="body2">
-                    Order will become {actionType === 'edit' ? 'editable' : 'deletable'} again
+                    Order will become editable again
                   </Typography>
                 </Box>
               )}
