@@ -138,7 +138,7 @@ function App() {
 
   // Idle timer - only active when authenticated, not on login page, and "Remember me" is NOT checked
   // If "Remember me" is checked, disable inactivity timeout to allow 7-day session
-  const { isIdle, remainingTime, reset } = useIdleTimer({
+  const { remainingTime, reset } = useIdleTimer({
     timeout: IDLE_TIMEOUT,
     warningTime: WARNING_TIME,
     enabled: isAuthenticated && location.pathname !== '/login' && !rememberMe,

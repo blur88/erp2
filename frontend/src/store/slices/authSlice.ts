@@ -117,7 +117,7 @@ export const refreshAccessToken = createAsyncThunk(
 
 export const logout = createAsyncThunk(
   'auth/logout',
-  async (refreshToken: string, { rejectWithValue }) => {
+  async (refreshToken: string) => {
     try {
       await authApi.logout(refreshToken);
       return null;
