@@ -16,6 +16,7 @@ import {
   Edit as EditIcon,
   Payment as PaymentIcon,
 } from '@mui/icons-material'
+import { formatCurrency } from '@/utils/currency'
 
 interface BlockedSalesOrderDialogProps {
   open: boolean
@@ -93,11 +94,11 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
           <Alert severity="warning" sx={{ borderRadius: 1.5 }}>
             <Typography variant="body2">
               {blockingReasons.length === 2 ? (
-                <>This order has been fulfilled and has a payment of <strong>${paidAmount.toFixed(2)}</strong>. To {actionVerb} the order, you must first unpay it, then unfulfill the order.</>
+                <>This order has been fulfilled and has a payment of <strong>{formatCurrency(paidAmount)}</strong>. To {actionVerb} the order, you must first unpay it, then unfulfill the order.</>
               ) : isFulfilled ? (
                 <>This order has already been fulfilled. To {actionVerb} the order, you must unfulfill it first. This action will restore the inventory quantities.</>
               ) : (
-                <>This order has a payment of <strong>${paidAmount.toFixed(2)}</strong>. To {actionVerb} the order, you must unpay it first. This will remove the payment record.</>
+                <>This order has a payment of <strong>{formatCurrency(paidAmount)}</strong>. To {actionVerb} the order, you must unpay it first. This will remove the payment record.</>
               )}
             </Typography>
           </Alert>
