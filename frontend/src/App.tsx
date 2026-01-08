@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { Box, LinearProgress } from '@mui/material'
 import { useAppSelector, useAppDispatch } from './hooks/useRedux'
 import { selectTheme } from './store/slices/themeSlice'
-import { selectIsAuthenticated, logout as logoutAction, clearAuth } from './store/slices/authSlice'
+import { selectIsAuthenticated, selectRememberMe, logout as logoutAction, clearAuth } from './store/slices/authSlice'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
 
@@ -76,6 +76,7 @@ const PageLoader = () => (
 function App() {
   const theme = useAppSelector(selectTheme)
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
+  const rememberMe = useAppSelector(selectRememberMe)
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const location = useLocation()
@@ -135,11 +136,12 @@ function App() {
     setShowIdleWarning(false)
   }, [])
 
-  // Idle timer - only active when authenticated and not on login page
+  // Idle timer - only active when authenticated, not on login page, and "Remember me" is NOT checked
+  // If "Remember me" is checked, disable inactivity timeout to allow 7-day session
   const { isIdle, remainingTime, reset } = useIdleTimer({
     timeout: IDLE_TIMEOUT,
     warningTime: WARNING_TIME,
-    enabled: isAuthenticated && location.pathname !== '/login',
+    enabled: isAuthenticated && location.pathname !== '/login' && !rememberMe,
     onIdle: handleIdle,
     onTimeout: handleTimeout,
     onActive: handleActive,

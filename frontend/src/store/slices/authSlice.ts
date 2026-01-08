@@ -63,6 +63,7 @@ interface AuthState {
   error: string | null;
   lastActivityTime: number | null;
   inactivityTimeoutMinutes: number; // Configurable inactivity timeout
+  rememberMe: boolean; // Track if user selected "Remember me"
 }
 
 const initialState: AuthState = {
@@ -74,6 +75,7 @@ const initialState: AuthState = {
   error: null,
   lastActivityTime: null,
   inactivityTimeoutMinutes: 30, // Default: 30 minutes
+  rememberMe: false, // Default: false
 };
 
 // Async thunks
@@ -155,13 +157,16 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setCredentials: (state, action: PayloadAction<AuthResponse>) => {
+    setCredentials: (state, action: PayloadAction<AuthResponse & { rememberMe?: boolean }>) => {
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
       state.error = null;
       state.lastActivityTime = Date.now();
+      if (action.payload.rememberMe !== undefined) {
+        state.rememberMe = action.payload.rememberMe;
+      }
     },
     setAccessToken: (state, action: PayloadAction<string>) => {
       state.accessToken = action.payload;
@@ -173,6 +178,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.error = null;
       state.lastActivityTime = null;
+      state.rememberMe = false;
     },
     clearError: (state) => {
       state.error = null;
@@ -200,6 +206,8 @@ const authSlice = createSlice({
           state.loading = false;
           state.error = null;
           state.lastActivityTime = Date.now();
+          // Store rememberMe from login thunk meta
+          state.rememberMe = (action.meta.arg as LoginCredentials).rememberMe || false;
         }
       })
       .addCase(login.rejected, (state, action) => {
@@ -254,6 +262,7 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.error = null;
+      state.rememberMe = false;
     });
 
     // Get current user
@@ -288,6 +297,7 @@ const authSlice = createSlice({
         state.accessToken = null;
         state.refreshToken = null;
         state.isAuthenticated = false;
+        state.rememberMe = false;
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.loading = false;
@@ -305,5 +315,6 @@ export const selectAccessToken = (state: any) => state.auth?.accessToken;
 export const selectRefreshToken = (state: any) => state.auth?.refreshToken;
 export const selectAuthLoading = (state: any) => state.auth?.loading || false;
 export const selectAuthError = (state: any) => state.auth?.error;
+export const selectRememberMe = (state: any) => state.auth?.rememberMe || false;
 
 export default authSlice.reducer;
