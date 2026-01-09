@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -127,6 +127,7 @@ OrderRow.displayName = 'OrderRow'
 const PurchaseOrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const location = useLocation()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
@@ -162,6 +163,8 @@ const PurchaseOrdersPage: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState('')
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const processedHighlightRef = useRef<string | null>(null)
+  const userHasNavigatedRef = useRef(false)
 
   // Fetch suppliers on mount
   useEffect(() => {
@@ -274,6 +277,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const handleOrderSelect = useCallback(async (order: any) => {
     const orderIndex = purchaseOrders.findIndex(o => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
+    userHasNavigatedRef.current = true
 
     try {
       // Fetch fresh data from server to ensure supplier name is current
@@ -807,17 +811,31 @@ const PurchaseOrdersPage: React.FC = () => {
 
   // Auto-focus first order when orders load
   useEffect(() => {
+    // Check if there's a highlightOrderId in location.state OR if we recently processed one
+    const state = location.state as { highlightOrderId?: string }
+    const hasHighlightOrderId = !!state?.highlightOrderId || !!processedHighlightRef.current
+
     if (purchaseOrders.length > 0 && focusedOrderIndex === -1) {
-      if (!selectedOrder && searchInputRef.current !== document.activeElement) {
+      if (selectedOrder) {
+        // We have a selected order - find its index and focus it
+        const orderIndex = purchaseOrders.findIndex((o: any) => o.id === selectedOrder.id)
+        if (orderIndex >= 0) {
+          setFocusedOrderIndex(orderIndex)
+        } else {
+          // Selected order not in current list (due to filters) - focus first order but keep selection
+          setFocusedOrderIndex(0)
+        }
+      } else if (searchInputRef.current !== document.activeElement && !hasHighlightOrderId) {
         // Don't auto-select if we have a poId query parameter
         const poId = searchParams.get('poId')
         if (!poId) {
+          // No selected order - auto-focus and select first order
           setFocusedOrderIndex(0)
           dispatch(setSelectedPurchaseOrder(purchaseOrders[0]))
         }
       }
     }
-  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch, searchParams])
+  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch, searchParams, location.state])
 
   // Clear selection when no orders exist
   useEffect(() => {
@@ -827,12 +845,52 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }, [purchaseOrders.length, selectedOrder, dispatch])
 
+  // Handle navigation from create/edit page with highlightOrderId
+  useEffect(() => {
+    const state = location.state as { highlightOrderId?: string }
+    if (state?.highlightOrderId && purchaseOrders.length > 0) {
+      const orderIndex = purchaseOrders.findIndex((o: any) => o.id === state.highlightOrderId)
+      if (orderIndex >= 0) {
+        // Only process if we haven't already processed this highlight ID
+        if (processedHighlightRef.current !== state.highlightOrderId) {
+          dispatch(setSelectedPurchaseOrder(purchaseOrders[orderIndex]))
+          setFocusedOrderIndex(orderIndex)
+          // Mark this ID as processed and reset navigation flag
+          processedHighlightRef.current = state.highlightOrderId
+          userHasNavigatedRef.current = false
+        } else if (!userHasNavigatedRef.current) {
+          // Already processed, but update focusedOrderIndex if order position changed
+          // ONLY if user hasn't manually navigated away yet
+          setFocusedOrderIndex(orderIndex)
+        }
+      }
+    } else if (!state?.highlightOrderId) {
+      // Reset when there's no highlightOrderId (e.g., normal navigation)
+      processedHighlightRef.current = null
+      userHasNavigatedRef.current = false
+    }
+  }, [purchaseOrders, location.state, dispatch])
+
+  // Auto-scroll to keep focused item visible
+  useEffect(() => {
+    if (focusedOrderIndex >= 0 && orderListRef.current) {
+      const focusedRow = orderListRef.current.querySelector(`[data-order-index="${focusedOrderIndex}"]`)
+      if (focusedRow) {
+        focusedRow.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        })
+      }
+    }
+  }, [focusedOrderIndex])
+
   // Keyboard shortcuts
   const handleNavigateUp = useCallback(() => {
     if (focusedOrderIndex > 0) {
       const newIndex = focusedOrderIndex - 1
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedPurchaseOrder(purchaseOrders[newIndex]))
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, purchaseOrders, dispatch])
 
@@ -841,6 +899,7 @@ const PurchaseOrdersPage: React.FC = () => {
       const newIndex = focusedOrderIndex + 1
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedPurchaseOrder(purchaseOrders[newIndex]))
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, purchaseOrders, dispatch])
 

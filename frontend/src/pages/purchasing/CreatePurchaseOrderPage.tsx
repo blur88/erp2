@@ -310,14 +310,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
         dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
 
         showSuccess('Purchase order updated successfully')
+        // Navigate to orders page with the updated order selected
+        navigate('/purchasing/orders', { state: { highlightOrderId: id } })
       } else {
         // Use Redux action to create order - this will auto-select it
-        await dispatch(createPurchaseOrderAction(orderData as any)).unwrap()
+        const result = await dispatch(createPurchaseOrderAction(orderData as any)).unwrap()
         showSuccess('Purchase order created successfully')
+        // Navigate to orders page with the new order selected
+        navigate('/purchasing/orders', { state: { highlightOrderId: result.id } })
       }
-
-      // Navigate back without needing refresh state
-      navigate('/purchasing/orders')
     } catch (err: any) {
       console.error('Error creating purchase order:', err)
       setError(err.response?.data?.message || 'Failed to create purchase order')
