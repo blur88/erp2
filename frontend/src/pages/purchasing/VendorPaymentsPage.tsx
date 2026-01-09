@@ -267,6 +267,19 @@ const VendorPaymentsPage: React.FC = () => {
     }
   }, [vendorPayments.length, selectedPayment, dispatch])
 
+  // Auto-scroll to keep focused item visible
+  useEffect(() => {
+    if (focusedPaymentIndex >= 0 && paymentListRef.current) {
+      const focusedRow = paymentListRef.current.querySelector(`[data-payment-index="${focusedPaymentIndex}"]`)
+      if (focusedRow) {
+        focusedRow.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        })
+      }
+    }
+  }, [focusedPaymentIndex])
+
   const handleSort = useCallback((field: string) => {
     setFilters(prev => ({
       ...prev,
