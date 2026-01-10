@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface CustomerOrderHistory {
   orderId: string
@@ -98,9 +99,8 @@ const CustomerOrderHistory: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load customers
-    fetch('/api/customers?limit=100')
-      .then(res => res.ok ? res.json() : null)
+    // Load customers with authentication
+    ApiService.get<{ data: any[] }>('/customers?limit=100')
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)
@@ -108,9 +108,8 @@ const CustomerOrderHistory: React.FC = () => {
       })
       .catch(() => {})
 
-    // Load categories
-    fetch('/api/inventory/categories')
-      .then(res => res.ok ? res.json() : null)
+    // Load categories with authentication
+    ApiService.get<{ data: any[] }>('/inventory/categories')
       .then(response => {
         if (response?.data) {
           setCategories(response.data)
@@ -118,9 +117,8 @@ const CustomerOrderHistory: React.FC = () => {
       })
       .catch(() => {})
 
-    // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
+    // Load products with authentication
+    ApiService.get<{ data: any[] }>('/inventory/products?limit=100')
       .then(data => {
         if (data?.data) {
           setProducts(data.data)
@@ -152,15 +150,11 @@ const CustomerOrderHistory: React.FC = () => {
       if (inventoryStatus && inventoryStatus !== 'all') params.append('inventoryStatus', inventoryStatus)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
 
-      // Call the backend API
-      const response = await fetch(`/api/sales/analytics/customer-order-history?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
-      setReportData(result.data || [])
+      // Call the backend API with authentication
+      const data = await ApiService.get<{ data: CustomerOrderHistory[] }>(
+        `/sales/analytics/customer-order-history?${params.toString()}`
+      )
+      setReportData(data.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])
