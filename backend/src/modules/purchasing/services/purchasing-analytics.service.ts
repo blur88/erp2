@@ -309,6 +309,9 @@ export class PurchasingAnalyticsService {
         const receivedQty = parseFloat(item.receivedQuantity?.toString() || '0');
         const remainingQty = orderedQty - receivedQty;
 
+        // Calculate item-level status based on received vs ordered quantity
+        const itemStatus = receivedQty >= orderedQty ? 'received' : 'pending';
+
         detailsData.push({
           orderNumber: po.orderNumber,
           orderDate: orderDateStr,
@@ -322,7 +325,7 @@ export class PurchasingAnalyticsService {
           discountPercent: parseFloat(item.discountPercent?.toString() || '0'),
           discountAmount: parseFloat(item.discountAmount?.toString() || '0'),
           totalAmount: parseFloat(item.totalAmount?.toString() || '0'),
-          status: po.isFullyReceived ? 'received' : 'pending',
+          status: itemStatus,
           paymentStatus: paymentStatus,
         });
       }
@@ -454,26 +457,43 @@ export class PurchasingAnalyticsService {
       });
     }
 
-    // Status filter (inventory status)
+    // Status filter (inventory status) - use isFullyReceived field
     if (query.status && query.status !== 'all') {
-      queryBuilder.andWhere('purchaseOrder.status = :status', {
-        status: query.status,
-      });
-    }
-
-    // Payment status filter
-    if (query.paymentStatus && query.paymentStatus !== 'all') {
-      queryBuilder.andWhere('purchaseOrder.paymentStatus = :paymentStatus', {
-        paymentStatus: query.paymentStatus,
-      });
+      if (query.status === 'received') {
+        queryBuilder.andWhere('purchaseOrder.isFullyReceived = :isFullyReceived', {
+          isFullyReceived: true,
+        });
+      } else if (query.status === 'pending') {
+        queryBuilder.andWhere('purchaseOrder.isFullyReceived = :isFullyReceived', {
+          isFullyReceived: false,
+        });
+      }
     }
 
     const items = await queryBuilder.getMany();
 
+    // Filter by payment status after loading (calculated from paidAmount vs totalAmount)
+    let filteredItems = items;
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredItems = items.filter((item) => {
+        const totalAmount = parseFloat(item.purchaseOrder?.totalAmount?.toString() || '0');
+        const paidAmount = parseFloat(item.purchaseOrder?.paidAmount?.toString() || '0');
+
+        let paymentStatus = 'unpaid';
+        if (paidAmount >= totalAmount && totalAmount > 0) {
+          paymentStatus = 'paid';
+        } else if (paidAmount > 0) {
+          paymentStatus = 'partial';
+        }
+
+        return paymentStatus === query.paymentStatus;
+      });
+    }
+
     // Group by product and supplier to get unique product-supplier combinations
     const productMap = new Map<string, VendorProductListItem>();
 
-    for (const item of items) {
+    for (const item of filteredItems) {
       if (!item.product) continue;
 
       const key = `${item.product.id}-${item.purchaseOrder?.supplier?.id || 'no-supplier'}`;
@@ -486,21 +506,42 @@ export class PurchasingAnalyticsService {
           orderDateStr = date.toISOString().split('T')[0];
         }
 
+        // Calculate item-level status
+        const orderedQty = parseFloat(item.quantity?.toString() || '0');
+        const receivedQty = parseFloat(item.receivedQuantity?.toString() || '0');
+        const itemStatus = receivedQty >= orderedQty ? 'received' : 'pending';
+
+        // Calculate payment status for the PO
+        const totalAmount = parseFloat(item.purchaseOrder?.totalAmount?.toString() || '0');
+        const paidAmount = parseFloat(item.purchaseOrder?.paidAmount?.toString() || '0');
+        let poPaymentStatus = 'unpaid';
+        if (paidAmount >= totalAmount && totalAmount > 0) {
+          poPaymentStatus = 'paid';
+        } else if (paidAmount > 0) {
+          poPaymentStatus = 'partial';
+        }
+
+        // Extract pricing tiers from JSONB - default to 0 if not found
+        const pricingTiers = item.product.pricingTiers || {};
+        const retailPrice = parseFloat((pricingTiers['Retail'] || 0).toString());
+        const wholesalePrice = parseFloat((pricingTiers['Wholesale'] || 0).toString());
+        const specialPrice = parseFloat((pricingTiers['Special'] || pricingTiers['VIP'] || 0).toString());
+
         productMap.set(key, {
           supplierName: item.purchaseOrder?.supplier?.companyName || 'N/A',
           productName: item.product.name || 'N/A',
           categoryName: item.product.category?.name || 'N/A',
           orderNumber: item.purchaseOrder?.orderNumber || '',
           orderDate: orderDateStr,
-          quantity: parseFloat(item.quantity?.toString() || '0'),
-          receivedQuantity: parseFloat(item.receivedQuantity?.toString() || '0'),
+          quantity: orderedQty,
+          receivedQuantity: receivedQty,
           unitPrice: parseFloat(item.unitCost?.toString() || '0'),
           totalAmount: parseFloat(item.totalAmount?.toString() || '0'),
-          status: item.purchaseOrder?.status || 'pending',
-          paymentStatus: item.purchaseOrder?.paymentStatus || 'unpaid',
-          retailPrice: parseFloat(item.product.retailPrice?.toString() || '0'),
-          wholesalePrice: parseFloat(item.product.wholesalePrice?.toString() || '0'),
-          specialPrice: parseFloat(item.product.specialPrice?.toString() || '0'),
+          status: itemStatus,
+          paymentStatus: poPaymentStatus,
+          retailPrice: retailPrice,
+          wholesalePrice: wholesalePrice,
+          specialPrice: specialPrice,
         });
       } else {
         // Aggregate quantities and amounts for this product-supplier combination
