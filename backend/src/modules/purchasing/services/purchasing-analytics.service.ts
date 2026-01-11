@@ -523,9 +523,18 @@ export class PurchasingAnalyticsService {
 
         // Extract pricing tiers from JSONB - default to 0 if not found
         const pricingTiers = item.product.pricingTiers || {};
-        const retailPrice = parseFloat((pricingTiers['Retail'] || 0).toString());
-        const wholesalePrice = parseFloat((pricingTiers['Wholesale'] || 0).toString());
-        const specialPrice = parseFloat((pricingTiers['Special'] || pricingTiers['VIP'] || 0).toString());
+
+        // Get all available pricing tier keys
+        const tierKeys = Object.keys(pricingTiers);
+
+        // Use first tier as retail price (usually 'Retail')
+        const retailPrice = tierKeys.length > 0 ? parseFloat((pricingTiers[tierKeys[0]] || 0).toString()) : 0;
+
+        // Use second tier as wholesale price if available
+        const wholesalePrice = tierKeys.length > 1 ? parseFloat((pricingTiers[tierKeys[1]] || 0).toString()) : 0;
+
+        // Use third tier as special price if available, otherwise use second tier
+        const specialPrice = tierKeys.length > 2 ? parseFloat((pricingTiers[tierKeys[2]] || 0).toString()) : wholesalePrice;
 
         productMap.set(key, {
           supplierName: item.purchaseOrder?.supplier?.companyName || 'N/A',
