@@ -372,7 +372,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
       </html>
     `
 
-    printWindow.document.write(html)
+    printWindow.document.documentElement.innerHTML = html
     printWindow.document.close()
   }
 
@@ -545,8 +545,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -556,8 +558,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -662,8 +666,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
