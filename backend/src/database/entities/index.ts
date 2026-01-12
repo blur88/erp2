@@ -25,6 +25,10 @@ export { Product, ProductType } from './product.entity';
 // Customer Management (SalesModule, used by InventoryModule for pricing)
 export { Customer, CustomerType, PriceLevel } from './customer.entity';
 
+// Price List Management (SettingsModule, used by Inventory & Sales for pricing)
+export { PriceList } from './price-list.entity';
+export { PriceListItem } from './price-list-item.entity';
+
 // Sales Management (SalesModule) - Temporarily disabled for startup
 // export { SalesOrder, SalesOrderStatus, SalesOrderPriority } from './sales-order.entity';
 // export { SalesOrderItem, SalesOrderItemStatus } from './sales-order-item.entity';
@@ -59,6 +63,8 @@ import { RefreshToken } from './refresh-token.entity';
 import { Category } from './category.entity';
 import { Product } from './product.entity';
 import { Customer } from './customer.entity';
+import { PriceList } from './price-list.entity';
+import { PriceListItem } from './price-list-item.entity';
 // import { SalesOrder } from './sales-order.entity'; // Temporarily disabled for startup
 // import { SalesOrderItem } from './sales-order-item.entity'; // Temporarily disabled for startup
 // import { Invoice } from './invoice.entity'; // Temporarily disabled for startup
@@ -79,6 +85,10 @@ export const ACTIVE_ENTITIES = [
   Category,
   Product,
   Customer,
+
+  // Price List entities
+  PriceList,
+  PriceListItem,
 
   // Sales entities - Temporarily disabled for startup
   // SalesOrder,

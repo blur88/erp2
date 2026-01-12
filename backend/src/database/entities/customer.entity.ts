@@ -3,6 +3,8 @@ import {
   Column,
   Index,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import {
   IsString,
@@ -19,6 +21,7 @@ import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
 import { Invoice } from './invoice.entity';
 import { Payment } from './payment.entity';
+import { PriceList } from './price-list.entity';
 
 export enum CustomerType {
   INDIVIDUAL = 'individual',
@@ -44,6 +47,7 @@ export enum PriceLevel {
 @Index(['phone'])
 @Index(['type'])
 @Index(['pricingScheme'])
+@Index(['priceListId'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
 
@@ -145,15 +149,34 @@ export class Customer extends BaseEntity {
   @IsBoolean()
   isActive: boolean;
 
+  /**
+   * @deprecated Use priceListId foreign key instead. Will be removed after migration.
+   */
   @Column({
     type: 'varchar',
     length: 100,
     default: 'Retail',
-    comment: 'Default pricing scheme name for this customer',
+    comment: 'DEPRECATED: Default pricing scheme name for this customer. Use priceListId instead.',
   })
   @IsString()
   @MaxLength(100)
   pricingScheme: string;
+
+  // New normalized price list relationship
+  @Column({
+    type: 'uuid',
+    nullable: true,
+    comment: 'Foreign key to price_lists table',
+  })
+  @IsOptional()
+  priceListId?: string;
+
+  @ManyToOne(() => PriceList, (priceList) => priceList.customers, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'priceListId' })
+  priceList?: PriceList;
 
 
   // Customer Metrics

@@ -19,6 +19,7 @@ import {
 import { BaseEntity } from './base.entity';
 import { Category } from './category.entity';
 import { StockMovement } from './stock-movement.entity';
+import { PriceListItem } from './price-list-item.entity';
 
 export enum ProductType {
   GOODS = 'Stocked Product',
@@ -96,11 +97,14 @@ export class Product extends BaseEntity {
   @Min(0)
   baseCost: number;
 
+  /**
+   * @deprecated Use PriceListItem relationship instead. Will be removed after migration.
+   */
   @Column({
     type: 'jsonb',
     nullable: true,
     default: '{}',
-    comment: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
+    comment: 'DEPRECATED: Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }. Use PriceListItem relationship instead.',
   })
   pricingTiers?: Record<string, number>;
 
@@ -145,6 +149,12 @@ export class Product extends BaseEntity {
     cascade: false,
   })
   stockMovements: StockMovement[];
+
+  // Price list relationships (new normalized pricing model)
+  @OneToMany(() => PriceListItem, (item) => item.product, {
+    cascade: false,
+  })
+  priceListItems: PriceListItem[];
 
   // Computed properties
   get isOutOfStock(): boolean {
