@@ -8,7 +8,6 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsNumber,
   IsOptional,
   IsEnum,
   MaxLength,
@@ -188,9 +187,12 @@ export class Product extends BaseEntity {
   /**
    * Get price for a specific pricing scheme
    * Returns 0 if scheme not found
+   * @deprecated Use PriceListItem relationship instead. Kept for backward compatibility.
    */
   getPriceByScheme(schemeName: string): number {
+    // eslint-disable-next-line deprecation/deprecation
     if (this.pricingTiers && this.pricingTiers[schemeName]) {
+      // eslint-disable-next-line deprecation/deprecation
       return Number(this.pricingTiers[schemeName]);
     }
     return 0;
@@ -198,11 +200,15 @@ export class Product extends BaseEntity {
 
   /**
    * Set price for a specific pricing scheme
+   * @deprecated Use PriceListItem relationship instead. Kept for backward compatibility.
    */
   setPriceForScheme(schemeName: string, price: number): void {
+    // eslint-disable-next-line deprecation/deprecation
     if (!this.pricingTiers) {
+      // eslint-disable-next-line deprecation/deprecation
       this.pricingTiers = {};
     }
+    // eslint-disable-next-line deprecation/deprecation
     this.pricingTiers[schemeName] = price;
   }
 }
