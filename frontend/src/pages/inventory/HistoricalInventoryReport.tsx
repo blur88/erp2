@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface HistoricalInventory {
   productName: string
@@ -97,8 +98,7 @@ const HistoricalInventoryReport: React.FC = () => {
 
   useEffect(() => {
     // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/products?limit=1000')
       .then(data => {
         if (data?.data) {
           setProducts(data.data)
@@ -107,8 +107,7 @@ const HistoricalInventoryReport: React.FC = () => {
       .catch(() => {})
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
@@ -140,13 +139,7 @@ const HistoricalInventoryReport: React.FC = () => {
       }
       if (targetDate) params.append('endDate', new Date(targetDate).toISOString())
 
-      const response = await fetch(`/api/inventory/analytics/historical-inventory?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
+      const result = await ApiService.get<any>(`/inventory/analytics/historical-inventory?${params.toString()}`)
       setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
@@ -581,8 +574,8 @@ const HistoricalInventoryReport: React.FC = () => {
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             {reportData.length > 0
-              ? `${reportData.length} stock movements`
-              : 'View comprehensive history of all inventory movements'}
+              ? `${reportData.length} product${reportData.length !== 1 ? 's' : ''} with historical inventory data`
+              : 'View product inventory summary based on stock movements up to a target date'}
           </Typography>
         </Box>
         <Box sx={{
