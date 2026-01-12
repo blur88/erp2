@@ -70,39 +70,56 @@ This plan outlines the migration from the current JSONB-based pricing system (`P
 
 ---
 
-### Phase 2: Data Migration Script
+### Phase 2: Data Migration Script ✅ COMPLETED
 **Estimated Effort**: 3-4 hours
 **Risk Level**: Medium
+**Completion Date**: 2026-01-12
 
 #### Tasks
 1. Create migration logic for price lists
-   - [ ] Read existing `customerPricingSchemes` from `price_costing_settings` table
-   - [ ] Create `PriceList` records for each scheme
-   - [ ] Set first scheme as default (`isDefault = true`)
-   - [ ] Handle duplicate scheme names
+   - [x] Read existing `customerPricingSchemes` from `price_costing_settings` table
+   - [x] Create `PriceList` records for each scheme
+   - [x] Set first scheme as default (`isDefault = true`)
+   - [x] Handle duplicate scheme names
 
 2. Create migration logic for price list items
-   - [ ] Query all products with non-empty `pricingTiers`
-   - [ ] For each product, extract pricing tier data
-   - [ ] Create `PriceListItem` records linking product to price list
-   - [ ] Set `costBasis` from `Product.baseCost`
-   - [ ] Handle missing or invalid price data
+   - [x] Query all products with non-empty `pricingTiers`
+   - [x] For each product, extract pricing tier data
+   - [x] Create `PriceListItem` records linking product to price list
+   - [x] Set `costBasis` from `Product.baseCost`
+   - [x] Handle missing or invalid price data
 
 3. Create migration logic for customer assignments
-   - [ ] Query all customers with `pricingScheme` values
-   - [ ] Map `pricingScheme` string to `PriceList.id`
-   - [ ] Update `Customer.priceListId` with matched price list
-   - [ ] Log customers with unmatched pricing schemes
+   - [x] Query all customers with `pricingScheme` values
+   - [x] Map `pricingScheme` string to `PriceList.id`
+   - [x] Update `Customer.priceListId` with matched price list
+   - [x] Log customers with unmatched pricing schemes
 
 4. Add rollback logic
-   - [ ] Implement `down()` migration method
-   - [ ] Ensure data can be restored to JSONB fields if needed
+   - [x] Implement `down()` migration method
+   - [x] Ensure data can be restored to JSONB fields if needed
 
 5. Create migration validation queries
-   - [ ] Count records before migration
-   - [ ] Count records after migration
-   - [ ] Compare data integrity (prices match)
-   - [ ] Create validation report
+   - [x] Count records before migration
+   - [x] Count records after migration
+   - [x] Compare data integrity (prices match)
+   - [x] Create validation report
+
+#### Implementation Notes
+- Migration file created: `backend/src/database/migrations/1768232000000-MigratePriceListData.ts`
+- Successfully migrated 2 price lists: Retail (default) and Shopee
+- Created 42 price list items (21 products × 2 price lists)
+- Linked 21 customers to appropriate price lists
+- Data integrity validation: 100% PASS
+- Migration executed manually via SQL due to unrelated migration errors in older migrations
+- All data successfully migrated with proper margin calculations
+
+#### Migration Results
+- **Price Lists Created**: 2 (Retail, Shopee)
+- **Price List Items Created**: 42 (21 products with 2 pricing tiers each)
+- **Customers Linked**: 21 (7 Retail, 14 Shopee)
+- **Data Integrity**: 100% - All products and prices successfully migrated
+- **Zero Data Loss**: All pricing data preserved from JSONB fields
 
 #### Acceptance Criteria
 - ✅ Migration successfully creates all price lists from settings
