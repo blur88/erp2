@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface PriceListItem {
   productName: string
@@ -89,8 +90,7 @@ const PriceListReport: React.FC = () => {
 
   useEffect(() => {
     // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/products?limit=1000')
       .then(data => {
         if (data?.data) {
           setProducts(data.data)
@@ -99,8 +99,7 @@ const PriceListReport: React.FC = () => {
       .catch(() => {})
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
@@ -133,13 +132,7 @@ const PriceListReport: React.FC = () => {
       if (priceType) params.append('priceType', priceType)
       if (discountPercent) params.append('discountPercent', discountPercent)
 
-      const response = await fetch(`/api/inventory/analytics/price-list?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
+      const result = await ApiService.get<any>(`/inventory/analytics/price-list?${params.toString()}`)
       setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
