@@ -467,23 +467,30 @@ const PurchaseOrdersPage: React.FC = () => {
         selectedOrder.goodsReceivedNotes.length > 0 &&
         selectedOrder.goodsReceivedNotes[0].status === 'received'
 
-      // Step 1: Unpay first
-      const unpayResponse = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
-
-      // Step 2: If also received, return goods
+      // Step 1: If received, return goods first
       if (isReceived) {
         const returnResponse = await purchasingApi.returnGoods(selectedOrder.id)
-        showSuccess('Payment deleted and goods returned successfully. You can now edit the order.')
-
-        // Update with returned goods data
-        const returnedOrder = (returnResponse as any).data || returnResponse
-        if (returnedOrder) {
-          dispatch(setSelectedPurchaseOrder(returnedOrder))
-        }
 
         // Refetch GRNs to update the GRN page with latest data
         dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+
+        // Step 2: Then unpay
+        const unpayResponse = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+        showSuccess('Goods returned and payment deleted successfully. You can now edit the order.')
+
+        // Update with the latest data
+        const unpayData: any = (unpayResponse as any).data || unpayResponse
+        const updatedOrder = unpayData.data || unpayData
+        if (updatedOrder && updatedOrder.id) {
+          const orderWithoutPayment = {
+            ...(updatedOrder as any),
+            vendorPayments: []
+          }
+          dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
+        }
       } else {
+        // Only unpay (not received)
+        const unpayResponse = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
         showSuccess('Payment deleted successfully. You can now edit the order.')
 
         // Update the selected order with the unpay data
@@ -511,34 +518,6 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
-  const handleUnpayOnly = async () => {
-    if (!selectedOrder) return
-
-    setIsLoading(true)
-    try {
-      const response = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
-      showSuccess('Payment deleted successfully.')
-
-      // Update the selected order with the new data
-      const responseData: any = (response as any).data || response
-      const updatedOrder = responseData.data || responseData
-      if (updatedOrder && updatedOrder.id) {
-        const orderWithoutPayment = {
-          ...(updatedOrder as any),
-          vendorPayments: []
-        }
-        dispatch(setSelectedPurchaseOrder(orderWithoutPayment))
-      }
-
-      setUnreturnDialogOpen(false)
-      loadOrders() // Reload to update the list
-    } catch (err: any) {
-      console.error('Unpay error:', err)
-      showError(err?.response?.data?.message || 'Failed to delete payment')
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const handleReturnAndDelete = async () => {
     if (!selectedOrder) return
@@ -589,21 +568,21 @@ const PurchaseOrdersPage: React.FC = () => {
         selectedOrder.goodsReceivedNotes.length > 0 &&
         selectedOrder.goodsReceivedNotes[0].status === 'received'
 
-      // Step 1: Unpay first
-      await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
-
-      // Step 2: If also received, return goods
+      // Step 1: If received, return goods first
       if (isReceived) {
         await purchasingApi.returnGoods(selectedOrder.id)
         // Refetch GRNs to update the GRN page with latest data
         dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
       }
 
+      // Step 2: Unpay
+      await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+
       // Step 3: Delete the order
       await purchasingApi.deletePurchaseOrder(selectedOrder.id)
 
       if (isReceived) {
-        showSuccess('Payment deleted, goods returned, and purchase order deleted successfully.')
+        showSuccess('Goods returned, payment deleted, and purchase order deleted successfully.')
       } else {
         showSuccess('Payment deleted and purchase order deleted successfully.')
       }
@@ -1809,7 +1788,6 @@ const PurchaseOrdersPage: React.FC = () => {
           onReturnAndEdit={handleReturnAndEdit}
           onReturnOnly={handleReturnOnly}
           onUnpayAndEdit={handleUnpayAndEdit}
-          onUnpayOnly={handleUnpayOnly}
           onReturnAndDelete={handleReturnAndDelete}
           onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}
