@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -59,7 +58,6 @@ interface ProductCostItem {
 }
 
 const ProductCostReport: React.FC = () => {
-  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
@@ -318,9 +316,6 @@ const ProductCostReport: React.FC = () => {
 
     sortedData.forEach((row, idx) => {
       const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
-      const isLastRow = idx === sortedData.length - 1
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
         // Reset subtotals for new group
@@ -404,9 +399,6 @@ const ProductCostReport: React.FC = () => {
 
     sortedData.forEach((row, idx) => {
       const currentGroupKey = groupBy !== 'none' ? getPdfGroupKey(row) : null
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getPdfGroupKey(nextRow) : null
-      const isLastRow = idx === sortedData.length - 1
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
         // Reset subtotals for new group
@@ -506,6 +498,7 @@ const ProductCostReport: React.FC = () => {
       </html>
     `
 
+    // eslint-disable-next-line deprecation/deprecation
     printWindow.document.write(html)
     printWindow.document.close()
   }
@@ -668,8 +661,10 @@ const ProductCostReport: React.FC = () => {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -679,8 +674,10 @@ const ProductCostReport: React.FC = () => {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -816,8 +813,10 @@ const ProductCostReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -932,7 +931,6 @@ const ProductCostReport: React.FC = () => {
 
                         paginatedData.forEach((row, idx) => {
                           const prevRow = idx > 0 ? paginatedData[idx - 1] : null
-                          const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                           const getGroupKey = (r: any) => {
                             if (groupBy === 'categoryAndProduct') {
@@ -942,8 +940,6 @@ const ProductCostReport: React.FC = () => {
                           }
 
                           const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
-                          const showSubtotal = groupBy !== 'none' && nextRow && getGroupKey(row) !== getGroupKey(nextRow)
-                          const isLastRow = idx === paginatedData.length - 1
 
                           // Reset subtotals when starting a new group
                           if (showGroupHeader) {
@@ -1085,8 +1081,10 @@ const ProductCostReport: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
+        slotProps={{
+          paper: {
+            sx: { height: '90vh', maxHeight: '90vh' }
+          }
         }}
       >
         <DialogTitle sx={{

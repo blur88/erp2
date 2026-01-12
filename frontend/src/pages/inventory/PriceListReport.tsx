@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -54,7 +53,6 @@ interface PriceListItem {
 }
 
 const PriceListReport: React.FC = () => {
-  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
@@ -302,7 +300,7 @@ const PriceListReport: React.FC = () => {
       return r[groupBy]
     }
 
-    sortedData.forEach((row, idx) => {
+    sortedData.forEach((row) => {
       const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
@@ -456,6 +454,7 @@ const PriceListReport: React.FC = () => {
       </html>
     `
 
+    // eslint-disable-next-line deprecation/deprecation
     printWindow.document.write(html)
     printWindow.document.close()
   }
@@ -611,7 +610,7 @@ const PriceListReport: React.FC = () => {
                       value={selectedCategory}
                       label="Category"
                       onChange={(e) => setSelectedCategory(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="">All Categories</MenuItem>
                       {categories.map((category) => (
@@ -632,7 +631,7 @@ const PriceListReport: React.FC = () => {
                           setProductDialogOpen(true)
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="all">All Products</MenuItem>
                       <MenuItem value="select">Select Products</MenuItem>
@@ -682,7 +681,7 @@ const PriceListReport: React.FC = () => {
                       value={priceType}
                       label="Pricing"
                       onChange={(e) => setPriceType(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="retail">Retail</MenuItem>
                       <MenuItem value="wholesale">Wholesale</MenuItem>
@@ -695,8 +694,10 @@ const PriceListReport: React.FC = () => {
                     type="number"
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' }, min: 0, max: 100, step: 0.1 }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' }, min: 0, max: 100, step: 0.1 }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -739,7 +740,7 @@ const PriceListReport: React.FC = () => {
                           setSelectedColumns(value as string[])
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
@@ -757,7 +758,7 @@ const PriceListReport: React.FC = () => {
                       value={groupBy}
                       label="Group By"
                       onChange={(e) => setGroupBy(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -770,7 +771,7 @@ const PriceListReport: React.FC = () => {
                       value={sortBy1}
                       label="Sort By"
                       onChange={(e) => setSortBy1(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="productName">Product</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -784,8 +785,10 @@ const PriceListReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -888,7 +891,6 @@ const PriceListReport: React.FC = () => {
                     <TableBody>
                       {paginatedData.map((row, idx) => {
                         const prevRow = idx > 0 ? paginatedData[idx - 1] : null
-                        const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                         const getGroupKey = (r: any) => {
                           return r[groupBy]
@@ -985,8 +987,10 @@ const PriceListReport: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
+        slotProps={{
+          paper: {
+            sx: { height: '90vh', maxHeight: '90vh' }
+          }
         }}
       >
         <DialogTitle sx={{
