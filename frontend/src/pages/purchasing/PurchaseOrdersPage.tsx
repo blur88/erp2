@@ -159,7 +159,6 @@ const PurchaseOrdersPage: React.FC = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [blockedDialogType, setBlockedDialogType] = useState<'edit' | 'delete'>('edit')
   const [isLoading, setIsLoading] = useState(false)
-  const [paymentStatus, setPaymentStatus] = useState<Record<string, boolean>>({})
   const [paymentAmount, setPaymentAmount] = useState('')
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -243,29 +242,6 @@ const PurchaseOrdersPage: React.FC = () => {
   }, [searchParams, purchaseOrders, dispatch, setSearchParams])
 
 
-  // Function to check payment status for a PO
-  const checkPaymentStatus = async (poId: string) => {
-    try {
-      const response = await purchasingApi.getPurchaseOrderPaymentStatus(poId)
-      console.log('Payment status response:', response)
-
-      // Handle both direct response and wrapped response structure
-      const paymentData: any = (response as any).data || response
-
-      setPaymentStatus(prev => ({
-        ...prev,
-        [poId]: paymentData.isPaid
-      }))
-    } catch (error) {
-      console.error('Error checking payment status:', error)
-      // Set default to false on error
-      setPaymentStatus(prev => ({
-        ...prev,
-        [poId]: false
-      }))
-    }
-  }
-
   const handleSort = useCallback((field: string) => {
     setState(prev => ({
       ...prev,
@@ -275,7 +251,7 @@ const PurchaseOrdersPage: React.FC = () => {
   }, [])
 
   const handleOrderSelect = useCallback(async (order: any) => {
-    const orderIndex = purchaseOrders.findIndex(o => o.id === order.id)
+    const orderIndex = purchaseOrders.findIndex((o: any) => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
     userHasNavigatedRef.current = true
 
@@ -293,28 +269,6 @@ const PurchaseOrdersPage: React.FC = () => {
       dispatch(setSelectedPurchaseOrder(order))
     }
   }, [dispatch, purchaseOrders])
-
-  const handleApprove = async () => {
-    if (!selectedOrder) return
-    try {
-      await purchasingApi.getPurchaseOrder(selectedOrder.id) // Approve endpoint to be added
-      showSuccess('Purchase order approved successfully')
-      loadOrders()
-    } catch (err: any) {
-      showError(err?.response?.data?.message || 'Failed to approve order')
-    }
-  }
-
-  const handleSend = async () => {
-    if (!selectedOrder) return
-    try {
-      await purchasingApi.sendPurchaseOrder(selectedOrder.id)
-      showSuccess('Purchase order sent to supplier')
-      loadOrders()
-    } catch (err: any) {
-      showError(err?.response?.data?.message || 'Failed to send order')
-    }
-  }
 
   const handleReceive = async () => {
     if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
@@ -469,7 +423,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
       // Step 1: If received, return goods first
       if (isReceived) {
-        const returnResponse = await purchasingApi.returnGoods(selectedOrder.id)
+        await purchasingApi.returnGoods(selectedOrder.id)
 
         // Refetch GRNs to update the GRN page with latest data
         dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
@@ -525,7 +479,7 @@ const PurchaseOrdersPage: React.FC = () => {
     setIsLoading(true)
     try {
       // First return goods
-      const returnResponse = await purchasingApi.returnGoods(selectedOrder.id)
+      await purchasingApi.returnGoods(selectedOrder.id)
 
       // Then delete the order
       await purchasingApi.deletePurchaseOrder(selectedOrder.id)
@@ -534,7 +488,7 @@ const PurchaseOrdersPage: React.FC = () => {
       setUnreturnDialogOpen(false)
 
       // Select previous order or null
-      const deletedIndex = purchaseOrders.findIndex(o => o.id === selectedOrder.id)
+      const deletedIndex = purchaseOrders.findIndex((o: any) => o.id === selectedOrder.id)
       if (purchaseOrders.length > 1) {
         const newIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
         const orderToSelect = purchaseOrders[newIndex].id === selectedOrder.id
@@ -590,7 +544,7 @@ const PurchaseOrdersPage: React.FC = () => {
       setUnreturnDialogOpen(false)
 
       // Select previous order or null
-      const deletedIndex = purchaseOrders.findIndex(o => o.id === selectedOrder.id)
+      const deletedIndex = purchaseOrders.findIndex((o: any) => o.id === selectedOrder.id)
       if (purchaseOrders.length > 1) {
         const newIndex = deletedIndex > 0 ? deletedIndex - 1 : 0
         const orderToSelect = purchaseOrders[newIndex].id === selectedOrder.id
@@ -607,42 +561,6 @@ const PurchaseOrdersPage: React.FC = () => {
     } catch (err: any) {
       console.error('Unpay/Return/Delete error:', err)
       showError(err?.response?.data?.message || 'Failed to prepare and delete order')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handlePay = async () => {
-    if (!selectedOrder) return
-
-    setIsLoading(true)
-    try {
-      const response = await purchasingApi.markPurchaseOrderAsPaid(selectedOrder.id)
-
-      // Response structure: { data: { data: PO, payment: Payment } }
-      const responseData: any = (response as any).data || response
-      const updatedPO = responseData?.data || responseData
-
-      // Show success message using the vendorPayments from the updated PO
-      if (updatedPO.vendorPayments && updatedPO.vendorPayments.length > 0) {
-        const latestPayment = updatedPO.vendorPayments[updatedPO.vendorPayments.length - 1]
-        showSuccess(`Payment created: ${latestPayment.paymentNumber}`)
-      } else {
-        showSuccess('Payment created successfully')
-      }
-
-      // Update the selected order with the new data
-      // The backend already includes vendorPayments in the updated PO
-      dispatch(setSelectedPurchaseOrder(updatedPO))
-
-      loadOrders() // Reload to update the list
-    } catch (err: any) {
-      console.error('Pay error:', err)
-      if (err?.response?.status === 409) {
-        showError('This purchase order is already paid')
-      } else {
-        showError(err?.response?.data?.message || 'Failed to create payment')
-      }
     } finally {
       setIsLoading(false)
     }
@@ -687,7 +605,7 @@ const PurchaseOrdersPage: React.FC = () => {
     if (!selectedOrder) return
 
     // Calculate the new total paid amount
-    let newPaidAmount
+    let newPaidAmount: number
     let paymentToAdd = 0
 
     if (paymentAmount) {
@@ -761,7 +679,7 @@ const PurchaseOrdersPage: React.FC = () => {
     if (!orderToDelete) return
 
     // Find the index of the order being deleted
-    const deletedIndex = purchaseOrders.findIndex(o => o.id === orderToDelete.id)
+    const deletedIndex = purchaseOrders.findIndex((o: any) => o.id === orderToDelete.id)
 
     try {
       await purchasingApi.deletePurchaseOrder(orderToDelete.id)
