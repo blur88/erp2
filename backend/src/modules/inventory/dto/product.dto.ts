@@ -48,14 +48,6 @@ export class CreateProductDto {
   @Min(0)
   baseCost: number;
 
-  @ApiPropertyOptional({
-    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
-    type: 'object',
-    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
-  })
-  @IsOptional()
-  pricingTiers?: Record<string, number>;
-
   @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -206,13 +198,6 @@ export class ProductResponseDto {
   @ApiProperty({ description: 'Base cost price' })
   baseCost: number;
 
-  @ApiPropertyOptional({
-    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
-    type: 'object',
-    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
-  })
-  pricingTiers?: Record<string, number>;
-
   @ApiProperty({ description: 'Current stock quantity' })
   stockQuantity: number;
 
@@ -277,13 +262,6 @@ export class ProductPriceUpdateDto {
   @Min(0)
   baseCost?: number;
 
-  @ApiPropertyOptional({
-    description: 'New pricing tiers - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
-    type: 'object',
-    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
-  })
-  @IsOptional()
-  pricingTiers?: Record<string, number>;
 }
 
 export class ProductStockSummaryDto {
@@ -416,14 +394,6 @@ export class ProductImportRowDto {
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   baseCost: number;
-
-  @ApiPropertyOptional({
-    description: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
-    type: 'object',
-    example: { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }
-  })
-  @IsOptional()
-  pricingTiers?: Record<string, number>;
 
   @ApiPropertyOptional({ description: 'Current stock quantity', minimum: 0, default: 0 })
   @IsOptional()

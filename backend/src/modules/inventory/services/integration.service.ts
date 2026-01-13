@@ -394,17 +394,35 @@ export class IntegrationService {
   }> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
+      relations: ['priceListItems', 'priceListItems.priceList'],
     });
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    // Get old pricing from pricingTiers JSONB
+    // Get old pricing from price list items
+    let retailPrice = 0;
+    let wholesalePrice = 0;
+    let specialPrice = 0;
+
+    for (const item of product.priceListItems || []) {
+      const priceListName = item.priceList?.name.toLowerCase();
+      const price = Number(item.price);
+
+      if (priceListName?.includes('retail')) {
+        retailPrice = price;
+      } else if (priceListName?.includes('wholesale')) {
+        wholesalePrice = price;
+      } else if (priceListName?.includes('special')) {
+        specialPrice = price;
+      }
+    }
+
     const oldPricing = {
-      retail: product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0,
-      wholesale: product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0,
-      special: product.pricingTiers ? Number(product.pricingTiers['Special'] || 0) : 0,
+      retail: retailPrice,
+      wholesale: wholesalePrice,
+      special: specialPrice,
     };
 
     let newPricing = oldPricing;
@@ -422,14 +440,13 @@ export class IntegrationService {
         special: specialMargin > 0 ? newBaseCost / (1 - specialMargin) : 0,
       };
 
-      // Update product - only baseCost, prices should be in price lists now
-      // This method is deprecated and should use PriceListsService instead
+      // Update product baseCost only
       await this.productRepository.update(productId, {
         baseCost: newBaseCost,
       });
 
       // Note: Prices should now be updated via PriceListsService.bulkUpdatePrices()
-      // This fallback only updates baseCost for backward compatibility
+      // This method only provides the calculated new prices for reference
     }
 
     return { oldPricing, newPricing };

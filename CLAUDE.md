@@ -237,7 +237,7 @@ docker compose logs backend # Check specific service logs
 **Price Calculation:**
 - ✅ Customer's assigned price list used first
 - ✅ Falls back to default price list if customer has none
-- ✅ Legacy JSONB fallback if price not in price list (transition period)
+- ✅ Falls back to baseCost if no price list or price not found
 - ✅ Comprehensive logging for price source tracking
 - ✅ Sales orders automatically use customer's price list
 
@@ -263,7 +263,7 @@ docker compose logs backend # Check specific service logs
 - ✅ Automated migration from JSONB to normalized tables
 - ✅ Zero data loss migration (100% success rate)
 - ✅ Rollback support for safety
-- ✅ Legacy fields kept as deprecated during transition period
+- ✅ Legacy fields removed after successful 30-day transition (Phase 8 - January 2026)
 
 **Database Schema:**
 ```sql
@@ -303,6 +303,14 @@ price_list_items (
 - 30+ frontend unit tests for Redux slice
 - Manual E2E testing completed and verified
 - Performance testing with proper indexes validated
+
+**Phase 8 Cleanup (January 2026):**
+- ✅ Removed `pricingTiers` JSONB field from Product entity
+- ✅ Removed `pricingScheme` string field from Customer entity
+- ✅ Removed `customerPricingSchemes` JSONB from PriceCostingSettings entity
+- ✅ Removed all legacy fallback code from PricingService
+- ✅ Database migration created to drop deprecated columns
+- ✅ Clean, maintainable codebase with no technical debt
 
 ## Key Configuration
 

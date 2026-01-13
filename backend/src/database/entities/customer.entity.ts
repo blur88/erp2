@@ -28,15 +28,6 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-/**
- * @deprecated Use pricingScheme string field instead
- * Kept for backward compatibility during migration
- */
-export enum PriceLevel {
-  RETAIL = 'retail',
-  WHOLESALE = 'wholesale',
-  SPECIAL = 'special',
-}
 
 /**
  * Customer entity for sales management
@@ -46,7 +37,6 @@ export enum PriceLevel {
 @Entity('customers')
 @Index(['phone'])
 @Index(['type'])
-@Index(['pricingScheme'])
 @Index(['priceListId'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
@@ -149,20 +139,7 @@ export class Customer extends BaseEntity {
   @IsBoolean()
   isActive: boolean;
 
-  /**
-   * @deprecated Use priceListId foreign key instead. Will be removed after migration.
-   */
-  @Column({
-    type: 'varchar',
-    length: 100,
-    default: 'Retail',
-    comment: 'DEPRECATED: Default pricing scheme name for this customer. Use priceListId instead.',
-  })
-  @IsString()
-  @MaxLength(100)
-  pricingScheme: string;
-
-  // New normalized price list relationship
+  // Normalized price list relationship
   @Column({
     type: 'uuid',
     nullable: true,

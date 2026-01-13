@@ -116,22 +116,18 @@ export class PricingService {
         relations: ['priceList'],
       });
       if (customer) {
-        // Use new price list system if available
+        // Use price list system
         if (customer.priceList && customer.priceList.isActive) {
           priceListId = customer.priceList.id;
           priceType = customer.priceList.name;
           this.logger.log(`Using price list: ${priceType} for customer ${options.customerId}`);
-        } else if (customer.pricingScheme) {
-          // Fallback to legacy pricing scheme
-          priceType = customer.pricingScheme;
-          this.logger.warn(`Using legacy pricing scheme for customer ${options.customerId}`);
         }
       }
     } else if (options.customerType) {
       priceType = options.customerType;
     }
 
-    // Try to get price from price list items first
+    // Get price from price list items
     if (priceListId) {
       const priceListItem = await this.priceListItemRepository.findOne({
         where: { priceListId, productId },
@@ -141,25 +137,15 @@ export class PricingService {
         basePrice = Number(priceListItem.price);
         this.logger.log(`Found price ${basePrice} from price list item`);
       } else {
-        this.logger.warn(`No price found in price list ${priceListId} for product ${productId}, falling back to legacy`);
-      }
-    }
-
-    // Fallback to legacy pricing if no price list price found
-    if (basePrice === 0) {
-      // Try JSONB pricingTiers
-      if (product.pricingTiers && product.pricingTiers[priceType]) {
-        basePrice = Number(product.pricingTiers[priceType]);
-        this.logger.log(`Using legacy pricingTiers JSONB: ${basePrice}`);
-      } else if (product.pricingTiers && product.pricingTiers['Retail']) {
-        // Fallback to Retail price from JSONB if specific price type not found
-        basePrice = Number(product.pricingTiers['Retail']);
-        this.logger.log(`Using Retail price from pricingTiers JSONB: ${basePrice}`);
-      } else {
-        // Final fallback to baseCost
+        this.logger.warn(`No price found in price list ${priceListId} for product ${productId}`);
+        // Fallback to baseCost
         basePrice = Number(product.baseCost || 0);
-        this.logger.log(`Using baseCost as final fallback: ${basePrice}`);
+        this.logger.log(`Using baseCost as fallback: ${basePrice}`);
       }
+    } else {
+      // No price list assigned, use baseCost
+      basePrice = Number(product.baseCost || 0);
+      this.logger.log(`No price list assigned, using baseCost: ${basePrice}`);
     }
 
     // Apply quantity-based pricing adjustments
@@ -261,11 +247,12 @@ export class PricingService {
   }
 
   /**
-   * Analyze product margins
+   * Analyze product margins across all price lists
    */
   async analyzeMargins(productId: string): Promise<MarginAnalysis> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
+      relations: ['priceListItems', 'priceListItems.priceList'],
     });
 
     if (!product) {
@@ -273,10 +260,24 @@ export class PricingService {
     }
 
     const baseCost = Number(product.baseCost);
-    // Get prices from pricingTiers JSONB (deprecated but still used as fallback)
-    const retailPrice = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
-    const wholesalePrice = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
-    const specialPrice = product.pricingTiers ? Number(product.pricingTiers['Special'] || 0) : 0;
+
+    // Get prices from price list items
+    let retailPrice = 0;
+    let wholesalePrice = 0;
+    let specialPrice = 0;
+
+    for (const item of product.priceListItems || []) {
+      const priceListName = item.priceList?.name.toLowerCase();
+      const price = Number(item.price);
+
+      if (priceListName?.includes('retail')) {
+        retailPrice = price;
+      } else if (priceListName?.includes('wholesale')) {
+        wholesalePrice = price;
+      } else if (priceListName?.includes('special')) {
+        specialPrice = price;
+      }
+    }
 
     // Calculate margins
     const retailMarginAmount = retailPrice - baseCost;
@@ -293,7 +294,7 @@ export class PricingService {
     const recommendedWholesalePrice = baseCost / 0.8; // 20% margin
 
     // Analyze competitor pricing (mock implementation)
-    const competitorPricing = await this.analyzeCompetitorPricing(product);
+    const competitorPricing = await this.analyzeCompetitorPricing(productId, retailPrice, wholesalePrice);
 
     return {
       retailMarginAmount,
@@ -360,17 +361,31 @@ export class PricingService {
   }>> {
     const products = await this.productRepository.find({
       where: { categoryId, isActive: true },
+      relations: ['priceListItems', 'priceListItems.priceList'],
     });
 
     const recommendations = [];
 
     for (const product of products) {
       const marginAnalysis = await this.analyzeMargins(product.id);
-      
-      // Get current prices from pricingTiers JSONB
-      const currentRetail = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
-      const currentWholesale = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
-      const currentSpecial = product.pricingTiers ? Number(product.pricingTiers['Special'] || 0) : 0;
+
+      // Get current prices from price list items
+      let currentRetail = 0;
+      let currentWholesale = 0;
+      let currentSpecial = 0;
+
+      for (const item of product.priceListItems || []) {
+        const priceListName = item.priceList?.name.toLowerCase();
+        const price = Number(item.price);
+
+        if (priceListName?.includes('retail')) {
+          currentRetail = price;
+        } else if (priceListName?.includes('wholesale')) {
+          currentWholesale = price;
+        } else if (priceListName?.includes('special')) {
+          currentSpecial = price;
+        }
+      }
 
       recommendations.push({
         productId: product.id,
@@ -393,7 +408,7 @@ export class PricingService {
       });
     }
 
-    return recommendations.sort((a, b) => 
+    return recommendations.sort((a, b) =>
       a.marginAnalysis.currentRetailMargin - b.marginAnalysis.currentRetailMargin
     );
   }
@@ -413,16 +428,27 @@ export class PricingService {
   }> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
-      relations: ['stockMovements', 'salesOrderItems'],
+      relations: ['stockMovements', 'priceListItems', 'priceListItems.priceList'],
     });
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    // Get prices from pricingTiers JSONB
-    const originalRetailPrice = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
-    const originalWholesalePrice = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
+    // Get prices from price list items
+    let originalRetailPrice = 0;
+    let originalWholesalePrice = 0;
+
+    for (const item of product.priceListItems || []) {
+      const priceListName = item.priceList?.name.toLowerCase();
+      const price = Number(item.price);
+
+      if (priceListName?.includes('retail')) {
+        originalRetailPrice = price;
+      } else if (priceListName?.includes('wholesale')) {
+        originalWholesalePrice = price;
+      }
+    }
 
     // Calculate demand factor (based on recent sales)
     const demandFactor = await this.calculateDemandFactor(productId);
@@ -460,16 +486,6 @@ export class PricingService {
     };
   }
 
-  /**
-   * Get customer price type based on customer properties
-   */
-  private getCustomerPriceType(customer: Customer): string {
-    // Use the customer's pricing scheme from the entity
-    if (customer.pricingScheme) {
-      return customer.pricingScheme;
-    }
-    return 'Retail'; // Default
-  }
 
   /**
    * Calculate quantity-based discount
@@ -510,18 +526,19 @@ export class PricingService {
   ): Promise<{ amount: number; percentage: number }> {
     const customer = await this.customerRepository.findOne({
       where: { id: customerId },
+      relations: ['priceList'],
     });
 
-    if (!customer) {
+    if (!customer || !customer.priceList) {
       return { amount: 0, percentage: 0 };
     }
 
-    // Implementation based on customer pricing scheme
+    // Implementation based on customer price list
     let discountPercentage = 0;
-    const lowerScheme = customer.pricingScheme?.toLowerCase() || '';
-    if (lowerScheme === 'special') {
+    const priceListName = customer.priceList.name?.toLowerCase() || '';
+    if (priceListName.includes('special')) {
       discountPercentage = 0.1; // 10% special price discount
-    } else if (lowerScheme === 'wholesale') {
+    } else if (priceListName.includes('wholesale')) {
       discountPercentage = 0.05; // 5% wholesale discount
     }
 
@@ -553,15 +570,15 @@ export class PricingService {
   /**
    * Analyze competitor pricing (mock implementation)
    */
-  private async analyzeCompetitorPricing(product: Product): Promise<{
+  private async analyzeCompetitorPricing(
+    productId: string,
+    retailPrice: number,
+    wholesalePrice: number,
+  ): Promise<{
     averageRetailPrice: number;
     averageWholesalePrice: number;
     pricePosition: 'below' | 'competitive' | 'above';
   }> {
-    // Get prices from pricingTiers JSONB
-    const retailPrice = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
-    const wholesalePrice = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
-
     // Mock competitor analysis
     const mockAverageRetail = retailPrice * (0.9 + Math.random() * 0.2);
     const mockAverageWholesale = wholesalePrice * (0.9 + Math.random() * 0.2);

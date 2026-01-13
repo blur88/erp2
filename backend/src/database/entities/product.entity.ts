@@ -96,16 +96,6 @@ export class Product extends BaseEntity {
   @Min(0)
   baseCost: number;
 
-  /**
-   * @deprecated Use PriceListItem relationship instead. Will be removed after migration.
-   */
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    default: '{}',
-    comment: 'DEPRECATED: Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }. Use PriceListItem relationship instead.',
-  })
-  pricingTiers?: Record<string, number>;
 
   // Current stock quantity
   @Column({
@@ -160,14 +150,6 @@ export class Product extends BaseEntity {
     return Number(this.stockQuantity) <= 0;
   }
 
-  /**
-   * Calculate gross margin for a specific pricing scheme
-   */
-  getGrossMargin(schemeName: string): number {
-    const price = this.getPriceByScheme(schemeName);
-    const cost = Number(this.baseCost);
-    return cost > 0 && price > 0 ? ((price - cost) / price) * 100 : 0;
-  }
 
   // Helper methods
   adjustStock(quantity: number, type: 'increase' | 'decrease' | 'set'): void {
@@ -184,31 +166,4 @@ export class Product extends BaseEntity {
     }
   }
 
-  /**
-   * Get price for a specific pricing scheme
-   * Returns 0 if scheme not found
-   * @deprecated Use PriceListItem relationship instead. Kept for backward compatibility.
-   */
-  getPriceByScheme(schemeName: string): number {
-    // eslint-disable-next-line deprecation/deprecation
-    if (this.pricingTiers && this.pricingTiers[schemeName]) {
-      // eslint-disable-next-line deprecation/deprecation
-      return Number(this.pricingTiers[schemeName]);
-    }
-    return 0;
-  }
-
-  /**
-   * Set price for a specific pricing scheme
-   * @deprecated Use PriceListItem relationship instead. Kept for backward compatibility.
-   */
-  setPriceForScheme(schemeName: string, price: number): void {
-    // eslint-disable-next-line deprecation/deprecation
-    if (!this.pricingTiers) {
-      // eslint-disable-next-line deprecation/deprecation
-      this.pricingTiers = {};
-    }
-    // eslint-disable-next-line deprecation/deprecation
-    this.pricingTiers[schemeName] = price;
-  }
 }

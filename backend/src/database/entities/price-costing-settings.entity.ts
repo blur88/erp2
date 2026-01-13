@@ -8,7 +8,4 @@ export class PriceCostingSettings extends BaseEntity {
 
   @Column({ type: 'varchar', length: 50, default: 'AVERAGE' })
   costingMethod: string; // AVERAGE, FIFO, LIFO, STANDARD
-
-  @Column({ type: 'jsonb', nullable: true })
-  customerPricingSchemes: any; // JSON object containing pricing scheme configuration
 }
