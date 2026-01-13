@@ -321,7 +321,7 @@ export class ProductService {
   async findOne(id: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: ['category', 'priceListItems', 'priceListItems.priceList'],
     });
 
     if (!product) {
@@ -1347,6 +1347,40 @@ export class ProductService {
 
     this.logger.log('Dashboard statistics calculated successfully');
     return stats;
+  }
+
+  /**
+   * Get product prices from all price lists
+   */
+  async getProductPrices(productId: string): Promise<Array<{
+    priceListId: string;
+    priceListCode: string;
+    priceListName: string;
+    price: number;
+    costBasis: number | null;
+    margin: number | null;
+  }>> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+      relations: ['priceListItems', 'priceListItems.priceList'],
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with ID '${productId}' not found`);
+    }
+
+    if (!product.priceListItems || product.priceListItems.length === 0) {
+      return [];
+    }
+
+    return product.priceListItems.map(item => ({
+      priceListId: item.priceListId,
+      priceListCode: item.priceList.code,
+      priceListName: item.priceList.name,
+      price: Number(item.price),
+      costBasis: item.costBasis ? Number(item.costBasis) : null,
+      margin: item.marginPercent ? Number(item.marginPercent) : null,
+    }));
   }
 
   /**

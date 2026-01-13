@@ -167,8 +167,7 @@ export class IntegrationService {
         item.productId,
         item.quantity,
         item.unitPrice,
-        orderId,
-        orderNumber,
+        orderId, // referenceId
         userId,
       ),
     );
@@ -255,8 +254,6 @@ export class IntegrationService {
           const success = await this.productService.reserveStock(
             item.productId,
             reserveQuantity,
-            reason,
-            userId,
           );
 
           if (success) {
@@ -403,36 +400,36 @@ export class IntegrationService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
+    // Get old pricing from pricingTiers JSONB
     const oldPricing = {
-      retail: Number(product.retailPrice),
-      wholesale: Number(product.wholesalePrice),
-      special: Number(product.specialPrice),
+      retail: product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0,
+      wholesale: product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0,
+      special: product.pricingTiers ? Number(product.pricingTiers['Special'] || 0) : 0,
     };
 
     let newPricing = oldPricing;
 
     if (maintainMargins && Number(product.baseCost) > 0) {
       // Calculate current margins
-      const retailMargin = (oldPricing.retail - Number(product.baseCost)) / oldPricing.retail;
-      const wholesaleMargin = (oldPricing.wholesale - Number(product.baseCost)) / oldPricing.wholesale;
-      const specialMargin = (oldPricing.special - Number(product.baseCost)) / oldPricing.special;
+      const retailMargin = oldPricing.retail > 0 ? (oldPricing.retail - Number(product.baseCost)) / oldPricing.retail : 0;
+      const wholesaleMargin = oldPricing.wholesale > 0 ? (oldPricing.wholesale - Number(product.baseCost)) / oldPricing.wholesale : 0;
+      const specialMargin = oldPricing.special > 0 ? (oldPricing.special - Number(product.baseCost)) / oldPricing.special : 0;
 
       // Apply same margins to new cost
       newPricing = {
-        retail: newBaseCost / (1 - retailMargin),
-        wholesale: newBaseCost / (1 - wholesaleMargin),
-        special: newBaseCost / (1 - specialMargin),
+        retail: retailMargin > 0 ? newBaseCost / (1 - retailMargin) : 0,
+        wholesale: wholesaleMargin > 0 ? newBaseCost / (1 - wholesaleMargin) : 0,
+        special: specialMargin > 0 ? newBaseCost / (1 - specialMargin) : 0,
       };
 
-      // Update product
+      // Update product - only baseCost, prices should be in price lists now
+      // This method is deprecated and should use PriceListsService instead
       await this.productRepository.update(productId, {
         baseCost: newBaseCost,
-        retailPrice: newPricing.retail,
-        wholesalePrice: newPricing.wholesale,
-        specialPrice: newPricing.special,
       });
 
-      // Audit logging removed with authentication system
+      // Note: Prices should now be updated via PriceListsService.bulkUpdatePrices()
+      // This fallback only updates baseCost for backward compatibility
     }
 
     return { oldPricing, newPricing };

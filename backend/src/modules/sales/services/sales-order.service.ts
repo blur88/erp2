@@ -13,6 +13,7 @@ import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { User } from '../../../database/entities/user.entity';
+import { PriceListItem } from '../../../database/entities/price-list-item.entity';
 import {
   CreateSalesOrderDto,
   UpdateSalesOrderDto,
@@ -45,6 +46,8 @@ export class SalesOrderService {
     private readonly invoiceItemRepository: Repository<InvoiceItem>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(PriceListItem)
+    private readonly priceListItemRepository: Repository<PriceListItem>,
     // private readonly customerService: CustomerService,
     private readonly inventoryIntegrationService: InventoryIntegrationService,
     private readonly stockMovementService: StockMovementService,
@@ -147,7 +150,10 @@ export class SalesOrderService {
     const { customerId, items, ...orderData } = createSalesOrderDto;
 
     // Verify customer exists and can purchase
-    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+      relations: ['priceList']
+    });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
@@ -803,14 +809,20 @@ export class SalesOrderService {
 
     // Update customer if provided
     if (customerId) {
-      customerForPricing = await this.customerRepository.findOne({ where: { id: customerId } });
+      customerForPricing = await this.customerRepository.findOne({
+        where: { id: customerId },
+        relations: ['priceList']
+      });
       if (!customerForPricing) {
         throw new NotFoundException('Customer not found');
       }
       updateData.customerId = customerId;
     } else {
       // Load existing customer for pricing
-      customerForPricing = await this.customerRepository.findOne({ where: { id: order.customerId } });
+      customerForPricing = await this.customerRepository.findOne({
+        where: { id: order.customerId },
+        relations: ['priceList']
+      });
     }
 
     // Update notes if provided (including empty string to clear notes)
@@ -1172,16 +1184,37 @@ export class SalesOrderService {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      // Determine unit price based on customer's pricing scheme
+      // Determine unit price - try price list first, then fallback to legacy
       let defaultPrice = 0;
-      if (customer && customer.pricingScheme) {
-        // Use customer's pricing scheme to get the correct price
-        defaultPrice = product.getPriceByScheme(customer.pricingScheme);
+
+      // NEW: Try to get price from customer's price list first
+      if (customer && customer.priceListId) {
+        const priceListItem = await this.priceListItemRepository.findOne({
+          where: {
+            priceListId: customer.priceListId,
+            productId: item.productId
+          }
+        });
+
+        if (priceListItem) {
+          defaultPrice = Number(priceListItem.price);
+          console.log(`Using price list price: ${defaultPrice} for product ${item.productId}`);
+        }
       }
-      // If no pricing scheme or price not found, try to get 'Retail' price from tiers
-      if (defaultPrice === 0 && product.pricingTiers) {
-        defaultPrice = Number(product.pricingTiers['Retail']) || Number(product.baseCost) || 0;
+
+      // LEGACY: Fallback to old pricing system if no price list price found
+      if (defaultPrice === 0) {
+        if (customer && customer.pricingScheme) {
+          // Use customer's pricing scheme to get the correct price
+          defaultPrice = product.getPriceByScheme(customer.pricingScheme);
+        }
+        // If no pricing scheme or price not found, try to get 'Retail' price from tiers
+        if (defaultPrice === 0 && product.pricingTiers) {
+          defaultPrice = Number(product.pricingTiers['Retail']) || Number(product.baseCost) || 0;
+        }
+        console.log(`Using legacy pricing: ${defaultPrice} for product ${item.productId}`);
       }
+
       const unitPrice = Number(item.unitPrice) || defaultPrice;
       const discountPercent = Number(item.discountPercent) || 0;
       const discountAmount = Number(item.discountAmount) || 0;

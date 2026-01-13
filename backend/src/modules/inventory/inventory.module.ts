@@ -8,6 +8,8 @@ import { StockMovement } from '../../database/entities/stock-movement.entity';
 import { StockAdjustment, StockAdjustmentItem } from '../../database/entities/stock-adjustment.entity';
 import { PurchaseCostHistory } from '../../database/entities/purchase-cost-history.entity';
 import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
+import { PriceList } from '../../database/entities/price-list.entity';
+import { PriceListItem } from '../../database/entities/price-list-item.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
@@ -58,6 +60,8 @@ import { SettingsModule } from '../settings/settings.module';
       StockAdjustmentItem,
       PurchaseCostHistory,
       PriceCostingSettings,
+      PriceList,
+      PriceListItem,
       // Related entities for integration
       Customer,
       SalesOrder,

@@ -191,7 +191,10 @@ export class CustomerService {
   }
 
   async findById(id: string): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({ where: { id } });
+    const customer = await this.customerRepository.findOne({
+      where: { id },
+      relations: ['priceList']
+    });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
@@ -916,7 +919,10 @@ export class CustomerService {
   }
 
   private async findCustomerEntity(id: string): Promise<Customer> {
-    const customer = await this.customerRepository.findOne({ where: { id } });
+    const customer = await this.customerRepository.findOne({
+      where: { id },
+      relations: ['priceList']
+    });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }

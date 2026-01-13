@@ -12,6 +12,7 @@ import { Payment } from '../../database/entities/payment.entity';
 import { User } from '../../database/entities/user.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
+import { PriceListItem } from '../../database/entities/price-list-item.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { SettingsModule } from '../settings/settings.module';
 
@@ -44,6 +45,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
       User,
       StockMovement,
       PurchaseOrderItem,
+      PriceListItem,
     ]),
     forwardRef(() => InventoryModule),
     SettingsModule,

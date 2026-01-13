@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { Product } from '../../../database/entities/product.entity';
+import { Product, PriceList, PriceListItem } from '../../../database/entities';
 import { Category } from '../../../database/entities/category.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { BulkUpdatePricesDto, ProductPriceUpdateDto } from '../dto/product.dto';
@@ -79,6 +79,10 @@ export class PricingService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    @InjectRepository(PriceList)
+    private readonly priceListRepository: Repository<PriceList>,
+    @InjectRepository(PriceListItem)
+    private readonly priceListItemRepository: Repository<PriceListItem>,
     private readonly settingsService: SettingsService,
   ) {}
 
@@ -100,37 +104,61 @@ export class PricingService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    // Determine base price type (use dynamic pricing from settings)
+    // Determine base price type and price list
     let priceType = 'Retail'; // Default to Retail
     let basePrice = 0;
+    let priceListId: string | null = null;
 
-    // Determine price type based on customer or explicit type
+    // Determine price type and price list based on customer
     if (options.customerId) {
       const customer = await this.customerRepository.findOne({
         where: { id: options.customerId },
+        relations: ['priceList'],
       });
-      if (customer && customer.pricingScheme) {
-        priceType = customer.pricingScheme;
+      if (customer) {
+        // Use new price list system if available
+        if (customer.priceList && customer.priceList.isActive) {
+          priceListId = customer.priceList.id;
+          priceType = customer.priceList.name;
+          this.logger.log(`Using price list: ${priceType} for customer ${options.customerId}`);
+        } else if (customer.pricingScheme) {
+          // Fallback to legacy pricing scheme
+          priceType = customer.pricingScheme;
+          this.logger.warn(`Using legacy pricing scheme for customer ${options.customerId}`);
+        }
       }
     } else if (options.customerType) {
       priceType = options.customerType;
     }
 
-    // Get price from pricingTiers if available, otherwise fall back to legacy fields
-    if (product.pricingTiers && product.pricingTiers[priceType]) {
-      basePrice = Number(product.pricingTiers[priceType]);
-    } else {
-      // Fallback to legacy pricing fields
-      const lowerType = priceType.toLowerCase();
-      if (lowerType === 'retail') {
-        basePrice = Number(product.retailPrice || 0);
-      } else if (lowerType === 'wholesale') {
-        basePrice = Number(product.wholesalePrice || 0);
-      } else if (lowerType === 'special') {
-        basePrice = Number(product.specialPrice || 0);
+    // Try to get price from price list items first
+    if (priceListId) {
+      const priceListItem = await this.priceListItemRepository.findOne({
+        where: { priceListId, productId },
+      });
+
+      if (priceListItem) {
+        basePrice = Number(priceListItem.price);
+        this.logger.log(`Found price ${basePrice} from price list item`);
       } else {
-        // For custom pricing schemes, default to retail price
-        basePrice = Number(product.retailPrice || 0);
+        this.logger.warn(`No price found in price list ${priceListId} for product ${productId}, falling back to legacy`);
+      }
+    }
+
+    // Fallback to legacy pricing if no price list price found
+    if (basePrice === 0) {
+      // Try JSONB pricingTiers
+      if (product.pricingTiers && product.pricingTiers[priceType]) {
+        basePrice = Number(product.pricingTiers[priceType]);
+        this.logger.log(`Using legacy pricingTiers JSONB: ${basePrice}`);
+      } else if (product.pricingTiers && product.pricingTiers['Retail']) {
+        // Fallback to Retail price from JSONB if specific price type not found
+        basePrice = Number(product.pricingTiers['Retail']);
+        this.logger.log(`Using Retail price from pricingTiers JSONB: ${basePrice}`);
+      } else {
+        // Final fallback to baseCost
+        basePrice = Number(product.baseCost || 0);
+        this.logger.log(`Using baseCost as final fallback: ${basePrice}`);
       }
     }
 
@@ -245,9 +273,10 @@ export class PricingService {
     }
 
     const baseCost = Number(product.baseCost);
-    const retailPrice = Number(product.retailPrice);
-    const wholesalePrice = Number(product.wholesalePrice);
-    const specialPrice = Number(product.specialPrice);
+    // Get prices from pricingTiers JSONB (deprecated but still used as fallback)
+    const retailPrice = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
+    const wholesalePrice = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
+    const specialPrice = product.pricingTiers ? Number(product.pricingTiers['Special'] || 0) : 0;
 
     // Calculate margins
     const retailMarginAmount = retailPrice - baseCost;
@@ -281,11 +310,13 @@ export class PricingService {
 
   /**
    * Update prices with margin validation
+   * @deprecated This method is deprecated. Use PriceListsService.bulkUpdatePrices() instead.
+   * Kept for backward compatibility during migration.
    */
   async updatePricesWithValidation(
     productId: string,
     priceUpdate: ProductPriceUpdateDto,
-    userId?: string,
+    _userId?: string,
   ): Promise<void> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
@@ -295,46 +326,14 @@ export class PricingService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    // Validate minimum margins
-    const updates: Partial<Product> = {};
-    const warnings: string[] = [];
-
-    if (priceUpdate.retailPrice !== undefined) {
-      const margin = this.calculateMarginPercentage(Number(product.baseCost), priceUpdate.retailPrice);
-      if (margin < 10) {
-        warnings.push(`Retail price margin (${margin.toFixed(1)}%) is below recommended 10%`);
-      }
-      updates.retailPrice = priceUpdate.retailPrice;
-    }
-
-    if (priceUpdate.wholesalePrice !== undefined) {
-      const margin = this.calculateMarginPercentage(Number(product.baseCost), priceUpdate.wholesalePrice);
-      if (margin < 5) {
-        warnings.push(`Wholesale price margin (${margin.toFixed(1)}%) is below recommended 5%`);
-      }
-      updates.wholesalePrice = priceUpdate.wholesalePrice;
-    }
-
-    if (priceUpdate.specialPrice !== undefined) {
-      const margin = this.calculateMarginPercentage(Number(product.baseCost), priceUpdate.specialPrice);
-      if (margin < 0) {
-        throw new BadRequestException('Special price results in negative margin');
-      }
-      updates.specialPrice = priceUpdate.specialPrice;
-    }
-
+    // This method is deprecated - prices should now be updated via PriceListsService
+    // Update baseCost only if provided
     if (priceUpdate.baseCost !== undefined) {
-      updates.baseCost = priceUpdate.baseCost;
+      await this.productRepository.update(productId, { baseCost: priceUpdate.baseCost });
+      this.logger.log(`Updated baseCost for product ${productId}`);
     }
 
-    // Update product
-    await this.productRepository.update(productId, updates);
-
-    // Audit logging removed with authentication system
-
-    if (warnings.length > 0) {
-      this.logger.warn(`Price update warnings for product ${productId}: ${warnings.join('; ')}`);
-    }
+    this.logger.warn(`updatePricesWithValidation is deprecated. Please use PriceListsService.bulkUpdatePrices() instead.`);
   }
 
   /**
@@ -368,13 +367,18 @@ export class PricingService {
     for (const product of products) {
       const marginAnalysis = await this.analyzeMargins(product.id);
       
+      // Get current prices from pricingTiers JSONB
+      const currentRetail = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
+      const currentWholesale = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
+      const currentSpecial = product.pricingTiers ? Number(product.pricingTiers['Special'] || 0) : 0;
+
       recommendations.push({
         productId: product.id,
         productName: product.name,
         currentPricing: {
-          retail: Number(product.retailPrice),
-          wholesale: Number(product.wholesalePrice),
-          special: Number(product.specialPrice),
+          retail: currentRetail,
+          wholesale: currentWholesale,
+          special: currentSpecial,
         },
         recommendedPricing: {
           retail: marginAnalysis.recommendedRetailPrice,
@@ -416,8 +420,9 @@ export class PricingService {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
-    const originalRetailPrice = Number(product.retailPrice);
-    const originalWholesalePrice = Number(product.wholesalePrice);
+    // Get prices from pricingTiers JSONB
+    const originalRetailPrice = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
+    const originalWholesalePrice = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
 
     // Calculate demand factor (based on recent sales)
     const demandFactor = await this.calculateDemandFactor(productId);
@@ -553,13 +558,17 @@ export class PricingService {
     averageWholesalePrice: number;
     pricePosition: 'below' | 'competitive' | 'above';
   }> {
+    // Get prices from pricingTiers JSONB
+    const retailPrice = product.pricingTiers ? Number(product.pricingTiers['Retail'] || 0) : 0;
+    const wholesalePrice = product.pricingTiers ? Number(product.pricingTiers['Wholesale'] || 0) : 0;
+
     // Mock competitor analysis
-    const mockAverageRetail = Number(product.retailPrice) * (0.9 + Math.random() * 0.2);
-    const mockAverageWholesale = Number(product.wholesalePrice) * (0.9 + Math.random() * 0.2);
-    
+    const mockAverageRetail = retailPrice * (0.9 + Math.random() * 0.2);
+    const mockAverageWholesale = wholesalePrice * (0.9 + Math.random() * 0.2);
+
     let pricePosition: 'below' | 'competitive' | 'above' = 'competitive';
-    const retailDifference = Number(product.retailPrice) - mockAverageRetail;
-    
+    const retailDifference = retailPrice - mockAverageRetail;
+
     if (retailDifference < -mockAverageRetail * 0.05) {
       pricePosition = 'below';
     } else if (retailDifference > mockAverageRetail * 0.05) {
