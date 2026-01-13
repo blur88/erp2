@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { CustomerType, PriceLevel } from '../../../database/entities/customer.entity';
+import { CustomerType } from '../../../database/entities/customer.entity';
 
 export class CreateCustomerDto {
   @ApiProperty({
@@ -89,22 +89,12 @@ export class CreateCustomerDto {
   country?: string;
 
   @ApiPropertyOptional({
-    description: 'Default price level for this customer (deprecated, use pricingScheme)',
-    enum: PriceLevel,
-    example: PriceLevel.WHOLESALE,
-  })
-  @IsOptional()
-  @IsEnum(PriceLevel)
-  priceLevel?: PriceLevel;
-
-  @ApiPropertyOptional({
-    description: 'Default pricing scheme for this customer (recommended)',
-    example: 'Wholesale',
+    description: 'Price list ID for this customer',
+    example: 'uuid-string',
   })
   @IsOptional()
   @IsString()
-  @MaxLength(100)
-  pricingScheme?: string;
+  priceListId?: string;
 
 
   @ApiPropertyOptional({
@@ -193,14 +183,12 @@ export class UpdateCustomerDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Default pricing scheme for this customer',
-    example: 'Wholesale',
+    description: 'Price list ID for this customer',
+    example: 'uuid-string',
   })
   @IsOptional()
   @IsString()
-  @MaxLength(100)
-  pricingScheme?: string;
-
+  priceListId?: string;
 
   @ApiPropertyOptional({
     description: 'Internal notes about the customer',
@@ -229,15 +217,13 @@ export class QueryCustomersDto {
   @IsEnum(CustomerType)
   type?: CustomerType;
 
-
   @ApiPropertyOptional({
-    description: 'Filter by pricing scheme',
-    example: 'Wholesale',
+    description: 'Filter by price list ID',
+    example: 'uuid-string',
   })
   @IsOptional()
   @IsString()
-  @MaxLength(100)
-  pricingScheme?: string;
+  priceListId?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by active status',
@@ -317,8 +303,8 @@ export class CustomerResponseDto {
   @ApiProperty({ example: true })
   isActive: boolean;
 
-  @ApiProperty({ example: 'Wholesale' })
-  pricingScheme: string;
+  @ApiProperty({ example: 'uuid-string', nullable: true })
+  priceListId?: string;
 
   @ApiProperty({ example: 50000.00 })
   totalSales: number;
