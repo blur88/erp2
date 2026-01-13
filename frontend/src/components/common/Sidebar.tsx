@@ -53,6 +53,7 @@ import {
   People as PeopleIcon,
   Security as SecurityIcon,
   Lock as LockIcon,
+  LocalOffer as PriceTagIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -359,6 +360,12 @@ const menuSections: MenuSection[] = [
             title: 'Price & Costing',
             icon: <PriceCostingIcon />,
             path: '/settings/price-costing',
+          },
+          {
+            id: 'price-lists',
+            title: 'Price Lists',
+            icon: <PriceTagIcon />,
+            path: '/settings/price-lists',
           },
           {
             id: 'print-settings',

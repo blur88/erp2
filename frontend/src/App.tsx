@@ -62,6 +62,8 @@ const BackupManagement = React.lazy(() => import('./pages/settings/BackupManagem
 const UserManagementPage = React.lazy(() => import('./pages/settings/UserManagementPage'))
 const RoleManagementPage = React.lazy(() => import('./pages/settings/RoleManagementPage'))
 const SecuritySettingsPage = React.lazy(() => import('./pages/settings/SecuritySettingsPage'))
+const PriceListsPage = React.lazy(() => import('./pages/settings/PriceListsPage'))
+const PriceListDetailsPage = React.lazy(() => import('./pages/settings/PriceListDetailsPage'))
 const AuditLogsPage = React.lazy(() => import('./pages/audit-logs/AuditLogsPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
@@ -245,6 +247,8 @@ function App() {
                     {/* Settings */}
                     <Route path="/settings/company" element={<CompanySettingsPage />} />
                     <Route path="/settings/price-costing" element={<PriceCostingPage />} />
+                    <Route path="/settings/price-lists" element={<PriceListsPage />} />
+                    <Route path="/settings/price-lists/:id" element={<PriceListDetailsPage />} />
                     <Route path="/settings/print" element={<PrintSettingsPage />} />
                     <Route path="/settings/document-numbers" element={<DocumentNumbersPage />} />
                     <Route path="/settings/users" element={<UserManagementPage />} />

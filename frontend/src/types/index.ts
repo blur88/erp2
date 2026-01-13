@@ -559,3 +559,37 @@ export interface AuditLog {
   deletedAt?: Date | string;
   isActive: boolean;
 }
+
+// Price List types
+export interface PriceList {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+  effectiveFrom?: Date | string;
+  effectiveTo?: Date | string;
+  isActive: boolean;
+  items?: PriceListItem[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+}
+
+export interface PriceListItem {
+  id: string;
+  priceListId: string;
+  priceList?: PriceList;
+  productId: string;
+  product?: Product;
+  price: number;
+  costBasis?: number;
+  marginPercent?: number;
+  minQuantity: number;
+  maxQuantity?: number;
+  notes?: string;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+}

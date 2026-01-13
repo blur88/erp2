@@ -15,6 +15,7 @@ import supplierSlice from './slices/supplierSlice'
 import dashboardSlice from './slices/dashboardSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
+import priceListSlice from './slices/priceListSlice'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -28,6 +29,7 @@ const rootReducer = combineReducers({
   dashboard: dashboardSlice,
   backup: backupSlice,
   auditLogs: auditLogSlice,
+  priceLists: priceListSlice,
 })
 
 // Persist configuration
