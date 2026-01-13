@@ -85,7 +85,7 @@ export class PriceListsController {
   @ApiResponse({ status: 201, description: 'Price list created successfully' })
   @ApiResponse({ status: 409, description: 'Price list code already exists' })
   async create(@Body() createDto: CreatePriceListDto) {
-    return this.priceListsService.create(createDto, 'system');
+    return this.priceListsService.create(createDto);
   }
 
   @Patch(':id')
@@ -96,7 +96,7 @@ export class PriceListsController {
     @Param('id') id: string,
     @Body() updateDto: UpdatePriceListDto,
   ) {
-    return this.priceListsService.update(id, updateDto, 'system');
+    return this.priceListsService.update(id, updateDto);
   }
 
   @Delete(':id')
@@ -106,7 +106,7 @@ export class PriceListsController {
   @ApiResponse({ status: 400, description: 'Cannot delete default price list' })
   @ApiResponse({ status: 404, description: 'Price list not found' })
   async remove(@Param('id') id: string) {
-    await this.priceListsService.remove(id, 'system');
+    await this.priceListsService.remove(id);
   }
 
   @Post(':id/set-default')
@@ -114,7 +114,7 @@ export class PriceListsController {
   @ApiResponse({ status: 200, description: 'Price list set as default' })
   @ApiResponse({ status: 404, description: 'Price list not found' })
   async setDefault(@Param('id') id: string) {
-    return this.priceListsService.setDefault(id, 'system');
+    return this.priceListsService.setDefault(id);
   }
 
   @Post(':id/items/bulk')
@@ -125,7 +125,7 @@ export class PriceListsController {
     @Param('id') id: string,
     @Body() bulkUpdateDto: BulkUpdatePricesDto,
   ) {
-    return this.priceListsService.bulkUpdatePrices(id, bulkUpdateDto, 'system');
+    return this.priceListsService.bulkUpdatePrices(id, bulkUpdateDto);
   }
 
   @Post(':id/copy')
@@ -138,7 +138,7 @@ export class PriceListsController {
     @Body('code') code: string,
     @Body('name') name: string,
   ) {
-    return this.priceListsService.copyPriceList(id, code, name, 'system');
+    return this.priceListsService.copyPriceList(id, code, name);
   }
 
   @Post(':id/adjust')
@@ -150,6 +150,6 @@ export class PriceListsController {
     @Param('id') id: string,
     @Body() adjustmentDto: ApplyPercentageAdjustmentDto,
   ) {
-    return this.priceListsService.applyPercentageAdjustment(id, adjustmentDto, 'system');
+    return this.priceListsService.applyPercentageAdjustment(id, adjustmentDto);
   }
 }
