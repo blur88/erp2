@@ -3,11 +3,9 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  HttpException,
-  HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
@@ -21,7 +19,6 @@ import {
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { AuditLogService } from '../../audit-logs/services';
-import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class CustomerService {
@@ -34,7 +31,6 @@ export class CustomerService {
     private readonly invoiceRepository: Repository<Invoice>,
     private readonly transactionManager: TransactionManager,
     private readonly auditLogService: AuditLogService,
-    private readonly settingsService: SettingsService,
   ) {}
 
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
