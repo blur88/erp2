@@ -692,10 +692,8 @@ const ProductsPage: React.FC = () => {
         <Grid container spacing={3}>
           {/* Left Side - Active Products List */}
           <Grid
-            size={{
-              xs: 12,
-              md: 3
-            }}>
+            size={{ xs: 12, md: 3 }}
+          >
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -809,10 +807,8 @@ const ProductsPage: React.FC = () => {
 
         {/* Right Side - Product Details View with Tabs */}
         <Grid
-          size={{
-            xs: 12,
-            md: 9
-          }}>
+          size={{ xs: 12, md: 9 }}
+        >
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             {products.length === 0 ? (
               <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>

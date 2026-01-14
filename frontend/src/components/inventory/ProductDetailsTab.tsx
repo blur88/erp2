@@ -206,7 +206,8 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                   </TableRow>
                 ) : priceListItems.length > 0 ? (
                   priceListItems.map((item, index) => {
-                    const margin = item.marginPercent || calculateMargin(item.price, product.baseCost || 0)
+                    const marginValue = item.marginPercent || calculateMargin(item.price, product.baseCost || 0)
+                    const margin = typeof marginValue === 'string' ? parseFloat(marginValue) : Number(marginValue) || 0
                     const isEvenRow = index % 2 === 0
 
                     return (
