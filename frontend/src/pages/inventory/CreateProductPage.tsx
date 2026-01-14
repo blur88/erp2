@@ -21,27 +21,24 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
-import { settingsApi } from '@/services/settingsApi'
-import { formatCurrency } from '@/utils/formatters'
+import { priceListApi } from '@/services/priceListApi'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
-import { Category } from '@/types'
+import { Category, PriceList } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import { useCurrency } from '@/hooks/useCurrency'
 
-// Pricing field component with proper decimal handling
-const PricingField: React.FC<{
-  schemeName: string
+// Price field component for price list items
+const PriceListPriceField: React.FC<{
+  priceList: PriceList
   currency: string
   value: number
   baseCost: number
-  disabled: boolean
   onChange: (value: number) => void
-}> = ({ schemeName, currency, value, baseCost, disabled, onChange }) => {
+}> = ({ priceList, currency, value, baseCost, onChange }) => {
   const [localValue, setLocalValue] = useState(value > 0 ? value.toFixed(2) : '')
   const [isFocused, setIsFocused] = useState(false)
 
-  // Update local value when external value changes (but not when focused)
   useEffect(() => {
     if (!isFocused) {
       setLocalValue(value > 0 ? value.toFixed(2) : '')
@@ -50,11 +47,8 @@ const PricingField: React.FC<{
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newValue = e.target.value
-
-    // Allow numbers, decimal point, and empty string
     newValue = newValue.replace(/[^0-9.]/g, '')
 
-    // Prevent multiple decimal points
     const parts = newValue.split('.')
     if (parts.length > 2) {
       newValue = parts[0] + '.' + parts.slice(1).join('')
@@ -62,7 +56,6 @@ const PricingField: React.FC<{
 
     setLocalValue(newValue)
 
-    // Update parent with numeric value
     if (newValue === '' || newValue === '.') {
       onChange(0)
     } else {
@@ -75,7 +68,6 @@ const PricingField: React.FC<{
 
   const handleBlur = () => {
     setIsFocused(false)
-    // Format to 2 decimal places when losing focus
     if (value > 0) {
       setLocalValue(value.toFixed(2))
     }
@@ -89,24 +81,21 @@ const PricingField: React.FC<{
   const margin = calculateMargin(value, baseCost)
 
   return (
-    <Grid
-      size={{
-        xs: 12,
-        md: 6
-      }}>
+    <Grid size={{ xs: 12, md: 6 }}>
       <Box>
         <TextField
           value={localValue}
           onChange={handleChange}
           onFocus={() => setIsFocused(true)}
           onBlur={handleBlur}
-          label={`${schemeName} Price`}
+          label={`${priceList.name} Price`}
           fullWidth
           size="small"
           type="text"
-          disabled={disabled}
-          InputProps={{
-            startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+          slotProps={{
+            input: {
+              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+            }
           }}
           sx={{
             '& .MuiInputBase-input': {
@@ -139,7 +128,7 @@ const PricingField: React.FC<{
         )}
       </Box>
     </Grid>
-  );
+  )
 }
 
 interface ProductFormData {
@@ -149,10 +138,14 @@ interface ProductFormData {
   type: 'Stocked Product' | 'Service'
   categoryId: string
   baseCost: number
-  pricingTiers: Record<string, number>
   stockQuantity?: number
   notes: string
   isActive: boolean
+}
+
+interface PriceListPrice {
+  priceListId: string
+  price: number
 }
 
 const productSchema = yup.object({
@@ -166,7 +159,6 @@ const productSchema = yup.object({
     (value) => value !== 'main'
   ),
   baseCost: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).min(0, 'Base cost must be 0 or greater').nullable().optional(),
-  pricingTiers: yup.object(),
   stockQuantity: yup.number().transform((value, originalValue) => originalValue === '' || originalValue === null || originalValue === undefined ? undefined : value).integer('Stock must be a whole number').min(0, 'Stock must be 0 or greater').nullable().optional(),
   notes: yup.string(),
   isActive: yup.boolean(),
@@ -181,8 +173,9 @@ const CreateProductPage: React.FC = () => {
   const [loadingProduct, setLoadingProduct] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
-  const [pricingSchemes, setPricingSchemes] = useState<Array<{ name: string; currency: string }>>([])
-  const [loadingPricingSchemes, setLoadingPricingSchemes] = useState(false)
+  const [priceLists, setPriceLists] = useState<PriceList[]>([])
+  const [priceListPrices, setPriceListPrices] = useState<Record<string, number>>({})
+  const [loadingPriceLists, setLoadingPriceLists] = useState(false)
 
   // Currency hook
   const { currency } = useCurrency()
@@ -198,7 +191,7 @@ const CreateProductPage: React.FC = () => {
     hasCheckedBarcode
   } = useDuplicateCheck()
 
-  const { control, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ProductFormData>({
+  const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
       name: '',
@@ -207,7 +200,6 @@ const CreateProductPage: React.FC = () => {
       type: 'Stocked Product',
       categoryId: '',
       baseCost: undefined as any,
-      pricingTiers: {},
       stockQuantity: undefined,
       notes: '',
       isActive: true,
@@ -218,44 +210,27 @@ const CreateProductPage: React.FC = () => {
   const watchedName = watch('name')
   const watchedBarcode = watch('barcode')
   const watchedBaseCost = watch('baseCost')
-  const watchedPricingTiers = watch('pricingTiers') || {}
 
-  // Calculate margins
-  const calculateMargin = (price: number | undefined, cost: number | undefined): number => {
-    if (!price || !cost || price <= 0 || cost <= 0) return 0
-    return ((price - cost) / price) * 100
-  }
-
-  // Helper to update a specific pricing tier
-  const updatePricingTier = (schemeName: string, value: number) => {
-    const currentTiers = watchedPricingTiers || {}
-    setValue('pricingTiers', { ...currentTiers, [schemeName]: value })
-  }
-
-  // NOTE: Legacy pricingTiers system - deprecated in Phase 8 (January 2026)
-  // Pricing is now managed via Price Lists (/settings/price-lists)
-  // This page needs refactoring to use the new Price Lists system
+  // Load active price lists
   useEffect(() => {
-    const loadPricingSchemes = async () => {
+    const loadPriceLists = async () => {
       try {
-        setLoadingPricingSchemes(true)
-        // API endpoint removed - fallback to empty schemes
-        console.warn('pricingSchemes API removed - use Price Lists instead')
-        setPricingSchemes([])
+        setLoadingPriceLists(true)
+        const response = await priceListApi.getPriceLists({ isActive: true, limit: 100 })
+        setPriceLists(response.data || [])
       } catch (error) {
-        console.error('Failed to load pricing schemes:', error)
-        setPricingSchemes([])
+        console.error('Failed to load price lists:', error)
+        showError('Failed to load price lists')
       } finally {
-        setLoadingPricingSchemes(false)
+        setLoadingPriceLists(false)
       }
     }
-    loadPricingSchemes()
-  }, [])
+    loadPriceLists()
+  }, [showError])
 
-  // Dynamic margin calculations
-  const getMarginForScheme = (schemeName: string) => {
-    const price = watchedPricingTiers?.[schemeName]
-    return calculateMargin(price, watchedBaseCost)
+  // Update price for a specific price list
+  const updatePriceListPrice = (priceListId: string, price: number) => {
+    setPriceListPrices(prev => ({ ...prev, [priceListId]: price }))
   }
 
   // Real-time duplicate checking
@@ -292,9 +267,6 @@ const CreateProductPage: React.FC = () => {
         setSelectedCategory(product.category)
       }
 
-      // Load pricing tiers
-      const pricingTiers = product.pricingTiers || {}
-
       reset({
         name: product.name || '',
         description: product.description || '',
@@ -302,11 +274,19 @@ const CreateProductPage: React.FC = () => {
         type: product.type || 'Stocked Product',
         categoryId: product.categoryId || product.category?.id || '',
         baseCost: product.baseCost || 0,
-        pricingTiers: pricingTiers,
         stockQuantity: product.stockQuantity || 0,
         notes: product.notes || '',
         isActive: product.isActive !== undefined ? product.isActive : true,
       })
+
+      // Load existing price list items for this product
+      if (product.priceListItems && Array.isArray(product.priceListItems)) {
+        const pricesMap: Record<string, number> = {}
+        product.priceListItems.forEach((item: any) => {
+          pricesMap[item.priceListId] = item.price
+        })
+        setPriceListPrices(pricesMap)
+      }
     } catch (err: any) {
       showError(err?.response?.data?.message || 'Failed to load product')
       setError('Failed to load product')
@@ -338,7 +318,6 @@ const CreateProductPage: React.FC = () => {
         type: data.type,
         categoryId: data.categoryId,
         baseCost: data.baseCost !== undefined && data.baseCost !== null ? Number(data.baseCost) : 0,
-        pricingTiers: data.pricingTiers || {},
         stockQuantity: data.type === 'Stocked Product' ? (data.stockQuantity !== undefined && data.stockQuantity !== null ? Number(data.stockQuantity) : 0) : 0,
         notes: data.notes || '',
         isActive: data.isActive,
@@ -348,13 +327,32 @@ const CreateProductPage: React.FC = () => {
 
       if (isEditMode && id) {
         await ApiService.patch(`/inventory/products/${id}`, productData)
-        showSuccess('Product updated successfully')
+        productId = id
       } else {
         const response = await ApiService.post('/inventory/products', productData) as any
         // ApiService.post already unwraps response.data, so the response IS the product data
         productId = response?.id
-        showSuccess('Product created successfully')
       }
+
+      // Save price list items if any prices were entered
+      if (productId && Object.keys(priceListPrices).length > 0) {
+        // Update prices for each price list
+        for (const [priceListId, price] of Object.entries(priceListPrices)) {
+          if (price > 0) {
+            try {
+              await priceListApi.bulkUpdatePrices(priceListId, [{
+                productId,
+                price,
+                costBasis: data.baseCost || 0
+              }])
+            } catch (error) {
+              console.error(`Failed to update prices for price list ${priceListId}:`, error)
+            }
+          }
+        }
+      }
+
+      showSuccess(isEditMode ? 'Product updated successfully' : 'Product created successfully')
 
       // Navigate back to products page with the product ID in state
       // The ProductsPage will handle refreshing the products list
@@ -642,8 +640,10 @@ const CreateProductPage: React.FC = () => {
                                 helperText={errors.baseCost?.message}
                                 fullWidth
                                 size="small"
-                                InputProps={{
-                                  startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+                                slotProps={{
+                                  input: {
+                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+                                  }
                                 }}
                                 sx={{
                                   '& .MuiInputBase-input': {
@@ -660,18 +660,29 @@ const CreateProductPage: React.FC = () => {
                         />
                       </Grid>
 
-                      {/* Dynamic Pricing Scheme Fields */}
-                      {pricingSchemes.map((scheme) => (
-                        <PricingField
-                          key={scheme.name}
-                          schemeName={scheme.name}
-                          currency={scheme.currency}
-                          value={watchedPricingTiers?.[scheme.name] || 0}
-                          baseCost={watchedBaseCost || 0}
-                          disabled={loadingPricingSchemes}
-                          onChange={(value) => updatePricingTier(scheme.name, value)}
-                        />
-                      ))}
+                      {/* Price List Fields */}
+                      {loadingPriceLists ? (
+                        <Grid size={12}>
+                          <Typography variant="body2" color="text.secondary">Loading price lists...</Typography>
+                        </Grid>
+                      ) : priceLists.length > 0 ? (
+                        priceLists.map((priceList) => (
+                          <PriceListPriceField
+                            key={priceList.id}
+                            priceList={priceList}
+                            currency={currency}
+                            value={priceListPrices[priceList.id] || 0}
+                            baseCost={watchedBaseCost || 0}
+                            onChange={(price) => updatePriceListPrice(priceList.id, price)}
+                          />
+                        ))
+                      ) : (
+                        <Grid size={12}>
+                          <Alert severity="info">
+                            No price lists configured. Go to Settings → Price Lists to create price lists for different customer segments.
+                          </Alert>
+                        </Grid>
+                      )}
                     </Grid>
                   </CardContent>
                 </Card>
@@ -722,8 +733,10 @@ const CreateProductPage: React.FC = () => {
                                   fullWidth
                                   size="small"
                                   disabled={isEditMode}
-                                  InputProps={{
-                                    readOnly: isEditMode,
+                                  slotProps={{
+                                    input: {
+                                      readOnly: isEditMode,
+                                    }
                                   }}
                                   sx={{
                                     '& .MuiInputBase-input': {
