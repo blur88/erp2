@@ -10,17 +10,13 @@ import {
   Chip,
   Grid,
 } from '@mui/material'
-import { Product } from '@/types'
+import { Product, PriceListItem } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { priceListApi } from '@/services/priceListApi'
+
 interface ProductDetailsTabProps {
   product: Product
-}
-
-// Legacy type - deprecated in Phase 8
-interface PricingScheme {
-  name: string
-  currency: string
 }
 
 const getStockStatus = (product: Product) => {
@@ -36,21 +32,25 @@ const getStockStatus = (product: Product) => {
 }
 
 const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
-  const [pricingSchemes, setPricingSchemes] = useState<PricingScheme[]>([])
+  const [priceListItems, setPriceListItems] = useState<PriceListItem[]>([])
+  const [loading, setLoading] = useState(false)
 
-  // NOTE: Legacy pricingTiers system - deprecated in Phase 8 (January 2026)
-  // This component needs refactoring to use Price Lists system
+  // Load price list items for this product
   useEffect(() => {
-    const loadPricingSchemes = async () => {
+    const loadPriceListItems = async () => {
       try {
-        console.warn('pricingSchemes API removed - use Price Lists instead')
-        setPricingSchemes([])
+        setLoading(true)
+        const data = await priceListApi.getProductPriceListItems(product.id)
+        setPriceListItems(data || [])
       } catch (error) {
-        console.error('Failed to load pricing schemes:', error)
+        console.error('Failed to load price list items:', error)
+        setPriceListItems([])
+      } finally {
+        setLoading(false)
       }
     }
-    loadPricingSchemes()
-  }, [])
+    loadPriceListItems()
+  }, [product.id])
 
   // Calculate margin for a price
   const calculateMargin = (price: number, baseCost: number): number => {
@@ -64,9 +64,6 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
     if (margin > 10) return 'warning'
     return 'error'
   }
-
-  // Get pricing tiers from product
-  const pricingTiers = product.pricingTiers || {}
 
   return (
     <Box>
@@ -201,38 +198,51 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                     {formatCurrency(product.baseCost)}
                   </TableCell>
                 </TableRow>
-                {pricingSchemes.map((scheme, index) => {
-                  const price = pricingTiers[scheme.name] || 0
-                  const margin = calculateMargin(price, product.baseCost || 0)
-                  const isEvenRow = index % 2 === 0
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={3} sx={{ textAlign: 'center', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                      Loading price lists...
+                    </TableCell>
+                  </TableRow>
+                ) : priceListItems.length > 0 ? (
+                  priceListItems.map((item, index) => {
+                    const margin = item.marginPercent || calculateMargin(item.price, product.baseCost || 0)
+                    const isEvenRow = index % 2 === 0
 
-                  return (
-                    <TableRow key={scheme.name} sx={{ backgroundColor: isEvenRow ? 'transparent' : 'grey.50' }}>
-                      <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                        {scheme.name} Price
-                      </TableCell>
-                      <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                        {formatCurrency(price)}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                        {price > 0 && (
-                          <Chip
-                            label={`${margin.toFixed(1)}%`}
-                            size="small"
-                            variant="outlined"
-                            color={getMarginColor(margin)}
-                            sx={{
-                              fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
-                              minWidth: 42
-                            }}
-                          />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                    return (
+                      <TableRow key={item.id} sx={{ backgroundColor: isEvenRow ? 'transparent' : 'grey.50' }}>
+                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {item.priceList?.name || 'Unknown'} Price
+                        </TableCell>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {formatCurrency(item.price)}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                          {item.price > 0 && (
+                            <Chip
+                              label={`${margin.toFixed(1)}%`}
+                              size="small"
+                              variant="outlined"
+                              color={getMarginColor(margin)}
+                              sx={{
+                                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
+                                minWidth: 42
+                              }}
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} sx={{ textAlign: 'center', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'text.secondary', fontStyle: 'italic' }}>
+                      No price lists configured for this product
+                    </TableCell>
+                  </TableRow>
+                )}
 
               </TableBody>
             </Table>

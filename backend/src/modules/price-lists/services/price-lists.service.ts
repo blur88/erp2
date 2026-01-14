@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, IsNull, Not } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { PriceList, PriceListItem } from '@/database/entities';
 import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePricesDto, ApplyPercentageAdjustmentDto } from '../dto';
 
@@ -240,7 +240,8 @@ export class PriceListsService {
     priceListId: string,
     bulkUpdateDto: BulkUpdatePricesDto
   ): Promise<PriceListItem[]> {
-    const priceList = await this.findOne(priceListId, false);
+    // Verify price list exists
+    await this.findOne(priceListId, false);
 
     const updatedItems: PriceListItem[] = [];
 
@@ -380,6 +381,17 @@ export class PriceListsService {
       where: { priceListId },
       relations: ['product'],
       order: { product: { name: 'ASC' } },
+    });
+  }
+
+  /**
+   * Get all price list items for a specific product across all price lists
+   */
+  async getItemsForProduct(productId: string): Promise<PriceListItem[]> {
+    return this.priceListItemRepository.find({
+      where: { productId },
+      relations: ['priceList'],
+      order: { priceList: { code: 'ASC' } },
     });
   }
 }

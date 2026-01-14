@@ -70,6 +70,10 @@ export const priceListApi = {
     return ApiService.get<PriceListItem[]>(`/price-lists/${priceListId}/items`)
   },
 
+  async getProductPriceListItems(productId: string) {
+    return ApiService.get<PriceListItem[]>(`/price-lists/product/${productId}/items`)
+  },
+
   async getProductPrice(priceListId: string, productId: string) {
     return ApiService.get<PriceListItem>(`/price-lists/${priceListId}/products/${productId}`)
   },

@@ -69,6 +69,13 @@ export class PriceListsController {
     return this.priceListsService.getItems(id);
   }
 
+  @Get('product/:productId/items')
+  @ApiOperation({ summary: 'Get all price list items for a specific product' })
+  @ApiResponse({ status: 200, description: 'Returns price list items for the product' })
+  async getItemsForProduct(@Param('productId') productId: string) {
+    return this.priceListsService.getItemsForProduct(productId);
+  }
+
   @Get(':id/products/:productId')
   @ApiOperation({ summary: 'Get price for a specific product in a price list' })
   @ApiResponse({ status: 200, description: 'Returns price for the product' })
