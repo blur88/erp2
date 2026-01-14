@@ -232,23 +232,19 @@ const CreateProductPage: React.FC = () => {
     setValue('pricingTiers', { ...currentTiers, [schemeName]: value })
   }
 
-  // Fetch pricing schemes on mount
+  // NOTE: Legacy pricingTiers system - deprecated in Phase 8 (January 2026)
+  // Pricing is now managed via Price Lists (/settings/price-lists)
+  // This page needs refactoring to use the new Price Lists system
   useEffect(() => {
     const loadPricingSchemes = async () => {
       try {
         setLoadingPricingSchemes(true)
-        const response = await settingsApi.getActivePricingSchemes()
-        const schemes = Array.isArray(response) ? response : (response.data || [])
-        console.log('Loaded pricing schemes for product:', schemes)
-        setPricingSchemes(schemes)
+        // API endpoint removed - fallback to empty schemes
+        console.warn('pricingSchemes API removed - use Price Lists instead')
+        setPricingSchemes([])
       } catch (error) {
         console.error('Failed to load pricing schemes:', error)
-        // Fallback to default schemes
-        setPricingSchemes([
-          { name: 'Retail', currency: 'USD' },
-          { name: 'Wholesale', currency: 'USD' },
-          { name: 'Special', currency: 'USD' },
-        ])
+        setPricingSchemes([])
       } finally {
         setLoadingPricingSchemes(false)
       }

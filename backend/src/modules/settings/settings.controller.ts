@@ -239,38 +239,6 @@ export class SettingsController {
   }
 
   /**
-   * Get active pricing schemes (for use by other modules)
-   */
-  @Get('pricing-schemes')
-  @ApiOperation({
-    summary: 'Get active pricing schemes',
-    description: 'Retrieve active pricing schemes for use in other modules',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Pricing schemes retrieved successfully',
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          currency: { type: 'string' },
-        },
-      },
-    },
-  })
-  async getActivePricingSchemes(): Promise<Array<{ name: string; currency: string }>> {
-    try {
-      this.logger.log('Fetching active pricing schemes');
-      return await this.settingsService.getActivePricingSchemes();
-    } catch (error) {
-      this.logger.error(`Failed to get pricing schemes: ${error.message}`, error.stack);
-      throw error;
-    }
-  }
-
-  /**
    * Get default currency
    */
   @Get('default-currency')

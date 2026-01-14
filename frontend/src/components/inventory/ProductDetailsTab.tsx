@@ -13,10 +13,14 @@ import {
 import { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import { settingsApi, PricingScheme } from '@/services/settingsApi'
-
 interface ProductDetailsTabProps {
   product: Product
+}
+
+// Legacy type - deprecated in Phase 8
+interface PricingScheme {
+  name: string
+  currency: string
 }
 
 const getStockStatus = (product: Product) => {
@@ -34,12 +38,13 @@ const getStockStatus = (product: Product) => {
 const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
   const [pricingSchemes, setPricingSchemes] = useState<PricingScheme[]>([])
 
+  // NOTE: Legacy pricingTiers system - deprecated in Phase 8 (January 2026)
+  // This component needs refactoring to use Price Lists system
   useEffect(() => {
     const loadPricingSchemes = async () => {
       try {
-        const response = await settingsApi.getActivePricingSchemes()
-        const schemes = Array.isArray(response) ? response : (response.data || [])
-        setPricingSchemes(schemes)
+        console.warn('pricingSchemes API removed - use Price Lists instead')
+        setPricingSchemes([])
       } catch (error) {
         console.error('Failed to load pricing schemes:', error)
       }

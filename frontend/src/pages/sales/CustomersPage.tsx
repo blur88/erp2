@@ -138,24 +138,18 @@ const CustomersPage: React.FC = () => {
     }
   })
 
-  // Fetch pricing schemes on mount
+  // NOTE: Legacy pricingSchemes system - deprecated in Phase 8 (January 2026)
+  // Customer pricing is now managed via priceListId (not pricingScheme)
+  // This page needs refactoring to use Price Lists system
   useEffect(() => {
     const loadPricingSchemes = async () => {
       try {
         setLoadingPricingSchemes(true)
-        const response = await settingsApi.getActivePricingSchemes()
-        // Handle response - could be direct array or wrapped in data
-        const schemes = Array.isArray(response) ? response : (response.data || [])
-        console.log('Loaded pricing schemes:', schemes)
-        setPricingSchemes(schemes)
+        console.warn('pricingSchemes API removed - use Price Lists instead')
+        setPricingSchemes([])
       } catch (error) {
         console.error('Failed to load pricing schemes:', error)
-        // Fallback to default schemes
-        setPricingSchemes([
-          { name: 'Retail', currency: 'USD' },
-          { name: 'Wholesale', currency: 'USD' },
-          { name: 'Special', currency: 'USD' },
-        ])
+        setPricingSchemes([])
       } finally {
         setLoadingPricingSchemes(false)
       }

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
-import { Customer, PriceLevel } from '../../../database/entities/customer.entity';
+import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
@@ -43,16 +43,9 @@ export class CustomerService {
       await this.validatePhoneUniqueness(createCustomerDto.phone);
     }
 
-    // Get default pricing scheme from settings if not provided
-    let pricingScheme = createCustomerDto.pricingScheme || createCustomerDto.priceLevel;
-    if (!pricingScheme) {
-      const schemes = await this.settingsService.getActivePricingSchemeNames();
-      pricingScheme = schemes[0] || 'Retail'; // Use first available scheme or fallback to 'Retail'
-    }
-
+    // Customer pricing is now handled via priceListId (not pricingScheme)
     const customer = this.customerRepository.create({
       ...createCustomerDto,
-      pricingScheme,
     });
 
     const savedCustomer = await this.customerRepository.save(customer);
@@ -69,7 +62,7 @@ export class CustomerService {
           name: savedCustomer.name,
           phone: savedCustomer.phone,
           type: savedCustomer.type,
-          pricingScheme: savedCustomer.pricingScheme,
+          priceListId: savedCustomer.priceListId,
         },
       }
     );
@@ -81,7 +74,6 @@ export class CustomerService {
     const {
       search,
       type,
-      pricingScheme,
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
@@ -92,7 +84,7 @@ export class CustomerService {
     const where: FindOptionsWhere<Customer> = {};
 
     if (type) where.type = type;
-    if (pricingScheme) where.pricingScheme = pricingScheme;
+    // pricingScheme removed in Phase 8 - use priceListId instead
     if (isActive !== undefined) where.isActive = isActive;
 
 
@@ -213,7 +205,7 @@ export class CustomerService {
       name: customer.name,
       phone: customer.phone,
       type: customer.type,
-      pricingScheme: customer.pricingScheme,
+      priceListId: customer.priceListId,
     };
 
     // Check for phone number duplicate if phone is being updated
@@ -237,7 +229,7 @@ export class CustomerService {
           name: savedCustomer.name,
           phone: savedCustomer.phone,
           type: savedCustomer.type,
-          pricingScheme: savedCustomer.pricingScheme,
+          priceListId: savedCustomer.priceListId,
         },
       }
     );
@@ -749,7 +741,7 @@ export class CustomerService {
           name: customer.name,
           phone: customer.phone,
           type: customer.type,
-          pricingScheme: customer.pricingScheme,
+          priceListId: customer.priceListId,
         },
       }
     );
@@ -942,7 +934,7 @@ export class CustomerService {
       postalCode: customer.postalCode,
       country: customer.country,
       isActive: customer.isActive,
-      pricingScheme: customer.pricingScheme,
+      priceListId: customer.priceListId,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,

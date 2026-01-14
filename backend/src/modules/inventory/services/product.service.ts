@@ -129,32 +129,12 @@ export class ProductService {
     // Validate pricing logic
     this.validatePricing(createProductDto);
 
-    // Get pricing schemes from settings to initialize pricingTiers
-    const pricingSchemes = await this.settingsService.getActivePricingSchemes();
-
-    // Initialize pricingTiers - prioritize direct pricingTiers if provided
-    let pricingTiers: Record<string, number> = {};
-
-    if (createProductDto.pricingTiers && Object.keys(createProductDto.pricingTiers).length > 0) {
-      // Use directly provided pricingTiers (from new UI)
-      pricingTiers = { ...createProductDto.pricingTiers };
-    } else {
-      // Set default pricing for schemes not provided (use baseCost * 1.3 as default)
-      pricingSchemes.forEach((scheme) => {
-        const schemeName = scheme.name;
-        if (pricingTiers[schemeName] === undefined || pricingTiers[schemeName] === null) {
-          pricingTiers[schemeName] = createProductDto.baseCost * 1.3;
-        }
-      });
-    }
-
     // Create product
     const product = this.productRepository.create({
       ...createProductDto,
       stockQuantity: createProductDto.stockQuantity || 0,
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
-      pricingTiers, // Add dynamic pricing tiers
     });
 
     const savedProduct = await this.productRepository.save(product);
@@ -1081,18 +1061,8 @@ export class ProductService {
       // Track price changes
       const priceChanges: Record<string, { from: number; to: number }> = {};
 
-      // Update pricingTiers if provided
-      if (priceUpdate.pricingTiers && Object.keys(priceUpdate.pricingTiers).length > 0) {
-        updateData.pricingTiers = { ...product.pricingTiers, ...priceUpdate.pricingTiers };
-        // Track changes for each tier
-        Object.keys(priceUpdate.pricingTiers).forEach(tierName => {
-          const oldPrice = product.pricingTiers?.[tierName] || 0;
-          const newPrice = priceUpdate.pricingTiers![tierName];
-          if (oldPrice !== newPrice) {
-            priceChanges[tierName] = { from: Number(oldPrice), to: newPrice };
-          }
-        });
-      }
+      // NOTE: pricingTiers removed in Phase 8 - pricing now managed via Price Lists
+      // Only baseCost is directly on Product entity now
 
       if (priceUpdate.baseCost !== undefined && priceUpdate.baseCost !== product.baseCost) {
         updateData.baseCost = priceUpdate.baseCost;
@@ -1395,7 +1365,7 @@ export class ProductService {
       type: product.type,
       isActive: product.isActive,
       baseCost: Number(product.baseCost),
-      pricingTiers: product.pricingTiers || {}, // Dynamic pricing tiers from settings
+      // NOTE: pricingTiers removed in Phase 8 - pricing now managed via Price Lists
       stockQuantity: Number(product.stockQuantity),
       notes: product.notes,
       categoryId: product.categoryId,
@@ -1782,29 +1752,7 @@ export class ProductService {
     const baseCost = parseNumber(row.basecost, 'baseCost');
     if (baseCost === undefined) return null;
 
-    // Build pricingTiers from CSV columns (map to pricing schemes from settings)
-    const pricingTiers: Record<string, number> = {};
-    const retailPrice = parseNumber(row.retailprice, 'retailPrice');
-    const wholesalePrice = parseNumber(row.wholesaleprice, 'wholesalePrice');
-    const specialPrice = parseNumber(row.specialprice, 'specialPrice');
-
-    // Get active pricing schemes to map CSV columns
-    const pricingSchemes = await this.settingsService.getActivePricingSchemes();
-    pricingSchemes.forEach((scheme) => {
-      const lowerScheme = scheme.name.toLowerCase();
-      if (lowerScheme === 'retail' && retailPrice !== undefined) {
-        pricingTiers[scheme.name] = retailPrice;
-      } else if (lowerScheme === 'wholesale' && wholesalePrice !== undefined) {
-        pricingTiers[scheme.name] = wholesalePrice;
-      } else if (lowerScheme === 'special' && specialPrice !== undefined) {
-        pricingTiers[scheme.name] = specialPrice;
-      } else {
-        // Default pricing for schemes not in CSV (use baseCost * 1.3)
-        pricingTiers[scheme.name] = baseCost * 1.3;
-      }
-    });
-
-    // Build product data
+    // Build product data (pricing is now managed via Price Lists, not product fields)
     const productData: any = {
       name: row.name.trim(),
       description: row.description?.trim() || undefined,
@@ -1812,7 +1760,6 @@ export class ProductService {
       type: normalizedType,
       categoryId,
       baseCost,
-      pricingTiers, // Use dynamic pricing tiers instead of fixed fields
       stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
       notes: row.notes?.trim() || undefined,
       isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true
