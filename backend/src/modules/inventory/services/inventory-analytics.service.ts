@@ -1,37 +1,37 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan } from 'typeorm';
-import { Product, Category, StockMovement } from '../../../database/entities';
+import { Repository, Between, MoreThan, In } from 'typeorm';
+import { Product, Category, StockMovement, PriceListItem as PriceListItemEntity } from '../../../database/entities';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 
-interface InventorySummaryQuery {
+export interface InventorySummaryQuery {
   productIds?: string[];
   categoryId?: string;
+  priceListId?: string;
 }
 
-interface InventorySummaryItem {
+export interface InventorySummaryItem {
+  productId: string;
   productName: string;
   categoryName: string;
   type: string;
   baseCost: number;
-  retailPrice: number;
-  wholesalePrice: number;
-  specialPrice: number;
+  unitPrice: number;
   stockQuantity: number;
   inventoryValue: number;
-  retailValue: number;
+  salesValue: number;
   potentialProfit: number;
   status: string;
 }
 
-interface HistoricalInventoryQuery {
+export interface HistoricalInventoryQuery {
   productIds?: string[];
   categoryId?: string;
   startDate?: Date;
   endDate?: Date;
 }
 
-interface HistoricalInventoryItem {
+export interface HistoricalInventoryItem {
   productName: string;
   categoryName: string;
   movementDate: Date;
@@ -48,14 +48,14 @@ interface HistoricalInventoryItem {
   notes: string;
 }
 
-interface MovementSummaryQuery {
+export interface MovementSummaryQuery {
   productIds?: string[];
   categoryId?: string;
   startDate?: Date;
   endDate?: Date;
 }
 
-interface MovementSummaryItem {
+export interface MovementSummaryItem {
   productName: string;
   categoryName: string;
   quantityIn: number;
@@ -63,14 +63,14 @@ interface MovementSummaryItem {
   quantityOnHand: number;
 }
 
-interface PriceListQuery {
+export interface PriceListQuery {
   productIds?: string[];
   categoryId?: string;
-  priceType?: string; // 'retail', 'wholesale', 'special'
+  priceListId?: string;
   discountPercent?: number;
 }
 
-interface PriceListItem {
+export interface PriceListReportItem {
   productName: string;
   categoryName: string;
   price: number;
@@ -78,13 +78,13 @@ interface PriceListItem {
   salesCost: number;
 }
 
-interface ProductCostQuery {
+export interface ProductCostQuery {
   productIds?: string[];
   startDate?: Date;
   endDate?: Date;
 }
 
-interface ProductCostItem {
+export interface ProductCostItem {
   productName: string;
   categoryName: string;
   transactionType: string;
@@ -108,6 +108,8 @@ export class InventoryAnalyticsService {
     private readonly stockMovementRepository: Repository<StockMovement>,
     @InjectRepository(PurchaseCostHistory)
     private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
+    @InjectRepository(PriceListItemEntity)
+    private readonly priceListItemRepository: Repository<PriceListItemEntity>,
   ) {}
 
   async getInventorySummary(
@@ -138,35 +140,50 @@ export class InventoryAnalyticsService {
 
     const products = await queryBuilder.getMany();
 
+    // Fetch prices from price list if priceListId is provided
+    let priceMap: Map<string, number> = new Map();
+    if (query.priceListId) {
+      const priceListItems = await this.priceListItemRepository.find({
+        where: {
+          priceListId: query.priceListId,
+          productId: In(products.map(p => p.id)),
+        },
+      });
+      priceListItems.forEach(item => {
+        priceMap.set(item.productId, parseFloat(item.price?.toString() || '0'));
+      });
+    }
+
     const data: InventorySummaryItem[] = products.map((product) => {
       const baseCost = parseFloat(product.baseCost?.toString() || '0');
-      const retailPrice = parseFloat(product.retailPrice?.toString() || '0');
-      const wholesalePrice = parseFloat(product.wholesalePrice?.toString() || '0');
-      const specialPrice = parseFloat(product.specialPrice?.toString() || '0');
       const stockQuantity = parseFloat(product.stockQuantity?.toString() || '0');
+
+      // Get unit price from price list, fallback to base cost if not found
+      const unitPrice = query.priceListId
+        ? (priceMap.get(product.id) || baseCost)
+        : baseCost;
 
       // Calculate inventory value (cost * quantity)
       const inventoryValue = baseCost * stockQuantity;
 
-      // Calculate retail value (retail price * quantity)
-      const retailValue = retailPrice * stockQuantity;
+      // Calculate sales value (unit price * quantity)
+      const salesValue = unitPrice * stockQuantity;
 
-      // Calculate potential profit (retail value - inventory value)
-      const potentialProfit = retailValue - inventoryValue;
+      // Calculate potential profit (sales value - inventory value)
+      const potentialProfit = salesValue - inventoryValue;
 
       return {
+        productId: product.id,
         productName: product.name,
         categoryName: product.category?.name || 'Uncategorized',
         type: product.type || 'product',
         baseCost,
-        retailPrice,
-        wholesalePrice,
-        specialPrice,
+        unitPrice,
         stockQuantity,
         inventoryValue,
-        retailValue,
+        salesValue,
         potentialProfit,
-        status: product.status || 'active',
+        status: 'active',
       };
     });
 
@@ -394,7 +411,7 @@ export class InventoryAnalyticsService {
 
   async getPriceList(
     query: PriceListQuery,
-  ): Promise<{ data: PriceListItem[] }> {
+  ): Promise<{ data: PriceListReportItem[] }> {
     // Get all products that match the filters
     const productQueryBuilder = this.productRepository
       .createQueryBuilder('product')
@@ -419,28 +436,36 @@ export class InventoryAnalyticsService {
     productQueryBuilder.orderBy('product.name', 'ASC');
     const products = await productQueryBuilder.getMany();
 
-    // Default price type and discount
-    const priceType = query.priceType || 'retail';
+    // Default discount
     const discountPercent = query.discountPercent || 0;
 
+    // Fetch prices from price list if priceListId is provided
+    let priceMap: Map<string, number> = new Map();
+    if (query.priceListId) {
+      const priceListItems = await this.priceListItemRepository.find({
+        where: {
+          priceListId: query.priceListId,
+          productId: In(products.map(p => p.id)),
+        },
+      });
+      priceListItems.forEach(item => {
+        priceMap.set(item.productId, parseFloat(item.price?.toString() || '0'));
+      });
+    }
+
     // Calculate price list for each product
-    const data: PriceListItem[] = products.map((product) => {
-      // Determine which price to use
-      let price = 0;
-      if (priceType === 'wholesale') {
-        price = parseFloat(product.wholesalePrice?.toString() || '0');
-      } else if (priceType === 'special') {
-        price = parseFloat(product.specialPrice?.toString() || '0');
-      } else {
-        // Default to retail
-        price = parseFloat(product.retailPrice?.toString() || '0');
-      }
+    const data: PriceListReportItem[] = products.map((product) => {
+      // Get price from price list or fallback to base cost
+      const baseCost = parseFloat(product.baseCost?.toString() || '0');
+      const price = query.priceListId
+        ? (priceMap.get(product.id) || baseCost)
+        : baseCost;
 
       // Calculate discounted price
       const discountedPrice = price * (1 - discountPercent / 100);
 
       // Sales cost is the base cost
-      const salesCost = parseFloat(product.baseCost?.toString() || '0');
+      const salesCost = baseCost;
 
       return {
         productName: product.name,
