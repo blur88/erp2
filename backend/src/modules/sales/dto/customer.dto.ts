@@ -305,6 +305,15 @@ export class CustomerResponseDto {
   @ApiProperty({ example: 'uuid-string', nullable: true })
   priceListId?: string;
 
+  @ApiProperty({ example: { id: 'uuid', name: 'Retail', code: 'RETAIL', isDefault: true, isActive: true }, nullable: true })
+  priceList?: {
+    id: string;
+    name: string;
+    code: string;
+    isDefault: boolean;
+    isActive: boolean;
+  };
+
   @ApiProperty({ example: 50000.00 })
   totalSales: number;
 

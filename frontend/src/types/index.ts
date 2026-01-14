@@ -197,7 +197,9 @@ export interface Customer {
   country?: string;
   // Business Information
   isActive: boolean;
-  pricingScheme: string; // Dynamic pricing scheme name (e.g., "Retail", "Wholesale", "VIP")
+  // Price List (normalized pricing system - January 2026)
+  priceListId?: string;
+  priceList?: PriceList;
   // Customer Metrics
   totalSales: number;
   totalOrders: number;

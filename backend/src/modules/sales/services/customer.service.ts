@@ -89,7 +89,8 @@ export class CustomerService {
 
 
     // Use query builder for case-insensitive sorting
-    let queryBuilder = this.customerRepository.createQueryBuilder('customer');
+    let queryBuilder = this.customerRepository.createQueryBuilder('customer')
+      .leftJoinAndSelect('customer.priceList', 'priceList');
 
     // Apply base where conditions
     Object.entries(where).forEach(([key, value]) => {
@@ -104,9 +105,9 @@ export class CustomerService {
       );
     }
 
-    // Apply case-insensitive sorting for name field, regular sorting for others
+    // Apply sorting - use COLLATE for case-insensitive name sorting
     if (sortBy === 'name') {
-      queryBuilder.orderBy('UPPER(customer.name)', sortOrder);
+      queryBuilder.orderBy('customer.name', sortOrder, 'NULLS LAST');
     } else {
       queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
     }
@@ -935,6 +936,13 @@ export class CustomerService {
       country: customer.country,
       isActive: customer.isActive,
       priceListId: customer.priceListId,
+      priceList: customer.priceList ? {
+        id: customer.priceList.id,
+        name: customer.priceList.name,
+        code: customer.priceList.code,
+        isDefault: customer.priceList.isDefault,
+        isActive: customer.priceList.isActive,
+      } : undefined,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,

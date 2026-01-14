@@ -64,9 +64,9 @@ import {
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import { salesApi } from '@/services/salesApi'
-import { settingsApi } from '@/services/settingsApi'
 import { formatCurrency } from '@/utils/currency'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
+import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
@@ -80,7 +80,7 @@ const customerSchema = yup.object({
   state: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'State must be less than 100 characters'),
   postalCode: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Postal code must be less than 20 characters'),
   country: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100, 'Country must be less than 100 characters'),
-  pricingScheme: yup.string().required('Pricing scheme is required'),
+  priceListId: yup.string().optional().nullable(),
   notes: yup.string().optional().nullable().transform((value) => value?.trim() || null),
 })
 
@@ -93,7 +93,7 @@ interface CustomerFormData {
   state?: string | null
   postalCode?: string | null
   country?: string | null
-  pricingScheme: string
+  priceListId?: string | null
   notes?: string | null
 }
 
@@ -118,16 +118,14 @@ const CustomersPage: React.FC = () => {
   const [phoneValue, setPhoneValue] = useState<string>('')
   const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
-  const [pricingSchemes, setPricingSchemes] = useState<Array<{ name: string; currency: string }>>([])
-  const [loadingPricingSchemes, setLoadingPricingSchemes] = useState(false)
 
   // Form setup
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
+  const { control, handleSubmit, reset, formState: { errors }, setValue } = useForm<CustomerFormData>({
     resolver: yupResolver(customerSchema) as any,
     defaultValues: {
       name: '',
       type: CustomerType.BUSINESS,
-      pricingScheme: 'Retail',
+      priceListId: null,
       phone: null,
       streetAddress: null,
       city: null,
@@ -137,25 +135,6 @@ const CustomersPage: React.FC = () => {
       notes: null,
     }
   })
-
-  // NOTE: Legacy pricingSchemes system - deprecated in Phase 8 (January 2026)
-  // Customer pricing is now managed via priceListId (not pricingScheme)
-  // This page needs refactoring to use Price Lists system
-  useEffect(() => {
-    const loadPricingSchemes = async () => {
-      try {
-        setLoadingPricingSchemes(true)
-        console.warn('pricingSchemes API removed - use Price Lists instead')
-        setPricingSchemes([])
-      } catch (error) {
-        console.error('Failed to load pricing schemes:', error)
-        setPricingSchemes([])
-      } finally {
-        setLoadingPricingSchemes(false)
-      }
-    }
-    loadPricingSchemes()
-  }, [])
 
   // Search and filter functionality
   const searchHookInitialized = useRef(false)
@@ -245,7 +224,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.pricingScheme, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.priceListId, filters.sortBy, filters.sortOrder])
 
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
@@ -338,13 +317,13 @@ const CustomersPage: React.FC = () => {
       reset({
         name: customer.name,
         type: customer.type,
-        pricingScheme: customer.pricingScheme,
+        priceListId: customer.priceListId || null,
         phone: customer.phone || null,
-        streetAddress: (customer as any).streetAddress || null,
-        city: (customer as any).city || null,
-        state: (customer as any).state || null,
-        postalCode: (customer as any).postalCode || null,
-        country: (customer as any).country || null,
+        streetAddress: customer.streetAddress || null,
+        city: customer.city || null,
+        state: customer.state || null,
+        postalCode: customer.postalCode || null,
+        country: customer.country || null,
         notes: customer.notes || null,
       })
     } else {
@@ -353,7 +332,7 @@ const CustomersPage: React.FC = () => {
       reset({
         name: '',
         type: CustomerType.BUSINESS,
-        pricingScheme: 'Retail',
+        priceListId: null,
         phone: null,
         streetAddress: null,
         city: null,
@@ -544,59 +523,6 @@ const CustomersPage: React.FC = () => {
             <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
           </Select>
         </FormControl>
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            flex: 'none'
-          }}
-        >
-          <InputLabel 
-            sx={{ 
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Pricing Scheme
-          </InputLabel>
-          <Select
-            value={filters.pricingScheme || 'all'}
-            label="Pricing Scheme"
-            onChange={(e) => dispatch(setFilters({ pricingScheme: e.target.value === 'all' ? undefined : e.target.value }))}
-            disabled={loadingPricingSchemes}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                padding: '8.5px 14px',
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                boxSizing: 'border-box'
-              },
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(0, 0, 0, 0.23)'
-              },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(0, 0, 0, 0.87)'
-              },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: theme.palette.primary.main,
-                borderWidth: 2
-              }
-            }}
-          >
-            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
-            {pricingSchemes.map((scheme) => (
-              <MenuItem key={scheme.name} value={scheme.name} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
-                {scheme.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
       </Box>
       {/* Error Alert */}
       {error && (
@@ -734,13 +660,14 @@ const CustomersPage: React.FC = () => {
                             variant="outlined"
                             sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                           />
-                          <Chip
-                            label={customer.pricingScheme}
-                            size="small"
-                            color={customer.pricingScheme.toLowerCase() === 'retail' ? 'primary' :
-                                  customer.pricingScheme.toLowerCase() === 'wholesale' ? 'secondary' : 'warning'}
-                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
-                          />
+                          {customer.priceList && (
+                            <Chip
+                              label={customer.priceList.name}
+                              size="small"
+                              color={customer.priceList.isDefault ? 'primary' : 'secondary'}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
+                            />
+                          )}
                           {getActiveStatusChip(customer.isActive)}
                         </Box>
                       )}
@@ -775,21 +702,26 @@ const CustomersPage: React.FC = () => {
                     </TableCell>
                     {!isMobile && (
                       <TableCell>
-                        <Chip
-                          label={customer.pricingScheme}
-                          size="small"
-                          color={customer.pricingScheme.toLowerCase() === 'retail' ? 'primary' :
-                                customer.pricingScheme.toLowerCase() === 'wholesale' ? 'secondary' : 'warning'}
-                          sx={{
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: `${TABLE_STYLES.row.height * 0.65}px`,
-                            '& .MuiChip-label': {
-                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`,
-                              lineHeight: 1
-                            }
-                          }}
-                        />
+                        {customer.priceList ? (
+                          <Chip
+                            label={customer.priceList.name}
+                            size="small"
+                            color={customer.priceList.isDefault ? 'primary' : 'secondary'}
+                            sx={{
+                              fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                              height: `${TABLE_STYLES.row.height * 0.65}px`,
+                              '& .MuiChip-label': {
+                                fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`,
+                                lineHeight: 1
+                              }
+                            }}
+                          />
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            None
+                          </Typography>
+                        )}
                       </TableCell>
                     )}
                     {!isMobile && (
@@ -949,24 +881,15 @@ const CustomersPage: React.FC = () => {
                   md: 6
                 }}>
                 <Controller
-                  name="pricingScheme"
+                  name="priceListId"
                   control={control}
                   render={({ field }) => (
-                    <FormControl fullWidth error={!!errors.pricingScheme}>
-                      <InputLabel>Pricing Scheme</InputLabel>
-                      <Select {...field} label="Pricing Scheme" disabled={loadingPricingSchemes}>
-                        {pricingSchemes.map((scheme) => (
-                          <MenuItem key={scheme.name} value={scheme.name}>
-                            {scheme.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {errors.pricingScheme && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
-                          {errors.pricingScheme.message}
-                        </Typography>
-                      )}
-                    </FormControl>
+                    <PriceListSelector
+                      value={field.value}
+                      onChange={(value) => field.onChange(value)}
+                      error={errors.priceListId?.message}
+                      label="Price List"
+                    />
                   )}
                 />
               </Grid>
