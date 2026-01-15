@@ -92,14 +92,38 @@ const ProductCostReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    ApiService.get<any>('/inventory/products?limit=1000')
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - fetch all pages to get complete list
+    const fetchAllProducts = async () => {
+      try {
+        let allProducts: any[] = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
+          if (response?.data) {
+            allProducts = [...allProducts, ...response.data]
+
+            // Check if there are more pages
+            const meta = response?.meta
+            if (meta && meta.hasNextPage) {
+              page++
+            } else {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
         }
-      })
-      .catch(() => {})
+
+        setProducts(allProducts)
+      } catch (error) {
+        console.error('Failed to load products:', error)
+        setProducts([])
+      }
+    }
+
+    fetchAllProducts()
 
     // Load categories
     ApiService.get<any>('/inventory/categories/tree')
