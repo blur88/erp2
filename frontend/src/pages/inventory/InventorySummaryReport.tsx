@@ -97,11 +97,12 @@ const InventorySummaryReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    ApiService.get<any>('/inventory/products?limit=1000')
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - backend limits to max 100 per request
+    ApiService.get<any>('/inventory/products?limit=100')
+      .then(response => {
+        // ApiService.get returns the response body directly, which has { data, meta } structure
+        if (response?.data) {
+          setProducts(response.data)
         }
       })
       .catch(() => {})
