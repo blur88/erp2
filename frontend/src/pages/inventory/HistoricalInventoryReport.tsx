@@ -97,14 +97,37 @@ const HistoricalInventoryReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    ApiService.get<any>('/inventory/products?limit=1000')
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - fetch all products by paginating through 100-item chunks
+    const fetchAllProducts = async () => {
+      try {
+        let allProducts: any[] = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
+          const products = response?.data || []
+
+          if (products.length > 0) {
+            allProducts = [...allProducts, ...products]
+            page++
+
+            // Check if we got less than 100, meaning we've reached the end
+            if (products.length < 100) {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
         }
-      })
-      .catch(() => {})
+
+        setProducts(allProducts)
+      } catch (error) {
+        console.error('Failed to load products:', error)
+      }
+    }
+
+    fetchAllProducts()
 
     // Load categories
     ApiService.get<any>('/inventory/categories/tree')
