@@ -52,6 +52,14 @@ interface PriceListItem {
   salesCost: number
 }
 
+interface PriceList {
+  id: string
+  code: string
+  name: string
+  isDefault: boolean
+  isActive: boolean
+}
+
 const PriceListReport: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
@@ -59,11 +67,12 @@ const PriceListReport: React.FC = () => {
   const [reportData, setReportData] = useState<PriceListItem[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
+  const [priceLists, setPriceLists] = useState<PriceList[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
 
   // Options
-  const [priceType, setPriceType] = useState<string>('retail')
+  const [priceListId, setPriceListId] = useState<string>('')
   const [discountPercent, setDiscountPercent] = useState<string>('0')
 
   const [productDialogOpen, setProductDialogOpen] = useState(false)
@@ -138,6 +147,32 @@ const PriceListReport: React.FC = () => {
         }
       })
       .catch(() => {})
+
+    // Load price lists
+    ApiService.get<any>('/price-lists')
+      .then(data => {
+        const priceListData = data?.data || []
+        if (Array.isArray(priceListData)) {
+          // Filter only active price lists and sort with default first
+          const activePriceLists = priceListData
+            .filter((pl: PriceList) => pl.isActive)
+            .sort((a: PriceList, b: PriceList) => {
+              if (a.isDefault && !b.isDefault) return -1
+              if (!a.isDefault && b.isDefault) return 1
+              return a.name.localeCompare(b.name)
+            })
+          setPriceLists(activePriceLists)
+
+          // Set default price list as selected
+          const defaultPriceList = activePriceLists.find((pl: PriceList) => pl.isDefault)
+          if (defaultPriceList) {
+            setPriceListId(defaultPriceList.id)
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load price lists:', error)
+      })
   }, [])
 
   const handleGenerateReport = async () => {
@@ -151,7 +186,7 @@ const PriceListReport: React.FC = () => {
       if (selectedProducts.length > 0) {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
-      if (priceType) params.append('priceType', priceType)
+      if (priceListId) params.append('priceListId', priceListId)
       if (discountPercent) params.append('discountPercent', discountPercent)
 
       const result = await ApiService.get<any>(`/inventory/analytics/price-list?${params.toString()}`)
@@ -167,7 +202,13 @@ const PriceListReport: React.FC = () => {
   const handleClearFilters = () => {
     setSelectedProducts([])
     setSelectedCategory('')
-    setPriceType('retail')
+    // Reset to default price list
+    const defaultPriceList = priceLists.find((pl: PriceList) => pl.isDefault)
+    if (defaultPriceList) {
+      setPriceListId(defaultPriceList.id)
+    } else {
+      setPriceListId('')
+    }
     setDiscountPercent('0')
     setReportData([])
     setSelectedColumns(['productName', 'categoryName', 'price', 'discountedPrice', 'salesCost'])
@@ -422,9 +463,13 @@ const PriceListReport: React.FC = () => {
         filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
       }
     }
-    if (priceType) {
-      const priceTypeLabel = priceType === 'retail' ? 'Retail' : priceType === 'wholesale' ? 'Wholesale' : 'Special'
-      filterText.push(`<p><strong>Pricing:</strong> ${priceTypeLabel}</p>`)
+    if (priceListId) {
+      const priceList = priceLists.find(pl => pl.id === priceListId)
+      if (priceList) {
+        filterText.push(`<p><strong>Price List:</strong> ${priceList.name}</p>`)
+      }
+    } else {
+      filterText.push(`<p><strong>Price List:</strong> Base Cost (No Price List)</p>`)
     }
     if (parseFloat(discountPercent) > 0) {
       filterText.push(`<p><strong>Discount:</strong> ${discountPercent}%</p>`)
@@ -700,16 +745,21 @@ const PriceListReport: React.FC = () => {
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                   <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Pricing</InputLabel>
+                    <InputLabel>Price List</InputLabel>
                     <Select
-                      value={priceType}
-                      label="Pricing"
-                      onChange={(e) => setPriceType(e.target.value)}
+                      value={priceListId}
+                      label="Price List"
+                      onChange={(e) => setPriceListId(e.target.value)}
                       MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
-                      <MenuItem value="retail">Retail</MenuItem>
-                      <MenuItem value="wholesale">Wholesale</MenuItem>
-                      <MenuItem value="special">Special</MenuItem>
+                      <MenuItem value="">
+                        <em>Base Cost (No Price List)</em>
+                      </MenuItem>
+                      {priceLists.map((priceList) => (
+                        <MenuItem key={priceList.id} value={priceList.id}>
+                          {priceList.name} {priceList.isDefault ? '(Default)' : ''}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
 
