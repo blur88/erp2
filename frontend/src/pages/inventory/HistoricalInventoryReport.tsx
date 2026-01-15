@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -63,7 +62,6 @@ interface HistoricalInventory {
 }
 
 const HistoricalInventoryReport: React.FC = () => {
-  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
@@ -331,7 +329,7 @@ const HistoricalInventoryReport: React.FC = () => {
       return r[groupBy]
     }
 
-    sortedData.forEach((row, idx) => {
+    sortedData.forEach((row) => {
       const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
@@ -487,6 +485,7 @@ const HistoricalInventoryReport: React.FC = () => {
       </html>
     `
 
+    // @ts-ignore - document.write is deprecated but needed for print functionality
     printWindow.document.write(html)
     printWindow.document.close()
   }
@@ -730,12 +729,14 @@ const HistoricalInventoryReport: React.FC = () => {
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } },
+                      formHelperText: { sx: { fontSize: '0.65rem' } }
+                    }}
                     size="small"
                     fullWidth
                     helperText="Show movements up to this date"
-                    FormHelperTextProps={{ sx: { fontSize: '0.65rem' } }}
                   />
                 </Stack>
               </Box>
@@ -821,8 +822,10 @@ const HistoricalInventoryReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -1103,8 +1106,10 @@ const HistoricalInventoryReport: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
+        slotProps={{
+          paper: {
+            sx: { height: '90vh', maxHeight: '90vh' }
+          }
         }}
       >
         <DialogTitle sx={{
