@@ -69,8 +69,6 @@ docker-compose up -d
 - **Sales Reports**: Integrated within Sales module navigation
 - **Purchasing Reports**: Vendor Product List and other purchasing reports
 
-### ⚠️ Disabled Modules
-- Plugin pages (PluginsModule disabled - requires dependency installation)
 
 ## 📋 System Overview
 
@@ -78,9 +76,8 @@ docker-compose up -d
 
 **✅ PRODUCTION-READY: Complete JWT authentication system implemented**
 
-- **Active Modules**: `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `AuditLogsModule`, `BackupModule` (10 active)
+- **Active Modules**: `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule` (11 active)
 - **Module-Embedded Reports**: Each business module (Inventory, Sales, Purchasing) has integrated reports
-- **Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 - **Authentication**: JWT-based with refresh tokens, role-based access control (5 roles)
 - **Security**: bcrypt password hashing, account lockout, rate limiting
 - **Test Coverage**: 81 tests (57 backend + 24 frontend) - 100% passing
@@ -96,7 +93,7 @@ docker-compose up -d
 - ✅ **Admin Settings UI** - User management, role management, security settings (admin only)
 - ✅ **Audit Logging** - Comprehensive audit trails for all operations
 - ✅ **Backup & Restore** - Database backup and restore functionality
-- ❌ **Plugin System** - Module disabled (available but needs enabling)
+- ✅ **Price Lists** - Multiple pricing schemes with time-based effective dates
 
 ### Technology Stack
 - **Frontend**: React 18.3.1 + TypeScript + Material-UI v7 + Redux Toolkit + Vite
@@ -122,14 +119,14 @@ backend/
 │   │   ├── print-settings/ # ✅ Print templates and settings (active)
 │   │   ├── audit-logs/     # ✅ Comprehensive audit logging (active)
 │   │   ├── backup/         # ✅ Database backup and restore (active)
-│   │   └── plugins/        # ❌ Plugin system (disabled)
+│   │   └── price-lists/    # ✅ Price list management (active)
 │   ├── database/
 │   │   ├── entities/       # TypeORM entities (20+ entities including RefreshToken)
 │   │   └── migrations/     # Database migrations
 │   └── config/            # Configuration files
 ```
 
-**Note**: Complete authentication system implemented (December 2025). 10 active modules. Reports embedded within business modules. Only Plugins module is disabled.
+**Note**: Complete authentication system implemented (December 2025). 11 active modules. Reports embedded within business modules.
 
 ### Frontend Structure
 ```
@@ -216,13 +213,6 @@ frontend/
 - **Price & Costing Settings**: Configurable costing methods (AVERAGE, FIFO, LIFO, STANDARD)
 - **Print Settings**: Print templates and printing configuration
 - **System Configuration**: Application-wide settings management
-
-## ⚠️ Disabled Modules
-
-### 🔌 Plugin System (Available but Disabled)
-- Extensible architecture exists but disabled
-- Could support custom modules and integrations
-- To enable: Uncomment in app.module.ts and install missing dependencies
 
 ## 🆕 Recent Changes & Modernization
 
@@ -517,9 +507,6 @@ GET    /api/purchasing/reports/*            # Purchasing reports
 # System
 GET    /api/info                            # Module information
 ```
-
-### Disabled Endpoints
-- **Plugin APIs**: Module disabled, endpoints not accessible
 
 ### Role-Based Access
 - **Admin**: Full access to all endpoints including user management

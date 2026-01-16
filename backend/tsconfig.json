@@ -28,7 +28,6 @@
     }
   },
   "exclude": [
-    "src/modules/plugins/**/*",
     "src/modules/reports/**/*",
     "src/modules/purchasing/**/*"
   ]

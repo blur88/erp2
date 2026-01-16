@@ -42,7 +42,6 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { PrintSettingsModule } from './modules/print-settings/print-settings.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { PriceListsModule } from './modules/price-lists/price-lists.module';
-// import { PluginsModule } from './modules/plugins/plugins.module'; // Disabled due to auth compilation issues
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -92,7 +91,6 @@ import { AppService } from './app.service';
     PrintSettingsModule, // Print settings and templates
     BackupModule, // Backup and restore functionality
     PriceListsModule, // Price list management (Phase 3)
-    // PluginsModule, // Re-enable after fixing compilation issues
   ],
   controllers: [AppController],
   providers: [

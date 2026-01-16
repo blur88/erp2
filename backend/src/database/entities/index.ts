@@ -1,11 +1,10 @@
 /**
  * Entity exports for Active ERP Modules
- * 
+ *
  * This file exports database entities for currently active modules only.
  * Organized by functional domains for better maintainability.
- * 
+ *
  * Active modules: UsersModule, InventoryModule, SalesModule, PurchasingModule, DashboardModule
- * Disabled modules: PluginsModule
  */
 
 // Base entity (used by all entities)

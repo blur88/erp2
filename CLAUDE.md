@@ -17,7 +17,6 @@ Comprehensive ERP system with modern full-stack architecture:
 **✅ PRODUCTION-READY: Complete JWT authentication system implemented (December 2025)**
 
 **Active Modules**: `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule` (11 active)
-**Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
 **Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
 **Authentication & Security:**
@@ -137,7 +136,7 @@ docker compose logs backend # Check specific service logs
 - **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
 - **Analytics**: `dashboard/` (✅ with WebSocket)
 - **Configuration**: `settings/` (✅ company settings), `print-settings/` (✅ print templates and settings), `price-lists/` (✅ pricing management)
-- **System**: `audit-logs/` (✅ comprehensive audit logging), `backup/` (✅ backup and restore), `plugins/` (❌ disabled)
+- **System**: `audit-logs/` (✅ comprehensive audit logging), `backup/` (✅ backup and restore)
 
 ### Architecture Patterns
 - **Controllers**: Handle HTTP with Swagger decorators
@@ -730,20 +729,15 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT COUNT(*) FROM
 curl http://localhost:3001/socket.io/ | head -1
 ```
 
-### Module Re-enabling
-For disabled modules (Plugins):
-1. Fix auth-related TypeScript errors using `'system'` default
-2. Install missing dependencies if needed: `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
-3. Check compilation: `npx tsc --noEmit`
-4. Update `app.module.ts` to uncomment the module import
-
-**Note**: Purchasing module successfully re-enabled in October 2025 following this pattern.
+### Module History
+**Note**: Purchasing module was successfully re-enabled in October 2025 after auth cleanup.
+**Note**: PluginsModule was permanently removed in January 2026 as it was not needed for core ERP functionality.
 **Note**: Module-integrated reports (Inventory, Sales, Purchasing) are fully functional.
 
 ## Key Files
 
 ### Core Configuration
-- `backend/src/app.module.ts` - Main module (9 active modules)
+- `backend/src/app.module.ts` - Main module (11 active modules)
 - `docker-compose.yml` - Service orchestration with NGINX proxy
 - `deploy.sh` - Production deployment
 - `frontend/src/App.tsx` - Main React component
