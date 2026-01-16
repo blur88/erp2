@@ -8,7 +8,6 @@ import {
   Typography,
   Chip,
   CircularProgress,
-  Divider,
   Button
 } from '@mui/material'
 import { Add } from '@mui/icons-material'
@@ -40,7 +39,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   value,
   onChange,
   label = 'Category',
-  placeholder = 'Select a category',
   required = false,
   error = false,
   helperText,
