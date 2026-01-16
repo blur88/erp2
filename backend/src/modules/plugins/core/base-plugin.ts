@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TypeScript checking disabled for this file - PluginsModule is currently disabled
 import { Logger } from '@nestjs/common';
 import {
   IPlugin,

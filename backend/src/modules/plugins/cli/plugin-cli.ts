@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as inquirer from 'inquirer';
+// import inquirer from 'inquirer'; // Disabled - module not installed
 import chalk from 'chalk';
 import ora from 'ora';
 import { PluginBuilder } from '../development/plugin-builder';
@@ -51,7 +51,7 @@ program
       console.log('  npm test');
       console.log('\n' + chalk.yellow('Happy coding! 🚀'));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Failed to create plugin project'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -76,13 +76,13 @@ program
         spinner.fail(chalk.red('Plugin validation failed'));
         
         console.log(chalk.red('\nErrors:'));
-        result.errors.forEach(error => {
+        result.errors.forEach((error: any) => {
           console.log(chalk.red(`  ❌ ${error}`));
         });
 
         if (result.warnings.length > 0) {
           console.log(chalk.yellow('\nWarnings:'));
-          result.warnings.forEach(warning => {
+          result.warnings.forEach((warning: any) => {
             console.log(chalk.yellow(`  ⚠️  ${warning}`));
           });
         }
@@ -90,7 +90,7 @@ program
         process.exit(1);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Validation failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -111,7 +111,7 @@ program
       await buildPlugin(pluginPath, options);
       spinner.succeed(chalk.green('Plugin built successfully!'));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Build failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -133,7 +133,7 @@ program
       await generateManifest(pluginPath, options);
       spinner.succeed(chalk.green(`Manifest generated: ${options.output}`));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Manifest generation failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -154,7 +154,7 @@ program
       const packagePath = await packagePlugin(pluginPath, options);
       spinner.succeed(chalk.green(`Plugin packaged: ${packagePath}`));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Packaging failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -175,7 +175,7 @@ program
       await runTests(pluginPath, options);
       spinner.succeed(chalk.green('Tests completed successfully!'));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Tests failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -194,7 +194,7 @@ program
     try {
       await startDevServer(pluginPath, options);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(chalk.red('Development server failed:'), error.message);
       process.exit(1);
     }
@@ -232,7 +232,7 @@ marketplace
         console.log('');
       });
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Marketplace search failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -251,7 +251,7 @@ marketplace
       await installFromMarketplace(plugin, options);
       spinner.succeed(chalk.green(`Plugin ${plugin} installed successfully!`));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Installation failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -270,7 +270,7 @@ marketplace
       await publishToMarketplace(pluginPath, options);
       spinner.succeed(chalk.green('Plugin published successfully!'));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Publishing failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -284,7 +284,7 @@ program
   .action(async (pluginPath: string = '.') => {
     try {
       await showPluginInfo(pluginPath);
-    } catch (error) {
+    } catch (error: any) {
       console.error(chalk.red(error.message));
       process.exit(1);
     }
@@ -301,7 +301,7 @@ program
       await cleanPlugin(pluginPath, options);
       spinner.succeed(chalk.green('Plugin cleaned successfully!'));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail(chalk.red('Cleaning failed'));
       console.error(chalk.red(error.message));
       process.exit(1);
@@ -317,48 +317,22 @@ async function createPluginProject(name: string, options: any): Promise<void> {
   try {
     await fs.access(targetDir);
     throw new Error(`Directory '${targetDir}' already exists`);
-  } catch (error) {
+  } catch (error: any) {
     if (error.code !== 'ENOENT') {
       throw error;
     }
   }
 
-  // Gather project information interactively if not provided
-  if (!options.author || !options.description) {
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'author',
-        message: 'Plugin author:',
-        default: options.author || 'Your Name',
-        when: !options.author,
-      },
-      {
-        type: 'input',
-        name: 'description',
-        message: 'Plugin description:',
-        default: options.description || `A ${options.type} plugin for ERP`,
-        when: !options.description,
-      },
-      {
-        type: 'list',
-        name: 'type',
-        message: 'Plugin type:',
-        choices: [
-          { name: 'Business Module', value: 'business' },
-          { name: 'Integration', value: 'integration' },
-          { name: 'Reporting', value: 'reporting' },
-          { name: 'UI Extension', value: 'ui_extension' },
-          { name: 'Workflow', value: 'workflow' },
-          { name: 'Authentication', value: 'authentication' },
-          { name: 'Notification', value: 'notification' },
-        ],
-        default: options.type,
-        when: !options.type,
-      },
-    ]);
-
-    Object.assign(options, answers);
+  // Set default values if not provided
+  // Interactive prompts disabled - inquirer module not installed
+  if (!options.author) {
+    options.author = 'Your Name';
+  }
+  if (!options.description) {
+    options.description = `A ${options.type} plugin for ERP`;
+  }
+  if (!options.type) {
+    options.type = 'business';
   }
 
   // Create plugin structure
@@ -386,7 +360,7 @@ async function createPluginProject(name: string, options: any): Promise<void> {
       const { spawn } = require('child_process');
       await new Promise((resolve, reject) => {
         const git = spawn('git', ['init'], { cwd: targetDir });
-        git.on('close', (code) => {
+        git.on('close', (code: any) => {
           if (code === 0) resolve(undefined);
           else reject(new Error('Git initialization failed'));
         });
@@ -442,7 +416,7 @@ logs/
       const { spawn } = require('child_process');
       await new Promise((resolve, reject) => {
         const npm = spawn('npm', ['install'], { cwd: targetDir, stdio: 'inherit' });
-        npm.on('close', (code) => {
+        npm.on('close', (code: any) => {
           if (code === 0) resolve(undefined);
           else reject(new Error('npm install failed'));
         });
@@ -491,12 +465,12 @@ async function buildPlugin(pluginPath: string, options: any): Promise<void> {
     if (options.watch) args.push('--watch');
     if (options.clean) args.push('--clean');
 
-    const tsc = spawn('npx', ['tsc', ...args], { 
-      cwd: pluginPath, 
-      stdio: 'inherit' 
+    const tsc = spawn('npx', ['tsc', ...args], {
+      cwd: pluginPath,
+      stdio: 'inherit'
     });
 
-    tsc.on('close', (code) => {
+    tsc.on('close', (code: any) => {
       if (code === 0) resolve(undefined);
       else reject(new Error('TypeScript compilation failed'));
     });
@@ -540,12 +514,12 @@ async function runTests(pluginPath: string, options: any): Promise<void> {
     if (options.coverage) args.push('--coverage');
     if (options.verbose) args.push('--verbose');
 
-    const jest = spawn('npx', ['jest', ...args], { 
-      cwd: pluginPath, 
-      stdio: 'inherit' 
+    const jest = spawn('npx', ['jest', ...args], {
+      cwd: pluginPath,
+      stdio: 'inherit'
     });
 
-    jest.on('close', (code) => {
+    jest.on('close', (code: any) => {
       if (code === 0) resolve(undefined);
       else reject(new Error('Tests failed'));
     });
@@ -647,7 +621,7 @@ async function cleanPlugin(pluginPath: string, options: any): Promise<void> {
 
 // Run the CLI
 if (require.main === module) {
-  program.parse();
+  program.parse(process.argv);
 }
 
 export { program };

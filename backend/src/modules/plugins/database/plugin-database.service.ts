@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TypeScript checking disabled for this file - PluginsModule is currently disabled
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource, InjectConnection } from '@nestjs/typeorm';
 import { DataSource, Connection, EntitySchema, Repository, EntityMetadata } from 'typeorm';

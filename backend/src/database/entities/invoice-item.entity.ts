@@ -158,17 +158,17 @@ export class InvoiceItem extends BaseEntity {
   }
 
   // Static method to create from product
+  // Note: unitPrice should be provided from the price list system
+  // This method uses baseCost as fallback only
   static fromProduct(
     product: Product,
     quantity: number,
-    priceScheme: string = 'retail'
+    unitPrice?: number
   ): Partial<InvoiceItem> {
-    const unitPrice = product.getPriceByScheme(priceScheme);
-
     return {
       productId: product.id,
       quantity,
-      unitPrice,
+      unitPrice: unitPrice ?? product.baseCost,
       discount: 0,
     };
   }

@@ -23,7 +23,7 @@ export { Category } from './category.entity';
 export { Product, ProductType } from './product.entity';
 
 // Customer Management (SalesModule, used by InventoryModule for pricing)
-export { Customer, CustomerType, PriceLevel } from './customer.entity';
+export { Customer, CustomerType } from './customer.entity';
 
 // Price List Management (SettingsModule, used by Inventory & Sales for pricing)
 export { PriceList } from './price-list.entity';

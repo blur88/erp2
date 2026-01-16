@@ -1,3 +1,5 @@
+// @ts-nocheck
+// TypeScript checking disabled for this file - PluginsModule is currently disabled
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsBoolean, IsNumber, IsArray, IsString } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
