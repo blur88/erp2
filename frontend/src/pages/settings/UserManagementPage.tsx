@@ -629,11 +629,10 @@ const UserManagementPage: React.FC = () => {
                           transition: 'opacity 0.2s ease'
                         }}
                       >
-                        <Tooltip title="Edit User">
+                        <Tooltip title={user.id === currentUser?.id ? 'Edit Profile' : 'Edit User'}>
                           <IconButton
                             size="small"
                             onClick={() => handleEditUser(user)}
-                            disabled={user.id === currentUser?.id}
                             sx={{
                               height: `${TABLE_STYLES.row.height * 0.75}px`,
                               width: `${TABLE_STYLES.row.height * 0.75}px`,
@@ -644,9 +643,6 @@ const UserManagementPage: React.FC = () => {
                               '&:hover': {
                                 backgroundColor: 'primary.light',
                                 color: 'primary.dark'
-                              },
-                              '&.Mui-disabled': {
-                                opacity: 0.3
                               }
                             }}
                           >
@@ -728,6 +724,7 @@ const UserManagementPage: React.FC = () => {
       <UserFormDialog
         open={formDialogOpen}
         user={selectedUser}
+        currentUser={currentUser}
         onClose={handleFormClose}
         onSuccess={handleFormSuccess}
       />

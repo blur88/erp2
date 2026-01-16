@@ -121,17 +121,22 @@ interface UserFormData {
 interface UserFormDialogProps {
   open: boolean
   user: User | null
+  currentUser: User | null
   onClose: () => void
   onSuccess: () => void
 }
 
-const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, onSuccess }) => {
+const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, currentUser, onClose, onSuccess }) => {
   const { showSuccess, showError } = useNotification()
   const [showPassword, setShowPassword] = React.useState(false)
   const [showPasswordConfirmation, setShowPasswordConfirmation] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
 
   const isEdit = !!user
+  const isSelfEdit = isEdit && user?.id === currentUser?.id
+  const isAdmin = currentUser?.role === 'admin'
+  const canEditRole = isAdmin && !isSelfEdit
+  const canEditStatus = isAdmin && !isSelfEdit
 
   const {
     control,
@@ -199,9 +204,15 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, on
         firstName: data.firstName,
         lastName: data.lastName,
         phoneNumber: data.phoneNumber?.trim() || null,
-        role: data.role,
-        status: data.status,
         notes: data.notes?.trim() || null,
+      }
+
+      // Only include role and status if user has permission to edit them
+      if (canEditRole) {
+        submitData.role = data.role
+      }
+      if (canEditStatus) {
+        submitData.status = data.status
       }
 
       // Include password only if provided
@@ -212,13 +223,16 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, on
       if (user) {
         // Update existing user
         await userManagementApi.updateUser(user.id, submitData)
-        showSuccess('User updated successfully')
+        showSuccess(isSelfEdit ? 'Profile updated successfully' : 'User updated successfully')
       } else {
         // Create new user
         if (!submitData.password) {
           showError('Password is required for new users')
           return
         }
+        // New users always need role and status
+        submitData.role = data.role
+        submitData.status = data.status
         await userManagementApi.createUser(submitData)
         showSuccess('User created successfully')
       }
@@ -261,8 +275,8 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, on
                     fullWidth
                     label="Username"
                     error={!!errors.username}
-                    helperText={errors.username?.message}
-                    disabled={isEdit} // Username cannot be changed once created
+                    helperText={isEdit ? 'Username cannot be changed' : errors.username?.message}
+                    disabled={isEdit}
                   />
                 )}
               />
@@ -425,7 +439,7 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, on
                 render={({ field }) => (
                   <FormControl fullWidth error={!!errors.role}>
                     <InputLabel>Role</InputLabel>
-                    <Select {...field} label="Role">
+                    <Select {...field} label="Role" disabled={!canEditRole}>
                       <MenuItem value="admin">Admin</MenuItem>
                       <MenuItem value="manager">Manager</MenuItem>
                       <MenuItem value="sales_staff">Sales Staff</MenuItem>
@@ -435,6 +449,11 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, on
                     {errors.role && (
                       <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
                         {errors.role.message}
+                      </Typography>
+                    )}
+                    {!canEditRole && isSelfEdit && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.5, display: 'block' }}>
+                        You cannot change your own role
                       </Typography>
                     )}
                   </FormControl>
@@ -449,7 +468,7 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, on
                 render={({ field }) => (
                   <FormControl fullWidth error={!!errors.status}>
                     <InputLabel>Status</InputLabel>
-                    <Select {...field} label="Status">
+                    <Select {...field} label="Status" disabled={!canEditStatus}>
                       <MenuItem value="active">Active</MenuItem>
                       <MenuItem value="inactive">Inactive</MenuItem>
                       <MenuItem value="suspended">Suspended</MenuItem>
@@ -457,6 +476,11 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, onClose, on
                     {errors.status && (
                       <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
                         {errors.status.message}
+                      </Typography>
+                    )}
+                    {!canEditStatus && isSelfEdit && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.5, display: 'block' }}>
+                        You cannot change your own status
                       </Typography>
                     )}
                   </FormControl>
