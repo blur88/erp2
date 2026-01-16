@@ -260,7 +260,8 @@ const CreateProductPage: React.FC = () => {
     setLoadingProduct(true)
     try {
       const response = await ApiService.get(`/inventory/products/${productId}`)
-      const product = (response as any).data || response
+      // ApiService already unwraps response.data, so response IS the product data
+      const product = response as any
 
       // Set the selected category if available
       if (product.category) {
@@ -272,7 +273,7 @@ const CreateProductPage: React.FC = () => {
         description: product.description || '',
         barcode: product.barcode || '',
         type: product.type || 'Stocked Product',
-        categoryId: product.categoryId || product.category?.id || '',
+        categoryId: product.categoryId || '',
         baseCost: product.baseCost || 0,
         stockQuantity: product.stockQuantity || 0,
         notes: product.notes || '',
