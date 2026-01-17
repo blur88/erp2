@@ -19,7 +19,7 @@ interface PurchaseOrderSummaryQuery {
   paymentStatus?: string;
 }
 
-interface PurchaseOrderSummaryItem {
+export interface PurchaseOrderSummaryItem {
   orderNumber: string;
   orderDate: string;
   supplierName: string;
@@ -31,7 +31,7 @@ interface PurchaseOrderSummaryItem {
   shippingAmount: number;
 }
 
-interface PurchaseOrderDetailsItem {
+export interface PurchaseOrderDetailsItem {
   orderNumber: string;
   orderDate: string;
   supplierName: string;
@@ -48,7 +48,7 @@ interface PurchaseOrderDetailsItem {
   paymentStatus: string;
 }
 
-interface VendorPaymentDetailsItem {
+export interface VendorPaymentDetailsItem {
   paymentNumber: string;
   paymentDate: string;
   supplierName: string;
@@ -62,7 +62,7 @@ interface VendorPaymentDetailsItem {
   notes: string;
 }
 
-interface VendorProductListItem {
+export interface VendorProductListItem {
   supplierName: string;
   productName: string;
   categoryName: string;
@@ -521,21 +521,8 @@ export class PurchasingAnalyticsService {
           poPaymentStatus = 'partial';
         }
 
-        // Extract pricing tiers from JSONB - default to 0 if not found
-        const pricingTiers = item.product.pricingTiers || {};
-
-        // Get all available pricing tier keys
-        const tierKeys = Object.keys(pricingTiers);
-
-        // Use first tier as retail price (usually 'Retail')
-        const retailPrice = tierKeys.length > 0 ? parseFloat((pricingTiers[tierKeys[0]] || 0).toString()) : 0;
-
-        // Use second tier as wholesale price if available
-        const wholesalePrice = tierKeys.length > 1 ? parseFloat((pricingTiers[tierKeys[1]] || 0).toString()) : 0;
-
-        // Use third tier as special price if available, otherwise use second tier
-        const specialPrice = tierKeys.length > 2 ? parseFloat((pricingTiers[tierKeys[2]] || 0).toString()) : wholesalePrice;
-
+        // Note: Product pricing has been migrated to PriceList system
+        // Setting pricing fields to 0 as they are no longer stored on Product entity
         productMap.set(key, {
           supplierName: item.purchaseOrder?.supplier?.companyName || 'N/A',
           productName: item.product.name || 'N/A',
@@ -548,9 +535,9 @@ export class PurchasingAnalyticsService {
           totalAmount: parseFloat(item.totalAmount?.toString() || '0'),
           status: itemStatus,
           paymentStatus: poPaymentStatus,
-          retailPrice: retailPrice,
-          wholesalePrice: wholesalePrice,
-          specialPrice: specialPrice,
+          retailPrice: 0,
+          wholesalePrice: 0,
+          specialPrice: 0,
         });
       } else {
         // Aggregate quantities and amounts for this product-supplier combination
