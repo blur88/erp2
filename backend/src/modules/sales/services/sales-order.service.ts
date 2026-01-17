@@ -1202,17 +1202,10 @@ export class SalesOrderService {
         }
       }
 
-      // LEGACY: Fallback to old pricing system if no price list price found
+      // Fallback to baseCost if no price list price found
       if (defaultPrice === 0) {
-        if (customer && customer.pricingScheme) {
-          // Use customer's pricing scheme to get the correct price
-          defaultPrice = product.getPriceByScheme(customer.pricingScheme);
-        }
-        // If no pricing scheme or price not found, try to get 'Retail' price from tiers
-        if (defaultPrice === 0 && product.pricingTiers) {
-          defaultPrice = Number(product.pricingTiers['Retail']) || Number(product.baseCost) || 0;
-        }
-        console.log(`Using legacy pricing: ${defaultPrice} for product ${item.productId}`);
+        defaultPrice = Number(product.baseCost) || 0;
+        console.log(`Using baseCost fallback: ${defaultPrice} for product ${item.productId}`);
       }
 
       const unitPrice = Number(item.unitPrice) || defaultPrice;
