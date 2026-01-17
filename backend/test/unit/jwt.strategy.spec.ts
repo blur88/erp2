@@ -4,8 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy } from '../../src/modules/auth/strategies/jwt.strategy';
-import { User } from '../../src/database/entities/user.entity';
-import { UserRole } from '../../src/modules/users/enums/user-role.enum';
+import { User, UserRole, UserStatus } from '../../src/database/entities/user.entity';
 
 describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
@@ -18,7 +17,7 @@ describe('JwtStrategy', () => {
     firstName: 'Test',
     lastName: 'User',
     role: UserRole.MANAGER,
-    status: 'active',
+    status: UserStatus.ACTIVE,
     isActive: true,
   };
 
