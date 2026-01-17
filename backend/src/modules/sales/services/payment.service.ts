@@ -280,6 +280,145 @@ export class PaymentService {
     };
   }
 
+  async complete(id: string): Promise<PaymentResponseDto> {
+    const payment = await this.findPaymentWithRelations(id);
+
+    if (payment.status === PaymentStatus.COMPLETED) {
+      throw new ConflictException('Payment is already completed');
+    }
+
+    payment.status = PaymentStatus.COMPLETED;
+    const savedPayment = await this.paymentRepository.save(payment);
+
+    // Handle payment completion logic
+    await this.handlePaymentCompletion(savedPayment);
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'UPDATE',
+      'Payment',
+      `Completed payment ${payment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: { status: PaymentStatus.COMPLETED },
+      }
+    );
+
+    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+  }
+
+  async fail(id: string, reason?: string): Promise<PaymentResponseDto> {
+    const payment = await this.findPaymentWithRelations(id);
+
+    if (payment.status === PaymentStatus.COMPLETED) {
+      throw new BadRequestException('Cannot mark a completed payment as failed');
+    }
+
+    payment.status = PaymentStatus.FAILED;
+    if (reason) {
+      payment.notes = payment.notes ? `${payment.notes}\nFailed reason: ${reason}` : `Failed reason: ${reason}`;
+    }
+
+    const savedPayment = await this.paymentRepository.save(payment);
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'UPDATE',
+      'Payment',
+      `Marked payment ${payment.paymentNumber} as failed`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: { status: PaymentStatus.FAILED, reason },
+      }
+    );
+
+    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+  }
+
+  async cancel(id: string, reason?: string): Promise<PaymentResponseDto> {
+    const payment = await this.findPaymentWithRelations(id);
+
+    if (payment.status === PaymentStatus.COMPLETED) {
+      throw new BadRequestException('Cannot cancel a completed payment. Use refund instead.');
+    }
+
+    payment.status = PaymentStatus.CANCELLED;
+    if (reason) {
+      payment.notes = payment.notes ? `${payment.notes}\nCancelled reason: ${reason}` : `Cancelled reason: ${reason}`;
+    }
+
+    const savedPayment = await this.paymentRepository.save(payment);
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'UPDATE',
+      'Payment',
+      `Cancelled payment ${payment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: 'system',
+        newValues: { status: PaymentStatus.CANCELLED, reason },
+      }
+    );
+
+    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+  }
+
+  async refund(refundDto: { paymentId: string; amount: number; reason?: string }): Promise<PaymentResponseDto> {
+    const originalPayment = await this.findPaymentWithRelations(refundDto.paymentId);
+
+    if (originalPayment.status !== PaymentStatus.COMPLETED) {
+      throw new BadRequestException('Can only refund completed payments');
+    }
+
+    if (refundDto.amount > Number(originalPayment.amount)) {
+      throw new BadRequestException('Refund amount cannot exceed original payment amount');
+    }
+
+    // Create a refund payment record (negative amount)
+    const refundPayment = this.paymentRepository.create({
+      customerId: originalPayment.customerId,
+      invoiceId: originalPayment.invoiceId,
+      paymentDate: new Date(),
+      amount: -refundDto.amount,
+      status: PaymentStatus.REFUNDED,
+      paymentMethod: originalPayment.paymentMethod,
+      notes: refundDto.reason ? `Refund: ${refundDto.reason}` : `Refund of ${originalPayment.paymentNumber}`,
+    });
+
+    const savedRefund = await this.paymentRepository.save(refundPayment);
+
+    // Update original payment status
+    originalPayment.status = PaymentStatus.REFUNDED;
+    await this.paymentRepository.save(originalPayment);
+
+    // Update invoice if applicable
+    if (originalPayment.invoice) {
+      originalPayment.invoice.addPayment(-refundDto.amount);
+      await this.invoiceRepository.save(originalPayment.invoice);
+    }
+
+    // Log audit trail
+    await this.auditLogService.log(
+      'CREATE',
+      'Payment',
+      `Created refund for payment ${originalPayment.paymentNumber}`,
+      {
+        entityId: savedRefund.id,
+        userId: 'system',
+        newValues: {
+          amount: savedRefund.amount,
+          status: savedRefund.status,
+          originalPaymentId: originalPayment.id,
+        },
+      }
+    );
+
+    return this.mapToResponseDto(await this.findPaymentWithRelations(savedRefund.id));
+  }
+
   // Private helper methods
 
   private async findPaymentWithRelations(id: string): Promise<Payment> {

@@ -13,7 +13,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   PaymentMethod,
-  PaymentStatus
+  PaymentStatus,
 } from '../../../database/entities/payment.entity';
 
 export class CreatePaymentDto {
@@ -334,4 +334,30 @@ export class PaymentSummaryDto {
 
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
   status: PaymentStatus;
+}
+
+export class RefundPaymentDto {
+  @ApiProperty({
+    description: 'Payment ID to refund',
+    example: 'uuid-string',
+  })
+  @IsUUID()
+  paymentId: string;
+
+  @ApiProperty({
+    description: 'Refund amount',
+    example: 1500.50,
+  })
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0.01)
+  @Transform(({ value }) => parseFloat(value))
+  amount: number;
+
+  @ApiPropertyOptional({
+    description: 'Reason for refund',
+    example: 'Customer requested refund',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
