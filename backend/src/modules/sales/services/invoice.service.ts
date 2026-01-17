@@ -297,9 +297,28 @@ export class InvoiceService {
     };
   }
 
-  // getOverdueInvoices method removed as it depends on dueDate
+  async getOverdueInvoices() {
+    // Since we don't have dueDate field, return empty array
+    // This endpoint is kept for API compatibility
+    return {
+      data: [],
+      meta: {
+        total: 0,
+      },
+    };
+  }
 
-  // getAgingReport method removed as it depends on daysPastDue (which depends on dueDate)
+  async getAgingReport() {
+    // Since we don't have dueDate field, return empty aging buckets
+    // This endpoint is kept for API compatibility
+    return {
+      aging0to30: 0,
+      aging31to60: 0,
+      aging61to90: 0,
+      aging90Plus: 0,
+      totalOutstanding: 0,
+    };
+  }
 
   async findById(id: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
