@@ -8,7 +8,7 @@ import { AuthService } from '../../src/modules/auth/auth.service';
 import { User } from '../../src/database/entities/user.entity';
 import { RefreshToken } from '../../src/database/entities/refresh-token.entity';
 import { UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { UserRole } from '../../src/modules/users/enums/user-role.enum';
+import { UserRole, UserStatus } from '../../src/database/entities/user.entity';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -25,7 +25,7 @@ describe('AuthService', () => {
     firstName: 'Test',
     lastName: 'User',
     role: UserRole.MANAGER,
-    status: 'active',
+    status: UserStatus.ACTIVE,
     isActive: true,
     failedLoginAttempts: 0,
     lockedUntil: null,
@@ -44,6 +44,7 @@ describe('AuthService', () => {
     save: jest.fn(),
     create: jest.fn(),
     delete: jest.fn(),
+    remove: jest.fn(),
     createQueryBuilder: jest.fn(() => ({
       where: jest.fn().mockReturnThis(),
       delete: jest.fn().mockReturnThis(),
@@ -104,33 +105,47 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('validateUser', () => {
-    it('should validate user with correct credentials', async () => {
-      const plainPassword = 'Password@123';
+  describe('user validation', () => {
+    const loginDto = {
+      usernameOrEmail: 'testuser',
+      password: 'Password@123',
+      rememberMe: false,
+    };
+
+    const mockRequest = {
+      headers: { 'user-agent': 'Mozilla/5.0' },
+      ip: '127.0.0.1',
+    };
+
+    it('should validate user with correct credentials during login', async () => {
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
       mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
 
-      const result = await service.validateUser('testuser', plainPassword);
+      const result = await service.login(loginDto, mockRequest.ip, mockRequest.headers['user-agent']);
 
       expect(result).toBeDefined();
-      expect(result.username).toBe('testuser');
-      expect(result.password).toBeUndefined(); // Password should be removed
+      expect(result.user.username).toBe('testuser');
+      expect(result.user).not.toHaveProperty('password'); // Password should be removed
     });
 
     it('should throw UnauthorizedException for invalid username', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.validateUser('invaliduser', 'Password@123')
+        service.login({ ...loginDto, usernameOrEmail: 'invaliduser' }, mockRequest.ip)
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw UnauthorizedException for invalid password', async () => {
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
       mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockImplementation((user) => Promise.resolve(user));
 
       await expect(
-        service.validateUser('testuser', 'WrongPassword')
+        service.login(loginDto, mockRequest.ip)
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -139,10 +154,14 @@ describe('AuthService', () => {
         ...mockUser,
         lockedUntil: new Date(Date.now() + 30 * 60 * 1000), // Locked for 30 minutes
       };
+      // Add isLocked getter behavior
+      Object.defineProperty(lockedUser, 'isLocked', {
+        get: () => true,
+      });
       mockUserRepository.findOne.mockResolvedValue(lockedUser);
 
       await expect(
-        service.validateUser('testuser', 'Password@123')
+        service.login(loginDto, mockRequest.ip)
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -151,7 +170,7 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(inactiveUser);
 
       await expect(
-        service.validateUser('testuser', 'Password@123')
+        service.login(loginDto, mockRequest.ip)
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -228,17 +247,40 @@ describe('AuthService', () => {
     });
   });
 
-  describe('generateTokens', () => {
-    it('should generate access and refresh tokens', async () => {
-      const result = await service.generateTokens(mockUser as User);
+  describe('token generation', () => {
+    const loginDto = {
+      usernameOrEmail: 'testuser',
+      password: 'Password@123',
+      rememberMe: false,
+    };
+
+    const mockRequest = {
+      headers: { 'user-agent': 'Mozilla/5.0' },
+      ip: '127.0.0.1',
+    };
+
+    it('should generate access and refresh tokens during login', async () => {
+      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+
+      const result = await service.login(loginDto, mockRequest.ip, mockRequest.headers['user-agent']);
 
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
     });
 
-    it('should include correct payload in access token', async () => {
-      await service.generateTokens(mockUser as User);
+    it('should include correct payload in tokens', async () => {
+      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+
+      await service.login(loginDto, mockRequest.ip, mockRequest.headers['user-agent']);
 
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -258,7 +300,9 @@ describe('AuthService', () => {
       tokenHash: 'hashed-token',
       userId: mockUser.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      isActive: true,
       user: mockUser,
+      isExpired: false,
     };
 
     it('should refresh access token with valid refresh token', async () => {
@@ -267,13 +311,13 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
-      mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 1 });
+      mockRefreshTokenRepository.remove.mockResolvedValue(mockRefreshToken);
 
       const result = await service.refreshAccessToken(refreshTokenDto);
 
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
-      expect(mockRefreshTokenRepository.delete).toHaveBeenCalled(); // Old token deleted
+      expect(mockRefreshTokenRepository.remove).toHaveBeenCalled(); // Old token deleted
       expect(mockRefreshTokenRepository.save).toHaveBeenCalled(); // New token saved
     });
 
@@ -288,9 +332,11 @@ describe('AuthService', () => {
       const expiredToken = {
         ...mockRefreshToken,
         expiresAt: new Date(Date.now() - 1000), // Expired
+        isExpired: true,
       };
       const refreshTokenDto = { refreshToken: 'expired-token' };
       mockRefreshTokenRepository.findOne.mockResolvedValue(expiredToken);
+      mockRefreshTokenRepository.remove.mockResolvedValue(expiredToken);
 
       await expect(service.refreshAccessToken(refreshTokenDto)).rejects.toThrow(UnauthorizedException);
     });
@@ -299,10 +345,11 @@ describe('AuthService', () => {
   describe('logout', () => {
     it('should invalidate all refresh tokens for user', async () => {
       const userId = mockUser.id;
+      mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 1 });
 
       await service.logout(userId);
 
-      expect(mockRefreshTokenRepository.createQueryBuilder).toHaveBeenCalled();
+      expect(mockRefreshTokenRepository.delete).toHaveBeenCalledWith({ userId, isActive: true });
     });
   });
 
@@ -314,17 +361,23 @@ describe('AuthService', () => {
     };
 
     it('should change password successfully', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      // Mock bcrypt.compare to return true for current password, false for new password check
+      const compareSpy = jest.spyOn(bcrypt, 'compare');
+      compareSpy
+        .mockImplementationOnce(() => Promise.resolve(true))  // Current password check - valid
+        .mockImplementationOnce(() => Promise.resolve(false)); // Same password check - different
+
       jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve('new-hashed-password'));
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, password: 'new-hashed-password' });
+      mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 1 });
 
       await service.changePassword(mockUser.id, changePasswordDto);
 
       expect(mockUserRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ password: 'new-hashed-password' })
       );
-      expect(mockRefreshTokenRepository.createQueryBuilder).toHaveBeenCalled(); // Logout all sessions
+      expect(mockRefreshTokenRepository.delete).toHaveBeenCalled(); // Logout all sessions
     });
 
     it('should throw UnauthorizedException for incorrect current password', async () => {
@@ -364,18 +417,14 @@ describe('AuthService', () => {
 
   describe('cleanupExpiredTokens', () => {
     it('should delete expired refresh tokens', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        delete: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 5 }),
-      };
-      mockRefreshTokenRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 5 });
 
-      await service.cleanupExpiredTokens();
+      const result = await service.cleanupExpiredTokens();
 
-      expect(mockRefreshTokenRepository.createQueryBuilder).toHaveBeenCalled();
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('expiresAt < :now', { now: expect.any(Date) });
-      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+      expect(mockRefreshTokenRepository.delete).toHaveBeenCalledWith({
+        expiresAt: expect.anything(),
+      });
+      expect(result).toBe(5);
     });
   });
 });
