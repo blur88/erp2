@@ -3,7 +3,7 @@ import { ExecutionContext, UnauthorizedException, ForbiddenException } from '@ne
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../src/modules/auth/guards/roles.guard';
-import { UserRole } from '../../src/modules/users/enums/user-role.enum';
+import { UserRole } from '../../src/database/entities/user.entity';
 
 describe('Auth Guards', () => {
   let reflector: Reflector;
