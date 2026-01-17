@@ -504,25 +504,26 @@ export class InvoiceService {
     }
 
     const emailAddresses = sendInvoiceDto.emailAddresses || [];
-    
+
     if (emailAddresses.length === 0) {
       throw new BadRequestException('No email addresses provided and customer has no email');
     }
 
-    const subject = sendInvoiceDto.subject || 
-      `Invoice ${invoice.invoiceNumber} from Your Company`;
-    
-    const message = sendInvoiceDto.message ||
-      `Please find attached your invoice.`;
+    // Email subject and message prepared but not used until email service is implemented
+    // const subject = sendInvoiceDto.subject ||
+    //   `Invoice ${invoice.invoiceNumber} from Your Company`;
+    // const message = sendInvoiceDto.message ||
+    //   `Please find attached your invoice.`;
 
     // Generate PDF (implement PDF generation service)
     // TODO: Implement PDF generation
     // const pdfBuffer = await this.generatePdf(id);
 
     // Send email with PDF attachment
-    for (const email of emailAddresses) {
-      // Email functionality temporarily disabled
-    }
+    // Email functionality temporarily disabled
+    // for (const email of emailAddresses) {
+    //   // Send email logic here
+    // }
 
     // Invoice sent successfully
 
@@ -576,7 +577,7 @@ export class InvoiceService {
     return this.findById(savedInvoice.id);
   }
 
-  async voidInvoice(id: string, reason: string): Promise<InvoiceResponseDto> {
+  async voidInvoice(id: string, _reason: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
       relations: ['customer'],
@@ -591,7 +592,7 @@ export class InvoiceService {
       throw new ConflictException('Cannot void paid invoice. Create a credit note instead.');
     }
 
-    // Mark as voided
+    // Mark as voided (reason parameter reserved for future audit logging)
     invoice.cancel();
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
