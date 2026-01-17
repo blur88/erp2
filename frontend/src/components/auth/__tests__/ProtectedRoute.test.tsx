@@ -30,7 +30,7 @@ describe('ProtectedRoute', () => {
   it('should render children when user is authenticated', () => {
     const store = configureStore({
       reducer: {
-        auth: authReducer,
+        auth: authReducer as any,
       },
       preloadedState: {
         auth: {
@@ -72,7 +72,7 @@ describe('ProtectedRoute', () => {
   it('should redirect to login when user is not authenticated', () => {
     const store = configureStore({
       reducer: {
-        auth: authReducer,
+        auth: authReducer as any,
       },
       preloadedState: {
         auth: {
@@ -110,7 +110,7 @@ describe('ProtectedRoute', () => {
   it('should show loading spinner while loading', () => {
     const store = configureStore({
       reducer: {
-        auth: authReducer,
+        auth: authReducer as any,
       },
       preloadedState: {
         auth: {
@@ -141,7 +141,7 @@ describe('ProtectedRoute', () => {
   it('should preserve return URL when redirecting to login', () => {
     const store = configureStore({
       reducer: {
-        auth: authReducer,
+        auth: authReducer as any,
       },
       preloadedState: {
         auth: {
@@ -179,7 +179,7 @@ describe('ProtectedRoute', () => {
   it('should not render children if authentication is in progress', () => {
     const store = configureStore({
       reducer: {
-        auth: authReducer,
+        auth: authReducer as any,
       },
       preloadedState: {
         auth: {
