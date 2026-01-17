@@ -770,11 +770,10 @@ export class SalesAnalyticsService {
         const totalCost = quantity * unitCost;
         const profit = totalAmount - totalCost;
 
-        // Determine price level from customer or default to retail
+        // Determine price level from customer's price list or default to retail
         let pricingScheme = 'Retail';
-        if (order.customer?.pricingScheme) {
-          const level = order.customer.pricingScheme;
-          pricingScheme = level.charAt(0).toUpperCase() + level.slice(1);
+        if (order.customer?.priceList) {
+          pricingScheme = order.customer.priceList.name;
         }
 
         productDetails.push({
@@ -1258,6 +1257,7 @@ export class SalesAnalyticsService {
     let orderQuery = this.salesOrderRepository
       .createQueryBuilder('salesOrder')
       .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .leftJoinAndSelect('customer.priceList', 'priceList')
       .leftJoinAndSelect('salesOrder.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
@@ -1404,6 +1404,7 @@ export class SalesAnalyticsService {
     let orderQuery = this.salesOrderRepository
       .createQueryBuilder('salesOrder')
       .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .leftJoinAndSelect('customer.priceList', 'priceList')
       .leftJoinAndSelect('salesOrder.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
