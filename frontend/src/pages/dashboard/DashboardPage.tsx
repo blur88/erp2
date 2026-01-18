@@ -265,7 +265,7 @@ const DashboardPage: React.FC = () => {
       const inventoryStats: any = inventoryStatsRes
 
       // Process Out of Stock
-      const outOfStock: any[] = outOfStockRes
+      const outOfStock: any[] = Array.isArray(outOfStockRes) ? outOfStockRes : []
 
       // Process Payments
       const payments: any[] = paymentsRes.data || []

@@ -401,6 +401,23 @@ export const inventoryApi = {
     }>('/inventory/products/dashboard-stats')
   },
 
+  async getOutOfStockProducts() {
+    return ApiService.get<Array<{
+      id: string
+      barcode: string
+      name: string
+      stockQuantity: number
+      availableQuantity: number
+      reservedQuantity: number
+      reorderLevel: number
+      stockStatus: string
+      isLowStock: boolean
+      isOutOfStock: boolean
+      categoryName?: string
+      lastMovementDate?: Date
+    }>>('/inventory/products/out-of-stock')
+  },
+
   // Costing methods
   async getCurrentCostingMethod() {
     return ApiService.get<{
