@@ -10,7 +10,7 @@ Comprehensive ERP system with modern full-stack architecture:
 - **Infrastructure**: Docker + NGINX + Node.js 24
 - **Testing**: Jest (backend) + Vitest (frontend)
 
-**Last Updated**: December 2025
+**Last Updated**: January 2026
 
 ## Current System Status
 
@@ -216,11 +216,11 @@ docker compose logs backend # Check specific service logs
 **Complete normalized pricing system implemented (January 2026)**
 
 **Pricing Architecture:**
-- ✅ Normalized relational model replacing legacy JSONB pricing
+- ✅ Normalized relational model (legacy JSONB pricing fully removed in Phase 8)
 - ✅ PriceList entity for master pricing schemes (Retail, Wholesale, etc.)
 - ✅ PriceListItem entity for product-specific prices per list
 - ✅ Customer relationship to PriceList for automatic pricing
-- ✅ Backward compatibility with legacy `pricingTiers` JSONB field
+- ✅ Clean codebase with no legacy code or technical debt
 
 **Price List Features:**
 - ✅ Multiple price lists per system (unlimited)
@@ -259,10 +259,10 @@ docker compose logs backend # Check specific service logs
 - `/api/price-lists/:id/set-default` - Set as default
 
 **Data Migration:**
-- ✅ Automated migration from JSONB to normalized tables
+- ✅ Automated migration from JSONB to normalized tables (completed)
 - ✅ Zero data loss migration (100% success rate)
 - ✅ Rollback support for safety
-- ✅ Legacy fields removed after successful 30-day transition (Phase 8 - January 2026)
+- ✅ Phase 8 cleanup complete - all legacy fields removed (January 2026)
 
 **Database Schema:**
 ```sql
@@ -391,7 +391,6 @@ When enabling disabled modules:
 - **Architecture Change**: Migrated from JSONB-based pricing to relational PriceList/PriceListItem model
 - **Database Migration**: Successfully migrated 2 price lists with 42 price list items from legacy system
 - **Zero Data Loss**: 100% data integrity maintained during migration
-- **Backward Compatibility**: Legacy JSONB fallback ensures smooth transition
 - **PriceListsModule**: New dedicated module with 13 API endpoints
 - **Frontend Implementation**: Complete UI for price list management under Settings
 - **Key Features**:
@@ -415,7 +414,6 @@ When enabling disabled modules:
 - **Test Coverage**: 95+ tests (50 backend unit, 15 E2E, 30 frontend)
 - **Migration Documentation**: Complete migration plan in `PRICE_LIST_MIGRATION_PLAN.md`
 - **Performance**: All queries optimized with proper indexes
-- **Future Cleanup**: Legacy JSONB fields to be removed after 30-day transition period (Phase 8)
 
 ### 📊 Module-Integrated Reports (November 2025)
 - ✅ **COMPLETE**: Comprehensive reporting system embedded in Inventory, Sales, and Purchasing modules
@@ -698,8 +696,7 @@ const { control, handleSubmit } = useForm<FormData>({
 ## Troubleshooting
 
 ### Common Issues
-- **README.md outdated**: Use CLAUDE.md instead - README mentions authentication features that were completely removed
-- **deploy.sh mentions demo accounts**: Ignore demo account credentials in deploy.sh output - authentication system was completely removed
+- **deploy.sh mentions outdated demo accounts**: The deploy.sh script references old demo credentials (admin@erp.com, manager@erp.com, etc.) - ignore these. Use the actual credentials: `admin / Admin@123!`
 - **TypeScript**: Uses `"strict": false`, use `as any` assertions for TypeORM when needed
 - **Backend tsconfig.json excludes active modules**: Backend `tsconfig.json` excludes `purchasing` and `reports` directories but both are actually active - this is a configuration artifact that doesn't affect runtime
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
