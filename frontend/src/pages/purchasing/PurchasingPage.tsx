@@ -85,11 +85,11 @@ const PurchasingPage: React.FC = () => {
       }
 
       // Fetch suppliers
-      const suppliersResponse = await purchasingApi.getSuppliers({ limit: 100 })
+      const suppliersResponse = await purchasingApi.getSuppliers({ limit: 100 }) as any
       let suppliersData = []
-      if (suppliersResponse?.data) {
-        // ApiService.get returns response.data, so suppliersResponse = { data: [...], meta: {...} }
-        suppliersData = suppliersResponse.data || []
+      if (suppliersResponse?.suppliers) {
+        // Backend returns { suppliers: [...], total, page, limit, totalPages }
+        suppliersData = suppliersResponse.suppliers || []
       }
 
       // Calculate top suppliers from orders
@@ -124,7 +124,8 @@ const PurchasingPage: React.FC = () => {
       const totalSpent = allOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
       const totalOrders = allOrders.length
       const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0
-      // Count active suppliers (not soft-deleted)
+      // Count active suppliers (backend already filters out soft-deleted records)
+      // Note: isActive field is not included in SupplierResponseDto, but all returned suppliers are active
       const activeSuppliers = suppliersData.filter((s: any) => !s.deletedAt).length
 
       // Generate period data for chart (last 30 days)
