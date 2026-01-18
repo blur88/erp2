@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
 // Configuration
 import { DatabaseConfig } from './config/database.config';
@@ -31,6 +31,7 @@ import {
 } from './common/filters';
 
 // Modules
+import { AuthModule } from './modules/auth/auth.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
@@ -40,7 +41,10 @@ import { DashboardModule } from './modules/dashboard/dashboard-module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { PrintSettingsModule } from './modules/print-settings/print-settings.module';
 import { BackupModule } from './modules/backup/backup.module';
-// import { PluginsModule } from './modules/plugins/plugins.module'; // Disabled due to auth compilation issues
+import { PriceListsModule } from './modules/price-lists/price-lists.module';
+
+// Auth Guards
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 // Controllers
 import { AppController } from './app.controller';
@@ -76,6 +80,7 @@ import { AppService } from './app.service';
     ScheduleModule.forRoot(),
 
     // Core Modules
+    AuthModule, // Authentication and authorization
     AuditLogsModule, // Audit logging (global)
     UsersModule,
     InventoryModule,
@@ -85,7 +90,7 @@ import { AppService } from './app.service';
     SettingsModule, // Company settings
     PrintSettingsModule, // Print settings and templates
     BackupModule, // Backup and restore functionality
-    // PluginsModule, // Re-enable after fixing compilation issues
+    PriceListsModule, // Price list management (Phase 3)
   ],
   controllers: [AppController],
   providers: [
@@ -112,11 +117,18 @@ import { AppService } from './app.service';
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
-    
+
     // Global Logging Interceptor
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
+    },
+
+    // Global JWT Auth Guard - All routes protected by default
+    // Use @Public() decorator to bypass authentication
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

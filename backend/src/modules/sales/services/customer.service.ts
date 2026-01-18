@@ -3,12 +3,10 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  HttpException,
-  HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike, FindOptionsWhere, FindManyOptions } from 'typeorm';
-import { Customer, PriceLevel } from '../../../database/entities/customer.entity';
+import { Repository, FindOptionsWhere } from 'typeorm';
+import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
@@ -41,9 +39,9 @@ export class CustomerService {
       await this.validatePhoneUniqueness(createCustomerDto.phone);
     }
 
+    // Customer pricing is now handled via priceListId (not pricingScheme)
     const customer = this.customerRepository.create({
       ...createCustomerDto,
-      pricingScheme: createCustomerDto.pricingScheme || createCustomerDto.priceLevel || 'Retail',
     });
 
     const savedCustomer = await this.customerRepository.save(customer);
@@ -60,7 +58,7 @@ export class CustomerService {
           name: savedCustomer.name,
           phone: savedCustomer.phone,
           type: savedCustomer.type,
-          pricingScheme: savedCustomer.pricingScheme,
+          priceListId: savedCustomer.priceListId,
         },
       }
     );
@@ -72,7 +70,6 @@ export class CustomerService {
     const {
       search,
       type,
-      pricingScheme,
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
@@ -83,12 +80,13 @@ export class CustomerService {
     const where: FindOptionsWhere<Customer> = {};
 
     if (type) where.type = type;
-    if (pricingScheme) where.pricingScheme = pricingScheme;
+    // pricingScheme removed in Phase 8 - use priceListId instead
     if (isActive !== undefined) where.isActive = isActive;
 
 
     // Use query builder for case-insensitive sorting
-    let queryBuilder = this.customerRepository.createQueryBuilder('customer');
+    let queryBuilder = this.customerRepository.createQueryBuilder('customer')
+      .leftJoinAndSelect('customer.priceList', 'priceList');
 
     // Apply base where conditions
     Object.entries(where).forEach(([key, value]) => {
@@ -103,9 +101,9 @@ export class CustomerService {
       );
     }
 
-    // Apply case-insensitive sorting for name field, regular sorting for others
+    // Apply sorting - use COLLATE for case-insensitive name sorting
     if (sortBy === 'name') {
-      queryBuilder.orderBy('UPPER(customer.name)', sortOrder);
+      queryBuilder.orderBy('customer.name', sortOrder, 'NULLS LAST');
     } else {
       queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
     }
@@ -182,7 +180,10 @@ export class CustomerService {
   }
 
   async findById(id: string): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({ where: { id } });
+    const customer = await this.customerRepository.findOne({
+      where: { id },
+      relations: ['priceList']
+    });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
@@ -201,7 +202,7 @@ export class CustomerService {
       name: customer.name,
       phone: customer.phone,
       type: customer.type,
-      pricingScheme: customer.pricingScheme,
+      priceListId: customer.priceListId,
     };
 
     // Check for phone number duplicate if phone is being updated
@@ -225,7 +226,7 @@ export class CustomerService {
           name: savedCustomer.name,
           phone: savedCustomer.phone,
           type: savedCustomer.type,
-          pricingScheme: savedCustomer.pricingScheme,
+          priceListId: savedCustomer.priceListId,
         },
       }
     );
@@ -737,7 +738,7 @@ export class CustomerService {
           name: customer.name,
           phone: customer.phone,
           type: customer.type,
-          pricingScheme: customer.pricingScheme,
+          priceListId: customer.priceListId,
         },
       }
     );
@@ -907,7 +908,10 @@ export class CustomerService {
   }
 
   private async findCustomerEntity(id: string): Promise<Customer> {
-    const customer = await this.customerRepository.findOne({ where: { id } });
+    const customer = await this.customerRepository.findOne({
+      where: { id },
+      relations: ['priceList']
+    });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
@@ -927,7 +931,14 @@ export class CustomerService {
       postalCode: customer.postalCode,
       country: customer.country,
       isActive: customer.isActive,
-      pricingScheme: customer.pricingScheme,
+      priceListId: customer.priceListId,
+      priceList: customer.priceList ? {
+        id: customer.priceList.id,
+        name: customer.priceList.name,
+        code: customer.priceList.code,
+        isDefault: customer.priceList.isDefault,
+        isActive: customer.priceList.isActive,
+      } : undefined,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,

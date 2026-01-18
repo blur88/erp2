@@ -1,5 +1,7 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
+import { store } from '@/store'
+import { setAccessToken, clearAuth } from '@/store/slices/authSlice'
 
 // Get API base URL dynamically with VPN compatibility
 const getApiBaseUrl = () => {
@@ -26,12 +28,22 @@ const api: AxiosInstance = axios.create({
   validateStatus: (status) => status >= 200 && status < 300, // Only accept 2xx status codes
 })
 
-// Request interceptor to set baseURL dynamically (auth removed - no token needed)
+// Request interceptor to inject access token and set baseURL
 api.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
+    // Set base URL
     if (!config.baseURL) {
       config.baseURL = getApiBaseUrl()
     }
+
+    // Inject Authorization header if access token exists
+    const state = store.getState()
+    const accessToken = state.auth?.accessToken
+
+    if (accessToken && config.headers) {
+      config.headers.Authorization = `Bearer ${accessToken}`
+    }
+
     return config
   },
   (error) => {
@@ -39,16 +51,37 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor for error handling (auth removed) with VPN support
+// Token refresh state management
+let isRefreshing = false
+let failedQueue: Array<{
+  resolve: (value?: any) => void
+  reject: (error?: any) => void
+}> = []
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+
+  failedQueue = []
+}
+
+// Response interceptor with token refresh and error handling
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     return response
   },
   async (error) => {
+    const originalRequest = error.config
+
     // Enhanced error handling for VPN connectivity issues
     if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
       console.warn('Network connectivity issue detected. This may be VPN-related.')
-      
+
       // If using direct localhost and it fails, try relative path
       if (error.config?.baseURL?.includes('localhost:3001')) {
         try {
@@ -59,7 +92,87 @@ api.interceptors.response.use(
         }
       }
     }
-    
+
+    // Handle 401 Unauthorized - attempt token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Queue the request while token is being refreshed
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        })
+          .then((token) => {
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`
+            }
+            return api(originalRequest)
+          })
+          .catch((err) => {
+            return Promise.reject(err)
+          })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      const state = store.getState()
+      const refreshToken = state.auth?.refreshToken
+
+      if (!refreshToken) {
+        // No refresh token available, logout
+        store.dispatch(clearAuth())
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
+      try {
+        // Import authApi dynamically to avoid circular dependency
+        const { authApi } = await import('./authApi')
+        const response = await authApi.refreshToken(refreshToken)
+
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data
+
+        // Update tokens in Redux store
+        store.dispatch(
+          setAccessToken(newAccessToken)
+        )
+
+        // Also update refresh token if it changed (token rotation)
+        if (newRefreshToken !== refreshToken) {
+          // This would require a new action, but for now we'll update via setCredentials
+          // The refresh endpoint returns full AuthResponse, so we can update everything
+          const { setCredentials } = await import('@/store/slices/authSlice')
+          store.dispatch(setCredentials(response.data))
+        }
+
+        // Process queued requests with new token
+        processQueue(null, newAccessToken)
+
+        // Retry original request with new token
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+        }
+        return api(originalRequest)
+      } catch (refreshError) {
+        // Token refresh failed, logout user
+        processQueue(refreshError, null)
+        store.dispatch(clearAuth())
+
+        // Force redirect to login page for invalid/expired tokens
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+
+        return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
+      }
+    }
+
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      console.error('Access forbidden:', error.response.data?.message)
+    }
+
     return Promise.reject(error)
   }
 )

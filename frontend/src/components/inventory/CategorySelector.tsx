@@ -8,7 +8,6 @@ import {
   Typography,
   Chip,
   CircularProgress,
-  Divider,
   Button
 } from '@mui/material'
 import { Add } from '@mui/icons-material'
@@ -40,7 +39,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   value,
   onChange,
   label = 'Category',
-  placeholder = 'Select a category',
   required = false,
   error = false,
   helperText,
@@ -124,6 +122,13 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
     }
   }, [open, options.length, loadCategories])
 
+  // Load categories immediately if we have a value but no options
+  useEffect(() => {
+    if (value && options.length === 0 && !loading) {
+      loadCategories()
+    }
+  }, [value, options.length, loading, loadCategories])
+
 
   const handleSelectChange = (event: any) => {
     const selectedId = event.target.value
@@ -166,6 +171,14 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           }
         }}
         onClose={() => setOpen(false)}
+        renderValue={(selected) => {
+          // If we have a value but options aren't loaded yet, show the category name
+          if (selected && value) {
+            return value.name
+          }
+          // If no value selected, show placeholder or empty
+          return selected ? String(selected) : ''
+        }}
         sx={{
           '& .MuiInputBase-input': {
             fontSize: '0.875rem',

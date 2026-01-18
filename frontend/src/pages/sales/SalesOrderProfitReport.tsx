@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import api from '@/services/api'
 
 interface SalesOrderProfit {
   orderNumber: string
@@ -71,15 +72,20 @@ const SalesOrderProfitReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load customers
-    fetch('/api/customers?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setCustomers(data.data)
+    // Load customers using authenticated API
+    api.get('/customers?limit=100')
+      .then((response: any) => {
+        // Response structure: response.data.data contains the array
+        if (response?.data?.data && Array.isArray(response.data.data)) {
+          setCustomers(response.data.data)
+        } else {
+          setCustomers([])
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load customers:', err)
+        setCustomers([])
+      })
   }, [])
 
   const handleGenerateReport = async () => {
@@ -96,15 +102,10 @@ const SalesOrderProfitReport: React.FC = () => {
       if (inventoryStatus && inventoryStatus !== 'all') params.append('status', inventoryStatus)
       if (paymentStatus && paymentStatus !== 'all') params.append('paymentStatus', paymentStatus)
 
-      // Call the backend API
-      const response = await fetch(`/api/sales/analytics/sales-order-profit?${params.toString()}`)
+      // Call the backend API using authenticated API client
+      const response = await api.get(`/sales/analytics/sales-order-profit?${params.toString()}`)
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
-      setReportData(result.data || [])
+      setReportData(response.data?.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])
@@ -662,7 +663,7 @@ const SalesOrderProfitReport: React.FC = () => {
                     MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                   >
                     <MenuItem value="">All Customers</MenuItem>
-                    {customers.map((customer) => (
+                    {Array.isArray(customers) && customers.map((customer) => (
                       <MenuItem key={customer.id} value={customer.id}>
                         {customer.name}
                       </MenuItem>

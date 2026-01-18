@@ -27,7 +27,6 @@ interface BlockedPurchaseOrderDialogProps {
   onReturnAndEdit: () => void
   onReturnOnly: () => void
   onUnpayAndEdit: () => void
-  onUnpayOnly: () => void
   onReturnAndDelete?: () => void
   onUnpayAndDelete?: () => void
   loading?: boolean
@@ -43,7 +42,6 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
   onReturnAndEdit,
   onReturnOnly,
   onUnpayAndEdit,
-  onUnpayOnly,
   onReturnAndDelete,
   onUnpayAndDelete,
   loading = false
@@ -123,26 +121,10 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
                 </Box>
               )}
               {isReceived && (
-                <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <InventoryIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                    <Typography variant="body2">
-                      Inventory quantities will be reverted
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                    <Typography variant="body2">
-                      Purchase order will become editable again
-                    </Typography>
-                  </Box>
-                </>
-              )}
-              {!isReceived && isPaid && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                  <InventoryIcon sx={{ fontSize: 16, color: 'primary.main' }} />
                   <Typography variant="body2">
-                    Purchase order will become {actionType === 'edit' ? 'editable' : 'deletable'} again
+                    Inventory quantities will be reverted
                   </Typography>
                 </Box>
               )}
@@ -162,26 +144,15 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
         {/* Show appropriate action buttons based on status */}
         {blockingReasons.length === 2 ? (
           // Both received and paid - unpay & return together
-          (<>
-            <Button
-              onClick={onUnpayOnly}
-              variant="outlined"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 140 }}
-            >
-              Unpay Only
-            </Button>
-            <Button
-              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
-              variant="contained"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 180 }}
-            >
-              Unpay, Return & {actionVerbCap}
-            </Button>
-          </>)
+          <Button
+            onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ minWidth: 180 }}
+          >
+            Unpay, Return & {actionVerbCap}
+          </Button>
         ) : isReceived ? (
           // Only received
           (<>
@@ -206,26 +177,15 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
           </>)
         ) : (
           // Only paid
-          (<>
-            <Button
-              onClick={onUnpayOnly}
-              variant="outlined"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 100 }}
-            >
-              Unpay Only
-            </Button>
-            <Button
-              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
-              variant="contained"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 140 }}
-            >
-              Unpay & {actionVerbCap}
-            </Button>
-          </>)
+          <Button
+            onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ minWidth: 140 }}
+          >
+            Unpay & {actionVerbCap}
+          </Button>
         )}
       </DialogActions>
     </Dialog>

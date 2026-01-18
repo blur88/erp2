@@ -88,8 +88,8 @@ export class SalesOrderController {
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getAllSalesOrders(@Query() query: QuerySalesOrdersDto) {
-    const data = await this.salesOrderService.findSummaries(query);
-    return data; // findSummaries now returns paginated response structure with relationships
+    const data = await this.salesOrderService.findAll(query);
+    return data; // findAll returns paginated response structure optimized for listing
   }
 
   @Get('summary')

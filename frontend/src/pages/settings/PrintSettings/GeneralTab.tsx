@@ -4,8 +4,6 @@ import {
   Grid,
   TextField,
   Button,
-  Avatar,
-  IconButton,
   Typography,
   Paper,
   Divider,
@@ -166,6 +164,14 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
       // Import to print settings
       const updatedSettings = await printSettingsApi.importFromCompany(companySettings)
 
+      // Update logo preview if logo was imported
+      if (updatedSettings.logoUrl) {
+        setLogoPreview(getLogoUrl(updatedSettings.logoUrl))
+      } else {
+        // Clear logo preview if company settings has no logo
+        setLogoPreview(null)
+      }
+
       onUpdate(updatedSettings)
       onRefresh()
       showSuccess('Settings imported successfully from company settings')
@@ -229,20 +235,43 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
           <Typography variant="subtitle2" gutterBottom>
             Company Logo
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar
-              src={logoPreview || undefined}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Logo Preview */}
+            <Box
               sx={{
-                width: 80,
-                height: 80,
-                bgcolor: 'grey.200',
+                width: '100%',
+                maxWidth: 600,
+                minHeight: 200,
+                maxHeight: 400,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 border: '2px dashed',
-                borderColor: 'grey.400',
+                borderColor: 'divider',
+                borderRadius: 2,
+                bgcolor: logoPreview ? 'transparent' : 'grey.100',
+                overflow: 'hidden',
+                position: 'relative',
               }}
             >
-              <UploadIcon sx={{ fontSize: 32, color: 'grey.500' }} />
-            </Avatar>
-            <Box>
+              {logoPreview ? (
+                <Box
+                  component="img"
+                  src={logoPreview}
+                  alt="Company Logo"
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              ) : (
+                <UploadIcon sx={{ fontSize: 80, color: 'grey.400', opacity: 0.5 }} />
+              )}
+            </Box>
+
+            {/* Upload Controls */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <input
                 accept="image/*"
                 style={{ display: 'none' }}
@@ -256,18 +285,20 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
                 </Button>
               </label>
               {logoPreview && (
-                <IconButton
-                  onClick={handleLogoRemove}
-                  sx={{ ml: 1 }}
+                <Button
+                  variant="outlined"
                   color="error"
+                  onClick={handleLogoRemove}
+                  startIcon={<DeleteIcon />}
                 >
-                  <DeleteIcon />
-                </IconButton>
+                  Remove Logo
+                </Button>
               )}
-              <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
-                Recommended: 200x200px, PNG or JPG
-              </Typography>
             </Box>
+
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Accepted formats: JPG, PNG, GIF, WEBP • Max size: 5MB • Rectangular preview auto-adjusts to image size
+            </Typography>
           </Box>
         </Box>
 

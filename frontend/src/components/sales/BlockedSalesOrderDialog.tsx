@@ -16,6 +16,7 @@ import {
   Edit as EditIcon,
   Payment as PaymentIcon,
 } from '@mui/icons-material'
+import { formatCurrency } from '@/utils/currency'
 
 interface BlockedSalesOrderDialogProps {
   open: boolean
@@ -28,7 +29,6 @@ interface BlockedSalesOrderDialogProps {
   onUnfulfillAndEdit: () => void
   onUnfulfillOnly: () => void
   onUnpayAndEdit: () => void
-  onUnpayOnly: () => void
   onUnfulfillAndDelete?: () => void
   onUnpayAndDelete?: () => void
   loading?: boolean
@@ -45,7 +45,6 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
   onUnfulfillAndEdit,
   onUnfulfillOnly,
   onUnpayAndEdit,
-  onUnpayOnly,
   onUnfulfillAndDelete,
   onUnpayAndDelete,
   loading = false
@@ -95,11 +94,11 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
           <Alert severity="warning" sx={{ borderRadius: 1.5 }}>
             <Typography variant="body2">
               {blockingReasons.length === 2 ? (
-                <>This order has been fulfilled and has a payment of <strong>${paidAmount.toFixed(2)}</strong>. To {actionVerb} the order, you must first unpay it, then unfulfill the order.</>
+                <>This order has been fulfilled and has a payment of <strong>{formatCurrency(paidAmount)}</strong>. To {actionVerb} the order, you must first unpay it, then unfulfill the order.</>
               ) : isFulfilled ? (
                 <>This order has already been fulfilled. To {actionVerb} the order, you must unfulfill it first. This action will restore the inventory quantities.</>
               ) : (
-                <>This order has a payment of <strong>${paidAmount.toFixed(2)}</strong>. To {actionVerb} the order, you must unpay it first. This will remove the payment record.</>
+                <>This order has a payment of <strong>{formatCurrency(paidAmount)}</strong>. To {actionVerb} the order, you must unpay it first. This will remove the payment record.</>
               )}
             </Typography>
           </Alert>
@@ -132,19 +131,21 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
                       Inventory quantities will be restored
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                    <Typography variant="body2">
-                      Order will become editable again
-                    </Typography>
-                  </Box>
+                  {actionType === 'edit' && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                      <Typography variant="body2">
+                        Order will become editable again
+                      </Typography>
+                    </Box>
+                  )}
                 </>
               )}
-              {!isFulfilled && isPaid && (
+              {!isFulfilled && isPaid && actionType === 'edit' && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <EditIcon sx={{ fontSize: 16, color: 'primary.main' }} />
                   <Typography variant="body2">
-                    Order will become {actionType === 'edit' ? 'editable' : 'deletable'} again
+                    Order will become editable again
                   </Typography>
                 </Box>
               )}
@@ -163,27 +164,16 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
 
         {/* Show appropriate action buttons based on status */}
         {blockingReasons.length === 2 ? (
-          // Both fulfilled and paid - unpay & unfulfill together
-          (<>
-            <Button
-              onClick={onUnpayOnly}
-              variant="outlined"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 140 }}
-            >
-              Unpay Only
-            </Button>
-            <Button
-              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
-              variant="contained"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 200 }}
-            >
-              Unpay, Unfulfill & {actionVerbCap}
-            </Button>
-          </>)
+          // Both fulfilled and paid - only show unpay & unfulfill together (no "Unpay Only" option)
+          <Button
+            onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ minWidth: 200 }}
+          >
+            Unpay, Unfulfill & {actionVerbCap}
+          </Button>
         ) : isFulfilled ? (
           // Only fulfilled
           (<>
@@ -208,26 +198,15 @@ const BlockedSalesOrderDialog: React.FC<BlockedSalesOrderDialogProps> = ({
           </>)
         ) : (
           // Only paid
-          (<>
-            <Button
-              onClick={onUnpayOnly}
-              variant="outlined"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 100 }}
-            >
-              Unpay Only
-            </Button>
-            <Button
-              onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
-              variant="contained"
-              color="error"
-              disabled={loading}
-              sx={{ minWidth: 140 }}
-            >
-              Unpay & {actionVerbCap}
-            </Button>
-          </>)
+          <Button
+            onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ minWidth: 140 }}
+          >
+            Unpay & {actionVerbCap}
+          </Button>
         )}
       </DialogActions>
     </Dialog>

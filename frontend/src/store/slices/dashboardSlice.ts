@@ -56,7 +56,7 @@ export const fetchDashboardStats = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await dashboardApi.getStats()
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch dashboard stats')
     }
@@ -68,7 +68,7 @@ export const fetchSalesChart = createAsyncThunk(
   async (params: { period: 'week' | 'month' | 'quarter' | 'year' }, { rejectWithValue }) => {
     try {
       const response = await dashboardApi.getSalesChart(params.period)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch sales chart')
     }
@@ -80,7 +80,7 @@ export const fetchRevenueChart = createAsyncThunk(
   async (params: { period: 'week' | 'month' | 'quarter' | 'year' }, { rejectWithValue }) => {
     try {
       const response = await dashboardApi.getRevenueChart(params.period)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch revenue chart')
     }
@@ -92,7 +92,7 @@ export const fetchTopProducts = createAsyncThunk(
   async (params: { limit?: number }, { rejectWithValue }) => {
     try {
       const response = await dashboardApi.getTopProducts(params.limit || 10)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch top products')
     }
@@ -104,7 +104,7 @@ export const fetchRecentActivities = createAsyncThunk(
   async (params: { limit?: number }, { rejectWithValue }) => {
     try {
       const response = await dashboardApi.getRecentActivities(params.limit || 20)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch recent activities')
     }
@@ -116,7 +116,7 @@ export const fetchAlerts = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await dashboardApi.getAlerts()
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch alerts')
     }

@@ -25,6 +25,10 @@ export enum PaymentMethod {
 
 export enum PaymentStatus {
   COMPLETED = 'completed',
+  PENDING = 'pending',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded',
 }
 
 
@@ -127,7 +131,7 @@ export class Payment extends BaseEntity {
   @JoinColumn({ name: 'invoiceId' })
   invoice?: Invoice;
 
-  
+
   // Computed properties
   get isCompleted(): boolean {
     return this.status === PaymentStatus.COMPLETED;

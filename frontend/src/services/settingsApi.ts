@@ -1,5 +1,4 @@
 import { ApiService } from './api'
-import type { ApiResponse } from '@/types'
 
 export interface CompanySettings {
   id: string
@@ -31,16 +30,10 @@ export interface UpdateCompanySettingsDto {
   miscInfo?: string
 }
 
-export interface PricingScheme {
-  name: string
-  currency: string
-}
-
 export interface PriceCostingSettings {
   id: string
   currency: string
   costingMethod: string
-  customerPricingSchemes: PricingScheme[]
   createdAt: string
   updatedAt: string
   isActive: boolean
@@ -49,7 +42,6 @@ export interface PriceCostingSettings {
 export interface UpdatePriceCostingSettingsDto {
   currency?: string
   costingMethod?: string
-  customerPricingSchemes?: PricingScheme[]
 }
 
 export interface DocumentNumberConfig {
@@ -74,21 +66,21 @@ class SettingsApi {
   /**
    * Get company settings
    */
-  async getCompanySettings(): Promise<ApiResponse<CompanySettings>> {
+  async getCompanySettings(): Promise<CompanySettings> {
     return ApiService.get<CompanySettings>('/settings/company')
   }
 
   /**
    * Update company settings
    */
-  async updateCompanySettings(data: UpdateCompanySettingsDto): Promise<ApiResponse<CompanySettings>> {
+  async updateCompanySettings(data: UpdateCompanySettingsDto): Promise<CompanySettings> {
     return ApiService.put<CompanySettings>('/settings/company', data)
   }
 
   /**
    * Upload company logo
    */
-  async uploadLogo(file: File): Promise<ApiResponse<CompanySettings>> {
+  async uploadLogo(file: File): Promise<CompanySettings> {
     const formData = new FormData()
     formData.append('logo', file)
 
@@ -102,49 +94,42 @@ class SettingsApi {
   /**
    * Delete company logo
    */
-  async deleteLogo(): Promise<ApiResponse<CompanySettings>> {
+  async deleteLogo(): Promise<CompanySettings> {
     return ApiService.delete<CompanySettings>('/settings/company/logo')
   }
 
   /**
    * Get price and costing settings
    */
-  async getPriceCostingSettings(): Promise<ApiResponse<PriceCostingSettings>> {
+  async getPriceCostingSettings(): Promise<PriceCostingSettings> {
     return ApiService.get<PriceCostingSettings>('/settings/price-costing')
   }
 
   /**
    * Update price and costing settings
    */
-  async updatePriceCostingSettings(data: UpdatePriceCostingSettingsDto): Promise<ApiResponse<PriceCostingSettings>> {
+  async updatePriceCostingSettings(data: UpdatePriceCostingSettingsDto): Promise<PriceCostingSettings> {
     return ApiService.put<PriceCostingSettings>('/settings/price-costing', data)
-  }
-
-  /**
-   * Get active pricing schemes (for use in other modules)
-   */
-  async getActivePricingSchemes(): Promise<ApiResponse<PricingScheme[]>> {
-    return ApiService.get<PricingScheme[]>('/settings/pricing-schemes')
   }
 
   /**
    * Get default currency
    */
-  async getDefaultCurrency(): Promise<ApiResponse<{ currency: string }>> {
+  async getDefaultCurrency(): Promise<{ currency: string }> {
     return ApiService.get<{ currency: string }>('/settings/default-currency')
   }
 
   /**
    * Get document number settings
    */
-  async getDocumentNumberSettings(): Promise<ApiResponse<DocumentNumberSettings>> {
+  async getDocumentNumberSettings(): Promise<DocumentNumberSettings> {
     return ApiService.get<DocumentNumberSettings>('/settings/document-numbers')
   }
 
   /**
    * Update document number settings
    */
-  async updateDocumentNumberSettings(data: UpdateDocumentNumberSettingsDto): Promise<ApiResponse<DocumentNumberSettings>> {
+  async updateDocumentNumberSettings(data: UpdateDocumentNumberSettingsDto): Promise<DocumentNumberSettings> {
     return ApiService.put<DocumentNumberSettings>('/settings/document-numbers', data)
   }
 }

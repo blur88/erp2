@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -43,6 +42,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface ProductCostItem {
   productName: string
@@ -58,7 +58,6 @@ interface ProductCostItem {
 }
 
 const ProductCostReport: React.FC = () => {
-  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
@@ -93,19 +92,41 @@ const ProductCostReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    fetch('/api/inventory/products?limit=1000')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - fetch all pages to get complete list
+    const fetchAllProducts = async () => {
+      try {
+        let allProducts: any[] = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
+          if (response?.data) {
+            allProducts = [...allProducts, ...response.data]
+
+            // Check if there are more pages
+            const meta = response?.meta
+            if (meta && meta.hasNextPage) {
+              page++
+            } else {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
         }
-      })
-      .catch(() => {})
+
+        setProducts(allProducts)
+      } catch (error) {
+        console.error('Failed to load products:', error)
+        setProducts([])
+      }
+    }
+
+    fetchAllProducts()
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
@@ -137,13 +158,7 @@ const ProductCostReport: React.FC = () => {
       if (startDate) params.append('startDate', new Date(startDate).toISOString())
       if (endDate) params.append('endDate', new Date(endDate).toISOString())
 
-      const response = await fetch(`/api/inventory/analytics/product-cost?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
+      const result = await ApiService.get<any>(`/inventory/analytics/product-cost?${params.toString()}`)
       setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
@@ -325,9 +340,6 @@ const ProductCostReport: React.FC = () => {
 
     sortedData.forEach((row, idx) => {
       const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
-      const isLastRow = idx === sortedData.length - 1
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
         // Reset subtotals for new group
@@ -411,9 +423,6 @@ const ProductCostReport: React.FC = () => {
 
     sortedData.forEach((row, idx) => {
       const currentGroupKey = groupBy !== 'none' ? getPdfGroupKey(row) : null
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getPdfGroupKey(nextRow) : null
-      const isLastRow = idx === sortedData.length - 1
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
         // Reset subtotals for new group
@@ -513,6 +522,7 @@ const ProductCostReport: React.FC = () => {
       </html>
     `
 
+    // eslint-disable-next-line deprecation/deprecation
     printWindow.document.write(html)
     printWindow.document.close()
   }
@@ -675,8 +685,10 @@ const ProductCostReport: React.FC = () => {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -686,8 +698,10 @@ const ProductCostReport: React.FC = () => {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -823,8 +837,10 @@ const ProductCostReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -939,7 +955,6 @@ const ProductCostReport: React.FC = () => {
 
                         paginatedData.forEach((row, idx) => {
                           const prevRow = idx > 0 ? paginatedData[idx - 1] : null
-                          const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                           const getGroupKey = (r: any) => {
                             if (groupBy === 'categoryAndProduct') {
@@ -949,8 +964,6 @@ const ProductCostReport: React.FC = () => {
                           }
 
                           const showGroupHeader = groupBy !== 'none' && (!prevRow || getGroupKey(row) !== getGroupKey(prevRow))
-                          const showSubtotal = groupBy !== 'none' && nextRow && getGroupKey(row) !== getGroupKey(nextRow)
-                          const isLastRow = idx === paginatedData.length - 1
 
                           // Reset subtotals when starting a new group
                           if (showGroupHeader) {
@@ -1092,8 +1105,10 @@ const ProductCostReport: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
+        slotProps={{
+          paper: {
+            sx: { height: '90vh', maxHeight: '90vh' }
+          }
         }}
       >
         <DialogTitle sx={{

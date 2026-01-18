@@ -51,6 +51,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface ProductSummary {
   productId: string
@@ -100,9 +101,8 @@ const SalesByProductSummary: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
+    // Load products with authentication
+    ApiService.get<{ data: any[] }>('/inventory/products?limit=100')
       .then(data => {
         if (data?.data) {
           setProducts(data.data)
@@ -110,9 +110,8 @@ const SalesByProductSummary: React.FC = () => {
       })
       .catch(() => {})
 
-    // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    // Load categories with authentication
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         // Handle both response formats: { data: [...] } or direct array
         const categoryData = data?.data || data
@@ -148,14 +147,10 @@ const SalesByProductSummary: React.FC = () => {
         selectedProducts.forEach(productId => params.append('productIds', productId))
       }
 
-      // Call the backend API
-      const response = await fetch(`/api/sales/analytics/product-summary?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const data = await response.json()
+      // Call the backend API with authentication
+      const data = await ApiService.get<{ data: ProductSummary[] }>(
+        `/sales/analytics/product-summary?${params.toString()}`
+      )
       setReportData(data.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)

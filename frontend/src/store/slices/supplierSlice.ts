@@ -58,7 +58,7 @@ export const createSupplier = createAsyncThunk(
   async (data: any, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.createSupplier(data)
-      return response.data
+      return response as any
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create supplier')
     }
@@ -70,8 +70,7 @@ export const updateSupplier = createAsyncThunk(
   async ({ id, data }: { id: string; data: any }, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.updateSupplier(id, data)
-      // API returns the supplier object directly, not wrapped in data
-      return response.data || response
+      return response as any
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update supplier')
     }
@@ -95,7 +94,7 @@ export const restoreSupplier = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.restoreSupplier(id)
-      return response.data
+      return response as any
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore supplier')
     }

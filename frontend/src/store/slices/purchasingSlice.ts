@@ -123,7 +123,7 @@ export const createSupplier = createAsyncThunk(
   async (supplierData: Partial<Supplier>, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.createSupplier(supplierData)
-      return response.data
+      return response // response is already the data from ApiService.post
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create supplier')
     }
@@ -135,7 +135,7 @@ export const createPurchaseOrder = createAsyncThunk(
   async (orderData: Partial<PurchaseOrder>, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.createPurchaseOrder(orderData)
-      return response.data
+      return response // response is already the data from ApiService.post
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create purchase order')
     }
@@ -147,7 +147,7 @@ export const createGoodsReceivedNote = createAsyncThunk(
   async (grnData: Partial<GoodsReceivedNote>, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.createGoodsReceivedNote(grnData)
-      return response.data
+      return response // response is already the data from ApiService.post
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create GRN')
     }
@@ -171,7 +171,7 @@ export const restoreGRN = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.restoreGRN(id)
-      return response.data
+      return response // response is already the data from ApiService.patch
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore GRN')
     }
@@ -183,7 +183,7 @@ export const bulkRestoreGRNs = createAsyncThunk(
   async (grnIds: string[], { rejectWithValue }) => {
     try {
       const response = await purchasingApi.bulkRestoreGRNs(grnIds)
-      return response.data
+      return response // response is already the data from ApiService.post
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore GRNs')
     }
@@ -221,7 +221,7 @@ export const restoreVendorPayment = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await purchasingApi.restoreVendorPayment(id)
-      return response.data
+      return response // response is already the data from ApiService.patch
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore vendor payment')
     }
@@ -233,7 +233,7 @@ export const bulkRestoreVendorPayments = createAsyncThunk(
   async (paymentIds: string[], { rejectWithValue }) => {
     try {
       const response = await purchasingApi.bulkRestoreVendorPayments(paymentIds)
-      return response.data
+      return response // response is already the data from ApiService.post
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore vendor payments')
     }

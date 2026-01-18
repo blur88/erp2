@@ -109,7 +109,7 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
               <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                 Size
               </Typography>
-              <Typography variant="body1">{formatBytes(currentBackup.size)}</Typography>
+              <Typography variant="body1">{formatBytes(typeof currentBackup.size === 'number' ? currentBackup.size : Number(currentBackup.size))}</Typography>
             </Box>
 
             <Box sx={{ flex: '1 1 200px' }}>

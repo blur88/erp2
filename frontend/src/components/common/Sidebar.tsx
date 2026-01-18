@@ -50,6 +50,10 @@ import {
   FormatListNumbered as DocumentNumberIcon,
   Backup as BackupIcon,
   ManageSearch as AuditIcon,
+  People as PeopleIcon,
+  Security as SecurityIcon,
+  Lock as LockIcon,
+  LocalOffer as PriceTagIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -358,6 +362,12 @@ const menuSections: MenuSection[] = [
             path: '/settings/price-costing',
           },
           {
+            id: 'price-lists',
+            title: 'Price Lists',
+            icon: <PriceTagIcon />,
+            path: '/settings/price-lists',
+          },
+          {
             id: 'print-settings',
             title: 'Print Settings',
             icon: <PrintIcon />,
@@ -368,6 +378,24 @@ const menuSections: MenuSection[] = [
             title: 'Document Numbers',
             icon: <DocumentNumberIcon />,
             path: '/settings/document-numbers',
+          },
+          {
+            id: 'users',
+            title: 'Users',
+            icon: <PeopleIcon />,
+            path: '/settings/users',
+          },
+          {
+            id: 'roles',
+            title: 'Roles & Permissions',
+            icon: <SecurityIcon />,
+            path: '/settings/roles',
+          },
+          {
+            id: 'security',
+            title: 'Security',
+            icon: <LockIcon />,
+            path: '/settings/security',
           },
           {
             id: 'backup-restore',

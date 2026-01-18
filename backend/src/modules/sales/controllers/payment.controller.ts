@@ -45,7 +45,7 @@ export class PaymentController {
   async recordPayment(
     @Body() createPaymentDto: CreatePaymentDto,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.create(createPaymentDto, 'system'); // Auth removed - using system user
+    return this.paymentService.create(createPaymentDto);
   }
 
   @Get()
@@ -169,7 +169,7 @@ export class PaymentController {
   async refundPayment(
     @Body() refundDto: RefundPaymentDto,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.refund(refundDto, 'system'); // Auth removed - using system user
+    return this.paymentService.refund(refundDto);
   }
 
   @Post('allocate')

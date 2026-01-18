@@ -147,7 +147,7 @@ const BackupList: React.FC = () => {
                       color={getStatusColor(backup.status) as any}
                     />
                   </TableCell>
-                  <TableCell>{formatBytes(backup.size)}</TableCell>
+                  <TableCell>{formatBytes(typeof backup.size === 'string' ? parseInt(backup.size, 10) : backup.size)}</TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {backup.databases.map((db: string) => (

@@ -25,6 +25,11 @@ export class InventoryAnalyticsController {
     required: false,
     description: 'Filter by category ID',
   })
+  @ApiQuery({
+    name: 'priceListId',
+    required: false,
+    description: 'Price list ID to use for unit price calculation',
+  })
   @ApiResponse({
     status: 200,
     description: 'Inventory summary report retrieved successfully',
@@ -32,6 +37,7 @@ export class InventoryAnalyticsController {
   async getInventorySummary(
     @Query('productIds') productIds?: string | string[],
     @Query('categoryId') categoryId?: string,
+    @Query('priceListId') priceListId?: string,
   ) {
     return this.inventoryAnalyticsService.getInventorySummary({
       productIds: Array.isArray(productIds)
@@ -40,6 +46,7 @@ export class InventoryAnalyticsController {
           ? [productIds]
           : undefined,
       categoryId,
+      priceListId,
     });
   }
 
@@ -160,10 +167,10 @@ export class InventoryAnalyticsController {
     description: 'Filter by category ID',
   })
   @ApiQuery({
-    name: 'priceType',
+    name: 'priceListId',
     required: false,
     type: String,
-    description: 'Price type: retail, wholesale, or special (default: retail)',
+    description: 'Price list ID to use for pricing (uses default if not specified)',
   })
   @ApiQuery({
     name: 'discountPercent',
@@ -178,7 +185,7 @@ export class InventoryAnalyticsController {
   async getPriceList(
     @Query('productIds') productIds?: string | string[],
     @Query('categoryId') categoryId?: string,
-    @Query('priceType') priceType?: string,
+    @Query('priceListId') priceListId?: string,
     @Query('discountPercent') discountPercent?: string,
   ) {
     return this.inventoryAnalyticsService.getPriceList({
@@ -188,7 +195,7 @@ export class InventoryAnalyticsController {
           ? [productIds]
           : undefined,
       categoryId,
-      priceType,
+      priceListId,
       discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
     });
   }

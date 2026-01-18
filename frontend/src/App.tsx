@@ -1,11 +1,19 @@
-import React, { Suspense, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import React, { Suspense, useEffect, useState } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
-import { useAppSelector } from './hooks/useRedux'
+import { useAppSelector, useAppDispatch } from './hooks/useRedux'
 import { selectTheme } from './store/slices/themeSlice'
+import { selectIsAuthenticated, selectRememberMe, logout as logoutAction, clearAuth } from './store/slices/authSlice'
+import { useIdleTimer } from './hooks/useIdleTimer'
+import IdleWarningDialog from './components/auth/IdleWarningDialog'
 
 // Layouts
 import MainLayout from './components/common/MainLayout'
+import ProtectedRoute from './components/auth/ProtectedRoute'
+
+// Auth Pages
+const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
+const MandatoryPasswordChangePage = React.lazy(() => import('./pages/auth/MandatoryPasswordChangePage'))
 
 // Main Pages (lazy loaded)
 const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'))
@@ -51,6 +59,11 @@ const PriceCostingPage = React.lazy(() => import('./pages/settings/PriceCostingP
 const PrintSettingsPage = React.lazy(() => import('./pages/settings/PrintSettingsPage'))
 const DocumentNumbersPage = React.lazy(() => import('./pages/settings/DocumentNumbersPage'))
 const BackupManagement = React.lazy(() => import('./pages/settings/BackupManagement'))
+const UserManagementPage = React.lazy(() => import('./pages/settings/UserManagementPage'))
+const RoleManagementPage = React.lazy(() => import('./pages/settings/RoleManagementPage'))
+const SecuritySettingsPage = React.lazy(() => import('./pages/settings/SecuritySettingsPage'))
+const PriceListsPage = React.lazy(() => import('./pages/settings/PriceListsPage'))
+const PriceListDetailsPage = React.lazy(() => import('./pages/settings/PriceListDetailsPage'))
 const AuditLogsPage = React.lazy(() => import('./pages/audit-logs/AuditLogsPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
@@ -64,21 +77,120 @@ const PageLoader = () => (
 
 function App() {
   const theme = useAppSelector(selectTheme)
+  const isAuthenticated = useAppSelector(selectIsAuthenticated)
+  const rememberMe = useAppSelector(selectRememberMe)
+  const dispatch = useAppDispatch()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const [showIdleWarning, setShowIdleWarning] = useState(false)
+
+  // Auto-logout configuration
+  const IDLE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
+  const WARNING_TIME = 2 * 60 * 1000 // 2 minutes warning
+
+  // Handle auto-logout
+  const handleAutoLogout = React.useCallback(async () => {
+    console.log('⏰ Auto-logout triggered!');
+
+    // Close warning dialog first
+    setShowIdleWarning(false)
+
+    // Get current auth state
+    const state = (window as any).store?.getState()
+    const refreshToken = state?.auth?.refreshToken
+
+    try {
+      // Attempt to logout on server (invalidate refresh token)
+      if (refreshToken) {
+        await dispatch(logoutAction(refreshToken)).unwrap()
+        console.log('✅ Server logout successful')
+      }
+    } catch (error) {
+      console.error('⚠️ Server logout failed:', error)
+      // Continue with local logout even if server logout fails
+    } finally {
+      // Always clear local auth state
+      dispatch(clearAuth())
+      console.log('✅ Local auth state cleared')
+
+      // Navigate to login page
+      navigate('/login', { replace: true })
+    }
+  }, [dispatch, navigate])
+
+  // Memoize activity events to prevent useEffect re-runs
+  const activityEvents = React.useMemo(
+    () => ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'],
+    []
+  )
+
+  // Memoize callbacks
+  const handleIdle = React.useCallback(() => {
+    setShowIdleWarning(true)
+  }, [])
+
+  const handleTimeout = React.useCallback(() => {
+    handleAutoLogout()
+  }, [handleAutoLogout])
+
+  const handleActive = React.useCallback(() => {
+    setShowIdleWarning(false)
+  }, [])
+
+  // Idle timer - only active when authenticated, not on login page, and "Remember me" is NOT checked
+  // If "Remember me" is checked, disable inactivity timeout to allow 7-day session
+  const { remainingTime, reset } = useIdleTimer({
+    timeout: IDLE_TIMEOUT,
+    warningTime: WARNING_TIME,
+    enabled: isAuthenticated && location.pathname !== '/login' && !rememberMe,
+    onIdle: handleIdle,
+    onTimeout: handleTimeout,
+    onActive: handleActive,
+    events: activityEvents,
+  })
+
+  // Handle "Stay Logged In" action
+  const handleStayLoggedIn = () => {
+    setShowIdleWarning(false)
+    reset() // Reset the idle timer
+  }
 
   useEffect(() => {
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', theme.mode)
   }, [theme.mode])
 
+  // Close warning dialog when user logs out manually
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setShowIdleWarning(false)
+    }
+  }, [isAuthenticated])
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* Idle Warning Dialog */}
+      <IdleWarningDialog
+        open={showIdleWarning}
+        remainingSeconds={remainingTime}
+        totalWarningSeconds={WARNING_TIME / 1000}
+        onStayLoggedIn={handleStayLoggedIn}
+        onLogout={handleAutoLogout}
+      />
+
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Main Routes */}
+          {/* Public Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/change-password-required" element={<MandatoryPasswordChangePage />} />
+
+          {/* Protected Routes */}
           <Route
             path="/*"
             element={
-              <MainLayout>
+              <ProtectedRoute>
+                <MainLayout>
                   <Routes>
                     {/* Dashboard */}
                     <Route path="/dashboard" element={<DashboardPage />} />
@@ -135,8 +247,13 @@ function App() {
                     {/* Settings */}
                     <Route path="/settings/company" element={<CompanySettingsPage />} />
                     <Route path="/settings/price-costing" element={<PriceCostingPage />} />
+                    <Route path="/settings/price-lists" element={<PriceListsPage />} />
+                    <Route path="/settings/price-lists/:id" element={<PriceListDetailsPage />} />
                     <Route path="/settings/print" element={<PrintSettingsPage />} />
                     <Route path="/settings/document-numbers" element={<DocumentNumbersPage />} />
+                    <Route path="/settings/users" element={<UserManagementPage />} />
+                    <Route path="/settings/roles" element={<RoleManagementPage />} />
+                    <Route path="/settings/security" element={<SecuritySettingsPage />} />
                     <Route path="/settings/backup" element={<BackupManagement />} />
 
                     {/* Audit Logs */}
@@ -148,7 +265,8 @@ function App() {
                     {/* 404 page */}
                     <Route path="*" element={<NotFoundPage />} />
                   </Routes>
-              </MainLayout>
+                </MainLayout>
+              </ProtectedRoute>
             }
           />
         </Routes>

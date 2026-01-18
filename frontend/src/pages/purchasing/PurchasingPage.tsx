@@ -42,6 +42,7 @@ import { format } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
+import { purchasingApi } from '@/services/purchasingApi'
 
 ChartJS.register(
   CategoryScale,
@@ -70,23 +71,25 @@ const PurchasingPage: React.FC = () => {
       setLoading(true)
 
       // Fetch purchase orders
-      const ordersResponse = await fetch('/api/purchasing/orders?limit=100&sortBy=orderDate&sortOrder=DESC')
+      const ordersResponse = await purchasingApi.getPurchaseOrders({
+        limit: 100,
+        sortBy: 'orderDate',
+        sortOrder: 'DESC' as any
+      })
       let ordersData = []
       let allOrders = []
-      if (ordersResponse.ok) {
-        const ordersResult = await ordersResponse.json()
-        // API returns { orders: [...], total, page, limit }
-        allOrders = ordersResult.orders || ordersResult.data || []
+      if (ordersResponse?.orders) {
+        // Backend returns { orders: [...], total, page, limit, totalPages }
+        allOrders = ordersResponse.orders || []
         ordersData = allOrders.slice(0, 5)
       }
 
       // Fetch suppliers
-      const suppliersResponse = await fetch('/api/purchasing/suppliers?limit=100')
+      const suppliersResponse = await purchasingApi.getSuppliers({ limit: 100 }) as any
       let suppliersData = []
-      if (suppliersResponse.ok) {
-        const suppliersResult = await suppliersResponse.json()
-        // API returns { suppliers: [...], total, page, limit }
-        suppliersData = suppliersResult.suppliers || suppliersResult.data || []
+      if (suppliersResponse?.suppliers) {
+        // Backend returns { suppliers: [...], total, page, limit, totalPages }
+        suppliersData = suppliersResponse.suppliers || []
       }
 
       // Calculate top suppliers from orders
@@ -121,7 +124,8 @@ const PurchasingPage: React.FC = () => {
       const totalSpent = allOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
       const totalOrders = allOrders.length
       const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0
-      // Count active suppliers (not soft-deleted)
+      // Count active suppliers (backend already filters out soft-deleted records)
+      // Note: isActive field is not included in SupplierResponseDto, but all returned suppliers are active
       const activeSuppliers = suppliersData.filter((s: any) => !s.deletedAt).length
 
       // Generate period data for chart (last 30 days)

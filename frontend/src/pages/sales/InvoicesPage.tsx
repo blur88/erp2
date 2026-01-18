@@ -45,7 +45,7 @@ import {
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchInvoices, selectInvoicesState, setSelectedInvoice, selectSelectedInvoice } from '@/store/slices/salesSlice'
+import { fetchInvoices, selectInvoicesState, setSelectedInvoice, selectSelectedInvoice, clearError } from '@/store/slices/salesSlice'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
@@ -370,6 +370,11 @@ const InvoicesPage: React.FC = () => {
         setFocusedInvoiceIndex(0)
         dispatch(setSelectedInvoice(paginatedInvoices[0] as any))
       }
+    } else if (paginatedInvoices.length === 0) {
+      // Clear selection and error when no invoices in list
+      dispatch(setSelectedInvoice(null))
+      dispatch(clearError())
+      setFocusedInvoiceIndex(-1)
     }
   }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice, dispatch])
 

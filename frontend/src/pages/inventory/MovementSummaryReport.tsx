@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface MovementSummary {
   productName: string
@@ -88,19 +89,41 @@ const MovementSummaryReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - fetch all pages to get complete list
+    const fetchAllProducts = async () => {
+      try {
+        let allProducts: any[] = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
+          if (response?.data) {
+            allProducts = [...allProducts, ...response.data]
+
+            // Check if there are more pages
+            const meta = response?.meta
+            if (meta && meta.hasNextPage) {
+              page++
+            } else {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
         }
-      })
-      .catch(() => {})
+
+        setProducts(allProducts)
+      } catch (error) {
+        console.error('Failed to load products:', error)
+        setProducts([])
+      }
+    }
+
+    fetchAllProducts()
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
@@ -133,13 +156,7 @@ const MovementSummaryReport: React.FC = () => {
       if (startDate) params.append('startDate', new Date(startDate).toISOString())
       if (endDate) params.append('endDate', new Date(endDate).toISOString())
 
-      const response = await fetch(`/api/inventory/analytics/movement-summary?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
+      const result = await ApiService.get<any>(`/inventory/analytics/movement-summary?${params.toString()}`)
       setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)

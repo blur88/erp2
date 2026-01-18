@@ -2,19 +2,28 @@
 
 export interface User {
   id: string;
+  username: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  fullName?: string;
+  phoneNumber?: string;
   role: UserRole;
-  permissions: Permission[];
+  status: 'active' | 'inactive' | 'suspended';
   isActive: boolean;
-  lastLogin?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  lastLoginAt?: Date | string;
+  lastLoginIp?: string;
+  failedLoginAttempts: number;
+  lockedUntil?: Date | string;
+  isLocked?: boolean;
+  notes?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
+export type UserRole = 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff';
 
-export type UserRole = 'admin' | 'manager' | 'employee' | 'viewer';
-
+// Legacy permission interface - kept for backward compatibility
 export interface Permission {
   id: string;
   name: string;
@@ -188,7 +197,9 @@ export interface Customer {
   country?: string;
   // Business Information
   isActive: boolean;
-  pricingScheme: string; // Dynamic pricing scheme name (e.g., "Retail", "Wholesale", "VIP")
+  // Price List (normalized pricing system - January 2026)
+  priceListId?: string;
+  priceList?: PriceList;
   // Customer Metrics
   totalSales: number;
   totalOrders: number;
@@ -468,6 +479,17 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// Purchase Orders use a different response structure
+export interface PurchaseOrderListResponse {
+  orders: PurchaseOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 export interface QueryParams {
   page?: number;
   limit?: number;
@@ -538,4 +560,38 @@ export interface AuditLog {
   updatedAt: Date | string;
   deletedAt?: Date | string;
   isActive: boolean;
+}
+
+// Price List types
+export interface PriceList {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+  effectiveFrom?: Date | string;
+  effectiveTo?: Date | string;
+  isActive: boolean;
+  items?: PriceListItem[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+}
+
+export interface PriceListItem {
+  id: string;
+  priceListId: string;
+  priceList?: PriceList;
+  productId: string;
+  product?: Product;
+  price: number;
+  costBasis?: number;
+  marginPercent?: number;
+  minQuantity: number;
+  maxQuantity?: number;
+  notes?: string;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
 }

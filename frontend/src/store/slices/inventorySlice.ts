@@ -149,7 +149,7 @@ export const createProduct = createAsyncThunk(
   async (productData: Partial<Product>, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.createProduct(productData)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create product')
     }
@@ -161,7 +161,7 @@ export const updateProduct = createAsyncThunk(
   async ({ id, data }: { id: string; data: Partial<Product> }, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.updateProduct(id, data)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update product')
     }
@@ -198,7 +198,7 @@ export const restoreProduct = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await inventoryApi.restoreProduct(id)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore product')
     }
@@ -268,7 +268,7 @@ export const createCategory = createAsyncThunk(
       const response = await inventoryApi.createCategory(categoryData)
       // Automatically refresh categories to get updated hierarchical data
       dispatch(fetchCategories({ includeProductCount: true }))
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create category')
     }
@@ -282,7 +282,7 @@ export const updateCategory = createAsyncThunk(
       const response = await inventoryApi.updateCategory(id, data)
       // Automatically refresh categories to get updated hierarchical data
       dispatch(fetchCategories({ includeProductCount: true }))
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update category')
     }
@@ -324,7 +324,7 @@ export const restoreCategory = createAsyncThunk(
       // Automatically refresh both active and deleted categories
       dispatch(fetchCategories({ includeProductCount: true }))
       dispatch(fetchDeletedCategories({}))
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore category')
     }
@@ -467,7 +467,7 @@ export const restoreStockAdjustment = createAsyncThunk(
       // Automatically refresh both active and deleted stock adjustments
       dispatch(fetchStockAdjustments({}))
       dispatch(fetchDeletedStockAdjustments({}))
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore stock adjustment')
     }

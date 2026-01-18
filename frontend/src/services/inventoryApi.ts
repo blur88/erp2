@@ -306,14 +306,15 @@ export const inventoryApi = {
     )
   },
 
-  async getStockLevels(params?: { lowStock?: boolean; outOfStock?: boolean }) {
+  async getLowStockAlerts() {
     return ApiService.get<Array<{
-      product: Product
+      productId: string
+      productName: string
       currentStock: number
-      minStock: number
-      maxStock: number
-      status: 'in_stock' | 'low_stock' | 'out_of_stock'
-    }>>('/inventory/stock/levels', { params })
+      reorderLevel: number
+      optimalStockLevel: number
+      category: string
+    }>>('/inventory/stock/alerts/low-stock')
   },
 
   async stockTake(data: Array<{ productId: string; countedQuantity: number }>) {
@@ -398,6 +399,23 @@ export const inventoryApi = {
         averageValue: number
       }
     }>('/inventory/products/dashboard-stats')
+  },
+
+  async getOutOfStockProducts() {
+    return ApiService.get<Array<{
+      id: string
+      barcode: string
+      name: string
+      stockQuantity: number
+      availableQuantity: number
+      reservedQuantity: number
+      reorderLevel: number
+      stockStatus: string
+      isLowStock: boolean
+      isOutOfStock: boolean
+      categoryName?: string
+      lastMovementDate?: Date
+    }>>('/inventory/products/out-of-stock')
   },
 
   // Costing methods

@@ -19,8 +19,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Menu,
-  ListSubheader,
   Divider,
   Skeleton,
   Alert,
@@ -48,7 +46,7 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices } from '@/store/slices/salesSlice'
+import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices, clearError } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
 import { SalesOrder } from '@/types'
@@ -165,6 +163,7 @@ const OrdersPage: React.FC = () => {
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const processedHighlightRef = useRef<string | null>(null)
+  const userHasNavigatedRef = useRef<boolean>(false)
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -202,6 +201,7 @@ const OrdersPage: React.FC = () => {
   const loadOrders = useCallback(() => {
     const dateRange = getDateRange(orderFilters.dateFilter)
     dispatch(fetchOrders({
+      limit: 1000, // Fetch more orders since pagination was removed
       sortBy: orderFilters.sortBy,
       sortOrder: orderFilters.sortOrder,
       search: orderFilters.search,
@@ -213,20 +213,54 @@ const OrdersPage: React.FC = () => {
     }))
   }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
 
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
-
-  // Refresh persisted selectedOrder on component mount (after browser refresh)
+  // Track if we're on initial mount with persisted selection
   const hasRefreshedPersistedOrder = useRef(false)
+  const isRefreshingPersistedOrder = useRef(false)
+
   useEffect(() => {
-    // Only run once on mount
+    // If we have a persisted selected order on mount, fetch it first, then load the list
     if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
       console.log('Refreshing persisted selectedOrder:', selectedOrder.id)
-      dispatch(fetchOrderById(selectedOrder.id) as any)
+      isRefreshingPersistedOrder.current = true
       hasRefreshedPersistedOrder.current = true
+
+      // Fetch the selected order by ID first to get complete data with invoices/items
+      dispatch(fetchOrderById(selectedOrder.id) as any)
+        .then((result: any) => {
+          if (result.payload) {
+            const order = result.payload.data || result.payload
+            // Set the complete order data from fetchOrderById
+            dispatch(setSelectedOrder(order))
+
+            // Find the index of this order in the list after orders load
+            setTimeout(() => {
+              const orderIndex = orders.findIndex((o: any) => o.id === order.id)
+              if (orderIndex >= 0) {
+                setFocusedOrderIndex(orderIndex)
+              }
+              isRefreshingPersistedOrder.current = false
+            }, 500) // Small delay to ensure orders list has loaded
+          }
+        })
+        .catch(() => {
+          isRefreshingPersistedOrder.current = false
+        })
+
+      // Then load the orders list
+      loadOrders()
+    } else if (!hasRefreshedPersistedOrder.current) {
+      // No persisted selection - just load orders normally
+      hasRefreshedPersistedOrder.current = true
+      loadOrders()
     }
-  }, []) // Empty deps - only run on mount
+  }, []) // Only run once on mount
+
+  // Load orders when filters change (but not on initial mount)
+  useEffect(() => {
+    if (hasRefreshedPersistedOrder.current) {
+      loadOrders()
+    }
+  }, [loadOrders])
 
   // Refresh on route navigation (when coming back from another page)
   const previousPathnameRef = useRef(location.pathname)
@@ -237,20 +271,37 @@ const OrdersPage: React.FC = () => {
       // Also refresh the selected order to get updated customer data
       if (selectedOrder) {
         dispatch(fetchOrderById(selectedOrder.id) as any)
+          .then((result: any) => {
+            if (result.payload) {
+              const order = result.payload.data || result.payload
+              dispatch(setSelectedOrder(order))
+            }
+          })
       }
     }
     previousPathnameRef.current = location.pathname
   }, [location.pathname, loadOrders, selectedOrder, dispatch])
 
-  // Update selected order when fresh data arrives (to reflect customer changes)
+  // Sync selected order with fresh data from orders list (but don't overwrite during refresh)
   useEffect(() => {
-    if (orders && orders.length > 0 && selectedOrder) {
+    if (orders && orders.length > 0 && selectedOrder && !isRefreshingPersistedOrder.current) {
       const freshOrder = orders.find((order: any) => order.id === selectedOrder.id)
       if (freshOrder) {
-        // Only update if the data actually changed (to avoid infinite loops)
-        const hasChanged = JSON.stringify(freshOrder) !== JSON.stringify(selectedOrder)
-        if (hasChanged) {
+        // Check if invoices/items exist in both before comparing
+        const selectedHasInvoices = selectedOrder.invoices && selectedOrder.invoices.length > 0
+        const freshHasInvoices = freshOrder.invoices && freshOrder.invoices.length > 0
+        const selectedHasItems = selectedOrder.items && selectedOrder.items.length > 0
+        const freshHasItems = freshOrder.items && freshOrder.items.length > 0
+
+        // Only update if fresh order has MORE data (avoid overwriting complete data with incomplete)
+        if ((freshHasInvoices && !selectedHasInvoices) || (freshHasItems && !selectedHasItems)) {
           dispatch(setSelectedOrder(freshOrder))
+        } else if (!selectedHasInvoices && !freshHasInvoices && !selectedHasItems && !freshHasItems) {
+          // Both incomplete - check for other changes
+          const hasChanged = JSON.stringify(freshOrder) !== JSON.stringify(selectedOrder)
+          if (hasChanged) {
+            dispatch(setSelectedOrder(freshOrder))
+          }
         }
       }
     }
@@ -305,10 +356,12 @@ const OrdersPage: React.FC = () => {
   // Select order when clicked - memoized to prevent re-renders
   const handleOrderSelect = useCallback((order: SalesOrder) => {
     dispatch(setSelectedOrder(order))
-    const orderIndex = orders.findIndex(o => o.id === order.id)
+    const orderIndex = orders.findIndex((o: SalesOrder) => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
     // Fetch full order details with invoices and payments
     dispatch(fetchOrderById(order.id) as any)
+    // Mark that user has manually navigated
+    userHasNavigatedRef.current = true
   }, [dispatch, orders])
 
 
@@ -335,7 +388,7 @@ const OrdersPage: React.FC = () => {
           break
         case 'delete':
           // Show confirmation dialog instead of deleting immediately
-          const order = orders.find(o => o.id === orderId)
+          const order = orders.find((o: SalesOrder) => o.id === orderId)
           if (order) {
             // Check if order is fulfilled or paid
             const isFulfilled = order.isFulfilled
@@ -415,7 +468,7 @@ const OrdersPage: React.FC = () => {
     if (!selectedOrder) return
 
     // Calculate the new total paid amount
-    let newPaidAmount
+    let newPaidAmount: number
     let paymentToAdd = 0
 
     if (paymentAmount) {
@@ -441,36 +494,20 @@ const OrdersPage: React.FC = () => {
       dispatch(updateOrderInPlace(optimisticUpdate))
       setPaymentAmount('')
 
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/record-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount: newPaidAmount }),
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        // Fetch full order details to get updated invoices and payments
-        dispatch(fetchOrderById(selectedOrder.id) as any)
-        // Refresh invoices to show updated payment amounts
-        dispatch(fetchInvoices({ page: 1, limit: 20 }))
-        showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
-      } else {
-        // Revert optimistic update on error
-        dispatch(updateOrderInPlace(selectedOrder))
-        setPaymentAmount(paymentToAdd.toString())
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to record payment'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
+      dispatch(updateOrderInPlace(response.data))
+      // Fetch full order details to get updated invoices and payments
+      dispatch(fetchOrderById(selectedOrder.id) as any)
+      // Refresh invoices to show updated payment amounts
+      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+      showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+    } catch (error: any) {
       // Revert optimistic update on error
       dispatch(updateOrderInPlace(selectedOrder))
       setPaymentAmount(paymentToAdd.toString())
       console.error('Error recording payment:', error)
-      showError('Error recording payment. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error recording payment. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -481,33 +518,23 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      await salesApi.unpayOrder(selectedOrder.id)
 
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        // Refresh invoices to show updated payment amounts
-        dispatch(fetchInvoices({ page: 1, limit: 20 }))
-        // Refresh the orders list to show updated state
-        dispatch(fetchOrders({
-          search: orderFilters.search || '',
-          paymentStatus: orderFilters.paymentStatus || 'all',
-          fulfillmentStatus: orderFilters.fulfillmentStatus || 'all'
-        }))
-        showSuccess('Payment cleared successfully')
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to clear payment'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      // Re-fetch full order details to get updated invoice/items with proper relations
+      await dispatch(fetchOrderById(selectedOrder.id) as any)
+
+      // Refresh invoices to show updated payment amounts
+      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+
+      // Note: NOT calling fetchOrders here because it would overwrite selectedOrder
+      // with a shallow version from the list that doesn't have full invoice/item relations.
+      // The order list will be updated by the useEffect that syncs from selectedOrder changes.
+
+      showSuccess('Payment cleared successfully')
+    } catch (error: any) {
       console.error('Error unpaying order:', error)
-      showError('Error clearing payment. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error clearing payment. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -530,32 +557,17 @@ const OrdersPage: React.FC = () => {
       }
       dispatch(updateOrderInPlace(optimisticUpdate))
 
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/record-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount: newPaidAmount }),
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        // Refresh invoices to show updated payment amounts
-        dispatch(fetchInvoices({ page: 1, limit: 20 }))
-        showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
-      } else {
-        // Revert optimistic update on error
-        dispatch(updateOrderInPlace(selectedOrder))
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to process refund'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
+      dispatch(updateOrderInPlace(response.data))
+      // Refresh invoices to show updated payment amounts
+      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+      showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
+    } catch (error: any) {
       // Revert optimistic update on error
       dispatch(updateOrderInPlace(selectedOrder))
       console.error('Error processing refund:', error)
-      showError('Error processing refund. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error processing refund. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -566,25 +578,13 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/fulfill-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order fulfilled successfully! Inventory has been deducted.')
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to fulfill order'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.fulfillOrder(selectedOrder.id)
+      dispatch(updateOrderInPlace(response.data))
+      showSuccess('Order fulfilled successfully! Inventory has been deducted.')
+    } catch (error: any) {
       console.error('Error fulfilling order:', error)
-      showError('Error fulfilling order. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error fulfilling order. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -595,25 +595,13 @@ const OrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order unfulfilled successfully - inventory restored')
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to unfulfill order'
-        showError(errorMessage)
-      }
-    } catch (error) {
+      const response = await salesApi.unfulfillOrder(selectedOrder.id)
+      dispatch(updateOrderInPlace(response.data))
+      showSuccess('Order unfulfilled successfully - inventory restored')
+    } catch (error: any) {
       console.error('Error unfulfilling order:', error)
-      showError('Error unfulfilling order. Please try again.')
+      const errorMessage = error?.response?.data?.message || 'Error unfulfilling order. Please try again.'
+      showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -833,122 +821,84 @@ const OrdersPage: React.FC = () => {
   const handleUnpayAndDelete = async () => {
     if (!selectedOrder) return
 
+    // Capture order details before any async operations to avoid race conditions
+    const orderId = selectedOrder.id
+    const orderNumber = selectedOrder.orderNumber || selectedOrder.id
+    const isFulfilled = selectedOrder.isFulfilled
+
     setIsLoading(true)
     try {
-      // Check if also fulfilled - if so, unfulfill first before unpay
-      const isFulfilled = selectedOrder.isFulfilled
-
       if (isFulfilled) {
         // Step 1: Unfulfill first (required before unpay)
-        const unfulfillResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unfulfill-order`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-
-        if (!unfulfillResponse.ok) {
-          const errorData = await unfulfillResponse.json()
-          throw new Error(errorData?.message || 'Failed to unfulfill order')
-        }
+        await salesApi.unfulfillOrder(orderId)
 
         // Step 2: Then unpay
-        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
+        await salesApi.unpayOrder(orderId)
 
-        if (!unpayResponse.ok) {
-          const errorData = await unpayResponse.json()
-          throw new Error(errorData?.message || 'Failed to unpay order')
-        }
-
-        const updatedOrder = await unpayResponse.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order unfulfilled and unpaid successfully')
+        showSuccess('Order unfulfilled and unpaid - now deleting...')
       } else {
         // Only unpay
-        const unpayResponse = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
+        await salesApi.unpayOrder(orderId)
 
-        if (!unpayResponse.ok) {
-          const errorData = await unpayResponse.json()
-          throw new Error(errorData?.message || 'Failed to unpay order')
-        }
-
-        const updatedOrder = await unpayResponse.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order unpaid successfully')
+        showSuccess('Order unpaid - now deleting...')
       }
 
+      // Close the blocked dialog
       setBlockedDialogOpen(false)
 
-      // Now proceed with delete
-      setOrderToDelete(selectedOrder.id)
-      setOrderToDeleteName(selectedOrder.orderNumber || selectedOrder.id)
-      setDeleteConfirmOpen(true)
-    } catch (error: any) {
-      console.error('Error preparing order for deletion:', error)
-      showError(error.message || 'Error preparing order for deletion. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      // Step 3: Delete the order directly
+      // The delete endpoint will verify the order is in correct state
+      const result = await dispatch(deleteOrder(orderId))
 
-  const handleUnpayOnly = async () => {
-    if (!selectedOrder) return
-
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/sales-orders/${selectedOrder.id}/unpay`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
-        showSuccess('Order unpaid successfully - payment removed')
-        setBlockedDialogOpen(false)
-      } else {
-        const errorData = await response.json()
-        const errorMessage = errorData?.message || 'Failed to unpay order'
+      if (deleteOrder.fulfilled.match(result)) {
+        showSuccess(`Order "${orderNumber}" deleted successfully`)
+      } else if (deleteOrder.rejected.match(result)) {
+        const errorMessage = result.payload as string || 'Failed to delete order'
         showError(errorMessage)
       }
-    } catch (error) {
-      console.error('Error unpaying order:', error)
-      showError('Error unpaying order. Please try again.')
+    } catch (error: any) {
+      console.error('Error preparing order for deletion:', error)
+      showError(error?.response?.data?.message || error.message || 'Error preparing order for deletion. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Auto-focus first order when orders load (only if search input is not focused)
+
+  // Auto-focus order when orders load
   useEffect(() => {
-    if (orders.length > 0 && focusedOrderIndex === -1) {
-      // Only auto-focus if we don't have a selected order AND search input is not focused
-      if (!selectedOrder && searchInputRef.current !== document.activeElement) {
+    // Check if there's a highlightOrderId in location.state OR if we recently processed one
+    const state = location.state as { highlightOrderId?: string }
+    const hasHighlightOrderId = !!state?.highlightOrderId || !!processedHighlightRef.current
+
+    if (orders.length > 0 && focusedOrderIndex === -1 && !isRefreshingPersistedOrder.current) {
+      if (selectedOrder) {
+        // We have a selected order - find its index and focus it
+        const orderIndex = orders.findIndex((o: any) => o.id === selectedOrder.id)
+        if (orderIndex >= 0) {
+          setFocusedOrderIndex(orderIndex)
+        } else {
+          // Selected order not in current list (due to filters) - focus first order but keep selection
+          setFocusedOrderIndex(0)
+        }
+      } else if (searchInputRef.current !== document.activeElement && !hasHighlightOrderId) {
+        // No selected order - auto-focus and select first order
         setFocusedOrderIndex(0)
-        // Automatically show order details for the first order
         dispatch(setSelectedOrder(orders[0]))
-        // Fetch full order details with invoices and payments
         dispatch(fetchOrderById(orders[0].id) as any)
       }
+    } else if (orders.length === 0) {
+      // Clear selection and error when no orders in list
+      dispatch(setSelectedOrder(null))
+      dispatch(clearError())
+      setFocusedOrderIndex(-1)
     }
-  }, [orders, focusedOrderIndex, selectedOrder, dispatch])
+  }, [orders, focusedOrderIndex, selectedOrder, dispatch, location.state])
 
   // Handle pending order selection after orders load
   useEffect(() => {
     if (pendingOrderToSelect && orders.length > 0) {
-      const orderIndex = orders.findIndex(o => o.id === pendingOrderToSelect)
+      const orderIndex = orders.findIndex((o: SalesOrder) => o.id === pendingOrderToSelect)
       if (orderIndex >= 0) {
         dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)
@@ -963,23 +913,27 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     const state = location.state as { highlightOrderId?: string }
     if (state?.highlightOrderId && orders.length > 0) {
-      // Only process if we haven't already processed this highlight ID
-      if (processedHighlightRef.current !== state.highlightOrderId) {
-        const orderIndex = orders.findIndex(o => o.id === state.highlightOrderId)
-        if (orderIndex >= 0) {
+      const orderIndex = orders.findIndex((o: SalesOrder) => o.id === state.highlightOrderId)
+      if (orderIndex >= 0) {
+        // Only process if we haven't already processed this highlight ID
+        if (processedHighlightRef.current !== state.highlightOrderId) {
           dispatch(setSelectedOrder(orders[orderIndex]))
           setFocusedOrderIndex(orderIndex)
           // Fetch full order details with invoices and payments
           dispatch(fetchOrderById(orders[orderIndex].id) as any)
-          // Mark this ID as processed
+          // Mark this ID as processed and reset navigation flag
           processedHighlightRef.current = state.highlightOrderId
-          // Clear the state to prevent repeated highlighting
-          window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          userHasNavigatedRef.current = false
+        } else if (!userHasNavigatedRef.current) {
+          // Already processed, but update focusedOrderIndex if order position changed
+          // ONLY if user hasn't manually navigated away yet
+          setFocusedOrderIndex(orderIndex)
         }
       }
     } else if (!state?.highlightOrderId) {
       // Reset when there's no highlightOrderId (e.g., normal navigation)
       processedHighlightRef.current = null
+      userHasNavigatedRef.current = false
     }
   }, [orders, location.state, dispatch])
 
@@ -1003,6 +957,10 @@ const OrdersPage: React.FC = () => {
       const newIndex = focusedOrderIndex - 1
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
@@ -1011,6 +969,10 @@ const OrdersPage: React.FC = () => {
       const newIndex = focusedOrderIndex + 1
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
@@ -1018,6 +980,10 @@ const OrdersPage: React.FC = () => {
     if (orders.length > 0) {
       setFocusedOrderIndex(0)
       dispatch(setSelectedOrder(orders[0]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[0].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [orders, dispatch])
 
@@ -1026,6 +992,10 @@ const OrdersPage: React.FC = () => {
       const lastIndex = orders.length - 1
       setFocusedOrderIndex(lastIndex)
       dispatch(setSelectedOrder(orders[lastIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[lastIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [orders, dispatch])
 
@@ -1035,6 +1005,10 @@ const OrdersPage: React.FC = () => {
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
@@ -1044,6 +1018,10 @@ const OrdersPage: React.FC = () => {
     setFocusedOrderIndex(newIndex)
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      // Mark that user has manually navigated
+      userHasNavigatedRef.current = true
     }
   }, [focusedOrderIndex, orders, dispatch])
 
@@ -1052,26 +1030,6 @@ const OrdersPage: React.FC = () => {
       navigate(`/sales/orders/${orders[focusedOrderIndex].id}/edit`)
     }
   }, [focusedOrderIndex, orders, navigate])
-
-  const handleEditAction = () => {
-    if (selectedOrder) {
-      navigate(`/sales/orders/${selectedOrder.id}/edit`)
-    }
-  }
-
-  const handleDeleteAction = () => {
-    if (selectedOrder) {
-      handleOrderAction('delete', selectedOrder.id)
-    }
-  }
-
-  const handleViewDeletedAction = () => {
-    setDeletedOrdersDialogOpen(true)
-  }
-
-  const handleAddOrder = () => {
-    navigate('/sales/orders/create')
-  }
 
   const handleNavigateToInvoice = useCallback((invoice: any, event?: React.MouseEvent) => {
     if (event) {
@@ -1096,13 +1054,6 @@ const OrdersPage: React.FC = () => {
     setDeletedOrdersDialogOpen(false)
     setDeleteConfirmOpen(false)
   }, [dispatch])
-
-  const clearDialogs = () => {
-    setViewDialog(false)
-    setBlockedDialogOpen(false)
-    setDeletedOrdersDialogOpen(false)
-    setDeleteConfirmOpen(false)
-  }
 
   // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
@@ -1220,12 +1171,14 @@ const OrdersPage: React.FC = () => {
               }
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
         <FormControl
@@ -1289,8 +1242,10 @@ const OrdersPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
             <TextField
@@ -1308,8 +1263,10 @@ const OrdersPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
           </>
@@ -1711,7 +1668,7 @@ const OrdersPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
                               {selectedOrder.invoices && selectedOrder.invoices.length > 0 ? (
-                                selectedOrder.invoices.map((invoice, index) => (
+                                selectedOrder.invoices.map((invoice: any, index: number) => (
                                   <Box key={invoice.id} component="span">
                                     <Typography
                                       component="button"
@@ -1909,7 +1866,7 @@ const OrdersPage: React.FC = () => {
                                       size="small"
                                       type="number"
                                       placeholder={`Add: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
-                                      inputProps={{ min: 0, step: 0.01 }}
+                                      slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                                       sx={{
                                         width: '120px',
                                         '& .MuiInputBase-root': {
@@ -2452,7 +2409,6 @@ const OrdersPage: React.FC = () => {
           onUnfulfillAndEdit={handleUnfulfillAndEdit}
           onUnfulfillOnly={handleUnfulfillOnly}
           onUnpayAndEdit={handleUnpayAndEdit}
-          onUnpayOnly={handleUnpayOnly}
           onUnfulfillAndDelete={handleUnfulfillAndDelete}
           onUnpayAndDelete={handleUnpayAndDelete}
           loading={isLoading}

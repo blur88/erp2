@@ -33,7 +33,6 @@ import * as yup from 'yup'
 import { purchasingApi } from '@/services/purchasingApi'
 import { ApiService } from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
-import { formatCurrencyInput } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction, fetchGoodsReceivedNotes } from '@/store/slices/purchasingSlice'
@@ -310,14 +309,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
         dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
 
         showSuccess('Purchase order updated successfully')
+        // Navigate to orders page with the updated order selected
+        navigate('/purchasing/orders', { state: { highlightOrderId: id } })
       } else {
         // Use Redux action to create order - this will auto-select it
-        await dispatch(createPurchaseOrderAction(orderData as any)).unwrap()
+        const result = await dispatch(createPurchaseOrderAction(orderData as any)).unwrap()
         showSuccess('Purchase order created successfully')
+        // Navigate to orders page with the new order selected
+        navigate('/purchasing/orders', { state: { highlightOrderId: result.id } })
       }
-
-      // Navigate back without needing refresh state
-      navigate('/purchasing/orders')
     } catch (err: any) {
       console.error('Error creating purchase order:', err)
       setError(err.response?.data?.message || 'Failed to create purchase order')
@@ -472,7 +472,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             {...field}
                             label="Order Date"
                             type="date"
-                            InputLabelProps={{ shrink: true }}
+                            slotProps={{ inputLabel: { shrink: true } }}
                             error={!!errors.orderDate}
                             helperText={errors.orderDate?.message}
                             required
@@ -662,7 +662,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                         setDisplayValue(formatQuantity(qtyField.value))
                                       }}
                                       variant="outlined"
-                                      inputProps={{ style: { textAlign: 'center', fontSize: '0.875rem' } }}
+                                      slotProps={{ htmlInput: { style: { textAlign: 'center', fontSize: '0.875rem' } } }}
                                       error={!!errors.items?.[index]?.quantity}
                                     />
                                   );
@@ -700,11 +700,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                         setDisplayValue(formatNumberWithCommas(priceField.value))
                                       }}
                                       variant="outlined"
-                                      inputProps={{
-                                        style: { textAlign: 'right', fontSize: '0.875rem' }
-                                      }}
-                                      InputProps={{
-                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+                                      slotProps={{
+                                        htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
+                                        input: { startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span> }
                                       }}
                                       error={!!errors.items?.[index]?.unitPrice}
                                     />
@@ -744,8 +742,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                           setDisplayValue(formatNumberWithCommas(discountField.value))
                                         }}
                                         variant="outlined"
-                                        inputProps={{
-                                          style: { textAlign: 'right', fontSize: '0.875rem' }
+                                        slotProps={{
+                                          htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } }
                                         }}
                                         error={!!errors.items?.[index]?.discountValue}
                                         sx={{
@@ -770,12 +768,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                           padding: '6px 4px',
                                         }
                                       }}
-                                      SelectProps={{
-                                        MenuProps: {
-                                          PaperProps: {
-                                            sx: {
-                                              '& .MuiMenuItem-root': {
-                                                fontSize: '0.875rem',
+                                      slotProps={{
+                                        select: {
+                                          MenuProps: {
+                                            PaperProps: {
+                                              sx: {
+                                                '& .MuiMenuItem-root': {
+                                                  fontSize: '0.875rem',
+                                                }
                                               }
                                             }
                                           }
@@ -913,17 +913,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             }}
                             variant="outlined"
                             size="small"
-                            inputProps={{
-                              style: { textAlign: 'right', fontSize: '0.875rem' }
+                            slotProps={{
+                              htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
+                              input: { startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span> }
                             }}
                             sx={{
                               width: '120px',
                               '& .MuiInputBase-input': {
                                 padding: '4px 8px',
                               },
-                            }}
-                            InputProps={{
-                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                             }}
                           />
                         );

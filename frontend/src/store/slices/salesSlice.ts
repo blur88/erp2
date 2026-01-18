@@ -184,7 +184,7 @@ export const restoreOrder = createAsyncThunk(
   async (orderId: string, { rejectWithValue }) => {
     try {
       const response = await salesApi.restoreOrder(orderId)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore order')
     }
@@ -269,7 +269,7 @@ export const restoreInvoice = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await salesApi.restoreInvoice(id)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore invoice')
     }
@@ -281,7 +281,7 @@ export const bulkRestoreInvoices = createAsyncThunk(
   async (invoiceIds: string[], { rejectWithValue }) => {
     try {
       const response = await salesApi.bulkRestoreInvoices(invoiceIds)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore invoices')
     }
@@ -305,7 +305,7 @@ export const createCustomer = createAsyncThunk(
   async (customerData: Partial<Customer>, { rejectWithValue }) => {
     try {
       const response = await salesApi.createCustomer(customerData)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create customer')
     }
@@ -317,7 +317,7 @@ export const createOrder = createAsyncThunk(
   async (orderData: Partial<SalesOrder>, { rejectWithValue }) => {
     try {
       const response = await salesApi.createOrder(orderData)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create order')
     }
@@ -329,7 +329,7 @@ export const updateOrder = createAsyncThunk(
   async ({ id, orderData }: { id: string; orderData: Partial<SalesOrder> }, { rejectWithValue }) => {
     try {
       const response = await salesApi.updateOrder(id, orderData)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update order')
     }
@@ -341,7 +341,7 @@ export const createInvoice = createAsyncThunk(
   async (invoiceData: Partial<Invoice>, { rejectWithValue }) => {
     try {
       const response = await salesApi.createInvoice(invoiceData)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create invoice')
     }
@@ -353,7 +353,7 @@ export const recordPayment = createAsyncThunk(
   async (paymentData: Partial<Payment>, { rejectWithValue }) => {
     try {
       const response = await salesApi.recordPayment(paymentData)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to record payment')
     }
@@ -377,7 +377,7 @@ export const restorePayment = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await salesApi.restorePayment(id)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore payment')
     }
@@ -389,7 +389,7 @@ export const bulkRestorePayments = createAsyncThunk(
   async (paymentIds: string[], { rejectWithValue }) => {
     try {
       const response = await salesApi.bulkRestorePayments(paymentIds)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore payments')
     }
@@ -413,7 +413,7 @@ export const restoreCustomer = createAsyncThunk(
   async (customerId: string, { rejectWithValue }) => {
     try {
       const response = await salesApi.restoreCustomer(customerId)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore customer')
     }
@@ -425,7 +425,7 @@ export const bulkRestoreCustomers = createAsyncThunk(
   async (customerIds: string[], { rejectWithValue }) => {
     try {
       const response = await salesApi.bulkRestoreCustomers(customerIds)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore customers')
     }
@@ -437,7 +437,7 @@ export const permanentDeleteCustomer = createAsyncThunk(
   async (customerId: string, { rejectWithValue }) => {
     try {
       const response = await salesApi.permanentDeleteCustomer(customerId)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete customer')
     }
@@ -449,7 +449,7 @@ export const bulkPermanentDeleteCustomers = createAsyncThunk(
   async (customerIds: string[], { rejectWithValue }) => {
     try {
       const response = await salesApi.bulkPermanentDeleteCustomers(customerIds)
-      return response.data
+      return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to bulk permanently delete customers')
     }
@@ -771,7 +771,8 @@ const salesSlice = createSlice({
     builder
       .addCase(createCustomer.fulfilled, (state, action) => {
         if (action.payload) {
-          state.customers.unshift(action.payload)
+          const customer = (action.payload as any).data || action.payload
+          state.customers.unshift(customer)
         }
       })
 
@@ -779,7 +780,8 @@ const salesSlice = createSlice({
     builder
       .addCase(createOrder.fulfilled, (state, action) => {
         if (action.payload) {
-          state.orders.unshift(action.payload)
+          const order = (action.payload as any).data || action.payload
+          state.orders.unshift(order)
         }
       })
 
@@ -787,14 +789,15 @@ const salesSlice = createSlice({
     builder
       .addCase(updateOrder.fulfilled, (state, action) => {
         if (action.payload) {
+          const order = (action.payload as any).data || action.payload
           // Find and update the order in the list
-          const index = state.orders.findIndex(order => order.id === action.payload.id)
+          const index = state.orders.findIndex(o => o.id === order.id)
           if (index !== -1) {
-            state.orders[index] = action.payload
+            state.orders[index] = order
           }
           // Update selected order if it's the same one
-          if (state.selectedOrder?.id === action.payload.id) {
-            state.selectedOrder = action.payload
+          if (state.selectedOrder?.id === order.id) {
+            state.selectedOrder = order
           }
         }
       })
@@ -803,7 +806,8 @@ const salesSlice = createSlice({
     builder
       .addCase(createInvoice.fulfilled, (state, action) => {
         if (action.payload) {
-          state.invoices.unshift(action.payload)
+          const invoice = (action.payload as any).data || action.payload
+          state.invoices.unshift(invoice)
         }
       })
 
@@ -811,7 +815,8 @@ const salesSlice = createSlice({
     builder
       .addCase(recordPayment.fulfilled, (state, action) => {
         if (action.payload) {
-          state.payments.unshift(action.payload)
+          const payment = (action.payload as any).data || action.payload
+          state.payments.unshift(payment)
         }
       })
 
@@ -880,29 +885,30 @@ const salesSlice = createSlice({
     builder
       .addCase(restoreCustomer.fulfilled, (state, action) => {
         if (action.payload) {
+          const customer = (action.payload as any).data || action.payload
           // Remove from deleted customers list
-          state.deletedCustomers = state.deletedCustomers.filter(c => c.id !== action.payload.id)
+          state.deletedCustomers = state.deletedCustomers.filter(c => c.id !== customer.id)
           // Add to active customers list
-          state.customers.unshift(action.payload)
+          state.customers.unshift(customer)
         }
       })
 
     // Bulk Restore Customers
     builder
-      .addCase(bulkRestoreCustomers.fulfilled, (state, action) => {
+      .addCase(bulkRestoreCustomers.fulfilled, (_state, _action) => {
         // This will be handled by refreshing the lists
       })
 
     // Permanent Delete Customer
     builder
-      .addCase(permanentDeleteCustomer.fulfilled, (state, action) => {
+      .addCase(permanentDeleteCustomer.fulfilled, (_state, _action) => {
         // Remove from deleted customers list (action.payload should contain the deleted customer ID)
         // For permanent delete, we'll refresh the deleted customers list instead
       })
 
     // Bulk Permanent Delete Customers
     builder
-      .addCase(bulkPermanentDeleteCustomers.fulfilled, (state, action) => {
+      .addCase(bulkPermanentDeleteCustomers.fulfilled, (_state, _action) => {
         // This will be handled by refreshing the lists
       })
   },

@@ -11,7 +11,7 @@ interface CustomerState {
   filters: {
     search?: string
     type?: CustomerType
-    pricingScheme?: string
+    priceListId?: string
     isActive?: boolean
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'
@@ -33,7 +33,7 @@ export const fetchCustomers = createAsyncThunk(
   async (params?: {
     search?: string
     type?: CustomerType
-    pricingScheme?: string
+    priceListId?: string
     isActive?: boolean
     sortBy?: string
     sortOrder?: 'ASC' | 'DESC'

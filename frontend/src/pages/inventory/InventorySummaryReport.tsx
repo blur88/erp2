@@ -43,18 +43,20 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
+import { priceListApi } from '@/services/priceListApi'
+import type { PriceList } from '@/types'
 
 interface InventorySummary {
+  productId: string
   productName: string
   categoryName: string
   type: string
   baseCost: number
-  retailPrice: number
-  wholesalePrice: number
-  specialPrice: number
+  unitPrice: number
   stockQuantity: number
   inventoryValue: number
-  retailValue: number
+  salesValue: number
   potentialProfit: number
   status: string
 }
@@ -67,11 +69,12 @@ const InventorySummaryReport: React.FC = () => {
   const [reportData, setReportData] = useState<InventorySummary[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
+  const [priceLists, setPriceLists] = useState<PriceList[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
 
   // Options
-  const [pricingType, setPricingType] = useState<string>('retailPrice')
+  const [selectedPriceList, setSelectedPriceList] = useState<string>('')
 
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
@@ -94,19 +97,18 @@ const InventorySummaryReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - backend limits to max 100 per request
+    ApiService.get<any>('/inventory/products?limit=100')
+      .then(response => {
+        // ApiService.get returns the response body directly, which has { data, meta } structure
+        if (response?.data) {
+          setProducts(response.data)
         }
       })
       .catch(() => {})
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
@@ -123,6 +125,21 @@ const InventorySummaryReport: React.FC = () => {
         }
       })
       .catch(() => {})
+
+    // Load effective price lists
+    priceListApi.getEffectivePriceLists()
+      .then(data => {
+        const priceListData = (data as any)?.data || data
+        if (Array.isArray(priceListData)) {
+          setPriceLists(priceListData)
+          // Set default price list if available
+          const defaultPriceList = priceListData.find((pl: PriceList) => pl.isDefault)
+          if (defaultPriceList) {
+            setSelectedPriceList(defaultPriceList.id)
+          }
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const handleGenerateReport = async () => {
@@ -136,14 +153,9 @@ const InventorySummaryReport: React.FC = () => {
       if (selectedProducts.length > 0) {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
+      if (selectedPriceList) params.append('priceListId', selectedPriceList)
 
-      const response = await fetch(`/api/inventory/analytics/inventory-summary?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
+      const result = await ApiService.get<any>(`/inventory/analytics/inventory-summary?${params.toString()}`)
       setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
@@ -156,7 +168,9 @@ const InventorySummaryReport: React.FC = () => {
   const handleClearFilters = () => {
     setSelectedProducts([])
     setSelectedCategory('')
-    setPricingType('retailPrice')
+    // Reset to default price list
+    const defaultPriceList = priceLists.find(pl => pl.isDefault)
+    setSelectedPriceList(defaultPriceList?.id || '')
     setReportData([])
     setSelectedColumns(['productName', 'categoryName', 'qtyAvailable', 'averageCost', 'totalCostValue', 'unitPrice', 'totalSalesValue'])
     setGroupBy('none')
@@ -331,15 +345,9 @@ const InventorySummaryReport: React.FC = () => {
         } else if (col === 'totalCostValue') {
           return row.inventoryValue.toFixed(2)
         } else if (col === 'unitPrice') {
-          const price = pricingType === 'retailPrice' ? row.retailPrice :
-                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                       row.specialPrice
-          return price.toFixed(2)
+          return row.unitPrice.toFixed(2)
         } else if (col === 'totalSalesValue') {
-          const price = pricingType === 'retailPrice' ? row.retailPrice :
-                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                       row.specialPrice
-          return (price * row.stockQuantity).toFixed(2)
+          return row.salesValue.toFixed(2)
         }
 
         const value = (row as any)[col]
@@ -458,16 +466,10 @@ const InventorySummaryReport: React.FC = () => {
           displayValue = formatCurrency(row.inventoryValue)
           align = 'text-align: right;'
         } else if (col === 'unitPrice') {
-          const price = pricingType === 'retailPrice' ? row.retailPrice :
-                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                       row.specialPrice
-          displayValue = formatCurrency(price)
+          displayValue = formatCurrency(row.unitPrice)
           align = 'text-align: right;'
         } else if (col === 'totalSalesValue') {
-          const price = pricingType === 'retailPrice' ? row.retailPrice :
-                       pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                       row.specialPrice
-          displayValue = formatCurrency(price * row.stockQuantity)
+          displayValue = formatCurrency(row.salesValue)
           align = 'text-align: right;'
         } else {
           const value = (row as any)[col]
@@ -623,21 +625,11 @@ const InventorySummaryReport: React.FC = () => {
         aVal = a.inventoryValue
         bVal = b.inventoryValue
       } else if (field === 'unitPrice') {
-        aVal = pricingType === 'retailPrice' ? a.retailPrice :
-               pricingType === 'wholesalePrice' ? a.wholesalePrice :
-               a.specialPrice
-        bVal = pricingType === 'retailPrice' ? b.retailPrice :
-               pricingType === 'wholesalePrice' ? b.wholesalePrice :
-               b.specialPrice
+        aVal = a.unitPrice
+        bVal = b.unitPrice
       } else if (field === 'totalSalesValue') {
-        const aPrice = pricingType === 'retailPrice' ? a.retailPrice :
-                      pricingType === 'wholesalePrice' ? a.wholesalePrice :
-                      a.specialPrice
-        const bPrice = pricingType === 'retailPrice' ? b.retailPrice :
-                      pricingType === 'wholesalePrice' ? b.wholesalePrice :
-                      b.specialPrice
-        aVal = aPrice * a.stockQuantity
-        bVal = bPrice * b.stockQuantity
+        aVal = a.salesValue
+        bVal = b.salesValue
       } else {
         aVal = a[field]
         bVal = b[field]
@@ -846,16 +838,21 @@ const InventorySummaryReport: React.FC = () => {
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                   <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Pricing</InputLabel>
+                    <InputLabel>Price List</InputLabel>
                     <Select
-                      value={pricingType}
-                      label="Pricing"
-                      onChange={(e) => setPricingType(e.target.value)}
+                      value={selectedPriceList}
+                      label="Price List"
+                      onChange={(e) => setSelectedPriceList(e.target.value)}
                       MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
                     >
-                      <MenuItem value="retailPrice">Retail Price</MenuItem>
-                      <MenuItem value="wholesalePrice">Wholesale Price</MenuItem>
-                      <MenuItem value="specialPrice">Special Price</MenuItem>
+                      <MenuItem value="">
+                        <em>No Price List (Use Base Cost)</em>
+                      </MenuItem>
+                      {priceLists.map((priceList) => (
+                        <MenuItem key={priceList.id} value={priceList.id}>
+                          {priceList.name}{priceList.isDefault ? ' (Default)' : ''}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Stack>
@@ -1133,20 +1130,12 @@ const InventorySummaryReport: React.FC = () => {
                               )}
                               {selectedColumns.includes('unitPrice') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                  {formatCurrency(
-                                    pricingType === 'retailPrice' ? row.retailPrice :
-                                    pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                                    row.specialPrice
-                                  )}
+                                  {formatCurrency(row.unitPrice)}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('totalSalesValue') && (
                                 <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                  {formatCurrency(
-                                    (pricingType === 'retailPrice' ? row.retailPrice :
-                                    pricingType === 'wholesalePrice' ? row.wholesalePrice :
-                                    row.specialPrice) * row.stockQuantity
-                                  )}
+                                  {formatCurrency(row.salesValue)}
                                 </TableCell>
                               )}
                             </TableRow>

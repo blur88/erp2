@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface CustomerPaymentDetail {
   paymentId: string
@@ -75,9 +76,8 @@ const CustomerPaymentDetails: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load customers
-    fetch('/api/customers?limit=100')
-      .then(res => res.ok ? res.json() : null)
+    // Load customers with authentication
+    ApiService.get<{ data: any[] }>('/customers?limit=100')
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)
@@ -103,15 +103,11 @@ const CustomerPaymentDetails: React.FC = () => {
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedCustomer) params.append('customerId', selectedCustomer)
 
-      // Call the backend API
-      const response = await fetch(`/api/sales/analytics/customer-payment-details?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
-      setReportData(result.data || [])
+      // Call the backend API with authentication
+      const data = await ApiService.get<{ data: CustomerPaymentDetail[] }>(
+        `/sales/analytics/customer-payment-details?${params.toString()}`
+      )
+      setReportData(data.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])

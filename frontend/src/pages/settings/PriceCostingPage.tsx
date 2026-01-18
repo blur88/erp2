@@ -10,39 +10,27 @@ import {
   CircularProgress,
   Alert,
   MenuItem,
-  IconButton,
-  Card,
-  CardContent,
 } from '@mui/material'
 import {
   PriceChange as PriceCostingIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
   Calculate as CalculateIcon,
 } from '@mui/icons-material'
-import { useForm, Controller, useFieldArray, useWatch } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
-import { settingsApi, type PricingScheme } from '@/services/settingsApi'
+import { settingsApi } from '@/services/settingsApi'
 import { inventoryApi } from '@/services/inventoryApi'
 import { refreshCurrencyCache } from '@/hooks/useCurrency'
 
 interface PriceCostingFormData {
   currency: string
   costingMethod: string
-  customerPricingSchemes: PricingScheme[]
 }
 
 const schema = yup.object({
   currency: yup.string().required('Currency is required'),
   costingMethod: yup.string().required('Costing method is required'),
-  customerPricingSchemes: yup.array().of(
-    yup.object({
-      name: yup.string().required('Pricing name is required'),
-      currency: yup.string().required('Currency is required'),
-    })
-  ),
 })
 
 const CURRENCIES = [
@@ -81,15 +69,7 @@ const PriceCostingPage: React.FC = () => {
     defaultValues: {
       currency: 'USD',
       costingMethod: 'AVERAGE',
-      customerPricingSchemes: [
-        { name: 'Retail', currency: 'USD' },
-      ],
     },
-  })
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'customerPricingSchemes',
   })
 
   // Watch costing method changes
@@ -124,14 +104,6 @@ const PriceCostingPage: React.FC = () => {
       // Track saved costing method
       setSavedCostingMethod(settings.costingMethod || 'AVERAGE')
       setCurrentCostingMethod(settings.costingMethod || 'AVERAGE')
-
-      // Set pricing schemes
-      if (settings.customerPricingSchemes && settings.customerPricingSchemes.length > 0) {
-        setValue('customerPricingSchemes', settings.customerPricingSchemes)
-      } else {
-        // Default if none exist
-        setValue('customerPricingSchemes', [{ name: 'Retail', currency: 'USD' }])
-      }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load settings'
       setError(errorMessage)
@@ -168,18 +140,6 @@ const PriceCostingPage: React.FC = () => {
   const handleCancel = () => {
     // Reload settings to reset form
     fetchSettings()
-  }
-
-  const handleAddPricingScheme = () => {
-    append({ name: '', currency: 'USD' })
-  }
-
-  const handleRemovePricingScheme = (index: number) => {
-    if (fields.length > 1) {
-      remove(index)
-    } else {
-      showError('At least one pricing scheme is required')
-    }
   }
 
   const handleRecalculateCosts = async () => {
@@ -309,110 +269,6 @@ const PriceCostingPage: React.FC = () => {
                   </TextField>
                 )}
               />
-            </Grid>
-
-            <Grid size={12}>
-              <Divider sx={{ my: 2 }} />
-            </Grid>
-
-            {/* Customer Pricing Schemes Section */}
-            <Grid size={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Customer Pricing Schemes
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-                    Define custom pricing schemes with their own currencies for different customer groups
-                  </Typography>
-                </Box>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddPricingScheme}
-                  size="small"
-                >
-                  Add Pricing
-                </Button>
-              </Box>
-            </Grid>
-
-            {/* Pricing Schemes List */}
-            <Grid size={12}>
-              <Grid container spacing={2}>
-                {fields.map((field, index) => (
-                  <Grid key={field.id} size={12}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid
-                            size={{
-                              xs: 12,
-                              md: 5
-                            }}>
-                            <Controller
-                              name={`customerPricingSchemes.${index}.name`}
-                              control={control}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  label="Pricing Name"
-                                  placeholder="e.g., Retail, Wholesale, VIP"
-                                  fullWidth
-                                  required
-                                  error={!!(errors.customerPricingSchemes?.[index] as any)?.name}
-                                  helperText={(errors.customerPricingSchemes?.[index] as any)?.name?.message}
-                                />
-                              )}
-                            />
-                          </Grid>
-                          <Grid
-                            size={{
-                              xs: 12,
-                              md: 5
-                            }}>
-                            <Controller
-                              name={`customerPricingSchemes.${index}.currency`}
-                              control={control}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  select
-                                  label="Currency"
-                                  fullWidth
-                                  required
-                                  error={!!(errors.customerPricingSchemes?.[index] as any)?.currency}
-                                  helperText={(errors.customerPricingSchemes?.[index] as any)?.currency?.message}
-                                >
-                                  {CURRENCIES.map((option) => (
-                                    <MenuItem key={option.value} value={option.value}>
-                                      {option.label}
-                                    </MenuItem>
-                                  ))}
-                                </TextField>
-                              )}
-                            />
-                          </Grid>
-                          <Grid
-                            sx={{ display: 'flex', justifyContent: 'flex-end' }}
-                            size={{
-                              xs: 12,
-                              md: 2
-                            }}>
-                            <IconButton
-                              onClick={() => handleRemovePricingScheme(index)}
-                              color="error"
-                              disabled={fields.length === 1}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
             </Grid>
 
             {/* Action Buttons */}

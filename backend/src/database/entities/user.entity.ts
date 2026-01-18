@@ -2,7 +2,6 @@ import {
   Entity,
   Column,
   Index,
-  OneToMany,
 } from 'typeorm';
 import {
   IsEmail,
@@ -15,8 +14,6 @@ import {
   IsPhoneNumber,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { SalesOrder } from './sales-order.entity';
-import { PurchaseOrder } from './purchase-order.entity';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -57,11 +54,13 @@ export class User extends BaseEntity {
     type: 'varchar',
     length: 100,
     unique: true,
+    nullable: true,
     comment: 'User email address',
   })
+  @IsOptional()
   @IsEmail()
   @MaxLength(100)
-  email: string;
+  email?: string;
 
   @Column({
     type: 'varchar',
@@ -75,20 +74,24 @@ export class User extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
+    nullable: true,
     comment: 'User first name',
   })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  firstName: string;
+  firstName?: string;
 
   @Column({
     type: 'varchar',
     length: 100,
+    nullable: true,
     comment: 'User last name',
   })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  lastName: string;
+  lastName?: string;
 
   @Column({
     type: 'varchar',
@@ -168,13 +171,23 @@ export class User extends BaseEntity {
   @IsString()
   notes?: string;
 
+  @Column({
+    type: 'boolean',
+    default: false,
+    comment: 'Whether user must change password before accessing app',
+  })
+  @IsBoolean()
+  requiresPasswordChange: boolean;
+
   // Relationships
   // salesOrders relationship removed - createdByUser field removed from SalesOrder entity
 
   
   // Virtual fields
   get fullName(): string {
-    return `${this.firstName} ${this.lastName}`;
+    const firstName = this.firstName || '';
+    const lastName = this.lastName || '';
+    return `${firstName} ${lastName}`.trim();
   }
 
   get isLocked(): boolean {

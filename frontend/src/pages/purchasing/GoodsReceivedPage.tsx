@@ -274,6 +274,19 @@ const GoodsReceivedPage: React.FC = () => {
     }
   }, [filteredGRNs.length, selectedGRN, dispatch])
 
+  // Auto-scroll to keep focused item visible
+  useEffect(() => {
+    if (focusedGRNIndex >= 0 && grnListRef.current) {
+      const focusedRow = grnListRef.current.querySelector(`[data-grn-index="${focusedGRNIndex}"]`)
+      if (focusedRow) {
+        focusedRow.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        })
+      }
+    }
+  }, [focusedGRNIndex])
+
   const handleSort = useCallback((field: string) => {
     setFilters(prev => ({
       ...prev,

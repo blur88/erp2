@@ -228,10 +228,16 @@ export class StockAdjustmentService {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       relations: ['items', 'items.product'],
+      withDeleted: true, // Include soft-deleted records
     });
 
     if (!adjustment) {
       throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
+    }
+
+    // If the adjustment is soft-deleted, throw appropriate error
+    if (adjustment.deletedAt) {
+      throw new NotFoundException(`Stock adjustment with ID '${id}' has been deleted`);
     }
 
     return this.toResponseDto(adjustment);

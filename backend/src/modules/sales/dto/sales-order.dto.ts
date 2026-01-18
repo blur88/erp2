@@ -206,6 +206,7 @@ export class QuerySalesOrdersDto {
   })
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.toUpperCase())
   sortOrder?: 'ASC' | 'DESC';
 
   @ApiPropertyOptional({

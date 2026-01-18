@@ -75,6 +75,7 @@ button {
   -webkit-font-smoothing: inherit;
   -moz-osx-font-smoothing: inherit;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 /* Focus styles */

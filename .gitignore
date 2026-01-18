@@ -18,13 +18,23 @@ build/
 out/
 .turbo
 
-# Environment variables
+# Environment variables (CRITICAL - never commit actual .env files!)
 .env
 .env.local
 .env.*.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+.env.staging
+.env.staging.local
+
+# Keep template files (these should be committed)
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 
 # Logs
 *.log
@@ -66,11 +76,14 @@ Thumbs.db
 *.sublime-workspace
 *.code-workspace
 
-# Docker volumes and data
+# Docker volumes and data (runtime data - never commit)
 postgres-data/
 mongo-data/
 redis-data/
+docker-volumes/
 docker-compose.override.yml
+
+# NOTE: .dockerignore, Dockerfile, and docker-compose.yml ARE committed
 
 # Uploaded files
 uploads/
@@ -105,11 +118,8 @@ test-results/
 htmlcov/
 .pytest_cache/
 
-# Test files for production builds
-*.spec.ts
-*.test.ts
-*.spec.js
-*.test.js
+# NOTE: Test files (*.spec.ts, *.test.ts, etc.) are NOT ignored
+# We have 81 tests that are part of the codebase and version controlled
 
 # Cache directories
 .cache/
@@ -147,8 +157,9 @@ frontend/exports/
 # Redis dump files
 dump.rdb
 
-# Claude Code configuration
+# Claude Code artifacts (temporary files only)
 .claude/
+# NOTE: CLAUDE.md is NOT ignored - it's the authoritative project documentation
 
 # Binaries and executables
 code
@@ -157,6 +168,15 @@ code
 ERROR.md
 TODOS.md
 
+# Keep important documentation files (don't ignore)
+# - CLAUDE.md (project instructions)
+# - README.md (project overview)
+# - plan.md (implementation plan)
+# - SECURITY_AUDIT_PHASE4.md (security audit)
+# - DEPLOYMENT_GUIDE.md (deployment guide)
+# - PHASE*.md (phase completion summaries)
+# - .env.example (environment template)
+
 # Security and sensitive files
 *.pem
 *.key
@@ -164,6 +184,9 @@ TODOS.md
 *.crt
 secrets/
 .secrets/
+
+# JWT secrets (CRITICAL - never commit)
+# Ensure .env contains JWT_SECRET and is gitignored above
 
 # Debug files
 debug/

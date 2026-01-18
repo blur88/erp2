@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -43,6 +42,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface PriceListItem {
   productName: string
@@ -52,19 +52,27 @@ interface PriceListItem {
   salesCost: number
 }
 
+interface PriceList {
+  id: string
+  code: string
+  name: string
+  isDefault: boolean
+  isActive: boolean
+}
+
 const PriceListReport: React.FC = () => {
-  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<PriceListItem[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
+  const [priceLists, setPriceLists] = useState<PriceList[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
 
   // Options
-  const [priceType, setPriceType] = useState<string>('retail')
+  const [priceListId, setPriceListId] = useState<string>('')
   const [discountPercent, setDiscountPercent] = useState<string>('0')
 
   const [productDialogOpen, setProductDialogOpen] = useState(false)
@@ -88,19 +96,41 @@ const PriceListReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - fetch all pages to get complete list
+    const fetchAllProducts = async () => {
+      try {
+        let allProducts: any[] = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
+          if (response?.data) {
+            allProducts = [...allProducts, ...response.data]
+
+            // Check if there are more pages
+            const meta = response?.meta
+            if (meta && meta.hasNextPage) {
+              page++
+            } else {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
         }
-      })
-      .catch(() => {})
+
+        setProducts(allProducts)
+      } catch (error) {
+        console.error('Failed to load products:', error)
+        setProducts([])
+      }
+    }
+
+    fetchAllProducts()
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
@@ -117,6 +147,32 @@ const PriceListReport: React.FC = () => {
         }
       })
       .catch(() => {})
+
+    // Load price lists
+    ApiService.get<any>('/price-lists')
+      .then(data => {
+        const priceListData = data?.data || []
+        if (Array.isArray(priceListData)) {
+          // Filter only active price lists and sort with default first
+          const activePriceLists = priceListData
+            .filter((pl: PriceList) => pl.isActive)
+            .sort((a: PriceList, b: PriceList) => {
+              if (a.isDefault && !b.isDefault) return -1
+              if (!a.isDefault && b.isDefault) return 1
+              return a.name.localeCompare(b.name)
+            })
+          setPriceLists(activePriceLists)
+
+          // Set default price list as selected
+          const defaultPriceList = activePriceLists.find((pl: PriceList) => pl.isDefault)
+          if (defaultPriceList) {
+            setPriceListId(defaultPriceList.id)
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load price lists:', error)
+      })
   }, [])
 
   const handleGenerateReport = async () => {
@@ -130,16 +186,10 @@ const PriceListReport: React.FC = () => {
       if (selectedProducts.length > 0) {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
-      if (priceType) params.append('priceType', priceType)
+      if (priceListId) params.append('priceListId', priceListId)
       if (discountPercent) params.append('discountPercent', discountPercent)
 
-      const response = await fetch(`/api/inventory/analytics/price-list?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
+      const result = await ApiService.get<any>(`/inventory/analytics/price-list?${params.toString()}`)
       setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
@@ -152,7 +202,13 @@ const PriceListReport: React.FC = () => {
   const handleClearFilters = () => {
     setSelectedProducts([])
     setSelectedCategory('')
-    setPriceType('retail')
+    // Reset to default price list
+    const defaultPriceList = priceLists.find((pl: PriceList) => pl.isDefault)
+    if (defaultPriceList) {
+      setPriceListId(defaultPriceList.id)
+    } else {
+      setPriceListId('')
+    }
     setDiscountPercent('0')
     setReportData([])
     setSelectedColumns(['productName', 'categoryName', 'price', 'discountedPrice', 'salesCost'])
@@ -309,7 +365,7 @@ const PriceListReport: React.FC = () => {
       return r[groupBy]
     }
 
-    sortedData.forEach((row, idx) => {
+    sortedData.forEach((row) => {
       const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
@@ -407,9 +463,13 @@ const PriceListReport: React.FC = () => {
         filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
       }
     }
-    if (priceType) {
-      const priceTypeLabel = priceType === 'retail' ? 'Retail' : priceType === 'wholesale' ? 'Wholesale' : 'Special'
-      filterText.push(`<p><strong>Pricing:</strong> ${priceTypeLabel}</p>`)
+    if (priceListId) {
+      const priceList = priceLists.find(pl => pl.id === priceListId)
+      if (priceList) {
+        filterText.push(`<p><strong>Price List:</strong> ${priceList.name}</p>`)
+      }
+    } else {
+      filterText.push(`<p><strong>Price List:</strong> Base Cost (No Price List)</p>`)
     }
     if (parseFloat(discountPercent) > 0) {
       filterText.push(`<p><strong>Discount:</strong> ${discountPercent}%</p>`)
@@ -463,6 +523,7 @@ const PriceListReport: React.FC = () => {
       </html>
     `
 
+    // eslint-disable-next-line deprecation/deprecation
     printWindow.document.write(html)
     printWindow.document.close()
   }
@@ -618,7 +679,7 @@ const PriceListReport: React.FC = () => {
                       value={selectedCategory}
                       label="Category"
                       onChange={(e) => setSelectedCategory(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="">All Categories</MenuItem>
                       {categories.map((category) => (
@@ -639,7 +700,7 @@ const PriceListReport: React.FC = () => {
                           setProductDialogOpen(true)
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="all">All Products</MenuItem>
                       <MenuItem value="select">Select Products</MenuItem>
@@ -684,16 +745,21 @@ const PriceListReport: React.FC = () => {
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
                   <FormControl fullWidth size="small" sx={{ '& .MuiInputLabel-root': { fontSize: '0.75rem' }, '& .MuiSelect-select': { fontSize: '0.75rem' } }}>
-                    <InputLabel>Pricing</InputLabel>
+                    <InputLabel>Price List</InputLabel>
                     <Select
-                      value={priceType}
-                      label="Pricing"
-                      onChange={(e) => setPriceType(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      value={priceListId}
+                      label="Price List"
+                      onChange={(e) => setPriceListId(e.target.value)}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
-                      <MenuItem value="retail">Retail</MenuItem>
-                      <MenuItem value="wholesale">Wholesale</MenuItem>
-                      <MenuItem value="special">Special</MenuItem>
+                      <MenuItem value="">
+                        <em>Base Cost (No Price List)</em>
+                      </MenuItem>
+                      {priceLists.map((priceList) => (
+                        <MenuItem key={priceList.id} value={priceList.id}>
+                          {priceList.name} {priceList.isDefault ? '(Default)' : ''}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
 
@@ -702,8 +768,10 @@ const PriceListReport: React.FC = () => {
                     type="number"
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' }, min: 0, max: 100, step: 0.1 }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' }, min: 0, max: 100, step: 0.1 }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -746,7 +814,7 @@ const PriceListReport: React.FC = () => {
                           setSelectedColumns(value as string[])
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
@@ -764,7 +832,7 @@ const PriceListReport: React.FC = () => {
                       value={groupBy}
                       label="Group By"
                       onChange={(e) => setGroupBy(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -777,7 +845,7 @@ const PriceListReport: React.FC = () => {
                       value={sortBy1}
                       label="Sort By"
                       onChange={(e) => setSortBy1(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="productName">Product</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -791,8 +859,10 @@ const PriceListReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      htmlInput: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -895,7 +965,6 @@ const PriceListReport: React.FC = () => {
                     <TableBody>
                       {paginatedData.map((row, idx) => {
                         const prevRow = idx > 0 ? paginatedData[idx - 1] : null
-                        const nextRow = idx < paginatedData.length - 1 ? paginatedData[idx + 1] : null
 
                         const getGroupKey = (r: any) => {
                           return r[groupBy]
@@ -992,8 +1061,10 @@ const PriceListReport: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
+        slotProps={{
+          paper: {
+            sx: { height: '90vh', maxHeight: '90vh' }
+          }
         }}
       >
         <DialogTitle sx={{

@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, Like, ILike } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
-// Auth imports removed - authentication system disabled
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -57,12 +57,13 @@ export class UsersService {
         }
       }
 
-      // Validate role assignment permissions - allow all roles since auth is removed
-      // this.validateRoleAssignment(createdBy.role, createUserDto.role);
+      // Hash password before saving
+      const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
 
       // Create new user
       const user = this.userRepository.create({
         ...createUserDto,
+        password: hashedPassword,
         status: UserStatus.ACTIVE,
         isActive: true,
         failedLoginAttempts: 0,
@@ -227,11 +228,6 @@ export class UsersService {
           }
         }
       }
-
-      // Validate role change permissions - disabled since auth is removed
-      // if (updateUserDto.role && updateUserDto.role !== user.role) {
-      //   this.validateRoleAssignment(requestingUser.role, updateUserDto.role);
-      // }
 
       // Apply updates
       Object.assign(user, updateUserDto);

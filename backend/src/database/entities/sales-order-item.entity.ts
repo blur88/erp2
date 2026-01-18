@@ -189,17 +189,17 @@ export class SalesOrderItem extends BaseEntity {
   }
 
   // Static method to create from product
+  // Note: unitPrice should be provided from the price list system
+  // This method uses baseCost as fallback only
   static fromProduct(
     product: Product,
     quantity: number,
-    priceScheme: string = 'retail'
+    unitPrice?: number
   ): Partial<SalesOrderItem> {
-    const unitPrice = product.getPriceByScheme(priceScheme);
-
     return {
       productId: product.id,
       quantity,
-      unitPrice,
+      unitPrice: unitPrice ?? product.baseCost,
       unitCost: Number(product.baseCost),
       discountType: DiscountType.PERCENTAGE,
       discountPercent: 0,

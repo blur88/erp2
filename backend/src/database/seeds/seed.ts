@@ -5,11 +5,11 @@ import { User, UserRole, UserStatus } from '../entities/user.entity';
 // Configure database connection
 const dataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST || 'postgres',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USERNAME || 'erp_user', 
-  password: process.env.DB_PASSWORD || 'erp_password',
-  database: process.env.DB_DATABASE || 'erp_db',
+  host: process.env.DATABASE_HOST,
+  port: parseInt(process.env.DATABASE_PORT),
+  username: process.env.DATABASE_USERNAME,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
   entities: [User],
   synchronize: true,
   logging: true,
@@ -33,48 +33,32 @@ async function createDemoUsers() {
       return;
     }
 
-    console.log('Creating demo users...');
+    console.log('Creating admin user...');
+
+    // Hash password with bcrypt (12 rounds)
+    const BCRYPT_ROUNDS = 12;
+    const adminPasswordHash = await bcrypt.hash('Admin@123!', BCRYPT_ROUNDS);
 
     // Create admin user
     const adminUser = new User();
     adminUser.username = 'admin';
     adminUser.email = 'admin@erp.com';
-    adminUser.password = 'admin123'; // Will be hashed by @BeforeInsert hook
+    adminUser.password = adminPasswordHash;
     adminUser.firstName = 'Admin';
     adminUser.lastName = 'User';
     adminUser.role = UserRole.ADMIN;
     adminUser.status = UserStatus.ACTIVE;
     adminUser.isActive = true;
+    adminUser.failedLoginAttempts = 0;
+    adminUser.requiresPasswordChange = true; // Force password change on first login
 
-    // Create manager user
-    const managerUser = new User();
-    managerUser.username = 'manager';
-    managerUser.email = 'manager@erp.com';
-    managerUser.password = 'manager123';
-    managerUser.firstName = 'Manager';
-    managerUser.lastName = 'User';
-    managerUser.role = UserRole.MANAGER;
-    managerUser.status = UserStatus.ACTIVE;
-    managerUser.isActive = true;
+    // Save admin user
+    await userRepository.save(adminUser);
 
-    // Create sales staff user
-    const salesUser = new User();
-    salesUser.username = 'sales';
-    salesUser.email = 'sales@erp.com';
-    salesUser.password = 'sales123';
-    salesUser.firstName = 'Sales';
-    salesUser.lastName = 'Staff';
-    salesUser.role = UserRole.SALES_STAFF;
-    salesUser.status = UserStatus.ACTIVE;
-    salesUser.isActive = true;
-
-    // Save users
-    await userRepository.save([adminUser, managerUser, salesUser]);
-    
-    console.log('✅ Demo users created successfully:');
-    console.log('  - Admin: admin@erp.com / admin123');
-    console.log('  - Manager: manager@erp.com / manager123');
-    console.log('  - Sales Staff: sales@erp.com / sales123');
+    console.log('✅ Admin user created successfully:');
+    console.log('  - Username: admin');
+    console.log('  - Password: Admin@123!');
+    console.log('  ⚠️  CHANGE PASSWORD IMMEDIATELY AFTER FIRST LOGIN!');
 
   } catch (error) {
     console.error('❌ Error creating demo users:', error);

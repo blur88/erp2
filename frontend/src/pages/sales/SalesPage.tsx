@@ -45,6 +45,7 @@ import { format } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
+import { salesApi } from '@/services/salesApi'
 
 ChartJS.register(
   CategoryScale,
@@ -73,12 +74,16 @@ const SalesPage: React.FC = () => {
       setLoading(true)
 
       // Fetch recent orders (get more for trend calculation)
-      const ordersResponse = await fetch('/api/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc')
+      const ordersResponse = await salesApi.getOrders({
+        limit: 100,
+        sortBy: 'orderDate',
+        sortOrder: 'desc'
+      })
       let ordersData = []
       let allOrders = []
-      if (ordersResponse.ok) {
-        const ordersResult = await ordersResponse.json()
-        allOrders = ordersResult.data || []
+      if (ordersResponse?.data) {
+        // ApiService.get returns response.data, so ordersResponse = { data: [...], meta: {...} }
+        allOrders = ordersResponse.data || []
         ordersData = allOrders.slice(0, 5) // Keep only 5 for display
       }
 

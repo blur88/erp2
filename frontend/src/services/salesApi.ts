@@ -80,10 +80,12 @@ export const salesApi = {
     fromDate?: string;
     toDate?: string;
     overdue?: boolean;
-    sortBy?: string;
-    sortOrder?: 'ASC' | 'DESC';
   }) {
-    return ApiService.get<PaginatedResponse<SalesOrder>>('sales-orders', { params })
+    // Convert sortOrder to uppercase for backend if provided
+    const requestParams = params?.sortOrder
+      ? { ...params, sortOrder: params.sortOrder.toUpperCase() as 'ASC' | 'DESC' }
+      : params;
+    return ApiService.get<PaginatedResponse<SalesOrder>>('sales-orders', { params: requestParams })
   },
 
   async getOrder(id: string) {
@@ -128,6 +130,22 @@ export const salesApi = {
 
   async duplicateOrder(id: string) {
     return ApiService.post<SalesOrder>(`sales-orders/${id}/duplicate`)
+  },
+
+  async recordOrderPayment(id: string, amount: number) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/record-payment`, { amount })
+  },
+
+  async unpayOrder(id: string) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/unpay`)
+  },
+
+  async fulfillOrder(id: string) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/fulfill-order`)
+  },
+
+  async unfulfillOrder(id: string) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/unfulfill-order`)
   },
 
   async getOrderSummaries() {

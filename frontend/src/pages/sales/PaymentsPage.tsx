@@ -166,7 +166,7 @@ const PaymentsPage: React.FC = () => {
   const selectedPayment = useAppSelector(selectSelectedPayment) as Payment | null
 
   const [payments, setPayments] = useState<Payment[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start as true to prevent clearing selection on mount
   const [error, setError] = useState<string | null>(null)
   const [totalPayments, setTotalPayments] = useState(0)
 
@@ -189,6 +189,7 @@ const PaymentsPage: React.FC = () => {
   const paymentListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
   const selectedPaymentRef = useRef(selectedPayment)
+  const previousPathnameRef = useRef(location.pathname)
 
   // Keep ref in sync with selectedPayment
   useEffect(() => {
@@ -314,23 +315,16 @@ const PaymentsPage: React.FC = () => {
   }, [loadPayments])
 
   // Refresh on route navigation (when coming back from another page)
-  const previousPathnameRef = useRef(location.pathname)
   useEffect(() => {
     // Only refresh if we navigated TO payments page FROM somewhere else
     if (previousPathnameRef.current !== '/sales/payments' && location.pathname === '/sales/payments') {
       loadPayments()
-      // Also refresh the selected payment to get updated customer data
-      if (selectedPaymentRef.current) {
-        salesApi.getPayment(selectedPaymentRef.current.id).then(response => {
-          const freshPayment = response.data as Payment
-          dispatch(setSelectedPayment(freshPayment as any))
-        }).catch(err => {
-          console.error('Failed to refresh selected payment:', err)
-        })
-      }
+      // Reset restoration flag so selection can be restored again
+      hasRestoredSelection.current = false
+      // Don't reset focusedPaymentIndex here - let the restoration effect handle it
     }
     previousPathnameRef.current = location.pathname
-  }, [location.pathname, loadPayments])
+  }, [location.pathname, loadPayments, selectedPayment])
 
   // Update selected payment when fresh data arrives (to reflect customer changes)
   useEffect(() => {
@@ -346,6 +340,21 @@ const PaymentsPage: React.FC = () => {
     }
   }, [payments, dispatch])
 
+  // Initialize: Restore persisted selected payment on mount
+  useEffect(() => {
+    if (!hasRestoredSelection.current && selectedPayment && paginatedPayments.length > 0) {
+      const index = paginatedPayments.findIndex((p: Payment) => p.id === selectedPayment.id)
+      if (index >= 0) {
+        // Force update the focused index even if it's already set
+        setFocusedPaymentIndex(-1) // Reset first
+        setTimeout(() => {
+          setFocusedPaymentIndex(index)
+          hasRestoredSelection.current = true
+        }, 0)
+      }
+    }
+  }, [selectedPayment, paginatedPayments])
+
   const handleOrderClick = useCallback((orderId: string, event: React.MouseEvent) => {
     event.stopPropagation()
     navigate('/sales/orders', { state: { highlightOrderId: orderId } })
@@ -356,15 +365,27 @@ const PaymentsPage: React.FC = () => {
     navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
   }, [navigate])
 
-  // Auto-select first payment when payments load
+  // Auto-select first payment when payments load OR restore focus for persisted selection
   useEffect(() => {
     if (paginatedPayments.length > 0 && focusedPaymentIndex === -1) {
-      if (!selectedPayment && searchInputRef.current !== document.activeElement) {
+      // If we have a persisted selected payment from Redux, restore its focus
+      if (selectedPayment) {
+        const index = paginatedPayments.findIndex((p: Payment) => p.id === selectedPayment.id)
+        if (index >= 0) {
+          setFocusedPaymentIndex(index)
+        }
+      }
+      // Only auto-focus first payment if we don't have a selected payment
+      else if (searchInputRef.current !== document.activeElement) {
         setFocusedPaymentIndex(0)
         dispatch(setSelectedPayment(paginatedPayments[0] as any))
       }
+    } else if (paginatedPayments.length === 0 && !loading) {
+      // Only clear selection when no payments in list AND we're done loading
+      dispatch(setSelectedPayment(null))
+      setFocusedPaymentIndex(-1)
     }
-  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, dispatch])
+  }, [paginatedPayments, focusedPaymentIndex, selectedPayment, dispatch, loading])
 
   // Handle navigation from order page with highlightPaymentId
   useEffect(() => {
@@ -448,22 +469,6 @@ const PaymentsPage: React.FC = () => {
       setEditDialog(true)
     }
   }, [focusedPaymentIndex, paginatedPayments, dispatch])
-
-  const handleEditAction = () => {
-    if (selectedPayment) {
-      setEditDialog(true)
-    }
-  }
-
-  const handleDeleteAction = () => {
-    if (selectedPayment) {
-      showError('Delete functionality will be implemented later')
-    }
-  }
-
-  const handleViewDeletedAction = () => {
-    setDeletedPaymentsDialogOpen(true)
-  }
 
   const handleEscapeAction = useCallback(() => {
     setFocusedPaymentIndex(-1)
@@ -583,12 +588,14 @@ const PaymentsPage: React.FC = () => {
               }
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
 
@@ -654,8 +661,10 @@ const PaymentsPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
             <TextField
@@ -673,8 +682,10 @@ const PaymentsPage: React.FC = () => {
                   fontSize: '0.875rem'
                 }
               }}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                }
               }}
             />
           </>

@@ -167,8 +167,7 @@ export class IntegrationService {
         item.productId,
         item.quantity,
         item.unitPrice,
-        orderId,
-        orderNumber,
+        orderId, // referenceId
         userId,
       ),
     );
@@ -255,8 +254,6 @@ export class IntegrationService {
           const success = await this.productService.reserveStock(
             item.productId,
             reserveQuantity,
-            reason,
-            userId,
           );
 
           if (success) {
@@ -397,42 +394,59 @@ export class IntegrationService {
   }> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
+      relations: ['priceListItems', 'priceListItems.priceList'],
     });
 
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
+    // Get old pricing from price list items
+    let retailPrice = 0;
+    let wholesalePrice = 0;
+    let specialPrice = 0;
+
+    for (const item of product.priceListItems || []) {
+      const priceListName = item.priceList?.name.toLowerCase();
+      const price = Number(item.price);
+
+      if (priceListName?.includes('retail')) {
+        retailPrice = price;
+      } else if (priceListName?.includes('wholesale')) {
+        wholesalePrice = price;
+      } else if (priceListName?.includes('special')) {
+        specialPrice = price;
+      }
+    }
+
     const oldPricing = {
-      retail: Number(product.retailPrice),
-      wholesale: Number(product.wholesalePrice),
-      special: Number(product.specialPrice),
+      retail: retailPrice,
+      wholesale: wholesalePrice,
+      special: specialPrice,
     };
 
     let newPricing = oldPricing;
 
     if (maintainMargins && Number(product.baseCost) > 0) {
       // Calculate current margins
-      const retailMargin = (oldPricing.retail - Number(product.baseCost)) / oldPricing.retail;
-      const wholesaleMargin = (oldPricing.wholesale - Number(product.baseCost)) / oldPricing.wholesale;
-      const specialMargin = (oldPricing.special - Number(product.baseCost)) / oldPricing.special;
+      const retailMargin = oldPricing.retail > 0 ? (oldPricing.retail - Number(product.baseCost)) / oldPricing.retail : 0;
+      const wholesaleMargin = oldPricing.wholesale > 0 ? (oldPricing.wholesale - Number(product.baseCost)) / oldPricing.wholesale : 0;
+      const specialMargin = oldPricing.special > 0 ? (oldPricing.special - Number(product.baseCost)) / oldPricing.special : 0;
 
       // Apply same margins to new cost
       newPricing = {
-        retail: newBaseCost / (1 - retailMargin),
-        wholesale: newBaseCost / (1 - wholesaleMargin),
-        special: newBaseCost / (1 - specialMargin),
+        retail: retailMargin > 0 ? newBaseCost / (1 - retailMargin) : 0,
+        wholesale: wholesaleMargin > 0 ? newBaseCost / (1 - wholesaleMargin) : 0,
+        special: specialMargin > 0 ? newBaseCost / (1 - specialMargin) : 0,
       };
 
-      // Update product
+      // Update product baseCost only
       await this.productRepository.update(productId, {
         baseCost: newBaseCost,
-        retailPrice: newPricing.retail,
-        wholesalePrice: newPricing.wholesale,
-        specialPrice: newPricing.special,
       });
 
-      // Audit logging removed with authentication system
+      // Note: Prices should now be updated via PriceListsService.bulkUpdatePrices()
+      // This method only provides the calculated new prices for reference
     }
 
     return { oldPricing, newPricing };

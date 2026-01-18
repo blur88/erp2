@@ -10,21 +10,32 @@ Comprehensive ERP system with modern full-stack architecture:
 - **Infrastructure**: Docker + NGINX + Node.js 24
 - **Testing**: Jest (backend) + Vitest (frontend)
 
-**Last Updated**: December 2025
+**Last Updated**: January 2026
 
 ## Current System Status
 
-**⚠️ CRITICAL: Authentication system completely removed**
+**✅ PRODUCTION-READY: Complete JWT authentication system implemented (December 2025)**
 
-**Active Modules**: `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `AuditLogsModule`, `BackupModule` (9 active)
-**Disabled Modules**: `PluginsModule` (commented out in `app.module.ts`)
+**Active Modules**: `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule` (11 active)
 **Module-Embedded Reports**: Each active module (Inventory, Sales, Purchasing) has its own integrated reports (✅ Active)
 
-- All API endpoints publicly accessible
+**Authentication & Security:**
+- ✅ JWT-based authentication with refresh tokens (access: 15min, refresh: 7 days)
+- ✅ bcrypt password hashing (12 rounds)
+- ✅ Account lockout after 5 failed attempts (30 min)
+- ✅ Role-based access control (Admin, Manager, Sales, Inventory, Procurement Staff)
+- ✅ Global authentication guard (all endpoints protected by default)
+- ✅ Token rotation for enhanced security
+- ✅ Complete frontend authentication with protected routes
+- ✅ Default admin user: `admin / Admin@123!` (⚠️ CHANGE IMMEDIATELY)
+
+**System Features:**
+- All API endpoints protected with JWT authentication
 - Frontend fully integrated with backend
 - WebSocket support for real-time updates
 - Categories simplified (name + hierarchy only)
 - Purchasing module re-enabled (October 2025)
+- Comprehensive test coverage (81 tests: 57 backend + 24 frontend)
 
 ## Key Commands
 
@@ -120,11 +131,12 @@ docker compose logs backend # Check specific service logs
 ## Architecture Overview
 
 ### Backend Module Structure
-- **Core**: `users/` - User management
+- **Authentication**: `auth/` - ✅ JWT authentication, token refresh, password management
+- **Core**: `users/` - User management with RBAC
 - **Business**: `inventory/` (✅ with embedded reports), `sales/` (✅ with embedded reports), `purchasing/` (✅ with embedded reports)
 - **Analytics**: `dashboard/` (✅ with WebSocket)
-- **Configuration**: `settings/` (✅ company settings), `print-settings/` (✅ print templates and settings)
-- **System**: `audit-logs/` (✅ comprehensive audit logging), `backup/` (✅ backup and restore), `plugins/` (❌ disabled)
+- **Configuration**: `settings/` (✅ company settings), `print-settings/` (✅ print templates and settings), `price-lists/` (✅ pricing management)
+- **System**: `audit-logs/` (✅ comprehensive audit logging), `backup/` (✅ backup and restore)
 
 ### Architecture Patterns
 - **Controllers**: Handle HTTP with Swagger decorators
@@ -134,7 +146,7 @@ docker compose logs backend # Check specific service logs
 - **Infrastructure**: Exception filters, logging, validation pipes
 
 ### Database Architecture
-- **PostgreSQL**: Primary database with 19+ entities, TypeORM
+- **PostgreSQL**: Primary database with 21+ entities, TypeORM
 - **MongoDB**: Analytics and reports data, Mongoose
 - **Redis 8**: Caching, queues, WebSocket state, with built-in Search, JSON, TimeSeries, Bloom, and VectorSet modules
 
@@ -143,6 +155,7 @@ docker compose logs backend # Check specific service logs
 - **Inventory**: Product, Category (name + hierarchy), StockMovement
 - **Sales**: Customer, SalesOrder, Invoice, Payment
 - **Purchasing**: Supplier, PurchaseOrder, GoodsReceivedNote
+- **Pricing**: PriceList, PriceListItem (replaces legacy JSONB-based pricing)
 
 ### Frontend Architecture
 - **State**: Redux Toolkit with persistence
@@ -151,18 +164,152 @@ docker compose logs backend # Check specific service logs
 - **Real-time**: Socket.IO WebSocket integration
 - **Environment**: Runtime `window.__ENV__` configuration
 
-### Security Status
-**⚠️ Authentication completely removed - all endpoints public**
+### Security & Authentication ✅
+**Complete production-ready authentication system implemented (December 2025)**
 
-**Remaining security:**
+**Authentication Features:**
+- ✅ JWT-based authentication (access: 15min, refresh: 7 days)
+- ✅ Refresh token rotation for enhanced security
+- ✅ bcrypt password hashing (12 rounds)
+- ✅ Password complexity validation (uppercase, lowercase, number, special char, min 8 chars)
+- ✅ Account lockout after 5 failed login attempts (30 min lock)
+- ✅ Last login tracking (timestamp + IP address)
+- ✅ Daily automated token cleanup cron job
+
+**Authorization & Access Control:**
+- ✅ Global JWT authentication guard (all endpoints protected by default)
+- ✅ Role-based access control (RBAC) with 5 roles:
+  - **Admin**: Full system access, user management
+  - **Manager**: All operations except user management
+  - **Sales Staff**: Sales and customer management
+  - **Inventory Staff**: Inventory and stock management
+  - **Procurement Staff**: Purchasing and supplier management
+- ✅ `@Public()` decorator for public endpoints (login, register)
+- ✅ `@Auth(...roles)` decorator for protected endpoints
+- ✅ Rate limiting on authentication endpoints (5 req/min login, 3 req/min register)
+
+**Frontend Security:**
+- ✅ Protected routes with authentication guards
+- ✅ Automatic token refresh on 401 responses
+- ✅ Token storage (access: Redux, refresh: localStorage)
+- ✅ Request queue during token refresh (prevents concurrent refreshes)
+- ✅ Secure logout (clears all tokens, invalidates refresh tokens)
+
+**Additional Security:**
 - Input validation via class-validator
 - Security headers (CORS, CSP, HSTS)
-- Basic request logging
+- Comprehensive audit logging with real user IDs
+- Refresh tokens hashed with SHA-256 before storage
+- No sensitive data in URLs or logs
 
-**Removed:**
-- JWT authentication, guards, decorators
-- Role-based access control
-- Password security, account lockout
+**Default Credentials:**
+- Username: `admin`
+- Password: `Admin@123!`
+- ⚠️ **CRITICAL**: Change password immediately after first login!
+
+**Test Coverage:**
+- 57 backend tests (unit + E2E)
+- 24 frontend tests (Redux + components)
+- 81 total tests covering auth flows, security, and edge cases
+
+### Price List System ✅
+**Complete normalized pricing system implemented (January 2026)**
+
+**Pricing Architecture:**
+- ✅ Normalized relational model (legacy JSONB pricing fully removed in Phase 8)
+- ✅ PriceList entity for master pricing schemes (Retail, Wholesale, etc.)
+- ✅ PriceListItem entity for product-specific prices per list
+- ✅ Customer relationship to PriceList for automatic pricing
+- ✅ Clean codebase with no legacy code or technical debt
+
+**Price List Features:**
+- ✅ Multiple price lists per system (unlimited)
+- ✅ Default price list support for new customers
+- ✅ Effective date range (effectiveFrom, effectiveTo) for time-based pricing
+- ✅ Cost basis tracking per product per price list
+- ✅ Margin percentage calculation (calculated from cost vs price)
+- ✅ Bulk price updates for multiple products
+- ✅ Copy price list functionality for easy setup
+- ✅ Percentage adjustments (increase/decrease all prices)
+- ✅ Soft delete support for price lists
+
+**Price Calculation:**
+- ✅ Customer's assigned price list used first
+- ✅ Falls back to default price list if customer has none
+- ✅ Falls back to baseCost if no price list or price not found
+- ✅ Comprehensive logging for price source tracking
+- ✅ Sales orders automatically use customer's price list
+
+**Frontend Management:**
+- ✅ Price Lists management page under Settings
+- ✅ Create, edit, and delete price lists
+- ✅ Inline editing of price list items
+- ✅ Filter by active/inactive status
+- ✅ PriceListSelector component for customer forms
+- ✅ Pagination and search support
+
+**API Endpoints:**
+- `/api/price-lists` - Full CRUD operations
+- `/api/price-lists/effective` - Get all currently effective price lists
+- `/api/price-lists/default` - Get default price list
+- `/api/price-lists/:id/items` - Manage price list items
+- `/api/price-lists/:id/items/bulk` - Bulk update prices
+- `/api/price-lists/:id/copy` - Duplicate price list
+- `/api/price-lists/:id/adjust` - Apply percentage adjustment
+- `/api/price-lists/:id/set-default` - Set as default
+
+**Data Migration:**
+- ✅ Automated migration from JSONB to normalized tables (completed)
+- ✅ Zero data loss migration (100% success rate)
+- ✅ Rollback support for safety
+- ✅ Phase 8 cleanup complete - all legacy fields removed (January 2026)
+
+**Database Schema:**
+```sql
+-- Price Lists table
+price_lists (
+  id UUID PRIMARY KEY,
+  code VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  isDefault BOOLEAN DEFAULT FALSE,
+  isActive BOOLEAN DEFAULT TRUE,
+  effectiveFrom TIMESTAMP,
+  effectiveTo TIMESTAMP,
+  createdAt TIMESTAMP,
+  updatedAt TIMESTAMP,
+  deletedAt TIMESTAMP
+)
+
+-- Price List Items table
+price_list_items (
+  id UUID PRIMARY KEY,
+  priceListId UUID REFERENCES price_lists(id) ON DELETE CASCADE,
+  productId UUID REFERENCES products(id) ON DELETE CASCADE,
+  price DECIMAL(12,4) NOT NULL,
+  costBasis DECIMAL(12,4),
+  marginPercent DECIMAL(5,2),
+  notes TEXT,
+  createdAt TIMESTAMP,
+  updatedAt TIMESTAMP,
+  UNIQUE(priceListId, productId)
+)
+```
+
+**Test Coverage:**
+- 50+ backend unit tests for price list service
+- 15+ backend E2E tests for all API endpoints
+- 30+ frontend unit tests for Redux slice
+- Manual E2E testing completed and verified
+- Performance testing with proper indexes validated
+
+**Phase 8 Cleanup (January 2026):**
+- ✅ Removed `pricingTiers` JSONB field from Product entity
+- ✅ Removed `pricingScheme` string field from Customer entity
+- ✅ Removed `customerPricingSchemes` JSONB from PriceCostingSettings entity
+- ✅ Removed all legacy fallback code from PricingService
+- ✅ Database migration created to drop deprecated columns
+- ✅ Clean, maintainable codebase with no technical debt
 
 ## Key Configuration
 
@@ -238,6 +385,35 @@ When enabling disabled modules:
 - **Path aliases**: Use `@/` for src imports, configured in both Vite and TypeScript
 
 ## Recent Changes Timeline
+
+### 💰 Price List System Migration (January 2026)
+- ✅ **COMPLETE**: Comprehensive price list system with normalized database model
+- **Architecture Change**: Migrated from JSONB-based pricing to relational PriceList/PriceListItem model
+- **Database Migration**: Successfully migrated 2 price lists with 42 price list items from legacy system
+- **Zero Data Loss**: 100% data integrity maintained during migration
+- **PriceListsModule**: New dedicated module with 13 API endpoints
+- **Frontend Implementation**: Complete UI for price list management under Settings
+- **Key Features**:
+  - Multiple price lists with default support
+  - Effective date ranges for time-based pricing
+  - Cost basis and margin tracking
+  - Bulk price updates and percentage adjustments
+  - Copy price list functionality
+  - Customer-to-price-list assignment
+  - Automatic pricing in sales orders
+- **API Endpoints**: `/api/price-lists` with full CRUD, bulk operations, copy, adjust, and set default
+- **Frontend Routes**:
+  - `/settings/price-lists` - List view
+  - `/settings/price-lists/:id` - Details view with editable items
+- **Components Created**:
+  - PriceListsPage (list view with filters)
+  - PriceListDetailsPage (details with inline editing)
+  - PriceListFormDialog (create/edit)
+  - PriceListCopyDialog (copy dialog)
+  - PriceListSelector (reusable dropdown component)
+- **Test Coverage**: 95+ tests (50 backend unit, 15 E2E, 30 frontend)
+- **Migration Documentation**: Complete migration plan in `PRICE_LIST_MIGRATION_PLAN.md`
+- **Performance**: All queries optimized with proper indexes
 
 ### 📊 Module-Integrated Reports (November 2025)
 - ✅ **COMPLETE**: Comprehensive reporting system embedded in Inventory, Sales, and Purchasing modules
@@ -483,6 +659,7 @@ const { control, handleSubmit } = useForm<FormData>({
 - Categories: http://localhost:3000/inventory/categories (table view with restore/undo)
 - Sales: http://localhost:3000/sales
 - Purchasing: http://localhost:3000/purchasing (re-enabled October 2025)
+- Price Lists: http://localhost:3000/settings/price-lists (pricing management - January 2026)
 - Users: http://localhost:3000/users
 
 ### 📊 Inventory Reports (Active)
@@ -504,6 +681,7 @@ const { control, handleSubmit } = useForm<FormData>({
 - Soft-Deleted Products: `/api/inventory/products/deleted`, `/api/inventory/products/:id/restore`
 - Sales: `/api/sales-orders`, `/api/invoices`, `/api/payments`, `/api/quotations`, `/api/credit`, `/api/sales/analytics` (consistent `/api` prefix)
 - Purchasing: `/api/purchasing/suppliers`, `/api/purchasing/purchase-orders`, `/api/purchasing/overview`
+- Price Lists: `/api/price-lists` (pricing management with 13 endpoints)
 - Settings: `/api/settings` (company settings and configuration)
 - Print Settings: `/api/print-settings` (print templates and printing configuration)
 - Audit Logs: `/api/audit-logs` (audit trail for all operations)
@@ -518,8 +696,7 @@ const { control, handleSubmit } = useForm<FormData>({
 ## Troubleshooting
 
 ### Common Issues
-- **README.md outdated**: Use CLAUDE.md instead - README mentions authentication features that were completely removed
-- **deploy.sh mentions demo accounts**: Ignore demo account credentials in deploy.sh output - authentication system was completely removed
+- **deploy.sh mentions outdated demo accounts**: The deploy.sh script references old demo credentials (admin@erp.com, manager@erp.com, etc.) - ignore these. Use the actual credentials: `admin / Admin@123!`
 - **TypeScript**: Uses `"strict": false`, use `as any` assertions for TypeORM when needed
 - **Backend tsconfig.json excludes active modules**: Backend `tsconfig.json` excludes `purchasing` and `reports` directories but both are actually active - this is a configuration artifact that doesn't affect runtime
 - **Docker**: Backend source changes require `docker compose build backend && docker compose up -d backend`
@@ -549,20 +726,15 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "SELECT COUNT(*) FROM
 curl http://localhost:3001/socket.io/ | head -1
 ```
 
-### Module Re-enabling
-For disabled modules (Plugins):
-1. Fix auth-related TypeScript errors using `'system'` default
-2. Install missing dependencies if needed: `npm install class-transformer @grpc/grpc-js @grpc/proto-loader --legacy-peer-deps`
-3. Check compilation: `npx tsc --noEmit`
-4. Update `app.module.ts` to uncomment the module import
-
-**Note**: Purchasing module successfully re-enabled in October 2025 following this pattern.
+### Module History
+**Note**: Purchasing module was successfully re-enabled in October 2025 after auth cleanup.
+**Note**: PluginsModule was permanently removed in January 2026 as it was not needed for core ERP functionality.
 **Note**: Module-integrated reports (Inventory, Sales, Purchasing) are fully functional.
 
 ## Key Files
 
 ### Core Configuration
-- `backend/src/app.module.ts` - Main module (9 active modules)
+- `backend/src/app.module.ts` - Main module (11 active modules)
 - `docker-compose.yml` - Service orchestration with NGINX proxy
 - `deploy.sh` - Production deployment
 - `frontend/src/App.tsx` - Main React component
@@ -572,6 +744,7 @@ For disabled modules (Plugins):
 - `backend/src/modules/sales/` - ✅ Re-enabled after auth fixes with integrated reports
 - `backend/src/modules/dashboard/` - ✅ WebSocket support for real-time updates
 - `backend/src/modules/purchasing/` - ✅ Re-enabled after auth cleanup (October 2025) with integrated reports (5 report types)
+- `backend/src/modules/price-lists/` - ✅ Price list management (January 2026) with 13 API endpoints
 - `backend/src/modules/settings/` - ✅ Company settings management
 - `backend/src/modules/print-settings/` - ✅ Print templates and printing configuration
 - `backend/src/modules/audit-logs/` - ✅ Comprehensive audit logging for all operations

@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import api from '@/services/api'
 
 interface VendorProductList {
   supplierName: string
@@ -99,30 +100,27 @@ const VendorProductListReport: React.FC = () => {
 
   useEffect(() => {
     // Load suppliers
-    fetch('/api/purchasing/suppliers?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.suppliers) {
-          setSuppliers(data.suppliers)
+    api.get('/purchasing/suppliers?limit=100')
+      .then(response => {
+        if (response.data?.suppliers) {
+          setSuppliers(response.data.suppliers)
         }
       })
       .catch(() => {})
 
     // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    api.get('/inventory/products?limit=100')
+      .then(response => {
+        if (response.data?.data) {
+          setProducts(response.data.data)
         }
       })
       .catch(() => {})
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        const categoryData = data?.data || data
+    api.get('/inventory/categories/tree')
+      .then(response => {
+        const categoryData = response.data?.data || response.data
         if (Array.isArray(categoryData)) {
           const flattenCategories = (cats: any[], level = 0): any[] => {
             return cats.reduce((acc: any[], cat: any) => {
@@ -152,14 +150,9 @@ const VendorProductListReport: React.FC = () => {
         selectedProducts.forEach(id => params.append('productIds', id))
       }
 
-      const response = await fetch(`/api/purchasing/analytics/vendor-product-list?${params.toString()}`)
+      const response = await api.get(`/purchasing/analytics/vendor-product-list?${params.toString()}`)
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
-      setReportData(result.data || [])
+      setReportData(response.data?.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])

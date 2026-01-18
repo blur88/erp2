@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -43,6 +42,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ApiService } from '@/services/api'
 
 interface HistoricalInventory {
   productName: string
@@ -62,7 +62,6 @@ interface HistoricalInventory {
 }
 
 const HistoricalInventoryReport: React.FC = () => {
-  const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
@@ -96,19 +95,40 @@ const HistoricalInventoryReport: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
   useEffect(() => {
-    // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    // Load products - fetch all products by paginating through 100-item chunks
+    const fetchAllProducts = async () => {
+      try {
+        let allProducts: any[] = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
+          const products = response?.data || []
+
+          if (products.length > 0) {
+            allProducts = [...allProducts, ...products]
+            page++
+
+            // Check if we got less than 100, meaning we've reached the end
+            if (products.length < 100) {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
         }
-      })
-      .catch(() => {})
+
+        setProducts(allProducts)
+      } catch (error) {
+        console.error('Failed to load products:', error)
+      }
+    }
+
+    fetchAllProducts()
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
+    ApiService.get<any>('/inventory/categories/tree')
       .then(data => {
         const categoryData = data?.data || data
         if (Array.isArray(categoryData)) {
@@ -140,13 +160,7 @@ const HistoricalInventoryReport: React.FC = () => {
       }
       if (targetDate) params.append('endDate', new Date(targetDate).toISOString())
 
-      const response = await fetch(`/api/inventory/analytics/historical-inventory?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
+      const result = await ApiService.get<any>(`/inventory/analytics/historical-inventory?${params.toString()}`)
       setReportData(result.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
@@ -315,7 +329,7 @@ const HistoricalInventoryReport: React.FC = () => {
       return r[groupBy]
     }
 
-    sortedData.forEach((row, idx) => {
+    sortedData.forEach((row) => {
       const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
@@ -471,6 +485,7 @@ const HistoricalInventoryReport: React.FC = () => {
       </html>
     `
 
+    // @ts-ignore - document.write is deprecated but needed for print functionality
     printWindow.document.write(html)
     printWindow.document.close()
   }
@@ -581,8 +596,8 @@ const HistoricalInventoryReport: React.FC = () => {
           </Typography>
           <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
             {reportData.length > 0
-              ? `${reportData.length} stock movements`
-              : 'View comprehensive history of all inventory movements'}
+              ? `${reportData.length} product${reportData.length !== 1 ? 's' : ''} with historical inventory data`
+              : 'View product inventory summary based on stock movements up to a target date'}
           </Typography>
         </Box>
         <Box sx={{
@@ -714,12 +729,14 @@ const HistoricalInventoryReport: React.FC = () => {
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } },
+                      formHelperText: { sx: { fontSize: '0.65rem' } }
+                    }}
                     size="small"
                     fullWidth
                     helperText="Show movements up to this date"
-                    FormHelperTextProps={{ sx: { fontSize: '0.65rem' } }}
                   />
                 </Stack>
               </Box>
@@ -805,8 +822,10 @@ const HistoricalInventoryReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -1087,8 +1106,10 @@ const HistoricalInventoryReport: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
+        slotProps={{
+          paper: {
+            sx: { height: '90vh', maxHeight: '90vh' }
+          }
         }}
       >
         <DialogTitle sx={{

@@ -8,7 +8,6 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsNumber,
   IsOptional,
   IsEnum,
   MaxLength,
@@ -19,6 +18,7 @@ import {
 import { BaseEntity } from './base.entity';
 import { Category } from './category.entity';
 import { StockMovement } from './stock-movement.entity';
+import { PriceListItem } from './price-list-item.entity';
 
 export enum ProductType {
   GOODS = 'Stocked Product',
@@ -96,13 +96,6 @@ export class Product extends BaseEntity {
   @Min(0)
   baseCost: number;
 
-  @Column({
-    type: 'jsonb',
-    nullable: true,
-    default: '{}',
-    comment: 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }',
-  })
-  pricingTiers?: Record<string, number>;
 
   // Current stock quantity
   @Column({
@@ -146,19 +139,17 @@ export class Product extends BaseEntity {
   })
   stockMovements: StockMovement[];
 
+  // Price list relationships (new normalized pricing model)
+  @OneToMany(() => PriceListItem, (item) => item.product, {
+    cascade: false,
+  })
+  priceListItems: PriceListItem[];
+
   // Computed properties
   get isOutOfStock(): boolean {
     return Number(this.stockQuantity) <= 0;
   }
 
-  /**
-   * Calculate gross margin for a specific pricing scheme
-   */
-  getGrossMargin(schemeName: string): number {
-    const price = this.getPriceByScheme(schemeName);
-    const cost = Number(this.baseCost);
-    return cost > 0 && price > 0 ? ((price - cost) / price) * 100 : 0;
-  }
 
   // Helper methods
   adjustStock(quantity: number, type: 'increase' | 'decrease' | 'set'): void {
@@ -175,24 +166,4 @@ export class Product extends BaseEntity {
     }
   }
 
-  /**
-   * Get price for a specific pricing scheme
-   * Returns 0 if scheme not found
-   */
-  getPriceByScheme(schemeName: string): number {
-    if (this.pricingTiers && this.pricingTiers[schemeName]) {
-      return Number(this.pricingTiers[schemeName]);
-    }
-    return 0;
-  }
-
-  /**
-   * Set price for a specific pricing scheme
-   */
-  setPriceForScheme(schemeName: string, price: number): void {
-    if (!this.pricingTiers) {
-      this.pricingTiers = {};
-    }
-    this.pricingTiers[schemeName] = price;
-  }
 }

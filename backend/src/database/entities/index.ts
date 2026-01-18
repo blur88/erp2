@@ -1,11 +1,10 @@
 /**
  * Entity exports for Active ERP Modules
- * 
+ *
  * This file exports database entities for currently active modules only.
  * Organized by functional domains for better maintainability.
- * 
+ *
  * Active modules: UsersModule, InventoryModule, SalesModule, PurchasingModule, DashboardModule
- * Disabled modules: PluginsModule
  */
 
 // Base entity (used by all entities)
@@ -16,13 +15,18 @@ export { AuditLog } from './audit-log.entity';
 
 // User Management (UsersModule)
 export { User, UserRole, UserStatus } from './user.entity';
+export { RefreshToken } from './refresh-token.entity';
 
 // Product Management (InventoryModule)
 export { Category } from './category.entity';
 export { Product, ProductType } from './product.entity';
 
 // Customer Management (SalesModule, used by InventoryModule for pricing)
-export { Customer, CustomerType, PriceLevel } from './customer.entity';
+export { Customer, CustomerType } from './customer.entity';
+
+// Price List Management (SettingsModule, used by Inventory & Sales for pricing)
+export { PriceList } from './price-list.entity';
+export { PriceListItem } from './price-list-item.entity';
 
 // Sales Management (SalesModule) - Temporarily disabled for startup
 // export { SalesOrder, SalesOrderStatus, SalesOrderPriority } from './sales-order.entity';
@@ -43,12 +47,23 @@ export { GoodsReceivedNote } from './goods-received-note.entity';
 export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 export { VendorPayment } from './vendor-payment.entity';
 
+// Settings (SettingsModule)
+export { CompanySettings } from './company-settings.entity';
+export { PriceCostingSettings } from './price-costing-settings.entity';
+export { PrintSettings } from './print-settings.entity';
+export { DocumentNumberSettings } from './document-number-settings.entity';
+export { BackupRetentionSettings } from './backup-settings.entity';
+export { SecuritySettings } from './security-settings.entity';
+
 // Import entities for array construction
 import { AuditLog } from './audit-log.entity';
 import { User } from './user.entity';
+import { RefreshToken } from './refresh-token.entity';
 import { Category } from './category.entity';
 import { Product } from './product.entity';
 import { Customer } from './customer.entity';
+import { PriceList } from './price-list.entity';
+import { PriceListItem } from './price-list-item.entity';
 // import { SalesOrder } from './sales-order.entity'; // Temporarily disabled for startup
 // import { SalesOrderItem } from './sales-order-item.entity'; // Temporarily disabled for startup
 // import { Invoice } from './invoice.entity'; // Temporarily disabled for startup
@@ -65,9 +80,14 @@ export const ACTIVE_ENTITIES = [
 
   // Core entities
   User,
+  RefreshToken,
   Category,
   Product,
   Customer,
+
+  // Price List entities
+  PriceList,
+  PriceListItem,
 
   // Sales entities - Temporarily disabled for startup
   // SalesOrder,
@@ -84,7 +104,7 @@ export const ACTIVE_ENTITIES = [
  * Useful for feature-specific entity loading or testing
  */
 export const ACTIVE_ENTITY_GROUPS = {
-  CORE: [User, Category, Product, Customer],
+  CORE: [User, RefreshToken, Category, Product, Customer],
   // SALES: [SalesOrder, SalesOrderItem, Invoice, Payment], // Temporarily disabled for startup
   INVENTORY: [StockMovement],
 } as const;

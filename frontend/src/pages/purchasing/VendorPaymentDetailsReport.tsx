@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import api from '@/services/api'
 
 interface VendorPaymentDetail {
   paymentNumber: string
@@ -70,11 +71,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
   useEffect(() => {
     // Load suppliers
-    fetch('/api/purchasing/suppliers?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.suppliers) {
-          setSuppliers(data.suppliers)
+    api.get('/purchasing/suppliers?limit=100')
+      .then(res => {
+        if (res.data?.suppliers) {
+          setSuppliers(res.data.suppliers)
         }
       })
       .catch(() => {})
@@ -91,14 +91,9 @@ const VendorPaymentDetailsReport: React.FC = () => {
       if (dateTo) params.append('dateTo', dateTo)
       if (selectedSupplier) params.append('supplierId', selectedSupplier)
 
-      const response = await fetch(`/api/purchasing/analytics/vendor-payment-details?${params.toString()}`)
+      const response = await api.get(`/purchasing/analytics/vendor-payment-details?${params.toString()}`)
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
-      setReportData(result.data || [])
+      setReportData(response.data?.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])
@@ -377,7 +372,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
       </html>
     `
 
-    printWindow.document.write(html)
+    printWindow.document.documentElement.innerHTML = html
     printWindow.document.close()
   }
 
@@ -550,8 +545,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -561,8 +558,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />
@@ -667,8 +666,10 @@ const VendorPaymentDetailsReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: '0.75rem' } },
+                      input: { sx: { fontSize: '0.75rem' } }
+                    }}
                     size="small"
                     fullWidth
                   />

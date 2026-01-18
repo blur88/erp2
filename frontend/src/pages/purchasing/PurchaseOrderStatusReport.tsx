@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import api from '@/services/api'
 
 interface PurchaseOrderStatus {
   orderNumber: string
@@ -94,30 +95,27 @@ const PurchaseOrderStatusReport: React.FC = () => {
 
   useEffect(() => {
     // Load suppliers
-    fetch('/api/purchasing/suppliers?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.suppliers) {
-          setSuppliers(data.suppliers)
+    api.get('/purchasing/suppliers?limit=100')
+      .then(res => {
+        if (res.data?.suppliers) {
+          setSuppliers(res.data.suppliers)
         }
       })
       .catch(() => {})
 
     // Load products
-    fetch('/api/inventory/products?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data) {
-          setProducts(data.data)
+    api.get('/inventory/products?limit=100')
+      .then(res => {
+        if (res.data?.data) {
+          setProducts(res.data.data)
         }
       })
       .catch(() => {})
 
     // Load categories
-    fetch('/api/inventory/categories/tree')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        const categoryData = data?.data || data
+    api.get('/inventory/categories/tree')
+      .then(res => {
+        const categoryData = res.data?.data || res.data
         if (Array.isArray(categoryData)) {
           const flattenCategories = (cats: any[], level = 0): any[] => {
             return cats.reduce((acc: any[], cat: any) => {
@@ -148,14 +146,9 @@ const PurchaseOrderStatusReport: React.FC = () => {
       }
       if (selectedSupplier) params.append('supplierId', selectedSupplier)
 
-      const response = await fetch(`/api/purchasing/analytics/purchase-order-details?${params.toString()}`)
+      const response = await api.get(`/purchasing/analytics/purchase-order-details?${params.toString()}`)
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch report data')
-      }
-
-      const result = await response.json()
-      setReportData(result.data || [])
+      setReportData(response.data?.data || [])
     } catch (err) {
       console.error('Failed to generate report:', err)
       setReportData([])

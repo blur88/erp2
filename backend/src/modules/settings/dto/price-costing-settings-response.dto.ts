@@ -18,17 +18,6 @@ export class PriceCostingSettingsResponseDto {
   @Expose()
   costingMethod: string;
 
-  @ApiProperty({
-    description: 'Customer pricing schemes - array of custom pricing names with their currencies',
-    example: [
-      { name: 'Retail', currency: 'USD' },
-      { name: 'Wholesale', currency: 'USD' },
-      { name: 'Special Price', currency: 'EUR' },
-    ],
-  })
-  @Expose()
-  customerPricingSchemes: Array<{ name: string; currency: string }>;
-
   @ApiProperty({ description: 'Creation timestamp' })
   @Expose()
   createdAt: Date;
