@@ -369,6 +369,8 @@ export class SalesOrderService {
     let queryBuilder = this.salesOrderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
       .select([
         'order.id',
         'order.orderNumber',
@@ -386,7 +388,15 @@ export class SalesOrderService {
         'customer.city',
         'customer.state',
         'customer.postalCode',
-        'customer.country'
+        'customer.country',
+        'items.id',
+        'items.quantity',
+        'items.unitPrice',
+        'items.totalAmount',
+        'items.productId',
+        'product.id',
+        'product.name',
+        'product.baseCost'
       ])
       .where('order.deletedAt IS NULL'); // Only get non-deleted orders
 
@@ -512,6 +522,7 @@ export class SalesOrderService {
         isFulfilled: order.isFulfilled,
         customerId: order.customerId,
         customer: order.customer,
+        items: order.items, // Include items for dashboard top products calculation
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
       })),
