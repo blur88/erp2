@@ -23,8 +23,13 @@ vi.mock('../../../services/authApi', () => ({
   },
 }));
 
+// Type for the test store state
+type TestRootState = {
+  auth: ReturnType<typeof authReducer>;
+};
+
 describe('authSlice', () => {
-  let store: ReturnType<typeof configureStore>;
+  let store: ReturnType<typeof configureStore<TestRootState>>;
 
   beforeEach(() => {
     store = configureStore({
@@ -68,6 +73,7 @@ describe('authSlice', () => {
         user: mockUser,
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        expiresIn: 900,
       }));
 
       const state = store.getState().auth;
@@ -97,6 +103,7 @@ describe('authSlice', () => {
         },
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        expiresIn: 900,
       }));
 
       // Then clear it
@@ -223,13 +230,15 @@ describe('authSlice', () => {
         },
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        expiresIn: 900,
       }));
     });
 
     it('should handle successful logout', async () => {
       (authApi.logout as any).mockResolvedValue({ data: { message: 'Logged out' } });
 
-      await store.dispatch(logout());
+      const refreshToken = store.getState().auth.refreshToken;
+      await store.dispatch(logout(refreshToken!));
 
       const state = store.getState().auth;
       expect(state.user).toBeNull();
@@ -241,7 +250,8 @@ describe('authSlice', () => {
     it('should clear auth state even if logout API fails', async () => {
       (authApi.logout as any).mockRejectedValue(new Error('Network error'));
 
-      await store.dispatch(logout());
+      const refreshToken = store.getState().auth.refreshToken;
+      await store.dispatch(logout(refreshToken!));
 
       const state = store.getState().auth;
       expect(state.user).toBeNull();
@@ -267,6 +277,7 @@ describe('authSlice', () => {
         },
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        expiresIn: 900,
       }));
     });
 
