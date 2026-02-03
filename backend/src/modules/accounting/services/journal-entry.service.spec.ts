@@ -1,0 +1,599 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import { JournalEntryService } from './journal-entry.service';
+import { ChartOfAccountsService } from './chart-of-accounts.service';
+import { FiscalPeriodService } from './fiscal-period.service';
+import {
+  JournalEntry,
+  JournalEntryStatus,
+} from '../../../database/entities/journal-entry.entity';
+import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import {
+  FiscalPeriod,
+  FiscalPeriodStatus,
+} from '../../../database/entities/fiscal-period.entity';
+import {
+  ChartOfAccount,
+  AccountType,
+} from '../../../database/entities/chart-of-account.entity';
+import {
+  CreateJournalEntryDto,
+  UpdateJournalEntryDto,
+  QueryJournalEntriesDto,
+} from '../dto/journal-entry.dto';
+
+describe('JournalEntryService', () => {
+  let service: JournalEntryService;
+  let journalEntryRepository: jest.Mocked<Repository<JournalEntry>>;
+  let journalEntryLineRepository: jest.Mocked<Repository<JournalEntryLine>>;
+  let fiscalPeriodRepository: jest.Mocked<Repository<FiscalPeriod>>;
+  let chartOfAccountRepository: jest.Mocked<Repository<ChartOfAccount>>;
+  let chartOfAccountsService: jest.Mocked<ChartOfAccountsService>;
+  let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
+
+  // Test data
+  const mockFiscalPeriod: Partial<FiscalPeriod> = {
+    id: 'period-1',
+    code: '2026-01',
+    name: 'January 2026',
+    startDate: new Date('2026-01-01'),
+    endDate: new Date('2026-01-31'),
+    status: FiscalPeriodStatus.OPEN,
+    isOpen: true,
+    isClosed: false,
+  };
+
+  const mockAccount1: Partial<ChartOfAccount> = {
+    id: 'account-1',
+    code: '1000',
+    name: 'Cash',
+    type: AccountType.ASSET,
+    isActive: true,
+  };
+
+  const mockAccount2: Partial<ChartOfAccount> = {
+    id: 'account-2',
+    code: '4000',
+    name: 'Sales Revenue',
+    type: AccountType.REVENUE,
+    isActive: true,
+  };
+
+  const mockJournalEntry: Partial<JournalEntry> = {
+    id: 'entry-1',
+    entryDate: new Date('2026-01-15'),
+    referenceNumber: 'JE-2026-001',
+    description: 'Test journal entry',
+    status: JournalEntryStatus.DRAFT,
+    fiscalPeriodId: 'period-1',
+    fiscalPeriod: mockFiscalPeriod as FiscalPeriod,
+    lines: [],
+    isDraft: true,
+    isPosted: false,
+    isReversed: false,
+    totalDebits: 1000,
+    totalCredits: 1000,
+    isBalanced: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockJournalEntryLine1: Partial<JournalEntryLine> = {
+    id: 'line-1',
+    journalEntryId: 'entry-1',
+    accountId: 'account-1',
+    debitAmount: 1000,
+    creditAmount: 0,
+    account: mockAccount1 as ChartOfAccount,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockJournalEntryLine2: Partial<JournalEntryLine> = {
+    id: 'line-2',
+    journalEntryId: 'entry-1',
+    accountId: 'account-2',
+    debitAmount: 0,
+    creditAmount: 1000,
+    account: mockAccount2 as ChartOfAccount,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        JournalEntryService,
+        {
+          provide: getRepositoryToken(JournalEntry),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            softDelete: jest.fn(),
+            createQueryBuilder: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(JournalEntryLine),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            delete: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(FiscalPeriod),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(ChartOfAccount),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
+          },
+        },
+        {
+          provide: ChartOfAccountsService,
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
+          provide: FiscalPeriodService,
+          useValue: {
+            checkPeriodOpen: jest.fn(),
+            findOne: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<JournalEntryService>(JournalEntryService);
+    journalEntryRepository = module.get(getRepositoryToken(JournalEntry));
+    journalEntryLineRepository = module.get(getRepositoryToken(JournalEntryLine));
+    fiscalPeriodRepository = module.get(getRepositoryToken(FiscalPeriod));
+    chartOfAccountRepository = module.get(getRepositoryToken(ChartOfAccount));
+    chartOfAccountsService = module.get(ChartOfAccountsService);
+    fiscalPeriodService = module.get(FiscalPeriodService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('create', () => {
+    const createDto: CreateJournalEntryDto = {
+      entryDate: new Date('2026-01-15'),
+      description: 'Test entry',
+      fiscalPeriodId: 'period-1',
+      lines: [
+        { accountId: 'account-1', debitAmount: 1000, creditAmount: 0 },
+        { accountId: 'account-2', debitAmount: 0, creditAmount: 1000 },
+      ],
+    };
+
+    it('should create a journal entry with DRAFT status', async () => {
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+      chartOfAccountRepository.findOne
+        .mockResolvedValueOnce(mockAccount1 as ChartOfAccount)
+        .mockResolvedValueOnce(mockAccount2 as ChartOfAccount);
+
+      // Mock for checking existing entry
+      journalEntryRepository.findOne.mockResolvedValueOnce(null);
+
+      // Mock for generating reference number
+      const queryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      journalEntryRepository.create.mockReturnValue(mockJournalEntry as JournalEntry);
+      journalEntryRepository.save.mockResolvedValue(mockJournalEntry as JournalEntry);
+      journalEntryLineRepository.create.mockReturnValue(mockJournalEntryLine1 as JournalEntryLine);
+      journalEntryLineRepository.save.mockResolvedValue([
+        mockJournalEntryLine1,
+        mockJournalEntryLine2,
+      ] as any);
+
+      // Mock findOne for final result
+      const entryWithLines = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne.mockResolvedValueOnce(entryWithLines as JournalEntry);
+
+      const result = await service.create(createDto);
+
+      expect(result).toBeDefined();
+      expect(result.status).toBe(JournalEntryStatus.DRAFT);
+      expect(journalEntryRepository.create).toHaveBeenCalled();
+      expect(journalEntryRepository.save).toHaveBeenCalled();
+    });
+
+    it('should generate reference number if not provided', async () => {
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+      chartOfAccountRepository.findOne
+        .mockResolvedValueOnce(mockAccount1 as ChartOfAccount)
+        .mockResolvedValueOnce(mockAccount2 as ChartOfAccount);
+
+      // Mock for checking existing entry
+      journalEntryRepository.findOne.mockResolvedValueOnce(null);
+
+      // Mock for generating reference number
+      const queryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      journalEntryRepository.create.mockReturnValue(mockJournalEntry as JournalEntry);
+      journalEntryRepository.save.mockResolvedValue(mockJournalEntry as JournalEntry);
+      journalEntryLineRepository.create.mockReturnValue(mockJournalEntryLine1 as JournalEntryLine);
+      journalEntryLineRepository.save.mockResolvedValue([mockJournalEntryLine1] as any);
+
+      const entryWithLines = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne.mockResolvedValueOnce(entryWithLines as JournalEntry);
+
+      const result = await service.create(createDto);
+
+      expect(result.referenceNumber).toMatch(/^JE-\d{4}-\d{3}$/);
+    });
+
+    it('should throw BadRequestException if fiscal period is closed', async () => {
+      const closedPeriod = { ...mockFiscalPeriod, status: FiscalPeriodStatus.CLOSED };
+      fiscalPeriodRepository.findOne.mockResolvedValue(closedPeriod as FiscalPeriod);
+
+      await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException if fiscal period not found', async () => {
+      fiscalPeriodRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.create(createDto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if account not found', async () => {
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+      chartOfAccountRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.create(createDto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if lines have both debit and credit', async () => {
+      const invalidDto = {
+        ...createDto,
+        lines: [
+          { accountId: 'account-1', debitAmount: 100, creditAmount: 100 },
+          { accountId: 'account-2', debitAmount: 0, creditAmount: 100 },
+        ],
+      };
+
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+      chartOfAccountRepository.findOne
+        .mockResolvedValueOnce(mockAccount1 as ChartOfAccount)
+        .mockResolvedValueOnce(mockAccount2 as ChartOfAccount);
+
+      await expect(service.create(invalidDto as any)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if lines have neither debit nor credit', async () => {
+      const invalidDto = {
+        ...createDto,
+        lines: [
+          { accountId: 'account-1', debitAmount: 0, creditAmount: 0 },
+          { accountId: 'account-2', debitAmount: 100, creditAmount: 0 },
+        ],
+      };
+
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+      chartOfAccountRepository.findOne
+        .mockResolvedValueOnce(mockAccount1 as ChartOfAccount)
+        .mockResolvedValueOnce(mockAccount2 as ChartOfAccount);
+
+      await expect(service.create(invalidDto as any)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if less than 2 lines', async () => {
+      const invalidDto = {
+        ...createDto,
+        lines: [{ accountId: 'account-1', debitAmount: 100, creditAmount: 0 }],
+      };
+
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+      chartOfAccountRepository.findOne.mockResolvedValue(mockAccount1 as ChartOfAccount);
+
+      await expect(service.create(invalidDto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException if reference number already exists', async () => {
+      const dtoWithRef = { ...createDto, referenceNumber: 'JE-2026-001' };
+
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+      chartOfAccountRepository.findOne
+        .mockResolvedValueOnce(mockAccount1 as ChartOfAccount)
+        .mockResolvedValueOnce(mockAccount2 as ChartOfAccount);
+      journalEntryRepository.findOne.mockResolvedValue(mockJournalEntry as JournalEntry);
+
+      await expect(service.create(dtoWithRef)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return paginated journal entries', async () => {
+      const queryDto: QueryJournalEntriesDto = { page: 1, limit: 20 };
+
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockJournalEntry], 1]),
+      };
+
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll(queryDto);
+
+      expect(result).toBeDefined();
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+    });
+
+    it('should apply status filter', async () => {
+      const queryDto: QueryJournalEntriesDto = {
+        page: 1,
+        limit: 20,
+        status: JournalEntryStatus.POSTED,
+      };
+
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll(queryDto);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('entry.status = :status', {
+        status: JournalEntryStatus.POSTED,
+      });
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a journal entry by ID', async () => {
+      const entryWithRelations = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne.mockResolvedValue(entryWithRelations as JournalEntry);
+
+      const result = await service.findOne('entry-1');
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe('entry-1');
+    });
+
+    it('should throw NotFoundException if entry not found', async () => {
+      journalEntryRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    const updateDto: UpdateJournalEntryDto = {
+      description: 'Updated description',
+    };
+
+    it('should update a DRAFT journal entry', async () => {
+      const entryWithLines = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne
+        .mockResolvedValueOnce(entryWithLines as JournalEntry)
+        .mockResolvedValueOnce(entryWithLines as JournalEntry);
+      journalEntryRepository.save.mockResolvedValue(entryWithLines as JournalEntry);
+
+      const result = await service.update('entry-1', updateDto);
+
+      expect(result).toBeDefined();
+      expect(journalEntryRepository.save).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if entry is not DRAFT', async () => {
+      const postedEntry = { ...mockJournalEntry, status: JournalEntryStatus.POSTED };
+      journalEntryRepository.findOne.mockResolvedValue(postedEntry as JournalEntry);
+
+      await expect(service.update('entry-1', updateDto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException if entry not found', async () => {
+      journalEntryRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.update('non-existent', updateDto)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('remove', () => {
+    it('should soft delete a DRAFT journal entry', async () => {
+      journalEntryRepository.findOne.mockResolvedValue(mockJournalEntry as JournalEntry);
+      journalEntryRepository.softDelete.mockResolvedValue({ affected: 1 } as any);
+
+      await service.remove('entry-1');
+
+      expect(journalEntryRepository.softDelete).toHaveBeenCalledWith('entry-1');
+    });
+
+    it('should throw BadRequestException if entry is not DRAFT', async () => {
+      const postedEntry = { ...mockJournalEntry, status: JournalEntryStatus.POSTED };
+      journalEntryRepository.findOne.mockResolvedValue(postedEntry as JournalEntry);
+
+      await expect(service.remove('entry-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if entry has been reversed', async () => {
+      const reversedEntry = { ...mockJournalEntry, reversedById: 'rev-entry-1' };
+      journalEntryRepository.findOne.mockResolvedValue(reversedEntry as JournalEntry);
+
+      await expect(service.remove('entry-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException if entry not found', async () => {
+      journalEntryRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.remove('non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('postEntry', () => {
+    it('should post a balanced DRAFT entry', async () => {
+      const entryWithLines = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+        isBalanced: true,
+      };
+      journalEntryRepository.findOne.mockResolvedValue(entryWithLines as JournalEntry);
+      fiscalPeriodService.checkPeriodOpen.mockResolvedValue(true);
+      journalEntryRepository.save.mockResolvedValue({
+        ...entryWithLines,
+        status: JournalEntryStatus.POSTED,
+      } as JournalEntry);
+
+      const result = await service.postEntry('entry-1');
+
+      expect(result.status).toBe(JournalEntryStatus.POSTED);
+      expect(journalEntryRepository.save).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if entry is not balanced', async () => {
+      const unbalancedEntry = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1],
+        isBalanced: false,
+        totalDebits: 1000,
+        totalCredits: 500,
+      };
+      journalEntryRepository.findOne.mockResolvedValue(unbalancedEntry as JournalEntry);
+
+      await expect(service.postEntry('entry-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if entry is not DRAFT', async () => {
+      const postedEntry = {
+        ...mockJournalEntry,
+        status: JournalEntryStatus.POSTED,
+        isBalanced: true,
+      };
+      journalEntryRepository.findOne.mockResolvedValue(postedEntry as JournalEntry);
+
+      await expect(service.postEntry('entry-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if fiscal period is closed', async () => {
+      const entryWithLines = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+        isBalanced: true,
+      };
+      journalEntryRepository.findOne.mockResolvedValue(entryWithLines as JournalEntry);
+      fiscalPeriodService.checkPeriodOpen.mockResolvedValue(false);
+
+      await expect(service.postEntry('entry-1')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('reverseEntry', () => {
+    it('should reverse a POSTED entry', async () => {
+      const postedEntry = {
+        ...mockJournalEntry,
+        status: JournalEntryStatus.POSTED,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne
+        .mockResolvedValueOnce(postedEntry as JournalEntry)
+        .mockResolvedValueOnce({ id: 'rev-entry-1' } as JournalEntry);
+
+      const queryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      fiscalPeriodService.checkPeriodOpen.mockResolvedValue(true);
+      journalEntryRepository.create.mockReturnValue({ id: 'rev-entry-1' } as JournalEntry);
+      journalEntryRepository.save.mockResolvedValue({ id: 'rev-entry-1' } as JournalEntry);
+      journalEntryLineRepository.create.mockReturnValue({} as JournalEntryLine);
+      journalEntryLineRepository.save.mockResolvedValue([] as any);
+
+      const result = await service.reverseEntry('entry-1');
+
+      expect(result).toBeDefined();
+      expect(journalEntryRepository.save).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if entry is not POSTED', async () => {
+      journalEntryRepository.findOne.mockResolvedValue(mockJournalEntry as JournalEntry);
+
+      await expect(service.reverseEntry('entry-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if entry already reversed', async () => {
+      const reversedEntry = {
+        ...mockJournalEntry,
+        status: JournalEntryStatus.POSTED,
+        reversedById: 'rev-entry-1',
+      };
+      journalEntryRepository.findOne.mockResolvedValue(reversedEntry as JournalEntry);
+
+      await expect(service.reverseEntry('entry-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if fiscal period is closed', async () => {
+      const postedEntry = {
+        ...mockJournalEntry,
+        status: JournalEntryStatus.POSTED,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne.mockResolvedValue(postedEntry as JournalEntry);
+      fiscalPeriodService.checkPeriodOpen.mockResolvedValue(false);
+
+      await expect(service.reverseEntry('entry-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException if entry not found', async () => {
+      journalEntryRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.reverseEntry('non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+});
