@@ -4,6 +4,12 @@ export class AccountingEntities1770109818000 implements MigrationInterface {
     name = 'AccountingEntities1770109818000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
+        // Safety check: Verify no existing journal entries to prevent data loss
+        const jeCount = await queryRunner.query(`SELECT COUNT(*) as count FROM journal_entries`);
+        if (jeCount[0].count > 0) {
+            throw new Error('Cannot run migration: journal_entries table contains data. Manual migration required.');
+        }
+
         await queryRunner.query(`ALTER TABLE "payments" DROP CONSTRAINT "FK_payments_paymentMethodId"`);
         await queryRunner.query(`ALTER TABLE "journal_entries" DROP CONSTRAINT "FK_41891020be5293d0fd305c52574"`);
         await queryRunner.query(`ALTER TABLE "journal_entries" DROP CONSTRAINT "FK_c38a2267c628a599f96918eb413"`);
@@ -131,9 +137,17 @@ export class AccountingEntities1770109818000 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "bank_reconciliations" ADD CONSTRAINT "FK_caee9aad9b9c7f8270ef9918a31" FOREIGN KEY ("fiscalPeriodId") REFERENCES "fiscal_periods"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "reconciled_transactions" ADD CONSTRAINT "FK_9a3e7b0b468ed724ab5a0d359e8" FOREIGN KEY ("reconciliationId") REFERENCES "bank_reconciliations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "reconciled_transactions" ADD CONSTRAINT "FK_11744dd1514afba38f5f8b3122a" FOREIGN KEY ("journalEntryLineId") REFERENCES "journal_entry_lines"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`);
+
+        // Add check constraints for journal entry lines
+        await queryRunner.query(`ALTER TABLE "journal_entry_lines" ADD CONSTRAINT "CHK_journal_entry_lines_debit_credit" CHECK (("debitAmount" > 0 AND "creditAmount" = 0) OR ("creditAmount" > 0 AND "debitAmount" = 0))`);
+        await queryRunner.query(`ALTER TABLE "journal_entry_lines" ADD CONSTRAINT "CHK_journal_entry_lines_amounts_non_negative" CHECK ("debitAmount" >= 0 AND "creditAmount" >= 0)`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        // WARNING: Rolling back this migration will permanently delete all accounting data
+        // including journal entries, fiscal periods, and bank reconciliations.
+        // Ensure you have a database backup before running this rollback.
+
         await queryRunner.query(`ALTER TABLE "reconciled_transactions" DROP CONSTRAINT "FK_11744dd1514afba38f5f8b3122a"`);
         await queryRunner.query(`ALTER TABLE "reconciled_transactions" DROP CONSTRAINT "FK_9a3e7b0b468ed724ab5a0d359e8"`);
         await queryRunner.query(`ALTER TABLE "bank_reconciliations" DROP CONSTRAINT "FK_caee9aad9b9c7f8270ef9918a31"`);
@@ -150,6 +164,11 @@ export class AccountingEntities1770109818000 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX "public"."IDX_ffe2f0d3a4f6993bcbee7f7096"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_9bd874dcd57eb61f322d9cf70f"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_d6ee2d4bf901675877bb94977c"`);
+
+        // Drop check constraints
+        await queryRunner.query(`ALTER TABLE "journal_entry_lines" DROP CONSTRAINT IF EXISTS "CHK_journal_entry_lines_debit_credit"`);
+        await queryRunner.query(`ALTER TABLE "journal_entry_lines" DROP CONSTRAINT IF EXISTS "CHK_journal_entry_lines_amounts_non_negative"`);
+
         await queryRunner.query(`COMMENT ON COLUMN "journal_entry_lines"."accountId" IS NULL`);
         await queryRunner.query(`COMMENT ON COLUMN "journal_entry_lines"."journalEntryId" IS NULL`);
         await queryRunner.query(`ALTER TABLE "journal_entry_lines" ADD CONSTRAINT "FK_b06b5322d679be6e2559132857d" FOREIGN KEY ("journalEntryId") REFERENCES "journal_entries"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
