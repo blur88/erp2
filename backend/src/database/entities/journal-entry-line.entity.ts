@@ -10,7 +10,6 @@ import {
   IsString,
   IsOptional,
   IsDecimal,
-  Min,
   IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
@@ -48,7 +47,6 @@ export class JournalEntryLine extends BaseEntity {
     comment: 'Debit amount',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   debitAmount: number;
 
   @Column({
@@ -59,7 +57,6 @@ export class JournalEntryLine extends BaseEntity {
     comment: 'Credit amount',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   creditAmount: number;
 
   @Column({
