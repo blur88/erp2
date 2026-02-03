@@ -8,6 +8,7 @@ import { JournalEntry } from '../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../database/entities/journal-entry-line.entity';
 
 // Services
+import { AccountingService } from './services/accounting.service';
 import { ChartOfAccountsService } from './services/chart-of-accounts.service';
 import { FiscalPeriodService } from './services/fiscal-period.service';
 import { JournalEntryService } from './services/journal-entry.service';
@@ -32,11 +33,13 @@ import { JournalEntryController } from './controllers/journal-entry.controller';
     JournalEntryController,
   ],
   providers: [
+    AccountingService,
     ChartOfAccountsService,
     FiscalPeriodService,
     JournalEntryService,
   ],
   exports: [
+    AccountingService,
     ChartOfAccountsService,
     FiscalPeriodService,
     JournalEntryService,
