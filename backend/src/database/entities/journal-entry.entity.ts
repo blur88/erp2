@@ -13,6 +13,7 @@ import {
   IsOptional,
   IsDate,
   MaxLength,
+  IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { FiscalPeriod } from './fiscal-period.entity';
@@ -72,6 +73,7 @@ export class JournalEntry extends BaseEntity {
     type: 'uuid',
     comment: 'Fiscal period ID',
   })
+  @IsUUID()
   fiscalPeriodId: string;
 
   @Column({

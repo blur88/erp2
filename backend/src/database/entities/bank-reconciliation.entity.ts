@@ -9,8 +9,8 @@ import {
 import {
   IsEnum,
   IsDecimal,
-  Min,
   IsDate,
+  IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { ChartOfAccount } from './chart-of-account.entity';
@@ -44,39 +44,39 @@ export class BankReconciliation extends BaseEntity {
     type: 'uuid',
     comment: 'Bank account (Chart of Account ID)',
   })
+  @IsUUID()
   accountId: string;
 
   @Column({
     type: 'uuid',
     comment: 'Fiscal period ID',
   })
+  @IsUUID()
   fiscalPeriodId: string;
 
   @Column({
     type: 'decimal',
-    precision: 12,
+    precision: 15,
     scale: 4,
     default: 0,
     comment: 'Balance per bank statement',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   statementBalance: number;
 
   @Column({
     type: 'decimal',
-    precision: 12,
+    precision: 15,
     scale: 4,
     default: 0,
     comment: 'Balance per books (general ledger)',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   bookBalance: number;
 
   @Column({
     type: 'decimal',
-    precision: 12,
+    precision: 15,
     scale: 4,
     default: 0,
     comment: 'Difference between statement and book balance',

@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import {
   IsBoolean,
+  IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { BankReconciliation } from './bank-reconciliation.entity';
@@ -26,12 +27,14 @@ export class ReconciledTransaction extends BaseEntity {
     type: 'uuid',
     comment: 'Bank reconciliation ID',
   })
+  @IsUUID()
   reconciliationId: string;
 
   @Column({
     type: 'uuid',
     comment: 'Journal entry line ID being reconciled',
   })
+  @IsUUID()
   journalEntryLineId: string;
 
   @Column({

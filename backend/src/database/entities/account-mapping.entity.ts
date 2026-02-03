@@ -8,6 +8,7 @@ import {
 import {
   IsString,
   MaxLength,
+  IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { ChartOfAccount } from './chart-of-account.entity';
@@ -35,6 +36,7 @@ export class AccountMapping extends BaseEntity {
     type: 'uuid',
     comment: 'Chart of account ID to post to',
   })
+  @IsUUID()
   accountId: string;
 
   @Column({

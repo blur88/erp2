@@ -11,6 +11,7 @@ import {
   IsOptional,
   IsDecimal,
   Min,
+  IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { JournalEntry } from './journal-entry.entity';
@@ -29,17 +30,19 @@ export class JournalEntryLine extends BaseEntity {
     type: 'uuid',
     comment: 'Journal entry ID',
   })
+  @IsUUID()
   journalEntryId: string;
 
   @Column({
     type: 'uuid',
     comment: 'Chart of account ID',
   })
+  @IsUUID()
   accountId: string;
 
   @Column({
     type: 'decimal',
-    precision: 12,
+    precision: 15,
     scale: 4,
     default: 0,
     comment: 'Debit amount',
@@ -50,7 +53,7 @@ export class JournalEntryLine extends BaseEntity {
 
   @Column({
     type: 'decimal',
-    precision: 12,
+    precision: 15,
     scale: 4,
     default: 0,
     comment: 'Credit amount',
