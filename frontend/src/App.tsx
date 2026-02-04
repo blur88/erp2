@@ -66,6 +66,7 @@ const PriceListsPage = React.lazy(() => import('./pages/settings/PriceListsPage'
 const PriceListDetailsPage = React.lazy(() => import('./pages/settings/PriceListDetailsPage'))
 const AuditLogsPage = React.lazy(() => import('./pages/audit-logs/AuditLogsPage'))
 const ChartOfAccountsPage = React.lazy(() => import('./pages/accounting/ChartOfAccountsPage'))
+const FiscalPeriodsPage = React.lazy(() => import('./pages/accounting/FiscalPeriodsPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
 // Loading component
@@ -262,6 +263,7 @@ function App() {
 
                     {/* Accounting */}
                     <Route path="/accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
+                    <Route path="/accounting/fiscal-periods" element={<FiscalPeriodsPage />} />
 
                     {/* Default redirect */}
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
