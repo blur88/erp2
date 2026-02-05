@@ -47,6 +47,15 @@ export { GoodsReceivedNote } from './goods-received-note.entity';
 export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
 export { VendorPayment } from './vendor-payment.entity';
 
+// Accounting Management (AccountingModule) - Phase 1
+export { ChartOfAccount, AccountType } from './chart-of-account.entity';
+export { FiscalPeriod, FiscalPeriodStatus } from './fiscal-period.entity';
+export { JournalEntry, JournalEntryStatus } from './journal-entry.entity';
+export { JournalEntryLine } from './journal-entry-line.entity';
+export { AccountMapping } from './account-mapping.entity';
+export { BankReconciliation, BankReconciliationStatus } from './bank-reconciliation.entity';
+export { ReconciledTransaction } from './reconciled-transaction.entity';
+
 // Settings (SettingsModule)
 export { CompanySettings } from './company-settings.entity';
 export { PriceCostingSettings } from './price-costing-settings.entity';

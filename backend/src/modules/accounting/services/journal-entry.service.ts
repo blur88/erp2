@@ -1,0 +1,647 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between } from 'typeorm';
+import {
+  JournalEntry,
+  JournalEntryStatus,
+} from '../../../database/entities/journal-entry.entity';
+import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
+import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import {
+  CreateJournalEntryDto,
+  UpdateJournalEntryDto,
+  QueryJournalEntriesDto,
+  JournalEntryResponseDto,
+  JournalEntryListResponseDto,
+  JournalEntryLineResponseDto,
+} from '../dto/journal-entry.dto';
+import { ChartOfAccountsService } from './chart-of-accounts.service';
+import { FiscalPeriodService } from './fiscal-period.service';
+
+@Injectable()
+export class JournalEntryService {
+  private readonly logger = new Logger(JournalEntryService.name);
+
+  constructor(
+    @InjectRepository(JournalEntry)
+    private readonly journalEntryRepository: Repository<JournalEntry>,
+    @InjectRepository(JournalEntryLine)
+    private readonly journalEntryLineRepository: Repository<JournalEntryLine>,
+    @InjectRepository(FiscalPeriod)
+    private readonly fiscalPeriodRepository: Repository<FiscalPeriod>,
+    @InjectRepository(ChartOfAccount)
+    private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
+    private readonly chartOfAccountsService: ChartOfAccountsService,
+    private readonly fiscalPeriodService: FiscalPeriodService,
+  ) {}
+
+  /**
+   * Create a new journal entry (status: DRAFT)
+   */
+  async create(
+    createDto: CreateJournalEntryDto,
+    userId: string = 'system',
+  ): Promise<JournalEntryResponseDto> {
+    this.logger.log(`Creating journal entry with date: ${createDto.entryDate}`);
+
+    // Validate fiscal period exists and is open
+    await this.validateFiscalPeriod(createDto.fiscalPeriodId, createDto.entryDate);
+
+    // Validate all accounts exist and are active
+    await this.validateAccounts(createDto.lines.map((line) => line.accountId));
+
+    // Validate entry lines
+    this.validateEntryLines(createDto.lines);
+
+    // Generate reference number if not provided
+    const referenceNumber = createDto.referenceNumber || await this.generateReferenceNumber(createDto.entryDate);
+
+    // Check if reference number already exists
+    const existingEntry = await this.journalEntryRepository.findOne({
+      where: { referenceNumber },
+      withDeleted: true,
+    });
+
+    if (existingEntry) {
+      throw new ConflictException(
+        `Journal entry with reference number '${referenceNumber}' already exists`,
+      );
+    }
+
+    // Create journal entry
+    const journalEntry = this.journalEntryRepository.create({
+      entryDate: createDto.entryDate,
+      referenceNumber,
+      description: createDto.description,
+      fiscalPeriodId: createDto.fiscalPeriodId,
+      sourceType: createDto.sourceType,
+      sourceId: createDto.sourceId,
+      status: JournalEntryStatus.DRAFT,
+    });
+
+    const savedEntry = await this.journalEntryRepository.save(journalEntry);
+
+    // Create journal entry lines
+    const lines = createDto.lines.map((lineDto) =>
+      this.journalEntryLineRepository.create({
+        journalEntryId: savedEntry.id,
+        accountId: lineDto.accountId,
+        debitAmount: lineDto.debitAmount || 0,
+        creditAmount: lineDto.creditAmount || 0,
+        memo: lineDto.memo,
+      }),
+    );
+
+    await this.journalEntryLineRepository.save(lines);
+
+    this.logger.log(`Journal entry created successfully with ID: ${savedEntry.id}`);
+    return this.findOne(savedEntry.id);
+  }
+
+  /**
+   * Find all journal entries with filtering, sorting, and pagination
+   */
+  async findAll(
+    query: QueryJournalEntriesDto,
+  ): Promise<JournalEntryListResponseDto> {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      fiscalPeriodId,
+      sourceType,
+      startDate,
+      endDate,
+      sortBy = 'entryDate',
+      sortOrder = 'DESC',
+    } = query;
+
+    const queryBuilder = this.journalEntryRepository
+      .createQueryBuilder('entry')
+      .leftJoinAndSelect('entry.fiscalPeriod', 'fiscalPeriod')
+      .leftJoinAndSelect('entry.lines', 'lines')
+      .leftJoinAndSelect('lines.account', 'account')
+      .where('entry.deletedAt IS NULL');
+
+    // Apply filters
+    if (search) {
+      queryBuilder.andWhere(
+        '(entry.referenceNumber ILIKE :search OR entry.description ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (status) {
+      queryBuilder.andWhere('entry.status = :status', { status });
+    }
+
+    if (fiscalPeriodId) {
+      queryBuilder.andWhere('entry.fiscalPeriodId = :fiscalPeriodId', { fiscalPeriodId });
+    }
+
+    if (sourceType) {
+      queryBuilder.andWhere('entry.sourceType = :sourceType', { sourceType });
+    }
+
+    if (startDate && endDate) {
+      queryBuilder.andWhere('entry.entryDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
+    } else if (startDate) {
+      queryBuilder.andWhere('entry.entryDate >= :startDate', { startDate });
+    } else if (endDate) {
+      queryBuilder.andWhere('entry.entryDate <= :endDate', { endDate });
+    }
+
+    // Apply sorting
+    const validSortFields = ['entryDate', 'referenceNumber', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'entryDate';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+    queryBuilder.orderBy(`entry.${sortField}`, safeSortOrder);
+
+    // Apply pagination
+    const offset = (page - 1) * limit;
+    queryBuilder.skip(offset).take(limit);
+
+    const [entries, total] = await queryBuilder.getManyAndCount();
+
+    const data = entries.map((entry) => this.toResponseDto(entry));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Find one journal entry by ID with all relations
+   */
+  async findOne(id: string): Promise<JournalEntryResponseDto> {
+    const entry = await this.journalEntryRepository.findOne({
+      where: { id },
+      relations: ['fiscalPeriod', 'lines', 'lines.account', 'reversalOf', 'reversedBy'],
+    });
+
+    if (!entry) {
+      throw new NotFoundException(`Journal entry with ID '${id}' not found`);
+    }
+
+    return this.toResponseDto(entry);
+  }
+
+  /**
+   * Update a journal entry (only if status = DRAFT)
+   */
+  async update(
+    id: string,
+    updateDto: UpdateJournalEntryDto,
+    userId: string = 'system',
+  ): Promise<JournalEntryResponseDto> {
+    this.logger.log(`Updating journal entry with ID: ${id}`);
+
+    const entry = await this.journalEntryRepository.findOne({
+      where: { id },
+      relations: ['lines'],
+    });
+
+    if (!entry) {
+      throw new NotFoundException(`Journal entry with ID '${id}' not found`);
+    }
+
+    // Can only update DRAFT entries
+    if (entry.status !== JournalEntryStatus.DRAFT) {
+      throw new BadRequestException(
+        `Cannot update journal entry with status '${entry.status}'. Only DRAFT entries can be updated.`,
+      );
+    }
+
+    // Validate fiscal period if being changed
+    if (updateDto.fiscalPeriodId && updateDto.fiscalPeriodId !== entry.fiscalPeriodId) {
+      const entryDate = updateDto.entryDate || entry.entryDate;
+      await this.validateFiscalPeriod(updateDto.fiscalPeriodId, entryDate);
+    }
+
+    // Validate accounts if lines are being updated
+    if (updateDto.lines) {
+      await this.validateAccounts(updateDto.lines.map((line) => line.accountId));
+      this.validateEntryLines(updateDto.lines);
+    }
+
+    // Check for reference number conflicts if being changed
+    if (updateDto.referenceNumber && updateDto.referenceNumber !== entry.referenceNumber) {
+      const existingEntry = await this.journalEntryRepository.findOne({
+        where: { referenceNumber: updateDto.referenceNumber },
+        withDeleted: true,
+      });
+
+      if (existingEntry && existingEntry.id !== id) {
+        throw new ConflictException(
+          `Journal entry with reference number '${updateDto.referenceNumber}' already exists`,
+        );
+      }
+    }
+
+    // Update journal entry
+    Object.assign(entry, {
+      entryDate: updateDto.entryDate ?? entry.entryDate,
+      referenceNumber: updateDto.referenceNumber ?? entry.referenceNumber,
+      description: updateDto.description ?? entry.description,
+      fiscalPeriodId: updateDto.fiscalPeriodId ?? entry.fiscalPeriodId,
+      sourceType: updateDto.sourceType ?? entry.sourceType,
+      sourceId: updateDto.sourceId ?? entry.sourceId,
+    });
+
+    await this.journalEntryRepository.save(entry);
+
+    // Update lines if provided
+    if (updateDto.lines) {
+      // Delete existing lines
+      await this.journalEntryLineRepository.delete({ journalEntryId: id });
+
+      // Create new lines
+      const lines = updateDto.lines.map((lineDto) =>
+        this.journalEntryLineRepository.create({
+          journalEntryId: id,
+          accountId: lineDto.accountId,
+          debitAmount: lineDto.debitAmount || 0,
+          creditAmount: lineDto.creditAmount || 0,
+          memo: lineDto.memo,
+        }),
+      );
+
+      await this.journalEntryLineRepository.save(lines);
+    }
+
+    this.logger.log(`Journal entry updated successfully: ${id}`);
+    return this.findOne(id);
+  }
+
+  /**
+   * Soft delete a journal entry (only if status = DRAFT)
+   */
+  async remove(id: string, userId: string = 'system'): Promise<void> {
+    this.logger.log(`Deleting journal entry with ID: ${id}`);
+
+    const entry = await this.journalEntryRepository.findOne({
+      where: { id },
+      relations: ['reversedBy'],
+    });
+
+    if (!entry) {
+      throw new NotFoundException(`Journal entry with ID '${id}' not found`);
+    }
+
+    // Can only delete DRAFT entries
+    if (entry.status !== JournalEntryStatus.DRAFT) {
+      throw new BadRequestException(
+        `Cannot delete journal entry with status '${entry.status}'. Only DRAFT entries can be deleted.`,
+      );
+    }
+
+    // Cannot delete entries that have been reversed
+    if (entry.reversedById) {
+      throw new BadRequestException(
+        `Cannot delete journal entry '${entry.referenceNumber}' - it has been reversed. ` +
+        `Reversed entries cannot be deleted.`,
+      );
+    }
+
+    // Soft delete the entry (lines will be cascade deleted)
+    await this.journalEntryRepository.softDelete(id);
+
+    this.logger.log(`Journal entry soft-deleted successfully: ${id}`);
+  }
+
+  /**
+   * Post a draft entry
+   * Validates: entry is balanced, period is open, changes status to POSTED
+   */
+  async postEntry(id: string, userId: string = 'system'): Promise<JournalEntryResponseDto> {
+    this.logger.log(`Posting journal entry with ID: ${id}`);
+
+    const entry = await this.journalEntryRepository.findOne({
+      where: { id },
+      relations: ['fiscalPeriod', 'lines', 'lines.account'],
+    });
+
+    if (!entry) {
+      throw new NotFoundException(`Journal entry with ID '${id}' not found`);
+    }
+
+    // Can only post DRAFT entries
+    if (entry.status !== JournalEntryStatus.DRAFT) {
+      throw new BadRequestException(
+        `Cannot post journal entry with status '${entry.status}'. Only DRAFT entries can be posted.`,
+      );
+    }
+
+    // Validate entry is balanced
+    if (!entry.isBalanced) {
+      throw new BadRequestException(
+        `Cannot post unbalanced journal entry. ` +
+        `Debits: ${entry.totalDebits.toFixed(2)}, Credits: ${entry.totalCredits.toFixed(2)}`,
+      );
+    }
+
+    // Validate fiscal period is still open
+    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(entry.fiscalPeriodId);
+    if (!periodIsOpen) {
+      throw new BadRequestException(
+        `Cannot post journal entry - fiscal period '${entry.fiscalPeriod.name}' is closed`,
+      );
+    }
+
+    // Validate entry date falls within fiscal period
+    const entryDate = new Date(entry.entryDate);
+    const periodStart = new Date(entry.fiscalPeriod.startDate);
+    const periodEnd = new Date(entry.fiscalPeriod.endDate);
+
+    if (entryDate < periodStart || entryDate > periodEnd) {
+      throw new BadRequestException(
+        `Entry date ${entryDate.toISOString().split('T')[0]} is outside fiscal period range ` +
+        `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
+      );
+    }
+
+    // Post the entry
+    entry.status = JournalEntryStatus.POSTED;
+    const postedEntry = await this.journalEntryRepository.save(entry);
+
+    this.logger.log(`Journal entry posted successfully: ${id}`);
+    return this.toResponseDto(postedEntry);
+  }
+
+  /**
+   * Reverse a posted entry
+   * Creates a new entry that's the mirror of the original
+   */
+  async reverseEntry(id: string, userId: string = 'system'): Promise<JournalEntryResponseDto> {
+    this.logger.log(`Reversing journal entry with ID: ${id}`);
+
+    const originalEntry = await this.journalEntryRepository.findOne({
+      where: { id },
+      relations: ['fiscalPeriod', 'lines', 'lines.account'],
+    });
+
+    if (!originalEntry) {
+      throw new NotFoundException(`Journal entry with ID '${id}' not found`);
+    }
+
+    // Can only reverse POSTED entries
+    if (originalEntry.status !== JournalEntryStatus.POSTED) {
+      throw new BadRequestException(
+        `Cannot reverse journal entry with status '${originalEntry.status}'. Only POSTED entries can be reversed.`,
+      );
+    }
+
+    // Cannot reverse an entry that has already been reversed
+    if (originalEntry.reversedById) {
+      throw new BadRequestException(
+        `Journal entry '${originalEntry.referenceNumber}' has already been reversed`,
+      );
+    }
+
+    // Validate fiscal period is still open
+    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(originalEntry.fiscalPeriodId);
+    if (!periodIsOpen) {
+      throw new BadRequestException(
+        `Cannot reverse journal entry - fiscal period '${originalEntry.fiscalPeriod.name}' is closed`,
+      );
+    }
+
+    // Generate reference number for reversal entry
+    const reversalReferenceNumber = await this.generateReferenceNumber(new Date(), 'REV');
+
+    // Create reversal entry
+    const reversalEntry = this.journalEntryRepository.create({
+      entryDate: new Date(), // Use current date for reversal
+      referenceNumber: reversalReferenceNumber,
+      description: `Reversal of ${originalEntry.referenceNumber} - ${originalEntry.description}`,
+      fiscalPeriodId: originalEntry.fiscalPeriodId,
+      reversalOfId: originalEntry.id,
+      status: JournalEntryStatus.POSTED, // Reversals are posted immediately
+    });
+
+    const savedReversalEntry = await this.journalEntryRepository.save(reversalEntry);
+
+    // Create reversal lines (swap debits and credits)
+    const reversalLines = originalEntry.lines.map((line) =>
+      this.journalEntryLineRepository.create({
+        journalEntryId: savedReversalEntry.id,
+        accountId: line.accountId,
+        debitAmount: line.creditAmount, // Swap credit to debit
+        creditAmount: line.debitAmount, // Swap debit to credit
+        memo: line.memo ? `Reversal: ${line.memo}` : 'Reversal entry',
+      }),
+    );
+
+    await this.journalEntryLineRepository.save(reversalLines);
+
+    // Update original entry to mark as REVERSED and set reversedById
+    originalEntry.status = JournalEntryStatus.REVERSED;
+    originalEntry.reversedById = savedReversalEntry.id;
+    await this.journalEntryRepository.save(originalEntry);
+
+    this.logger.log(`Journal entry reversed successfully: ${id} -> ${savedReversalEntry.id}`);
+    return this.findOne(savedReversalEntry.id);
+  }
+
+  /**
+   * Validate fiscal period exists and is open
+   */
+  private async validateFiscalPeriod(fiscalPeriodId: string, entryDate: Date): Promise<void> {
+    const period = await this.fiscalPeriodRepository.findOne({
+      where: { id: fiscalPeriodId },
+    });
+
+    if (!period) {
+      throw new NotFoundException(`Fiscal period with ID '${fiscalPeriodId}' not found`);
+    }
+
+    if (period.status !== FiscalPeriodStatus.OPEN) {
+      throw new BadRequestException(
+        `Fiscal period '${period.name}' is ${period.status}. Only OPEN periods can accept new entries.`,
+      );
+    }
+
+    // Validate entry date falls within period
+    const date = new Date(entryDate);
+    const periodStart = new Date(period.startDate);
+    const periodEnd = new Date(period.endDate);
+
+    if (date < periodStart || date > periodEnd) {
+      throw new BadRequestException(
+        `Entry date ${date.toISOString().split('T')[0]} is outside fiscal period range ` +
+        `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
+      );
+    }
+  }
+
+  /**
+   * Validate all accounts exist and are active
+   */
+  private async validateAccounts(accountIds: string[]): Promise<void> {
+    const uniqueAccountIds = [...new Set(accountIds)];
+
+    for (const accountId of uniqueAccountIds) {
+      const account = await this.chartOfAccountRepository.findOne({
+        where: { id: accountId, isActive: true },
+      });
+
+      if (!account) {
+        throw new NotFoundException(
+          `Chart of account with ID '${accountId}' not found or inactive`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Validate entry lines
+   * - Each line must have either debit OR credit (not both, not neither)
+   * - At least 2 lines required
+   */
+  private validateEntryLines(lines: any[]): void {
+    if (!lines || lines.length < 2) {
+      throw new BadRequestException(
+        'Journal entry must have at least 2 lines (minimum one debit and one credit)',
+      );
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const debit = Number(line.debitAmount) || 0;
+      const credit = Number(line.creditAmount) || 0;
+
+      // A line must have either debit or credit, but not both
+      if (debit > 0 && credit > 0) {
+        throw new BadRequestException(
+          `Line ${i + 1}: A journal entry line cannot have both debit and credit amounts`,
+        );
+      }
+
+      if (debit === 0 && credit === 0) {
+        throw new BadRequestException(
+          `Line ${i + 1}: A journal entry line must have either a debit or credit amount`,
+        );
+      }
+
+      // Validate amounts are positive
+      if (debit < 0 || credit < 0) {
+        throw new BadRequestException(
+          `Line ${i + 1}: Debit and credit amounts must be positive`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Generate reference number in format "JE-YYYY-NNN" or "REV-YYYY-NNN"
+   */
+  private async generateReferenceNumber(date: Date, prefix: string = 'JE'): Promise<string> {
+    const year = date.getFullYear();
+    const yearPrefix = `${prefix}-${year}`;
+
+    // Find the highest sequence number for this year
+    const lastEntry = await this.journalEntryRepository
+      .createQueryBuilder('entry')
+      .where('entry.referenceNumber LIKE :pattern', { pattern: `${yearPrefix}-%` })
+      .orderBy('entry.referenceNumber', 'DESC')
+      .getOne();
+
+    let sequence = 1;
+    if (lastEntry) {
+      const match = lastEntry.referenceNumber.match(/-(\d+)$/);
+      if (match) {
+        sequence = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    return `${yearPrefix}-${String(sequence).padStart(3, '0')}`;
+  }
+
+  /**
+   * Convert journal entry entity to response DTO
+   */
+  private toResponseDto(entry: JournalEntry): JournalEntryResponseDto {
+    return {
+      id: entry.id,
+      entryDate: entry.entryDate,
+      referenceNumber: entry.referenceNumber,
+      description: entry.description,
+      status: entry.status,
+      fiscalPeriodId: entry.fiscalPeriodId,
+      reversalOfId: entry.reversalOfId,
+      reversedById: entry.reversedById,
+      sourceType: entry.sourceType,
+      sourceId: entry.sourceId,
+      isDraft: entry.isDraft,
+      isPosted: entry.isPosted,
+      isReversed: entry.isReversed,
+      totalDebits: entry.totalDebits,
+      totalCredits: entry.totalCredits,
+      isBalanced: entry.isBalanced,
+      fiscalPeriod: entry.fiscalPeriod
+        ? {
+            id: entry.fiscalPeriod.id,
+            code: entry.fiscalPeriod.code,
+            name: entry.fiscalPeriod.name,
+            status: entry.fiscalPeriod.status,
+          }
+        : undefined,
+      lines: entry.lines
+        ? entry.lines.map((line) => this.toLineResponseDto(line))
+        : undefined,
+      reversalOf: entry.reversalOf
+        ? this.toResponseDto(entry.reversalOf)
+        : undefined,
+      reversedBy: entry.reversedBy
+        ? this.toResponseDto(entry.reversedBy)
+        : undefined,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      deletedAt: entry.deletedAt,
+    };
+  }
+
+  /**
+   * Convert journal entry line entity to response DTO
+   */
+  private toLineResponseDto(line: JournalEntryLine): JournalEntryLineResponseDto {
+    return {
+      id: line.id,
+      journalEntryId: line.journalEntryId,
+      accountId: line.accountId,
+      debitAmount: Number(line.debitAmount),
+      creditAmount: Number(line.creditAmount),
+      memo: line.memo,
+      account: line.account
+        ? {
+            id: line.account.id,
+            code: line.account.code,
+            name: line.account.name,
+            type: line.account.type,
+          }
+        : undefined,
+      createdAt: line.createdAt,
+      updatedAt: line.updatedAt,
+    };
+  }
+}

@@ -54,6 +54,10 @@ import {
   Security as SecurityIcon,
   Lock as LockIcon,
   LocalOffer as PriceTagIcon,
+  AccountBalance as AccountBalanceIcon,
+  AccountTree as AccountTreeIcon,
+  Description as DescriptionIcon,
+  DateRange as DateRangeIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -194,6 +198,31 @@ const menuSections: MenuSection[] = [
             title: 'Stock Adjustments',
             icon: <StockAdjustmentIcon />,
             path: '/inventory/stock-adjustments',
+          },
+        ],
+      },
+      {
+        id: 'accounting',
+        title: 'Accounting',
+        icon: <AccountBalanceIcon />,
+        children: [
+          {
+            id: 'chart-of-accounts',
+            title: 'Chart of Accounts',
+            icon: <AccountTreeIcon />,
+            path: '/accounting/chart-of-accounts',
+          },
+          {
+            id: 'journal-entries',
+            title: 'Journal Entries',
+            icon: <DescriptionIcon />,
+            path: '/accounting/journal-entries',
+          },
+          {
+            id: 'fiscal-periods',
+            title: 'Fiscal Periods',
+            icon: <DateRangeIcon />,
+            path: '/accounting/fiscal-periods',
           },
         ],
       },

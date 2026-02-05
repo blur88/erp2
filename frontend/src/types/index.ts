@@ -595,3 +595,102 @@ export interface PriceListItem {
   updatedAt: Date | string;
   deletedAt?: Date | string;
 }
+
+// Accounting types
+export enum AccountType {
+  ASSET = 'ASSET',
+  LIABILITY = 'LIABILITY',
+  EQUITY = 'EQUITY',
+  REVENUE = 'REVENUE',
+  EXPENSE = 'EXPENSE',
+}
+
+export interface ChartOfAccount {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  parentId?: string;
+  parent?: Partial<ChartOfAccount>;
+  children?: ChartOfAccount[];
+  isActive: boolean;
+  fullCode: string;
+  isParent: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+}
+
+export enum JournalEntryStatus {
+  DRAFT = 'DRAFT',
+  POSTED = 'POSTED',
+  REVERSED = 'REVERSED',
+}
+
+export interface JournalEntryLine {
+  id: string;
+  journalEntryId: string;
+  accountId: string;
+  account?: {
+    id: string;
+    code: string;
+    name: string;
+    type: AccountType;
+  };
+  debitAmount: number;
+  creditAmount: number;
+  memo?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryDate: Date | string;
+  referenceNumber: string;
+  description: string;
+  status: JournalEntryStatus;
+  fiscalPeriodId: string;
+  fiscalPeriod?: {
+    id: string;
+    code: string;
+    name: string;
+    status: string;
+  };
+  reversalOfId?: string;
+  reversedById?: string;
+  reversalOf?: JournalEntry;
+  reversedBy?: JournalEntry;
+  sourceType?: string;
+  sourceId?: string;
+  isDraft: boolean;
+  isPosted: boolean;
+  isReversed: boolean;
+  totalDebits: number;
+  totalCredits: number;
+  isBalanced: boolean;
+  lines?: JournalEntryLine[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+}
+
+export enum FiscalPeriodStatus {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+}
+
+export interface FiscalPeriod {
+  id: string;
+  code: string;
+  name: string;
+  startDate: Date | string;
+  endDate: Date | string;
+  status: FiscalPeriodStatus;
+  isOpen: boolean;
+  isClosed: boolean;
+  durationDays: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string;
+}
