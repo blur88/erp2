@@ -56,7 +56,7 @@ import {
   selectCurrentPeriod,
 } from '@/store/slices/fiscalPeriodsSlice'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
-import { JournalEntryStatus } from '@/types'
+import { JournalEntryStatus, FiscalPeriodStatus } from '@/types'
 
 interface JournalEntryLineForm {
   accountId: string
@@ -105,6 +105,28 @@ const schema = yup.object({
     }),
 })
 
+/**
+ * Journal Entry Form Page
+ *
+ * Provides a comprehensive interface for creating and editing accounting journal entries.
+ * Supports double-entry bookkeeping with automatic balance validation.
+ *
+ * Features:
+ * - Create new journal entries or edit existing drafts
+ * - Dynamic line items with account selection
+ * - Automatic debit/credit balancing with real-time validation
+ * - Fiscal period integration
+ * - Business validations: balanced entries, open periods, valid date ranges
+ * - Save as draft or post directly
+ *
+ * Business Rules:
+ * - All journal entries must be balanced (total debits = total credits)
+ * - Minimum 2 line items required
+ * - Each line must have either debit OR credit (not both)
+ * - Entry date must fall within an open fiscal period
+ * - Only draft entries can be edited
+ * - Fiscal period must be OPEN (not CLOSED) for new entries
+ */
 const JournalEntryFormPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
@@ -153,12 +175,13 @@ const JournalEntryFormPage: React.FC = () => {
   const watchedLines = watch('lines')
   const watchedDate = watch('entryDate')
 
-  // Calculate totals
+  // Calculate totals with real-time balance validation
   const { totalDebits, totalCredits, difference, isBalanced } = useMemo(() => {
     const debits = watchedLines.reduce((sum, line) => sum + (Number(line.debitAmount) || 0), 0)
     const credits = watchedLines.reduce((sum, line) => sum + (Number(line.creditAmount) || 0), 0)
     const diff = debits - credits
-    const balanced = Math.abs(diff) < 0.01 // Allow for floating point precision
+    // Allow for floating-point precision errors (0.01 threshold)
+    const balanced = Math.abs(diff) < 0.01
 
     return {
       totalDebits: debits,
@@ -220,20 +243,52 @@ const JournalEntryFormPage: React.FC = () => {
     }
   }, [dispatch])
 
-  // Handle form submission
+  // Handle form submission with comprehensive business validations
   const onSubmit = async (data: JournalEntryFormData) => {
-    // Validate balance
+    // Validation 1: Check if all lines have accounts selected
+    const missingAccounts = data.lines.some((line) => !line.accountId || line.accountId.trim() === '')
+    if (missingAccounts) {
+      showError('All line items must have an account selected')
+      return
+    }
+
+    // Validation 2: Validate balance (debits must equal credits)
     if (!isBalanced) {
       showError('Journal entry must be balanced (total debits must equal total credits)')
       return
     }
 
+    // Validation 3: Validate fiscal period exists
+    if (!currentPeriod || !currentPeriod.id) {
+      showError('No active fiscal period found. Please create a fiscal period for the entry date.')
+      return
+    }
+
+    // Validation 4: Check if fiscal period is OPEN (not CLOSED)
+    if (currentPeriod.status === FiscalPeriodStatus.CLOSED) {
+      showError('Cannot create journal entries in a closed fiscal period. Please select a different entry date or reopen the period.')
+      return
+    }
+
+    // Validation 5: Validate entry date is within fiscal period range
+    const entryDate = new Date(data.entryDate)
+    const periodStart = new Date(currentPeriod.startDate)
+    const periodEnd = new Date(currentPeriod.endDate)
+
+    if (entryDate < periodStart || entryDate > periodEnd) {
+      showError(
+        `Entry date must be within the fiscal period range (${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()})`
+      )
+      return
+    }
+
     setSubmitting(true)
     try {
-      const payload = {
+      const payload: any = {
         entryDate: data.entryDate,
         referenceNumber: data.referenceNumber?.trim() || undefined,
         description: data.description.trim(),
+        fiscalPeriodId: currentPeriod.id,
         lines: data.lines.map((line) => ({
           accountId: line.accountId,
           debitAmount: Number(line.debitAmount) || 0,
@@ -258,7 +313,9 @@ const JournalEntryFormPage: React.FC = () => {
 
       navigate('/accounting/journal-entries')
     } catch (err: any) {
-      showError(err || 'Failed to save journal entry')
+      // Extract meaningful error message from error object
+      const errorMessage = err?.message || err?.response?.data?.message || 'Failed to save journal entry'
+      showError(errorMessage)
     } finally {
       setSubmitting(false)
     }
@@ -325,14 +382,14 @@ const JournalEntryFormPage: React.FC = () => {
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
           {/* Entry Header */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                   Entry Header
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Controller
                       name="entryDate"
                       control={control}
@@ -350,7 +407,7 @@ const JournalEntryFormPage: React.FC = () => {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Controller
                       name="referenceNumber"
                       control={control}
@@ -366,7 +423,7 @@ const JournalEntryFormPage: React.FC = () => {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <TextField
                       fullWidth
                       label="Fiscal Period"
@@ -375,7 +432,7 @@ const JournalEntryFormPage: React.FC = () => {
                       helperText="Based on entry date"
                     />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Controller
                       name="description"
                       control={control}
@@ -399,7 +456,7 @@ const JournalEntryFormPage: React.FC = () => {
           </Grid>
 
           {/* Line Items */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -545,14 +602,14 @@ const JournalEntryFormPage: React.FC = () => {
           </Grid>
 
           {/* Totals Summary */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                   Totals
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Debits
@@ -562,7 +619,7 @@ const JournalEntryFormPage: React.FC = () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Credits
@@ -572,7 +629,7 @@ const JournalEntryFormPage: React.FC = () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Difference
@@ -588,7 +645,7 @@ const JournalEntryFormPage: React.FC = () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: isBalanced ? 'success.50' : 'error.50', borderRadius: 1 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Status
@@ -606,7 +663,7 @@ const JournalEntryFormPage: React.FC = () => {
           </Grid>
 
           {/* Action Buttons */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Stack direction="row" spacing={2} justifyContent="flex-end">
               <Button variant="outlined" onClick={handleBack} disabled={submitting}>
                 Cancel

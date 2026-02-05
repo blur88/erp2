@@ -35,6 +35,16 @@ vi.mock('@/utils/formatters', () => ({
   getCurrentDate: () => '2024-02-04',
 }))
 
+// Mock API service to prevent real API calls
+vi.mock('@/services/api', () => ({
+  ApiService: {
+    get: vi.fn().mockResolvedValue({ data: [], meta: {} }),
+    post: vi.fn().mockResolvedValue({}),
+    patch: vi.fn().mockResolvedValue({}),
+    delete: vi.fn().mockResolvedValue({}),
+  },
+}))
+
 const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: {
