@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike } from 'typeorm';
@@ -28,9 +29,12 @@ import { StockMovementService } from '../../../modules/inventory/services/stock-
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
 export class SalesOrderService {
+  private readonly logger = new Logger(SalesOrderService.name);
+
   constructor(
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
@@ -54,6 +58,7 @@ export class SalesOrderService {
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
@@ -2199,6 +2204,24 @@ export class SalesOrderService {
         newValues: { isFulfilled: true, fulfilledDate: order.fulfilledDate },
       }
     );
+
+    // Auto-post to accounting (don't fail fulfillment on error)
+    try {
+      const fullOrder = await this.salesOrderRepository.findOne({
+        where: { id },
+        relations: ['customer', 'items', 'items.product'],
+      });
+      if (fullOrder) {
+        await this.accountingService.postSalesOrderEntry(fullOrder, 'system');
+        this.logger.log(`Posted accounting entry for sales order ${fullOrder.orderNumber}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to post accounting entry for sales order ${id}: ${error.message}`,
+        error.stack,
+      );
+      // Continue - don't fail the fulfillment
+    }
 
     return this.findById(savedOrder.id);
   }
