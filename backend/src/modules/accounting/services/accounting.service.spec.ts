@@ -1,0 +1,747 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { AccountingService } from './accounting.service';
+import { JournalEntryService } from './journal-entry.service';
+import { AccountMappingService } from './account-mapping.service';
+import { FiscalPeriodService } from './fiscal-period.service';
+import { MappingType } from '../../../database/entities/account-mapping.entity';
+import { FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
+
+describe('AccountingService', () => {
+  let service: AccountingService;
+  let journalEntryService: jest.Mocked<JournalEntryService>;
+  let accountMappingService: jest.Mocked<AccountMappingService>;
+  let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
+
+  const mockMappings: Record<MappingType, string> = {
+    [MappingType.SALES_REVENUE]: 'revenue-account-id',
+    [MappingType.SALES_AR]: 'ar-account-id',
+    [MappingType.SALES_COGS]: 'cogs-account-id',
+    [MappingType.SALES_INVENTORY]: 'inventory-account-id',
+    [MappingType.PURCHASE_INVENTORY]: 'purchase-inventory-id',
+    [MappingType.PURCHASE_AP]: 'ap-account-id',
+    [MappingType.PAYMENT_CASH]: 'cash-account-id',
+    [MappingType.PAYMENT_AR]: 'payment-ar-id',
+    [MappingType.VENDOR_PAYMENT_CASH]: 'vendor-cash-id',
+    [MappingType.VENDOR_PAYMENT_AP]: 'vendor-ap-id',
+    [MappingType.INVENTORY_ASSET]: 'inventory-asset-id',
+    [MappingType.INVENTORY_ADJUSTMENT_GAIN]: 'adjustment-gain-id',
+    [MappingType.INVENTORY_ADJUSTMENT_LOSS]: 'adjustment-loss-id',
+  };
+
+  const mockOpenPeriod = {
+    id: 'period-123',
+    code: '2026-01',
+    name: 'January 2026',
+    status: FiscalPeriodStatus.OPEN,
+    startDate: new Date('2026-01-01'),
+    endDate: new Date('2026-01-31'),
+  };
+
+  const mockJournalEntry = {
+    id: 'entry-123',
+    referenceNumber: 'JE-2026-001',
+    description: 'Test entry',
+    entryDate: new Date('2026-01-15'),
+    status: 'POSTED',
+    lines: [],
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AccountingService,
+        {
+          provide: JournalEntryService,
+          useValue: {
+            create: jest.fn(),
+            postEntry: jest.fn(),
+          },
+        },
+        {
+          provide: AccountMappingService,
+          useValue: {
+            getMappings: jest.fn(),
+          },
+        },
+        {
+          provide: FiscalPeriodService,
+          useValue: {
+            validatePeriod: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AccountingService>(AccountingService);
+    journalEntryService = module.get(JournalEntryService) as jest.Mocked<JournalEntryService>;
+    accountMappingService = module.get(AccountMappingService) as jest.Mocked<AccountMappingService>;
+    fiscalPeriodService = module.get(FiscalPeriodService) as jest.Mocked<FiscalPeriodService>;
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('postSalesOrderEntry', () => {
+    const mockSalesOrder = {
+      id: 'so-123',
+      orderNumber: 'SO-001',
+      totalAmount: 1500,
+      fulfilledDate: new Date('2026-01-15'),
+      customer: {
+        id: 'customer-123',
+        name: 'Test Customer',
+      },
+      items: [
+        {
+          id: 'item-1',
+          quantity: 10,
+          unitPrice: 100,
+          product: {
+            id: 'product-1',
+            name: 'Product A',
+            baseCost: 60,
+          },
+        },
+        {
+          id: 'item-2',
+          quantity: 5,
+          unitPrice: 100,
+          product: {
+            id: 'product-2',
+            name: 'Product B',
+            baseCost: 80,
+          },
+        },
+      ],
+    } as any;
+
+    beforeEach(() => {
+      accountMappingService.getMappings.mockResolvedValue(mockMappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+    });
+
+    it('should create journal entry with correct lines', async () => {
+      const result = await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryDate: mockSalesOrder.fulfilledDate,
+          description: `Sales Order SO-001 - Test Customer`,
+          sourceType: 'sales_order',
+          sourceId: 'so-123',
+          fiscalPeriodId: 'period-123',
+          lines: expect.arrayContaining([
+            // COGS line
+            expect.objectContaining({
+              accountId: 'cogs-account-id',
+              debitAmount: 1000, // (10 * 60) + (5 * 80)
+              creditAmount: 0,
+            }),
+            // Inventory line
+            expect.objectContaining({
+              accountId: 'inventory-account-id',
+              debitAmount: 0,
+              creditAmount: 1000,
+            }),
+            // AR line
+            expect.objectContaining({
+              accountId: 'ar-account-id',
+              debitAmount: 1500,
+              creditAmount: 0,
+            }),
+            // Revenue line
+            expect.objectContaining({
+              accountId: 'revenue-account-id',
+              debitAmount: 0,
+              creditAmount: 1500,
+            }),
+          ]),
+        }),
+        'user-123',
+      );
+
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('entry-123', 'user-123');
+      expect(result).toEqual(mockJournalEntry);
+    });
+
+    it('should calculate COGS correctly', async () => {
+      await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const cogsLine = createCall.lines.find((l: any) => l.accountId === 'cogs-account-id');
+
+      expect(cogsLine.debitAmount).toBe(1000); // (10 * 60) + (5 * 80) = 600 + 400
+    });
+
+    it('should use correct account mappings', async () => {
+      await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
+
+      expect(accountMappingService.getMappings).toHaveBeenCalled();
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const accountIds = createCall.lines.map((l: any) => l.accountId);
+
+      expect(accountIds).toContain('cogs-account-id');
+      expect(accountIds).toContain('inventory-account-id');
+      expect(accountIds).toContain('ar-account-id');
+      expect(accountIds).toContain('revenue-account-id');
+    });
+
+    it('should validate period is open', async () => {
+      await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
+
+      expect(fiscalPeriodService.validatePeriod).toHaveBeenCalledWith({
+        date: mockSalesOrder.fulfilledDate,
+      });
+    });
+
+    it('should throw error when period is closed', async () => {
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: false,
+        message: 'Period is closed',
+      });
+
+      await expect(
+        service.postSalesOrderEntry(mockSalesOrder, 'user-123'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw error when period not found', async () => {
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: false,
+        message: 'No period found',
+      });
+
+      await expect(
+        service.postSalesOrderEntry(mockSalesOrder, 'user-123'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw error when mapping not configured', async () => {
+      const incompleteMappings = { ...mockMappings };
+      delete incompleteMappings[MappingType.SALES_REVENUE];
+      accountMappingService.getMappings.mockResolvedValue(incompleteMappings);
+
+      await expect(
+        service.postSalesOrderEntry(mockSalesOrder, 'user-123'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('postCustomerPaymentEntry', () => {
+    const mockPayment = {
+      id: 'payment-123',
+      paymentNumber: 'PAY-001',
+      amount: 1000,
+      paymentDate: new Date('2026-01-15'),
+      customer: {
+        id: 'customer-123',
+        name: 'Test Customer',
+      },
+    } as any;
+
+    beforeEach(() => {
+      accountMappingService.getMappings.mockResolvedValue(mockMappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+    });
+
+    it('should create journal entry with correct lines', async () => {
+      const result = await service.postCustomerPaymentEntry(mockPayment, 'user-123');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryDate: mockPayment.paymentDate,
+          description: `Payment PAY-001 from Test Customer`,
+          sourceType: 'payment',
+          sourceId: 'payment-123',
+          lines: expect.arrayContaining([
+            expect.objectContaining({
+              accountId: 'cash-account-id',
+              debitAmount: 1000,
+              creditAmount: 0,
+            }),
+            expect.objectContaining({
+              accountId: 'payment-ar-id',
+              debitAmount: 0,
+              creditAmount: 1000,
+            }),
+          ]),
+        }),
+        'user-123',
+      );
+
+      expect(result).toEqual(mockJournalEntry);
+    });
+
+    it('should use correct account mappings', async () => {
+      await service.postCustomerPaymentEntry(mockPayment, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const accountIds = createCall.lines.map((l: any) => l.accountId);
+
+      expect(accountIds).toContain('cash-account-id');
+      expect(accountIds).toContain('payment-ar-id');
+    });
+
+    it('should validate period is open', async () => {
+      await service.postCustomerPaymentEntry(mockPayment, 'user-123');
+
+      expect(fiscalPeriodService.validatePeriod).toHaveBeenCalledWith({
+        date: mockPayment.paymentDate,
+      });
+    });
+  });
+
+  describe('postGoodsReceivedEntry', () => {
+    const mockGRN = {
+      id: 'grn-123',
+      grnNumber: 'GRN-001',
+      receivedDate: new Date('2026-01-15'),
+      supplier: {
+        id: 'supplier-123',
+        companyName: 'Test Supplier',
+      },
+      items: [
+        {
+          id: 'item-1',
+          receivedQuantity: 10,
+          purchaseOrderItem: {
+            unitCost: 60,
+          },
+        },
+        {
+          id: 'item-2',
+          receivedQuantity: 5,
+          purchaseOrderItem: {
+            unitCost: 80,
+          },
+        },
+      ],
+    } as any;
+
+    beforeEach(() => {
+      accountMappingService.getMappings.mockResolvedValue(mockMappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+    });
+
+    it('should create journal entry with correct lines', async () => {
+      const result = await service.postGoodsReceivedEntry(mockGRN, 'user-123');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryDate: mockGRN.receivedDate,
+          description: `GRN GRN-001 from Test Supplier`,
+          sourceType: 'goods_received_note',
+          sourceId: 'grn-123',
+          lines: expect.arrayContaining([
+            expect.objectContaining({
+              accountId: 'purchase-inventory-id',
+              debitAmount: 1000, // (10 * 60) + (5 * 80)
+              creditAmount: 0,
+            }),
+            expect.objectContaining({
+              accountId: 'ap-account-id',
+              debitAmount: 0,
+              creditAmount: 1000,
+            }),
+          ]),
+        }),
+        'user-123',
+      );
+
+      expect(result).toEqual(mockJournalEntry);
+    });
+
+    it('should calculate total correctly from GRN items', async () => {
+      await service.postGoodsReceivedEntry(mockGRN, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const inventoryLine = createCall.lines.find((l: any) => l.accountId === 'purchase-inventory-id');
+
+      expect(inventoryLine.debitAmount).toBe(1000); // (10 * 60) + (5 * 80)
+    });
+
+    it('should use correct account mappings', async () => {
+      await service.postGoodsReceivedEntry(mockGRN, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const accountIds = createCall.lines.map((l: any) => l.accountId);
+
+      expect(accountIds).toContain('purchase-inventory-id');
+      expect(accountIds).toContain('ap-account-id');
+    });
+  });
+
+  describe('postVendorPaymentEntry', () => {
+    const mockVendorPayment = {
+      id: 'vp-123',
+      paymentNumber: 'VP-001',
+      amount: 1000,
+      paymentDate: new Date('2026-01-15'),
+      supplier: {
+        id: 'supplier-123',
+        companyName: 'Test Supplier',
+      },
+    } as any;
+
+    beforeEach(() => {
+      accountMappingService.getMappings.mockResolvedValue(mockMappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+    });
+
+    it('should create journal entry with correct lines', async () => {
+      const result = await service.postVendorPaymentEntry(mockVendorPayment, 'user-123');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryDate: mockVendorPayment.paymentDate,
+          description: `Vendor Payment VP-001 to Test Supplier`,
+          sourceType: 'vendor_payment',
+          sourceId: 'vp-123',
+          lines: expect.arrayContaining([
+            expect.objectContaining({
+              accountId: 'vendor-ap-id',
+              debitAmount: 1000,
+              creditAmount: 0,
+            }),
+            expect.objectContaining({
+              accountId: 'vendor-cash-id',
+              debitAmount: 0,
+              creditAmount: 1000,
+            }),
+          ]),
+        }),
+        'user-123',
+      );
+
+      expect(result).toEqual(mockJournalEntry);
+    });
+
+    it('should use correct account mappings', async () => {
+      await service.postVendorPaymentEntry(mockVendorPayment, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const accountIds = createCall.lines.map((l: any) => l.accountId);
+
+      expect(accountIds).toContain('vendor-ap-id');
+      expect(accountIds).toContain('vendor-cash-id');
+    });
+  });
+
+  describe('postStockAdjustmentEntry', () => {
+    const mockAdjustmentIncrease = {
+      id: 'adj-123',
+      adjustmentNumber: 'ADJ-001',
+      adjustmentDate: new Date('2026-01-15'),
+      items: [
+        {
+          id: 'item-1',
+          oldQuantity: 100,
+          newQuantity: 120,
+          unitCost: 50,
+        },
+        {
+          id: 'item-2',
+          oldQuantity: 50,
+          newQuantity: 60,
+          unitCost: 80,
+        },
+      ],
+    } as any;
+
+    const mockAdjustmentDecrease = {
+      id: 'adj-124',
+      adjustmentNumber: 'ADJ-002',
+      adjustmentDate: new Date('2026-01-15'),
+      items: [
+        {
+          id: 'item-1',
+          oldQuantity: 100,
+          newQuantity: 80,
+          unitCost: 50,
+        },
+      ],
+    } as any;
+
+    const mockAdjustmentMixed = {
+      id: 'adj-125',
+      adjustmentNumber: 'ADJ-003',
+      adjustmentDate: new Date('2026-01-15'),
+      items: [
+        {
+          id: 'item-1',
+          oldQuantity: 100,
+          newQuantity: 120, // +20 * 50 = 1000 increase
+          unitCost: 50,
+        },
+        {
+          id: 'item-2',
+          oldQuantity: 50,
+          newQuantity: 30, // -20 * 80 = 1600 decrease
+          unitCost: 80,
+        },
+      ],
+    } as any;
+
+    beforeEach(() => {
+      accountMappingService.getMappings.mockResolvedValue(mockMappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+    });
+
+    it('should create entry for increase adjustments', async () => {
+      const result = await service.postStockAdjustmentEntry(mockAdjustmentIncrease, 'user-123');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entryDate: mockAdjustmentIncrease.adjustmentDate,
+          description: `Stock Adjustment ADJ-001`,
+          sourceType: 'stock_adjustment',
+          sourceId: 'adj-123',
+          lines: expect.arrayContaining([
+            expect.objectContaining({
+              accountId: 'inventory-asset-id',
+              debitAmount: 1800, // (20 * 50) + (10 * 80)
+              creditAmount: 0,
+            }),
+            expect.objectContaining({
+              accountId: 'adjustment-gain-id',
+              debitAmount: 0,
+              creditAmount: 1800,
+            }),
+          ]),
+        }),
+        'user-123',
+      );
+
+      expect(result).toEqual(mockJournalEntry);
+    });
+
+    it('should create entry for decrease adjustments', async () => {
+      const result = await service.postStockAdjustmentEntry(mockAdjustmentDecrease, 'user-123');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lines: expect.arrayContaining([
+            expect.objectContaining({
+              accountId: 'adjustment-loss-id',
+              debitAmount: 1000, // 20 * 50
+              creditAmount: 0,
+            }),
+            expect.objectContaining({
+              accountId: 'inventory-asset-id',
+              debitAmount: 0,
+              creditAmount: 1000,
+            }),
+          ]),
+        }),
+        'user-123',
+      );
+
+      expect(result).toEqual(mockJournalEntry);
+    });
+
+    it('should handle mixed increase/decrease adjustments', async () => {
+      const result = await service.postStockAdjustmentEntry(mockAdjustmentMixed, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+
+      // Should have 4 lines: increase DR/CR and decrease DR/CR
+      expect(createCall.lines).toHaveLength(4);
+
+      // Check increase lines
+      const increaseDebitLine = createCall.lines.find(
+        (l: any) => l.accountId === 'inventory-asset-id' && l.debitAmount > 0,
+      );
+      const increaseCreditLine = createCall.lines.find(
+        (l: any) => l.accountId === 'adjustment-gain-id',
+      );
+
+      expect(increaseDebitLine.debitAmount).toBe(1000); // 20 * 50
+      expect(increaseCreditLine.creditAmount).toBe(1000);
+
+      // Check decrease lines
+      const decreaseDebitLine = createCall.lines.find(
+        (l: any) => l.accountId === 'adjustment-loss-id',
+      );
+      const decreaseCreditLine = createCall.lines.find(
+        (l: any) => l.accountId === 'inventory-asset-id' && l.creditAmount > 0,
+      );
+
+      expect(decreaseDebitLine.debitAmount).toBe(1600); // 20 * 80
+      expect(decreaseCreditLine.creditAmount).toBe(1600);
+
+      expect(result).toEqual(mockJournalEntry);
+    });
+
+    it('should calculate totals correctly', async () => {
+      await service.postStockAdjustmentEntry(mockAdjustmentIncrease, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const inventoryLine = createCall.lines.find(
+        (l: any) => l.accountId === 'inventory-asset-id' && l.debitAmount > 0,
+      );
+
+      expect(inventoryLine.debitAmount).toBe(1800); // (20 * 50) + (10 * 80)
+    });
+  });
+
+  describe('Helper Methods', () => {
+    describe('calculateCOGS', () => {
+      it('should calculate COGS correctly', () => {
+        const items = [
+          { quantity: 10, product: { baseCost: 60 } },
+          { quantity: 5, product: { baseCost: 80 } },
+        ] as any;
+
+        const result = (service as any).calculateCOGS(items);
+        expect(result).toBe(1000); // (10 * 60) + (5 * 80)
+      });
+
+      it('should handle missing baseCost', () => {
+        const items = [
+          { quantity: 10, product: { baseCost: 60 } },
+          { quantity: 5, product: {} },
+        ] as any;
+
+        const result = (service as any).calculateCOGS(items);
+        expect(result).toBe(600); // Only first item counted
+      });
+    });
+
+    describe('calculateGRNTotal', () => {
+      it('should calculate GRN total correctly', () => {
+        const items = [
+          { receivedQuantity: 10, purchaseOrderItem: { unitCost: 60 } },
+          { receivedQuantity: 5, purchaseOrderItem: { unitCost: 80 } },
+        ] as any;
+
+        const result = (service as any).calculateGRNTotal(items);
+        expect(result).toBe(1000); // (10 * 60) + (5 * 80)
+      });
+
+      it('should handle missing purchaseOrderItem', () => {
+        const items = [
+          { receivedQuantity: 10, purchaseOrderItem: { unitCost: 60 } },
+          { receivedQuantity: 5 }, // No purchaseOrderItem
+        ] as any;
+
+        const result = (service as any).calculateGRNTotal(items);
+        expect(result).toBe(600); // Only first item counted
+      });
+    });
+
+    describe('calculateAdjustmentTotals', () => {
+      it('should calculate increases correctly', () => {
+        const items = [
+          { oldQuantity: 100, newQuantity: 120, unitCost: 50 },
+          { oldQuantity: 50, newQuantity: 60, unitCost: 80 },
+        ] as any;
+
+        const result = (service as any).calculateAdjustmentTotals(items);
+        expect(result.totalIncrease).toBe(1800); // (20 * 50) + (10 * 80)
+        expect(result.totalDecrease).toBe(0);
+      });
+
+      it('should calculate decreases correctly', () => {
+        const items = [
+          { oldQuantity: 120, newQuantity: 100, unitCost: 50 },
+          { oldQuantity: 60, newQuantity: 50, unitCost: 80 },
+        ] as any;
+
+        const result = (service as any).calculateAdjustmentTotals(items);
+        expect(result.totalIncrease).toBe(0);
+        expect(result.totalDecrease).toBe(1800); // (20 * 50) + (10 * 80)
+      });
+
+      it('should calculate mixed adjustments correctly', () => {
+        const items = [
+          { oldQuantity: 100, newQuantity: 120, unitCost: 50 }, // +20 * 50 = 1000
+          { oldQuantity: 50, newQuantity: 30, unitCost: 80 },   // -20 * 80 = 1600
+        ] as any;
+
+        const result = (service as any).calculateAdjustmentTotals(items);
+        expect(result.totalIncrease).toBe(1000);
+        expect(result.totalDecrease).toBe(1600);
+      });
+
+      it('should ignore zero differences', () => {
+        const items = [
+          { oldQuantity: 100, newQuantity: 100, unitCost: 50 }, // no change
+          { oldQuantity: 50, newQuantity: 60, unitCost: 80 },   // +10 * 80 = 800
+        ] as any;
+
+        const result = (service as any).calculateAdjustmentTotals(items);
+        expect(result.totalIncrease).toBe(800);
+        expect(result.totalDecrease).toBe(0);
+      });
+    });
+  });
+
+  describe('validatePeriodOpen', () => {
+    it('should allow posting to open period', async () => {
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+
+      await expect(
+        (service as any).validatePeriodOpen(new Date('2026-01-15')),
+      ).resolves.not.toThrow();
+    });
+
+    it('should throw error for closed period', async () => {
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: false,
+        message: 'Period is closed',
+      });
+
+      await expect(
+        (service as any).validatePeriodOpen(new Date('2026-01-15')),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw error when period not found', async () => {
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: false,
+        message: 'No fiscal period found',
+      });
+
+      await expect(
+        (service as any).validatePeriodOpen(new Date('2026-01-15')),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+});
