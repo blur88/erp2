@@ -32,6 +32,7 @@ import {
 // Import InventoryModule for BaseCostCalculatorService
 import { InventoryModule } from '../inventory/inventory.module';
 import { SettingsModule } from '../settings/settings.module';
+import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { SettingsModule } from '../settings/settings.module';
     ]),
     InventoryModule, // Import to access BaseCostCalculatorService
     SettingsModule, // Import for price/costing settings
+    AccountingModule, // Import for auto-posting accounting entries
   ],
 
   controllers: [
