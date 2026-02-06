@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, FindOptionsWhere, Between } from 'typeorm';
@@ -19,9 +20,12 @@ import {
   AllocatePaymentDto,
   PaymentSummaryDto,
 } from '../dto/payment.dto';
+import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
+
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
@@ -30,6 +34,7 @@ export class PaymentService {
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
     private readonly auditLogService: AuditLogService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<PaymentResponseDto> {
@@ -89,6 +94,19 @@ export class PaymentService {
         },
       }
     );
+
+    // Auto-post to accounting (don't fail payment on error)
+    try {
+      const fullPayment = await this.findPaymentWithRelations(savedPayment.id);
+      await this.accountingService.postCustomerPaymentEntry(fullPayment, 'system');
+      this.logger.log(`Posted accounting entry for payment ${fullPayment.paymentNumber}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to post accounting entry for payment ${savedPayment.id}: ${error.message}`,
+        error.stack,
+      );
+      // Continue - don't fail the payment creation
+    }
 
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
