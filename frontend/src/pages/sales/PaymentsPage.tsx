@@ -50,6 +50,7 @@ import { PaymentReceiptPrint } from '@/components/print'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { salesApi } from '@/services/salesApi'
+import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
 import type { InvoiceItem } from '@/types'
@@ -1027,6 +1028,35 @@ const PaymentsPage: React.FC = () => {
                         </TableBody>
                       </Table>
                     </TableContainer>
+                  </Grid>
+
+                  {/* Accounting Information */}
+                  <Grid size={12}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        mt: 2,
+                        bgcolor: 'info.lighter',
+                        borderRadius: 1,
+                        borderLeft: '4px solid',
+                        borderColor: 'info.main',
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        Accounting Information
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                          This payment has been recorded in the accounting system
+                        </Typography>
+                        <AccountingEntryLink
+                          sourceType="payment"
+                          sourceId={selectedPayment.id}
+                          variant="button"
+                          label="View Entry"
+                        />
+                      </Box>
+                    </Box>
                   </Grid>
                 </Grid>
 

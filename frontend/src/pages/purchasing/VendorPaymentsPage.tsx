@@ -47,6 +47,7 @@ import {
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
 import { VendorPaymentPrint } from '@/components/print'
+import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 
 interface VendorPaymentFilters {
   search: string
@@ -859,6 +860,35 @@ const VendorPaymentsPage: React.FC = () => {
                         </TableBody>
                       </Table>
                     </TableContainer>
+                  </Grid>
+
+                  {/* Accounting Information */}
+                  <Grid size={12}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        mt: 2,
+                        bgcolor: 'info.lighter',
+                        borderRadius: 1,
+                        borderLeft: '4px solid',
+                        borderColor: 'info.main',
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        Accounting Information
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                          This vendor payment has been recorded in the accounting system
+                        </Typography>
+                        <AccountingEntryLink
+                          sourceType="vendor_payment"
+                          sourceId={selectedPayment.id}
+                          variant="button"
+                          label="View Journal Entry"
+                        />
+                      </Box>
+                    </Box>
                   </Grid>
                 </Grid>
 

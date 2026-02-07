@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchStockAdjustments,
@@ -957,6 +958,37 @@ const StockAdjustmentsPage: React.FC = () => {
                       </Table>
                     </TableContainer>
                   </Grid>
+
+                  {/* Accounting Information - Only show when completed */}
+                  {selectedAdjustment.status === 'completed' && (
+                    <Grid size={12}>
+                      <Box
+                        sx={{
+                          p: 2,
+                          mt: 2,
+                          bgcolor: 'success.lighter',
+                          borderRadius: 1,
+                          borderLeft: '4px solid',
+                          borderColor: 'success.main',
+                        }}
+                      >
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                          Accounting Status
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                            Stock adjustment has been posted to accounting ledger
+                          </Typography>
+                          <AccountingEntryLink
+                            sourceType="stock_adjustment"
+                            sourceId={selectedAdjustment.id}
+                            variant="button"
+                            label="View Accounting Entry"
+                          />
+                        </Box>
+                      </Box>
+                    </Grid>
+                  )}
                 </Grid>
 
                 {/* Page Break before SA Items */}
