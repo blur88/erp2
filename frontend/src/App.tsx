@@ -70,6 +70,7 @@ const FiscalPeriodsPage = React.lazy(() => import('./pages/accounting/FiscalPeri
 const JournalEntriesPage = React.lazy(() => import('./pages/accounting/JournalEntriesPage'))
 const JournalEntryFormPage = React.lazy(() => import('./pages/accounting/JournalEntryFormPage'))
 const JournalEntryDetailsPage = React.lazy(() => import('./pages/accounting/JournalEntryDetailsPage'))
+const AccountMappingsPage = React.lazy(() => import('./pages/accounting/AccountMappingsPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
 // Loading component
@@ -271,6 +272,7 @@ function App() {
                     <Route path="/accounting/journal-entries/new" element={<JournalEntryFormPage />} />
                     <Route path="/accounting/journal-entries/:id/edit" element={<JournalEntryFormPage />} />
                     <Route path="/accounting/journal-entries/:id" element={<JournalEntryDetailsPage />} />
+                    <Route path="/accounting/account-mappings" element={<AccountMappingsPage />} />
 
                     {/* Default redirect */}
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
