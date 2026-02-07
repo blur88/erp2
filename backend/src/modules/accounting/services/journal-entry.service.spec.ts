@@ -529,6 +529,23 @@ describe('JournalEntryService', () => {
 
       await expect(service.postEntry('entry-1')).rejects.toThrow(BadRequestException);
     });
+
+    it('should throw BadRequestException with clear message when period is closed', async () => {
+      const entryWithLines = {
+        ...mockJournalEntry,
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+        isBalanced: true,
+        fiscalPeriod: { ...mockFiscalPeriod, name: 'January 2026' },
+      };
+      journalEntryRepository.findOne.mockResolvedValue(entryWithLines as JournalEntry);
+      fiscalPeriodService.checkPeriodOpen.mockResolvedValue(false);
+
+      await expect(service.postEntry('entry-1')).rejects.toThrow(
+        new BadRequestException(
+          `Cannot post journal entry - fiscal period 'January 2026' is closed`,
+        ),
+      );
+    });
   });
 
   describe('reverseEntry', () => {

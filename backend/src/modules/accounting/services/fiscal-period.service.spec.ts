@@ -578,4 +578,34 @@ describe('FiscalPeriodService', () => {
       await expect(service.checkPeriodOpen('non-existent-id')).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('getPeriodByDate', () => {
+    it('should return period for a given date', async () => {
+      fiscalPeriodRepository.findOne.mockResolvedValue(mockFiscalPeriod as FiscalPeriod);
+
+      const result = await service.getPeriodByDate(new Date('2026-01-15'));
+
+      expect(result).toBeDefined();
+      expect(result?.id).toBe('123e4567-e89b-12d3-a456-426614174000');
+      expect(result?.code).toBe('2026-01');
+    });
+
+    it('should return null if no period found for date', async () => {
+      fiscalPeriodRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.getPeriodByDate(new Date('2025-12-15'));
+
+      expect(result).toBeNull();
+    });
+
+    it('should return period regardless of status', async () => {
+      const closedPeriod = { ...mockFiscalPeriod, status: FiscalPeriodStatus.CLOSED };
+      fiscalPeriodRepository.findOne.mockResolvedValue(closedPeriod as FiscalPeriod);
+
+      const result = await service.getPeriodByDate(new Date('2026-01-15'));
+
+      expect(result).toBeDefined();
+      expect(result?.status).toBe(FiscalPeriodStatus.CLOSED);
+    });
+  });
 });
