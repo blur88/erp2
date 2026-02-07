@@ -1,0 +1,49 @@
+export interface AccountMapping {
+  id: string;
+  mappingType: MappingType;
+  accountId: string;
+  description?: string;
+  isActive: boolean;
+  account?: {
+    id: string;
+    code: string;
+    name: string;
+    accountType: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum MappingType {
+  SALES_REVENUE = 'sales_revenue',
+  SALES_AR = 'sales_ar',
+  SALES_COGS = 'sales_cogs',
+  SALES_INVENTORY = 'sales_inventory',
+  PURCHASE_INVENTORY = 'purchase_inventory',
+  PURCHASE_AP = 'purchase_ap',
+  PAYMENT_CASH = 'payment_cash',
+  PAYMENT_AR = 'payment_ar',
+  VENDOR_PAYMENT_CASH = 'vendor_payment_cash',
+  VENDOR_PAYMENT_AP = 'vendor_payment_ap',
+  INVENTORY_ASSET = 'inventory_asset',
+  INVENTORY_ADJUSTMENT_GAIN = 'inventory_adjustment_gain',
+  INVENTORY_ADJUSTMENT_LOSS = 'inventory_adjustment_loss',
+}
+
+export interface CreateAccountMappingDto {
+  mappingType: MappingType;
+  accountId: string;
+  description?: string;
+}
+
+export interface UpdateAccountMappingDto {
+  accountId?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface AccountMappingValidationResult {
+  isComplete: boolean;
+  missingMappings: string[];
+  configuredMappings: string[];
+}
