@@ -39,6 +39,7 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import GeneratePeriodsDialog from '@/components/accounting/GeneratePeriodsDialog'
 import FiscalPeriodFormDialog from '@/components/accounting/FiscalPeriodFormDialog'
+import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import {
   fetchFiscalPeriods,
@@ -283,6 +284,9 @@ const FiscalPeriodsPage: React.FC = () => {
 
   return (
     <Box>
+      {/* Account Mapping Warning */}
+      <AccountMappingWarning context="system" />
+
       {/* Header */}
       <Box sx={{
         display: 'flex',
