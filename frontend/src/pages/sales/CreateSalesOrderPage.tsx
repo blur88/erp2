@@ -132,6 +132,38 @@ const CreateSalesOrderPage: React.FC = () => {
     loadProducts()
   }, [])
 
+  // Helper function to get price from priceListItems
+  const getProductPrice = (product: any, customer: any): number => {
+    if (!product) return 0
+
+    // Check for priceListItems
+    if (product.priceListItems && product.priceListItems.length > 0) {
+      // If customer has a specific price list, try to find matching price
+      if (customer?.priceListId) {
+        const customerPrice = product.priceListItems.find(
+          (item: any) => item.priceListId === customer.priceListId
+        )
+        if (customerPrice) {
+          return Number(customerPrice.price)
+        }
+      }
+
+      // Fallback to default price list
+      const defaultPrice = product.priceListItems.find(
+        (item: any) => item.priceList?.isDefault
+      )
+      if (defaultPrice) {
+        return Number(defaultPrice.price)
+      }
+
+      // Use first available price
+      return Number(product.priceListItems[0].price)
+    }
+
+    // Fallback to baseCost
+    return Number(product.baseCost || 0)
+  }
+
   // Update all product prices when customer changes
   useEffect(() => {
     // Skip price recalculation if in edit mode and still loading
@@ -142,15 +174,10 @@ const CreateSalesOrderPage: React.FC = () => {
     if (selectedCustomer && watchedItems && watchedItems.length > 0) {
       watchedItems.forEach((item, index) => {
         if (item.productId && item.product) {
-          // Recalculate price based on new customer's pricing scheme
-          let productPrice = 0
+          const productPrice = getProductPrice(item.product, selectedCustomer)
 
-          if (selectedCustomer.pricingScheme && item.product.pricingTiers) {
-            productPrice = Number(item.product.pricingTiers[selectedCustomer.pricingScheme] || 0)
-          }
-
-          // Only update if price changed and product has pricing tiers
-          if (item.product.pricingTiers && Number(item.unitPrice) !== productPrice) {
+          // Only update if price changed
+          if (Number(item.unitPrice) !== productPrice) {
             setValue(`items.${index}.unitPrice`, productPrice)
           }
         }
@@ -361,17 +388,8 @@ const CreateSalesOrderPage: React.FC = () => {
     if (product) {
       setValue(`items.${index}.productId`, product.id)
 
-      // Use customer's pricing scheme to determine the price
-      let productPrice = 0
-
-      if (selectedCustomer && selectedCustomer.pricingScheme && product.pricingTiers) {
-        // Use customer's pricing scheme
-        productPrice = Number(product.pricingTiers[selectedCustomer.pricingScheme] || 0)
-      } else if (product.pricingTiers) {
-        // If no customer selected, use first available pricing tier
-        const firstTier = Object.values(product.pricingTiers)[0]
-        productPrice = Number(firstTier || 0)
-      }
+      // Use price list system to determine the price
+      const productPrice = getProductPrice(product, selectedCustomer)
 
       setValue(`items.${index}.unitPrice`, productPrice)
       setValue(`items.${index}.product`, product)
@@ -436,342 +454,298 @@ const CreateSalesOrderPage: React.FC = () => {
             <Typography>Loading sales order...</Typography>
           </Box>
         ) : (
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
-          )}
+          <form onSubmit={handleSubmit(onSubmit)}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
 
-          <Grid container spacing={3}>
-            {/* SO Information Card */}
-            <Grid size={12}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>SO Information</Typography>
-                  <Grid container spacing={2}>
-                    <Grid
-                      size={{
-                        xs: 12,
-                        md: 6
-                      }}>
-                      <Controller
-                        name="customerId"
-                        control={control}
-                        render={({ field }) => (
-                          <Autocomplete
-                            options={customers}
-                            getOptionLabel={(option) => option.name}
-                            value={customers.find(c => c.id === field.value) || null}
-                            onChange={(_, value) => {
-                              field.onChange(value?.id || '')
-                              setSelectedCustomer(value)
-                            }}
-                            size="small"
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label="Customer"
-                                error={!!errors.customerId}
-                                helperText={errors.customerId?.message}
-                                required
-                                size="small"
-                                sx={{
-                                  '& .MuiInputBase-input': {
-                                    fontSize: '0.875rem',
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    fontSize: '0.875rem',
-                                  }
-                                }}
-                              />
-                            )}
-                            slotProps={{
-                              paper: {
-                                sx: {
-                                  '& .MuiAutocomplete-option': {
-                                    fontSize: '0.875rem',
+            <Grid container spacing={3}>
+              {/* SO Information Card */}
+              <Grid size={12}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>SO Information</Typography>
+                    <Grid container spacing={2}>
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
+                        <Controller
+                          name="customerId"
+                          control={control}
+                          render={({ field }) => (
+                            <Autocomplete
+                              options={customers}
+                              getOptionLabel={(option) => option.name}
+                              value={customers.find(c => c.id === field.value) || null}
+                              onChange={(_, value) => {
+                                field.onChange(value?.id || '')
+                                setSelectedCustomer(value)
+                              }}
+                              size="small"
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="Customer"
+                                  error={!!errors.customerId}
+                                  helperText={errors.customerId?.message}
+                                  required
+                                  size="small"
+                                  sx={{
+                                    '& .MuiInputBase-input': {
+                                      fontSize: '0.875rem',
+                                    },
+                                    '& .MuiInputLabel-root': {
+                                      fontSize: '0.875rem',
+                                    }
+                                  }}
+                                />
+                              )}
+                              slotProps={{
+                                paper: {
+                                  sx: {
+                                    '& .MuiAutocomplete-option': {
+                                      fontSize: '0.875rem',
+                                    }
                                   }
                                 }
-                              }
-                            }}
-                          />
-                        )}
-                      />
+                              }}
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid
+                        size={{
+                          xs: 12,
+                          md: 6
+                        }}>
+                        <Controller
+                          name="orderDate"
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              {...field}
+                              label="Order Date"
+                              type="date"
+                              InputLabelProps={{ shrink: true }}
+                              error={!!errors.orderDate}
+                              helperText={errors.orderDate?.message}
+                              required
+                              fullWidth
+                              size="small"
+                              sx={{
+                                '& .MuiInputBase-input': {
+                                  fontSize: '0.875rem',
+                                },
+                                '& .MuiInputLabel-root': {
+                                  fontSize: '0.875rem',
+                                }
+                              }}
+                            />
+                          )}
+                        />
+                      </Grid>
                     </Grid>
+                  </CardContent>
+                </Card>
+              </Grid>
 
-                    <Grid
-                      size={{
-                        xs: 12,
-                        md: 6
-                      }}>
-                      <Controller
-                        name="orderDate"
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label="Order Date"
-                            type="date"
-                            InputLabelProps={{ shrink: true }}
-                            error={!!errors.orderDate}
-                            helperText={errors.orderDate?.message}
-                            required
-                            fullWidth
-                            size="small"
-                            sx={{
-                              '& .MuiInputBase-input': {
-                                fontSize: '0.875rem',
-                              },
-                              '& .MuiInputLabel-root': {
-                                fontSize: '0.875rem',
-                              }
-                            }}
-                          />
-                        )}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
+              {/* SO Items Card */}
+              <Grid size={12}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6">SO Items</Typography>
+                      <Button
+                        startIcon={<AddIcon />}
+                        onClick={addItem}
+                        variant="outlined"
+                      >
+                        Add Item
+                      </Button>
+                    </Box>
 
-            {/* SO Items Card */}
-            <Grid size={12}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">SO Items</Typography>
-                    <Button
-                      startIcon={<AddIcon />}
-                      onClick={addItem}
-                      variant="outlined"
-                    >
-                      Add Item
-                    </Button>
-                  </Box>
-
-                  <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                    <Table
-                      size="small"
-                      sx={{
-                        '& .MuiTableCell-root': {
-                          border: `1px solid ${theme.palette.divider}`,
-                          padding: '4px 8px',
-                          fontSize: '0.875rem',
-                        },
-                        '& .MuiTableHead-root .MuiTableCell-root': {
-                          backgroundColor: theme.palette.grey[50],
-                          fontWeight: 600,
-                          color: theme.palette.text.primary,
-                          border: `1px solid ${theme.palette.divider}`,
-                        },
-                        '& .MuiTableBody-root .MuiTableRow-root:hover': {
-                          backgroundColor: theme.palette.action.hover,
-                        },
-                        '& .MuiTextField-root': {
-                          '& .MuiOutlinedInput-root': {
-                            border: 'none',
-                            '& fieldset': {
-                              border: 'none',
-                            },
-                            '&:hover fieldset': {
-                              border: '1px solid #1976d2',
-                            },
-                            '&.Mui-focused fieldset': {
-                              border: '1px solid #1976d2',
-                            },
-                            backgroundColor: 'transparent',
+                    <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+                      <Table
+                        size="small"
+                        sx={{
+                          '& .MuiTableCell-root': {
+                            border: `1px solid ${theme.palette.divider}`,
+                            padding: '4px 8px',
                             fontSize: '0.875rem',
                           },
-                          '& .MuiInputBase-input': {
-                            padding: '6px 8px',
-                            textAlign: 'center',
+                          '& .MuiTableHead-root .MuiTableCell-root': {
+                            backgroundColor: theme.palette.grey[50],
+                            fontWeight: 600,
+                            color: theme.palette.text.primary,
+                            border: `1px solid ${theme.palette.divider}`,
                           },
-                          '& .MuiFormHelperText-root': {
-                            position: 'absolute',
-                            bottom: '-20px',
-                            fontSize: '0.75rem',
+                          '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                            backgroundColor: theme.palette.action.hover,
                           },
-                        },
-                        '& .MuiAutocomplete-root .MuiTextField-root .MuiInputBase-input': {
-                          textAlign: 'left',
-                        }
-                      }}
-                    >
-                      <TableHead>
-                        <TableRow>
-                          <TableCell align="center" sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
-                          <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>Qty</TableCell>
-                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Price</TableCell>
-                          <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>Discount</TableCell>
-                          <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Sub-total</TableCell>
-                          <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
-                          <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {fields.map((field, index) => (
-                          <TableRow key={field.id}>
-                            <TableCell sx={{ padding: '2px !important' }}>
-                              <Controller
-                                name={`items.${index}.productId`}
-                                control={control}
-                                render={({ field: productField }) => (
-                                  <Autocomplete
-                                    options={products}
-                                    getOptionLabel={(option) => option.name}
-                                    value={products.find(p => p.id === productField.value) || null}
-                                    onChange={(_, value) => handleProductSelect(index, value)}
-                                    onInputChange={(_, value, reason) => {
-                                      if (reason === 'input' && value.trim().length >= 1) {
-                                        loadProducts(value)
-                                      } else if (reason === 'input') {
-                                        loadProducts('')
-                                      }
-                                    }}
-                                    filterOptions={(options) => options}
-                                    size="small"
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        placeholder="Search by name or barcode..."
-                                        variant="outlined"
-                                        error={!!errors.items?.[index]?.productId}
-                                        sx={{
-                                          '& .MuiInputBase-input': {
-                                            textAlign: 'left !important',
-                                            padding: '6px 8px !important',
-                                            fontSize: '0.875rem',
-                                          }
-                                        }}
-                                      />
-                                    )}
-                                    sx={{
-                                      '& .MuiAutocomplete-inputRoot': {
-                                        padding: '0 !important',
-                                      }
-                                    }}
-                                    slotProps={{
-                                      paper: {
-                                        sx: {
-                                          '& .MuiAutocomplete-option': {
-                                            fontSize: '0.875rem',
+                          '& .MuiTextField-root': {
+                            '& .MuiOutlinedInput-root': {
+                              border: 'none',
+                              '& fieldset': {
+                                border: 'none',
+                              },
+                              '&:hover fieldset': {
+                                border: '1px solid #1976d2',
+                              },
+                              '&.Mui-focused fieldset': {
+                                border: '1px solid #1976d2',
+                              },
+                              backgroundColor: 'transparent',
+                              fontSize: '0.875rem',
+                            },
+                            '& .MuiInputBase-input': {
+                              padding: '6px 8px',
+                              textAlign: 'center',
+                            },
+                            '& .MuiFormHelperText-root': {
+                              position: 'absolute',
+                              bottom: '-20px',
+                              fontSize: '0.75rem',
+                            },
+                          },
+                          '& .MuiAutocomplete-root .MuiTextField-root .MuiInputBase-input': {
+                            textAlign: 'left',
+                          }
+                        }}
+                      >
+                        <TableHead>
+                          <TableRow>
+                            <TableCell align="center" sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
+                            <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>Qty</TableCell>
+                            <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Price</TableCell>
+                            <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>Discount</TableCell>
+                            <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Sub-total</TableCell>
+                            <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
+                            <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {fields.map((field, index) => (
+                            <TableRow key={field.id}>
+                              <TableCell sx={{ padding: '2px !important' }}>
+                                <Controller
+                                  name={`items.${index}.productId`}
+                                  control={control}
+                                  render={({ field: productField }) => (
+                                    <Autocomplete
+                                      options={products}
+                                      getOptionLabel={(option) => option.name}
+                                      value={products.find(p => p.id === productField.value) || null}
+                                      onChange={(_, value) => handleProductSelect(index, value)}
+                                      onInputChange={(_, value, reason) => {
+                                        if (reason === 'input' && value.trim().length >= 1) {
+                                          loadProducts(value)
+                                        } else if (reason === 'input') {
+                                          loadProducts('')
+                                        }
+                                      }}
+                                      filterOptions={(options) => options}
+                                      size="small"
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          placeholder="Search by name or barcode..."
+                                          variant="outlined"
+                                          error={!!errors.items?.[index]?.productId}
+                                          sx={{
+                                            '& .MuiInputBase-input': {
+                                              textAlign: 'left !important',
+                                              padding: '6px 8px !important',
+                                              fontSize: '0.875rem',
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                      sx={{
+                                        '& .MuiAutocomplete-inputRoot': {
+                                          padding: '0 !important',
+                                        }
+                                      }}
+                                      slotProps={{
+                                        paper: {
+                                          sx: {
+                                            '& .MuiAutocomplete-option': {
+                                              fontSize: '0.875rem',
+                                            }
                                           }
                                         }
-                                      }
-                                    }}
-                                  />
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell sx={{ padding: '2px !important' }}>
-                              <Controller
-                                name={`items.${index}.quantity`}
-                                control={control}
-                                render={({ field: qtyField }) => {
-                                  const formatQuantity = (value: number | string): string => {
-                                    if (value === '' || value === null || value === undefined) return ''
-                                    const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
-                                    if (isNaN(num)) return ''
-                                    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-                                  }
-
-                                  const [displayValue, setDisplayValue] = React.useState(formatQuantity(qtyField.value))
-                                  const [isFocused, setIsFocused] = React.useState(false)
-
-                                  React.useEffect(() => {
-                                    if (!isFocused) {
-                                      setDisplayValue(formatQuantity(qtyField.value))
-                                    }
-                                  }, [qtyField.value, isFocused])
-
-                                  return (
-                                    <TextField
-                                      value={displayValue}
-                                      onChange={(e) => {
-                                        const value = e.target.value.replace(/[^0-9]/g, '')
-                                        setDisplayValue(value)
-                                        qtyField.onChange(parseInt(value) || 0)
                                       }}
-                                      onFocus={() => {
-                                        setIsFocused(true)
-                                        setDisplayValue(qtyField.value?.toString() || '')
-                                      }}
-                                      onBlur={() => {
-                                        setIsFocused(false)
-                                        setDisplayValue(formatQuantity(qtyField.value))
-                                      }}
-                                      variant="outlined"
-                                      inputProps={{
-                                        style: { textAlign: 'center', fontSize: '0.875rem' },
-                                        inputMode: 'numeric',
-                                        pattern: '[0-9]*'
-                                      }}
-                                      error={!!errors.items?.[index]?.quantity}
-                                      helperText={errors.items?.[index]?.quantity?.message}
                                     />
-                                  );
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell sx={{ padding: '2px !important' }}>
-                              <Controller
-                                name={`items.${index}.unitPrice`}
-                                control={control}
-                                render={({ field: priceField }) => {
-                                  const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(priceField.value))
-                                  const [isFocused, setIsFocused] = React.useState(false)
-
-                                  React.useEffect(() => {
-                                    if (!isFocused) {
-                                      setDisplayValue(formatNumberWithCommas(priceField.value))
-                                    }
-                                  }, [priceField.value, isFocused])
-
-                                  return (
-                                    <TextField
-                                      value={displayValue}
-                                      onChange={(e) => {
-                                        const value = e.target.value.replace(/[^0-9.]/g, '')
-                                        setDisplayValue(value)
-                                        priceField.onChange(parseFormattedNumber(value))
-                                      }}
-                                      onFocus={() => {
-                                        setIsFocused(true)
-                                        setDisplayValue(priceField.value?.toString() || '')
-                                      }}
-                                      onBlur={() => {
-                                        setIsFocused(false)
-                                        setDisplayValue(formatNumberWithCommas(priceField.value))
-                                      }}
-                                      variant="outlined"
-                                      inputProps={{
-                                        style: { textAlign: 'right', fontSize: '0.875rem' }
-                                      }}
-                                      InputProps={{
-                                        startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
-                                      }}
-                                      error={!!errors.items?.[index]?.unitPrice}
-                                    />
-                                  );
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell sx={{ padding: '2px !important' }}>
-                              <Box sx={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell sx={{ padding: '2px !important' }}>
                                 <Controller
-                                  name={`items.${index}.discountValue`}
+                                  name={`items.${index}.quantity`}
                                   control={control}
-                                  render={({ field: discountField }) => {
-                                    const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(discountField.value))
+                                  render={({ field: qtyField }) => {
+                                    const formatQuantity = (value: number | string): string => {
+                                      if (value === '' || value === null || value === undefined) return ''
+                                      const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
+                                      if (isNaN(num)) return ''
+                                      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                                    }
+
+                                    const [displayValue, setDisplayValue] = React.useState(formatQuantity(qtyField.value))
                                     const [isFocused, setIsFocused] = React.useState(false)
 
                                     React.useEffect(() => {
                                       if (!isFocused) {
-                                        setDisplayValue(formatNumberWithCommas(discountField.value))
+                                        setDisplayValue(formatQuantity(qtyField.value))
                                       }
-                                    }, [discountField.value, isFocused])
+                                    }, [qtyField.value, isFocused])
+
+                                    return (
+                                      <TextField
+                                        value={displayValue}
+                                        onChange={(e) => {
+                                          const value = e.target.value.replace(/[^0-9]/g, '')
+                                          setDisplayValue(value)
+                                          qtyField.onChange(parseInt(value) || 0)
+                                        }}
+                                        onFocus={() => {
+                                          setIsFocused(true)
+                                          setDisplayValue(qtyField.value?.toString() || '')
+                                        }}
+                                        onBlur={() => {
+                                          setIsFocused(false)
+                                          setDisplayValue(formatQuantity(qtyField.value))
+                                        }}
+                                        variant="outlined"
+                                        inputProps={{
+                                          style: { textAlign: 'center', fontSize: '0.875rem' },
+                                          inputMode: 'numeric',
+                                          pattern: '[0-9]*'
+                                        }}
+                                        error={!!errors.items?.[index]?.quantity}
+                                        helperText={errors.items?.[index]?.quantity?.message}
+                                      />
+                                    );
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell sx={{ padding: '2px !important' }}>
+                                <Controller
+                                  name={`items.${index}.unitPrice`}
+                                  control={control}
+                                  render={({ field: priceField }) => {
+                                    const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(priceField.value))
+                                    const [isFocused, setIsFocused] = React.useState(false)
+
+                                    React.useEffect(() => {
+                                      if (!isFocused) {
+                                        setDisplayValue(formatNumberWithCommas(priceField.value))
+                                      }
+                                    }, [priceField.value, isFocused])
 
                                     return (
                                       <TextField
@@ -779,232 +753,276 @@ const CreateSalesOrderPage: React.FC = () => {
                                         onChange={(e) => {
                                           const value = e.target.value.replace(/[^0-9.]/g, '')
                                           setDisplayValue(value)
-                                          discountField.onChange(parseFormattedNumber(value))
+                                          priceField.onChange(parseFormattedNumber(value))
                                         }}
                                         onFocus={() => {
                                           setIsFocused(true)
-                                          setDisplayValue(discountField.value?.toString() || '')
+                                          setDisplayValue(priceField.value?.toString() || '')
                                         }}
                                         onBlur={() => {
                                           setIsFocused(false)
-                                          setDisplayValue(formatNumberWithCommas(discountField.value))
+                                          setDisplayValue(formatNumberWithCommas(priceField.value))
                                         }}
                                         variant="outlined"
                                         inputProps={{
                                           style: { textAlign: 'right', fontSize: '0.875rem' }
                                         }}
-                                        error={!!errors.items?.[index]?.discountValue}
-                                        sx={{
-                                          flex: 1,
+                                        InputProps={{
+                                          startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
                                         }}
+                                        error={!!errors.items?.[index]?.unitPrice}
                                       />
                                     );
                                   }}
                                 />
-                                <Controller
-                                  name={`items.${index}.discountType`}
-                                  control={control}
-                                  render={({ field: typeField }) => (
-                                    <TextField
-                                      {...typeField}
-                                      select
-                                      variant="outlined"
-                                      sx={{
-                                        width: '60px',
-                                        '& .MuiInputBase-input': {
-                                          fontSize: '0.875rem',
-                                          padding: '6px 4px',
+                              </TableCell>
+                              <TableCell sx={{ padding: '2px !important' }}>
+                                <Box sx={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                  <Controller
+                                    name={`items.${index}.discountValue`}
+                                    control={control}
+                                    render={({ field: discountField }) => {
+                                      const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(discountField.value))
+                                      const [isFocused, setIsFocused] = React.useState(false)
+
+                                      React.useEffect(() => {
+                                        if (!isFocused) {
+                                          setDisplayValue(formatNumberWithCommas(discountField.value))
                                         }
-                                      }}
-                                      SelectProps={{
-                                        MenuProps: {
-                                          PaperProps: {
-                                            sx: {
-                                              '& .MuiMenuItem-root': {
-                                                fontSize: '0.875rem',
+                                      }, [discountField.value, isFocused])
+
+                                      return (
+                                        <TextField
+                                          value={displayValue}
+                                          onChange={(e) => {
+                                            const value = e.target.value.replace(/[^0-9.]/g, '')
+                                            setDisplayValue(value)
+                                            discountField.onChange(parseFormattedNumber(value))
+                                          }}
+                                          onFocus={() => {
+                                            setIsFocused(true)
+                                            setDisplayValue(discountField.value?.toString() || '')
+                                          }}
+                                          onBlur={() => {
+                                            setIsFocused(false)
+                                            setDisplayValue(formatNumberWithCommas(discountField.value))
+                                          }}
+                                          variant="outlined"
+                                          inputProps={{
+                                            style: { textAlign: 'right', fontSize: '0.875rem' }
+                                          }}
+                                          error={!!errors.items?.[index]?.discountValue}
+                                          sx={{
+                                            flex: 1,
+                                          }}
+                                        />
+                                      );
+                                    }}
+                                  />
+                                  <Controller
+                                    name={`items.${index}.discountType`}
+                                    control={control}
+                                    render={({ field: typeField }) => (
+                                      <TextField
+                                        {...typeField}
+                                        select
+                                        variant="outlined"
+                                        sx={{
+                                          width: '60px',
+                                          '& .MuiInputBase-input': {
+                                            fontSize: '0.875rem',
+                                            padding: '6px 4px',
+                                          }
+                                        }}
+                                        SelectProps={{
+                                          MenuProps: {
+                                            PaperProps: {
+                                              sx: {
+                                                '& .MuiMenuItem-root': {
+                                                  fontSize: '0.875rem',
+                                                }
                                               }
                                             }
                                           }
-                                        }
-                                      }}
-                                    >
-                                      <MenuItem value="percentage">%</MenuItem>
-                                      <MenuItem value="amount">{currency}</MenuItem>
-                                    </TextField>
-                                  )}
-                                />
-                              </Box>
-                            </TableCell>
-                            <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
-                              <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
-                                {formatCurrency(watchedItems[index]?.totalPrice || 0)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center" sx={{ padding: '2px !important' }}>
-                              <IconButton
-                                onClick={() => remove(index)}
-                                disabled={fields.length === 1}
-                                size="small"
-                                sx={{
-                                  color: theme.palette.error.main,
-                                  '&:hover': { backgroundColor: theme.palette.error.light },
-                                  '&.Mui-disabled': { color: theme.palette.action.disabled }
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </TableCell>
-                            <TableCell sx={{ width: 40, padding: '2px !important' }}>
-                              <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
-                                {index + 1}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
-            </Grid>
+                                        }}
+                                      >
+                                        <MenuItem value="percentage">%</MenuItem>
+                                        <MenuItem value="amount">{currency}</MenuItem>
+                                      </TextField>
+                                    )}
+                                  />
+                                </Box>
+                              </TableCell>
+                              <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
+                                <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
+                                  {formatCurrency(watchedItems[index]?.totalPrice || 0)}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="center" sx={{ padding: '2px !important' }}>
+                                <IconButton
+                                  onClick={() => remove(index)}
+                                  disabled={fields.length === 1}
+                                  size="small"
+                                  sx={{
+                                    color: theme.palette.error.main,
+                                    '&:hover': { backgroundColor: theme.palette.error.light },
+                                    '&.Mui-disabled': { color: theme.palette.action.disabled }
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </TableCell>
+                              <TableCell sx={{ width: 40, padding: '2px !important' }}>
+                                <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
+                                  {index + 1}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </CardContent>
+                </Card>
+              </Grid>
 
-            {/* Notes and Summary */}
-            <Grid
-              size={{
-                xs: 12,
-                md: 8
-              }}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <Controller
-                    name="notes"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="Notes"
-                        multiline
-                        fullWidth
-                        sx={{
-                          flex: 1,
-                          '& .MuiInputBase-root': {
-                            height: '100%',
-                            alignItems: 'flex-start',
-                          },
-                          '& .MuiInputBase-input': {
-                            fontSize: '0.875rem',
-                          },
-                          '& .MuiInputLabel-root': {
-                            fontSize: '0.875rem',
-                          }
+              {/* Notes and Summary */}
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 8
+                }}>
+                <Card sx={{ height: '100%' }}>
+                  <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Controller
+                      name="notes"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Notes"
+                          multiline
+                          fullWidth
+                          sx={{
+                            flex: 1,
+                            '& .MuiInputBase-root': {
+                              height: '100%',
+                              alignItems: 'flex-start',
+                            },
+                            '& .MuiInputBase-input': {
+                              fontSize: '0.875rem',
+                            },
+                            '& .MuiInputLabel-root': {
+                              fontSize: '0.875rem',
+                            }
+                          }}
+                        />
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid
+                size={{
+                  xs: 12,
+                  md: 4
+                }}>
+                <Card sx={{ height: '100%' }}>
+                  <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Typography variant="h6" gutterBottom>SO Summary</Typography>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
+                      <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography sx={{ fontSize: '0.875rem' }}>Shipping:</Typography>
+                      <Controller
+                        name="shipping"
+                        control={control}
+                        render={({ field }) => {
+                          const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(field.value))
+                          const [isFocused, setIsFocused] = React.useState(false)
+
+                          React.useEffect(() => {
+                            if (!isFocused) {
+                              setDisplayValue(formatNumberWithCommas(field.value))
+                            }
+                          }, [field.value, isFocused])
+
+                          return (
+                            <TextField
+                              value={displayValue}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^0-9.]/g, '')
+                                setDisplayValue(value)
+                                const numValue = value === '' ? 0 : parseFloat(value.replace(/,/g, ''))
+                                field.onChange(isNaN(numValue) ? 0 : numValue)
+                              }}
+                              onFocus={() => {
+                                setIsFocused(true)
+                                setDisplayValue(field.value === 0 ? '0' : (field.value?.toString() || '0'))
+                              }}
+                              onBlur={() => {
+                                setIsFocused(false)
+                                if (displayValue === '' || displayValue === '.') {
+                                  field.onChange(0)
+                                }
+                                setDisplayValue(formatNumberWithCommas(field.value || 0))
+                              }}
+                              variant="outlined"
+                              size="small"
+                              inputProps={{
+                                style: { textAlign: 'right', fontSize: '0.875rem' }
+                              }}
+                              sx={{
+                                width: '120px',
+                                '& .MuiInputBase-input': {
+                                  padding: '4px 8px',
+                                },
+                              }}
+                              InputProps={{
+                                startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+                              }}
+                            />
+                          );
                         }}
                       />
-                    )}
-                  />
-                </CardContent>
-              </Card>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
+                      <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Total:</Typography>
+                      <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 2, mt: 'auto' }}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        onClick={() => navigate('/sales/orders')}
+                        disabled={loading}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        fullWidth
+                        disabled={loading}
+                      >
+                        {loading
+                          ? (isEditMode ? 'Updating...' : 'Creating...')
+                          : (isEditMode ? 'Update Order' : 'Create Order')
+                        }
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
-
-            <Grid
-              size={{
-                xs: 12,
-                md: 4
-              }}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="h6" gutterBottom>SO Summary</Typography>
-
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
-                    <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
-                  </Box>
-
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography sx={{ fontSize: '0.875rem' }}>Shipping:</Typography>
-                    <Controller
-                      name="shipping"
-                      control={control}
-                      render={({ field }) => {
-                        const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(field.value))
-                        const [isFocused, setIsFocused] = React.useState(false)
-
-                        React.useEffect(() => {
-                          if (!isFocused) {
-                            setDisplayValue(formatNumberWithCommas(field.value))
-                          }
-                        }, [field.value, isFocused])
-
-                        return (
-                          <TextField
-                            value={displayValue}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/[^0-9.]/g, '')
-                              setDisplayValue(value)
-                              const numValue = value === '' ? 0 : parseFloat(value.replace(/,/g, ''))
-                              field.onChange(isNaN(numValue) ? 0 : numValue)
-                            }}
-                            onFocus={() => {
-                              setIsFocused(true)
-                              setDisplayValue(field.value === 0 ? '0' : (field.value?.toString() || '0'))
-                            }}
-                            onBlur={() => {
-                              setIsFocused(false)
-                              if (displayValue === '' || displayValue === '.') {
-                                field.onChange(0)
-                              }
-                              setDisplayValue(formatNumberWithCommas(field.value || 0))
-                            }}
-                            variant="outlined"
-                            size="small"
-                            inputProps={{
-                              style: { textAlign: 'right', fontSize: '0.875rem' }
-                            }}
-                            sx={{
-                              width: '120px',
-                              '& .MuiInputBase-input': {
-                                padding: '4px 8px',
-                              },
-                            }}
-                            InputProps={{
-                              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
-                            }}
-                          />
-                        );
-                      }}
-                    />
-                  </Box>
-
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
-                    <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Total:</Typography>
-                    <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
-                  </Box>
-
-                  <Box sx={{ display: 'flex', gap: 2, mt: 'auto' }}>
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      onClick={() => navigate('/sales/orders')}
-                      disabled={loading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      fullWidth
-                      disabled={loading}
-                    >
-                      {loading
-                        ? (isEditMode ? 'Updating...' : 'Creating...')
-                        : (isEditMode ? 'Update Order' : 'Create Order')
-                      }
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </form>
+          </form>
         )}
       </Box>
     </Container>
