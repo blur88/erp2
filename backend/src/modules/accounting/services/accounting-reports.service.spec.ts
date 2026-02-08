@@ -2,9 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccountingReportsService } from './accounting-reports.service';
-import { ChartOfAccountsService } from './chart-of-accounts.service';
-import { JournalEntryService } from './journal-entry.service';
-import { FiscalPeriodService } from './fiscal-period.service';
 import {
   ChartOfAccount,
   AccountType,
@@ -17,9 +14,6 @@ describe('AccountingReportsService', () => {
   let accountRepository: jest.Mocked<Repository<ChartOfAccount>>;
   let journalEntryRepository: jest.Mocked<Repository<JournalEntry>>;
   let journalEntryLineRepository: jest.Mocked<Repository<JournalEntryLine>>;
-  let chartOfAccountsService: jest.Mocked<ChartOfAccountsService>;
-  let journalEntryService: jest.Mocked<JournalEntryService>;
-  let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
 
   const mockAccount: Partial<ChartOfAccount> = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -83,27 +77,6 @@ describe('AccountingReportsService', () => {
             createQueryBuilder: jest.fn(() => mockQueryBuilder),
           },
         },
-        {
-          provide: ChartOfAccountsService,
-          useValue: {
-            findOne: jest.fn(),
-            findAll: jest.fn(),
-          },
-        },
-        {
-          provide: JournalEntryService,
-          useValue: {
-            findOne: jest.fn(),
-            findAll: jest.fn(),
-          },
-        },
-        {
-          provide: FiscalPeriodService,
-          useValue: {
-            findOne: jest.fn(),
-            findAll: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
@@ -111,9 +84,6 @@ describe('AccountingReportsService', () => {
     accountRepository = module.get(getRepositoryToken(ChartOfAccount));
     journalEntryRepository = module.get(getRepositoryToken(JournalEntry));
     journalEntryLineRepository = module.get(getRepositoryToken(JournalEntryLine));
-    chartOfAccountsService = module.get(ChartOfAccountsService);
-    journalEntryService = module.get(JournalEntryService);
-    fiscalPeriodService = module.get(FiscalPeriodService);
   });
 
   afterEach(() => {

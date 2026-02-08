@@ -14,9 +14,6 @@ import {
   JournalEntryStatus,
 } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
-import { ChartOfAccountsService } from './chart-of-accounts.service';
-import { JournalEntryService } from './journal-entry.service';
-import { FiscalPeriodService } from './fiscal-period.service';
 
 /**
  * Interface for account with balance information
@@ -41,9 +38,6 @@ export class AccountingReportsService {
     private readonly journalEntryRepository: Repository<JournalEntry>,
     @InjectRepository(JournalEntryLine)
     private readonly journalEntryLineRepository: Repository<JournalEntryLine>,
-    private readonly chartOfAccountsService: ChartOfAccountsService,
-    private readonly journalEntryService: JournalEntryService,
-    private readonly fiscalPeriodService: FiscalPeriodService,
   ) {}
 
   /**
