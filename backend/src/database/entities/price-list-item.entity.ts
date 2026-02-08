@@ -6,6 +6,13 @@ import {
   JoinColumn,
   Unique,
 } from 'typeorm';
+import {
+  IsUUID,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  IsDate,
+} from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { PriceList } from './price-list.entity';
 import { Product } from './product.entity';
@@ -20,30 +27,45 @@ import { Product } from './product.entity';
 @Unique(['priceListId', 'productId'])
 export class PriceListItem extends BaseEntity {
   @Column({ type: 'uuid' })
+  @IsUUID()
   priceListId: string;
 
   @Column({ type: 'uuid' })
+  @IsUUID()
   productId: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 4 })
+  @IsNumber()
   price: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  @IsNumber()
+  @IsOptional()
   costBasis: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @IsNumber()
+  @IsOptional()
   marginPercent: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  @IsNumber()
+  @IsOptional()
   minimumPrice: number;
 
   @Column({ type: 'boolean', default: true })
+  @IsBoolean()
+  @IsOptional()
   isActive: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
+  @IsDate()
+  @IsOptional()
   effectiveFrom: Date;
 
   @Column({ type: 'timestamp', nullable: true })
+  @IsDate()
+  @IsOptional()
   effectiveTo: Date;
 
   // Relationships
@@ -58,4 +80,9 @@ export class PriceListItem extends BaseEntity {
   })
   @JoinColumn({ name: 'productId' })
   product: Product;
+
+  constructor() {
+    super();
+    this.isActive = true;
+  }
 }
