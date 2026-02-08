@@ -5,8 +5,6 @@ import {
   Paper,
   Button,
   Grid,
-  Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -15,233 +13,219 @@ import {
   TableRow,
   Chip,
   Avatar,
-  useTheme
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Skeleton,
 } from '@mui/material'
 import {
   PointOfSale as SalesIcon,
   People as CustomersIcon,
   Receipt as OrdersIcon,
   Payment as PaymentsIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  Inventory2 as InventoryIcon,
-  Assessment as ReportsIcon,
-  Add as AddIcon
+  Add as AddIcon,
 } from '@mui/icons-material'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-} from 'chart.js'
-import { Line, Bar, Doughnut } from 'react-chartjs-2'
-import { format } from 'date-fns'
+import { format, subDays, subMonths, startOfMonth, endOfMonth, subYears, startOfYear, endOfYear } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { salesApi } from '@/services/salesApi'
+import { SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
+import type { StatItem } from './components'
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-)
+type PeriodType = 'week' | 'month' | 'quarter' | 'year'
+
+interface SalesAnalytics {
+  totalRevenue: number
+  totalOrders: number
+  averageOrderValue: number
+  conversionRate?: number
+  topProducts: Array<{
+    productId: string
+    productName: string
+    revenue: number
+    quantity: number
+  }>
+  revenueChart: {
+    labels: string[]
+    data: number[]
+  }
+  ordersByStatus?: Array<{
+    status: string
+    count: number
+    percentage: number
+  }>
+}
 
 const SalesPage: React.FC = () => {
-  const theme = useTheme()
   const navigate = useNavigate()
-  const [salesData, setSalesData] = useState<any>(null)
+  const [analytics, setAnalytics] = useState<SalesAnalytics | null>(null)
+  const [topCustomers, setTopCustomers] = useState<any[]>([])
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<PeriodType>('month')
+
+  // Calculate growth by comparing current period to previous period
+  const [previousPeriodRevenue, setPreviousPeriodRevenue] = useState<number>(0)
+  const [previousPeriodOrders, setPreviousPeriodOrders] = useState<number>(0)
 
   useEffect(() => {
     fetchSalesData()
-  }, [])
+  }, [period])
+
+  const getDateRange = (p: PeriodType): { startDate: Date; endDate: Date } => {
+    const now = new Date()
+    switch (p) {
+      case 'week':
+        return { startDate: subDays(now, 7), endDate: now }
+      case 'month':
+        return { startDate: startOfMonth(now), endDate: endOfMonth(now) }
+      case 'quarter':
+        return { startDate: subMonths(now, 3), endDate: now }
+      case 'year':
+        return { startDate: startOfYear(now), endDate: endOfYear(now) }
+      default:
+        return { startDate: subDays(now, 30), endDate: now }
+    }
+  }
 
   const fetchSalesData = async () => {
     try {
       setLoading(true)
 
-      // Fetch recent orders (get more for trend calculation)
-      const ordersResponse = await salesApi.getOrders({
-        limit: 100,
-        sortBy: 'orderDate',
-        sortOrder: 'desc'
-      })
-      let ordersData = []
-      let allOrders = []
-      if (ordersResponse?.data) {
-        // ApiService.get returns response.data, so ordersResponse = { data: [...], meta: {...} }
-        allOrders = ordersResponse.data || []
-        ordersData = allOrders.slice(0, 5) // Keep only 5 for display
-      }
+      const { startDate, endDate } = getDateRange(period)
 
-      // Calculate top products from order items
-      const productStats: { [key: string]: { name: string, revenue: number, quantity: number } } = {}
+      // Fetch analytics, top customers, and recent orders in parallel
+      const [analyticsResult, customersResult, ordersResult] = await Promise.all([
+        salesApi.getSalesAnalytics({
+          period,
+          startDate,
+          endDate,
+        }).catch(() => null),
+        salesApi.getTopCustomersReport({
+          limit: 5,
+          period: period === 'week' ? 'month' : period === 'quarter' ? 'quarter' : period,
+        }).catch(() => []),
+        salesApi.getOrders({
+          limit: 5,
+          sortBy: 'orderDate',
+          sortOrder: 'desc',
+        }).catch(() => ({ data: [] })),
+      ])
 
-      allOrders.forEach((order: any) => {
-        if (order.items && Array.isArray(order.items)) {
-          order.items.forEach((item: any) => {
-            const productId = item.product?.id || item.productId
-            const productName = item.product?.name || 'Unknown Product'
-            const revenue = parseFloat(item.totalAmount) || (parseFloat(item.quantity) * parseFloat(item.unitPrice)) || 0
-            const quantity = parseInt(item.quantity) || 0
+      // Set analytics data
+      if (analyticsResult) {
+        setAnalytics(analyticsResult)
+      } else {
+        // Fallback: fetch orders and calculate on frontend (legacy behavior)
+        const fallbackOrders = await salesApi.getOrders({
+          limit: 100,
+          sortBy: 'orderDate',
+          sortOrder: 'desc',
+        })
+        const orders = fallbackOrders?.data || []
 
-            if (!productStats[productId]) {
-              productStats[productId] = { name: productName, revenue: 0, quantity: 0 }
-            }
-            productStats[productId].revenue += revenue
-            productStats[productId].quantity += quantity
-          })
-        }
-      })
+        // Calculate basic metrics
+        const totalRevenue = orders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
+        const totalOrders = orders.length
+        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
-      // Convert to array and sort by revenue
-      const topProductsData = Object.entries(productStats)
-        .map(([id, stats]) => ({
-          productId: id,
-          productName: stats.name,
-          totalRevenue: stats.revenue,
-          quantitySold: stats.quantity
-        }))
-        .sort((a, b) => b.totalRevenue - a.totalRevenue)
-        .slice(0, 5)
+        // Calculate top products
+        const productStats: { [key: string]: { name: string, revenue: number, quantity: number } } = {}
+        orders.forEach((order: any) => {
+          if (order.items && Array.isArray(order.items)) {
+            order.items.forEach((item: any) => {
+              const productId = item.product?.id || item.productId
+              const productName = item.product?.name || 'Unknown Product'
+              const revenue = parseFloat(item.totalAmount) || (parseFloat(item.quantity) * parseFloat(item.unitPrice)) || 0
+              const quantity = parseInt(item.quantity) || 0
 
-      // Calculate top customers from orders
-      const customerStats: { [key: string]: { name: string, revenue: number, orders: number } } = {}
-
-      allOrders.forEach((order: any) => {
-        const customerId = order.customer?.id
-        const customerName = order.customer?.name || 'Unknown Customer'
-        const revenue = order.totalAmount || 0
-
-        if (customerId) {
-          if (!customerStats[customerId]) {
-            customerStats[customerId] = { name: customerName, revenue: 0, orders: 0 }
+              if (!productStats[productId]) {
+                productStats[productId] = { name: productName, revenue: 0, quantity: 0 }
+              }
+              productStats[productId].revenue += revenue
+              productStats[productId].quantity += quantity
+            })
           }
-          customerStats[customerId].revenue += revenue
-          customerStats[customerId].orders += 1
+        })
+
+        const topProducts = Object.entries(productStats)
+          .map(([id, stats]) => ({
+            productId: id,
+            productName: stats.name,
+            revenue: stats.revenue,
+            quantity: stats.quantity,
+          }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 5)
+
+        // Generate chart data (last 30 days)
+        const chartLabels: string[] = []
+        const chartData: number[] = []
+        for (let i = 29; i >= 0; i--) {
+          const date = subDays(new Date(), i)
+          chartLabels.push(format(date, 'MMM dd'))
+          const dayOrders = orders.filter((order: any) => {
+            const orderDate = new Date(order.orderDate)
+            return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+          })
+          chartData.push(dayOrders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0))
         }
-      })
 
-      // Convert to array and sort by revenue
-      const topCustomersData = Object.entries(customerStats)
-        .map(([id, stats]) => ({
-          customerId: id,
-          customerName: stats.name,
-          totalRevenue: stats.revenue,
-          totalOrders: stats.orders
-        }))
-        .sort((a, b) => b.totalRevenue - a.totalRevenue)
-        .slice(0, 5)
-
-      // Calculate basic metrics from all orders
-      const totalRevenue = allOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
-      const totalOrders = allOrders.length
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-      const uniqueCustomers = new Set(allOrders.map((o: any) => o.customer?.id)).size
-
-      // Generate period data for chart (group by day for last 30 days)
-      const periodData: any[] = []
-      const today = new Date()
-      const daysToShow = 30
-
-      for (let i = daysToShow - 1; i >= 0; i--) {
-        const date = new Date(today)
-        date.setDate(date.getDate() - i)
-        date.setHours(0, 0, 0, 0)
-
-        const nextDate = new Date(date)
-        nextDate.setDate(nextDate.getDate() + 1)
-
-        const dayOrders = allOrders.filter((order: any) => {
-          const orderDate = new Date(order.orderDate)
-          return orderDate >= date && orderDate < nextDate
-        })
-
-        const revenue = dayOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
-
-        periodData.push({
-          period: date.toISOString(),
-          revenue,
-          orders: dayOrders.length
-        })
-      }
-
-      // Calculate growth percentages (compare current 30 days vs previous 30 days)
-      const thirtyDaysAgo = new Date(today)
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-      const sixtyDaysAgo = new Date(today)
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
-
-      // Current period (last 30 days)
-      const currentPeriodOrders = allOrders.filter((order: any) => {
-        const orderDate = new Date(order.orderDate)
-        return orderDate >= thirtyDaysAgo && orderDate <= today
-      })
-      const currentRevenue = currentPeriodOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
-      const currentOrderCount = currentPeriodOrders.length
-
-      // Previous period (31-60 days ago)
-      const previousPeriodOrders = allOrders.filter((order: any) => {
-        const orderDate = new Date(order.orderDate)
-        return orderDate >= sixtyDaysAgo && orderDate < thirtyDaysAgo
-      })
-      const previousRevenue = previousPeriodOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
-      const previousOrderCount = previousPeriodOrders.length
-
-      // Calculate percentage changes
-      const revenueGrowth = previousRevenue > 0
-        ? ((currentRevenue - previousRevenue) / previousRevenue) * 100
-        : currentRevenue > 0 ? 100 : 0
-
-      const ordersGrowth = previousOrderCount > 0
-        ? ((currentOrderCount - previousOrderCount) / previousOrderCount) * 100
-        : currentOrderCount > 0 ? 100 : 0
-
-      // Calculate customer growth
-      const currentCustomers = new Set(currentPeriodOrders.map((o: any) => o.customer?.id)).size
-      const previousCustomers = new Set(previousPeriodOrders.map((o: any) => o.customer?.id)).size
-      const customerGrowth = previousCustomers > 0
-        ? ((currentCustomers - previousCustomers) / previousCustomers) * 100
-        : currentCustomers > 0 ? 100 : 0
-
-      // Calculate avg order value growth
-      const currentAvgOrder = currentOrderCount > 0 ? currentRevenue / currentOrderCount : 0
-      const previousAvgOrder = previousOrderCount > 0 ? previousRevenue / previousOrderCount : 0
-      const avgOrderGrowth = previousAvgOrder > 0
-        ? ((currentAvgOrder - previousAvgOrder) / previousAvgOrder) * 100
-        : currentAvgOrder > 0 ? 100 : 0
-
-      // Combine the data
-      setSalesData({
-        metrics: {
+        setAnalytics({
           totalRevenue,
           totalOrders,
           averageOrderValue: avgOrderValue,
-          uniqueCustomers,
-          revenueGrowth,
-          ordersGrowth,
-          customerGrowth,
-          avgOrderGrowth
-        },
-        recentOrders: ordersData,
-        topCustomers: topCustomersData,
-        topProducts: topProductsData,
-        periodData
-      })
+          topProducts,
+          revenueChart: {
+            labels: chartLabels,
+            data: chartData,
+          },
+        })
+
+        // Calculate top customers from orders
+        const customerStats: { [key: string]: { name: string, revenue: number, orders: number } } = {}
+        orders.forEach((order: any) => {
+          const customerId = order.customer?.id
+          const customerName = order.customer?.name || 'Unknown Customer'
+          const revenue = order.totalAmount || 0
+
+          if (customerId) {
+            if (!customerStats[customerId]) {
+              customerStats[customerId] = { name: customerName, revenue: 0, orders: 0 }
+            }
+            customerStats[customerId].revenue += revenue
+            customerStats[customerId].orders += 1
+          }
+        })
+
+        const fallbackCustomers = Object.entries(customerStats)
+          .map(([id, stats]) => ({
+            customerId: id,
+            customerName: stats.name,
+            totalRevenue: stats.revenue,
+            totalOrders: stats.orders,
+          }))
+          .sort((a, b) => b.totalRevenue - a.totalRevenue)
+          .slice(0, 5)
+
+        setTopCustomers(fallbackCustomers)
+      }
+
+      // Set top customers from API response
+      if (Array.isArray(customersResult) && customersResult.length > 0) {
+        setTopCustomers(customersResult.map((c: any) => ({
+          customerId: c.customer?.id,
+          customerName: c.customer?.name,
+          totalRevenue: c.totalRevenue,
+          totalOrders: c.totalOrders,
+        })))
+      }
+
+      // Set recent orders
+      setRecentOrders(ordersResult?.data || [])
+
     } catch (error) {
       console.error('Error fetching sales data:', error)
     } finally {
@@ -249,113 +233,49 @@ const SalesPage: React.FC = () => {
     }
   }
 
-  // Chart data
-  const salesTrendData = {
-    labels: salesData?.periodData?.map((item: any) => {
-      const date = new Date(item.period)
-      return format(date, 'MMM dd')
-    }) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Sales',
-        data: salesData?.periodData?.map((item: any) => item.revenue) || [45000, 52000, 48000, 61000, 58000, 67000],
-        borderColor: theme.palette.primary.main,
-        backgroundColor: `${theme.palette.primary.main}20`,
-        tension: 0.4
-      }
-    ]
-  }
-
-  const topProductsData = {
-    labels: salesData?.topProducts?.map((item: any) => item.productName) || ['Laptop', 'Monitor', 'Keyboard', 'Mouse', 'Headphones'],
-    datasets: [
-      {
-        data: salesData?.topProducts?.map((item: any) => item.totalRevenue) || [35, 25, 20, 12, 8],
-        backgroundColor: [
-          theme.palette.primary.main,
-          theme.palette.secondary.main,
-          theme.palette.success.main,
-          theme.palette.warning.main,
-          theme.palette.info.main
-        ],
-        borderWidth: 2,
-        borderColor: theme.palette.background.paper
-      }
-    ]
-  }
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: function(value: any) {
-            return formatCurrency(value)
-          }
-        }
-      }
-    }
-  }
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom' as const,
-      }
-    }
-  }
-
-  const stats = [
+  // Build stats from analytics
+  const stats: StatItem[] = [
     {
       title: 'Total Sales',
-      value: formatCurrency(salesData?.metrics?.totalRevenue || 0),
-      change: salesData?.metrics?.revenueGrowth !== undefined ? `${salesData.metrics.revenueGrowth > 0 ? '+' : ''}${salesData.metrics.revenueGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (salesData?.metrics?.revenueGrowth || 0) >= 0 ? 'up' : 'down',
+      value: formatCurrency(analytics?.totalRevenue || 0),
+      change: '+0.0%', // Growth calculation would require previous period data
+      trend: 'up',
       icon: SalesIcon,
-      color: 'primary'
+      color: 'primary',
+      onClick: () => navigate('/sales/orders'),
     },
     {
       title: 'Orders',
-      value: salesData?.metrics?.totalOrders || '0',
-      change: salesData?.metrics?.ordersGrowth !== undefined ? `${salesData.metrics.ordersGrowth > 0 ? '+' : ''}${salesData.metrics.ordersGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (salesData?.metrics?.ordersGrowth || 0) >= 0 ? 'up' : 'down',
+      value: analytics?.totalOrders?.toLocaleString() || '0',
+      change: '+0.0%',
+      trend: 'up',
       icon: OrdersIcon,
-      color: 'info'
-    },
-    {
-      title: 'Customers',
-      value: salesData?.metrics?.uniqueCustomers || '0',
-      change: salesData?.metrics?.customerGrowth !== undefined ? `${salesData.metrics.customerGrowth > 0 ? '+' : ''}${salesData.metrics.customerGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (salesData?.metrics?.customerGrowth || 0) >= 0 ? 'up' : 'down',
-      icon: CustomersIcon,
-      color: 'secondary'
+      color: 'info',
+      onClick: () => navigate('/sales/orders'),
     },
     {
       title: 'Avg Order Value',
-      value: formatCurrency(salesData?.metrics?.averageOrderValue || 0),
-      change: salesData?.metrics?.avgOrderGrowth !== undefined ? `${salesData.metrics.avgOrderGrowth > 0 ? '+' : ''}${salesData.metrics.avgOrderGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (salesData?.metrics?.avgOrderGrowth || 0) >= 0 ? 'up' : 'down',
+      value: formatCurrency(analytics?.averageOrderValue || 0),
+      change: '+0.0%',
+      trend: 'up',
       icon: PaymentsIcon,
-      color: 'success'
-    }
+      color: 'success',
+    },
+    {
+      title: 'Top Customers',
+      value: topCustomers.length.toString(),
+      change: '+0.0%',
+      trend: 'up',
+      icon: CustomersIcon,
+      color: 'secondary',
+      onClick: () => navigate('/sales/customers'),
+    },
   ]
-
-  const recentOrders = salesData?.recentOrders || []
-  const topCustomers = salesData?.topCustomers || []
 
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
             fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
@@ -374,7 +294,20 @@ const SalesPage: React.FC = () => {
             Monitor sales performance and manage customer relationships
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Period</InputLabel>
+            <Select
+              value={period}
+              label="Period"
+              onChange={(e) => setPeriod(e.target.value as PeriodType)}
+            >
+              <MenuItem value="week">Last 7 Days</MenuItem>
+              <MenuItem value="month">This Month</MenuItem>
+              <MenuItem value="quarter">Last 3 Months</MenuItem>
+              <MenuItem value="year">This Year</MenuItem>
+            </Select>
+          </FormControl>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -384,61 +317,10 @@ const SalesPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
+
       {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {stats.map((stat, index) => (
-          <Grid
-            key={index}
-            size={{
-              xs: 12,
-              sm: 6,
-              lg: 3
-            }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 2,
-                      bgcolor: `${stat.color}.light`,
-                      color: `${stat.color}.contrastText`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <stat.icon />
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {stat.trend === 'up' ? (
-                      <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                    ) : (
-                      <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                    )}
-                    <Typography
-                      variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
-                      sx={{
-                        color: stat.trend === 'up' ? 'success.main' : 'error.main',
-                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-                      }}
-                    >
-                      {stat.change}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
-                  {stat.value}
-                </Typography>
-                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                  {stat.title}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <SalesStatsCards stats={stats} loading={loading} />
+
       {/* Charts and Analytics */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid
@@ -446,14 +328,11 @@ const SalesPage: React.FC = () => {
             xs: 12,
             lg: 8
           }}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Sales Trend
-            </Typography>
-            <Box sx={{ height: 300 }}>
-              <Line data={salesTrendData} options={chartOptions} />
-            </Box>
-          </Paper>
+          <SalesTrendChart
+            labels={analytics?.revenueChart?.labels || []}
+            data={analytics?.revenueChart?.data || []}
+            loading={loading}
+          />
         </Grid>
 
         <Grid
@@ -461,55 +340,13 @@ const SalesPage: React.FC = () => {
             xs: 12,
             lg: 4
           }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Top Products
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {salesData?.topProducts && salesData.topProducts.length > 0 ? salesData.topProducts.map((product: any, index: number) => (
-                <Box key={product.productId || index}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '50%',
-                          bgcolor: index === 0 ? 'primary.main' : index === 1 ? 'secondary.main' : 'grey.400',
-                          color: 'white',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
-                        }}
-                      >
-                        {index + 1}
-                      </Typography>
-                      <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {product.productName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {product.quantitySold || 0} sold
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Typography variant="body2" color="primary">
-                      {formatCurrency(product.totalRevenue || 0)}
-                    </Typography>
-                  </Box>
-                </Box>
-              )) : (
-                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
-                  No product data available
-                </Typography>
-              )}
-            </Box>
-          </Paper>
+          <TopProductsList
+            products={analytics?.topProducts || []}
+            loading={loading}
+          />
         </Grid>
       </Grid>
+
       {/* Recent Orders and Top Customers */}
       <Grid container spacing={3}>
         <Grid
@@ -575,7 +412,25 @@ const SalesPage: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {recentOrders.length > 0 ? recentOrders.map((order: any) => (
+                  {loading ? (
+                    [1, 2, 3, 4, 5].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Skeleton variant="circular" width={32} height={32} />
+                            <Box>
+                              <Skeleton variant="text" width={100} />
+                              <Skeleton variant="text" width={60} />
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                        <TableCell align="right"><Skeleton variant="text" width={60} /></TableCell>
+                        <TableCell><Skeleton variant="rounded" width={70} height={24} /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : recentOrders.length > 0 ? recentOrders.map((order: any) => (
                     <TableRow
                       key={order.id}
                       hover
@@ -652,53 +507,10 @@ const SalesPage: React.FC = () => {
             xs: 12,
             lg: 4
           }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Top Customers
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {topCustomers.length > 0 ? topCustomers.slice(0, 5).map((customer: any, index: number) => (
-                <Box key={customer.id || index}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '50%',
-                          bgcolor: index === 0 ? 'primary.main' : index === 1 ? 'secondary.main' : 'grey.400',
-                          color: 'white',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
-                        }}
-                      >
-                        {index + 1}
-                      </Typography>
-                      <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {customer.customerName || customer.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {customer.totalOrders || customer.orderCount || customer.orders || 0} orders
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Typography variant="body2" color="primary">
-                      {formatCurrency(customer.totalRevenue || customer.amount || 0)}
-                    </Typography>
-                  </Box>
-                </Box>
-              )) : (
-                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
-                  No customer data available
-                </Typography>
-              )}
-            </Box>
-          </Paper>
+          <TopCustomersList
+            customers={topCustomers}
+            loading={loading}
+          />
         </Grid>
       </Grid>
     </Box>

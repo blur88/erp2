@@ -59,7 +59,7 @@ export class SalesOrderService {
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
-  ) {}
+  ) { }
 
   private async generateSequentialOrderNumber(): Promise<string> {
     // Use document number settings to generate order number
@@ -412,13 +412,13 @@ export class SalesOrderService {
     if (fromDate) {
       queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
     }
-    
+
     if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
       queryBuilder = queryBuilder.andWhere('order.orderDate <= :toDate', { toDate: endDate });
     }
-    
+
     if (search) {
       queryBuilder = queryBuilder.andWhere('order.orderNumber ILIKE :search', { search: `%${search}%` });
     }
@@ -463,7 +463,7 @@ export class SalesOrderService {
       .createQueryBuilder('order')
       .where('order.deletedAt IS NULL')
       .select('COUNT(order.id)', 'count');
-    
+
     if (customerId) {
       countQuery.andWhere('order.customerId = :customerId', { customerId });
     }
@@ -511,7 +511,7 @@ export class SalesOrderService {
 
     const { count } = await countQuery.getRawOne();
     const total = parseInt(count);
-    
+
     // Get orders
     const orders = await queryBuilder.getMany();
 
@@ -1162,7 +1162,7 @@ export class SalesOrderService {
     // Create invoice using the Invoice service (would need to inject)
     const invoiceData = Invoice.fromSalesOrder(order);
     const invoice = this.invoiceRepository.create(invoiceData);
-    
+
     // lineItems removed from invoice model
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
@@ -2039,7 +2039,7 @@ export class SalesOrderService {
           amount: Number(amount),
           customerId: order.customerId,
           invoiceId: invoice ? invoice.id : null, // Link to invoice if it exists
-                    notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
+          notes: `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`,
         });
 
         console.log(`[recordPayment] Saving payment to database...`);
