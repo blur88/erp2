@@ -224,6 +224,12 @@ const menuSections: MenuSection[] = [
             icon: <DateRangeIcon />,
             path: '/accounting/fiscal-periods',
           },
+          {
+            id: 'account-mappings',
+            title: 'Account Mappings',
+            icon: <SettingsIcon />,
+            path: '/accounting/account-mappings',
+          },
         ],
       },
     ],

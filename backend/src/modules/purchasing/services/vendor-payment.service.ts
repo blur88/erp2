@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { VendorPayment, PurchaseOrder, GoodsReceivedNote } from '../../../database/entities';
@@ -9,9 +9,12 @@ import {
   PaginatedResponse,
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
 export class VendorPaymentService {
+  private readonly logger = new Logger(VendorPaymentService.name);
+
   constructor(
     @InjectRepository(VendorPayment)
     private vendorPaymentRepository: Repository<VendorPayment>,
@@ -20,6 +23,7 @@ export class VendorPaymentService {
     @InjectRepository(GoodsReceivedNote)
     private grnRepository: Repository<GoodsReceivedNote>,
     private readonly auditLogService: AuditLogService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   /**
@@ -71,6 +75,19 @@ export class VendorPaymentService {
         },
       }
     );
+
+    // Auto-post to accounting (don't fail payment on error)
+    try {
+      const fullPayment = await this.findOne(savedPayment.id);
+      await this.accountingService.postVendorPaymentEntry(fullPayment, user);
+      this.logger.log(`Posted accounting entry for vendor payment ${fullPayment.paymentNumber}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to post accounting entry for vendor payment ${savedPayment.id}: ${error.message}`,
+        error.stack,
+      );
+      // Continue - don't fail the payment creation
+    }
 
     return savedPayment;
   }

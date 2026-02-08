@@ -15,6 +15,7 @@ import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.e
 import { PriceListItem } from '../../database/entities/price-list-item.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { SettingsModule } from '../settings/settings.module';
+import { AccountingModule } from '../accounting/accounting.module';
 
 // Controllers
 import { CustomerController } from './controllers/customer.controller';
@@ -49,6 +50,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     ]),
     forwardRef(() => InventoryModule),
     SettingsModule,
+    AccountingModule,
   ],
   controllers: [
     CustomerController,

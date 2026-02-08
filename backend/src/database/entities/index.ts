@@ -52,7 +52,7 @@ export { ChartOfAccount, AccountType } from './chart-of-account.entity';
 export { FiscalPeriod, FiscalPeriodStatus } from './fiscal-period.entity';
 export { JournalEntry, JournalEntryStatus } from './journal-entry.entity';
 export { JournalEntryLine } from './journal-entry-line.entity';
-export { AccountMapping } from './account-mapping.entity';
+export { AccountMapping, MappingType } from './account-mapping.entity';
 export { BankReconciliation, BankReconciliationStatus } from './bank-reconciliation.entity';
 export { ReconciledTransaction } from './reconciled-transaction.entity';
 

@@ -35,6 +35,9 @@ describe('JwtStrategy', () => {
   };
 
   beforeEach(async () => {
+    // Clear mocks before module creation to track constructor calls
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         JwtStrategy,
@@ -51,8 +54,6 @@ describe('JwtStrategy', () => {
 
     strategy = module.get<JwtStrategy>(JwtStrategy);
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-
-    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -96,7 +97,7 @@ describe('JwtStrategy', () => {
       mockUserRepository.findOne.mockResolvedValue(inactiveUser);
 
       await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
-      await expect(strategy.validate(payload)).rejects.toThrow('User account is inactive');
+      await expect(strategy.validate(payload)).rejects.toThrow('User account is not active');
     });
 
     it('should throw UnauthorizedException if user status is not active', async () => {
@@ -117,6 +118,8 @@ describe('JwtStrategy', () => {
         username: payload.username,
         email: payload.email,
         role: payload.role,
+        firstName: mockUser.firstName,
+        lastName: mockUser.lastName,
       });
     });
   });

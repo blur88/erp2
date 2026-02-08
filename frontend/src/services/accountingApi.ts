@@ -5,6 +5,12 @@ import {
   FiscalPeriod,
   PaginatedResponse,
 } from '@/types';
+import {
+  AccountMapping,
+  CreateAccountMappingDto,
+  UpdateAccountMappingDto,
+  AccountMappingValidationResult,
+} from '@/types/accountMapping';
 
 const BASE_URL = '/accounting';
 
@@ -179,8 +185,42 @@ export const fiscalPeriodsApi = {
   },
 };
 
+// Account Mappings API
+export const accountMappingsApi = {
+  // Get all mappings
+  getAll: (): Promise<{ data: AccountMapping[] }> => {
+    return ApiService.get(`${BASE_URL}/account-mappings`);
+  },
+
+  // Validate mappings
+  validate: (): Promise<AccountMappingValidationResult> => {
+    return ApiService.get(`${BASE_URL}/account-mappings/validate`);
+  },
+
+  // Get single mapping
+  getById: (id: string): Promise<AccountMapping> => {
+    return ApiService.get(`${BASE_URL}/account-mappings/${id}`);
+  },
+
+  // Create mapping
+  create: (data: CreateAccountMappingDto): Promise<AccountMapping> => {
+    return ApiService.post(`${BASE_URL}/account-mappings`, data);
+  },
+
+  // Update mapping
+  update: (id: string, data: UpdateAccountMappingDto): Promise<AccountMapping> => {
+    return ApiService.patch(`${BASE_URL}/account-mappings/${id}`, data);
+  },
+
+  // Delete mapping
+  delete: (id: string): Promise<void> => {
+    return ApiService.delete(`${BASE_URL}/account-mappings/${id}`);
+  },
+};
+
 export const accountingApi = {
   chartOfAccounts: chartOfAccountsApi,
   journalEntries: journalEntriesApi,
   fiscalPeriods: fiscalPeriodsApi,
+  accountMappings: accountMappingsApi,
 };

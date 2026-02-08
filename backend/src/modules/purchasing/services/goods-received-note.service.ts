@@ -21,6 +21,7 @@ import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
 export class GoodsReceivedNoteService {
@@ -41,6 +42,7 @@ export class GoodsReceivedNoteService {
     private readonly stockMovementService: StockMovementService,
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   /**
@@ -190,6 +192,27 @@ export class GoodsReceivedNoteService {
           },
         }
       );
+
+      // Auto-post to accounting (don't fail GRN on error)
+      try {
+        const fullGrn = await this.grnRepository.findOne({
+          where: { id: savedGrn.id },
+          relations: ['supplier', 'purchaseOrder', 'items', 'items.product', 'items.purchaseOrderItem'],
+        });
+
+        if (fullGrn) {
+          await this.accountingService.postGoodsReceivedEntry(fullGrn, 'system');
+          this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        this.logger.error(
+          `Failed to post accounting entry for GRN ${savedGrn.id}: ${errorMessage}`,
+          errorStack,
+        );
+        // Continue - don't fail the GRN creation
+      }
 
       return this.findOne(savedGrn.id);
     } catch (error) {

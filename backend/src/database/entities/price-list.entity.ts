@@ -4,6 +4,13 @@ import {
   Index,
   OneToMany,
 } from 'typeorm';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsDate,
+  IsNumber,
+} from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { PriceListItem } from './price-list-item.entity';
 import { Customer } from './customer.entity';
@@ -18,27 +25,41 @@ import { Customer } from './customer.entity';
 @Index(['isDefault'])
 export class PriceList extends BaseEntity {
   @Column({ type: 'varchar', length: 50, unique: true })
+  @IsString()
   code: string;
 
   @Column({ type: 'varchar', length: 100 })
+  @IsString()
   name: string;
 
   @Column({ type: 'text', nullable: true })
+  @IsString()
+  @IsOptional()
   description: string;
 
   @Column({ type: 'boolean', default: false })
+  @IsBoolean()
+  @IsOptional()
   isDefault: boolean;
 
   @Column({ type: 'boolean', default: true })
+  @IsBoolean()
+  @IsOptional()
   isActive: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
+  @IsDate()
+  @IsOptional()
   effectiveFrom: Date;
 
   @Column({ type: 'timestamp', nullable: true })
+  @IsDate()
+  @IsOptional()
   effectiveTo: Date;
 
   @Column({ type: 'int', default: 0 })
+  @IsNumber()
+  @IsOptional()
   priority: number;
 
   // Relationships
@@ -49,4 +70,10 @@ export class PriceList extends BaseEntity {
 
   @OneToMany(() => Customer, (customer) => customer.priceList)
   customers: Customer[];
+
+  constructor() {
+    super();
+    this.isDefault = false;
+    this.isActive = true;
+  }
 }

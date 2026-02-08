@@ -560,6 +560,25 @@ export class FiscalPeriodService {
   }
 
   /**
+   * Get fiscal period by date
+   * Returns the period that contains the given date, regardless of status
+   */
+  async getPeriodByDate(date: Date): Promise<FiscalPeriod | null> {
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0); // Reset time to start of day
+
+    const period = await this.fiscalPeriodRepository.findOne({
+      where: {
+        startDate: LessThanOrEqual(checkDate),
+        endDate: MoreThanOrEqual(checkDate),
+      },
+      order: { startDate: 'DESC' },
+    });
+
+    return period;
+  }
+
+  /**
    * Convert fiscal period entity to response DTO
    */
   private toResponseDto(period: FiscalPeriod): FiscalPeriodResponseDto {

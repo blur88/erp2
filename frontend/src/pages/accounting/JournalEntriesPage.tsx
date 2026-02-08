@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -48,17 +48,35 @@ import {
 import { JournalEntry, JournalEntryStatus } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface Filters {
   search: string
   status: JournalEntryStatus | 'all'
+  entryType: string
   startDate: string
   endDate: string
 }
 
+// Entry type labels for display
+const ENTRY_TYPE_LABELS: Record<string, string> = {
+  manual: 'Manual Entry',
+  sales_order: 'Sales Order',
+  payment: 'Customer Payment',
+  goods_received_note: 'Goods Receipt',
+  vendor_payment: 'Vendor Payment',
+  stock_adjustment: 'Stock Adjustment',
+}
+
+const getEntryTypeLabel = (sourceType?: string): string => {
+  if (!sourceType) return 'Manual Entry'
+  return ENTRY_TYPE_LABELS[sourceType] || 'Unknown'
+}
+
 const JournalEntriesPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
@@ -72,6 +90,7 @@ const JournalEntriesPage: React.FC = () => {
   const [filters, setFilters] = useState<Filters>({
     search: '',
     status: 'all',
+    entryType: '',
     startDate: '',
     endDate: '',
   })
@@ -93,6 +112,9 @@ const JournalEntriesPage: React.FC = () => {
     if (filters.status !== 'all') {
       params.status = filters.status
     }
+    if (filters.entryType) {
+      params.sourceType = filters.entryType
+    }
     if (filters.startDate) {
       params.startDate = filters.startDate
     }
@@ -100,8 +122,18 @@ const JournalEntriesPage: React.FC = () => {
       params.endDate = filters.endDate
     }
 
+    // Check URL query parameters (from transaction pages)
+    const urlParams = new URLSearchParams(location.search)
+    const sourceType = urlParams.get('sourceType')
+    const sourceId = urlParams.get('sourceId')
+
+    if (sourceType && sourceId) {
+      params.sourceType = sourceType
+      params.sourceId = sourceId
+    }
+
     dispatch(fetchJournalEntries(params))
-  }, [dispatch, filters])
+  }, [dispatch, filters, location.search])
 
   // Clear error on mount
   useEffect(() => {
@@ -189,6 +221,7 @@ const JournalEntriesPage: React.FC = () => {
     const params: any = { page: 1, limit: 50 }
     if (filters.search) params.search = filters.search
     if (filters.status !== 'all') params.status = filters.status
+    if (filters.entryType) params.sourceType = filters.entryType
     if (filters.startDate) params.startDate = filters.startDate
     if (filters.endDate) params.endDate = filters.endDate
     dispatch(fetchJournalEntries(params))
@@ -208,8 +241,27 @@ const JournalEntriesPage: React.FC = () => {
     }
   }
 
+  // Navigate to source transaction
+  const navigateToSourceTransaction = (sourceType: string, sourceId: string) => {
+    const routes: Record<string, string> = {
+      sales_order: `/sales/orders/${sourceId}`,
+      payment: `/sales/payments/${sourceId}`,
+      goods_received_note: `/purchasing/goods-received/${sourceId}`,
+      vendor_payment: `/purchasing/vendor-payments/${sourceId}`,
+      stock_adjustment: `/inventory/stock-adjustments/${sourceId}`,
+    }
+
+    const route = routes[sourceType]
+    if (route) {
+      navigate(route)
+    }
+  }
+
   return (
     <Box sx={{ p: 3 }}>
+      {/* Account Mapping Warning */}
+      <AccountMappingWarning context="system" />
+
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
@@ -234,7 +286,7 @@ const JournalEntriesPage: React.FC = () => {
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <TextField
               fullWidth
               placeholder="Search by reference or description..."
@@ -265,7 +317,25 @@ const JournalEntriesPage: React.FC = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Entry Type</InputLabel>
+              <Select
+                value={filters.entryType}
+                onChange={(e) => handleFilterChange('entryType', e.target.value)}
+                label="Entry Type"
+              >
+                <MenuItem value="">All Entries</MenuItem>
+                <MenuItem value="manual">Manual Entries</MenuItem>
+                <MenuItem value="sales_order">Sales Orders</MenuItem>
+                <MenuItem value="payment">Customer Payments</MenuItem>
+                <MenuItem value="goods_received_note">Goods Receipts</MenuItem>
+                <MenuItem value="vendor_payment">Vendor Payments</MenuItem>
+                <MenuItem value="stock_adjustment">Stock Adjustments</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={2.5}>
             <TextField
               fullWidth
               label="Start Date"
@@ -276,7 +346,7 @@ const JournalEntriesPage: React.FC = () => {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2.5}>
             <TextField
               fullWidth
               label="End Date"
@@ -306,6 +376,8 @@ const JournalEntriesPage: React.FC = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Reference</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Entry Type</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Source</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">Total Debits</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">Total Credits</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -315,13 +387,13 @@ const JournalEntriesPage: React.FC = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : journalEntries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="text.secondary">
                       No journal entries found
                     </Typography>
@@ -355,6 +427,27 @@ const JournalEntriesPage: React.FC = () => {
                       <Typography variant="body2" sx={{ maxWidth: 300 }}>
                         {entry.description}
                       </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getEntryTypeLabel(entry.sourceType)}
+                        size="small"
+                        color={entry.sourceType === 'manual' || !entry.sourceType ? 'default' : 'primary'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {entry.sourceType && entry.sourceType !== 'manual' && entry.sourceId && (
+                        <Link
+                          component="button"
+                          variant="body2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigateToSourceTransaction(entry.sourceType, entry.sourceId)
+                          }}
+                        >
+                          View Transaction
+                        </Link>
+                      )}
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>

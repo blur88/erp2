@@ -47,6 +47,7 @@ import {
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
 import { GRNPrint } from '@/components/print'
+import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 
 
 interface GRNFilters {
@@ -818,6 +819,35 @@ const GoodsReceivedPage: React.FC = () => {
                         </TableBody>
                       </Table>
                     </TableContainer>
+                  </Grid>
+
+                  {/* Accounting Information */}
+                  <Grid size={12}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        mt: 2,
+                        bgcolor: 'info.lighter',
+                        borderRadius: 1,
+                        borderLeft: '4px solid',
+                        borderColor: 'info.main',
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        Accounting Entry
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                          This goods receipt has been posted to the accounting system
+                        </Typography>
+                        <AccountingEntryLink
+                          sourceType="goods_received_note"
+                          sourceId={selectedGRN.id}
+                          variant="button"
+                          label="View Journal Entry"
+                        />
+                      </Box>
+                    </Box>
                   </Grid>
                 </Grid>
 

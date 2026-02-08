@@ -7,11 +7,28 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  MaxLength,
+  IsEnum,
   IsUUID,
+  IsBoolean,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { ChartOfAccount } from './chart-of-account.entity';
+
+export enum MappingType {
+  SALES_REVENUE = 'sales_revenue',
+  SALES_AR = 'sales_ar',
+  SALES_COGS = 'sales_cogs',
+  SALES_INVENTORY = 'sales_inventory',
+  PURCHASE_INVENTORY = 'purchase_inventory',
+  PURCHASE_AP = 'purchase_ap',
+  PAYMENT_CASH = 'payment_cash',
+  PAYMENT_AR = 'payment_ar',
+  VENDOR_PAYMENT_CASH = 'vendor_payment_cash',
+  VENDOR_PAYMENT_AP = 'vendor_payment_ap',
+  INVENTORY_ASSET = 'inventory_asset',
+  INVENTORY_ADJUSTMENT_GAIN = 'inventory_adjustment_gain',
+  INVENTORY_ADJUSTMENT_LOSS = 'inventory_adjustment_loss',
+}
 
 /**
  * Account Mapping entity for configuring automatic journal entry posting
@@ -19,18 +36,17 @@ import { ChartOfAccount } from './chart-of-account.entity';
  * Used in Phase 2 for auto-posting from sales, purchases, payments, etc.
  */
 @Entity('account_mappings')
-@Index(['mappingKey'], { unique: true })
+@Index(['mappingType'], { unique: true })
 @Index(['accountId'])
 export class AccountMapping extends BaseEntity {
   @Column({
-    type: 'varchar',
-    length: 100,
+    type: 'enum',
+    enum: MappingType,
     unique: true,
-    comment: 'Unique mapping key (e.g., "SALES_REVENUE", "ACCOUNTS_RECEIVABLE")',
+    comment: 'Mapping type (e.g., SALES_REVENUE, SALES_AR)',
   })
-  @IsString()
-  @MaxLength(100)
-  mappingKey: string;
+  @IsEnum(MappingType)
+  mappingType: MappingType;
 
   @Column({
     type: 'uuid',
@@ -41,25 +57,25 @@ export class AccountMapping extends BaseEntity {
 
   @Column({
     type: 'text',
+    nullable: true,
     comment: 'Description of what this mapping is for',
   })
   @IsString()
-  description: string;
+  description?: string;
+
+  @Column({
+    type: 'boolean',
+    default: true,
+    comment: 'Whether the mapping is active',
+  })
+  @IsBoolean()
+  isActive: boolean;
 
   // Relationships
   @ManyToOne(() => ChartOfAccount, (account) => account.accountMappings, {
     onDelete: 'RESTRICT',
-    eager: true,
+    eager: false,
   })
   @JoinColumn({ name: 'accountId' })
   account: ChartOfAccount;
-
-  // Helper methods
-  static createKey(transactionType: string, accountType: string): string {
-    return `${transactionType}_${accountType}`.toUpperCase();
-  }
-
-  get displayName(): string {
-    return this.mappingKey.replace(/_/g, ' ');
-  }
 }

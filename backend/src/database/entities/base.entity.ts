@@ -20,6 +20,7 @@ import { IsUUID, IsDate, IsOptional, IsBoolean } from 'class-validator';
  */
 export abstract class BaseEntity {
   @PrimaryGeneratedColumn('uuid')
+  @IsOptional()
   @IsUUID(4)
   id: string;
 
@@ -27,6 +28,7 @@ export abstract class BaseEntity {
     type: 'timestamptz',
     default: () => 'CURRENT_TIMESTAMP',
   })
+  @IsOptional()
   @IsDate()
   readonly createdAt: Date;
 
@@ -34,6 +36,7 @@ export abstract class BaseEntity {
     type: 'timestamptz',
     default: () => 'CURRENT_TIMESTAMP',
   })
+  @IsOptional()
   @IsDate()
   readonly updatedAt: Date;
 
@@ -53,6 +56,7 @@ export abstract class BaseEntity {
     default: true,
     comment: 'Soft delete flag for performance queries',
   })
+  @IsOptional()
   @IsBoolean()
   isActive: boolean;
 

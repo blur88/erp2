@@ -55,6 +55,7 @@ import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { SalesOrderPrint } from '@/components/print'
+import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -2376,6 +2377,30 @@ const OrdersPage: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
+
+              {/* Accounting Information */}
+              {selectedOrder.isFulfilled && (
+                <Grid size={12}>
+                  <Card sx={{ bgcolor: 'info.lighter', borderLeft: '4px solid', borderColor: 'info.main' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Accounting Information
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          This sales order has been posted to the accounting system
+                        </Typography>
+                        <AccountingEntryLink
+                          sourceType="sales_order"
+                          sourceId={selectedOrder.id}
+                          variant="button"
+                          label="View Journal Entry"
+                        />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
 
               {/* Order Summary */}
               <Grid size={12}>

@@ -52,6 +52,7 @@ describe('PriceListsService', () => {
     save: jest.fn(),
     create: jest.fn(),
     softDelete: jest.fn(),
+    update: jest.fn(),
     count: jest.fn(),
     createQueryBuilder: jest.fn(() => ({
       where: jest.fn().mockReturnThis(),
@@ -60,6 +61,7 @@ describe('PriceListsService', () => {
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn(),
       getOne: jest.fn(),
       getManyAndCount: jest.fn(),
@@ -117,30 +119,51 @@ describe('PriceListsService', () => {
 
   describe('findAll', () => {
     it('should return paginated price lists', async () => {
-      const mockQueryBuilder = mockPriceListRepository.createQueryBuilder();
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockPriceList], 1]);
+      mockPriceListRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn(),
+        getOne: jest.fn(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockPriceList], 1]),
+      });
 
       const result = await service.findAll({ page: 1, limit: 10 });
 
       expect(result).toHaveProperty('data');
       expect(result).toHaveProperty('meta');
       expect(result.meta.total).toBe(1);
+      expect(result.data).toEqual([mockPriceList]);
     });
 
     it('should filter by active status', async () => {
-      const mockQueryBuilder = mockPriceListRepository.createQueryBuilder();
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockPriceList], 1]);
+      const andWhereSpy = jest.fn().mockReturnThis();
+      mockPriceListRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: andWhereSpy,
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn(),
+        getOne: jest.fn(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockPriceList], 1]),
+      });
 
       await service.findAll({ page: 1, limit: 10, isActive: true });
 
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('priceList.isActive = :isActive', { isActive: true });
+      expect(andWhereSpy).toHaveBeenCalledWith('priceList.isActive = :isActive', { isActive: true });
     });
   });
 
   describe('findOne', () => {
     it('should return a price list with items', async () => {
-      const mockQueryBuilder = mockPriceListRepository.createQueryBuilder();
-      mockQueryBuilder.getOne.mockResolvedValue(mockPriceList);
+      mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
 
       const result = await service.findOne(mockPriceList.id);
 
@@ -149,8 +172,7 @@ describe('PriceListsService', () => {
     });
 
     it('should throw NotFoundException if price list not found', async () => {
-      const mockQueryBuilder = mockPriceListRepository.createQueryBuilder();
-      mockQueryBuilder.getOne.mockResolvedValue(null);
+      mockPriceListRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findOne('non-existent-id')).rejects.toThrow(NotFoundException);
     });
@@ -185,7 +207,7 @@ describe('PriceListsService', () => {
     };
 
     it('should create a new price list', async () => {
-      mockPriceListRepository.findOneBy.mockResolvedValue(null);
+      mockPriceListRepository.findOne.mockResolvedValue(null);
       mockPriceListRepository.create.mockReturnValue(createDto);
       mockPriceListRepository.save.mockResolvedValue({ ...createDto, id: 'new-id' });
 
@@ -197,22 +219,23 @@ describe('PriceListsService', () => {
     });
 
     it('should throw ConflictException if code already exists', async () => {
-      mockPriceListRepository.findOneBy.mockResolvedValue(mockPriceList);
+      mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
 
       await expect(service.create(createDto)).rejects.toThrow(ConflictException);
     });
 
     it('should set existing default to false when creating new default', async () => {
       const defaultDto = { ...createDto, isDefault: true };
-      mockPriceListRepository.findOneBy.mockResolvedValue(null);
-      mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
+      mockPriceListRepository.findOne.mockResolvedValue(null);
       mockPriceListRepository.create.mockReturnValue(defaultDto);
       mockPriceListRepository.save.mockResolvedValue({ ...defaultDto, id: 'new-id' });
+      mockPriceListRepository.update.mockResolvedValue({ affected: 1 });
 
       await service.create(defaultDto);
 
-      expect(mockPriceListRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ isDefault: false })
+      expect(mockPriceListRepository.update).toHaveBeenCalledWith(
+        { isDefault: true },
+        { isDefault: false }
       );
     });
   });
@@ -224,7 +247,7 @@ describe('PriceListsService', () => {
     };
 
     it('should update a price list', async () => {
-      mockPriceListRepository.findOneBy.mockResolvedValue(mockPriceList);
+      mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
       mockPriceListRepository.save.mockResolvedValue({ ...mockPriceList, ...updateDto });
 
       const result = await service.update(mockPriceList.id, updateDto);
@@ -234,7 +257,7 @@ describe('PriceListsService', () => {
     });
 
     it('should throw NotFoundException if price list not found', async () => {
-      mockPriceListRepository.findOneBy.mockResolvedValue(null);
+      mockPriceListRepository.findOne.mockResolvedValue(null);
 
       await expect(service.update('non-existent-id', updateDto)).rejects.toThrow(NotFoundException);
     });
@@ -242,28 +265,39 @@ describe('PriceListsService', () => {
 
   describe('remove', () => {
     it('should soft delete a price list', async () => {
+      const nonDefaultPriceList = { ...mockPriceList, isDefault: false };
+      mockPriceListRepository.findOne.mockResolvedValue(nonDefaultPriceList);
       mockPriceListRepository.softDelete.mockResolvedValue({ affected: 1 });
 
       await service.remove(mockPriceList.id);
 
       expect(mockPriceListRepository.softDelete).toHaveBeenCalledWith(mockPriceList.id);
     });
+
+    it('should throw BadRequestException if trying to delete default price list', async () => {
+      mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
+
+      await expect(service.remove(mockPriceList.id)).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('setDefault', () => {
     it('should set a price list as default', async () => {
-      mockPriceListRepository.findOneBy.mockResolvedValue(mockPriceList);
-      mockPriceListRepository.findOne.mockResolvedValue({ ...mockPriceList, id: 'other-id', isDefault: true });
+      mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
+      mockPriceListRepository.update.mockResolvedValue({ affected: 1 });
       mockPriceListRepository.save.mockResolvedValue({ ...mockPriceList, isDefault: true });
 
       const result = await service.setDefault(mockPriceList.id);
 
       expect(result.isDefault).toBe(true);
-      expect(mockPriceListRepository.save).toHaveBeenCalledTimes(2);
+      expect(mockPriceListRepository.update).toHaveBeenCalledWith(
+        { isDefault: true },
+        { isDefault: false }
+      );
     });
 
     it('should throw NotFoundException if price list not found', async () => {
-      mockPriceListRepository.findOneBy.mockResolvedValue(null);
+      mockPriceListRepository.findOne.mockResolvedValue(null);
 
       await expect(service.setDefault('non-existent-id')).rejects.toThrow(NotFoundException);
     });
@@ -279,24 +313,33 @@ describe('PriceListsService', () => {
       expect(result.isDefault).toBe(true);
     });
 
-    it('should return null if no default price list exists', async () => {
+    it('should throw NotFoundException if no default price list exists', async () => {
       mockPriceListRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.getDefaultPriceList();
-
-      expect(result).toBeNull();
+      await expect(service.getDefaultPriceList()).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('getEffectivePriceLists', () => {
     it('should return currently effective price lists', async () => {
-      const mockQueryBuilder = mockPriceListRepository.createQueryBuilder();
-      mockQueryBuilder.getMany.mockResolvedValue([mockPriceList]);
+      mockPriceListRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockPriceList]),
+        getOne: jest.fn(),
+        getManyAndCount: jest.fn(),
+      });
 
       const result = await service.getEffectivePriceLists();
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
+      expect(result).toEqual([mockPriceList]);
     });
   });
 
@@ -347,17 +390,21 @@ describe('PriceListsService', () => {
 
   describe('copyPriceList', () => {
     it('should copy a price list with all items', async () => {
-      mockPriceListRepository.findOneBy.mockResolvedValue(mockPriceList);
-      mockPriceListItemRepository.find.mockResolvedValue([mockPriceListItem]);
-      mockPriceListRepository.findOne.mockResolvedValue(null);
-      mockPriceListRepository.create.mockReturnValue({ ...mockPriceList, id: 'new-id' });
-      mockPriceListRepository.save.mockResolvedValue({ ...mockPriceList, id: 'new-id' });
+      const sourcePriceListWithItems = { ...mockPriceList, items: [mockPriceListItem] };
+      mockPriceListRepository.findOne
+        .mockResolvedValueOnce(sourcePriceListWithItems) // First call in copyPriceList (source)
+        .mockResolvedValueOnce(null) // Second call to check for duplicate code
+        .mockResolvedValueOnce({ ...mockPriceList, id: 'new-id', code: 'COPIED', name: 'Copied Price List' }); // Third call at the end to return the result
+      mockPriceListRepository.create.mockReturnValue({ ...mockPriceList, id: 'new-id', code: 'COPIED' });
+      mockPriceListRepository.save.mockResolvedValue({ ...mockPriceList, id: 'new-id', code: 'COPIED' });
       mockPriceListItemRepository.create.mockReturnValue(mockPriceListItem);
-      mockPriceListItemRepository.save.mockResolvedValue(mockPriceListItem);
+      mockPriceListItemRepository.save.mockResolvedValue([mockPriceListItem]);
 
       const result = await service.copyPriceList(mockPriceList.id, 'COPIED', 'Copied Price List');
 
       expect(result).toBeDefined();
+      expect(mockPriceListRepository.save).toHaveBeenCalled();
+      expect(mockPriceListItemRepository.save).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if source price list not found', async () => {
@@ -369,9 +416,10 @@ describe('PriceListsService', () => {
     });
 
     it('should throw ConflictException if target code already exists', async () => {
-      mockPriceListRepository.findOne.mockResolvedValueOnce(mockPriceList);
-      mockPriceListItemRepository.find.mockResolvedValue([mockPriceListItem]);
-      mockPriceListRepository.findOne.mockResolvedValueOnce(mockPriceList);
+      const sourcePriceListWithItems = { ...mockPriceList, items: [mockPriceListItem] };
+      mockPriceListRepository.findOne
+        .mockResolvedValueOnce(sourcePriceListWithItems) // Source price list
+        .mockResolvedValueOnce(mockPriceList); // Duplicate check finds existing
 
       await expect(
         service.copyPriceList(mockPriceList.id, 'RETAIL', 'Copy')

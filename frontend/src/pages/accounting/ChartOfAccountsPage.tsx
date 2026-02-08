@@ -35,6 +35,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import ChartOfAccountFormDialog from '@/components/accounting/ChartOfAccountFormDialog'
+import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import {
   fetchChartOfAccounts,
@@ -220,6 +221,9 @@ const ChartOfAccountsPage: React.FC = () => {
 
   return (
     <Box>
+      {/* Account Mapping Warning */}
+      <AccountMappingWarning context="system" />
+
       {/* Header */}
       <Box sx={{
         display: 'flex',
