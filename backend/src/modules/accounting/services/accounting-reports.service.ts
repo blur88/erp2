@@ -80,6 +80,26 @@ export interface BalanceSheetResponse {
 }
 
 /**
+ * Profit and Loss (Income Statement) report response
+ */
+export interface ProfitAndLossResponse {
+  revenue: {
+    accounts: AccountBalance[];
+    total: number;
+  };
+  costOfGoodsSold: {
+    accounts: AccountBalance[];
+    total: number;
+  };
+  grossProfit: number;
+  expenses: {
+    accounts: AccountBalance[];
+    total: number;
+  };
+  netIncome: number;
+}
+
+/**
  * Accounting Reports Service
  * Provides foundation for all financial reports with reusable calculation and filtering logic
  */
@@ -629,6 +649,197 @@ export class AccountingReportsService {
         total: totalEquity,
       },
       isBalanced,
+    };
+  }
+
+  /**
+   * Generate Profit and Loss (Income Statement) report
+   * Shows revenues, costs, and expenses over a period of time
+   *
+   * P&L Structure:
+   * - Revenue (credit balances shown as positive)
+   * - Cost of Goods Sold (COGS) - accounts 5000-5999 (debit balances shown as positive)
+   * - Gross Profit = Revenue - COGS
+   * - Operating Expenses - accounts 6000+ (debit balances shown as positive)
+   * - Net Income = Gross Profit - Expenses
+   *
+   * Account Code Ranges:
+   * - Revenue: 4000-4999 (AccountType.REVENUE)
+   * - COGS: 5000-5999 (AccountType.EXPENSE)
+   * - Operating Expenses: 6000+ (AccountType.EXPENSE)
+   *
+   * @param startDate - Start date of the period (inclusive)
+   * @param endDate - End date of the period (inclusive)
+   * @param includeInactive - Include inactive accounts in the report (default: false)
+   * @returns Profit and Loss report with revenue, COGS, expenses, and net income
+   * @throws BadRequestException if date range is invalid or endDate is in the future
+   */
+  async generateProfitAndLoss(
+    startDate: Date,
+    endDate: Date,
+    includeInactive: boolean = false,
+  ): Promise<ProfitAndLossResponse> {
+    // Validate date range
+    if (startDate > endDate) {
+      throw new BadRequestException('Start date must be before or equal to end date');
+    }
+
+    // Validate end date is not in future
+    const now = new Date();
+    now.setHours(23, 59, 59, 999); // Allow today
+    if (endDate > now) {
+      throw new BadRequestException('End date cannot be in the future');
+    }
+
+    this.logger.log(
+      `Generating P&L from ${startDate.toISOString()} to ${endDate.toISOString()}, includeInactive=${includeInactive}`,
+    );
+
+    // Fetch all income statement accounts (REVENUE and EXPENSE only)
+    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+
+    queryBuilder.where('account.type IN (:...types)', {
+      types: [AccountType.REVENUE, AccountType.EXPENSE],
+    });
+
+    if (!includeInactive) {
+      queryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
+    }
+
+    const accounts = await queryBuilder
+      .orderBy('account.code', 'ASC')
+      .getMany();
+
+    if (accounts.length === 0) {
+      this.logger.warn('No income statement accounts found for P&L');
+      return this.createEmptyProfitAndLoss();
+    }
+
+    // Get account IDs for batch query
+    const accountIds = accounts.map(account => account.id);
+
+    // Query journal entry lines for the date range
+    const transactionData = await this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .select('jel.accountId', 'accountId')
+      .addSelect('SUM(jel.debitAmount)', 'totalDebit')
+      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
+      .where('jel.accountId IN (:...accountIds)', { accountIds })
+      .andWhere('je.entryDate >= :startDate', { startDate })
+      .andWhere('je.entryDate <= :endDate', { endDate })
+      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .groupBy('jel.accountId')
+      .getRawMany();
+
+    // Build a map of account ID to transaction totals
+    const transactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
+    transactionData.forEach(row => {
+      transactionMap.set(row.accountId, {
+        totalDebit: parseFloat(row.totalDebit || '0'),
+        totalCredit: parseFloat(row.totalCredit || '0'),
+      });
+    });
+
+    // Initialize P&L sections
+    const revenueAccounts: AccountBalance[] = [];
+    const cogsAccounts: AccountBalance[] = [];
+    const expenseAccounts: AccountBalance[] = [];
+
+    // Process each account and classify by type and code
+    accounts.forEach(account => {
+      const transactions = transactionMap.get(account.id) || {
+        totalDebit: 0,
+        totalCredit: 0,
+      };
+
+      const balance = this.calculateBalanceByAccountType(
+        account.type,
+        transactions.totalDebit,
+        transactions.totalCredit,
+      );
+
+      const accountBalance: AccountBalance = {
+        accountCode: account.code,
+        accountName: account.name,
+        balance,
+      };
+
+      // Classify accounts
+      if (account.type === AccountType.REVENUE) {
+        // Revenue accounts (4000-4999)
+        revenueAccounts.push(accountBalance);
+      } else if (account.type === AccountType.EXPENSE) {
+        const codeNum = parseInt(account.code, 10);
+        if (codeNum >= 5000 && codeNum < 6000) {
+          // COGS accounts (5000-5999)
+          cogsAccounts.push(accountBalance);
+        } else {
+          // Operating Expenses (6000+)
+          expenseAccounts.push(accountBalance);
+        }
+      }
+    });
+
+    // Calculate totals
+    const totalRevenue = this.roundTo2Decimals(
+      revenueAccounts.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+
+    const totalCOGS = this.roundTo2Decimals(
+      cogsAccounts.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+
+    const grossProfit = this.roundTo2Decimals(totalRevenue - totalCOGS);
+
+    const totalExpenses = this.roundTo2Decimals(
+      expenseAccounts.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+
+    const netIncome = this.roundTo2Decimals(grossProfit - totalExpenses);
+
+    this.logger.log(
+      `P&L generated: Revenue=${totalRevenue}, COGS=${totalCOGS}, ` +
+      `Gross Profit=${grossProfit}, Expenses=${totalExpenses}, Net Income=${netIncome}`,
+    );
+
+    return {
+      revenue: {
+        accounts: revenueAccounts,
+        total: totalRevenue,
+      },
+      costOfGoodsSold: {
+        accounts: cogsAccounts,
+        total: totalCOGS,
+      },
+      grossProfit,
+      expenses: {
+        accounts: expenseAccounts,
+        total: totalExpenses,
+      },
+      netIncome,
+    };
+  }
+
+  /**
+   * Create empty profit and loss structure (for when no accounts exist)
+   */
+  private createEmptyProfitAndLoss(): ProfitAndLossResponse {
+    return {
+      revenue: {
+        accounts: [],
+        total: 0,
+      },
+      costOfGoodsSold: {
+        accounts: [],
+        total: 0,
+      },
+      grossProfit: 0,
+      expenses: {
+        accounts: [],
+        total: 0,
+      },
+      netIncome: 0,
     };
   }
 

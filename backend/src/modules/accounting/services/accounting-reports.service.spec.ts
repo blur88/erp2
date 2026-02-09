@@ -851,4 +851,264 @@ describe('AccountingReportsService', () => {
       expect(result.liabilities.totalLongTerm).toBe(7000);
     });
   });
+
+  describe('generateProfitAndLoss', () => {
+    it('should calculate profit and loss for a date range correctly', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      // Mock all income statement accounts
+      const mockAccounts = [
+        // Revenue accounts (4000-4999)
+        { id: '1', code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE, isActive: true },
+        { id: '2', code: '4100', name: 'Service Revenue', type: AccountType.REVENUE, isActive: true },
+        // COGS accounts (5000-5999)
+        { id: '3', code: '5000', name: 'Cost of Goods Sold', type: AccountType.EXPENSE, isActive: true },
+        { id: '4', code: '5100', name: 'Direct Labor', type: AccountType.EXPENSE, isActive: true },
+        // Operating Expense accounts (6000+)
+        { id: '5', code: '6000', name: 'Rent Expense', type: AccountType.EXPENSE, isActive: true },
+        { id: '6', code: '6100', name: 'Utilities Expense', type: AccountType.EXPENSE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Mock transaction data
+      // Revenue: Sales 100000 + Service 20000 = 120000
+      // COGS: COGS 60000 + Labor 5000 = 65000
+      // Gross Profit: 120000 - 65000 = 55000
+      // Expenses: Rent 10000 + Utilities 5000 = 15000
+      // Net Income: 55000 - 15000 = 40000
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '0', totalCredit: '100000' },
+        { accountId: '2', totalDebit: '0', totalCredit: '20000' },
+        { accountId: '3', totalDebit: '60000', totalCredit: '0' },
+        { accountId: '4', totalDebit: '5000', totalCredit: '0' },
+        { accountId: '5', totalDebit: '10000', totalCredit: '0' },
+        { accountId: '6', totalDebit: '5000', totalCredit: '0' },
+      ]);
+
+      const result = await service.generateProfitAndLoss(startDate, endDate);
+
+      expect(result).toBeDefined();
+
+      // Verify Revenue section
+      expect(result.revenue.accounts).toHaveLength(2);
+      expect(result.revenue.total).toBe(120000);
+
+      // Verify COGS section
+      expect(result.costOfGoodsSold.accounts).toHaveLength(2);
+      expect(result.costOfGoodsSold.total).toBe(65000);
+
+      // Verify Gross Profit
+      expect(result.grossProfit).toBe(55000);
+
+      // Verify Expenses section
+      expect(result.expenses.accounts).toHaveLength(2);
+      expect(result.expenses.total).toBe(15000);
+
+      // Verify Net Income
+      expect(result.netIncome).toBe(40000);
+    });
+
+    it('should handle negative net income (loss)', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      const mockAccounts = [
+        { id: '1', code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE, isActive: true },
+        { id: '2', code: '5000', name: 'Cost of Goods Sold', type: AccountType.EXPENSE, isActive: true },
+        { id: '3', code: '6000', name: 'Operating Expenses', type: AccountType.EXPENSE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Revenue: 50000
+      // COGS: 30000
+      // Gross Profit: 20000
+      // Expenses: 40000
+      // Net Income: 20000 - 40000 = -20000 (loss)
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '0', totalCredit: '50000' },
+        { accountId: '2', totalDebit: '30000', totalCredit: '0' },
+        { accountId: '3', totalDebit: '40000', totalCredit: '0' },
+      ]);
+
+      const result = await service.generateProfitAndLoss(startDate, endDate);
+
+      expect(result.revenue.total).toBe(50000);
+      expect(result.costOfGoodsSold.total).toBe(30000);
+      expect(result.grossProfit).toBe(20000);
+      expect(result.expenses.total).toBe(40000);
+      expect(result.netIncome).toBe(-20000);
+    });
+
+    it('should differentiate COGS (5xxx) from Operating Expenses (6xxx+)', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      const mockAccounts = [
+        { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
+        // COGS: 5000-5999
+        { id: '2', code: '5000', name: 'COGS', type: AccountType.EXPENSE, isActive: true },
+        { id: '3', code: '5999', name: 'Direct Materials', type: AccountType.EXPENSE, isActive: true },
+        // Operating Expenses: 6000+
+        { id: '4', code: '6000', name: 'Rent', type: AccountType.EXPENSE, isActive: true },
+        { id: '5', code: '7000', name: 'Marketing', type: AccountType.EXPENSE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '0', totalCredit: '100000' },
+        { accountId: '2', totalDebit: '30000', totalCredit: '0' },
+        { accountId: '3', totalDebit: '10000', totalCredit: '0' },
+        { accountId: '4', totalDebit: '5000', totalCredit: '0' },
+        { accountId: '5', totalDebit: '3000', totalCredit: '0' },
+      ]);
+
+      const result = await service.generateProfitAndLoss(startDate, endDate);
+
+      // COGS should only include accounts 5000-5999
+      expect(result.costOfGoodsSold.accounts).toHaveLength(2);
+      expect(result.costOfGoodsSold.total).toBe(40000);
+
+      // Operating Expenses should include 6000+
+      expect(result.expenses.accounts).toHaveLength(2);
+      expect(result.expenses.total).toBe(8000);
+
+      // Verify calculations
+      expect(result.grossProfit).toBe(60000); // 100000 - 40000
+      expect(result.netIncome).toBe(52000); // 60000 - 8000
+    });
+
+    it('should filter by date range inclusively', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue([
+        { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
+      ]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.generateProfitAndLoss(startDate, endDate);
+
+      // Verify date range filtering
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'je.entryDate >= :startDate',
+        { startDate },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'je.entryDate <= :endDate',
+        { endDate },
+      );
+    });
+
+    it('should exclude inactive accounts by default', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue([
+        { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
+      ]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.generateProfitAndLoss(startDate, endDate);
+
+      // Verify that query filters by isActive = true
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'account.isActive = :isActive',
+        { isActive: true },
+      );
+    });
+
+    it('should include inactive accounts when requested', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      const mockAccounts = [
+        { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
+        { id: '2', code: '4100', name: 'Old Revenue', type: AccountType.REVENUE, isActive: false },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '0', totalCredit: '10000' },
+        { accountId: '2', totalDebit: '0', totalCredit: '5000' },
+      ]);
+
+      const result = await service.generateProfitAndLoss(startDate, endDate, true);
+
+      expect(result.revenue.accounts).toHaveLength(2);
+      expect(result.revenue.total).toBe(15000);
+    });
+
+    it('should only include POSTED journal entries', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue([
+        { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
+      ]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.generateProfitAndLoss(startDate, endDate);
+
+      // Verify that query filters by POSTED status
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'je.status = :status',
+        { status: JournalEntryStatus.POSTED },
+      );
+    });
+
+    it('should throw BadRequestException when date range is invalid', async () => {
+      const startDate = new Date('2026-02-01');
+      const endDate = new Date('2026-01-01'); // End before start
+
+      await expect(
+        service.generateProfitAndLoss(startDate, endDate),
+      ).rejects.toThrow('Start date must be before or equal to end date');
+    });
+
+    it('should throw BadRequestException when endDate is in the future', async () => {
+      const startDate = new Date('2026-01-01');
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+      futureDate.setHours(12, 0, 0, 0);
+
+      await expect(
+        service.generateProfitAndLoss(startDate, futureDate),
+      ).rejects.toThrow('End date cannot be in the future');
+    });
+
+    it('should handle zero revenue and expenses', async () => {
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      const mockAccounts = [
+        { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
+        { id: '2', code: '5000', name: 'COGS', type: AccountType.EXPENSE, isActive: true },
+        { id: '3', code: '6000', name: 'Expenses', type: AccountType.EXPENSE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      const result = await service.generateProfitAndLoss(startDate, endDate);
+
+      expect(result.revenue.total).toBe(0);
+      expect(result.costOfGoodsSold.total).toBe(0);
+      expect(result.grossProfit).toBe(0);
+      expect(result.expenses.total).toBe(0);
+      expect(result.netIncome).toBe(0);
+    });
+  });
 });
