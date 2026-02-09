@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -278,11 +279,19 @@ export class AccountingReportsService {
    * @param asOfDate - Calculate trial balance as of this date (default: current date)
    * @param includeInactive - Include inactive accounts in the report (default: false)
    * @returns Trial balance with account details and totals
+   * @throws BadRequestException if asOfDate is in the future
    */
   async generateTrialBalance(
     asOfDate: Date = new Date(),
     includeInactive: boolean = false,
   ): Promise<TrialBalanceResponse> {
+    // Validate date is not in future
+    const now = new Date();
+    now.setHours(23, 59, 59, 999); // Allow today
+    if (asOfDate > now) {
+      throw new BadRequestException('Trial Balance cannot be generated for future dates');
+    }
+
     this.logger.log(
       `Generating trial balance as of ${asOfDate.toISOString()}, includeInactive=${includeInactive}`,
     );

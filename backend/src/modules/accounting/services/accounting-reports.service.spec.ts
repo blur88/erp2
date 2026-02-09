@@ -594,5 +594,33 @@ describe('AccountingReportsService', () => {
         { status: JournalEntryStatus.POSTED },
       );
     });
+
+    it('should throw BadRequestException when asOfDate is in the future', async () => {
+      // Create a future date (tomorrow)
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+      futureDate.setHours(12, 0, 0, 0); // Set to noon tomorrow
+
+      await expect(
+        service.generateTrialBalance(futureDate),
+      ).rejects.toThrow('Trial Balance cannot be generated for future dates');
+    });
+
+    it('should allow asOfDate for today', async () => {
+      // Use current date/time (today)
+      const today = new Date();
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue([
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+      ]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      // Should not throw
+      const result = await service.generateTrialBalance(today);
+
+      expect(result).toBeDefined();
+      expect(result.isBalanced).toBe(true);
+    });
   });
 });
