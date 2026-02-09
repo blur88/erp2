@@ -127,6 +127,36 @@ export interface GeneralLedgerResponse {
 }
 
 /**
+ * Account Activity transaction entry (enhanced version of General Ledger)
+ */
+export interface AccountActivityTransaction {
+  date: Date;
+  entryNumber: string;
+  description: string;
+  referenceType?: string;
+  referenceId?: string;
+  status: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+/**
+ * Account Activity report response
+ */
+export interface AccountActivityResponse {
+  account: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+  };
+  openingBalance: number;
+  activity: AccountActivityTransaction[];
+  closingBalance: number;
+}
+
+/**
  * Accounting Reports Service
  * Provides foundation for all financial reports with reusable calculation and filtering logic
  */
@@ -820,6 +850,168 @@ export class AccountingReportsService {
       },
       openingBalance: this.roundTo2Decimals(openingBalance),
       transactions,
+      closingBalance: this.roundTo2Decimals(closingBalance),
+    };
+  }
+
+  /**
+   * Generate Account Activity report for a specific account
+   * Enhanced version of General Ledger with status, reference links, and drill-down capability
+   *
+   * Key Differences from General Ledger:
+   * - Includes ALL entry statuses (DRAFT, POSTED, REVERSED) by default - not just POSTED
+   * - Shows status on each transaction line
+   * - Includes reference metadata (referenceType, referenceId) for drill-down links
+   * - Supports optional status filtering
+   * - Opening balance ONLY includes POSTED entries for accuracy
+   * - Running balance includes ALL statuses to show potential future state
+   *
+   * @param accountId - The account ID to generate activity for
+   * @param startDate - Start date of the period (inclusive)
+   * @param endDate - End date of the period (inclusive)
+   * @param statusFilter - Optional filter by entry status (DRAFT, POSTED, REVERSED)
+   * @returns Account Activity with opening balance, transactions, and closing balance
+   * @throws NotFoundException if account does not exist
+   * @throws BadRequestException if date range is invalid or endDate is in the future
+   */
+  async generateAccountActivity(
+    accountId: string,
+    startDate: Date,
+    endDate: Date,
+    statusFilter?: JournalEntryStatus,
+  ): Promise<AccountActivityResponse> {
+    // Validate date range
+    if (startDate > endDate) {
+      throw new BadRequestException('Start date must be before or equal to end date');
+    }
+
+    // Validate end date is not in future
+    const now = new Date();
+    now.setHours(23, 59, 59, 999); // Allow today
+    if (endDate > now) {
+      throw new BadRequestException('End date cannot be in the future');
+    }
+
+    this.logger.log(
+      `Generating account activity for account ${accountId} from ${startDate.toISOString()} to ${endDate.toISOString()}` +
+      (statusFilter ? `, status filter: ${statusFilter}` : ''),
+    );
+
+    // Fetch the account to determine its type and validate existence
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId, isActive: true },
+    });
+
+    if (!account) {
+      throw new NotFoundException(`Account with ID '${accountId}' not found or inactive`);
+    }
+
+    // Calculate opening balance (balance before startDate)
+    // IMPORTANT: Opening balance only includes POSTED entries for accuracy
+    const openingBalanceData = await this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .select('SUM(jel.debitAmount)', 'totalDebit')
+      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
+      .where('jel.accountId = :accountId', { accountId })
+      .andWhere('je.entryDate < :startDate', { startDate })
+      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .getRawMany();
+
+    const openingDebit = openingBalanceData.length > 0 && openingBalanceData[0].totalDebit
+      ? parseFloat(openingBalanceData[0].totalDebit)
+      : 0;
+    const openingCredit = openingBalanceData.length > 0 && openingBalanceData[0].totalCredit
+      ? parseFloat(openingBalanceData[0].totalCredit)
+      : 0;
+
+    const openingBalance = this.calculateBalanceByAccountType(
+      account.type,
+      openingDebit,
+      openingCredit,
+    );
+
+    this.logger.log(`Opening balance for account ${account.code}: ${openingBalance}`);
+
+    // Query all transactions for the account within the date range
+    // KEY DIFFERENCE: Include ALL statuses (DRAFT, POSTED, REVERSED), not just POSTED
+    const queryBuilder = this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .select('je.entryDate', 'entryDate')
+      .addSelect('je.referenceNumber', 'referenceNumber')
+      .addSelect('je.description', 'description')
+      .addSelect('je.status', 'status') // Include status
+      .addSelect('je.sourceType', 'sourceType') // Include reference type
+      .addSelect('je.sourceId', 'sourceId') // Include reference ID
+      .addSelect('jel.debitAmount', 'debitAmount')
+      .addSelect('jel.creditAmount', 'creditAmount')
+      .where('jel.accountId = :accountId', { accountId })
+      .andWhere('je.entryDate >= :startDate', { startDate })
+      .andWhere('je.entryDate <= :endDate', { endDate });
+
+    // Apply optional status filter
+    if (statusFilter) {
+      queryBuilder.andWhere('je.status = :statusFilter', { statusFilter });
+    }
+
+    const transactionData = await queryBuilder
+      .orderBy('je.entryDate', 'ASC')
+      .addOrderBy('je.referenceNumber', 'ASC')
+      .getRawMany();
+
+    // Build activity array with running balance
+    let runningBalance = openingBalance;
+    const activity: AccountActivityTransaction[] = transactionData.map(row => {
+      const debit = parseFloat(row.debitAmount || '0');
+      const credit = parseFloat(row.creditAmount || '0');
+
+      // Calculate running balance based on account type
+      if (
+        account.type === AccountType.ASSET ||
+        account.type === AccountType.EXPENSE
+      ) {
+        // For ASSET and EXPENSE: balance increases with debit, decreases with credit
+        runningBalance += debit - credit;
+      } else {
+        // For LIABILITY, EQUITY, and REVENUE: balance increases with credit, decreases with debit
+        runningBalance += credit - debit;
+      }
+
+      runningBalance = this.roundTo2Decimals(runningBalance);
+
+      return {
+        date: row.entryDate,
+        entryNumber: row.referenceNumber,
+        description: row.description,
+        referenceType: row.sourceType || undefined, // Include reference metadata
+        referenceId: row.sourceId || undefined, // Include reference metadata
+        status: row.status, // Include status for filtering in frontend
+        debit: this.roundTo2Decimals(debit),
+        credit: this.roundTo2Decimals(credit),
+        balance: runningBalance,
+      };
+    });
+
+    // Closing balance should match final running balance
+    const closingBalance = activity.length > 0
+      ? activity[activity.length - 1].balance
+      : openingBalance;
+
+    this.logger.log(
+      `Account activity generated for account ${account.code}: ` +
+      `Opening=${openingBalance}, Transactions=${activity.length}, Closing=${closingBalance}`,
+    );
+
+    return {
+      account: {
+        id: account.id,
+        code: account.code,
+        name: account.name,
+        type: account.type,
+      },
+      openingBalance: this.roundTo2Decimals(openingBalance),
+      activity,
       closingBalance: this.roundTo2Decimals(closingBalance),
     };
   }

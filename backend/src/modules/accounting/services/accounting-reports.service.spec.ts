@@ -1529,4 +1529,214 @@ describe('AccountingReportsService', () => {
       expect(result.netIncome).toBe(0);
     });
   });
+
+  describe('generateAccountActivity', () => {
+    it('should generate account activity with all entry statuses', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      // Mock account lookup
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '1200',
+        name: 'Accounts Receivable',
+        type: AccountType.ASSET,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Mock opening balance query (only POSTED entries)
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        { totalDebit: '10000', totalCredit: '0' },
+      ]);
+
+      // Mock transactions - include ALL statuses (DRAFT, POSTED, REVERSED)
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-02'),
+          referenceNumber: 'JE-001',
+          description: 'Sales Order',
+          debitAmount: '1000',
+          creditAmount: '0',
+          status: 'POSTED',
+          sourceType: 'SALES_ORDER',
+          sourceId: 'SO-001',
+        },
+        {
+          entryDate: new Date('2026-01-03'),
+          referenceNumber: 'JE-002',
+          description: 'Payment Received',
+          debitAmount: '0',
+          creditAmount: '500',
+          status: 'POSTED',
+          sourceType: 'PAYMENT',
+          sourceId: 'PAY-001',
+        },
+        {
+          entryDate: new Date('2026-01-04'),
+          referenceNumber: 'JE-003',
+          description: 'Draft Invoice',
+          debitAmount: '200',
+          creditAmount: '0',
+          status: 'DRAFT',
+          sourceType: 'INVOICE',
+          sourceId: 'INV-001',
+        },
+      ]);
+
+      const result = await service.generateAccountActivity(accountId, startDate, endDate);
+
+      expect(result).toBeDefined();
+      expect(result.account.id).toBe(accountId);
+      expect(result.account.code).toBe('1200');
+      expect(result.account.name).toBe('Accounts Receivable');
+
+      // Opening balance should only include POSTED entries
+      expect(result.openingBalance).toBe(10000);
+
+      // Verify all transactions are included (POSTED + DRAFT)
+      expect(result.activity).toHaveLength(3);
+
+      // Transaction 1: POSTED with reference
+      expect(result.activity[0].date).toEqual(new Date('2026-01-02'));
+      expect(result.activity[0].entryNumber).toBe('JE-001');
+      expect(result.activity[0].description).toBe('Sales Order');
+      expect(result.activity[0].debit).toBe(1000);
+      expect(result.activity[0].credit).toBe(0);
+      expect(result.activity[0].status).toBe('POSTED');
+      expect(result.activity[0].referenceType).toBe('SALES_ORDER');
+      expect(result.activity[0].referenceId).toBe('SO-001');
+      expect(result.activity[0].balance).toBe(11000); // 10000 + 1000
+
+      // Transaction 2: POSTED with payment reference
+      expect(result.activity[1].date).toEqual(new Date('2026-01-03'));
+      expect(result.activity[1].entryNumber).toBe('JE-002');
+      expect(result.activity[1].description).toBe('Payment Received');
+      expect(result.activity[1].debit).toBe(0);
+      expect(result.activity[1].credit).toBe(500);
+      expect(result.activity[1].status).toBe('POSTED');
+      expect(result.activity[1].referenceType).toBe('PAYMENT');
+      expect(result.activity[1].referenceId).toBe('PAY-001');
+      expect(result.activity[1].balance).toBe(10500); // 11000 - 500
+
+      // Transaction 3: DRAFT entry
+      expect(result.activity[2].date).toEqual(new Date('2026-01-04'));
+      expect(result.activity[2].entryNumber).toBe('JE-003');
+      expect(result.activity[2].description).toBe('Draft Invoice');
+      expect(result.activity[2].debit).toBe(200);
+      expect(result.activity[2].credit).toBe(0);
+      expect(result.activity[2].status).toBe('DRAFT');
+      expect(result.activity[2].referenceType).toBe('INVOICE');
+      expect(result.activity[2].referenceId).toBe('INV-001');
+      expect(result.activity[2].balance).toBe(10700); // 10500 + 200 (DRAFT affects running balance)
+    });
+
+    it('should filter account activity by status', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '1200',
+        name: 'Accounts Receivable',
+        type: AccountType.ASSET,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Opening balance
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        { totalDebit: '5000', totalCredit: '0' },
+      ]);
+
+      // Only POSTED transactions (filtered)
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-02'),
+          referenceNumber: 'JE-001',
+          description: 'Posted Entry',
+          debitAmount: '1000',
+          creditAmount: '0',
+          status: 'POSTED',
+          sourceType: 'SALES_ORDER',
+          sourceId: 'SO-001',
+        },
+      ]);
+
+      const result = await service.generateAccountActivity(
+        accountId,
+        startDate,
+        endDate,
+        JournalEntryStatus.POSTED,
+      );
+
+      expect(result.activity).toHaveLength(1);
+      expect(result.activity[0].status).toBe('POSTED');
+
+      // Verify status filter was applied
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'je.status = :statusFilter',
+        { statusFilter: JournalEntryStatus.POSTED },
+      );
+    });
+
+    it('should handle entries without reference metadata', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '1000',
+        name: 'Cash',
+        type: AccountType.ASSET,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Opening balance
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([]);
+
+      // Transaction without sourceType/sourceId
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-10'),
+          referenceNumber: 'JE-010',
+          description: 'Manual Adjustment',
+          debitAmount: '500',
+          creditAmount: '0',
+          status: 'POSTED',
+          sourceType: null,
+          sourceId: null,
+        },
+      ]);
+
+      const result = await service.generateAccountActivity(accountId, startDate, endDate);
+
+      expect(result.activity).toHaveLength(1);
+      expect(result.activity[0].referenceType).toBeUndefined();
+      expect(result.activity[0].referenceId).toBeUndefined();
+    });
+
+    it('should throw NotFoundException when account does not exist', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.generateAccountActivity(accountId, startDate, endDate),
+      ).rejects.toThrow('Account with ID');
+    });
+
+    it('should throw BadRequestException when date range is invalid', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-02-01');
+      const endDate = new Date('2026-01-01');
+
+      await expect(
+        service.generateAccountActivity(accountId, startDate, endDate),
+      ).rejects.toThrow('Start date must be before or equal to end date');
+    });
+  });
 });
