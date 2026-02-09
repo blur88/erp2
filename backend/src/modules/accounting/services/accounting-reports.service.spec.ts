@@ -1041,6 +1041,110 @@ describe('AccountingReportsService', () => {
       expect(result.closingBalance).toBe(4500);
     });
 
+    it('should calculate running balance correctly for EXPENSE account', async () => {
+      const accountId = '423e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '6000',
+        name: 'Rent Expense',
+        type: AccountType.EXPENSE,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Opening balance for EXPENSE: Debit 2000, Credit 0 = Balance 2000
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        { totalDebit: '2000', totalCredit: '0' },
+      ]);
+
+      // Transactions
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-10'),
+          referenceNumber: 'JE-010',
+          description: 'Monthly rent payment',
+          debitAmount: '3000',
+          creditAmount: '0',
+        },
+        {
+          entryDate: new Date('2026-01-25'),
+          referenceNumber: 'JE-025',
+          description: 'Rent correction',
+          debitAmount: '0',
+          creditAmount: '200',
+        },
+      ]);
+
+      const result = await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      // Opening balance for EXPENSE: Debit - Credit = 2000 - 0 = 2000
+      expect(result.openingBalance).toBe(2000);
+
+      // For EXPENSE: balance increases with debit, decreases with credit (same as ASSET)
+      // Transaction 1: 2000 + Debit 3000 = 5000
+      expect(result.transactions[0].balance).toBe(5000);
+
+      // Transaction 2: 5000 - Credit 200 = 4800
+      expect(result.transactions[1].balance).toBe(4800);
+
+      // Closing balance
+      expect(result.closingBalance).toBe(4800);
+    });
+
+    it('should calculate running balance correctly for EQUITY account', async () => {
+      const accountId = '523e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '3000',
+        name: 'Common Stock',
+        type: AccountType.EQUITY,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Opening balance for EQUITY: Credit 50000, Debit 0 = Balance 50000
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        { totalDebit: '0', totalCredit: '50000' },
+      ]);
+
+      // Transactions
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-15'),
+          referenceNumber: 'JE-015',
+          description: 'Additional capital investment',
+          debitAmount: '0',
+          creditAmount: '10000',
+        },
+        {
+          entryDate: new Date('2026-01-20'),
+          referenceNumber: 'JE-020',
+          description: 'Withdrawal',
+          debitAmount: '2000',
+          creditAmount: '0',
+        },
+      ]);
+
+      const result = await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      // Opening balance for EQUITY: Credit - Debit = 50000 - 0 = 50000
+      expect(result.openingBalance).toBe(50000);
+
+      // For EQUITY: balance increases with credit, decreases with debit (same as LIABILITY/REVENUE)
+      // Transaction 1: 50000 + Credit 10000 = 60000
+      expect(result.transactions[0].balance).toBe(60000);
+
+      // Transaction 2: 60000 - Debit 2000 = 58000
+      expect(result.transactions[1].balance).toBe(58000);
+
+      // Closing balance
+      expect(result.closingBalance).toBe(58000);
+    });
+
     it('should handle account with no transactions', async () => {
       const accountId = '123e4567-e89b-12d3-a456-426614174000';
       const startDate = new Date('2026-01-01');
