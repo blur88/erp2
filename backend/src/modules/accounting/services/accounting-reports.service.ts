@@ -46,6 +46,40 @@ export interface TrialBalanceResponse {
 }
 
 /**
+ * Account balance entry for Balance Sheet
+ */
+export interface AccountBalance {
+  accountCode: string;
+  accountName: string;
+  balance: number;
+}
+
+/**
+ * Balance Sheet report response
+ */
+export interface BalanceSheetResponse {
+  assets: {
+    current: AccountBalance[];
+    fixed: AccountBalance[];
+    totalCurrent: number;
+    totalFixed: number;
+    total: number;
+  };
+  liabilities: {
+    current: AccountBalance[];
+    longTerm: AccountBalance[];
+    totalCurrent: number;
+    totalLongTerm: number;
+    total: number;
+  };
+  equity: {
+    accounts: AccountBalance[];
+    total: number;
+  };
+  isBalanced: boolean;
+}
+
+/**
  * Accounting Reports Service
  * Provides foundation for all financial reports with reusable calculation and filtering logic
  */
@@ -396,6 +430,232 @@ export class AccountingReportsService {
       totalDebit: grandTotalDebit,
       totalCredit: grandTotalCredit,
       isBalanced,
+    };
+  }
+
+  /**
+   * Generate Balance Sheet report
+   * Lists assets, liabilities, and equity as of a specific date
+   *
+   * Balance Sheet follows the fundamental accounting equation:
+   * Assets = Liabilities + Equity
+   *
+   * Account Classification by Code Ranges:
+   * - Current Assets: 1000-1499 (Cash, AR, Inventory)
+   * - Fixed Assets: 1500-1999 (Equipment, Buildings, Land)
+   * - Current Liabilities: 2000-2499 (AP, Short-term Debt)
+   * - Long-term Liabilities: 2500-2999 (Long-term Debt, Bonds)
+   * - Equity: 3000-3999 (Common Stock, Retained Earnings)
+   *
+   * @param asOfDate - Calculate balance sheet as of this date (default: current date)
+   * @param includeInactive - Include inactive accounts in the report (default: false)
+   * @returns Balance sheet with assets, liabilities, equity, and validation
+   * @throws BadRequestException if asOfDate is in the future
+   */
+  async generateBalanceSheet(
+    asOfDate: Date = new Date(),
+    includeInactive: boolean = false,
+  ): Promise<BalanceSheetResponse> {
+    // Validate date is not in future
+    const now = new Date();
+    now.setHours(23, 59, 59, 999); // Allow today
+    if (asOfDate > now) {
+      throw new BadRequestException('Balance Sheet cannot be generated for future dates');
+    }
+
+    this.logger.log(
+      `Generating balance sheet as of ${asOfDate.toISOString()}, includeInactive=${includeInactive}`,
+    );
+
+    // Fetch all accounts for balance sheet (ASSET, LIABILITY, EQUITY only)
+    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+
+    queryBuilder.where('account.type IN (:...types)', {
+      types: [AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY],
+    });
+
+    if (!includeInactive) {
+      queryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
+    }
+
+    const accounts = await queryBuilder
+      .orderBy('account.code', 'ASC')
+      .getMany();
+
+    if (accounts.length === 0) {
+      this.logger.warn('No accounts found for balance sheet');
+      return this.createEmptyBalanceSheet();
+    }
+
+    // Get account IDs for batch query
+    const accountIds = accounts.map(account => account.id);
+
+    // Query journal entry lines for all accounts in a single batch query
+    const transactionData = await this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .select('jel.accountId', 'accountId')
+      .addSelect('SUM(jel.debitAmount)', 'totalDebit')
+      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
+      .where('jel.accountId IN (:...accountIds)', { accountIds })
+      .andWhere('je.entryDate <= :asOfDate', { asOfDate })
+      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .groupBy('jel.accountId')
+      .getRawMany();
+
+    // Build a map of account ID to transaction totals
+    const transactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
+    transactionData.forEach(row => {
+      transactionMap.set(row.accountId, {
+        totalDebit: parseFloat(row.totalDebit || '0'),
+        totalCredit: parseFloat(row.totalCredit || '0'),
+      });
+    });
+
+    // Initialize balance sheet sections
+    const currentAssets: AccountBalance[] = [];
+    const fixedAssets: AccountBalance[] = [];
+    const currentLiabilities: AccountBalance[] = [];
+    const longTermLiabilities: AccountBalance[] = [];
+    const equityAccounts: AccountBalance[] = [];
+
+    // Process each account and classify by type and code
+    accounts.forEach(account => {
+      const transactions = transactionMap.get(account.id) || {
+        totalDebit: 0,
+        totalCredit: 0,
+      };
+
+      const balance = this.calculateBalanceByAccountType(
+        account.type,
+        transactions.totalDebit,
+        transactions.totalCredit,
+      );
+
+      const accountBalance: AccountBalance = {
+        accountCode: account.code,
+        accountName: account.name,
+        balance,
+      };
+
+      // Classify by account type and code range
+      if (account.type === AccountType.ASSET) {
+        const codeNum = parseInt(account.code, 10);
+        if (codeNum >= 1000 && codeNum < 1500) {
+          // Current Assets: 1000-1499
+          currentAssets.push(accountBalance);
+        } else if (codeNum >= 1500 && codeNum < 2000) {
+          // Fixed Assets: 1500-1999
+          fixedAssets.push(accountBalance);
+        } else {
+          // Default to current assets if code doesn't match pattern
+          currentAssets.push(accountBalance);
+        }
+      } else if (account.type === AccountType.LIABILITY) {
+        const codeNum = parseInt(account.code, 10);
+        if (codeNum >= 2000 && codeNum < 2500) {
+          // Current Liabilities: 2000-2499
+          currentLiabilities.push(accountBalance);
+        } else if (codeNum >= 2500 && codeNum < 3000) {
+          // Long-term Liabilities: 2500-2999
+          longTermLiabilities.push(accountBalance);
+        } else {
+          // Default to current liabilities if code doesn't match pattern
+          currentLiabilities.push(accountBalance);
+        }
+      } else if (account.type === AccountType.EQUITY) {
+        // All equity accounts (3000-3999)
+        equityAccounts.push(accountBalance);
+      }
+    });
+
+    // Calculate section totals
+    const totalCurrentAssets = this.roundTo2Decimals(
+      currentAssets.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+    const totalFixedAssets = this.roundTo2Decimals(
+      fixedAssets.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+    const totalAssets = this.roundTo2Decimals(totalCurrentAssets + totalFixedAssets);
+
+    const totalCurrentLiabilities = this.roundTo2Decimals(
+      currentLiabilities.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+    const totalLongTermLiabilities = this.roundTo2Decimals(
+      longTermLiabilities.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+    const totalLiabilities = this.roundTo2Decimals(
+      totalCurrentLiabilities + totalLongTermLiabilities,
+    );
+
+    const totalEquity = this.roundTo2Decimals(
+      equityAccounts.reduce((sum, acc) => sum + acc.balance, 0),
+    );
+
+    // Validate balance sheet equation: Assets = Liabilities + Equity
+    const totalLiabilitiesAndEquity = this.roundTo2Decimals(totalLiabilities + totalEquity);
+    const isBalanced = Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.01;
+
+    this.logger.log(
+      `Balance sheet generated: Assets=${totalAssets}, ` +
+      `Liabilities=${totalLiabilities}, Equity=${totalEquity}, ` +
+      `Balanced=${isBalanced}`,
+    );
+
+    if (!isBalanced) {
+      this.logger.warn(
+        `Balance sheet is UNBALANCED! ` +
+        `Assets (${totalAssets}) != Liabilities + Equity (${totalLiabilitiesAndEquity})`,
+      );
+    }
+
+    return {
+      assets: {
+        current: currentAssets,
+        fixed: fixedAssets,
+        totalCurrent: totalCurrentAssets,
+        totalFixed: totalFixedAssets,
+        total: totalAssets,
+      },
+      liabilities: {
+        current: currentLiabilities,
+        longTerm: longTermLiabilities,
+        totalCurrent: totalCurrentLiabilities,
+        totalLongTerm: totalLongTermLiabilities,
+        total: totalLiabilities,
+      },
+      equity: {
+        accounts: equityAccounts,
+        total: totalEquity,
+      },
+      isBalanced,
+    };
+  }
+
+  /**
+   * Create empty balance sheet structure (for when no accounts exist)
+   */
+  private createEmptyBalanceSheet(): BalanceSheetResponse {
+    return {
+      assets: {
+        current: [],
+        fixed: [],
+        totalCurrent: 0,
+        totalFixed: 0,
+        total: 0,
+      },
+      liabilities: {
+        current: [],
+        longTerm: [],
+        totalCurrent: 0,
+        totalLongTerm: 0,
+        total: 0,
+      },
+      equity: {
+        accounts: [],
+        total: 0,
+      },
+      isBalanced: true,
     };
   }
 

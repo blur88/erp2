@@ -623,4 +623,232 @@ describe('AccountingReportsService', () => {
       expect(result.isBalanced).toBe(true);
     });
   });
+
+  describe('generateBalanceSheet', () => {
+    it('should generate a balanced balance sheet with all sections', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      // Mock accounts for all categories
+      const mockAccounts = [
+        // Current Assets (1000-1499)
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '1200', name: 'Accounts Receivable', type: AccountType.ASSET, isActive: true },
+        // Fixed Assets (1500-1999)
+        { id: '3', code: '1500', name: 'Equipment', type: AccountType.ASSET, isActive: true },
+        { id: '4', code: '1600', name: 'Buildings', type: AccountType.ASSET, isActive: true },
+        // Current Liabilities (2000-2499)
+        { id: '5', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
+        { id: '6', code: '2100', name: 'Short-term Debt', type: AccountType.LIABILITY, isActive: true },
+        // Long-term Liabilities (2500-2999)
+        { id: '7', code: '2500', name: 'Long-term Debt', type: AccountType.LIABILITY, isActive: true },
+        { id: '8', code: '2600', name: 'Bonds Payable', type: AccountType.LIABILITY, isActive: true },
+        // Equity (3000-3999)
+        { id: '9', code: '3000', name: 'Common Stock', type: AccountType.EQUITY, isActive: true },
+        { id: '10', code: '3100', name: 'Retained Earnings', type: AccountType.EQUITY, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Mock transaction data for balanced balance sheet
+      // Current Assets: Cash 5000 + AR 3000 = 8000
+      // Fixed Assets: Equipment 10000 + Buildings 20000 = 30000
+      // Total Assets: 38000
+      // Current Liabilities: AP 2000 + ST Debt 1000 = 3000
+      // Long-term Liabilities: LT Debt 10000 + Bonds 5000 = 15000
+      // Total Liabilities: 18000
+      // Equity: Stock 15000 + RE 5000 = 20000
+      // Total Liabilities + Equity: 38000 (BALANCED)
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '5000', totalCredit: '0' },
+        { accountId: '2', totalDebit: '3000', totalCredit: '0' },
+        { accountId: '3', totalDebit: '10000', totalCredit: '0' },
+        { accountId: '4', totalDebit: '20000', totalCredit: '0' },
+        { accountId: '5', totalDebit: '0', totalCredit: '2000' },
+        { accountId: '6', totalDebit: '0', totalCredit: '1000' },
+        { accountId: '7', totalDebit: '0', totalCredit: '10000' },
+        { accountId: '8', totalDebit: '0', totalCredit: '5000' },
+        { accountId: '9', totalDebit: '0', totalCredit: '15000' },
+        { accountId: '10', totalDebit: '0', totalCredit: '5000' },
+      ]);
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      expect(result).toBeDefined();
+
+      // Verify Assets section
+      expect(result.assets.current).toHaveLength(2);
+      expect(result.assets.fixed).toHaveLength(2);
+      expect(result.assets.totalCurrent).toBe(8000);
+      expect(result.assets.totalFixed).toBe(30000);
+      expect(result.assets.total).toBe(38000);
+
+      // Verify Liabilities section
+      expect(result.liabilities.current).toHaveLength(2);
+      expect(result.liabilities.longTerm).toHaveLength(2);
+      expect(result.liabilities.totalCurrent).toBe(3000);
+      expect(result.liabilities.totalLongTerm).toBe(15000);
+      expect(result.liabilities.total).toBe(18000);
+
+      // Verify Equity section
+      expect(result.equity.accounts).toHaveLength(2);
+      expect(result.equity.total).toBe(20000);
+
+      // Verify balance sheet equation: Assets = Liabilities + Equity
+      expect(result.isBalanced).toBe(true);
+      expect(result.assets.total).toBe(result.liabilities.total + result.equity.total);
+    });
+
+    it('should detect unbalanced balance sheet', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Unbalanced data: Assets 5000, Liabilities 3000, Equity 0 = UNBALANCED
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '5000', totalCredit: '0' },
+        { accountId: '2', totalDebit: '0', totalCredit: '3000' },
+      ]);
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      expect(result.isBalanced).toBe(false);
+      expect(result.assets.total).not.toBe(result.liabilities.total + result.equity.total);
+    });
+
+    it('should validate balance sheet equation with tolerance', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
+        { id: '3', code: '3000', name: 'Common Stock', type: AccountType.EQUITY, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Small rounding difference (within 0.01 tolerance): Assets 1000.00, Liabilities + Equity 1000.005
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000.00', totalCredit: '0' },
+        { accountId: '2', totalDebit: '0', totalCredit: '500.00' },
+        { accountId: '3', totalDebit: '0', totalCredit: '500.005' },
+      ]);
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      // Should still be balanced due to 0.01 tolerance for rounding
+      expect(result.isBalanced).toBe(true);
+    });
+
+    it('should exclude inactive accounts by default', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000', totalCredit: '0' },
+      ]);
+
+      await service.generateBalanceSheet(asOfDate);
+
+      // Verify that query filters by isActive = true
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'account.isActive = :isActive',
+        { isActive: true },
+      );
+    });
+
+    it('should include inactive accounts when requested', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '1100', name: 'Old Asset', type: AccountType.ASSET, isActive: false },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000', totalCredit: '0' },
+        { accountId: '2', totalDebit: '500', totalCredit: '0' },
+      ]);
+
+      const result = await service.generateBalanceSheet(asOfDate, true);
+
+      expect(result.assets.current.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should classify assets correctly by account code', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        // Current Assets: 1000-1499
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '1499', name: 'Inventory', type: AccountType.ASSET, isActive: true },
+        // Fixed Assets: 1500-1999
+        { id: '3', code: '1500', name: 'Equipment', type: AccountType.ASSET, isActive: true },
+        { id: '4', code: '1999', name: 'Land', type: AccountType.ASSET, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000', totalCredit: '0' },
+        { accountId: '2', totalDebit: '2000', totalCredit: '0' },
+        { accountId: '3', totalDebit: '5000', totalCredit: '0' },
+        { accountId: '4', totalDebit: '10000', totalCredit: '0' },
+      ]);
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      expect(result.assets.current).toHaveLength(2);
+      expect(result.assets.fixed).toHaveLength(2);
+      expect(result.assets.totalCurrent).toBe(3000);
+      expect(result.assets.totalFixed).toBe(15000);
+    });
+
+    it('should classify liabilities correctly by account code', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        // Current Liabilities: 2000-2499
+        { id: '1', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
+        { id: '2', code: '2499', name: 'Accrued Expenses', type: AccountType.LIABILITY, isActive: true },
+        // Long-term Liabilities: 2500-2999
+        { id: '3', code: '2500', name: 'Long-term Debt', type: AccountType.LIABILITY, isActive: true },
+        { id: '4', code: '2999', name: 'Deferred Revenue', type: AccountType.LIABILITY, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '0', totalCredit: '1000' },
+        { accountId: '2', totalDebit: '0', totalCredit: '500' },
+        { accountId: '3', totalDebit: '0', totalCredit: '5000' },
+        { accountId: '4', totalDebit: '0', totalCredit: '2000' },
+      ]);
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      expect(result.liabilities.current).toHaveLength(2);
+      expect(result.liabilities.longTerm).toHaveLength(2);
+      expect(result.liabilities.totalCurrent).toBe(1500);
+      expect(result.liabilities.totalLongTerm).toBe(7000);
+    });
+  });
 });
