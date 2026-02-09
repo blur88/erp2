@@ -100,6 +100,33 @@ export interface ProfitAndLossResponse {
 }
 
 /**
+ * General Ledger transaction entry
+ */
+export interface GeneralLedgerTransaction {
+  date: Date;
+  entryNumber: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+/**
+ * General Ledger report response
+ */
+export interface GeneralLedgerResponse {
+  account: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+  };
+  openingBalance: number;
+  transactions: GeneralLedgerTransaction[];
+  closingBalance: number;
+}
+
+/**
  * Accounting Reports Service
  * Provides foundation for all financial reports with reusable calculation and filtering logic
  */
@@ -649,6 +676,151 @@ export class AccountingReportsService {
         total: totalEquity,
       },
       isBalanced,
+    };
+  }
+
+  /**
+   * Generate General Ledger report for a specific account
+   * Shows all transactions for an account over a period with running balance
+   *
+   * General Ledger is the most detailed transaction report, listing every
+   * journal entry line for a specific account with a running balance after
+   * each transaction.
+   *
+   * Running Balance Calculation:
+   * - For ASSET and EXPENSE accounts: balance increases with debit, decreases with credit
+   * - For LIABILITY, EQUITY, and REVENUE accounts: balance increases with credit, decreases with debit
+   *
+   * @param accountId - The account ID to generate ledger for
+   * @param startDate - Start date of the period (inclusive)
+   * @param endDate - End date of the period (inclusive)
+   * @returns General Ledger with opening balance, transactions, and closing balance
+   * @throws NotFoundException if account does not exist
+   * @throws BadRequestException if date range is invalid or endDate is in the future
+   */
+  async generateGeneralLedger(
+    accountId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<GeneralLedgerResponse> {
+    // Validate date range
+    if (startDate > endDate) {
+      throw new BadRequestException('Start date must be before or equal to end date');
+    }
+
+    // Validate end date is not in future
+    const now = new Date();
+    now.setHours(23, 59, 59, 999); // Allow today
+    if (endDate > now) {
+      throw new BadRequestException('End date cannot be in the future');
+    }
+
+    this.logger.log(
+      `Generating general ledger for account ${accountId} from ${startDate.toISOString()} to ${endDate.toISOString()}`,
+    );
+
+    // Fetch the account to determine its type and validate existence
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId, isActive: true },
+    });
+
+    if (!account) {
+      throw new NotFoundException(`Account with ID '${accountId}' not found or inactive`);
+    }
+
+    // Calculate opening balance (balance before startDate)
+    const openingBalanceData = await this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .select('SUM(jel.debitAmount)', 'totalDebit')
+      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
+      .where('jel.accountId = :accountId', { accountId })
+      .andWhere('je.entryDate < :startDate', { startDate })
+      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .getRawMany();
+
+    const openingDebit = openingBalanceData.length > 0 && openingBalanceData[0].totalDebit
+      ? parseFloat(openingBalanceData[0].totalDebit)
+      : 0;
+    const openingCredit = openingBalanceData.length > 0 && openingBalanceData[0].totalCredit
+      ? parseFloat(openingBalanceData[0].totalCredit)
+      : 0;
+
+    const openingBalance = this.calculateBalanceByAccountType(
+      account.type,
+      openingDebit,
+      openingCredit,
+    );
+
+    this.logger.log(`Opening balance for account ${account.code}: ${openingBalance}`);
+
+    // Query all transactions for the account within the date range
+    const transactionData = await this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .select('je.entryDate', 'entryDate')
+      .addSelect('je.referenceNumber', 'referenceNumber')
+      .addSelect('je.description', 'description')
+      .addSelect('jel.debitAmount', 'debitAmount')
+      .addSelect('jel.creditAmount', 'creditAmount')
+      .where('jel.accountId = :accountId', { accountId })
+      .andWhere('je.entryDate >= :startDate', { startDate })
+      .andWhere('je.entryDate <= :endDate', { endDate })
+      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .orderBy('je.entryDate', 'ASC')
+      .addOrderBy('je.referenceNumber', 'ASC')
+      .getRawMany();
+
+    // Build transactions array with running balance
+    let runningBalance = openingBalance;
+    const transactions: GeneralLedgerTransaction[] = transactionData.map(row => {
+      const debit = parseFloat(row.debitAmount || '0');
+      const credit = parseFloat(row.creditAmount || '0');
+
+      // Calculate running balance based on account type
+      if (
+        account.type === AccountType.ASSET ||
+        account.type === AccountType.EXPENSE
+      ) {
+        // For ASSET and EXPENSE: balance increases with debit, decreases with credit
+        runningBalance += debit - credit;
+      } else {
+        // For LIABILITY, EQUITY, and REVENUE: balance increases with credit, decreases with debit
+        runningBalance += credit - debit;
+      }
+
+      runningBalance = this.roundTo2Decimals(runningBalance);
+
+      return {
+        date: row.entryDate,
+        entryNumber: row.referenceNumber,
+        description: row.description,
+        debit: this.roundTo2Decimals(debit),
+        credit: this.roundTo2Decimals(credit),
+        balance: runningBalance,
+      };
+    });
+
+    // Closing balance should match final running balance
+    const closingBalance = transactions.length > 0
+      ? transactions[transactions.length - 1].balance
+      : openingBalance;
+
+    this.logger.log(
+      `General ledger generated for account ${account.code}: ` +
+      `Opening=${openingBalance}, Transactions=${transactions.length}, Closing=${closingBalance}`,
+    );
+
+    return {
+      account: {
+        id: account.id,
+        code: account.code,
+        name: account.name,
+        type: account.type,
+      },
+      openingBalance: this.roundTo2Decimals(openingBalance),
+      transactions,
+      closingBalance: this.roundTo2Decimals(closingBalance),
     };
   }
 

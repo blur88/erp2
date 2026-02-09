@@ -41,6 +41,7 @@ describe('AccountingReportsService', () => {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
@@ -849,6 +850,319 @@ describe('AccountingReportsService', () => {
       expect(result.liabilities.longTerm).toHaveLength(2);
       expect(result.liabilities.totalCurrent).toBe(1500);
       expect(result.liabilities.totalLongTerm).toBe(7000);
+    });
+  });
+
+  describe('generateGeneralLedger', () => {
+    it('should generate general ledger for an account with correct running balance', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      // Mock account lookup
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '1000',
+        name: 'Cash in Hand',
+        type: AccountType.ASSET,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Mock opening balance query (transactions before startDate)
+      // Opening balance: Debit 50000, Credit 0 = Balance 50000
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        { totalDebit: '50000', totalCredit: '0' },
+      ]);
+
+      // Mock transactions within date range with journal entry details
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-02'),
+          referenceNumber: 'JE-001',
+          description: 'Sales Payment',
+          debitAmount: '1000',
+          creditAmount: '0',
+        },
+        {
+          entryDate: new Date('2026-01-03'),
+          referenceNumber: 'JE-002',
+          description: 'Vendor Payment',
+          debitAmount: '0',
+          creditAmount: '500',
+        },
+        {
+          entryDate: new Date('2026-01-05'),
+          referenceNumber: 'JE-003',
+          description: 'Cash Sale',
+          debitAmount: '2000',
+          creditAmount: '0',
+        },
+      ]);
+
+      const result = await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      expect(result).toBeDefined();
+      expect(result.account.id).toBe(accountId);
+      expect(result.account.code).toBe('1000');
+      expect(result.account.name).toBe('Cash in Hand');
+      expect(result.account.type).toBe('ASSET');
+
+      // Opening balance for ASSET: Debit - Credit = 50000 - 0 = 50000
+      expect(result.openingBalance).toBe(50000);
+
+      // Verify transactions with running balance
+      expect(result.transactions).toHaveLength(3);
+
+      // Transaction 1: Opening 50000 + Debit 1000 = 51000
+      expect(result.transactions[0].date).toEqual(new Date('2026-01-02'));
+      expect(result.transactions[0].entryNumber).toBe('JE-001');
+      expect(result.transactions[0].description).toBe('Sales Payment');
+      expect(result.transactions[0].debit).toBe(1000);
+      expect(result.transactions[0].credit).toBe(0);
+      expect(result.transactions[0].balance).toBe(51000);
+
+      // Transaction 2: Previous 51000 - Credit 500 = 50500
+      expect(result.transactions[1].date).toEqual(new Date('2026-01-03'));
+      expect(result.transactions[1].entryNumber).toBe('JE-002');
+      expect(result.transactions[1].description).toBe('Vendor Payment');
+      expect(result.transactions[1].debit).toBe(0);
+      expect(result.transactions[1].credit).toBe(500);
+      expect(result.transactions[1].balance).toBe(50500);
+
+      // Transaction 3: Previous 50500 + Debit 2000 = 52500
+      expect(result.transactions[2].date).toEqual(new Date('2026-01-05'));
+      expect(result.transactions[2].entryNumber).toBe('JE-003');
+      expect(result.transactions[2].description).toBe('Cash Sale');
+      expect(result.transactions[2].debit).toBe(2000);
+      expect(result.transactions[2].credit).toBe(0);
+      expect(result.transactions[2].balance).toBe(52500);
+
+      // Closing balance should match final running balance
+      expect(result.closingBalance).toBe(52500);
+    });
+
+    it('should calculate running balance correctly for LIABILITY account', async () => {
+      const accountId = '223e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '2000',
+        name: 'Accounts Payable',
+        type: AccountType.LIABILITY,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Opening balance for LIABILITY: Credit 10000, Debit 0 = Balance 10000
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        { totalDebit: '0', totalCredit: '10000' },
+      ]);
+
+      // Transactions
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-10'),
+          referenceNumber: 'JE-010',
+          description: 'Purchase on credit',
+          debitAmount: '0',
+          creditAmount: '2000',
+        },
+        {
+          entryDate: new Date('2026-01-15'),
+          referenceNumber: 'JE-015',
+          description: 'Payment to supplier',
+          debitAmount: '1500',
+          creditAmount: '0',
+        },
+      ]);
+
+      const result = await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      // Opening balance for LIABILITY: Credit - Debit = 10000 - 0 = 10000
+      expect(result.openingBalance).toBe(10000);
+
+      // For LIABILITY: balance increases with credit, decreases with debit
+      // Transaction 1: 10000 + Credit 2000 = 12000
+      expect(result.transactions[0].balance).toBe(12000);
+
+      // Transaction 2: 12000 - Debit 1500 = 10500
+      expect(result.transactions[1].balance).toBe(10500);
+
+      // Closing balance
+      expect(result.closingBalance).toBe(10500);
+    });
+
+    it('should calculate running balance correctly for REVENUE account', async () => {
+      const accountId = '323e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '4000',
+        name: 'Sales Revenue',
+        type: AccountType.REVENUE,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // Opening balance: 0 (no prior transactions)
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([]);
+
+      // Transactions
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-05'),
+          referenceNumber: 'JE-005',
+          description: 'Product sales',
+          debitAmount: '0',
+          creditAmount: '5000',
+        },
+        {
+          entryDate: new Date('2026-01-20'),
+          referenceNumber: 'JE-020',
+          description: 'Sales return',
+          debitAmount: '500',
+          creditAmount: '0',
+        },
+      ]);
+
+      const result = await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      expect(result.openingBalance).toBe(0);
+
+      // For REVENUE: balance increases with credit, decreases with debit
+      // Transaction 1: 0 + Credit 5000 = 5000
+      expect(result.transactions[0].balance).toBe(5000);
+
+      // Transaction 2: 5000 - Debit 500 = 4500
+      expect(result.transactions[1].balance).toBe(4500);
+
+      expect(result.closingBalance).toBe(4500);
+    });
+
+    it('should handle account with no transactions', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '1000',
+        name: 'Cash',
+        type: AccountType.ASSET,
+        isActive: true,
+      } as ChartOfAccount);
+
+      // No opening balance
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([]);
+
+      // No transactions
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([]);
+
+      const result = await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      expect(result.openingBalance).toBe(0);
+      expect(result.transactions).toEqual([]);
+      expect(result.closingBalance).toBe(0);
+    });
+
+    it('should throw NotFoundException when account does not exist', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.generateGeneralLedger(accountId, startDate, endDate),
+      ).rejects.toThrow('Account with ID');
+    });
+
+    it('should throw BadRequestException when startDate is after endDate', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-02-01');
+      const endDate = new Date('2026-01-01');
+
+      await expect(
+        service.generateGeneralLedger(accountId, startDate, endDate),
+      ).rejects.toThrow('Start date must be before or equal to end date');
+    });
+
+    it('should throw BadRequestException when endDate is in the future', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+      futureDate.setHours(12, 0, 0, 0);
+
+      await expect(
+        service.generateGeneralLedger(accountId, startDate, futureDate),
+      ).rejects.toThrow('End date cannot be in the future');
+    });
+
+    it('should only include POSTED journal entries', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '1000',
+        name: 'Cash',
+        type: AccountType.ASSET,
+        isActive: true,
+      } as ChartOfAccount);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      // Verify POSTED status is used in both queries
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'je.status = :status',
+        { status: JournalEntryStatus.POSTED },
+      );
+    });
+
+    it('should sort transactions by date and entry number', async () => {
+      const accountId = '123e4567-e89b-12d3-a456-426614174000';
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-31');
+
+      accountRepository.findOne.mockResolvedValue({
+        id: accountId,
+        code: '1000',
+        name: 'Cash',
+        type: AccountType.ASSET,
+        isActive: true,
+      } as ChartOfAccount);
+
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([]);
+
+      // Multiple transactions on the same date
+      mockQueryBuilder.getRawMany.mockResolvedValueOnce([
+        {
+          entryDate: new Date('2026-01-05'),
+          referenceNumber: 'JE-002',
+          description: 'Second entry',
+          debitAmount: '200',
+          creditAmount: '0',
+        },
+        {
+          entryDate: new Date('2026-01-05'),
+          referenceNumber: 'JE-001',
+          description: 'First entry',
+          debitAmount: '100',
+          creditAmount: '0',
+        },
+      ]);
+
+      await service.generateGeneralLedger(accountId, startDate, endDate);
+
+      // Verify ordering by date and entry number
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('je.entryDate', 'ASC');
+      expect(mockQueryBuilder.addOrderBy).toHaveBeenCalledWith('je.referenceNumber', 'ASC');
     });
   });
 
