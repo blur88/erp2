@@ -395,4 +395,204 @@ describe('AccountingReportsService', () => {
       expect(result[0].balance).toBe(0);
     });
   });
+
+  describe('generateTrialBalance', () => {
+    it('should generate a balanced trial balance report', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      // Mock all account types
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
+        { id: '3', code: '3000', name: 'Common Stock', type: AccountType.EQUITY, isActive: true },
+        { id: '4', code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE, isActive: true },
+        { id: '5', code: '5000', name: 'Rent Expense', type: AccountType.EXPENSE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Mock transaction data - balanced scenario
+      // Cash: Debit 5000, Credit 1000 = Net Debit 4000
+      // A/P: Debit 500, Credit 1500 = Net Credit 1000
+      // Equity: Debit 0, Credit 2000 = Net Credit 2000
+      // Revenue: Debit 200, Credit 1700 = Net Credit 1500
+      // Expense: Debit 500, Credit 0 = Net Debit 500
+      // Total Debits: 4000 + 500 = 4500
+      // Total Credits: 1000 + 2000 + 1500 = 4500
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '5000', totalCredit: '1000' },
+        { accountId: '2', totalDebit: '500', totalCredit: '1500' },
+        { accountId: '3', totalDebit: '0', totalCredit: '2000' },
+        { accountId: '4', totalDebit: '200', totalCredit: '1700' },
+        { accountId: '5', totalDebit: '500', totalCredit: '0' },
+      ]);
+
+      const result = await service.generateTrialBalance(asOfDate);
+
+      expect(result).toBeDefined();
+      expect(result.accounts).toHaveLength(5);
+      expect(result.totalDebit).toBe(4500);
+      expect(result.totalCredit).toBe(4500);
+      expect(result.isBalanced).toBe(true);
+
+      // Verify accounts are sorted by account code
+      expect(result.accounts[0].accountCode).toBe('1000');
+      expect(result.accounts[1].accountCode).toBe('2000');
+
+      // Verify debit/credit columns
+      // Cash (Asset) should show debit
+      expect(result.accounts[0].debit).toBe(4000);
+      expect(result.accounts[0].credit).toBe(0);
+
+      // A/P (Liability) should show credit
+      expect(result.accounts[1].debit).toBe(0);
+      expect(result.accounts[1].credit).toBe(1000);
+    });
+
+    it('should detect unbalanced trial balance', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Unbalanced data
+      // Cash: Net Debit 1000
+      // A/P: Net Credit 500
+      // Total Debits: 1000, Total Credits: 500 (UNBALANCED)
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000', totalCredit: '0' },
+        { accountId: '2', totalDebit: '0', totalCredit: '500' },
+      ]);
+
+      const result = await service.generateTrialBalance(asOfDate);
+
+      expect(result.totalDebit).toBe(1000);
+      expect(result.totalCredit).toBe(500);
+      expect(result.isBalanced).toBe(false);
+    });
+
+    it('should exclude inactive accounts by default', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000', totalCredit: '1000' },
+      ]);
+
+      await service.generateTrialBalance(asOfDate);
+
+      // Verify that query filters by isActive = true
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'account.isActive = :isActive',
+        { isActive: true },
+      );
+    });
+
+    it('should include inactive accounts when requested', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '1010', name: 'Old Account', type: AccountType.ASSET, isActive: false },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000', totalCredit: '500' },
+        { accountId: '2', totalDebit: '200', totalCredit: '200' },
+      ]);
+
+      const result = await service.generateTrialBalance(asOfDate, true);
+
+      expect(result.accounts).toHaveLength(2);
+      // Should NOT filter by isActive when includeInactive = true
+      expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
+        'account.isActive = :isActive',
+        { isActive: true },
+      );
+    });
+
+    it('should handle accounts with zero balances', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '2000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+
+      // Account with balanced debits/credits = zero balance
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '1000', totalCredit: '1000' },
+        { accountId: '2', totalDebit: '500', totalCredit: '500' },
+      ]);
+
+      const result = await service.generateTrialBalance(asOfDate);
+
+      expect(result.accounts).toHaveLength(2);
+      // All accounts should show 0 in both debit and credit columns
+      expect(result.accounts[0].debit).toBe(0);
+      expect(result.accounts[0].credit).toBe(0);
+      expect(result.accounts[1].debit).toBe(0);
+      expect(result.accounts[1].credit).toBe(0);
+      expect(result.totalDebit).toBe(0);
+      expect(result.totalCredit).toBe(0);
+      expect(result.isBalanced).toBe(true);
+    });
+
+    it('should handle empty trial balance with no transactions', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const mockAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      const result = await service.generateTrialBalance(asOfDate);
+
+      expect(result.accounts).toHaveLength(1);
+      expect(result.accounts[0].debit).toBe(0);
+      expect(result.accounts[0].credit).toBe(0);
+      expect(result.totalDebit).toBe(0);
+      expect(result.totalCredit).toBe(0);
+      expect(result.isBalanced).toBe(true);
+    });
+
+    it('should only include POSTED journal entries', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getMany.mockResolvedValue([
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+      ]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.generateTrialBalance(asOfDate);
+
+      // Verify that journal entries query filters by POSTED status
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'je.status = :status',
+        { status: JournalEntryStatus.POSTED },
+      );
+    });
+  });
 });

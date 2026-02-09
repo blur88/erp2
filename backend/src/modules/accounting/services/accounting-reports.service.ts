@@ -24,6 +24,27 @@ export interface AccountWithBalance {
 }
 
 /**
+ * Trial Balance account entry
+ */
+export interface TrialBalanceAccount {
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  debit: number;
+  credit: number;
+}
+
+/**
+ * Trial Balance report response
+ */
+export interface TrialBalanceResponse {
+  accounts: TrialBalanceAccount[];
+  totalDebit: number;
+  totalCredit: number;
+  isBalanced: boolean;
+}
+
+/**
  * Accounting Reports Service
  * Provides foundation for all financial reports with reusable calculation and filtering logic
  */
@@ -246,6 +267,137 @@ export class AccountingReportsService {
   }
 
   /**
+   * Generate Trial Balance report
+   * Lists all accounts with their debit/credit balances as of a specific date
+   *
+   * Trial Balance follows double-entry bookkeeping rules:
+   * - Total Debits must equal Total Credits in a balanced system
+   * - Each account shows EITHER a debit OR credit balance, never both
+   * - Unlike other reports, shows RAW debit/credit amounts, not signed balances
+   *
+   * @param asOfDate - Calculate trial balance as of this date (default: current date)
+   * @param includeInactive - Include inactive accounts in the report (default: false)
+   * @returns Trial balance with account details and totals
+   */
+  async generateTrialBalance(
+    asOfDate: Date = new Date(),
+    includeInactive: boolean = false,
+  ): Promise<TrialBalanceResponse> {
+    this.logger.log(
+      `Generating trial balance as of ${asOfDate.toISOString()}, includeInactive=${includeInactive}`,
+    );
+
+    // Fetch all accounts (filtered by active status if needed)
+    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+
+    if (!includeInactive) {
+      queryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
+    }
+
+    const accounts = await queryBuilder
+      .orderBy('account.code', 'ASC')
+      .getMany();
+
+    if (accounts.length === 0) {
+      this.logger.warn('No accounts found for trial balance');
+      return {
+        accounts: [],
+        totalDebit: 0,
+        totalCredit: 0,
+        isBalanced: true,
+      };
+    }
+
+    // Get account IDs for batch query
+    const accountIds = accounts.map(account => account.id);
+
+    // Query journal entry lines for all accounts in a single batch query
+    const transactionData = await this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .select('jel.accountId', 'accountId')
+      .addSelect('SUM(jel.debitAmount)', 'totalDebit')
+      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
+      .where('jel.accountId IN (:...accountIds)', { accountIds })
+      .andWhere('je.entryDate <= :asOfDate', { asOfDate })
+      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .groupBy('jel.accountId')
+      .getRawMany();
+
+    // Build a map of account ID to transaction totals
+    const transactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
+    transactionData.forEach(row => {
+      transactionMap.set(row.accountId, {
+        totalDebit: parseFloat(row.totalDebit || '0'),
+        totalCredit: parseFloat(row.totalCredit || '0'),
+      });
+    });
+
+    // Build trial balance accounts array
+    let grandTotalDebit = 0;
+    let grandTotalCredit = 0;
+
+    const trialBalanceAccounts: TrialBalanceAccount[] = accounts.map(account => {
+      const transactions = transactionMap.get(account.id) || {
+        totalDebit: 0,
+        totalCredit: 0,
+      };
+
+      // Calculate net debit or credit for this account
+      const netDebit = transactions.totalDebit - transactions.totalCredit;
+      const netCredit = transactions.totalCredit - transactions.totalDebit;
+
+      // Determine which column to show (debit or credit, never both)
+      let debit = 0;
+      let credit = 0;
+
+      if (netDebit > 0) {
+        debit = this.roundTo2Decimals(netDebit);
+        grandTotalDebit += debit;
+      } else if (netCredit > 0) {
+        credit = this.roundTo2Decimals(netCredit);
+        grandTotalCredit += credit;
+      }
+      // If netDebit === netCredit (zero balance), both remain 0
+
+      return {
+        accountCode: account.code,
+        accountName: account.name,
+        accountType: account.type,
+        debit,
+        credit,
+      };
+    });
+
+    // Round grand totals to 2 decimals
+    grandTotalDebit = this.roundTo2Decimals(grandTotalDebit);
+    grandTotalCredit = this.roundTo2Decimals(grandTotalCredit);
+
+    // Check if trial balance is balanced (allow 0.01 tolerance for rounding)
+    const isBalanced = Math.abs(grandTotalDebit - grandTotalCredit) < 0.01;
+
+    this.logger.log(
+      `Trial balance generated: ${trialBalanceAccounts.length} accounts, ` +
+      `Total Debit=${grandTotalDebit}, Total Credit=${grandTotalCredit}, ` +
+      `Balanced=${isBalanced}`,
+    );
+
+    return {
+      accounts: trialBalanceAccounts,
+      totalDebit: grandTotalDebit,
+      totalCredit: grandTotalCredit,
+      isBalanced,
+    };
+  }
+
+  /**
+   * Round number to 2 decimal places to avoid floating point precision issues
+   */
+  private roundTo2Decimals(num: number): number {
+    return Math.round(num * 100) / 100;
+  }
+
+  /**
    * Calculate balance based on account type using proper accounting rules
    *
    * Assets & Expenses: Debit increases, Credit decreases (Balance = Debit - Credit)
@@ -261,24 +413,21 @@ export class AccountingReportsService {
     totalDebit: number,
     totalCredit: number,
   ): number {
-    // Round to 2 decimal places to avoid floating point precision issues
-    const roundTo2Decimals = (num: number): number => Math.round(num * 100) / 100;
-
     switch (accountType) {
       case AccountType.ASSET:
       case AccountType.EXPENSE:
         // Debit increases, Credit decreases
-        return roundTo2Decimals(totalDebit - totalCredit);
+        return this.roundTo2Decimals(totalDebit - totalCredit);
 
       case AccountType.LIABILITY:
       case AccountType.EQUITY:
       case AccountType.REVENUE:
         // Credit increases, Debit decreases
-        return roundTo2Decimals(totalCredit - totalDebit);
+        return this.roundTo2Decimals(totalCredit - totalDebit);
 
       default:
         this.logger.warn(`Unknown account type: ${accountType}, defaulting to Debit - Credit`);
-        return roundTo2Decimals(totalDebit - totalCredit);
+        return this.roundTo2Decimals(totalDebit - totalCredit);
     }
   }
 }
